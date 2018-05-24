@@ -1,5 +1,15 @@
 
-# Contributing
+# VS Code Pull Request Provider for GitHub
+
+VS Code Pull Request Provider is a data-provder for pull requests that enables a GitHub integration to list and manage pull requests directly from VS Code. 
+
+The goal of this provider is to handle the integration pieces between the VS Code UI and the GitHub APIs, covering:
+- Authentication
+- Listing of PR
+- Workflows around PRs
+- and more.
+
+## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
