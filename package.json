@@ -1,12 +1,12 @@
 {
-  "name": "git-extended",
-  "displayName": "Git Extended",
-  "description": "Git Extended",
+  "name": "vscode-pull-request-github",
+  "displayName": "VS Code Pull Request Provider for GitHub ",
+  "description": "VS Code Pull Request Provider for GitHub ",
   "enableProposedApi": true,
   "version": "0.0.1",
-  "publisher": "rebornix",
+  "publisher": "Microsoft",
   "engines": {
-    "vscode": "^1.13.0"
+    "vscode": "*"
   },
   "categories": [
     "Other"
