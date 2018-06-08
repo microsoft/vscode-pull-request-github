@@ -14,9 +14,6 @@
   "activationEvents": [
     "*"
   ],
-  "extensionDependencies": [
-    "vscode.git"
-  ],
   "main": "./out/extension",
   "contributes": {
     "configuration": {
@@ -136,7 +133,6 @@
     "vscode:prepublish": "tsc -p ./",
     "postinstall": "node ./node_modules/vscode/bin/install",
     "compile": "tsc -watch -p ./",
-    "watch-preview": "npm run build-preview",
     "build-preview": "webpack --watch --mode development"
   },
   "devDependencies": {
