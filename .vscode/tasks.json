@@ -1,9 +1,34 @@
 {
-	"version": "0.1.0",
-	"command": "npm",
-	"isShellCommand": true,
-	"showOutput": "silent",
-	"args": ["run", "compile"],
-	"isBackground": true,
-	"problemMatcher": "$tsc-watch"
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "watch all",
+			"dependsOn": [
+				"webpack:preview",
+				"npm:src"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"identifier": "npm:src",
+			"label": "npm src",
+			"type": "npm",
+			"script": "compile",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"identifier": "webpack:preview",
+			"label": "npm build-preview",
+			"type": "npm",
+			"script": "build-preview",
+			"group": "build"
+		}
+	]
 }

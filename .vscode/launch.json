@@ -2,19 +2,16 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Launch Extension",
 			"type": "extensionHost",
 			"request": "launch",
-			"runtimeExecutable": "/Users/penlv/code/vscode/scripts/code.sh",
+			"name": "Launch Extension",
+			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}"
 			],
-			"trace": true,
-			"protocol": "inspector",
-			"stopOnEntry": false,
-			"sourceMaps": true,
-			"outFiles": ["${workspaceFolder}/client/out/**/*.js"],
-			"preLaunchTask": "npm"
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			]
 		}
 	]
 }
