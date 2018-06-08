@@ -134,6 +134,7 @@
   },
   "scripts": {
     "vscode:prepublish": "tsc -p ./",
+    "postinstall": "node ./node_modules/vscode/bin/install",
     "compile": "tsc -watch -p ./",
     "watch-preview": "npm run build-preview",
     "build-preview": "webpack --watch --mode development"
@@ -147,6 +148,7 @@
     "ts-loader": "^4.0.1"
   },
   "dependencies": {
+    "vscode": "^1.1.18",
     "@octokit/rest": "^15.2.6",
     "dugite": "^1.63.0",
     "markdown-it": "^8.4.0",
