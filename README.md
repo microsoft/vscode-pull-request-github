@@ -1,15 +1,11 @@
 
-# VS Code Pull Request Provider for GitHub
+# VS Code Extension for Managing GitHub Pull Requests
 
-**MICROSOFT CONFIDENTIAL - Collaboration between Microsoft and GitHub - DO NOT MAKE PUBLIC**
-
-VS Code Pull Request Provider is a data-provder for pull requests that enables a GitHub integration to list and manage pull requests directly from VS Code. 
-
-The goal of this provider is to handle the integration pieces between the VS Code UI and the GitHub APIs, covering:
-- Authentication
-- Listing of PR
-- Workflows around PRs
-- and more.
+This extension allows users to manage GitHub pull requests in VS Code. The supported includes
+- Authentication to GitHub
+- Listing of PRs
+- Reviewing PRs
+- Validating PRs
 
 ## Contributing
 
