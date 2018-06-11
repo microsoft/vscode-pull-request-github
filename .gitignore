@@ -332,3 +332,4 @@ ASALocalRun/
 
 out
 node_modules
+media/*.js
