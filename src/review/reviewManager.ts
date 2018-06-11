@@ -133,8 +133,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.clear(false);
 		this._prNumber = matchingPullRequestMetadata.prNumber;
 		this._lastCommitSha = null;
-		let githubRepo = this._repository.githubRepositories.find(repo =>
-			repo.remote.owner.toLocaleLowerCase() === matchingPullRequestMetadata.owner.toLocaleLowerCase()
+
+		const owner = matchingPullRequestMetadata.owner.toLowerCase();
+		const repositoryName = matchingPullRequestMetadata.repositoryName.toLowerCase();
+		const githubRepo = this._repository.githubRepositories.find(repo =>
+			repo.remote.owner.toLowerCase() === owner && repo.remote.repositoryName.toLowerCase() === repositoryName
 		);
 
 		if (!githubRepo) {

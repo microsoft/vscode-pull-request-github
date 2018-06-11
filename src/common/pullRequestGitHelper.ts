@@ -108,21 +108,18 @@ export class PullRequestGitHelper {
 	}
 
 	static buildPullRequestMetadata(pullRequest: PullRequestModel) {
-		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.prNumber;
+		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.prNumber;
 	}
 
 	static parsePullRequestMetadata(value: string) {
 		if (value) {
-			let separator = value.indexOf('#');
-			if (separator !== -1) {
-				let owner = value.substring(0, separator);
-				let prNumber = Number(value.substr(separator + 1));
-
-				if (prNumber) {
-					return {
-						owner: owner,
-						prNumber: prNumber
-					};
+			let matches = /(.*)#(.*)#(.*)/g.exec(value);
+			if (matches && matches.length === 4) {
+				const [, owner, repo, prNumber] = matches;
+				return {
+					owner: owner,
+					repositoryName: repo,
+					prNumber: Number(prNumber)
 				}
 			}
 		}

@@ -13,6 +13,7 @@ import { Protocol } from './protocol';
 import { GitError, GitErrorCodes } from './gitError';
 import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
 import Logger from '../logger';
+import * as Octokit from '@octokit/rest';
 
 export enum RefType {
 	Head,
@@ -402,7 +403,7 @@ export class Repository {
 }
 
 export class GitHubRepository {
-	constructor(public readonly remote: Remote, public readonly octokit: any) {
+	constructor(public readonly remote: Remote, public readonly octokit: Octokit) {
 	}
 
 	async getPullRequests(prType: PRType) {
@@ -411,17 +412,16 @@ export class GitHubRepository {
 				owner: this.remote.owner,
 				repo: this.remote.repositoryName,
 			});
-			let ret = result.data.map(item => {
+
+			return result.data.map(item => {
 				if (!item.head.repo) {
 					Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 					return null;
 				}
 				return new PullRequestModel(this.octokit, this.remote, item);
 			}).filter(item => item !== null);
-			return ret;
 		} else {
-
-			const user = await this.octokit.users.get();
+			const user = await this.octokit.users.get({});
 			const { data } = await this.octokit.search.issues({
 				q: this.getPRFetchQuery(this.remote.owner, this.remote.repositoryName, user.data.login, prType)
 			});
@@ -450,23 +450,24 @@ export class GitHubRepository {
 		}
 	}
 
-	async getPullRequest(id: number) {
-		let { data } = await this.octokit.pullRequests.get({
-			owner: this.remote.owner,
-			repo: this.remote.repositoryName,
-			number: id
-		});
-		if (!data.head.repo) {
-			Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
+	async getPullRequest(id: number): Promise<PullRequestModel> {
+		try {
+			let { data } = await this.octokit.pullRequests.get({
+				owner: this.remote.owner,
+				repo: this.remote.repositoryName,
+				number: id
+			});
+
+			if (!data.head.repo) {
+				Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
+				return null;
+			}
+	
+			return new PullRequestModel(this.octokit, this.remote, data);
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return null;
 		}
-
-		let ret = new PullRequestModel(this.octokit, this.remote, data);
-		return ret;
-	}
-
-	async getUser() {
-		return await this.octokit.users.get();
 	}
 
 	private getPRFetchQuery(owner: string, repo: string, user: string, type: PRType) {
