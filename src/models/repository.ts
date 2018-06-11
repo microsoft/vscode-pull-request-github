@@ -413,7 +413,7 @@ export class GitHubRepository {
 			});
 			let ret = result.data.map(item => {
 				if (!item.head.repo) {
-					console.log('The remote branch for this PR was already deleted.');
+					Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 					return null;
 				}
 				return new PullRequestModel(this.octokit, this.remote, item);
@@ -441,7 +441,7 @@ export class GitHubRepository {
 			return Promise.all(promises).then(values => {
 				return values.map(item => {
 					if (!item.data.head.repo) {
-						console.log('The remote branch for this PR was already deleted.');
+						Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 						return null;
 					}
 					return new PullRequestModel(this.octokit, this.remote, item.data);
@@ -457,7 +457,7 @@ export class GitHubRepository {
 			number: id
 		});
 		if (!data.head.repo) {
-			console.log('The remote branch for this PR was already deleted.');
+			Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 			return null;
 		}
 

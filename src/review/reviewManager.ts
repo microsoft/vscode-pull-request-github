@@ -143,7 +143,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		const pr = await githubRepo.getPullRequest(this._prNumber);
 		if (!pr) {
-			console.log('This PR is no longer valid');
+			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}
 		this._pr = pr;
@@ -238,7 +238,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		const pr = await githubRepo.getPullRequest(this._prNumber);
 		if (!pr) {
-			console.log('This PR is no longer valid');
+			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}
 
@@ -374,7 +374,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			return Promise.resolve(null);
 		} catch (e) {
-			console.log(e);
+			Logger.appendLine(`Review> ${e}`);
 		}
 
 	}

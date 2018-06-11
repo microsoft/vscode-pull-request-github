@@ -65,7 +65,6 @@ export class PullRequestOverviewPanel {
 
 		// Handle messages from the webview
 		this._panel.webview.onDidReceiveMessage(message => {
-			console.log(message);
 			this._onDidReceiveMessage(message);
 		}, null, this._disposables);
 	}
