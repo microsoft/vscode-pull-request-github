@@ -103,7 +103,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async validateState() {
-		Logger.appendLine('Review> validate local branch state');
 		let branch = this._repository.HEAD;
 		if (!branch) {
 			this.clear(true);
@@ -130,7 +129,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		// we switch to another PR, let's clean up first.
-		Logger.appendLine(`Review> current branch ${this._repository.HEAD.name} is associated  with pull request #${matchingPullRequestMetadata.prNumber}`);
+		Logger.appendLine(`Review> current branch ${this._repository.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`);
 		this.clear(false);
 		this._prNumber = matchingPullRequestMetadata.prNumber;
 		this._lastCommitSha = null;
@@ -655,6 +654,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
+		Logger.appendLine(`Review> swtich to Pull Requet #${pr.prNumber}`);
 		let isDirty = await this._repository.isDirty();
 		if (isDirty) {
 			vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
@@ -669,11 +669,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let localBranchInfo = await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, pr);
 
 			if (localBranchInfo) {
+				Logger.appendLine(`Review> there is already one local branch ${localBranchInfo.remote.remoteName}/${localBranchInfo.branch} associated with Pull Request #${pr.prNumber}`);
 				await PullRequestGitHelper.checkout(this._repository, localBranchInfo.remote, localBranchInfo.branch, pr);
 			} else {
+				Logger.appendLine(`Review> there is no local branch associated with Pull Request #${pr.prNumber}, we will create a new branch.`);
 				await PullRequestGitHelper.createAndCheckout(this._repository, pr);
 			}
 		} catch (e) {
+			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);
+
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
 				if (e.gitErrorCode === GitErrorCodes.LocalChangesOverwritten) {

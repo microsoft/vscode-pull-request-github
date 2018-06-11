@@ -97,7 +97,7 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 
 	async getPRs(): Promise<PullRequestModel[]> {
 		if (this.type === PRType.LocalPullRequest) {
-			let infos = await PullRequestGitHelper.getLocalBranchesMarkedAsPullRequest(this.repository);
+			let infos = await PullRequestGitHelper.getLocalBranchesAssociatedWithPullRequest(this.repository);
 			let promises = infos.map(async info => {
 				let owner = info.owner;
 				let prNumber = info.prNumber;

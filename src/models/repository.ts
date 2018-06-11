@@ -12,6 +12,7 @@ import { PullRequestModel, PRType } from './pullRequestModel';
 import { Protocol } from './protocol';
 import { GitError, GitErrorCodes } from './gitError';
 import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
+import Logger from '../logger';
 
 export enum RefType {
 	Head,
@@ -127,6 +128,11 @@ export class Repository {
 		this.githubRepositories = ret;
 	}
 
+	async run(args: string[], options?: any) {
+		Logger.appendLine(`> git ${args.join(' ')}`);
+		return await GitProcess.exec(args, this.path, options || {});
+	}
+
 	async fetch(remoteName: string, branch?: string) {
 		let args = [
 			'fetch',
@@ -137,7 +143,7 @@ export class Repository {
 			args.push(branch);
 		}
 
-		const result = await GitProcess.exec(args, this.path);
+		const result = await this.run(args);
 
 		if (result.exitCode !== 0) {
 			throw (result.stderr);
@@ -145,12 +151,11 @@ export class Repository {
 	}
 
 	async checkout(branch: string) {
-		const result = await GitProcess.exec(
+		const result = await this.run(
 			[
 				'checkout',
 				branch
-			],
-			this.path
+			]
 		);
 
 		if (result.exitCode !== 0) {
@@ -167,7 +172,7 @@ export class Repository {
 
 	async getHEAD(): Promise<Ref> {
 		try {
-			const result = await GitProcess.exec(['symbolic-ref', '--short', 'HEAD'], this.path);
+			const result = await this.run(['symbolic-ref', '--short', 'HEAD']);
 
 			if (!result.stdout) {
 				throw new Error('Not in a branch');
@@ -175,7 +180,7 @@ export class Repository {
 
 			return { name: result.stdout.trim(), commit: void 0, type: RefType.Head };
 		} catch (err) {
-			const result = await GitProcess.exec(['rev-parse', 'HEAD'], this.path);
+			const result = await this.run(['rev-parse', 'HEAD']);
 
 			if (!result.stdout) {
 				throw new Error('Error parsing HEAD');
@@ -186,7 +191,7 @@ export class Repository {
 	}
 
 	async createBranch(branchName: string, tip?: string) {
-		const result = await GitProcess.exec(['branch', branchName, tip ? tip : ''], this.path);
+		const result = await this.run(['branch', branchName, tip ? tip : '']);
 
 		if (result.exitCode !== 0) {
 			throw new Error(result.stderr);
@@ -198,7 +203,7 @@ export class Repository {
 			return this.getHEAD();
 		}
 
-		const result = await GitProcess.exec(['rev-parse', name], this.path);
+		const result = await this.run(['rev-parse', name]);
 
 		if (result.exitCode !== 0 || !result.stdout) {
 			return null;
@@ -207,7 +212,7 @@ export class Repository {
 		const commit = result.stdout.trim();
 
 		try {
-			const res2 = await GitProcess.exec(['rev-parse', '--symbolic-full-name', name + '@{u}'], this.path);
+			const res2 = await this.run(['rev-parse', '--symbolic-full-name', name + '@{u}']);
 			const fullUpstream = res2.stdout.trim();
 			const match = /^refs\/remotes\/([^/]+)\/(.+)$/.exec(fullUpstream);
 
@@ -216,7 +221,7 @@ export class Repository {
 			}
 
 			const upstream = { remote: match[1], name: match[2] };
-			const res3 = await GitProcess.exec(['rev-list', '--left-right', name + '...' + fullUpstream], this.path);
+			const res3 = await this.run(['rev-list', '--left-right', name + '...' + fullUpstream]);
 
 			let ahead = 0, behind = 0;
 			let i = 0;
@@ -238,7 +243,7 @@ export class Repository {
 	}
 
 	async getLocalBranches(): Promise<string[]> {
-		let result = await GitProcess.exec(['branch'], this.path);
+		let result = await this.run(['branch']);
 
 		if (result.exitCode !== 0) {
 			return [];
@@ -250,7 +255,7 @@ export class Repository {
 	}
 
 	async getRefs(): Promise<Ref[]> {
-		const result = await GitProcess.exec(['for-each-ref', '--format', '%(refname) %(objectname)', '--sort', '-committerdate'], this.path);
+		const result = await this.run(['for-each-ref', '--format', '%(refname) %(objectname)', '--sort', '-committerdate']);
 
 		const fn = (line: string): Ref | null => {
 			let match: RegExpExecArray | null;
@@ -273,7 +278,7 @@ export class Repository {
 	}
 
 	async getRemotes(): Promise<Remote[]> {
-		const result = await GitProcess.exec(['remote', '--verbose'], this.path);
+		const result = await this.run(['remote', '--verbose']);
 		const regex = /^([^\s]+)\s+([^\s]+)\s/;
 		const rawRemotes = result.stdout.trim().split('\n')
 			.filter(b => !!b)
@@ -286,7 +291,7 @@ export class Repository {
 
 	async show(filePath: string): Promise<string> {
 		try {
-			const result = await GitProcess.exec(['show', filePath], this.path);
+			const result = await this.run(['show', filePath]);
 			return result.stdout.trim();
 		} catch (e) {
 			return null;
@@ -297,7 +302,7 @@ export class Repository {
 		try {
 			const args = ['rev-parse', `${commit}:${path}`];
 
-			const result = await GitProcess.exec(args, this.path);
+			const result = await this.run(args);
 			return result.stdout.trim();
 		} catch (e) {
 			return '';
@@ -309,7 +314,7 @@ export class Repository {
 
 			const args = ['hash-object', '-w', '--stdin'];
 
-			const result = await GitProcess.exec(args, this.path, {
+			const result = await this.run(args, {
 				stdin: text
 			});
 			return result.stdout.trim();
@@ -321,7 +326,7 @@ export class Repository {
 	async diffHashed(hash0: string, hash1: string) {
 		try {
 			const args = ['diff', hash0, hash1];
-			const result = await GitProcess.exec(args, this.path);
+			const result = await this.run(args);
 			return result.stdout.trim();
 		} catch (e) {
 			return '';
@@ -335,7 +340,7 @@ export class Repository {
 				args = ['diff', compareWithCommit, '--', filePath];
 			}
 
-			const result = await GitProcess.exec(args, this.path);
+			const result = await this.run(args);
 			return result.stdout.trim();
 		} catch (e) {
 			return '';
@@ -343,11 +348,11 @@ export class Repository {
 	}
 
 	async setConfig(key: string, value: string) {
-		await GitProcess.exec(['config', '--local', key, value], this.path);
+		await this.run(['config', '--local', key, value]);
 	}
 
 	async getConfig(key: string) {
-		let result = await GitProcess.exec(['config', '--local', '--get', key], this.path);
+		let result = await this.run(['config', '--local', '--get', key]);
 
 		if (result.exitCode !== 0) {
 			return null;
@@ -357,7 +362,7 @@ export class Repository {
 	}
 
 	async getConfigs() {
-		let result = await GitProcess.exec(['config', '--local', '-l'], this.path);
+		let result = await this.run(['config', '--local', '-l']);
 
 		if (result.exitCode !== 0) {
 			return [];
@@ -375,7 +380,7 @@ export class Repository {
 	}
 
 	async setTrackingBranch(localBranchName: string, trackedBranchName: string) {
-		let result = await GitProcess.exec(['branch', `--set-upstream-to=${trackedBranchName}`, localBranchName], this.path);
+		let result = await this.run(['branch', `--set-upstream-to=${trackedBranchName}`, localBranchName]);
 
 		if (result.exitCode !== 0) {
 			throw (result.exitCode);
@@ -383,7 +388,7 @@ export class Repository {
 	}
 
 	async addRemote(name: string, remoteUrl: string) {
-		let result = await GitProcess.exec(['remote', 'add', name, remoteUrl], this.path);
+		let result = await this.run(['remote', 'add', name, remoteUrl]);
 
 		if (result.exitCode !== 0) {
 			throw (result.exitCode);
@@ -391,7 +396,7 @@ export class Repository {
 	}
 
 	async isDirty(): Promise<boolean> {
-		let result = await GitProcess.exec(['diff', '--no-ext-diff', '--exit-code'], this.path);
+		let result = await this.run(['diff', '--no-ext-diff', '--exit-code']);
 		return result.exitCode !== 0;
 	}
 }
