@@ -150,10 +150,6 @@ export class PullRequestOverviewPanel {
 	private getHtmlForWebview(number: string) {
 		const scriptPathOnDisk = vscode.Uri.file(path.join(this._extensionPath, 'media', 'index.js'));
 		const scriptUri = scriptPathOnDisk.with({ scheme: 'vscode-resource' });
-		const stylePathOnDisk = vscode.Uri.file(path.join(this._extensionPath, 'media', 'index.css'));
-		const styleUri = stylePathOnDisk.with({ scheme: 'vscode-resource' });
-		const baseStyles = `<link rel="stylesheet" type="text/css" href="${styleUri}">`;
-
 		const nonce = getNonce();
 
 		return `<!DOCTYPE html>
@@ -161,7 +157,6 @@ export class PullRequestOverviewPanel {
 			<head>
 				<meta charset="UTF-8">
 				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
-				${baseStyles}
 
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<title>Pull Request #${number}</title>

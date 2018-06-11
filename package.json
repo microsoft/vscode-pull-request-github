@@ -138,10 +138,12 @@
   "devDependencies": {
     "@types/lodash": "^4.14.106",
     "@types/node": "*",
+    "css-loader": "^0.28.11",
+    "style-loader": "^0.21.0",
+    "ts-loader": "^4.0.1",
     "typescript": "^2.1.4",
     "webpack": "^4.1.0",
-    "webpack-cli": "^2.0.10",
-    "ts-loader": "^4.0.1"
+    "webpack-cli": "^2.0.10"
   },
   "dependencies": {
     "vscode": "^1.1.18",
