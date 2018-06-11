@@ -19,6 +19,7 @@ import { FileChangesProvider } from './fileChangesProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../models/diffHunk';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
+import Logger from '../logger';
 
 
 export class ReviewManager implements vscode.DecorationProvider {
@@ -73,7 +74,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	static get instance() {
 		return ReviewManager._instance;
 	}
-
 	get prFileChangesProvider() {
 		if (!this._prFileChangesProvider) {
 			this._prFileChangesProvider = new FileChangesProvider(this._context);
@@ -103,9 +103,17 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async validateState() {
+		Logger.appendLine('Review> validate local branch state');
+		let branch = this._repository.HEAD;
+		if (!branch) {
+			this.clear(true);
+			return;
+		}
+
 		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
 
 		if (!matchingPullRequestMetadata) {
+			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${this._repository.HEAD.name}`);
 			this.clear(true);
 			return;
 		}
@@ -114,19 +122,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		let branch = this._repository.HEAD;
-		if (!branch) {
-			this.clear(true);
-			return;
-		}
-
 		let remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) {
+			Logger.appendLine(`Review> current branch ${this._repository.HEAD.name} hasn't setup remote yet`);
 			this.clear(true);
 			return;
 		}
 
 		// we switch to another PR, let's clean up first.
+		Logger.appendLine(`Review> current branch ${this._repository.HEAD.name} is associated  with pull request #${matchingPullRequestMetadata.prNumber}`);
 		this.clear(false);
 		this._prNumber = matchingPullRequestMetadata.prNumber;
 		this._lastCommitSha = null;
@@ -152,10 +156,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 		await this.prFileChangesProvider.showPullRequestFileChanges(pr, this._localFileChanges);
 
 		this._onDidChangeDecorations.fire();
+		Logger.appendLine(`Review> register comments provider`);
 		this.registerCommentProvider();
-
+		
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = 'pr.openInGitHub';
+		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
 	}

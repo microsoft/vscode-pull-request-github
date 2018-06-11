@@ -12,6 +12,7 @@ import { Resource } from './common/resources';
 import { ReviewManager } from './review/reviewManager';
 import { CredentialStore } from './credentials';
 import { registerCommands } from './commands';
+import Logger from './logger';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// initialize resources
@@ -36,12 +37,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
+	Logger.appendLine('Looking for git repository');
 	const repository = new Repository(rootPath);
 	let repositoryInitialized = false;
 	repository.onDidRunGitStatus(async e => {
 		if (repositoryInitialized) {
 			return;
 		}
+		Logger.appendLine('Git repository found, initializing review manager and pr tree view.')
 		repositoryInitialized = true;
 		let credentialStore = new CredentialStore(configuration);
 		await repository.connectGitHub(credentialStore);
