@@ -172,7 +172,7 @@ export class PRNode extends TreeNode {
 					commentAbsolutePosition = diffLine.newLineNumber;
 				}
 				// If the position is null, the comment is on a line that has been changed. Fall back to using original position.
-				const pos = new vscode.Position(commentAbsolutePosition - 1, 0);
+				const pos = new vscode.Position(Math.max(commentAbsolutePosition - 1, 0), 0);
 				const range = new vscode.Range(pos, pos);
 
 				threads.push({
