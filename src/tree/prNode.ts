@@ -59,9 +59,9 @@ export class PRNode extends TreeNode {
 			const _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 			vscode.workspace.registerDocumentCommentProvider({
 				onDidChangeCommentThreads: _onDidChangeCommentThreads.event,
-				provideDocumentComments: this.provideDocumentComments,
-				createNewCommentThread: this.createNewCommentThread,
-				replyToCommentThread: this.replyToCommentThread
+				provideDocumentComments: this.provideDocumentComments.bind(this),
+				createNewCommentThread: this.createNewCommentThread.bind(this),
+				replyToCommentThread: this.replyToCommentThread.bind(this)
 			});
 
 			return [new PRDescriptionNode('Description', {
