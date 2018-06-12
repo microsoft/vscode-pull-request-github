@@ -450,7 +450,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				let comments = sections[i];
 
 				const comment = comments[0];
-				const pos = new vscode.Position(comment.absolutePosition ? comment.absolutePosition - 1 : 0, 0);
+				const pos = new vscode.Position(comment.absolutePosition && comment.absolutePosition > 0 ? comment.absolutePosition - 1 : 0, 0);
 				const range = new vscode.Range(pos, pos);
 
 				ret.push({
