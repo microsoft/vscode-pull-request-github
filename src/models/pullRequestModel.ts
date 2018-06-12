@@ -8,6 +8,7 @@ import { parseComments } from '../common/comment';
 import { Comment } from './comment';
 import { GitHubRef } from './githubRef';
 import { TimelineEvent, parseTimelineEvents } from './timelineEvent';
+import * as Octokit from '@octokit/rest';
 
 export enum PRType {
 	RequestReview = 0,
@@ -92,11 +93,11 @@ export class PullRequestModel {
 	public head: GitHubRef;
 	public base: GitHubRef;
 
-	constructor(public readonly otcokit: any, public readonly remote: Remote, public prItem: PullRequest) {
+	constructor(public readonly otcokit: Octokit, public readonly remote: Remote, public prItem: PullRequest) {
 		this.update(prItem);
 	}
 
-	update(prItem: PullRequest) {
+	update(prItem: PullRequest): void {
 		this.prNumber = prItem.number;
 		this.title = prItem.title;
 		this.html_url = prItem.html_url;
@@ -107,6 +108,7 @@ export class PullRequestModel {
 			avatarUrl: prItem.user.avatar_url,
 			htmlUrl: prItem.user.html_url
 		};
+
 		switch (prItem.state) {
 			case 'open':
 				this.state = PullRequestStateEnum.Open;
@@ -118,6 +120,7 @@ export class PullRequestModel {
 				this.state = PullRequestStateEnum.Closed;
 				break;
 		}
+
 		if (prItem.assignee) {
 			this.assignee = {
 				login: prItem.assignee.login,
@@ -147,7 +150,7 @@ export class PullRequestModel {
 		return data;
 	}
 
-	async fetchBaseCommitSha() {
+	async fetchBaseCommitSha(): Promise<void> {
 		if (!this.prItem.base) {
 			// this one is from search results, which is not complete.
 			const { data } = await this.otcokit.pullRequests.get({
@@ -164,7 +167,8 @@ export class PullRequestModel {
 			owner: this.remote.owner,
 			repo: this.remote.repositoryName,
 			number: this.prItem.number,
-			id: reviewId
+			id: reviewId,
+			review_id: reviewId
 		});
 
 		const rawComments = reviewData.data;
@@ -222,7 +226,7 @@ export class PullRequestModel {
 			repo: this.remote.repositoryName,
 			number: this.prItem.number,
 			body: body,
-			in_reply_to: reply_to
+			in_reply_to: Number(reply_to)
 		});
 
 		return ret;
