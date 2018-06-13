@@ -46,13 +46,13 @@ export class PRNode extends TreeNode {
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toPRUri(vscode.Uri.file(change.filePath), fileInRepo, change.fileName, true),
-					toPRUri(vscode.Uri.file(change.originalFilePath), fileInRepo, change.fileName, false),
+					toPRUri(vscode.Uri.file(change.filePath), fileInRepo, change.fileName, false),
+					toPRUri(vscode.Uri.file(change.originalFilePath), fileInRepo, change.fileName, true),
 					this.repository.path,
 					change.diffHunks
 				);
 				changedItem.comments = comments.filter(comment => comment.path === changedItem.fileName);
-				this.commentsCache.set(changedItem.filePath.toString(), changedItem.comments);
+				this.commentsCache.set(change.fileName, changedItem.comments);
 				return changedItem;
 			});
 
@@ -137,6 +137,7 @@ export class PRNode extends TreeNode {
 	private async provideDocumentComments(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CommentInfo> {
 		if (document.uri.scheme === 'pr') {
 			let params = JSON.parse(document.uri.query);
+			let isBase = params.base;
 			let fileChange = this.richContentChanges.find(change => change.fileName === params.fileName);
 			if (!fileChange) {
 				return null;
@@ -147,10 +148,14 @@ export class PRNode extends TreeNode {
 
 			for (let i = 0; i < diffHunks.length; i++) {
 				let diffHunk = diffHunks[i];
-				commentingRanges.push(new vscode.Range(diffHunk.newLineNumber - 1, 0, diffHunk.newLineNumber + diffHunk.newLength - 1 - 1, 0));
+				if (isBase) {
+					commentingRanges.push(new vscode.Range(diffHunk.oldLineNumber - 1, 0, diffHunk.oldLineNumber + diffHunk.oldLength - 1 - 1, 0));
+				} else {
+					commentingRanges.push(new vscode.Range(diffHunk.newLineNumber - 1, 0, diffHunk.newLineNumber + diffHunk.newLength - 1 - 1, 0));
+				}
 			}
 
-			let matchingComments = this.commentsCache.get(document.uri.toString());
+			let matchingComments = this.commentsCache.get(fileChange.fileName);
 
 			if (!matchingComments || !matchingComments.length) {
 				return {
@@ -166,13 +171,18 @@ export class PRNode extends TreeNode {
 				let comments = sections[i];
 
 				const comment = comments[0];
+				// If the position is null, the comment is on a line that has been changed. Fall back to using original position.
 				let diffLine = getDiffLineByPosition(fileChange.diffHunks, comment.position === null ? comment.original_position : comment.position);
 				let commentAbsolutePosition = 1;
 				if (diffLine) {
-					commentAbsolutePosition = diffLine.newLineNumber;
+					commentAbsolutePosition = isBase ? diffLine.oldLineNumber : diffLine.newLineNumber;
 				}
-				// If the position is null, the comment is on a line that has been changed. Fall back to using original position.
-				const pos = new vscode.Position(Math.max(commentAbsolutePosition - 1, 0), 0);
+
+				if (commentAbsolutePosition < 0) {
+					continue;
+				}
+
+				const pos = new vscode.Position(commentAbsolutePosition - 1, 0);
 				const range = new vscode.Range(pos, pos);
 
 				threads.push({

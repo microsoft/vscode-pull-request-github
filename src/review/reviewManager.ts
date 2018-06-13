@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { parseDiff } from '../common/diff';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
-import { toGitUri, fromGitUri } from '../common/uri';
+import { toGitUri, fromGitUri, GitUriParams } from '../common/uri';
 import { groupBy } from '../common/util';
 import { Comment } from '../models/comment';
 import { GitChangeType } from '../models/file';
@@ -186,12 +186,20 @@ export class ReviewManager implements vscode.DecorationProvider {
 		try {
 			let uri = document.uri;
 			let fileName = uri.path;
-			let matchedFiles = this._localFileChanges.filter(fileChange => path.resolve(this._repository.path, fileChange.fileName) === fileName);
+			let matchedFiles = this._localFileChanges.filter(fileChange => {
+				if (uri.scheme === 'review') {
+					return fileChange.fileName === fileName;
+				} else {
+					let absoluteFilePath = vscode.Uri.file(path.resolve(this._repository.path, fileChange.fileName));
+					let targetFilePath = vscode.Uri.file(fileName);
+					return absoluteFilePath.fsPath === targetFilePath.fsPath;
+				}
+			});
 			if (matchedFiles && matchedFiles.length) {
 				let matchedFile = matchedFiles[0];
 				// git diff sha -- fileName
 				let contentDiff = await this._repository.diff(matchedFile.fileName, this._lastCommitSha);
-				let position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, range.start.line);
+				let position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, range.start.line + 1);
 
 				if (position < 0) {
 					return;
@@ -339,7 +347,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.prItem.head.sha, {}),
+					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.prItem.head.sha, { modified: true }),
 					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.prItem.base.sha, {}),
 					this._repository.path,
 					change.diffHunks
@@ -362,7 +370,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						GitChangeType.MODIFY,
 						fileName,
 						null,
-						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, {}),
+						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { modified: true }),
 						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, {}),
 						this._repository.path,
 						[] // @todo Peng.
@@ -510,7 +518,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 				let matchingComments: Comment[];
 
 				if (document.uri.scheme === 'file') {
-					// local file, we only provide active comments.
+					// local file, we only provide active comments
+					// TODO. for comments in deleted ranges, they should show on top of the first line.
 					const fileName = document.uri.fsPath;
 					const matchedFiles = this._localFileChanges.filter(fileChange => path.resolve(this._repository.path, fileChange.fileName) === fileName);
 					if (matchedFiles && matchedFiles.length) {
@@ -551,6 +560,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 
 				if (document.uri.scheme === 'review') {
+					// we should check whehter the docuemnt is original or modified.
+					let query = JSON.parse(document.uri.query) as GitUriParams;
+					let modified = query.modified;
+
 					let matchedFile = this.findMatchedFileChange(this._localFileChanges, document.uri);
 
 					if (matchedFile) {
@@ -559,7 +572,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 							let diffLine = getDiffLineByPosition(matchedFile.diffHunks, comment.position === null ? comment.original_position : comment.position);
 
 							if (diffLine) {
-								comment.absolutePosition = diffLine.newLineNumber;
+								comment.absolutePosition = modified ? diffLine.newLineNumber : diffLine.oldLineNumber;
 							}
 						});
 
@@ -567,11 +580,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 						for (let i = 0; i < diffHunks.length; i++) {
 							let diffHunk = diffHunks[i];
-							ranges.push(new vscode.Range(diffHunk.newLineNumber, 1, diffHunk.newLineNumber + diffHunk.newLength - 1, 1));
+							ranges.push(
+								modified ? 
+									new vscode.Range(diffHunk.newLineNumber, 1, diffHunk.newLineNumber + diffHunk.newLength - 1, 1) :
+									new vscode.Range(diffHunk.oldLineNumber, 1, diffHunk.oldLineNumber + diffHunk.oldLength - 1, 1)
+								);
 						}
 
+
 						return {
-							threads: this.commentsToCommentThreads(matchingComments, vscode.CommentThreadCollapsibleState.Expanded),
+							threads: this.commentsToCommentThreads(matchingComments.filter(comment => comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded),
 							commentingRanges: ranges,
 						};
 					}
@@ -643,10 +661,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			let q = JSON.parse(fileChange.filePath.query);
 
-			if (q.commit !== query.commit) {
-				return false;
+			if (q.commit === query.commit) {
+				return true;
 			}
-			return true;
+
+			q = JSON.parse(fileChange.parentFilePath.query);
+
+			if (q.commit === query.commit) {
+				return true;
+			}
+			return false;
 		});
 
 		if (matchedFiles && matchedFiles.length) {
