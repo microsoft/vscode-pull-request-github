@@ -347,8 +347,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.prItem.head.sha, { modified: true }),
-					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.prItem.base.sha, {}),
+					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.prItem.head.sha, { base: false }),
+					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.prItem.base.sha, { base: true }),
 					this._repository.path,
 					change.diffHunks
 				);
@@ -370,8 +370,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 						GitChangeType.MODIFY,
 						fileName,
 						null,
-						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { modified: true }),
-						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, {}),
+						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: false }),
+						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: true }),
 						this._repository.path,
 						[] // @todo Peng.
 					);
@@ -562,7 +562,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				if (document.uri.scheme === 'review') {
 					// we should check whehter the docuemnt is original or modified.
 					let query = JSON.parse(document.uri.query) as GitUriParams;
-					let modified = query.modified;
+					let isBase = query.base;
 
 					let matchedFile = this.findMatchedFileChange(this._localFileChanges, document.uri);
 
@@ -572,7 +572,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 							let diffLine = getDiffLineByPosition(matchedFile.diffHunks, comment.position === null ? comment.original_position : comment.position);
 
 							if (diffLine) {
-								comment.absolutePosition = modified ? diffLine.newLineNumber : diffLine.oldLineNumber;
+								comment.absolutePosition = isBase ? diffLine.oldLineNumber : diffLine.newLineNumber;
 							}
 						});
 
@@ -581,9 +581,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 						for (let i = 0; i < diffHunks.length; i++) {
 							let diffHunk = diffHunks[i];
 							ranges.push(
-								modified ? 
-									new vscode.Range(diffHunk.newLineNumber, 1, diffHunk.newLineNumber + diffHunk.newLength - 1, 1) :
-									new vscode.Range(diffHunk.oldLineNumber, 1, diffHunk.oldLineNumber + diffHunk.oldLength - 1, 1)
+								isBase ? 
+									new vscode.Range(diffHunk.oldLineNumber, 1, diffHunk.oldLineNumber + diffHunk.oldLength - 1, 1) :
+									new vscode.Range(diffHunk.newLineNumber, 1, diffHunk.newLineNumber + diffHunk.newLength - 1, 1)
 								);
 						}
 

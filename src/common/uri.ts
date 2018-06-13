@@ -11,7 +11,7 @@ export interface GitUriParams {
 	path: string;
 	ref?: string;
 	commit?: string;
-	modified?: boolean;
+	base: boolean;
 }
 
 export function fromGitUri(uri: Uri): GitUriParams {
@@ -21,18 +21,18 @@ export function fromGitUri(uri: Uri): GitUriParams {
 export interface GitUriOptions {
 	replaceFileExtension?: boolean;
 	submoduleOf?: string;
-	modified?: boolean;
+	base: boolean;
 }
 
 // As a mitigation for extensions like ESLint showing warnings and errors
 // for git URIs, let's change the file extension of these uris to .git,
 // when `replaceFileExtension` is true.
-export function toGitUri(uri: Uri, filePath: string, ref: string, commit: string, options: GitUriOptions = {}): Uri {
+export function toGitUri(uri: Uri, filePath: string, ref: string, commit: string, options: GitUriOptions = { base: false }): Uri {
 	const params: GitUriParams = {
 		path: filePath ? filePath : uri.path,
 		ref,
 		commit: commit,
-		modified: options.modified
+		base: options.base
 	};
 
 	let path = uri.path;
