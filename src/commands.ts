@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { PullRequestModel } from './models/pullRequestModel';
 import { ReviewManager } from './review/reviewManager';
 import { PullRequestOverviewPanel } from './common/pullRequestOverview';
-import { fromGitUri } from './common/uri';
+import { fromReviewUri } from './common/uri';
 import { PRFileChangeNode } from './tree/prFileChangeNode';
 import { PRNode } from './tree/prNode';
 
@@ -55,7 +55,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: PRFileChangeNode) => {
 		// Show the file change in a diff view.
-		let { path, ref, commit } = fromGitUri(fileChange.filePath);
+		let { path, ref, commit } = fromReviewUri(fileChange.filePath);
 		let previousCommit = `${commit}^`;
 		let previousFileUri = fileChange.filePath.with({
 			query: JSON.stringify({

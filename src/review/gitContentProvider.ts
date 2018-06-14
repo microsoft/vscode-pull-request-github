@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../models/repository';
-import { fromGitUri } from '../common/uri';
+import { fromReviewUri } from '../common/uri';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
@@ -17,7 +17,7 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 	constructor(private repository: Repository) { }
 
 	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
-		let { path, commit } = fromGitUri(uri);
+		let { path, commit } = fromReviewUri(uri);
 
 		if (!path || !commit) {
 			return '';

@@ -34,7 +34,7 @@ export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: num
 	return null;
 }
 
-export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: string, line: number, modifiedContent: boolean = true): number {
+export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: string, line: number, isBase: boolean = false): number {
 	let delta = 0;
 
 	let localDiffReader = parseDiffHunk(localDiff);
@@ -59,12 +59,12 @@ export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: 
 		let diffHunk = diffHunks[i];
 
 		for (let j = 0; j < diffHunk.diffLines.length; j++) {
-			if (modifiedContent) {
-				if (diffHunk.diffLines[j].newLineNumber === lineInPRDiff) {
+			if (isBase) {
+				if (diffHunk.diffLines[j].oldLineNumber === lineInPRDiff) {
 					return diffHunk.diffLines[j].positionInHunk;
 				}
 			} else {
-				if (diffHunk.diffLines[j].oldLineNumber === lineInPRDiff) {
+				if (diffHunk.diffLines[j].newLineNumber === lineInPRDiff) {
 					return diffHunk.diffLines[j].positionInHunk;
 				}
 			}

@@ -94,7 +94,8 @@ export class PRNode extends TreeNode {
 			return null;
 		}
 
-		let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line);
+		let isBase = params && params.base;
+		let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
 
 		if (position < 0) {
 			return;

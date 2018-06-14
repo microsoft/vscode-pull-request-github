@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { parseDiff } from '../common/diff';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
-import { toGitUri, fromGitUri, GitUriParams } from '../common/uri';
+import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy } from '../common/util';
 import { Comment } from '../models/comment';
 import { GitChangeType } from '../models/file';
@@ -74,6 +74,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	static get instance() {
 		return ReviewManager._instance;
 	}
+
 	get prFileChangesProvider() {
 		if (!this._prFileChangesProvider) {
 			this._prFileChangesProvider = new FileChangesProvider(this._context);
@@ -160,7 +161,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
 		this.registerCommentProvider();
-		
+
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = 'pr.openInGitHub';
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
@@ -195,11 +196,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 					return absoluteFilePath.fsPath === targetFilePath.fsPath;
 				}
 			});
+
+			let query = JSON.parse(uri.query);
+
+			let isBase = query && query.base;
+
 			if (matchedFiles && matchedFiles.length) {
 				let matchedFile = matchedFiles[0];
 				// git diff sha -- fileName
 				let contentDiff = await this._repository.diff(matchedFile.fileName, this._lastCommitSha);
-				let position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, range.start.line + 1);
+				let position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, range.start.line + 1, isBase);
 
 				if (position < 0) {
 					return;
@@ -347,8 +353,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.prItem.head.sha, { base: false }),
-					toGitUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.prItem.base.sha, { base: true }),
+					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.prItem.head.sha, { base: false }),
+					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.prItem.base.sha, { base: true }),
 					this._repository.path,
 					change.diffHunks
 				);
@@ -370,8 +376,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 						GitChangeType.MODIFY,
 						fileName,
 						null,
-						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: false }),
-						toGitUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: true }),
+						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: false }),
+						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: true }),
 						this._repository.path,
 						[] // @todo Peng.
 					);
@@ -561,7 +567,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 				if (document.uri.scheme === 'review') {
 					// we should check whehter the docuemnt is original or modified.
-					let query = JSON.parse(document.uri.query) as GitUriParams;
+					let query = fromReviewUri(document.uri);
 					let isBase = query.base;
 
 					let matchedFile = this.findMatchedFileChange(this._localFileChanges, document.uri);
@@ -581,10 +587,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 						for (let i = 0; i < diffHunks.length; i++) {
 							let diffHunk = diffHunks[i];
 							ranges.push(
-								isBase ? 
+								isBase ?
 									new vscode.Range(diffHunk.oldLineNumber, 1, diffHunk.oldLineNumber + diffHunk.oldLength - 1, 1) :
 									new vscode.Range(diffHunk.newLineNumber, 1, diffHunk.newLineNumber + diffHunk.newLength - 1, 1)
-								);
+							);
 						}
 
 
@@ -755,7 +761,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
-		let { path, commit } = fromGitUri(uri);
+		let { path, commit } = fromReviewUri(uri);
 		let changedItems = this._localFileChanges
 			.filter(change => change.fileName === path)
 			.filter(fileChange => fileChange.sha === commit || (fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit);
