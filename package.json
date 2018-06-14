@@ -133,12 +133,17 @@
     "vscode:prepublish": "tsc -p ./",
     "postinstall": "node ./node_modules/vscode/bin/install",
     "compile": "tsc -watch -p ./",
-    "build-preview": "webpack --watch --mode development"
+	"build-preview": "webpack --watch --mode development",
+	"test": "./node_modules/mocha/bin/_mocha --timeout 1000 --colors ./out/test/**/*.js"
   },
   "devDependencies": {
+    "@types/chai": "^4.1.4",
     "@types/lodash": "^4.14.106",
+    "@types/mocha": "^5.2.2",
     "@types/node": "*",
+    "chai": "^4.1.2",
     "css-loader": "^0.28.11",
+    "mocha": "^5.2.0",
     "style-loader": "^0.21.0",
     "ts-loader": "^4.0.1",
     "typescript": "^2.1.4",

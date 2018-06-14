@@ -12,6 +12,23 @@
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			]
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Unit Tests",
+			"program": "${workspaceRoot}/node_modules/mocha/bin/_mocha",
+			"args": [
+				"--timeout",
+				"1000",
+				"--colors",
+				"${workspaceFolder}/out/test/**/*.js"
+			],
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceRoot}/out/**/*"
+			],
+			"console": "integratedTerminal"
 		}
 	]
 }
