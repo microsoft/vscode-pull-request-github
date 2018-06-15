@@ -71,6 +71,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 			const newLen = Number(matches[7]) | 0;
 
 			diffHunk = new DiffHunk(oriStartLine, oriLen, newStartLine, newLen, positionInHunk);
+			// @rebornix todo, once we have enough tests, this should be removed.
 			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Control, -1, -1, positionInHunk, line));
 		} else if (diffHunk !== null) {
 			let type = getDiffChangeType(line);
