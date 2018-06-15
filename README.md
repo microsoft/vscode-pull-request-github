@@ -7,6 +7,10 @@ This extension allows users to manage GitHub pull requests in VS Code. The suppo
 - Reviewing PRs
 - Validating PRs
 
+## Preview
+
+![Demo](https://github.com/Microsoft/vscode-pull-request-github/blob/master/documentation/images/demo.gif?raw=true)
+
 ## Developing
 
 * Clone the repository
