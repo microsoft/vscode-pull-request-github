@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitChangeType } from '../models/file';
-import { PullRequestModel } from '../models/pullRequestModel';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
 
 export class Resource {

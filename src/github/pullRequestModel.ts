@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Remote } from './remote';
-import { parseComments } from '../common/comment';
-import { Comment } from './comment';
-import { GitHubRef } from './githubRef';
-import { TimelineEvent, parseTimelineEvents } from './timelineEvent';
 import * as Octokit from '@octokit/rest';
+import { parseComments } from '../common/comment';
+import { Comment } from '../models/comment';
+import { GitHubRef } from '../github/githubRef';
+import { Remote } from '../models/remote';
+import { parseTimelineEvents, TimelineEvent } from '../models/timelineEvent';
 
 export enum PRType {
 	RequestReview = 0,

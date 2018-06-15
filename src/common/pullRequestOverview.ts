@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PullRequestModel, PullRequest } from '../models/pullRequestModel';
+import { PullRequestModel, PullRequest } from '../github/pullRequestModel';
 import { ReviewManager } from '../review/reviewManager';
 
 export class PullRequestOverviewPanel {

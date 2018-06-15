@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../models/repository';
-import { PullRequestModel } from '../models/pullRequestModel';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { TreeNode } from './TreeNode';
 import { Resource } from '../common/resources';
 import { parseDiff } from '../common/diff';

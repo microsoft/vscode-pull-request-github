@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { TreeNode } from './TreeNode';
-import { PullRequestModel } from '../models/pullRequestModel';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export class PRDescriptionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;

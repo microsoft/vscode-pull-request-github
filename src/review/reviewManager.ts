@@ -13,7 +13,7 @@ import { groupBy } from '../common/util';
 import { Comment } from '../models/comment';
 import { GitChangeType } from '../models/file';
 import { GitErrorCodes } from '../models/gitError';
-import { PullRequestModel } from '../models/pullRequestModel';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { Repository } from '../models/repository';
 import { FileChangesProvider } from './fileChangesProvider';
 import { GitContentProvider } from './gitContentProvider';

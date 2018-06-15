@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { TreeNode } from './TreeNode';
-import { PRType, PullRequestModel } from '../models/pullRequestModel';
+import { PRType, PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
 import { Repository } from '../models/repository';
 import { Resource } from '../common/resources';

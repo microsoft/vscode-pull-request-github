@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './TreeNode';
 import { GitChangeType } from '../models/file';
-import { PullRequestModel } from '../models/pullRequestModel';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { DiffHunk } from '../models/diffHunk';
 import { Resource } from '../common/resources';
 

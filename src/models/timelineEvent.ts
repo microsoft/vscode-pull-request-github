@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestModel } from './pullRequestModel';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export enum EventType {
 	Committed,

@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Resource } from '../common/resources';
-import { PullRequestModel } from '../models/pullRequestModel';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
 import { PRDescriptionNode } from '../tree/prDescNode';
 

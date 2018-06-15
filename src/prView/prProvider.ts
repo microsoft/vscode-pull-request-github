@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { Configuration } from '../configuration';
-import { PRType } from '../models/pullRequestModel';
+import { PRType } from '../github/pullRequestModel';
 import { Repository } from '../models/repository';
 import { TreeNode } from '../tree/TreeNode';
 import { PRGroupActionNode, PRGroupTreeNode, PRGroupActionType } from '../tree/prGroupNode';
