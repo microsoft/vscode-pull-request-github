@@ -28,12 +28,20 @@ export function registerCommands(context: vscode.ExtensionContext) {
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | PullRequestModel) => {
+		let pullRequestModel;
+
+		if (pr instanceof PRNode) {
+			pullRequestModel = pr.element;
+		} else {
+			pullRequestModel = pr;
+		}
+
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.SourceControl,
-			title: `Switching to Pull Request #${pr.element.prNumber}`,
+			title: `Switching to Pull Request #${pullRequestModel.prNumber}`,
 		}, async (progress, token) => {
-			await ReviewManager.instance.switch(pr.element);
+			await ReviewManager.instance.switch(pullRequestModel);
 		});
 	}));
 

@@ -99,7 +99,7 @@ export class PullRequestOverviewPanel {
 					this._panel.webview.postMessage({
 						command: 'checked-out'
 					});
-				}, () => {
+				}, (reason: any) => {
 					this._panel.webview.postMessage({
 						command: 'checked-out'
 					});
