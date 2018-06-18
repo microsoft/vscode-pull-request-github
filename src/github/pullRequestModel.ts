@@ -198,7 +198,7 @@ export class PullRequestModel {
 		return await parseTimelineEvents(this, ret.data);
 	}
 
-	async getDiscussionComments(): Promise<Comment[]> {
+	async getIssueComments(): Promise<Comment[]> {
 		const promise = await this.otcokit.issues.getComments({
 			owner: this.remote.owner,
 			repo: this.remote.repositoryName,
@@ -209,7 +209,7 @@ export class PullRequestModel {
 		return promise.data;
 	}
 
-	async createDiscussionComment(text: string): Promise<Comment> {
+	async createIssueComment(text: string): Promise<Comment> {
 		const promise = await this.otcokit.issues.createComment({
 			body: text,
 			number: this.prNumber,

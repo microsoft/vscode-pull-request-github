@@ -122,7 +122,7 @@ export class PullRequestOverviewPanel {
 				});
 			case 'pr.comment':
 				const text = message.text;
-				this._pullRequest.createDiscussionComment(text).then(comment => {
+				this._pullRequest.createIssueComment(text).then(comment => {
 					this._panel.webview.postMessage({
 						command: 'append-comment',
 						value: comment
