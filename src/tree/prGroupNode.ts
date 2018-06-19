@@ -8,7 +8,6 @@ import { TreeNode } from './TreeNode';
 import { PRType, PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
 import { Repository } from '../models/repository';
-import { Resource } from '../common/resources';
 import { PRNode } from './prNode';
 
 export enum PRGroupActionType {
@@ -21,7 +20,9 @@ export class PRGroupActionNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 	public type: PRGroupActionType;
-	constructor(type: PRGroupActionType) {
+	public command?: vscode.Command;
+
+	constructor(type: PRGroupActionType, node?: PRGroupTreeNode) {
 		super();
 		this.type = type;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
@@ -31,10 +32,13 @@ export class PRGroupActionNode extends TreeNode implements vscode.TreeItem {
 				break;
 			case PRGroupActionType.More:
 				this.label = 'Load more';
-				this.iconPath = {
-					light: Resource.icons.light.fold,
-					dark: Resource.icons.dark.fold
-				};
+				this.command = {
+					title: 'Load more',
+					command: 'pr.loadMore',
+					arguments: [
+						node
+					]
+				}
 				break;
 			default:
 				break;
@@ -51,6 +55,7 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public prs: PullRequestModel[];
 	public type: PRType;
+	public fetchNextPage: boolean = false;
 
 	constructor(
 		private repository: Repository,
@@ -83,9 +88,31 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		let prItems = await this.getPRs();
-		if (prItems && prItems.length) {
-			return prItems.map(prItem => new PRNode(this.repository, prItem));
+		if (!this.fetchNextPage) {
+			try {
+				this.prs = await this.getPRs();
+			} catch (e) {
+				vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
+			}
+		} else {
+			try {
+				this.prs = this.prs.concat(await this.getNextPRs());
+			} catch (e) {
+				vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
+			}
+
+			this.fetchNextPage = false;
+		}
+
+		if (this.prs && this.prs.length) {
+			const hasMorePages = this.type !== PRType.LocalPullRequest && this.repository.githubRepositories.some(repo => repo.hasMorePages.get(this.type));
+
+			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this.repository, prItem));
+			if (hasMorePages) {
+				nodes.push(new PRGroupActionNode(PRGroupActionType.More, this));
+			}
+
+			return nodes;
 		} else {
 			return [new PRGroupActionNode(PRGroupActionType.Empty)];
 		}
@@ -93,6 +120,21 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 
 	getTreeItem(): vscode.TreeItem {
 		return this;
+	}
+
+	async getNextPRs(): Promise<PullRequestModel[]> {
+		let promises = this.repository.githubRepositories.map(async githubRepository => {
+			let remote = githubRepository.remote.remoteName;
+			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
+			if (isRemoteForPR) {
+				return null;
+			}
+			return await githubRepository.getNextPageOfPullRequests(this.type);
+		}).filter(value => value !== null);
+
+		return Promise.all(promises).then(values => {
+			return values.reduce((prev, curr) => prev.concat(curr), []);
+		});
 	}
 
 	async getPRs(): Promise<PullRequestModel[]> {
@@ -104,28 +146,26 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 				let githubRepo = this.repository.githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
 
 				if (!githubRepo) {
-					return Promise.resolve([]);
+					return null;
 				}
 
-				return [await githubRepo.getPullRequest(prNumber)];
-			});
+				return await githubRepo.getPullRequest(prNumber);
+			}).filter(value => value !== null);
 
-			return Promise.all(promises).then(values => {
-				return values.reduce((prev, curr) => prev.concat(...curr), []).filter(value => value !== null);
-			});
+			return Promise.all(promises);
 		}
 
 		let promises = this.repository.githubRepositories.map(async githubRepository => {
 			let remote = githubRepository.remote.remoteName;
 			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
 			if (isRemoteForPR) {
-				return Promise.resolve([]);
+				return null;
 			}
-			return [await githubRepository.getPullRequests(this.type)];
-		});
+			return await githubRepository.getPullRequests(this.type);
+		}).filter(value => value !== null);
 
 		return Promise.all(promises).then(values => {
-			return values.reduce((prev, curr) => prev.concat(...curr), []);
+			return values.reduce((prev, curr) => prev.concat(curr), []);
 		});
 	}
 }

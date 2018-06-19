@@ -17,6 +17,12 @@ const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
 const PullRequestBranchRegex = /branch\.(.+)\.github-pr-owner-number/;
 
+export interface PullRequestMetadata {
+	owner: string;
+	repositoryName: string;
+	prNumber: number;
+}
+
 export class PullRequestGitHelper {
 	static async createAndCheckout(repository: Repository, pullRequest: PullRequestModel) {
 		let localBranchName = await PullRequestGitHelper.getBranchNameForPullRequest(repository, pullRequest);
@@ -111,7 +117,7 @@ export class PullRequestGitHelper {
 		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.prNumber;
 	}
 
-	static parsePullRequestMetadata(value: string) {
+	static parsePullRequestMetadata(value: string): PullRequestMetadata {
 		if (value) {
 			let matches = /(.*)#(.*)#(.*)/g.exec(value);
 			if (matches && matches.length === 4) {
@@ -127,7 +133,7 @@ export class PullRequestGitHelper {
 		return null;
 	}
 
-	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string) {
+	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata> {
 		let configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		let configValue = await repository.getConfig(configKey);
 		return PullRequestGitHelper.parsePullRequestMetadata(configValue);
@@ -207,10 +213,10 @@ export class PullRequestGitHelper {
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 
-	static async getLocalBranchesAssociatedWithPullRequest(repository: Repository) {
+	static async getLocalBranchesAssociatedWithPullRequest(repository: Repository): Promise<PullRequestMetadata[]> {
 		let branches = await repository.getLocalBranches();
 
-		let ret = [];
+		let ret: PullRequestMetadata[] = [];
 		for (let i = 0; i < branches.length; i++) {
 			let matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, branches[i]);
 			if (matchingPRMetadata) {

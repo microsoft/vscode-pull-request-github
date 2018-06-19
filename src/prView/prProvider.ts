@@ -28,6 +28,12 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 		context.subscriptions.push(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this._onDidChangeTreeData.fire();
 		}));
+
+		context.subscriptions.push(vscode.commands.registerCommand('pr.loadMore', (node: PRGroupTreeNode) => {
+			node.fetchNextPage = true;
+			this._onDidChangeTreeData.fire(node);
+		}));
+
 		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<TreeNode>('pr', this));
 		this.context.subscriptions.push(this.configuration.onDidChange(e => {
 			this._onDidChangeTreeData.fire();
