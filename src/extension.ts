@@ -47,7 +47,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		repositoryInitialized = true;
 		let prManager = new PullRequestManager(configuration, repository);
 		await prManager.initialize();
-		ReviewManager.initialize(context, configuration, repository, prManager);
-		registerCommands(context, prManager, ReviewManager.instance);
+		const reviewManager = new ReviewManager(context, configuration, repository, prManager);
+		registerCommands(context, prManager, reviewManager);
 	});
 }

@@ -16,8 +16,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	// initialize resources
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openInGitHub', (e: PRNode | FileChangeNode) => {
 		if (!e) {
-			if (reviewManager.currentPullRequest) {
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(reviewManager.currentPullRequest.html_url));
+			if (prManager.activePullRequest) {
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
 			}
 			return;
 		}

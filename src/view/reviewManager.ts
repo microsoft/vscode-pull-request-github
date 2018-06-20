@@ -43,7 +43,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _prNumber: number;
 	private _pr: IPullRequestModel;
 
-	private constructor(
+	constructor(
 		private _context: vscode.ExtensionContext,
 		private _configuration: Configuration,
 		private _repository: Repository,
@@ -70,15 +70,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.pollForStatusChange();
 	}
 
-	static initialize(
-		_context: vscode.ExtensionContext,
-		_configuration: Configuration,
-		_repository: Repository,
-		_prManager: IPullRequestManager
-	) {
-		ReviewManager._instance = new ReviewManager(_context, _configuration, _repository, _prManager);
-	}
-
 	static get instance() {
 		return ReviewManager._instance;
 	}
@@ -98,10 +89,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		return this._statusBarItem;
-	}
-
-	get currentPullRequest(): IPullRequestModel {
-		return this._pr;
 	}
 
 	private pollForStatusChange() {
@@ -150,7 +137,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}
-		this._pr = pr;
+
+		this._prManager.activePullRequest = pr;
 		if (!this._lastCommitSha) {
 			this._lastCommitSha = pr.head.sha;
 		}
@@ -724,7 +712,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private clear(quitReviewMode: boolean) {
 		this._prNumber = null;
-		this._pr = null;
+		this._prManager.activePullRequest = null;
 		this._updateMessageShown = false;
 
 		if (this._documentCommentProvider) {

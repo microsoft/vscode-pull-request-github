@@ -75,7 +75,7 @@ export class PRNode extends TreeNode {
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		let currentBranchIsForThisPR = this.pullRequestModel.equals(ReviewManager.instance.currentPullRequest);
+		let currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
 		return {
 			label: (currentBranchIsForThisPR ? ' * ' : '') + this.pullRequestModel.title,
 			tooltip: (currentBranchIsForThisPR ? 'Current Branch * ' : '') + this.pullRequestModel.title,

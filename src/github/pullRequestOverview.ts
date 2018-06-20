@@ -74,7 +74,7 @@ export class PullRequestOverviewPanel {
 	public async update(pullRequestModel: IPullRequestModel) {
 		this._pullRequest = pullRequestModel;
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
-		const isCurrentlyCheckedOut = pullRequestModel.equals(ReviewManager.instance.currentPullRequest);
+		const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 		const timelineEvents = await this._pullRequestManager.getTimelineEvents(pullRequestModel);
 		this._panel.webview.postMessage({
 			command: 'pr.initialize',
