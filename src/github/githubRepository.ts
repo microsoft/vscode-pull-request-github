@@ -120,8 +120,8 @@ export class GitHubRepository {
 			case PRType.RequestReview:
 				filter = `review-requested:${user}`;
 				break;
-			case PRType.ReviewedByMe:
-				filter = `reviewed-by:${user}`;
+			case PRType.AssignedToMe:
+				filter = `assignee:${user}`;
 				break;
 			case PRType.Mine:
 				filter = `author:${user}`;

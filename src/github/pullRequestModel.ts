@@ -12,7 +12,7 @@ import { parseTimelineEvents, TimelineEvent } from '../models/timelineEvent';
 
 export enum PRType {
 	RequestReview = 0,
-	ReviewedByMe = 1,
+	AssignedToMe = 1,
 	Mine = 2,
 	Mention = 3,
 	All = 4,

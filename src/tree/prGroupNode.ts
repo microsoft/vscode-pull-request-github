@@ -29,7 +29,7 @@ export class PRGroupActionNode extends TreeNode implements vscode.TreeItem {
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
 		switch (type) {
 			case PRGroupActionType.Empty:
-				this.label = '0 pull request in this category';
+				this.label = '0 pull requests in this category';
 				break;
 			case PRGroupActionType.More:
 				this.label = 'Load more';
@@ -87,8 +87,8 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 			case PRType.RequestReview:
 				this.label = 'Waiting For My Review';
 				break;
-			case PRType.ReviewedByMe:
-				this.label = 'Reviewed By Me';
+			case PRType.AssignedToMe:
+				this.label = 'Assigned To Me';
 				break;
 			case PRType.Mine:
 				this.label = 'Created By Me';

@@ -60,7 +60,7 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 			return Promise.resolve([
 				new PRGroupTreeNode(this.repository, PRType.LocalPullRequest),
 				new PRGroupTreeNode(this.repository, PRType.RequestReview),
-				new PRGroupTreeNode(this.repository, PRType.ReviewedByMe),
+				new PRGroupTreeNode(this.repository, PRType.AssignedToMe),
 				new PRGroupTreeNode(this.repository, PRType.Mine),
 				new PRGroupTreeNode(this.repository, PRType.All)
 			]);
