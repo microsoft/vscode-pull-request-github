@@ -8,10 +8,11 @@
  */
 
 import Logger from '../logger';
-import { Protocol } from '../models/protocol';
-import { Remote } from '../models/remote';
-import { Repository } from '../models/repository';
+import { Protocol } from '../common/protocol';
+import { Remote } from '../common/remote';
+import { Repository } from '../common/repository';
 import { IPullRequestModel } from './interface';
+import { GitHubRepository } from './githubRepository';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -57,8 +58,8 @@ export class PullRequestGitHelper {
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
-	static async getBranchForPullRequestFromExistingRemotes(repository: Repository, pullRequest: IPullRequestModel) {
-		let headRemote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, pullRequest);
+	static async getBranchForPullRequestFromExistingRemotes(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel) {
+		let headRemote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, githubRepositories, pullRequest);
 		if (headRemote) {
 			// the head of the PR is in this repository (not fork), we can just fetch
 			return {
@@ -189,10 +190,9 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(repository: Repository, pullRequest: IPullRequestModel): Remote {
-		let repos = repository.githubRepositories;
-		for (let i = 0; i < repos.length; i++) {
-			let remote = repos[i].remote;
+	static getHeadRemoteForPullRequest(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel): Remote {
+		for (let i = 0; i < githubRepositories.length; i++) {
+			let remote = githubRepositories[i].remote;
 			if (remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl)) {
 				return remote;
 			}

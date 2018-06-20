@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { Configuration } from '../configuration';
-import { Repository } from '../models/repository';
+import { Repository } from '../common/repository';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType } from '../github/interface';

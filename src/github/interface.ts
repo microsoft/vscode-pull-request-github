@@ -1,7 +1,7 @@
 import { GitHubRef } from "../common/githubRef";
-import { Comment } from "../models/comment";
-import { TimelineEvent } from "../models/timelineEvent";
-import { Remote } from "../models/remote";
+import { Comment } from "../common/comment";
+import { TimelineEvent } from "../common/timelineEvent";
+import { Remote } from "../common/remote";
 
 export enum PRType {
 	RequestReview = 0,

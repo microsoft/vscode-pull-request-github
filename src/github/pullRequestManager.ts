@@ -3,16 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { parserCommentDiffHunk } from "../common/diff";
 import { CredentialStore } from "../credentials";
-import { Comment } from "../models/comment";
-import { Remote } from "../models/remote";
-import { Repository } from "../models/repository";
-import { parseTimelineEvents, TimelineEvent } from "../models/timelineEvent";
+import { Comment } from "../common/comment";
+import { Remote } from "../common/remote";
+import { Repository } from "../common/repository";
+import { TimelineEvent, EventType } from "../common/timelineEvent";
 import { GitHubRepository } from "./githubRepository";
 import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType } from "./interface";
 import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
+import { parserCommentDiffHunk } from "../common/diffHunk";
 
 export class PullRequestManager implements IPullRequestManager {
 	public activePullRequest?: IPullRequestModel;
@@ -99,7 +99,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel) {
-		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, pullRequest);
+		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, this._githubRepositories,pullRequest);
 	}
 
 	async checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
@@ -266,4 +266,37 @@ export class PullRequestManager implements IPullRequestManager {
 			pullRequest.update(data);
 		}
 	}
+}
+
+export function getEventType(text: string) {
+	switch (text) {
+		case 'committed':
+			return EventType.Committed;
+		case 'mentioned':
+			return EventType.Mentioned;
+		case 'subscribed':
+			return EventType.Subscribed;
+		case 'commented':
+			return EventType.Commented;
+		case 'reviewed':
+			return EventType.Reviewed;
+		default:
+			return EventType.Other;
+	}
+}
+
+export async function parseTimelineEvents(pullRequestManager: IPullRequestManager, pullRequest: IPullRequestModel, events: any[]): Promise<TimelineEvent[]> {
+	events.forEach(event => {
+		let type = getEventType(event.event);
+		event.event = type;
+		return event;
+	});
+
+	await Promise.all(
+		events.filter(event => event.event === EventType.Reviewed)
+			.map(event => pullRequestManager.getReviewComments(pullRequest, event.id).then(result => {
+				event.comments = result;
+			})));
+
+	return events;
 }

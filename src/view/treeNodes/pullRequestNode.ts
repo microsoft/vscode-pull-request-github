@@ -5,12 +5,12 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Repository } from '../../models/repository';
+import { Repository } from '../../common/repository';
 import { IPullRequestModel, IPullRequestManager } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { Resource } from '../../common/resources';
-import { parseDiff } from '../../common/diff';
-import { Comment } from '../../models/comment';
+import { parseDiff } from '../../common/diffHunk';
+import { Comment } from '../../common/comment';
 import { toPRUri } from '../../common/uri';
 import { mapHeadLineToDiffHunkPosition, getDiffLineByPosition } from '../../common/diffPositionMapping';
 import { groupBy } from '../../common/util';
@@ -18,7 +18,7 @@ import { DescriptionNode } from './descriptionNode';
 import { ReviewManager } from '../reviewManager';
 import { FileChangeNode } from './fileChangeNode';
 import Logger from '../../logger';
-import { RichFileChange } from '../../models/file';
+import { RichFileChange } from '../../common/file';
 
 export class PRNode extends TreeNode {
 	private richContentChanges: RichFileChange[];

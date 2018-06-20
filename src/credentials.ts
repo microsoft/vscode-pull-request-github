@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Configuration } from './configuration';
-import { Remote } from './models/remote';
+import { Remote } from './common/remote';
 import { fill } from 'git-credential-node';
 const Octokit = require('@octokit/rest');
 

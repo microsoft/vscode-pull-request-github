@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
-import { Repository } from './models/repository';
+import { Repository } from './common/repository';
 import { Configuration } from './configuration';
 import { Resource } from './common/resources';
 import { ReviewManager } from './view/reviewManager';

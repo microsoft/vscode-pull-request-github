@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { GitHubRef } from '../common/githubRef';
-import { Remote } from '../models/remote';
+import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
 import { IAccount, IPullRequest, IPullRequestModel, PullRequestStateEnum } from './interface';
 

@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { GitChangeType } from '../models/file';
+import { GitChangeType } from './file';
 import { FileChangeNode } from '../view/treeNodes/fileChangeNode';
 import { IPullRequestModel } from '../github/interface';
 

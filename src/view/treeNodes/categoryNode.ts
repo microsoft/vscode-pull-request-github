@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNode';
 import { IPullRequestModel, IPullRequestManager, PRType } from '../../github/interface';
-import { Repository } from '../../models/repository';
+import { Repository } from '../../common/repository';
 import { Resource } from '../../common/resources';
 import { PRNode } from './pullRequestNode';
 

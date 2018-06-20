@@ -5,18 +5,18 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseDiff } from '../common/diff';
+import { parseDiff } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy } from '../common/util';
-import { Comment } from '../models/comment';
-import { GitChangeType } from '../models/file';
-import { GitErrorCodes } from '../models/gitError';
+import { Comment } from '../common/comment';
+import { GitChangeType } from '../common/file';
+import { GitErrorCodes } from '../common/gitError';
 import { IPullRequestModel, IPullRequestManager } from '../github/interface';
-import { Repository } from '../models/repository';
+import { Repository } from '../common/repository';
 import { PullRequestFileChangesTreeDataProvider } from './prFileChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
-import { DiffChangeType } from '../models/diffHunk';
+import { DiffChangeType } from '../common/diffHunk';
 import { FileChangeNode } from './treeNodes/fileChangeNode';
 import Logger from '../logger';
 

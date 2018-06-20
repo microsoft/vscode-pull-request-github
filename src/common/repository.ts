@@ -3,16 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
-import { Remote } from './remote';
 import { GitProcess } from 'dugite';
-import { uniqBy, anyEvent, filterEvent, isDescendant } from '../common/util';
-import { CredentialStore } from '../credentials';
-import { Protocol } from './protocol';
-import { GitError, GitErrorCodes } from './gitError';
-import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
+import * as vscode from 'vscode';
+import { anyEvent, filterEvent, isDescendant, uniqBy } from './util';
 import Logger from '../logger';
-import { GitHubRepository } from '../github/githubRepository';
+import { GitError, GitErrorCodes } from './gitError';
+import { Protocol } from './protocol';
+import { Remote } from './remote';
 
 export enum RefType {
 	Head,
@@ -43,8 +40,6 @@ export class Repository {
 
 	private _onDidRunGitStatus = new vscode.EventEmitter<void>();
 	readonly onDidRunGitStatus: vscode.Event<void> = this._onDidRunGitStatus.event;
-
-	public githubRepositories?: GitHubRepository[] = [];
 
 	private _HEAD: Branch | undefined;
 	get HEAD(): Branch | undefined {
@@ -112,24 +107,6 @@ export class Repository {
 		this._refs = refs;
 		this._remotes = remotes;
 		this._onDidRunGitStatus.fire();
-	}
-
-	async connectGitHub(credentialStore: CredentialStore) {
-		let ret: GitHubRepository[] = [];
-		await Promise.all(this.remotes.map(async remote => {
-			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this, remote.remoteName);
-			if (isRemoteForPR) {
-				return;
-			}
-
-			let octo = await credentialStore.getOctokit(remote);
-
-			if (octo) {
-				ret.push(new GitHubRepository(remote, octo));
-			}
-		}));
-
-		this.githubRepositories = ret;
 	}
 
 	async run(args: string[], options?: any) {

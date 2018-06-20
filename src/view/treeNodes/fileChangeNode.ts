@@ -5,9 +5,9 @@
 
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNode';
-import { GitChangeType } from '../../models/file';
+import { GitChangeType } from '../../common/file';
 import { IPullRequestModel } from '../../github/interface';
-import { DiffHunk } from '../../models/diffHunk';
+import { DiffHunk } from '../../common/diffHunk';
 import { Resource } from '../../common/resources';
 
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
