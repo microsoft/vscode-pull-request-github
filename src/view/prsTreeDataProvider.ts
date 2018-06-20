@@ -11,8 +11,8 @@ import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType } from '../github/interface';
 
-export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider {
-	private static _instance: PRProvider;
+export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider {
+	private static _instance: PullRequestsTreeDataProvider;
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
@@ -41,11 +41,11 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 		repository: Repository,
 		prManager: IPullRequestManager
 	) {
-		PRProvider._instance = new PRProvider(context, configuration, repository, prManager);
+		PullRequestsTreeDataProvider._instance = new PullRequestsTreeDataProvider(context, configuration, repository, prManager);
 	}
 
 	static get instance() {
-		return PRProvider._instance;
+		return PullRequestsTreeDataProvider._instance;
 	}
 
 	getTreeItem(element: TreeNode): vscode.TreeItem {

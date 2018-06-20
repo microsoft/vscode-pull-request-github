@@ -9,7 +9,7 @@ import { IPullRequestModel } from '../github/interface';
 import { FileChangeNode } from './treeNodes/fileChangeNode';
 import { DescriptionNode } from './treeNodes/descriptionNode';
 
-export class FileChangesProvider extends vscode.Disposable implements vscode.TreeDataProvider<FileChangeNode | DescriptionNode> {
+export class PullRequestFileChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<FileChangeNode | DescriptionNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<FileChangeNode | DescriptionNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 

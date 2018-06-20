@@ -14,7 +14,7 @@ import { GitChangeType } from '../models/file';
 import { GitErrorCodes } from '../models/gitError';
 import { IPullRequestModel, IPullRequestManager } from '../github/interface';
 import { Repository } from '../models/repository';
-import { FileChangesProvider } from './prFileChangesProvider';
+import { PullRequestFileChangesTreeDataProvider } from './prFileChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../models/diffHunk';
 import { FileChangeNode } from './treeNodes/fileChangeNode';
@@ -35,7 +35,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
-	private _prFileChangesProvider: FileChangesProvider;
+	private _prFileChangesProvider: PullRequestFileChangesTreeDataProvider;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber: number;
 	private _pr: IPullRequestModel;
@@ -78,7 +78,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	get prFileChangesProvider() {
 		if (!this._prFileChangesProvider) {
-			this._prFileChangesProvider = new FileChangesProvider(this._context);
+			this._prFileChangesProvider = new PullRequestFileChangesTreeDataProvider(this._context);
 			this._disposables.push(this._prFileChangesProvider);
 		}
 
