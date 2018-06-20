@@ -19,9 +19,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _disposables: vscode.Disposable[];
 
 	constructor(
-		private configuration: Configuration,
-		private repository: Repository,
-		private prManager: IPullRequestManager
+		private _configuration: Configuration,
+		private _repository: Repository,
+		private _prManager: IPullRequestManager
 	) {
 		this._disposables = [];
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', this));
@@ -30,7 +30,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			this._onDidChangeTreeData.fire();
 		}));
 		this._disposables.push(vscode.window.registerTreeDataProvider<TreeNode>('pr', this));
-		this._disposables.push(this.configuration.onDidChange(e => {
+		this._disposables.push(this._configuration.onDidChange(e => {
 			this._onDidChangeTreeData.fire();
 		}));
 	}
@@ -42,14 +42,14 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
 			return Promise.resolve([
-				new CategoryTreeNode(this.prManager, this.repository, PRType.LocalPullRequest),
-				new CategoryTreeNode(this.prManager, this.repository, PRType.RequestReview),
-				new CategoryTreeNode(this.prManager, this.repository, PRType.ReviewedByMe),
-				new CategoryTreeNode(this.prManager, this.repository, PRType.Mine),
-				new CategoryTreeNode(this.prManager, this.repository, PRType.All)
+				new CategoryTreeNode(this._prManager, this._repository, PRType.LocalPullRequest),
+				new CategoryTreeNode(this._prManager, this._repository, PRType.RequestReview),
+				new CategoryTreeNode(this._prManager, this._repository, PRType.ReviewedByMe),
+				new CategoryTreeNode(this._prManager, this._repository, PRType.Mine),
+				new CategoryTreeNode(this._prManager, this._repository, PRType.All)
 			]);
 		}
-		if (!this.repository.remotes || !this.repository.remotes.length) {
+		if (!this._repository.remotes || !this._repository.remotes.length) {
 			return Promise.resolve([new PRCategoryActionNode(PRCategoryActionType.Empty)]);
 		}
 
