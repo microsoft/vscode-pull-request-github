@@ -1,6 +1,7 @@
 import { GitHubRef } from "./githubRef";
 import { Comment } from "../models/comment";
 import { TimelineEvent } from "../models/timelineEvent";
+import { Remote } from "../models/remote";
 
 export enum PRType {
 	RequestReview = 0,
@@ -94,6 +95,10 @@ export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<IPullRequestModel[]>;
 	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
+	getMatchingPullRequestMetadataForBranch();
+	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
+	checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
+	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;

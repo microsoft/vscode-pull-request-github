@@ -7,7 +7,6 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { parseDiff } from '../common/diff';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew } from '../common/diffPositionMapping';
-import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy } from '../common/util';
 import { Comment } from '../models/comment';
@@ -15,7 +14,7 @@ import { GitChangeType } from '../models/file';
 import { GitErrorCodes } from '../models/gitError';
 import { IPullRequestModel, IPullRequestManager } from '../common/pullRequest';
 import { Repository } from '../models/repository';
-import { FileChangesProvider } from './fileChangesProvider';
+import { FileChangesProvider } from './prFileChangesProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../models/diffHunk';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
@@ -112,7 +111,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
+		let matchingPullRequestMetadata = await this._prManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${this._repository.HEAD.name}`);
@@ -231,7 +230,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async updateComments(): Promise<void> {
-		const matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
+		const matchingPullRequestMetadata = await this._prManager.getMatchingPullRequestMetadataForBranch();
 		if (!matchingPullRequestMetadata) { return; }
 
 		const branch = this._repository.HEAD;
@@ -240,21 +239,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) { return; }
 
-		const githubRepo = this._repository.githubRepositories.find(repo =>
-			repo.remote.owner.toLocaleLowerCase() === matchingPullRequestMetadata.owner.toLocaleLowerCase()
-		);
+		const pr = await this._prManager.resolvePullRequest(matchingPullRequestMetadata.owner, matchingPullRequestMetadata.repositoryName, this._prNumber);
 
-		if (!githubRepo) {
-			return;
-		}
-
-		const pr = await githubRepo.getPullRequest(this._prNumber);
 		if (!pr) {
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}
 
-		if (pr.prItem.head.sha !== this._lastCommitSha && !this._updateMessageShown) {
+		if (pr.head.sha !== this._lastCommitSha && !this._updateMessageShown) {
 			this._updateMessageShown = true;
 			let result = await vscode.window.showInformationMessage('There are updates available for this branch.', {}, 'Pull');
 
@@ -694,14 +686,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.statusBarItem.show();
 
 		try {
-			let localBranchInfo = await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, pr);
+			let localBranchInfo = await this._prManager.getBranchForPullRequestFromExistingRemotes(pr);
 
 			if (localBranchInfo) {
 				Logger.appendLine(`Review> there is already one local branch ${localBranchInfo.remote.remoteName}/${localBranchInfo.branch} associated with Pull Request #${pr.prNumber}`);
-				await PullRequestGitHelper.checkout(this._repository, localBranchInfo.remote, localBranchInfo.branch, pr);
+				await this._prManager.checkout(localBranchInfo.remote, localBranchInfo.branch, pr);
 			} else {
 				Logger.appendLine(`Review> there is no local branch associated with Pull Request #${pr.prNumber}, we will create a new branch.`);
-				await PullRequestGitHelper.createAndCheckout(this._repository, pr);
+				await this._prManager.createAndCheckout(pr);
 			}
 		} catch (e) {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);

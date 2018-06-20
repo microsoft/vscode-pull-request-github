@@ -13,6 +13,7 @@ import { parseTimelineEvents, TimelineEvent } from "../models/timelineEvent";
 import { IPullRequestManager, IPullRequestsPagingOptions } from "../common/pullRequest";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diff";
+import { Remote } from "../models/remote";
 
 
 export class PullRequestManager implements IPullRequestManager {
@@ -92,6 +93,23 @@ export class PullRequestManager implements IPullRequestManager {
 
 		const pr = await githubRepo.getPullRequest(pullReuqestNumber);
 		return pr;
+	}
+
+	async getMatchingPullRequestMetadataForBranch() {
+		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
+		return matchingPullRequestMetadata;
+	}
+
+	async getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel) {
+		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, pullRequest);
+	}
+
+	async checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
+		await PullRequestGitHelper.checkout(this._repository, remote, branchName, pullRequest);
+	}
+
+	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
+		await PullRequestGitHelper.createAndCheckout(this._repository, pullRequest);
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {

@@ -6,11 +6,9 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './TreeNode';
 import { IPullRequestModel, IPullRequestManager, PRType } from '../common/pullRequest';
-import {  } from '../github/pullRequestGitHelper';
 import { Repository } from '../models/repository';
 import { Resource } from '../common/resources';
 import { PRNode } from './prNode';
-import {  } from '../github/pullRequestManager';
 
 export enum PRGroupActionType {
 	Empty,
