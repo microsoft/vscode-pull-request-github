@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode } from './treeNode';
-import { IPullRequestModel, IPullRequestManager, PRType } from '../../github/interface';
 import { Repository } from '../../common/repository';
 import { Resource } from '../../common/resources';
+import { IPullRequestManager, IPullRequestModel, PRType } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
+import { TreeNode } from './treeNode';
 
 export enum PRCategoryActionType {
 	Empty,

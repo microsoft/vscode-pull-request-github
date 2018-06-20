@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode } from './treeNode';
-import { GitChangeType } from '../../common/file';
-import { IPullRequestModel } from '../../github/interface';
 import { DiffHunk } from '../../common/diffHunk';
+import { GitChangeType } from '../../common/file';
 import { Resource } from '../../common/resources';
+import { IPullRequestModel } from '../../github/interface';
+import { TreeNode } from './treeNode';
 
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };

@@ -5,20 +5,19 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Repository } from '../../common/repository';
-import { IPullRequestModel, IPullRequestManager } from '../../github/interface';
-import { TreeNode } from './treeNode';
-import { Resource } from '../../common/resources';
-import { parseDiff } from '../../common/diffHunk';
 import { Comment } from '../../common/comment';
-import { toPRUri } from '../../common/uri';
-import { mapHeadLineToDiffHunkPosition, getDiffLineByPosition } from '../../common/diffPositionMapping';
-import { groupBy } from '../../common/utils';
-import { DescriptionNode } from './descriptionNode';
-import { ReviewManager } from '../reviewManager';
-import { FileChangeNode } from './fileChangeNode';
-import Logger from '../../common/logger';
+import { parseDiff } from '../../common/diffHunk';
+import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 import { RichFileChange } from '../../common/file';
+import Logger from '../../common/logger';
+import { Repository } from '../../common/repository';
+import { Resource } from '../../common/resources';
+import { toPRUri } from '../../common/uri';
+import { groupBy } from '../../common/utils';
+import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
+import { DescriptionNode } from './descriptionNode';
+import { FileChangeNode } from './fileChangeNode';
+import { TreeNode } from './treeNode';
 
 export class PRNode extends TreeNode {
 	private richContentChanges: RichFileChange[];
