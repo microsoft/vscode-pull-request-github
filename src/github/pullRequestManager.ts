@@ -3,18 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IPullRequestModel, PRType } from "./interface";
-import { Repository } from "../models/repository";
-import { GitHubRepository } from "./githubRepository";
-import { CredentialStore } from "../credentials";
-import { PullRequestGitHelper } from "./pullRequestGitHelper";
-import { Comment } from "../models/comment";
-import { parseTimelineEvents, TimelineEvent } from "../models/timelineEvent";
-import { IPullRequestManager, IPullRequestsPagingOptions } from "./interface";
-import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diff";
+import { CredentialStore } from "../credentials";
+import { Comment } from "../models/comment";
 import { Remote } from "../models/remote";
-
+import { Repository } from "../models/repository";
+import { parseTimelineEvents, TimelineEvent } from "../models/timelineEvent";
+import { GitHubRepository } from "./githubRepository";
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType } from "./interface";
+import { PullRequestGitHelper } from "./pullRequestGitHelper";
+import { PullRequestModel } from "./pullRequestModel";
 
 export class PullRequestManager implements IPullRequestManager {
 	public activePullRequest?: IPullRequestModel;

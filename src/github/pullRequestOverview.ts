@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { IPullRequestModel, IPullRequest } from './interface';
+import * as vscode from 'vscode';
 import { ReviewManager } from '../view/reviewManager';
-import { IPullRequestManager } from './interface';
+import { IPullRequest, IPullRequestManager, IPullRequestModel } from './interface';
 
 export class PullRequestOverviewPanel {
 	/**

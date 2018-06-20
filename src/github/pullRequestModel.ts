@@ -6,7 +6,7 @@
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../models/remote';
 import { GitHubRepository } from './githubRepository';
-import { PullRequestStateEnum, IAccount, IPullRequest, IPullRequestModel } from './interface';
+import { IAccount, IPullRequest, IPullRequestModel, PullRequestStateEnum } from './interface';
 
 
 export class PullRequestModel implements PullRequestModel {

@@ -7,10 +7,10 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from https://github.com/github/VisualStudio/blob/165a97bdcab7559e0c4393a571b9ff2aed4ba8a7/src/GitHub.App/Services/PullRequestService.cs
  */
 
-import { Repository } from '../models/repository';
+import Logger from '../logger';
 import { Protocol } from '../models/protocol';
 import { Remote } from '../models/remote';
-import Logger from '../logger';
+import { Repository } from '../models/repository';
 import { IPullRequestModel } from './interface';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';

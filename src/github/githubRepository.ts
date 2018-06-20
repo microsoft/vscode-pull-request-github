@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as Octokit from '@octokit/rest';
+import Logger from "../logger";
 import { Remote } from "../models/remote";
 import { PRType } from "./interface";
-import Logger from "../logger";
-import * as Octokit from '@octokit/rest';
 import { PullRequestModel } from "./pullRequestModel";
 
 export class GitHubRepository {
