@@ -51,18 +51,31 @@ export class PRGroupActionNode extends TreeNode implements vscode.TreeItem {
 	}
 }
 
+interface PageInformation {
+	pullRequestPage: number;
+	hasMorePages: boolean;
+}
+
 export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 	public readonly label: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public prs: PullRequestModel[];
 	public type: PRType;
 	public fetchNextPage: boolean = false;
+	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
 	constructor(
 		private repository: Repository,
 		type: PRType
 	) {
 		super();
+
+		for (let repository of this.repository.githubRepositories) {
+			this.repositoryPageInformation.set(repository.remote.url.toString(), {
+				pullRequestPage: 1,
+				hasMorePages: null
+			});
+		}
 
 		this.prs = [];
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
@@ -88,6 +101,10 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
+	mayHaveMorePages(): boolean {
+		return this.repository.githubRepositories.some(repo =>  this.repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
+	}
+
 	async getChildren(): Promise<TreeNode[]> {
 		if (!this.fetchNextPage) {
 			try {
@@ -106,7 +123,7 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			const hasMorePages = this.type !== PRType.LocalPullRequest && this.repository.githubRepositories.some(repo => repo.mayHaveMorePages(this.type));
+			const hasMorePages = this.type !== PRType.LocalPullRequest && this.mayHaveMorePages();
 
 			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this.repository, prItem));
 			if (hasMorePages) {
@@ -145,7 +162,7 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 		let numPullRequests = 0;
 
 		// Limit the number of pull requests that are fetched to less than twice the page size
-		const githubRepositories = this.repository.githubRepositories.filter(repo => repo.mayHaveMorePages(this.type))
+		const githubRepositories = this.repository.githubRepositories.filter(repo => this.repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
 		for (let i = 0; i < githubRepositories.length; i++) {
 			if (numPullRequests >= PULL_REQUEST_PAGE_SIZE) {
 				break;
@@ -155,10 +172,14 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 			const remote = githubRepository.remote.remoteName;
 			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
 			if (!isRemoteForPR) {
-				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && githubRepository.mayHaveMorePages(this.type)) {
-					const pullRequestModels = await githubRepository.getPullRequests(this.type);
-					numPullRequests += pullRequestModels.length;
-					pullRequests = pullRequests.concat(...pullRequestModels)
+				const pageInformation = this.repositoryPageInformation.get(githubRepository.remote.url.toString());
+				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
+					const pullRequestData = await githubRepository.getPullRequests(this.type, pageInformation.pullRequestPage);
+					numPullRequests += pullRequestData.pullRequests.length;
+					pullRequests = pullRequests.concat(...pullRequestData.pullRequests);
+
+					pageInformation.hasMorePages = pullRequestData.hasMorePages;
+					pageInformation.pullRequestPage++;;
 				}
 			}
 		}
