@@ -3,36 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IPullRequestModel, PRType } from "./pullRequestModel";
+import { IPullRequestModel, PRType } from "../common/pullRequest";
 import { Repository } from "../models/repository";
 import { GitHubRepository } from "./githubRepository";
 import { CredentialStore } from "../credentials";
 import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { Comment } from "../models/comment";
-import { parseComments } from "../common/comment";
 import { parseTimelineEvents, TimelineEvent } from "../models/timelineEvent";
+import { IPullRequestManager, IPullRequestsPagingOptions } from "../common/pullRequest";
+import { PullRequestModel } from "./pullRequestModel";
+import { parserCommentDiffHunk } from "../common/diff";
 
-
-export interface IPullRequestsPagingOptions {
-	page: number;
-	pageSize: number;
-}
-
-export interface IPullRequestManager {
-	activePullRequest?: IPullRequestModel;
-	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<IPullRequestModel[]>;
-	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
-	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
-	getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]>;
-	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
-	getIssueComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
-	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment>;
-	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string);
-	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number);
-	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
-	getPullRequestChagnedFiles(pullRequest: IPullRequestModel): Promise<any>;
-	fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void>;
-}
 
 export class PullRequestManager implements IPullRequestManager {
 	public activePullRequest?: IPullRequestModel;
@@ -114,7 +95,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -125,11 +106,11 @@ export class PullRequestManager implements IPullRequestManager {
 			per_page: 100
 		});
 		const rawComments = reviewData.data;
-		return parseComments(rawComments);
+		return parserCommentDiffHunk(rawComments);
 	}
 
 	async getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]> {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -142,11 +123,11 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 
 		const rawComments = reviewData.data;
-		return parseComments(rawComments);
+		return parserCommentDiffHunk(rawComments);
 	}
 
 	async getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]> {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -162,7 +143,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getIssueComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -177,7 +158,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment> {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -192,7 +173,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string) {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -208,7 +189,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number) {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -226,7 +207,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -241,7 +222,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestChagnedFiles(pullRequest: IPullRequestModel): Promise<any> {
-		let githubRepository = pullRequest.githubRepository;
+		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
 
@@ -257,7 +238,7 @@ export class PullRequestManager implements IPullRequestManager {
 	async fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void> {
 		if (!pullRequest.base) {
 			// this one is from search results, which is not complete.
-			let githubRepository = pullRequest.githubRepository;
+			let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 			let octokit = githubRepository.octokit;
 			let remote = githubRepository.remote;
 

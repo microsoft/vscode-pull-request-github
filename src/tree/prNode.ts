@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../models/repository';
-import { IPullRequestModel } from '../github/pullRequestModel';
+import { IPullRequestModel, IPullRequestManager } from '../common/pullRequest';
 import { TreeNode } from './TreeNode';
 import { Resource } from '../common/resources';
 import { parseDiff } from '../common/diff';
@@ -19,7 +19,6 @@ import { ReviewManager } from '../review/reviewManager';
 import { PRFileChangeNode } from './prFileChangeNode';
 import Logger from '../logger';
 import { RichFileChange } from '../models/file';
-import { IPullRequestManager } from '../github/pullRequestManager';
 
 export class PRNode extends TreeNode {
 	private richContentChanges: RichFileChange[];

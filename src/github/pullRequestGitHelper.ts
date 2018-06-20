@@ -8,17 +8,17 @@
  */
 
 import { Repository } from '../models/repository';
-import { PullRequestModel } from './pullRequestModel';
 import { Protocol } from '../models/protocol';
 import { Remote } from '../models/remote';
 import Logger from '../logger';
+import { IPullRequestModel } from '../common/pullRequest';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
 const PullRequestBranchRegex = /branch\.(.+)\.github-pr-owner-number/;
 
 export class PullRequestGitHelper {
-	static async createAndCheckout(repository: Repository, pullRequest: PullRequestModel) {
+	static async createAndCheckout(repository: Repository, pullRequest: IPullRequestModel) {
 		let localBranchName = await PullRequestGitHelper.getBranchNameForPullRequest(repository, pullRequest);
 
 		let existing = await repository.getBranch(localBranchName);
@@ -43,7 +43,7 @@ export class PullRequestGitHelper {
 		await repository.setConfig(prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 
-	static async checkout(repository: Repository, remote: Remote, branchName: string, pullRequest: PullRequestModel): Promise<void> {
+	static async checkout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
 		let remoteName = remote.remoteName;
 		await repository.fetch(remoteName);
 		let branch = await repository.getBranch(branchName);
@@ -57,7 +57,7 @@ export class PullRequestGitHelper {
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
-	static async getBranchForPullRequestFromExistingRemotes(repository: Repository, pullRequest: PullRequestModel) {
+	static async getBranchForPullRequestFromExistingRemotes(repository: Repository, pullRequest: IPullRequestModel) {
 		let headRemote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, pullRequest);
 		if (headRemote) {
 			// the head of the PR is in this repository (not fork), we can just fetch
@@ -92,7 +92,7 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static async fetchAndCreateBranch(repository: Repository, remote: Remote, branchName: string, pullRequest: PullRequestModel) {
+	static async fetchAndCreateBranch(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel) {
 		let remoteName = remote.remoteName;
 		const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
 		Logger.appendLine(`GitHelper> fetch branch ${trackedBranchName}`);
@@ -107,7 +107,7 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static buildPullRequestMetadata(pullRequest: PullRequestModel) {
+	static buildPullRequestMetadata(pullRequest: IPullRequestModel) {
 		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.prNumber;
 	}
 
@@ -160,7 +160,7 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static async getBranchNameForPullRequest(repository: Repository, pullRequest: PullRequestModel): Promise<string> {
+	static async getBranchNameForPullRequest(repository: Repository, pullRequest: IPullRequestModel): Promise<string> {
 		let branchName = `pr/${pullRequest.author.login}/${pullRequest.prNumber}`;
 		let result = branchName;
 		let number = 1;
@@ -189,7 +189,7 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(repository: Repository, pullRequest: PullRequestModel): Remote {
+	static getHeadRemoteForPullRequest(repository: Repository, pullRequest: IPullRequestModel): Remote {
 		let repos = repository.githubRepositories;
 		for (let i = 0; i < repos.length; i++) {
 			let remote = repos[i].remote;
@@ -201,7 +201,7 @@ export class PullRequestGitHelper {
 		return null;
 	}
 
-	static async associateBranchWithPullRequest(repository: Repository, pullRequest: PullRequestModel, branchName: string) {
+	static async associateBranchWithPullRequest(repository: Repository, pullRequest: IPullRequestModel, branchName: string) {
 		Logger.appendLine(`GitHelper> associate ${branchName} with Pull Request #${pullRequest.prNumber}`)
 		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));

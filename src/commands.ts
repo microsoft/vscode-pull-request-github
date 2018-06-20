@@ -11,7 +11,7 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri } from './common/uri';
 import { PRFileChangeNode } from './tree/prFileChangeNode';
 import { PRNode } from './tree/prNode';
-import { IPullRequestManager } from './github/pullRequestManager';
+import { IPullRequestManager } from './common/pullRequest';
 
 export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager) {
 	// initialize resources

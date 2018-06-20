@@ -6,8 +6,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitChangeType } from '../models/file';
-import { IPullRequestModel } from '../github/pullRequestModel';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
+import { IPullRequestModel } from './pullRequest';
 
 export class Resource {
 	static icons: any;

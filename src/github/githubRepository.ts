@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Remote } from "../models/remote";
-import { PRType, PullRequestModel } from "./pullRequestModel";
+import { PRType } from "../common/pullRequest";
 import Logger from "../logger";
 import * as Octokit from '@octokit/rest';
+import { PullRequestModel } from "./pullRequestModel";
 
 export class GitHubRepository {
 	constructor(public readonly remote: Remote, public readonly octokit: Octokit) {

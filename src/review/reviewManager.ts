@@ -13,14 +13,13 @@ import { groupBy } from '../common/util';
 import { Comment } from '../models/comment';
 import { GitChangeType } from '../models/file';
 import { GitErrorCodes } from '../models/gitError';
-import { PullRequestModel, IPullRequestModel } from '../github/pullRequestModel';
+import { IPullRequestModel, IPullRequestManager } from '../common/pullRequest';
 import { Repository } from '../models/repository';
 import { FileChangesProvider } from './fileChangesProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../models/diffHunk';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
 import Logger from '../logger';
-import { IPullRequestManager } from '../github/pullRequestManager';
 
 
 export class ReviewManager implements vscode.DecorationProvider {
@@ -682,7 +681,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return null;
 	}
 
-	public async switch(pr: PullRequestModel): Promise<void> {
+	public async switch(pr: IPullRequestModel): Promise<void> {
 		Logger.appendLine(`Review> swtich to Pull Requet #${pr.prNumber}`);
 		let isDirty = await this._repository.isDirty();
 		if (isDirty) {

@@ -8,6 +8,7 @@ import { getFileContent, writeTmpFile } from './file';
 import { GitChangeType, RichFileChange } from '../models/file';
 import { Repository } from '../models/repository';
 import { DiffHunk, getDiffChangeType, DiffLine, DiffChangeType } from '../models/diffHunk';
+import { Comment } from '../models/comment';
 
 export const DIFF_HUNK_HEADER = /@@ \-(\d+)(,(\d+))?( \+(\d+)(,(\d+)?))? @@/;
 
@@ -262,3 +263,20 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 	return richFileChanges;
 }
 
+export function parserCommentDiffHunk(comments: any[]): Comment[] {
+	for (let i = 0; i < comments.length; i++) {
+		let diffHunks = [];
+		let diffHunkReader = parseDiffHunk(comments[i].diff_hunk);
+		let diffHunkIter = diffHunkReader.next();
+
+		while (!diffHunkIter.done) {
+			let diffHunk = diffHunkIter.value;
+			diffHunks.push(diffHunk);
+			diffHunkIter = diffHunkReader.next();
+		}
+
+		comments[i].diff_hunks = diffHunks;
+	}
+
+	return comments;
+}

@@ -3,92 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GitHubRef } from './githubRef';
+import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../models/remote';
 import { GitHubRepository } from './githubRepository';
+import { PullRequestStateEnum, IAccount, IPullRequest, IPullRequestModel } from '../common/pullRequest';
 
-export enum PRType {
-	RequestReview = 0,
-	ReviewedByMe = 1,
-	Mine = 2,
-	Mention = 3,
-	All = 4,
-	LocalPullRequest = 5
-}
-
-export enum PullRequestStateEnum {
-	Open,
-	Merged,
-	Closed,
-}
-
-export interface IAccount {
-	login: string;
-	isUser: boolean;
-	isEnterprise: boolean;
-	avatarUrl: string;
-	htmlUrl: string;
-	ownedPrivateRepositoryCount?: number;
-	privateRepositoryInPlanCount?: number;
-}
-
-export interface Repo {
-	label: string;
-	ref: string;
-	repo: any;
-	sha: string;
-}
-
-// This interface is incomplete
-export interface PullRequest {
-	additions: number;
-	assignee: any;
-	assignees: any[];
-	author_association: string;
-	base: Repo;
-	body: string;
-	changed_files: number;
-	closed_at: string;
-	comments: number;
-	commits: number;
-	created_at: string;
-	head: Repo;
-	html_url: string;
-	id: number;
-	labels: any[];
-	locked: boolean;
-	maintainer_can_modify: boolean;
-	merge_commit_sha; boolean;
-	mergable: boolean;
-	number: number;
-	rebaseable: boolean;
-	state: string;
-	title: string;
-	updated_at: string;
-	user: any;
-}
-
-export interface IPullRequestModel {
-	githubRepository: GitHubRepository;
-	prNumber: number;
-	title: string;
-	html_url: string;
-	state: PullRequestStateEnum;
-	commentCount: number;
-	commitCount: number;
-	author: IAccount;
-	assignee: IAccount;
-	createdAt: string;
-	updatedAt: string;
-	isOpen: boolean;
-	isMerged: boolean;
-	head?: GitHubRef;
-	base?: GitHubRef;
-	userAvatar: string;
-	body: string;
-	update(prItem: PullRequest): void;
-	equals(other: IPullRequestModel): boolean;
-}
 
 export class PullRequestModel implements PullRequestModel {
 	public prNumber: number;
@@ -127,11 +46,11 @@ export class PullRequestModel implements PullRequestModel {
 	public head: GitHubRef;
 	public base: GitHubRef;
 
-	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest) {
+	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: IPullRequest) {
 		this.update(prItem);
 	}
 
-	update(prItem: PullRequest): void {
+	update(prItem: IPullRequest): void {
 		this.prNumber = prItem.number;
 		this.title = prItem.title;
 		this.html_url = prItem.html_url;
