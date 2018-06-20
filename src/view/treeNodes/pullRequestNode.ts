@@ -13,7 +13,7 @@ import { parseDiff } from '../../common/diffHunk';
 import { Comment } from '../../common/comment';
 import { toPRUri } from '../../common/uri';
 import { mapHeadLineToDiffHunkPosition, getDiffLineByPosition } from '../../common/diffPositionMapping';
-import { groupBy } from '../../common/util';
+import { groupBy } from '../../common/utils';
 import { DescriptionNode } from './descriptionNode';
 import { ReviewManager } from '../reviewManager';
 import { FileChangeNode } from './fileChangeNode';

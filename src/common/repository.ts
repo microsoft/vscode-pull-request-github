@@ -5,7 +5,7 @@
 
 import { GitProcess } from 'dugite';
 import * as vscode from 'vscode';
-import { anyEvent, filterEvent, isDescendant, uniqBy } from './util';
+import { anyEvent, filterEvent, isDescendant, uniqBy } from './utils';
 import Logger from './logger';
 import { GitError, GitErrorCodes } from './gitError';
 import { Protocol } from './protocol';

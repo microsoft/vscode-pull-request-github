@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { parseDiff } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri } from '../common/uri';
-import { groupBy } from '../common/util';
+import { groupBy } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType } from '../common/file';
 import { GitErrorCodes } from '../common/gitError';
