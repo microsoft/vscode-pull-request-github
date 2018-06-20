@@ -9,6 +9,7 @@ import { PRType, PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
 import { Repository } from '../models/repository';
 import { PRNode } from './prNode';
+import { PULL_REQUEST_PAGE_SIZE } from '../github/githubRepository';
 
 export enum PRGroupActionType {
 	Empty,
@@ -96,7 +97,7 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 			}
 		} else {
 			try {
-				this.prs = this.prs.concat(await this.getNextPRs());
+				this.prs = this.prs.concat(await this.getPRs());
 			} catch (e) {
 				vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
 			}
@@ -105,7 +106,7 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			const hasMorePages = this.type !== PRType.LocalPullRequest && this.repository.githubRepositories.some(repo => repo.hasMorePages.get(this.type));
+			const hasMorePages = this.type !== PRType.LocalPullRequest && this.repository.githubRepositories.some(repo => repo.mayHaveMorePages(this.type));
 
 			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this.repository, prItem));
 			if (hasMorePages) {
@@ -120,21 +121,6 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 
 	getTreeItem(): vscode.TreeItem {
 		return this;
-	}
-
-	async getNextPRs(): Promise<PullRequestModel[]> {
-		let promises = this.repository.githubRepositories.map(async githubRepository => {
-			let remote = githubRepository.remote.remoteName;
-			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
-			if (isRemoteForPR) {
-				return null;
-			}
-			return await githubRepository.getNextPageOfPullRequests(this.type);
-		}).filter(value => value !== null);
-
-		return Promise.all(promises).then(values => {
-			return values.reduce((prev, curr) => prev.concat(curr), []);
-		});
 	}
 
 	async getPRs(): Promise<PullRequestModel[]> {
@@ -155,17 +141,28 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 			return Promise.all(promises);
 		}
 
-		let promises = this.repository.githubRepositories.map(async githubRepository => {
-			let remote = githubRepository.remote.remoteName;
-			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
-			if (isRemoteForPR) {
-				return null;
-			}
-			return await githubRepository.getPullRequests(this.type);
-		}).filter(value => value !== null);
+		let pullRequests: PullRequestModel[] = [];
+		let numPullRequests = 0;
 
-		return Promise.all(promises).then(values => {
-			return values.reduce((prev, curr) => prev.concat(curr), []);
-		});
+		// Limit the number of pull requests that are fetched to less than twice the page size
+		const githubRepositories = this.repository.githubRepositories.filter(repo => repo.mayHaveMorePages(this.type))
+		for (let i = 0; i < githubRepositories.length; i++) {
+			if (numPullRequests >= PULL_REQUEST_PAGE_SIZE) {
+				break;
+			}
+
+			const githubRepository = githubRepositories[i];
+			const remote = githubRepository.remote.remoteName;
+			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
+			if (!isRemoteForPR) {
+				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && githubRepository.mayHaveMorePages(this.type)) {
+					const pullRequestModels = await githubRepository.getPullRequests(this.type);
+					numPullRequests += pullRequestModels.length;
+					pullRequests = pullRequests.concat(...pullRequestModels)
+				}
+			}
+		}
+
+		return pullRequests;
 	}
 }

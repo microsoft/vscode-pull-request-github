@@ -8,6 +8,8 @@ import { PRType, PullRequestModel } from "./pullRequestModel";
 import Logger from "../logger";
 import * as Octokit from '@octokit/rest';
 
+export const PULL_REQUEST_PAGE_SIZE = 30;
+
 export class GitHubRepository {
 	private pullRequestPage: Map<PRType, number> = new Map<PRType, number>();
 	public hasMorePages: Map<PRType, boolean> = new Map<PRType, boolean>();
@@ -24,14 +26,17 @@ export class GitHubRepository {
 
 	private async getAllPullRequests(): Promise<PullRequestModel[]> {
 		try {
+			const currentPage = this.pullRequestPage.get(PRType.All);
 			const result = await this.octokit.pullRequests.getAll({
 				owner: this.remote.owner,
 				repo: this.remote.repositoryName,
-				page: this.pullRequestPage.get(PRType.All)
+				per_page: PULL_REQUEST_PAGE_SIZE,
+				page: currentPage
 			});
 
-			const hasMorePages = result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
+			const hasMorePages = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
 			this.hasMorePages.set(PRType.All, hasMorePages);
+			this.pullRequestPage.set(PRType.All, currentPage + 1);
 
 			return result.data.map(item => {
 				if (!item.head.repo) {
@@ -50,8 +55,11 @@ export class GitHubRepository {
 	private async getPullRequestsForCategory(prType: PRType): Promise<PullRequestModel[]> {
 		try {
 			const user = await this.octokit.users.get({});
+			const currentPage = this.pullRequestPage.get(prType);
 			const { data, headers } = await this.octokit.search.issues({
-				q: this.getPRFetchQuery(this.remote.owner, this.remote.repositoryName, user.data.login, prType)
+				q: this.getPRFetchQuery(this.remote.owner, this.remote.repositoryName, user.data.login, prType),
+				per_page: PULL_REQUEST_PAGE_SIZE,
+				page: currentPage
 			});
 			let promises = [];
 			data.items.forEach(item => {
@@ -65,8 +73,9 @@ export class GitHubRepository {
 				}));
 			});
 
-			const hasMorePages = headers.link && headers.link.indexOf('rel="next"') > -1;
-			this.hasMorePages.set(PRType.All, hasMorePages);
+			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
+			this.hasMorePages.set(prType, hasMorePages);
+			this.pullRequestPage.set(prType, currentPage + 1);
 
 			return Promise.all(promises).then(values => {
 				return values.map(item => {
@@ -84,10 +93,14 @@ export class GitHubRepository {
 		}
 	}
 
-	getNextPageOfPullRequests(prType: PRType): Promise<PullRequestModel[]> {
-		const currentPage = this.pullRequestPage.get(prType);
-		this.pullRequestPage.set(prType, currentPage + 1);
-		return this.getPullRequests(prType);
+	/**
+	 * Returns true if there are more pages of pull requests, or if no pull requests have been fetched for the repository
+	 * so the page status is unknown
+	 * @param prType The category of the PR
+	 */
+	mayHaveMorePages(prType: PRType): boolean {
+		const hasMorePages = this.hasMorePages.get(prType);
+		return hasMorePages === true || hasMorePages === undefined;
 	}
 
 	async getPullRequest(id: number): Promise<PullRequestModel> {
