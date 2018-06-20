@@ -18,7 +18,7 @@ import { PullRequestFileChangesTreeDataProvider } from './prFileChangesTreeDataP
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
 import { FileChangeNode } from './treeNodes/fileChangeNode';
-import Logger from '../logger';
+import Logger from '../common/logger';
 
 
 export class ReviewManager implements vscode.DecorationProvider {

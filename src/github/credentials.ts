@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Configuration } from './configuration';
-import { Remote } from './common/remote';
+import { Configuration } from '../configuration';
+import { Remote } from '../common/remote';
 import { fill } from 'git-credential-node';
 const Octokit = require('@octokit/rest');
 

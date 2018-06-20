@@ -17,7 +17,7 @@ import { groupBy } from '../../common/util';
 import { DescriptionNode } from './descriptionNode';
 import { ReviewManager } from '../reviewManager';
 import { FileChangeNode } from './fileChangeNode';
-import Logger from '../../logger';
+import Logger from '../../common/logger';
 import { RichFileChange } from '../../common/file';
 
 export class PRNode extends TreeNode {

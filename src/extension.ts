@@ -10,9 +10,8 @@ import { Repository } from './common/repository';
 import { Configuration } from './configuration';
 import { Resource } from './common/resources';
 import { ReviewManager } from './view/reviewManager';
-import { CredentialStore } from './credentials';
 import { registerCommands } from './commands';
-import Logger from './logger';
+import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -47,8 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 		Logger.appendLine('Git repository found, initializing review manager and pr tree view.')
 		repositoryInitialized = true;
-		let credentialStore = new CredentialStore(configuration);
-		let prManager = new PullRequestManager(credentialStore, repository);
+		let prManager = new PullRequestManager(configuration, repository);
 		await prManager.initialize();
 		ReviewManager.initialize(context, repository, prManager);
 		PullRequestsTreeDataProvider.initialize(context, configuration, repository, prManager);

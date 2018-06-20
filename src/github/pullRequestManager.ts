@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CredentialStore } from "../credentials";
+import { CredentialStore } from "./credentials";
 import { Comment } from "../common/comment";
 import { Remote } from "../common/remote";
 import { Repository } from "../common/repository";
@@ -13,13 +13,16 @@ import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRT
 import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
+import { Configuration } from "../configuration";
 
 export class PullRequestManager implements IPullRequestManager {
 	public activePullRequest?: IPullRequestModel;
+	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 
-	constructor(private _credentialStore: CredentialStore, private _repository: Repository) {
+	constructor(private _configuration: Configuration, private _repository: Repository) {
 		this._githubRepositories = [];
+		this._credentialStore = new CredentialStore(this._configuration);
 	}
 
 	async initialize(): Promise<void> {
