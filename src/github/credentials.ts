@@ -9,38 +9,38 @@ import { fill } from 'git-credential-node';
 const Octokit = require('@octokit/rest');
 
 export class CredentialStore {
-	private octokits: { [key: string]: any };
-	private configuration: Configuration;
+	private _octokits: { [key: string]: any };
+	private _configuration: Configuration;
 	constructor(configuration: Configuration) {
-		this.configuration = configuration;
-		this.octokits = [];
+		this._configuration = configuration;
+		this._octokits = [];
 	}
 
 	async getOctokit(remote: Remote) {
-		if (this.octokits[remote.url]) {
-			return this.octokits[remote.url];
+		if (this._octokits[remote.url]) {
+			return this._octokits[remote.url];
 		}
 
-		if (this.configuration.host === remote.host && this.configuration.accessToken) {
-			this.octokits[remote.url] = Octokit({});
-			this.octokits[remote.url].authenticate({
+		if (this._configuration.host === remote.host && this._configuration.accessToken) {
+			this._octokits[remote.url] = Octokit({});
+			this._octokits[remote.url].authenticate({
 				type: 'token',
-				token: this.configuration.accessToken
+				token: this._configuration.accessToken
 			});
-			return this.octokits[remote.url];
+			return this._octokits[remote.url];
 		} else {
 			const data = await fill(remote.url);
 			if (!data) {
 				return null;
 			}
-			this.octokits[remote.url] = Octokit({});
-			this.octokits[remote.url].authenticate({
+			this._octokits[remote.url] = Octokit({});
+			this._octokits[remote.url].authenticate({
 				type: 'basic',
 				username: data.username,
 				password: data.password
 			});
 
-			return this.octokits[remote.url];
+			return this._octokits[remote.url];
 		}
 	}
 }

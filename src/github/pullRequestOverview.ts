@@ -14,7 +14,7 @@ export class PullRequestOverviewPanel {
 	 */
 	public static currentPanel: PullRequestOverviewPanel | undefined;
 
-	private static readonly viewType = 'PullRequestOverview';
+	private static readonly _viewType = 'PullRequestOverview';
 
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionPath: string;
@@ -43,7 +43,7 @@ export class PullRequestOverviewPanel {
 		this._pullRequestManager = pullRequestManager;
 
 		// Create and show a new webview panel
-		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, title, column, {
+		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel._viewType, title, column, {
 			// Enable javascript in the webview
 			enableScripts: true,
 
