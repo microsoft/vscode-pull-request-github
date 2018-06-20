@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestModel } from '../github/pullRequestModel';
-
 export enum EventType {
 	Committed,
 	Mentioned,
@@ -139,36 +137,3 @@ export interface CommitEvent {
 }
 
 export type TimelineEvent = CommitEvent | ReviewEvent | SubscribeEvent | CommentEvent | MentionEvent;
-
-export function getEventType(text: string) {
-	switch (text) {
-		case 'committed':
-			return EventType.Committed;
-		case 'mentioned':
-			return EventType.Mentioned;
-		case 'subscribed':
-			return EventType.Subscribed;
-		case 'commented':
-			return EventType.Commented;
-		case 'reviewed':
-			return EventType.Reviewed;
-		default:
-			return EventType.Other;
-	}
-}
-
-export async function parseTimelineEvents(pullRequest: PullRequestModel, events: any[]): Promise<TimelineEvent[]> {
-	events.forEach(event => {
-		let type = getEventType(event.event);
-		event.event = type;
-		return event;
-	});
-
-	await Promise.all(
-		events.filter(event => event.event === EventType.Reviewed)
-			.map(event => pullRequest.getReviewComments(event.id).then(result => {
-				event.comments = result;
-			})));
-
-	return events;
-}

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Protocol } from '../models/protocol';
+import { Protocol } from './protocol';
 
 export class GitHubRef {
 	public repositoryCloneUrl: Protocol;

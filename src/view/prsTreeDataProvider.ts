@@ -6,49 +6,39 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { Configuration } from '../configuration';
-import { PRType } from '../github/pullRequestModel';
-import { Repository } from '../models/repository';
-import { TreeNode } from '../tree/TreeNode';
-import { PRGroupActionNode, PRGroupTreeNode, PRGroupActionType } from '../tree/prGroupNode';
+import { Repository } from '../common/repository';
+import { TreeNode } from './treeNodes/treeNode';
+import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
+import { IPullRequestManager, PRType } from '../github/interface';
 
-export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider {
-	private static _instance: PRProvider;
+export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
+	private _disposables: vscode.Disposable[];
 
-	private constructor(
-		private context: vscode.ExtensionContext,
-		private configuration: Configuration,
-		private repository: Repository
+	constructor(
+		private _configuration: Configuration,
+		private _repository: Repository,
+		private _prManager: IPullRequestManager
 	) {
-		context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('pr', this));
-		context.subscriptions.push(vscode.window.registerDecorationProvider(this));
-		context.subscriptions.push(vscode.commands.registerCommand('pr.refreshList', _ => {
+		this._disposables = [];
+		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', this));
+		this._disposables.push(vscode.window.registerDecorationProvider(this));
+		this._disposables.push(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this._onDidChangeTreeData.fire();
 		}));
 
-		context.subscriptions.push(vscode.commands.registerCommand('pr.loadMore', (node: PRGroupTreeNode) => {
+		this._disposables.push(vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
 			node.fetchNextPage = true;
 			this._onDidChangeTreeData.fire(node);
 		}));
 
-		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<TreeNode>('pr', this));
-		this.context.subscriptions.push(this.configuration.onDidChange(e => {
+		this._disposables.push(vscode.window.registerTreeDataProvider<TreeNode>('pr', this));
+		this._disposables.push(this._configuration.onDidChange(e => {
 			this._onDidChangeTreeData.fire();
 		}));
-	}
-
-	static initialize(
-		context: vscode.ExtensionContext,
-		configuration: Configuration,
-		repository: Repository) {
-		PRProvider._instance = new PRProvider(context, configuration, repository);
-	}
-
-	static get instance() {
-		return PRProvider._instance;
 	}
 
 	getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -58,15 +48,15 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
 			return Promise.resolve([
-				new PRGroupTreeNode(this.repository, PRType.LocalPullRequest),
-				new PRGroupTreeNode(this.repository, PRType.RequestReview),
-				new PRGroupTreeNode(this.repository, PRType.AssignedToMe),
-				new PRGroupTreeNode(this.repository, PRType.Mine),
-				new PRGroupTreeNode(this.repository, PRType.All)
+				new CategoryTreeNode(this._prManager, this._repository, PRType.LocalPullRequest),
+				new CategoryTreeNode(this._prManager, this._repository, PRType.RequestReview),
+				new CategoryTreeNode(this._prManager, this._repository, PRType.AssignedToMe),
+				new CategoryTreeNode(this._prManager, this._repository, PRType.Mine),
+				new CategoryTreeNode(this._prManager, this._repository, PRType.All)
 			]);
 		}
-		if (!this.repository.remotes || !this.repository.remotes.length) {
-			return Promise.resolve([new PRGroupActionNode(PRGroupActionType.Empty)]);
+		if (!this._repository.remotes || !this._repository.remotes.length) {
+			return Promise.resolve([new PRCategoryActionNode(PRCategoryActionType.Empty)]);
 		}
 
 		return element.getChildren();
@@ -94,6 +84,10 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 		} catch (e) {
 			return '';
 		}
+	}
+
+	dispose() {
+		this._disposables.forEach(dispose => dispose.dispose());
 	}
 
 }

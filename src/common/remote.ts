@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Protocol } from './protocol';
+
 export class Remote {
 	public get host(): string {
 		return this.gitProtocol.host;

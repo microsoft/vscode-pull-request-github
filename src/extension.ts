@@ -5,14 +5,13 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { PRProvider } from './prView/prProvider';
-import { Repository } from './models/repository';
+import { Repository } from './common/repository';
 import { Configuration } from './configuration';
 import { Resource } from './common/resources';
-import { ReviewManager } from './review/reviewManager';
-import { CredentialStore } from './credentials';
+import { ReviewManager } from './view/reviewManager';
 import { registerCommands } from './commands';
-import Logger from './logger';
+import Logger from './common/logger';
+import { PullRequestManager } from './github/pullRequestManager';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// initialize resources
@@ -46,10 +45,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 		Logger.appendLine('Git repository found, initializing review manager and pr tree view.')
 		repositoryInitialized = true;
-		let credentialStore = new CredentialStore(configuration);
-		await repository.connectGitHub(credentialStore);
-		ReviewManager.initialize(context, repository);
-		PRProvider.initialize(context, configuration, repository);
-		registerCommands(context);
+		let prManager = new PullRequestManager(configuration, repository);
+		await prManager.initialize();
+		const reviewManager = new ReviewManager(context, configuration, repository, prManager);
+		registerCommands(context, prManager, reviewManager);
 	});
 }
