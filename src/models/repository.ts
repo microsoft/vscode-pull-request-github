@@ -10,7 +10,7 @@ import { uniqBy, anyEvent, filterEvent, isDescendant } from '../common/util';
 import { CredentialStore } from '../credentials';
 import { Protocol } from './protocol';
 import { GitError, GitErrorCodes } from './gitError';
-import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
+import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import Logger from '../logger';
 import { GitHubRepository } from '../github/githubRepository';
 
@@ -87,6 +87,10 @@ export class Repository {
 	}
 
 	async status() {
+		if (!this.path) {
+			return;
+		}
+
 		let HEAD: Branch | undefined;
 
 		try {
@@ -171,6 +175,10 @@ export class Repository {
 	}
 
 	async getHEAD(): Promise<Ref> {
+		if (!this.path) {
+			return undefined;
+		}
+
 		try {
 			const result = await this.run(['symbolic-ref', '--short', 'HEAD']);
 

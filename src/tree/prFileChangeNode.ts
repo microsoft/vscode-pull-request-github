@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './TreeNode';
 import { GitChangeType } from '../models/file';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { IPullRequestModel } from '../github/pullRequestModel';
 import { DiffHunk } from '../models/diffHunk';
 import { Resource } from '../common/resources';
 
@@ -37,7 +37,7 @@ export class PRFileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	constructor(
-		public readonly pullRequest: PullRequestModel,
+		public readonly pullRequest: IPullRequestModel,
 		public readonly label: string,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,

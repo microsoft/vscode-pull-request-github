@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitChangeType } from '../models/file';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { IPullRequestModel } from '../github/pullRequestModel';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
 
 export class Resource {
@@ -76,8 +76,8 @@ export class Resource {
 		};
 	}
 
-	static getGravatarUri(pr: PullRequestModel, size: number = 64): vscode.Uri {
-		let key = pr.getUserGravatar();
+	static getGravatarUri(pr: IPullRequestModel, size: number = 64): vscode.Uri {
+		let key = pr.userAvatar;
 		let gravatar = vscode.Uri.parse(`${key}&s=${size}`);
 
 		// hack, to ensure queries are not wrongly encoded.

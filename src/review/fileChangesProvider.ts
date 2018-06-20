@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Resource } from '../common/resources';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { IPullRequestModel } from '../github/pullRequestModel';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
 import { PRDescriptionNode } from '../tree/prDescNode';
 
@@ -14,13 +14,13 @@ export class FileChangesProvider extends vscode.Disposable implements vscode.Tre
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
 	private _localFileChanges: PRFileChangeNode[] = [];
-	private _pullrequest: PullRequestModel = null;
+	private _pullrequest: IPullRequestModel = null;
 	constructor(private context: vscode.ExtensionContext) {
 		super(() => this.dispose());
 		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<PRFileChangeNode | PRDescriptionNode>('prStatus', this));
 	}
 
-	async showPullRequestFileChanges(pullrequest: PullRequestModel, fileChanges: PRFileChangeNode[]) {
+	async showPullRequestFileChanges(pullrequest: IPullRequestModel, fileChanges: PRFileChangeNode[]) {
 		this._pullrequest = pullrequest;
 		await vscode.commands.executeCommand(
 			'setContext',

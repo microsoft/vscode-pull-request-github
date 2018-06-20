@@ -10,6 +10,7 @@ import { PRType } from '../github/pullRequestModel';
 import { Repository } from '../models/repository';
 import { TreeNode } from '../tree/TreeNode';
 import { PRGroupActionNode, PRGroupTreeNode, PRGroupActionType } from '../tree/prGroupNode';
+import { IPullRequestManager } from '../github/pullRequestManager';
 
 export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider {
 	private static _instance: PRProvider;
@@ -21,7 +22,8 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 	private constructor(
 		private context: vscode.ExtensionContext,
 		private configuration: Configuration,
-		private repository: Repository
+		private repository: Repository,
+		private prManager: IPullRequestManager
 	) {
 		context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('pr', this));
 		context.subscriptions.push(vscode.window.registerDecorationProvider(this));
@@ -37,8 +39,10 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 	static initialize(
 		context: vscode.ExtensionContext,
 		configuration: Configuration,
-		repository: Repository) {
-		PRProvider._instance = new PRProvider(context, configuration, repository);
+		repository: Repository,
+		prManager: IPullRequestManager
+	) {
+		PRProvider._instance = new PRProvider(context, configuration, repository, prManager);
 	}
 
 	static get instance() {
@@ -52,11 +56,11 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
 			return Promise.resolve([
-				new PRGroupTreeNode(this.repository, PRType.LocalPullRequest),
-				new PRGroupTreeNode(this.repository, PRType.RequestReview),
-				new PRGroupTreeNode(this.repository, PRType.ReviewedByMe),
-				new PRGroupTreeNode(this.repository, PRType.Mine),
-				new PRGroupTreeNode(this.repository, PRType.All)
+				new PRGroupTreeNode(this.prManager, this.repository, PRType.LocalPullRequest),
+				new PRGroupTreeNode(this.prManager, this.repository, PRType.RequestReview),
+				new PRGroupTreeNode(this.prManager, this.repository, PRType.ReviewedByMe),
+				new PRGroupTreeNode(this.prManager, this.repository, PRType.Mine),
+				new PRGroupTreeNode(this.prManager, this.repository, PRType.All)
 			]);
 		}
 		if (!this.repository.remotes || !this.repository.remotes.length) {

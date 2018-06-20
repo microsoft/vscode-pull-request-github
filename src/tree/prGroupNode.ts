@@ -5,11 +5,12 @@
 
 import * as vscode from 'vscode';
 import { TreeNode } from './TreeNode';
-import { PRType, PullRequestModel } from '../github/pullRequestModel';
-import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
+import { PRType, IPullRequestModel } from '../github/pullRequestModel';
+import {  } from '../github/pullRequestGitHelper';
 import { Repository } from '../models/repository';
 import { Resource } from '../common/resources';
 import { PRNode } from './prNode';
+import { IPullRequestManager } from '../github/pullRequestManager';
 
 export enum PRGroupActionType {
 	Empty,
@@ -49,19 +50,18 @@ export class PRGroupActionNode extends TreeNode implements vscode.TreeItem {
 export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 	public readonly label: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public prs: PullRequestModel[];
-	public type: PRType;
+	public prs: IPullRequestModel[];
 
 	constructor(
-		private repository: Repository,
-		type: PRType
+		private _prManager: IPullRequestManager,
+		private _repository: Repository,
+		private _type: PRType
 	) {
 		super();
 
 		this.prs = [];
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-		this.type = type;
-		switch (type) {
+		switch (_type) {
 			case PRType.All:
 				this.label = 'All';
 				break;
@@ -83,9 +83,9 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		let prItems = await this.getPRs();
+		let prItems: IPullRequestModel[] = await this._prManager.getPullRequests(this._type);
 		if (prItems && prItems.length) {
-			return prItems.map(prItem => new PRNode(this.repository, prItem));
+			return prItems.map(prItem => new PRNode(this._prManager, this._repository, prItem));
 		} else {
 			return [new PRGroupActionNode(PRGroupActionType.Empty)];
 		}
@@ -93,39 +93,5 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 
 	getTreeItem(): vscode.TreeItem {
 		return this;
-	}
-
-	async getPRs(): Promise<PullRequestModel[]> {
-		if (this.type === PRType.LocalPullRequest) {
-			let infos = await PullRequestGitHelper.getLocalBranchesAssociatedWithPullRequest(this.repository);
-			let promises = infos.map(async info => {
-				let owner = info.owner;
-				let prNumber = info.prNumber;
-				let githubRepo = this.repository.githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
-
-				if (!githubRepo) {
-					return Promise.resolve([]);
-				}
-
-				return [await githubRepo.getPullRequest(prNumber)];
-			});
-
-			return Promise.all(promises).then(values => {
-				return values.reduce((prev, curr) => prev.concat(...curr), []).filter(value => value !== null);
-			});
-		}
-
-		let promises = this.repository.githubRepositories.map(async githubRepository => {
-			let remote = githubRepository.remote.remoteName;
-			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
-			if (isRemoteForPR) {
-				return Promise.resolve([]);
-			}
-			return [await githubRepository.getPullRequests(this.type)];
-		});
-
-		return Promise.all(promises).then(values => {
-			return values.reduce((prev, curr) => prev.concat(...curr), []);
-		});
 	}
 }

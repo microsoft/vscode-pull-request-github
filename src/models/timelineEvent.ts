@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestModel } from '../github/pullRequestModel';
+import { IPullRequestModel } from '../github/pullRequestModel';
+import { IPullRequestManager } from '../github/pullRequestManager';
 
 export enum EventType {
 	Committed,
@@ -157,7 +158,7 @@ export function getEventType(text: string) {
 	}
 }
 
-export async function parseTimelineEvents(pullRequest: PullRequestModel, events: any[]): Promise<TimelineEvent[]> {
+export async function parseTimelineEvents(pullRequestManager: IPullRequestManager, pullRequest: IPullRequestModel, events: any[]): Promise<TimelineEvent[]> {
 	events.forEach(event => {
 		let type = getEventType(event.event);
 		event.event = type;
@@ -166,7 +167,7 @@ export async function parseTimelineEvents(pullRequest: PullRequestModel, events:
 
 	await Promise.all(
 		events.filter(event => event.event === EventType.Reviewed)
-			.map(event => pullRequest.getReviewComments(event.id).then(result => {
+			.map(event => pullRequestManager.getReviewComments(pullRequest, event.id).then(result => {
 				event.comments = result;
 			})));
 

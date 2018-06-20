@@ -7,12 +7,13 @@
 import * as vscode from 'vscode';
 import { PullRequestModel } from './github/pullRequestModel';
 import { ReviewManager } from './review/reviewManager';
-import { PullRequestOverviewPanel } from './common/pullRequestOverview';
+import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri } from './common/uri';
 import { PRFileChangeNode } from './tree/prFileChangeNode';
 import { PRNode } from './tree/prNode';
+import { IPullRequestManager } from './github/pullRequestManager';
 
-export function registerCommands(context: vscode.ExtensionContext) {
+export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager) {
 	// initialize resources
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openInGitHub', (e: PRNode | PRFileChangeNode) => {
 		if (!e) {
@@ -22,7 +23,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
 			return;
 		}
 		if (e instanceof PRNode) {
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.element.html_url));
+			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
 		} else {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 		}
@@ -32,7 +33,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
 		let pullRequestModel;
 
 		if (pr instanceof PRNode) {
-			pullRequestModel = pr.element;
+			pullRequestModel = pr.pullRequestModel;
 		} else {
 			pullRequestModel = pr;
 		}
@@ -48,7 +49,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr: PRNode) => {
 		vscode.window.showWarningMessage(`Are you sure you want to close PR`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
-				let newPR = await pr.element.close();
+				let newPR = await prManager.closePullRequest(pr.pullRequestModel);
 				return newPR;
 			}
 
@@ -58,7 +59,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: PullRequestModel) => {
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, pr);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pr);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: PRFileChangeNode) => {

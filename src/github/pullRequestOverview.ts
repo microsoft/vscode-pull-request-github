@@ -6,8 +6,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PullRequestModel, PullRequest } from '../github/pullRequestModel';
+import { IPullRequestModel, PullRequest } from './pullRequestModel';
 import { ReviewManager } from '../review/reviewManager';
+import { IPullRequestManager } from './pullRequestManager';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -20,9 +21,10 @@ export class PullRequestOverviewPanel {
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionPath: string;
 	private _disposables: vscode.Disposable[] = [];
-	private _pullRequest: PullRequestModel;
+	private _pullRequest: IPullRequestModel;
+	private _pullRequestManager: IPullRequestManager;
 
-	public static createOrShow(extensionPath: string, pullRequestModel: PullRequestModel) {
+	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel) {
 		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
 		const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
@@ -32,14 +34,15 @@ export class PullRequestOverviewPanel {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(column);
 			PullRequestOverviewPanel.currentPanel._panel.title = title;
 		} else {
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, column || vscode.ViewColumn.One, title);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, column || vscode.ViewColumn.One, title, pullRequestManager);
 		}
 
 		PullRequestOverviewPanel.currentPanel.update(pullRequestModel);
 	}
 
-	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string) {
+	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: IPullRequestManager) {
 		this._extensionPath = extensionPath;
+		this._pullRequestManager = pullRequestManager;
 
 		// Create and show a new webview panel
 		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel.viewType, title, column, {
@@ -69,18 +72,18 @@ export class PullRequestOverviewPanel {
 		}, null, this._disposables);
 	}
 
-	public async update(pullRequestModel: PullRequestModel) {
+	public async update(pullRequestModel: IPullRequestModel) {
 		this._pullRequest = pullRequestModel;
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
 		const isCurrentlyCheckedOut = pullRequestModel.equals(ReviewManager.instance.currentPullRequest);
-		const timelineEvents = await pullRequestModel.getTimelineEvents();
+		const timelineEvents = await this._pullRequestManager.getTimelineEvents(pullRequestModel);
 		this._panel.webview.postMessage({
 			command: 'pr.initialize',
 			pullrequest: {
 				number: pullRequestModel.prNumber,
 				title: pullRequestModel.title,
 				url: pullRequestModel.html_url,
-				body: pullRequestModel.prItem.body,
+				body: pullRequestModel.body,
 				author: pullRequestModel.author,
 				state: pullRequestModel.state,
 				events: timelineEvents,
@@ -113,7 +116,7 @@ export class PullRequestOverviewPanel {
 							command: 'pr-update',
 							pullrequest: {
 								title: this._pullRequest.title,
-								body: this._pullRequest.prItem.body,
+								body: this._pullRequest.body,
 								author: this._pullRequest.author,
 								state: this._pullRequest.state,
 							}
@@ -122,7 +125,7 @@ export class PullRequestOverviewPanel {
 				});
 			case 'pr.comment':
 				const text = message.text;
-				this._pullRequest.createIssueComment(text).then(comment => {
+				this._pullRequestManager.createIssueComment(this._pullRequest, text).then(comment => {
 					this._panel.webview.postMessage({
 						command: 'append-comment',
 						value: comment

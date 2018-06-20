@@ -8,7 +8,7 @@
  */
 
 import { Repository } from '../models/repository';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestModel } from './pullRequestModel';
 import { Protocol } from '../models/protocol';
 import { Remote } from '../models/remote';
 import Logger from '../logger';

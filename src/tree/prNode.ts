@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../models/repository';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { IPullRequestModel } from '../github/pullRequestModel';
 import { TreeNode } from './TreeNode';
 import { Resource } from '../common/resources';
 import { parseDiff } from '../common/diff';
@@ -19,29 +19,31 @@ import { ReviewManager } from '../review/reviewManager';
 import { PRFileChangeNode } from './prFileChangeNode';
 import Logger from '../logger';
 import { RichFileChange } from '../models/file';
+import { IPullRequestManager } from '../github/pullRequestManager';
 
 export class PRNode extends TreeNode {
 	private richContentChanges: RichFileChange[];
 	private commentsCache: Map<String, Comment[]>;
 
 	constructor(
+		private _prManager: IPullRequestManager,
 		private repository: Repository,
-		public element: PullRequestModel
+		public pullRequestModel: IPullRequestModel
 	) {
 		super();
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
 		try {
-			const comments = await this.element.getComments();
-			const data = await this.element.getFiles();
-			await this.element.fetchBaseCommitSha();
-			this.richContentChanges = await parseDiff(data, this.repository, this.element.base.sha);
+			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
+			const data = await this._prManager.getPullRequestChagnedFiles(this.pullRequestModel);
+			await this._prManager.fullfillPullRequestCommitInfo(this.pullRequestModel);
+			this.richContentChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
 			this.commentsCache = new Map<String, Comment[]>();
 			let fileChanges = this.richContentChanges.map(change => {
 				let fileInRepo = path.resolve(this.repository.path, change.fileName);
 				let changedItem = new PRFileChangeNode(
-					this.element,
+					this.pullRequestModel,
 					change.fileName,
 					change.status,
 					change.fileName,
@@ -67,20 +69,20 @@ export class PRNode extends TreeNode {
 			return [new PRDescriptionNode('Description', {
 				light: Resource.icons.light.Description,
 				dark: Resource.icons.dark.Description
-			}, this.element), ...fileChanges];
+			}, this.pullRequestModel), ...fileChanges];
 		} catch (e) {
 			Logger.appendLine(e);
 		}
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		let currentBranchIsForThisPR = this.element.equals(ReviewManager.instance.currentPullRequest);
+		let currentBranchIsForThisPR = this.pullRequestModel.equals(ReviewManager.instance.currentPullRequest);
 		return {
-			label: (currentBranchIsForThisPR ? ' * ' : '') + this.element.title,
-			tooltip: (currentBranchIsForThisPR ? 'Current Branch * ' : '') + this.element.title,
+			label: (currentBranchIsForThisPR ? ' * ' : '') + this.pullRequestModel.title,
+			tooltip: (currentBranchIsForThisPR ? 'Current Branch * ' : '') + this.pullRequestModel.title,
 			collapsibleState: 1,
 			contextValue: 'pullrequest' + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
-			iconPath: Resource.getGravatarUri(this.element)
+			iconPath: Resource.getGravatarUri(this.pullRequestModel)
 		};
 	}
 
@@ -102,7 +104,7 @@ export class PRNode extends TreeNode {
 		}
 
 		// there is no thread Id, which means it's a new thread
-		let ret = await this.element.createComment(text, params.fileName, position);
+		let ret = await this._prManager.createComment(this.pullRequestModel, text, params.fileName, position);
 		let comment: vscode.Comment = {
 			commentId: ret.data.id,
 			body: new vscode.MarkdownString(ret.data.body),
@@ -122,7 +124,7 @@ export class PRNode extends TreeNode {
 
 	private async replyToCommentThread(_document: vscode.TextDocument, _range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
-			let ret = await this.element.createCommentReply(text, thread.threadId);
+			let ret = await this._prManager.createCommentReply(this.pullRequestModel, text, thread.threadId);
 			thread.comments.push({
 				commentId: ret.data.id,
 				body: new vscode.MarkdownString(ret.data.body),

@@ -24,7 +24,7 @@ export class GitHubRepository {
 					Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 					return null;
 				}
-				return new PullRequestModel(this.octokit, this.remote, item);
+				return new PullRequestModel(this, this.remote, item);
 			}).filter(item => item !== null);
 		} else {
 			const user = await this.octokit.users.get({});
@@ -50,7 +50,7 @@ export class GitHubRepository {
 						Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 						return null;
 					}
-					return new PullRequestModel(this.octokit, this.remote, item.data);
+					return new PullRequestModel(this, this.remote, item.data);
 				}).filter(item => item !== null);
 			});
 		}
@@ -69,7 +69,7 @@ export class GitHubRepository {
 				return null;
 			}
 
-			return new PullRequestModel(this.octokit, this.remote, data);
+			return new PullRequestModel(this, this.remote, data);
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return null;

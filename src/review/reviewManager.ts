@@ -7,19 +7,20 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { parseDiff } from '../common/diff';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew } from '../common/diffPositionMapping';
-import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
+import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy } from '../common/util';
 import { Comment } from '../models/comment';
 import { GitChangeType } from '../models/file';
 import { GitErrorCodes } from '../models/gitError';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestModel, IPullRequestModel } from '../github/pullRequestModel';
 import { Repository } from '../models/repository';
 import { FileChangesProvider } from './fileChangesProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../models/diffHunk';
 import { PRFileChangeNode } from '../tree/prFileChangeNode';
 import Logger from '../logger';
+import { IPullRequestManager } from '../github/pullRequestManager';
 
 
 export class ReviewManager implements vscode.DecorationProvider {
@@ -39,11 +40,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _prFileChangesProvider: FileChangesProvider;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber: number;
-	private _pr: PullRequestModel;
+	private _pr: IPullRequestModel;
 
 	private constructor(
 		private _context: vscode.ExtensionContext,
-		private _repository: Repository
+		private _repository: Repository,
+		private _prManager: IPullRequestManager
 	) {
 		this._documentCommentProvider = null;
 		this._workspaceCommentProvider = null;
@@ -66,9 +68,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	static initialize(
 		_context: vscode.ExtensionContext,
-		_repository: Repository
+		_repository: Repository,
+		_prManager: IPullRequestManager
 	) {
-		ReviewManager._instance = new ReviewManager(_context, _repository);
+		ReviewManager._instance = new ReviewManager(_context, _repository, _prManager);
 	}
 
 	static get instance() {
@@ -92,7 +95,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return this._statusBarItem;
 	}
 
-	get currentPullRequest(): PullRequestModel {
+	get currentPullRequest(): IPullRequestModel {
 		return this._pr;
 	}
 
@@ -137,15 +140,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		const owner = matchingPullRequestMetadata.owner.toLowerCase();
 		const repositoryName = matchingPullRequestMetadata.repositoryName.toLowerCase();
-		const githubRepo = this._repository.githubRepositories.find(repo =>
-			repo.remote.owner.toLowerCase() === owner && repo.remote.repositoryName.toLowerCase() === repositoryName
-		);
-
-		if (!githubRepo) {
-			return; // todo, should show warning
-		}
-
-		const pr = await githubRepo.getPullRequest(this._prNumber);
+		const pr = await this._prManager.resolvePullRequest(owner, repositoryName, this._prNumber);
 		if (!pr) {
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
@@ -171,7 +166,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private async replyToCommentThread(document: vscode.TextDocument, range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
-			let ret = await this._pr.createCommentReply(text, thread.threadId);
+			let ret = await this._prManager.createCommentReply(this._pr, text, thread.threadId);
 			thread.comments.push({
 				commentId: ret.data.id,
 				body: new vscode.MarkdownString(ret.data.body),
@@ -183,6 +178,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return null;
 		}
 	}
+
 	private async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string) {
 		try {
 			let uri = document.uri;
@@ -212,7 +208,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 
 				// there is no thread Id, which means it's a new thread
-				let ret = await this._pr.createComment(text, matchedFile.fileName, position);
+				let ret = await this._prManager.createComment(this._pr, text, matchedFile.fileName, position);
 
 				let comment = {
 					commentId: ret.data.id,
@@ -269,7 +265,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 		}
 
-		const comments = await pr.getComments();
+		const comments = await this._prManager.getPullRequestComments(this._pr);
 
 		let added: vscode.CommentThread[] = [];
 		let removed: vscode.CommentThread[] = [];
@@ -335,14 +331,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return Promise.resolve(null);
 	}
 
-	private async getPullRequestData(pr: PullRequestModel): Promise<void> {
+	private async getPullRequestData(pr: IPullRequestModel): Promise<void> {
 		try {
-			this._comments = await pr.getComments();
+			this._comments = await this._prManager.getPullRequestComments(pr);
 			let activeComments = this._comments.filter(comment => comment.position);
 			let outdatedComments = this._comments.filter(comment => !comment.position);
 
-			const data = await pr.getFiles();
-			await pr.fetchBaseCommitSha();
+			const data = await this._prManager.getPullRequestChagnedFiles(pr);
+			await this._prManager.fullfillPullRequestCommitInfo(pr);
 			let baseSha = pr.base.sha;
 			let headSha = pr.head.sha;
 			const richContentChanges = await parseDiff(data, this._repository, baseSha);
@@ -353,8 +349,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.prItem.head.sha, { base: false }),
-					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.prItem.base.sha, { base: true }),
+					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.head.sha, { base: false }),
+					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.base.sha, { base: true }),
 					this._repository.path,
 					change.diffHunks
 				);
