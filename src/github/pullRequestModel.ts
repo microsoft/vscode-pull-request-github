@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
@@ -31,6 +32,22 @@ export class PullRequestModel implements PullRequestModel {
 	public get userAvatar(): string {
 		if (this.prItem) {
 			return this.prItem.user.avatar_url;
+		}
+
+		return null;
+	}
+	public get userAvatarUri(): vscode.Uri {
+		if (this.prItem) {
+			let key = this.userAvatar;
+			let gravatar = vscode.Uri.parse(`${key}&s=${64}`);
+
+			// hack, to ensure queries are not wrongly encoded.
+			const originalToStringFn = gravatar.toString;
+			gravatar.toString = function (skipEncoding?: boolean | undefined) {
+				return originalToStringFn.call(gravatar, true);
+			};
+
+			return gravatar;
 		}
 
 		return null;

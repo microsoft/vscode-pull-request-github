@@ -83,36 +83,6 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 	}
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel> {
-		const githubRepo = this._githubRepositories.find(repo =>
-			repo.remote.owner.toLowerCase() === owner && repo.remote.repositoryName.toLowerCase() === repositoryName
-		);
-
-		if (!githubRepo) {
-			return null;
-		}
-
-		const pr = await githubRepo.getPullRequest(pullReuqestNumber);
-		return pr;
-	}
-
-	async getMatchingPullRequestMetadataForBranch() {
-		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
-		return matchingPullRequestMetadata;
-	}
-
-	async getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel) {
-		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, this._githubRepositories,pullRequest);
-	}
-
-	async checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.checkout(this._repository, remote, branchName, pullRequest);
-	}
-
-	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.createAndCheckout(this._repository, pullRequest);
-	}
-
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
 		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
@@ -269,6 +239,40 @@ export class PullRequestManager implements IPullRequestManager {
 			pullRequest.update(data);
 		}
 	}
+
+	//#region Git related APIs
+
+	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel> {
+		const githubRepo = this._githubRepositories.find(repo =>
+			repo.remote.owner.toLowerCase() === owner && repo.remote.repositoryName.toLowerCase() === repositoryName
+		);
+
+		if (!githubRepo) {
+			return null;
+		}
+
+		const pr = await githubRepo.getPullRequest(pullReuqestNumber);
+		return pr;
+	}
+
+	async getMatchingPullRequestMetadataForBranch() {
+		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
+		return matchingPullRequestMetadata;
+	}
+
+	async getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel) {
+		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, this._githubRepositories,pullRequest);
+	}
+
+	async checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
+		await PullRequestGitHelper.checkout(this._repository, remote, branchName, pullRequest);
+	}
+
+	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
+		await PullRequestGitHelper.createAndCheckout(this._repository, pullRequest);
+	}
+
+	//#endregion
 }
 
 export function getEventType(text: string) {

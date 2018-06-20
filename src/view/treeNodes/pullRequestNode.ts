@@ -81,7 +81,7 @@ export class PRNode extends TreeNode {
 			tooltip: (currentBranchIsForThisPR ? 'Current Branch * ' : '') + this.pullRequestModel.title,
 			collapsibleState: 1,
 			contextValue: 'pullrequest' + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
-			iconPath: Resource.getGravatarUri(this.pullRequestModel)
+			iconPath: this.pullRequestModel.userAvatarUri
 		};
 	}
 

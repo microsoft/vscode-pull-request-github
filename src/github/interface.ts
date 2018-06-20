@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { GitHubRef } from "../common/githubRef";
 import { Comment } from "../common/comment";
 import { TimelineEvent } from "../common/timelineEvent";
@@ -81,6 +82,7 @@ export interface IPullRequestModel {
 	head?: GitHubRef;
 	base?: GitHubRef;
 	userAvatar: string;
+	userAvatarUri: vscode.Uri;
 	body: string;
 	update(prItem: IPullRequest): void;
 	equals(other: IPullRequestModel): boolean;
@@ -94,11 +96,6 @@ export interface IPullRequestsPagingOptions {
 export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<IPullRequestModel[]>;
-	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
-	getMatchingPullRequestMetadataForBranch();
-	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
-	checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
-	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
@@ -109,4 +106,15 @@ export interface IPullRequestManager {
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	getPullRequestChagnedFiles(pullRequest: IPullRequestModel): Promise<any>;
 	fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void>;
+
+	/**
+	 * git related APIs
+	 */
+
+	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
+	getMatchingPullRequestMetadataForBranch();
+	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
+	checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
+	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
+
 }
