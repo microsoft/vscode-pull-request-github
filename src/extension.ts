@@ -5,7 +5,6 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { Repository } from './common/repository';
 import { Configuration } from './configuration';
 import { Resource } from './common/resources';
@@ -48,8 +47,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		repositoryInitialized = true;
 		let prManager = new PullRequestManager(configuration, repository);
 		await prManager.initialize();
-		ReviewManager.initialize(context, repository, prManager);
-		PullRequestsTreeDataProvider.initialize(context, configuration, repository, prManager);
-		registerCommands(context, prManager);
+		ReviewManager.initialize(context, configuration, repository, prManager);
+		registerCommands(context, prManager, ReviewManager.instance);
 	});
 }

@@ -19,6 +19,8 @@ import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
 import { FileChangeNode } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
+import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
+import { Configuration } from '../configuration';
 
 
 export class ReviewManager implements vscode.DecorationProvider {
@@ -35,6 +37,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
+	private _prsTreeDataProvider: PullRequestsTreeDataProvider;
 	private _prFileChangesProvider: PullRequestFileChangesTreeDataProvider;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber: number;
@@ -42,6 +45,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private constructor(
 		private _context: vscode.ExtensionContext,
+		private _configuration: Configuration,
 		private _repository: Repository,
 		private _prManager: IPullRequestManager
 	) {
@@ -59,6 +63,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			// todo, validate state only when state changes.
 			this.validateState();
 		}));
+		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager);
+		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 		this.validateState();
 		this.pollForStatusChange();
@@ -66,10 +72,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	static initialize(
 		_context: vscode.ExtensionContext,
+		_configuration: Configuration,
 		_repository: Repository,
 		_prManager: IPullRequestManager
 	) {
-		ReviewManager._instance = new ReviewManager(_context, _repository, _prManager);
+		ReviewManager._instance = new ReviewManager(_context, _configuration, _repository, _prManager);
 	}
 
 	static get instance() {

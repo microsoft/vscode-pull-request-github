@@ -11,41 +11,28 @@ import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType } from '../github/interface';
 
-export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider {
-	private static _instance: PullRequestsTreeDataProvider;
+export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
+	private _disposables: vscode.Disposable[];
 
-	private constructor(
-		private context: vscode.ExtensionContext,
+	constructor(
 		private configuration: Configuration,
 		private repository: Repository,
 		private prManager: IPullRequestManager
 	) {
-		context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('pr', this));
-		context.subscriptions.push(vscode.window.registerDecorationProvider(this));
-		context.subscriptions.push(vscode.commands.registerCommand('pr.refreshList', _ => {
+		this._disposables = [];
+		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', this));
+		this._disposables.push(vscode.window.registerDecorationProvider(this));
+		this._disposables.push(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this._onDidChangeTreeData.fire();
 		}));
-		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<TreeNode>('pr', this));
-		this.context.subscriptions.push(this.configuration.onDidChange(e => {
+		this._disposables.push(vscode.window.registerTreeDataProvider<TreeNode>('pr', this));
+		this._disposables.push(this.configuration.onDidChange(e => {
 			this._onDidChangeTreeData.fire();
 		}));
-	}
-
-	static initialize(
-		context: vscode.ExtensionContext,
-		configuration: Configuration,
-		repository: Repository,
-		prManager: IPullRequestManager
-	) {
-		PullRequestsTreeDataProvider._instance = new PullRequestsTreeDataProvider(context, configuration, repository, prManager);
-	}
-
-	static get instance() {
-		return PullRequestsTreeDataProvider._instance;
 	}
 
 	getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -91,6 +78,10 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		} catch (e) {
 			return '';
 		}
+	}
+
+	dispose() {
+		this._disposables.forEach(dispose => dispose.dispose());
 	}
 
 }

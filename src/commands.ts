@@ -12,12 +12,12 @@ import { FileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { IPullRequestManager, IPullRequestModel } from './github/interface';
 
-export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager) {
+export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager, reviewManager: ReviewManager) {
 	// initialize resources
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openInGitHub', (e: PRNode | FileChangeNode) => {
 		if (!e) {
-			if (ReviewManager.instance.currentPullRequest) {
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(ReviewManager.instance.currentPullRequest.html_url));
+			if (reviewManager.currentPullRequest) {
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(reviewManager.currentPullRequest.html_url));
 			}
 			return;
 		}
@@ -41,7 +41,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 			location: vscode.ProgressLocation.SourceControl,
 			title: `Switching to Pull Request #${pullRequestModel.prNumber}`,
 		}, async (progress, token) => {
-			await ReviewManager.instance.switch(pullRequestModel);
+			await reviewManager.switch(pullRequestModel);
 		});
 	}));
 
