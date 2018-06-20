@@ -5,22 +5,22 @@
 
 import * as vscode from 'vscode';
 import { Resource } from '../common/resources';
-import { IPullRequestModel } from '../common/pullRequest';
-import { PRFileChangeNode } from '../tree/prFileChangeNode';
-import { PRDescriptionNode } from '../tree/prDescNode';
+import { IPullRequestModel } from '../github/interface';
+import { FileChangeNode } from './treeNodes/fileChangeNode';
+import { DescriptionNode } from './treeNodes/descriptionNode';
 
-export class FileChangesProvider extends vscode.Disposable implements vscode.TreeDataProvider<PRFileChangeNode | PRDescriptionNode> {
-	private _onDidChangeTreeData = new vscode.EventEmitter<PRFileChangeNode | PRDescriptionNode>();
+export class FileChangesProvider extends vscode.Disposable implements vscode.TreeDataProvider<FileChangeNode | DescriptionNode> {
+	private _onDidChangeTreeData = new vscode.EventEmitter<FileChangeNode | DescriptionNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-	private _localFileChanges: PRFileChangeNode[] = [];
+	private _localFileChanges: FileChangeNode[] = [];
 	private _pullrequest: IPullRequestModel = null;
 	constructor(private context: vscode.ExtensionContext) {
 		super(() => this.dispose());
-		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<PRFileChangeNode | PRDescriptionNode>('prStatus', this));
+		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<FileChangeNode | DescriptionNode>('prStatus', this));
 	}
 
-	async showPullRequestFileChanges(pullrequest: IPullRequestModel, fileChanges: PRFileChangeNode[]) {
+	async showPullRequestFileChanges(pullrequest: IPullRequestModel, fileChanges: FileChangeNode[]) {
 		this._pullrequest = pullrequest;
 		await vscode.commands.executeCommand(
 			'setContext',
@@ -39,8 +39,8 @@ export class FileChangesProvider extends vscode.Disposable implements vscode.Tre
 		);
 	}
 
-	getTreeItem(element: PRFileChangeNode | PRDescriptionNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
-		if (element instanceof PRDescriptionNode) {
+	getTreeItem(element: FileChangeNode | DescriptionNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
+		if (element instanceof DescriptionNode) {
 			return element;
 		}
 
@@ -53,9 +53,9 @@ export class FileChangesProvider extends vscode.Disposable implements vscode.Tre
 		return element;
 	}
 
-	getChildren(element?: PRFileChangeNode): vscode.ProviderResult<(PRFileChangeNode | PRDescriptionNode)[]> {
+	getChildren(element?: FileChangeNode): vscode.ProviderResult<(FileChangeNode | DescriptionNode)[]> {
 		if (!element) {
-			return [new PRDescriptionNode('Description', {
+			return [new DescriptionNode('Description', {
 				light: Resource.icons.light.Description,
 				dark: Resource.icons.dark.Description
 			}, this._pullrequest), ...this._localFileChanges];

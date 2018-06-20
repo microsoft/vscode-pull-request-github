@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode } from './TreeNode';
-import { GitChangeType } from '../models/file';
-import { IPullRequestModel } from '../common/pullRequest';
-import { DiffHunk } from '../models/diffHunk';
-import { Resource } from '../common/resources';
+import { TreeNode } from './treeNode';
+import { GitChangeType } from '../../models/file';
+import { IPullRequestModel } from '../../github/interface';
+import { DiffHunk } from '../../models/diffHunk';
+import { Resource } from '../../common/resources';
 
-export class PRFileChangeNode extends TreeNode implements vscode.TreeItem {
+export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
 	public resourceUri: vscode.Uri;
 	public sha: string;

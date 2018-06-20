@@ -5,17 +5,16 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { PullRequestModel } from './github/pullRequestModel';
-import { ReviewManager } from './review/reviewManager';
+import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri } from './common/uri';
-import { PRFileChangeNode } from './tree/prFileChangeNode';
-import { PRNode } from './tree/prNode';
-import { IPullRequestManager } from './common/pullRequest';
+import { FileChangeNode } from './view/treeNodes/fileChangeNode';
+import { PRNode } from './view/treeNodes/pullRequestNode';
+import { IPullRequestManager, IPullRequestModel } from './github/interface';
 
 export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager) {
 	// initialize resources
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openInGitHub', (e: PRNode | PRFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openInGitHub', (e: PRNode | FileChangeNode) => {
 		if (!e) {
 			if (ReviewManager.instance.currentPullRequest) {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(ReviewManager.instance.currentPullRequest.html_url));
@@ -29,7 +28,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | IPullRequestModel) => {
 		let pullRequestModel;
 
 		if (pr instanceof PRNode) {
@@ -57,12 +56,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: IPullRequestModel) => {
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pr);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: PRFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: FileChangeNode) => {
 		// Show the file change in a diff view.
 		let { path, ref, commit } = fromReviewUri(fileChange.filePath);
 		let previousCommit = `${commit}^`;

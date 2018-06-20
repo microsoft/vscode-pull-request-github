@@ -5,11 +5,11 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { PRProvider } from './prView/prProvider';
+import { PRProvider } from './view/prProvider';
 import { Repository } from './models/repository';
 import { Configuration } from './configuration';
 import { Resource } from './common/resources';
-import { ReviewManager } from './review/reviewManager';
+import { ReviewManager } from './view/reviewManager';
 import { CredentialStore } from './credentials';
 import { registerCommands } from './commands';
 import Logger from './logger';

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IPullRequestModel, IPullRequestManager } from '../common/pullRequest';
+import { IPullRequestModel, IPullRequestManager } from '../github/interface';
 
 export enum EventType {
 	Committed,

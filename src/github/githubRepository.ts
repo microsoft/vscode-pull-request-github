@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Remote } from "../models/remote";
-import { PRType } from "../common/pullRequest";
+import { PRType } from "./interface";
 import Logger from "../logger";
 import * as Octokit from '@octokit/rest';
 import { PullRequestModel } from "./pullRequestModel";

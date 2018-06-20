@@ -4,31 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode } from './TreeNode';
-import { IPullRequestModel, IPullRequestManager, PRType } from '../common/pullRequest';
-import { Repository } from '../models/repository';
-import { Resource } from '../common/resources';
-import { PRNode } from './prNode';
+import { TreeNode } from './treeNode';
+import { IPullRequestModel, IPullRequestManager, PRType } from '../../github/interface';
+import { Repository } from '../../models/repository';
+import { Resource } from '../../common/resources';
+import { PRNode } from './pullRequestNode';
 
-export enum PRGroupActionType {
+export enum PRCategoryActionType {
 	Empty,
 	More
 }
 
-export class PRGroupActionNode extends TreeNode implements vscode.TreeItem {
+export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 	public readonly label: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
-	public type: PRGroupActionType;
-	constructor(type: PRGroupActionType) {
+	public type: PRCategoryActionType;
+	constructor(type: PRCategoryActionType) {
 		super();
 		this.type = type;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
 		switch (type) {
-			case PRGroupActionType.Empty:
+			case PRCategoryActionType.Empty:
 				this.label = '0 pull request in this category';
 				break;
-			case PRGroupActionType.More:
+			case PRCategoryActionType.More:
 				this.label = 'Load more';
 				this.iconPath = {
 					light: Resource.icons.light.fold,
@@ -45,7 +45,7 @@ export class PRGroupActionNode extends TreeNode implements vscode.TreeItem {
 	}
 }
 
-export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
+export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public readonly label: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public prs: IPullRequestModel[];
@@ -85,7 +85,7 @@ export class PRGroupTreeNode extends TreeNode implements vscode.TreeItem {
 		if (prItems && prItems.length) {
 			return prItems.map(prItem => new PRNode(this._prManager, this._repository, prItem));
 		} else {
-			return [new PRGroupActionNode(PRGroupActionType.Empty)];
+			return [new PRCategoryActionNode(PRCategoryActionType.Empty)];
 		}
 	}
 

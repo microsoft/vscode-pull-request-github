@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode } from './TreeNode';
-import { IPullRequestModel } from '../common/pullRequest';
+import { TreeNode } from './treeNode';
+import { IPullRequestModel } from '../../github/interface';
 
-export class PRDescriptionNode extends TreeNode implements vscode.TreeItem {
+export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;
 
 	constructor(public label: string, public iconPath: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri }, public prModel: IPullRequestModel) {

@@ -11,7 +11,7 @@ import { Repository } from '../models/repository';
 import { Protocol } from '../models/protocol';
 import { Remote } from '../models/remote';
 import Logger from '../logger';
-import { IPullRequestModel } from '../common/pullRequest';
+import { IPullRequestModel } from './interface';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';

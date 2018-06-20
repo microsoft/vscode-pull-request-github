@@ -5,20 +5,20 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Repository } from '../models/repository';
-import { IPullRequestModel, IPullRequestManager } from '../common/pullRequest';
-import { TreeNode } from './TreeNode';
-import { Resource } from '../common/resources';
-import { parseDiff } from '../common/diff';
-import { Comment } from '../models/comment';
-import { toPRUri } from '../common/uri';
-import { mapHeadLineToDiffHunkPosition, getDiffLineByPosition } from '../common/diffPositionMapping';
-import { groupBy } from '../common/util';
-import { PRDescriptionNode } from './prDescNode';
-import { ReviewManager } from '../review/reviewManager';
-import { PRFileChangeNode } from './prFileChangeNode';
-import Logger from '../logger';
-import { RichFileChange } from '../models/file';
+import { Repository } from '../../models/repository';
+import { IPullRequestModel, IPullRequestManager } from '../../github/interface';
+import { TreeNode } from './treeNode';
+import { Resource } from '../../common/resources';
+import { parseDiff } from '../../common/diff';
+import { Comment } from '../../models/comment';
+import { toPRUri } from '../../common/uri';
+import { mapHeadLineToDiffHunkPosition, getDiffLineByPosition } from '../../common/diffPositionMapping';
+import { groupBy } from '../../common/util';
+import { DescriptionNode } from './descriptionNode';
+import { ReviewManager } from '../reviewManager';
+import { FileChangeNode } from './fileChangeNode';
+import Logger from '../../logger';
+import { RichFileChange } from '../../models/file';
 
 export class PRNode extends TreeNode {
 	private richContentChanges: RichFileChange[];
@@ -41,7 +41,7 @@ export class PRNode extends TreeNode {
 			this.commentsCache = new Map<String, Comment[]>();
 			let fileChanges = this.richContentChanges.map(change => {
 				let fileInRepo = path.resolve(this.repository.path, change.fileName);
-				let changedItem = new PRFileChangeNode(
+				let changedItem = new FileChangeNode(
 					this.pullRequestModel,
 					change.fileName,
 					change.status,
@@ -65,7 +65,7 @@ export class PRNode extends TreeNode {
 				replyToCommentThread: this.replyToCommentThread.bind(this)
 			});
 
-			return [new PRDescriptionNode('Description', {
+			return [new DescriptionNode('Description', {
 				light: Resource.icons.light.Description,
 				dark: Resource.icons.dark.Description
 			}, this.pullRequestModel), ...fileChanges];

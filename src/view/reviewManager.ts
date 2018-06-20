@@ -12,12 +12,12 @@ import { groupBy } from '../common/util';
 import { Comment } from '../models/comment';
 import { GitChangeType } from '../models/file';
 import { GitErrorCodes } from '../models/gitError';
-import { IPullRequestModel, IPullRequestManager } from '../common/pullRequest';
+import { IPullRequestModel, IPullRequestManager } from '../github/interface';
 import { Repository } from '../models/repository';
 import { FileChangesProvider } from './prFileChangesProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../models/diffHunk';
-import { PRFileChangeNode } from '../tree/prFileChangeNode';
+import { FileChangeNode } from './treeNodes/fileChangeNode';
 import Logger from '../logger';
 
 
@@ -28,8 +28,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _disposables: vscode.Disposable[];
 
 	private _comments: Comment[] = [];
-	private _localFileChanges: PRFileChangeNode[] = [];
-	private _obsoleteFileChanges: PRFileChangeNode[] = [];
+	private _localFileChanges: FileChangeNode[] = [];
+	private _obsoleteFileChanges: FileChangeNode[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
 
@@ -334,7 +334,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let headSha = pr.head.sha;
 			const richContentChanges = await parseDiff(data, this._repository, baseSha);
 			this._localFileChanges = richContentChanges.map(change => {
-				let changedItem = new PRFileChangeNode(
+				let changedItem = new FileChangeNode(
 					pr,
 					change.fileName,
 					change.status,
@@ -357,7 +357,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				let commentsForFile = groupBy(commentsForCommit, comment => comment.path);
 				for (let fileName in commentsForFile) {
 					let oldComments = commentsForFile[fileName];
-					let obsoleteFileChange = new PRFileChangeNode(
+					let obsoleteFileChange = new FileChangeNode(
 						pr,
 						fileName,
 						GitChangeType.MODIFY,
@@ -383,7 +383,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	}
 
-	private outdatedCommentsToCommentThreads(fileChange: PRFileChangeNode, comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState = vscode.CommentThreadCollapsibleState.Expanded): vscode.CommentThread[] {
+	private outdatedCommentsToCommentThreads(fileChange: FileChangeNode, comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState = vscode.CommentThreadCollapsibleState.Expanded): vscode.CommentThread[] {
 		if (!comments || !comments.length) {
 			return [];
 		}
@@ -645,7 +645,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private findMatchedFileChange(fileChanges: PRFileChangeNode[], uri: vscode.Uri) {
+	private findMatchedFileChange(fileChanges: FileChangeNode[], uri: vscode.Uri) {
 		let query = JSON.parse(uri.query);
 		let matchedFiles = fileChanges.filter(fileChange => {
 			if (fileChange.fileName !== query.path) {

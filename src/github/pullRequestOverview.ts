@@ -6,9 +6,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IPullRequestModel, IPullRequest } from '../common/pullRequest';
-import { ReviewManager } from '../review/reviewManager';
-import { IPullRequestManager } from '../common/pullRequest';
+import { IPullRequestModel, IPullRequest } from './interface';
+import { ReviewManager } from '../view/reviewManager';
+import { IPullRequestManager } from './interface';
 
 export class PullRequestOverviewPanel {
 	/**

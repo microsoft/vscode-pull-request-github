@@ -1,4 +1,4 @@
-import { GitHubRef } from "./githubRef";
+import { GitHubRef } from "../common/githubRef";
 import { Comment } from "../models/comment";
 import { TimelineEvent } from "../models/timelineEvent";
 import { Remote } from "../models/remote";

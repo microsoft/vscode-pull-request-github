@@ -7,9 +7,9 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { Configuration } from '../configuration';
 import { Repository } from '../models/repository';
-import { TreeNode } from '../tree/TreeNode';
-import { PRGroupActionNode, PRGroupTreeNode, PRGroupActionType } from '../tree/prGroupNode';
-import { IPullRequestManager, PRType } from '../common/pullRequest';
+import { TreeNode } from './treeNodes/treeNode';
+import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
+import { IPullRequestManager, PRType } from '../github/interface';
 
 export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider {
 	private static _instance: PRProvider;
@@ -55,15 +55,15 @@ export class PRProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Tex
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
 			return Promise.resolve([
-				new PRGroupTreeNode(this.prManager, this.repository, PRType.LocalPullRequest),
-				new PRGroupTreeNode(this.prManager, this.repository, PRType.RequestReview),
-				new PRGroupTreeNode(this.prManager, this.repository, PRType.ReviewedByMe),
-				new PRGroupTreeNode(this.prManager, this.repository, PRType.Mine),
-				new PRGroupTreeNode(this.prManager, this.repository, PRType.All)
+				new CategoryTreeNode(this.prManager, this.repository, PRType.LocalPullRequest),
+				new CategoryTreeNode(this.prManager, this.repository, PRType.RequestReview),
+				new CategoryTreeNode(this.prManager, this.repository, PRType.ReviewedByMe),
+				new CategoryTreeNode(this.prManager, this.repository, PRType.Mine),
+				new CategoryTreeNode(this.prManager, this.repository, PRType.All)
 			]);
 		}
 		if (!this.repository.remotes || !this.repository.remotes.length) {
-			return Promise.resolve([new PRGroupActionNode(PRGroupActionType.Empty)]);
+			return Promise.resolve([new PRCategoryActionNode(PRCategoryActionType.Empty)]);
 		}
 
 		return element.getChildren();

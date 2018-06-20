@@ -3,14 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IPullRequestModel, PRType } from "../common/pullRequest";
+import { IPullRequestModel, PRType } from "./interface";
 import { Repository } from "../models/repository";
 import { GitHubRepository } from "./githubRepository";
 import { CredentialStore } from "../credentials";
 import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { Comment } from "../models/comment";
 import { parseTimelineEvents, TimelineEvent } from "../models/timelineEvent";
-import { IPullRequestManager, IPullRequestsPagingOptions } from "../common/pullRequest";
+import { IPullRequestManager, IPullRequestsPagingOptions } from "./interface";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diff";
 import { Remote } from "../models/remote";
