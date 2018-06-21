@@ -52,42 +52,31 @@
         {
           "id": "prStatus",
           "name": "Changes In Pull Request",
-          "when": "git:ispr"
+          "when": "github:inReviewMode"
         }
       ]
     },
     "commands": [
       {
-        "command": "pr.refreshList",
-        "title": "Refresh",
-        "icon": {
-          "dark": "resources/icons/dark/refresh.svg",
-          "light": "resources/icons/light/refresh.svg"
-        }
-      },
-      {
         "command": "pr.pick",
-        "title": "Checkout Pull Request"
-      },
-      {
-        "command": "pr.loadMore",
-        "title": "Load More"
+        "title": "Checkout Pull Request",
+        "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.close",
-        "title": "Close Pull Request"
+        "title": "Close Pull Request",
+        "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.openInGitHub",
-        "title": "Open in GitHub"
+        "title": "Open Pull Request in GitHub",
+        "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.openDescription",
-        "title": "View Pull Request Description"
-      },
-      {
-        "command": "pr.viewChanges",
-        "title": "View Changes"
+        "title": "View Pull Request Description",
+        "category": "GitHub Pull Requests",
+        "when": "github:inReviewMode"
       },
       {
         "command": "review.openFile",
@@ -96,9 +85,40 @@
           "light": "resources/icons/light/open-file.svg",
           "dark": "resources/icons/dark/open-file.svg"
         }
+      },
+      {
+        "command": "pr.refreshList",
+        "title": "Refresh",
+        "icon": {
+          "dark": "resources/icons/dark/refresh.svg",
+          "light": "resources/icons/light/refresh.svg"
+        },
+        "category": "GitHub Pull Requests"
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "pr.pick",
+          "when": "false"
+        },
+        {
+          "command": "review.openFile",
+          "when": "false"
+        },
+        {
+          "command": "pr.close",
+          "when": "github:inReviewMode"
+        },
+        {
+          "command": "pr.openInGitHub",
+          "when": "github:inReviewMode"
+        },
+        {
+          "command": "pr.openDescription",
+          "when": "github:inReviewMode"
+        }
+      ],
       "view/title": [
         {
           "command": "pr.refreshList",

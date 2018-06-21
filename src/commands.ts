@@ -45,10 +45,25 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr: PRNode) => {
+	function ensurePR(pr?: PRNode | IPullRequestModel): IPullRequestModel {
+		// If the command is called from the command palette, no arguments are passed.
+		if (!pr) {
+			if (!prManager.activePullRequest) {
+				vscode.window.showErrorMessage('Unable to find current pull request.');
+				return;
+			}
+
+			return prManager.activePullRequest;
+		} else {
+			return pr instanceof PRNode ? pr.pullRequestModel : pr;
+		}
+	}
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode) => {
+		const pullRequest = ensurePR(pr);
 		vscode.window.showWarningMessage(`Are you sure you want to close PR`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
-				let newPR = await prManager.closePullRequest(pr.pullRequestModel);
+				let newPR = await prManager.closePullRequest(pullRequest);
 				return newPR;
 			}
 
@@ -57,8 +72,9 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: IPullRequestModel) => {
+		const pullRequest = ensurePR(pr);
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pr);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: FileChangeNode) => {

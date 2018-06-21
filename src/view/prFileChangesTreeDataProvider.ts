@@ -24,7 +24,7 @@ export class PullRequestFileChangesTreeDataProvider extends vscode.Disposable im
 		this._pullrequest = pullrequest;
 		await vscode.commands.executeCommand(
 			'setContext',
-			'git:ispr',
+			'github:inReviewMode',
 			true
 		);
 		this._localFileChanges = fileChanges;
@@ -34,7 +34,7 @@ export class PullRequestFileChangesTreeDataProvider extends vscode.Disposable im
 	async hide() {
 		await vscode.commands.executeCommand(
 			'setContext',
-			'git:ispr',
+			'github:inReviewMode',
 			false
 		);
 	}
