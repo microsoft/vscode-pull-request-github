@@ -14,7 +14,7 @@ This extension allows users to manage GitHub pull requests in VS Code. The suppo
 ## Developing
 
 * Clone the repository
-* Run npm install
+* Run `npm install`
 * Compile in the background
   * Run `npm run compile`
   * Run `npm run build-preview`
