@@ -5,11 +5,9 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../../common/repository';
-import { Resource } from '../../common/resources';
 import { IPullRequestManager, IPullRequestModel, PRType } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
-import { PULL_REQUEST_PAGE_SIZE } from '../github/githubRepository';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -33,10 +31,6 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				break;
 			case PRCategoryActionType.More:
 				this.label = 'Load more';
-				this.iconPath = {
-					light: Resource.icons.light.fold,
-					dark: Resource.icons.dark.fold
-				};
 				this.command = {
 					title: 'Load more',
 					command: 'pr.loadMore',
@@ -75,13 +69,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 
-		for (let repository of this._repository.githubRepositories) {
-			this.repositoryPageInformation.set(repository.remote.url.toString(), {
-				pullRequestPage: 1,
-				hasMorePages: null
-			});
-		}
-
 		this.prs = [];
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		switch (_type) {
@@ -105,30 +92,37 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
-	mayHaveMorePages(): boolean {
-		return this.repository.githubRepositories.some(repo =>  this.repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
-	}
-
 	async getChildren(): Promise<TreeNode[]> {
-		if (!this.fetchNextPage) {
+		let hasMorePages = false;
+		if (this._type === PRType.LocalPullRequest) {
 			try {
-				this.prs = await this._prManager.getPullRequests(this._type);
+				this.prs = await this._prManager.getLocalPullRequests();
 			} catch (e) {
-				vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
+				vscode.window.showErrorMessage(`Fetching local pull requests: ${e}`);
 			}
 		} else {
-			try {
-				this.prs = this.prs.concat(await this._prManager.getPullRequests(this._type));
-			} catch (e) {
-				vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
-			}
+			if (!this.fetchNextPage) {
+				try {
+					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: false });
+					this.prs = ret[0];
+					hasMorePages = ret[1];
+				} catch (e) {
+					vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
+				}
+			} else {
+				try {
+					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: true});
+					this.prs = this.prs.concat(ret[0]);
+					hasMorePages = ret[1];
+				} catch (e) {
+					vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
+				}
 
-			this.fetchNextPage = false;
+				this.fetchNextPage = false;
+			}
 		}
 
 		if (this.prs && this.prs.length) {
-			const hasMorePages = this._type !== PRType.LocalPullRequest && this.mayHaveMorePages();
-
 			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this._prManager, this._repository, prItem));
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(PRCategoryActionType.More, this));

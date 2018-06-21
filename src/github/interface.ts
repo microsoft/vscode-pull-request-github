@@ -89,13 +89,14 @@ export interface IPullRequestModel {
 }
 
 export interface IPullRequestsPagingOptions {
-	page: number;
-	pageSize: number;
+	fetchNextPage: boolean;
 }
 
 export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
-	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<IPullRequestModel[]>;
+	getLocalPullRequests(): Promise<IPullRequestModel[]>;
+	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<[IPullRequestModel[], boolean]>;
+	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;

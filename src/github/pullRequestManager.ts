@@ -8,17 +8,23 @@ import { Comment } from "../common/comment";
 import { Remote } from "../common/remote";
 import { Repository } from "../common/repository";
 import { TimelineEvent, EventType } from "../common/timelineEvent";
-import { GitHubRepository } from "./githubRepository";
+import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from "./githubRepository";
 import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType } from "./interface";
 import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from "../configuration";
 
+interface PageInformation {
+	pullRequestPage: number;
+	hasMorePages: boolean;
+}
+
 export class PullRequestManager implements IPullRequestManager {
 	public activePullRequest?: IPullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
+	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
 	constructor(private _configuration: Configuration, private _repository: Repository) {
 		this._githubRepositories = [];
@@ -41,46 +47,90 @@ export class PullRequestManager implements IPullRequestManager {
 		}));
 
 		this._githubRepositories = ret;
+
+		for (let repository of this._githubRepositories) {
+			this._repositoryPageInformation.set(repository.remote.url.toString(), {
+				pullRequestPage: 1,
+				hasMorePages: null
+			});
+		}
 	}
 
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { page: 1, pageSize: 30 }): Promise<IPullRequestModel[]> {
+	async getLocalPullRequests(): Promise<IPullRequestModel[]> {
 		let githubRepositories = this._githubRepositories;
 
 		if (!githubRepositories || !githubRepositories.length) {
 			return [];
 		}
 
-		if (type === PRType.LocalPullRequest) {
-			let infos = await PullRequestGitHelper.getLocalBranchesAssociatedWithPullRequest(this._repository);
-			let promises = infos.map(async info => {
-				let owner = info.owner;
-				let prNumber = info.prNumber;
-				let githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+		let infos = await PullRequestGitHelper.getLocalBranchesAssociatedWithPullRequest(this._repository);
+		let promises = infos.map(async info => {
+			let owner = info.owner;
+			let prNumber = info.prNumber;
+			let githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
 
-				if (!githubRepo) {
-					return Promise.resolve([]);
-				}
-
-				return [await githubRepo.getPullRequest(prNumber)];
-			});
-
-			return Promise.all(promises).then(values => {
-				return values.reduce((prev, curr) => prev.concat(...curr), []).filter(value => value !== null);
-			});
-		}
-
-		let promises = githubRepositories.map(async githubRepository => {
-			let remote = githubRepository.remote.remoteName;
-			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote);
-			if (isRemoteForPR) {
+			if (!githubRepo) {
 				return Promise.resolve([]);
 			}
-			return [await githubRepository.getPullRequests(type)];
+
+			return [await githubRepo.getPullRequest(prNumber)];
 		});
 
-		return Promise.all(promises).then(values => {
-			return values.reduce((prev, curr) => prev.concat(...curr), []);
+		return await Promise.all(promises).then(values => {
+			return values.reduce((prev, curr) => prev.concat(...curr), []).filter(value => value !== null);
 		});
+	}
+
+	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[IPullRequestModel[], boolean]> {
+		let githubRepositories = this._githubRepositories;
+
+		if (!githubRepositories || !githubRepositories.length) {
+			return [[], false];
+		}
+
+		if (!options.fetchNextPage) {
+			for (let repository of this._githubRepositories) {
+				this._repositoryPageInformation.set(repository.remote.url.toString(), {
+					pullRequestPage: 1,
+					hasMorePages: null
+				});
+			}
+		}
+
+		githubRepositories = githubRepositories.filter(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
+
+		let pullRequests: PullRequestModel[] = [];
+		let numPullRequests = 0;
+		let hasMorePages = false;
+
+		for (let i = 0; i < githubRepositories.length; i++) {
+			if (numPullRequests >= PULL_REQUEST_PAGE_SIZE) {
+				hasMorePages = true;
+				break;
+			}
+
+			const githubRepository = githubRepositories[i];
+			const remote = githubRepository.remote.remoteName;
+			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote);
+			if (!isRemoteForPR) {
+				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
+				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
+					const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
+					numPullRequests += pullRequestData.pullRequests.length;
+					pullRequests = pullRequests.concat(...pullRequestData.pullRequests);
+
+					pageInformation.hasMorePages = pullRequestData.hasMorePages;
+					hasMorePages = hasMorePages || pageInformation.hasMorePages;
+					pageInformation.pullRequestPage++;;
+				}
+			}
+		}
+
+		return [pullRequests, hasMorePages];
+	}
+
+	public mayHaveMorePages(): boolean {
+		return this._githubRepositories.some(repo =>  this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {

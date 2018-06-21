@@ -396,17 +396,6 @@ declare module 'vscode' {
 
 	//#endregion
 
-	//#region mjbvz: Unused diagnostics
-
-	export interface Diagnostic {
-		/**
-		 * Additional metadata about the type of the diagnostic.
-		 */
-		customTags?: DiagnosticTag[];
-	}
-
-	//#endregion
-
 	//#region mjbvz: File rename events
 	export interface ResourceRenamedEvent {
 		readonly oldResource: Uri;
