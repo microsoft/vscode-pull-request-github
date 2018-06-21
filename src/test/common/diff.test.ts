@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { parseDiffHunk } from '../../common/diff';
-import { DiffLine, DiffChangeType } from '../../models/diffHunk';
+import { parseDiffHunk } from '../../common/diffHunk';
+import { DiffLine, DiffChangeType } from '../../common/diffHunk';
 import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 
 const diff_hunk_0 = [

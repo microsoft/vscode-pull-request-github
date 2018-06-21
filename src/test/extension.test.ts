@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseDiffHunk } from '../common/diff';
+import { parseDiffHunk } from '../common/diffHunk';
 
 describe("Extension Tests", function () {
 

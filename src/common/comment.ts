@@ -3,23 +3,30 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Comment } from '../models/comment';
-import { parseDiffHunk } from './diff';
+import { DiffHunk } from './diffHunk';
 
-export function parseComments(comments: any[]): Comment[] {
-	for (let i = 0; i < comments.length; i++) {
-		let diffHunks = [];
-		let diffHunkReader = parseDiffHunk(comments[i].diff_hunk);
-		let diffHunkIter = diffHunkReader.next();
-
-		while (!diffHunkIter.done) {
-			let diffHunk = diffHunkIter.value;
-			diffHunks.push(diffHunk);
-			diffHunkIter = diffHunkReader.next();
-		}
-
-		comments[i].diff_hunks = diffHunks;
-	}
-
-	return comments;
+export interface User {
+	id: string;
+	login: string;
+	avatar_url: string;
 }
+
+export interface Comment {
+	url: string;
+	id: string;
+	path: string;
+	pull_request_review_id: string;
+	diff_hunk: string;
+	diff_hunks: DiffHunk[];
+	position: number;
+	original_position: number;
+	commit_id: string;
+	original_commit_id: string;
+	user: User;
+	body: string;
+	created_at: string;
+	updated_at: string;
+	html_url: string;
+	absolutePosition?: number;
+}
+

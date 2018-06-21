@@ -3,16 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
-import { Remote } from './remote';
 import { GitProcess } from 'dugite';
-import { uniqBy, anyEvent, filterEvent, isDescendant } from '../common/util';
-import { CredentialStore } from '../credentials';
-import { Protocol } from './protocol';
+import * as vscode from 'vscode';
+import { anyEvent, filterEvent, isDescendant, uniqBy } from './utils';
+import Logger from './logger';
 import { GitError, GitErrorCodes } from './gitError';
-import { PullRequestGitHelper } from '../common/pullRequestGitHelper';
-import Logger from '../logger';
-import { GitHubRepository } from '../github/githubRepository';
+import { Protocol } from './protocol';
+import { Remote } from './remote';
 
 export enum RefType {
 	Head,
@@ -43,8 +40,6 @@ export class Repository {
 
 	private _onDidRunGitStatus = new vscode.EventEmitter<void>();
 	readonly onDidRunGitStatus: vscode.Event<void> = this._onDidRunGitStatus.event;
-
-	public githubRepositories?: GitHubRepository[] = [];
 
 	private _HEAD: Branch | undefined;
 	get HEAD(): Branch | undefined {
@@ -87,6 +82,10 @@ export class Repository {
 	}
 
 	async status() {
+		if (!this.path) {
+			return;
+		}
+
 		let HEAD: Branch | undefined;
 
 		try {
@@ -108,24 +107,6 @@ export class Repository {
 		this._refs = refs;
 		this._remotes = remotes;
 		this._onDidRunGitStatus.fire();
-	}
-
-	async connectGitHub(credentialStore: CredentialStore) {
-		let ret: GitHubRepository[] = [];
-		await Promise.all(this.remotes.map(async remote => {
-			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this, remote.remoteName);
-			if (isRemoteForPR) {
-				return;
-			}
-
-			let octo = await credentialStore.getOctokit(remote);
-
-			if (octo) {
-				ret.push(new GitHubRepository(remote, octo));
-			}
-		}));
-
-		this.githubRepositories = ret;
 	}
 
 	async run(args: string[], options?: any) {
@@ -171,6 +152,10 @@ export class Repository {
 	}
 
 	async getHEAD(): Promise<Ref> {
+		if (!this.path) {
+			return undefined;
+		}
+
 		try {
 			const result = await this.run(['symbolic-ref', '--short', 'HEAD']);
 

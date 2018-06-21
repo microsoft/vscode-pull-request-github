@@ -3,10 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Remote } from "../models/remote";
-import { PRType, PullRequestModel } from "./pullRequestModel";
-import Logger from "../logger";
 import * as Octokit from '@octokit/rest';
+import Logger from "../common/logger";
+import { Remote } from "../common/remote";
+import { PRType } from "./interface";
+import { PullRequestModel } from "./pullRequestModel";
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -38,8 +39,7 @@ export class GitHubRepository {
 					Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 					return null;
 				}
-
-				return new PullRequestModel(this.octokit, this.remote, item);
+				return new PullRequestModel(this, this.remote, item);
 			}).filter(item => item !== null);
 
 			return {
@@ -79,8 +79,7 @@ export class GitHubRepository {
 						Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 						return null;
 					}
-
-					return new PullRequestModel(this.octokit, this.remote, item.data);
+					return new PullRequestModel(this, this.remote, item.data);
 				}).filter(item => item !== null);
 			});
 
@@ -107,7 +106,7 @@ export class GitHubRepository {
 				return null;
 			}
 
-			return new PullRequestModel(this.octokit, this.remote, data);
+			return new PullRequestModel(this, this.remote, data);
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return null;

@@ -3,11 +3,64 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/*
+ * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
+ */
+
 import * as path from 'path';
 import { getFileContent, writeTmpFile } from './file';
-import { GitChangeType, RichFileChange } from '../models/file';
-import { Repository } from '../models/repository';
-import { DiffHunk, getDiffChangeType, DiffLine, DiffChangeType } from '../models/diffHunk';
+import { GitChangeType, RichFileChange } from './file';
+import { Repository } from './repository';
+import { Comment } from './comment';
+
+
+export enum DiffChangeType {
+	Context,
+	Add,
+	Delete,
+	Control
+}
+
+export class DiffLine {
+	public get raw(): string {
+		return this._raw;
+	}
+
+	public get text(): string {
+		return this._raw.substr(1);
+	}
+
+	constructor(
+		public type: DiffChangeType,
+		public oldLineNumber: number, /* 1 based */
+		public newLineNumber: number, /* 1 based */
+		public positionInHunk: number,
+		private _raw: string,
+		public endwithLineBreak: boolean = true
+	) { }
+}
+
+export function getDiffChangeType(text: string) {
+	let c = text[0];
+	switch (c) {
+		case ' ': return DiffChangeType.Context;
+		case '+': return DiffChangeType.Add;
+		case '-': return DiffChangeType.Delete;
+		default: return DiffChangeType.Control;
+	}
+}
+
+export class DiffHunk {
+	public diffLines: DiffLine[] = [];
+
+	constructor(
+		public oldLineNumber: number,
+		public oldLength: number,
+		public newLineNumber: number,
+		public newLength: number,
+		public positionInHunk: number
+	) { }
+}
 
 export const DIFF_HUNK_HEADER = /@@ \-(\d+)(,(\d+))?( \+(\d+)(,(\d+)?))? @@/;
 
@@ -262,3 +315,20 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 	return richFileChanges;
 }
 
+export function parserCommentDiffHunk(comments: any[]): Comment[] {
+	for (let i = 0; i < comments.length; i++) {
+		let diffHunks = [];
+		let diffHunkReader = parseDiffHunk(comments[i].diff_hunk);
+		let diffHunkIter = diffHunkReader.next();
+
+		while (!diffHunkIter.done) {
+			let diffHunk = diffHunkIter.value;
+			diffHunks.push(diffHunk);
+			diffHunkIter = diffHunkReader.next();
+		}
+
+		comments[i].diff_hunks = diffHunks;
+	}
+
+	return comments;
+}

@@ -5,9 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { GitChangeType } from '../models/file';
-import { PullRequestModel } from '../github/pullRequestModel';
-import { PRFileChangeNode } from '../tree/prFileChangeNode';
+import { GitChangeType } from './file';
+import { FileChangeNode } from '../view/treeNodes/fileChangeNode';
 
 export class Resource {
 	static icons: any;
@@ -43,7 +42,7 @@ export class Resource {
 		};
 	}
 
-	static getFileStatusUri(element: PRFileChangeNode): vscode.Uri | { light: vscode.Uri, dark: vscode.Uri } {
+	static getFileStatusUri(element: FileChangeNode): vscode.Uri | { light: vscode.Uri, dark: vscode.Uri } {
 		let iconUri: vscode.Uri;
 		let iconDarkUri: vscode.Uri;
 
@@ -74,18 +73,5 @@ export class Resource {
 			light: iconUri,
 			dark: iconDarkUri
 		};
-	}
-
-	static getGravatarUri(pr: PullRequestModel, size: number = 64): vscode.Uri {
-		let key = pr.getUserGravatar();
-		let gravatar = vscode.Uri.parse(`${key}&s=${size}`);
-
-		// hack, to ensure queries are not wrongly encoded.
-		const originalToStringFn = gravatar.toString;
-		gravatar.toString = function (skipEncoding?: boolean | undefined) {
-			return originalToStringFn.call(gravatar, true);
-		};
-
-		return gravatar;
 	}
 }
