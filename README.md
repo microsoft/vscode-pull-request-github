@@ -1,6 +1,8 @@
 
 # VS Code Extension for Managing GitHub Pull Requests
 
+[![Build Status](https://vscode.visualstudio.com/_apis/public/build/definitions/9a4d7c24-3234-459a-a944-80bbe5a0824c/10/badge)](https://pull-requests-extension.visualstudio.com/VSCodePullRequestGitHub/_build/index?definitionId=1)
+
 This extension allows users to manage GitHub pull requests in VS Code. The support includes
 - Authentication to GitHub
 - Listing of PRs
