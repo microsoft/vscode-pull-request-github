@@ -99,6 +99,27 @@
       }
     ],
     "menus": {
+<<<<<<< HEAD
+=======
+      "commandPalette": [
+        {
+          "command": "review.openFile",
+          "when": "false"
+        },
+        {
+          "command": "pr.close",
+          "when": "github:inReviewMode"
+        },
+        {
+          "command": "pr.openInGitHub",
+          "when": "github:inReviewMode"
+        },
+        {
+          "command": "pr.openDescription",
+          "when": "github:inReviewMode"
+        }
+      ],
+>>>>>>> cda6154... Add gulpfile
       "view/title": [
         {
           "command": "pr.refreshList",
@@ -151,7 +172,12 @@
     "ts-loader": "^4.0.1",
     "typescript": "^2.1.4",
     "webpack": "^4.1.0",
-    "webpack-cli": "^2.0.10"
+    "webpack-cli": "^2.0.10",
+    "gulp": "3.9.1",
+    "gulp-typescript": "^5.0.0-alpha.2",
+    "del": "^3.0.0",
+    "gulp-mocha": "^6.0.0",
+    "gulp-util": "^3.0.8"
   },
   "dependencies": {
     "vscode": "^1.1.18",
