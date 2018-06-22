@@ -99,27 +99,6 @@
       }
     ],
     "menus": {
-<<<<<<< HEAD
-=======
-      "commandPalette": [
-        {
-          "command": "review.openFile",
-          "when": "false"
-        },
-        {
-          "command": "pr.close",
-          "when": "github:inReviewMode"
-        },
-        {
-          "command": "pr.openInGitHub",
-          "when": "github:inReviewMode"
-        },
-        {
-          "command": "pr.openDescription",
-          "when": "github:inReviewMode"
-        }
-      ],
->>>>>>> cda6154... Add gulpfile
       "view/title": [
         {
           "command": "pr.refreshList",
