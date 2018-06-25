@@ -23,6 +23,12 @@ This extension allows users to manage GitHub pull requests in VS Code. The suppo
   * Or you can directly start these two tasks by Command Palette -> Run Build Task
 * F5, launch the extension in latest VSCode Insiders.
 
+## Get started
+* Build extension from source. See above
+* Set your `"github.accessToken"` in your settings, which you grab from https://github.com/settings/tokens (permission repo, user, write:discussion).
+* Open your desired repo
+* Once set, go to the SCM Viewlet, and you should see the GitHub Pull Request treeview.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
