@@ -225,11 +225,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async updateComments(): Promise<void> {
-		const matchingPullRequestMetadata = await this._prManager.getMatchingPullRequestMetadataForBranch();
-		if (!matchingPullRequestMetadata) { return; }
-
 		const branch = this._repository.HEAD;
 		if (!branch) { return; }
+
+		const matchingPullRequestMetadata = await this._prManager.getMatchingPullRequestMetadataForBranch();
+		if (!matchingPullRequestMetadata) { return; }
 
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) { return; }

@@ -306,6 +306,10 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
+		if (!this._repository || !this._repository.HEAD) {
+			return null;
+		}
+
 		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
 		return matchingPullRequestMetadata;
 	}
