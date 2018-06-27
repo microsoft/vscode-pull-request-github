@@ -3,13 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GitProcess } from 'dugite';
 import * as vscode from 'vscode';
 import { anyEvent, filterEvent, isDescendant, uniqBy } from './utils';
 import Logger from './logger';
 import { GitError, GitErrorCodes } from './gitError';
 import { Protocol } from './protocol';
 import { Remote } from './remote';
+import { exec, IGitExecutionOptions } from './git';
 
 export enum RefType {
 	Head,
@@ -109,9 +109,12 @@ export class Repository {
 		this._onDidRunGitStatus.fire();
 	}
 
-	async run(args: string[], options?: any) {
+	async run(args: string[], options: IGitExecutionOptions = {}) {
 		Logger.appendLine(`> git ${args.join(' ')}`);
-		return await GitProcess.exec(args, this.path, options || {});
+		return await exec(args, {
+			...options,
+			cwd: this.path
+		});
 	}
 
 	async fetch(remoteName: string, branch?: string) {

@@ -18,6 +18,9 @@
   "activationEvents": [
     "*"
   ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
   "main": "./out/extension",
   "contributes": {
     "configuration": {
@@ -183,9 +186,9 @@
     "gulp-util": "^3.0.8"
   },
   "dependencies": {
+    "iconv-lite": "0.4.23",
     "vscode": "^1.1.18",
     "@octokit/rest": "^15.8.0",
-    "dugite": "^1.63.0",
     "markdown-it": "^8.4.0",
     "git-credential-node": "^1.1.0",
     "tmp": "^0.0.31",

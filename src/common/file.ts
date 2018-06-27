@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GitProcess } from 'dugite';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
 import { DiffHunk } from './diffHunk';
+import { exec } from './git';
 
 export async function writeTmpFile(content: string, ext: string): Promise<string> {
 	return new Promise<string>((resolve, reject) => {
@@ -27,10 +27,12 @@ export async function writeTmpFile(content: string, ext: string): Promise<string
 }
 
 export async function getFileContent(rootDir: string, commitSha: string, sourceFilePath: string): Promise<string> {
-	const result = await GitProcess.exec([
+	const result = await exec([
 		'show',
 		`${commitSha}:` + sourceFilePath.replace(/\\/g, '/')
-	], rootDir);
+	], {
+		cwd: rootDir
+	});
 
 	const out = result.stdout;
 	const error = result.stderr;
