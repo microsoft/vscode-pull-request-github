@@ -41,7 +41,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _prFileChangesProvider: PullRequestFileChangesTreeDataProvider;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber: number;
-	private _pr: IPullRequestModel;
 
 	constructor(
 		private _context: vscode.ExtensionContext,
@@ -159,7 +158,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private async replyToCommentThread(document: vscode.TextDocument, range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
-			let ret = await this._prManager.createCommentReply(this._pr, text, thread.threadId);
+			let ret = await this._prManager.createCommentReply(this._prManager.activePullRequest, text, thread.threadId);
 			thread.comments.push({
 				commentId: ret.data.id,
 				body: new vscode.MarkdownString(ret.data.body),
@@ -186,7 +185,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 			});
 
-			let query = JSON.parse(uri.query);
+
+			let query = uri.query === '' ? undefined : JSON.parse(uri.query);
 
 			let isBase = query && query.base;
 
@@ -201,7 +201,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 
 				// there is no thread Id, which means it's a new thread
-				let ret = await this._prManager.createComment(this._pr, text, matchedFile.fileName, position);
+				let ret = await this._prManager.createComment(this._prManager.activePullRequest, text, matchedFile.fileName, position);
 
 				let comment = {
 					commentId: ret.data.id,
@@ -251,7 +251,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 		}
 
-		const comments = await this._prManager.getPullRequestComments(this._pr);
+		const comments = await this._prManager.getPullRequestComments(this._prManager.activePullRequest);
 
 		let added: vscode.CommentThread[] = [];
 		let removed: vscode.CommentThread[] = [];
@@ -635,8 +635,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				});
 				return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
 			},
-			createNewCommentThread: this.createNewCommentThread.bind(this),
-			replyToCommentThread: this.replyToCommentThread.bind(this)
+			createNewCommentThread: this.createNewCommentThread.bind(this), replyToCommentThread: this.replyToCommentThread.bind(this)
 		});
 	}
 
