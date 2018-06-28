@@ -61,6 +61,12 @@ export class PullRequestGitHelper {
 		}
 
 		await repository.checkout(branchName);
+
+		if (!branch.upstream) {
+			// this branch is not associated with upstream yet
+			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
+			await repository.setTrackingBranch(branchName, trackedBranchName);
+		}
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
