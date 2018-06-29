@@ -1,4 +1,7 @@
 <h1 align="center">
+  <br>
+    <img src="https://raw.githubusercontent.com/Microsoft/vscode-pull-request-github/master/resources/icons/github_logo.png" alt="logo" width="200">
+  <br> 
  vscode-pull-request-github
 </h1>
 
