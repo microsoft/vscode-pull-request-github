@@ -9,6 +9,14 @@ import md from './mdRenderer';
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
 
+const ElementIds = {
+	Checkout: 'checkout',
+	Close: 'close',
+	Reply: 'reply',
+	CommentTextArea: 'comment-textarea',
+	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
+}
+
 function handleMessage(event: any) {
 	const message = event.data; // The json data that the extension sent
 	switch (message.command) {
@@ -31,7 +39,7 @@ function handleMessage(event: any) {
 window.addEventListener('message', handleMessage);
 
 function renderPullRequest(pullRequest: any) {
-	document.getElementById('pullrequest')!.innerHTML = pullRequest.events.map(renderTimelineEvent).join('');
+	document.getElementById(ElementIds.TimelineEvents)!.innerHTML = pullRequest.events.map(renderTimelineEvent).join('');
 	setTitleHTML(pullRequest);
 	setTextArea();
 	updateCheckoutButton(pullRequest.isCurrentlyCheckedOut);
@@ -50,7 +58,7 @@ function setTitleHTML(pr: any) {
 			<div class="prIcon"><svg width="64" height="64" class="octicon octicon-git-compare" viewBox="0 0 14 16" version="1.1" aria-hidden="true"><path fill="#FFFFFF" fill-rule="evenodd" d="M5 12H4c-.27-.02-.48-.11-.69-.31-.21-.2-.3-.42-.31-.69V4.72A1.993 1.993 0 0 0 2 1a1.993 1.993 0 0 0-1 3.72V11c.03.78.34 1.47.94 2.06.6.59 1.28.91 2.06.94h1v2l3-3-3-3v2zM2 1.8c.66 0 1.2.55 1.2 1.2 0 .65-.55 1.2-1.2 1.2C1.35 4.2.8 3.65.8 3c0-.65.55-1.2 1.2-1.2zm11 9.48V5c-.03-.78-.34-1.47-.94-2.06-.6-.59-1.28-.91-2.06-.94H9V0L6 3l3 3V4h1c.27.02.48.11.69.31.21.2.3.42.31.69v6.28A1.993 1.993 0 0 0 12 15a1.993 1.993 0 0 0 1-3.72zm-1 2.92c-.66 0-1.2-.55-1.2-1.2 0-.65.55-1.2 1.2-1.2.65 0 1.2.55 1.2 1.2 0 .65-.55 1.2-1.2 1.2z"></path></svg></div>
 			<div class="details">
 				<div class="overview-title">
-					<h2>${pr.title} (<a href=${pr.url}>#${pr.number}</a>) </h2> <button id="checkout" aria-live="polite"><svg class="octicon octicon-desktop-download" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M4 6h3V0h2v6h3l-4 4-4-4zm11-4h-4v1h4v8H1V3h4V2H1c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h5.34c-.25.61-.86 1.39-2.34 2h8c-1.48-.61-2.09-1.39-2.34-2H15c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1z"></path></svg>Checkout Pull Request</button>
+					<h2>${pr.title} (<a href=${pr.url}>#${pr.number}</a>) </h2> <button id="${ElementIds.Checkout}" aria-live="polite"><svg class="octicon octicon-desktop-download" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M4 6h3V0h2v6h3l-4 4-4-4zm11-4h-4v1h4v8H1V3h4V2H1c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h5.34c-.25.61-.86 1.39-2.34 2h8c-1.48-.61-2.09-1.39-2.34-2H15c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1z"></path></svg>Checkout Pull Request</button>
 				</div>
 				<div>
 					<div class="status">${getStatus(pr.state)}</div>
@@ -65,24 +73,29 @@ function setTitleHTML(pr: any) {
 }
 
 function addEventListeners() {
-	document.getElementById('checkout')!.addEventListener('click', () => {
-		(<HTMLButtonElement>document.getElementById('checkout')).disabled = true;
+	document.getElementById(ElementIds.Checkout)!.addEventListener('click', () => {
+		(<HTMLButtonElement>document.getElementById(ElementIds.Checkout)).disabled = true;
 		vscode.postMessage({
 			command: 'pr.checkout'
 		});
 	});
 
-	document.getElementById('reply-button')!.addEventListener('click', () => {
-		(<HTMLButtonElement>document.getElementById('reply-button')).disabled = true;
+	// Enable 'Comment' button only when the user has entered text
+	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
+		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = !(<any>e.target).value;
+	})
+
+	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
+		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
 		vscode.postMessage({
 			command: 'pr.comment',
-			text: (<HTMLTextAreaElement>document.getElementById('commentTextArea')!).value
+			text: (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value
 		});
-		(<HTMLTextAreaElement>document.getElementById('commentTextArea')!).value = '';
+		(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
 	});
 
-	document.getElementById('close-button')!.addEventListener('click', () => {
-		(<HTMLButtonElement>document.getElementById('close-button')).disabled = true;
+	document.getElementById(ElementIds.Close)!.addEventListener('click', () => {
+		(<HTMLButtonElement>document.getElementById(ElementIds.Close)).disabled = true;
 		vscode.postMessage({
 			command: 'pr.close'
 		});
@@ -91,11 +104,11 @@ function addEventListeners() {
 
 function appendComment(comment: any) {
 	let newComment = renderComment(comment);
-	document.getElementById('pullrequest')!.insertAdjacentHTML('beforeend', newComment);
+	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newComment);
 }
 
 function updateCheckoutButton(isCheckedOut: boolean) {
-	const checkoutButton = (<HTMLButtonElement>document.getElementById('checkout'));
+	const checkoutButton = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
 	checkoutButton.disabled = isCheckedOut;
 	const checkoutIcon = '<svg class="octicon octicon-desktop-download" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M4 6h3V0h2v6h3l-4 4-4-4zm11-4h-4v1h4v8H1V3h4V2H1c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h5.34c-.25.61-.86 1.39-2.34 2h8c-1.48-.61-2.09-1.39-2.34-2H15c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1z"></path></svg>';
 	const activeIcon = '<svg class="octicon octicon-check" viewBox="0 0 12 16" version="1.1" width="12" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M12 5l-8 8-4-4 1.5-1.5L4 10l6.5-6.5L12 5z"></path></svg>';
@@ -103,18 +116,18 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 }
 
 function setTextArea() {
-	document.getElementById('comment-form')!.innerHTML = `<textarea id="commentTextArea"></textarea>
+	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
-			<button class="close-button" id="close-button"></button>
-			<button class="reply-button" id="reply-button"></button>
+			<button class="close-button" id="${ElementIds.Close}"></button>
+			<button class="reply-button" id="${ElementIds.Reply}" disabled="true"></button>
 		</div>`;
 
-	(<HTMLTextAreaElement>document.getElementById('commentTextArea')!).placeholder = 'Leave a comment';
-	(<HTMLTextAreaElement>document.getElementById('commentTextArea')!).addEventListener('keydown', e => {
+	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).placeholder = 'Leave a comment';
+	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).addEventListener('keydown', e => {
 		if (e.keyCode === 65 && e.metaKey) {
-			(<HTMLTextAreaElement>document.getElementById('commentTextArea')!).select();
+			(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).select();
 		}
 	});
-	(<HTMLButtonElement>document.getElementById('reply-button')!).textContent = 'Comment';
-	(<HTMLButtonElement>document.getElementById('close-button')!).textContent = 'Close pull request';
+	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)!).textContent = 'Comment';
+	(<HTMLButtonElement>document.getElementById(ElementIds.Close)!).textContent = 'Close pull request';
 }
