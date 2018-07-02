@@ -55,12 +55,13 @@
       "scm": [
         {
           "id": "pr",
-          "name": "GitHub Pull Requests"
+          "name": "GitHub Pull Requests",
+          "when": "config.git.enabled && workspaceFolderCount != 0"
         },
         {
           "id": "prStatus",
           "name": "Changes In Pull Request",
-          "when": "github:inReviewMode"
+          "when": "config.git.enabled && github:inReviewMode"
         }
       ]
     },
