@@ -55,8 +55,10 @@ export class GitHubRepository {
 	private async getPullRequestsForCategory(prType: PRType, page: number): Promise<PullRequestData> {
 		try {
 			const user = await this.octokit.users.get({});
+			// Search api will not try to resolve repo that redirects, so get full name first
+			const repo = await this.octokit.repos.get({owner: this.remote.owner, repo: this.remote.repositoryName});
 			const { data, headers } = await this.octokit.search.issues({
-				q: this.getPRFetchQuery(this.remote.owner, this.remote.repositoryName, user.data.login, prType),
+				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, prType),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
@@ -113,7 +115,7 @@ export class GitHubRepository {
 		}
 	}
 
-	private getPRFetchQuery(owner: string, repo: string, user: string, type: PRType) {
+	private getPRFetchQuery(repo: string, user: string, type: PRType) {
 		let filter = '';
 		switch (type) {
 			case PRType.RequestReview:
@@ -129,6 +131,6 @@ export class GitHubRepository {
 				break;
 		}
 
-		return `is:open ${filter} type:pr repo:${owner}/${repo}`;
+		return `is:open ${filter} type:pr repo:${repo}`;
 	}
 }
