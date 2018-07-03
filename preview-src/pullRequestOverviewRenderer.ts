@@ -274,6 +274,10 @@ function getDiffChangeClass(type: DiffChangeType) {
 }
 
 export function renderReview(timelineEvent: ReviewEvent): string {
+	if (timelineEvent.state === "pending") {
+		return '';
+	}
+
 	let comments = timelineEvent.comments;
 	let avatar = '';
 	let diffView = '';
