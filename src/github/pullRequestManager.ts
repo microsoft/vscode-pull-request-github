@@ -32,21 +32,17 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async initialize(): Promise<void> {
-		let ret: GitHubRepository[] = [];
-		await Promise.all(this._repository.remotes.map(async remote => {
-			let isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
-			if (isRemoteForPR) {
-				return;
+		this._githubRepositories = [];
+
+		for (let remote of this._repository.remotes) {
+			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
+			if (!isRemoteForPR) {
+				const octokit = await this._credentialStore.getOctokit(remote);
+				if (octokit) {
+					this._githubRepositories.push(new GitHubRepository(remote, octokit));
+				}
 			}
-
-			let octo = await this._credentialStore.getOctokit(remote);
-
-			if (octo) {
-				ret.push(new GitHubRepository(remote, octo));
-			}
-		}));
-
-		this._githubRepositories = ret;
+		}
 
 		for (let repository of this._githubRepositories) {
 			this._repositoryPageInformation.set(repository.remote.url.toString(), {
