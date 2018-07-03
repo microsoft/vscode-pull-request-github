@@ -56,12 +56,12 @@
         {
           "id": "pr",
           "name": "GitHub Pull Requests",
-          "when": "config.git.enabled && workspaceFolderCount != 0"
+          "when": "config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
         },
         {
           "id": "prStatus",
           "name": "Changes In Pull Request",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
         }
       ]
     },
@@ -117,15 +117,19 @@
         },
         {
           "command": "pr.close",
-          "when": "github:inReviewMode"
+          "when": "config.git.enabled && github:inReviewMode"
         },
         {
           "command": "pr.openInGitHub",
-          "when": "github:inReviewMode"
+          "when": "config.git.enabled && github:inReviewMode"
         },
         {
           "command": "pr.openDescription",
-          "when": "github:inReviewMode"
+          "when": "config.git.enabled && github:inReviewMode"
+        },
+        {
+          "command": "pr.refreshList",
+          "when": "config.git.enabled && github:hasGitHubRemotes"
         }
       ],
       "view/title": [

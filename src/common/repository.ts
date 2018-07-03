@@ -274,7 +274,9 @@ export class Repository {
 			.filter(g => !!g)
 			.map((groups: RegExpExecArray) => ({ name: groups[1], url: groups[2] }));
 
-		return uniqBy(rawRemotes, remote => remote.name).map(remote => parseRemote(remote.name, remote.url));
+		return uniqBy(rawRemotes, remote => remote.name)
+			.map(remote => parseRemote(remote.name, remote.url))
+			.filter(remote => !!remote);
 	}
 
 	async show(filePath: string): Promise<string> {

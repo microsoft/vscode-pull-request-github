@@ -45,14 +45,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	Logger.appendLine('Looking for git repository');
 	const repository = new Repository(rootPath);
 	let repositoryInitialized = false;
+	let prManager: PullRequestManager;
 	repository.onDidRunGitStatus(async e => {
 		if (repositoryInitialized) {
+			if (prManager) {
+				prManager.updateRepositories();
+			}
 			return;
 		}
-		Logger.appendLine('Git repository found, initializing review manager and pr tree view.')
+
+		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 		repositoryInitialized = true;
-		let prManager = new PullRequestManager(configuration, repository);
-		await prManager.initialize();
+		prManager = new PullRequestManager(configuration, repository);
+		await prManager.updateRepositories();
 		const reviewManager = new ReviewManager(context, configuration, repository, prManager);
 		registerCommands(context, prManager, reviewManager);
 	});

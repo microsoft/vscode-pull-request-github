@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { CredentialStore } from "./credentials";
 import { Comment } from "../common/comment";
 import { Remote } from "../common/remote";
@@ -31,10 +32,17 @@ export class PullRequestManager implements IPullRequestManager {
 		this._credentialStore = new CredentialStore(this._configuration);
 	}
 
-	async initialize(): Promise<void> {
+	async updateRepositories(): Promise<void> {
 		this._githubRepositories = [];
 
-		for (let remote of this._repository.remotes) {
+		const gitHubRemotes = this._repository.remotes.filter(remote => remote.host && remote.host.toLowerCase() === "github.com");
+		if (gitHubRemotes.length) {
+			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
+		} else {
+			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
+		}
+
+		for (let remote of gitHubRemotes) {
 			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
 			if (!isRemoteForPR) {
 				const octokit = await this._credentialStore.getOctokit(remote);
