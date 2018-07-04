@@ -48,9 +48,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	let prManager: PullRequestManager;
 	repository.onDidRunGitStatus(async e => {
 		if (repositoryInitialized) {
-			if (prManager) {
-				prManager.updateRepositories();
-			}
 			return;
 		}
 

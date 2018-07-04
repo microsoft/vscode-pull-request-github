@@ -107,6 +107,7 @@ export interface IPullRequestManager {
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	getPullRequestChagnedFiles(pullRequest: IPullRequestModel): Promise<any>;
 	fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void>;
+	updateRepositories(): Promise<void>;
 
 	/**
 	 * git related APIs

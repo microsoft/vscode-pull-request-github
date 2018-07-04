@@ -53,11 +53,16 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 
 		for (let repository of this._githubRepositories) {
-			this._repositoryPageInformation.set(repository.remote.url.toString(), {
-				pullRequestPage: 1,
-				hasMorePages: null
-			});
+			const remoteId = repository.remote.url.toString();
+			if (!this._repositoryPageInformation.get(remoteId)) {
+				this._repositoryPageInformation.set(remoteId, {
+					pullRequestPage: 1,
+					hasMorePages: null
+				});
+			}
 		}
+
+		return Promise.resolve();
 	}
 
 	async getLocalPullRequests(): Promise<IPullRequestModel[]> {

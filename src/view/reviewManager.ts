@@ -34,6 +34,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _obsoleteFileChanges: FileChangeNode[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
+	private _validateStatusInProgress: boolean = false;
 
 	private _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
@@ -60,12 +61,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}));
 		this._disposables.push(_repository.onDidRunGitStatus(e => {
 			// todo, validate state only when state changes.
-			this.validateState();
+			this.updateState();
 		}));
 		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
-		this.validateState();
+		this.updateState();
 		this.pollForStatusChange();
 	}
 
@@ -92,12 +93,28 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private pollForStatusChange() {
 		setTimeout(async () => {
-			await this.updateComments();
+			if (!this._validateStatusInProgress) {
+				await this.updateComments();
+			}
 			this.pollForStatusChange();
-		}, 1000 * 10);
+		}, 1000 * 30);
+	}
+
+	private async updateState() {
+		if (!this._validateStatusInProgress) {
+			this._validateStatusInProgress = true;
+			try {
+				await this.validateState();
+				this._validateStatusInProgress = false;
+			} catch (e) {
+				this._validateStatusInProgress = false;
+			}
+		}
 	}
 
 	private async validateState() {
+		await this._prManager.updateRepositories();
+
 		let branch = this._repository.HEAD;
 		if (!branch) {
 			this.clear(true);
@@ -706,7 +723,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		await this._repository.status();
-		await this.validateState();
 	}
 
 	private clear(quitReviewMode: boolean) {
