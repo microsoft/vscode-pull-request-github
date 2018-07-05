@@ -103,7 +103,7 @@ body {
 	cursor: pointer;
 }
 
-.status {
+#status {
 	display: inline-block;
 	height: 28px;
 	box-sizing: border-box;

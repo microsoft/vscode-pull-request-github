@@ -7,6 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IPullRequest, IPullRequestManager, IPullRequestModel } from './interface';
+import { onDidClosePR } from '../commands';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -68,6 +69,17 @@ export class PullRequestOverviewPanel {
 		this._panel.webview.onDidReceiveMessage(message => {
 			this._onDidReceiveMessage(message);
 		}, null, this._disposables);
+
+		onDidClosePR(pr => {
+			if (pr) {
+				this._pullRequest.update(pr);
+			}
+
+			this._panel.webview.postMessage({
+				command: 'update-state',
+				state: this._pullRequest.state,
+			});
+		})
 	}
 
 	public async update(pullRequestModel: IPullRequestModel) {
@@ -107,20 +119,7 @@ export class PullRequestOverviewPanel {
 				});
 				return;
 			case 'pr.close':
-				vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest).then(pr => {
-					if (pr) {
-						this._pullRequest.update(pr);
-						this._panel.webview.postMessage({
-							command: 'pr-update',
-							pullrequest: {
-								title: this._pullRequest.title,
-								body: this._pullRequest.body,
-								author: this._pullRequest.author,
-								state: this._pullRequest.state,
-							}
-						});
-					}
-				});
+				vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest);
 			case 'pr.comment':
 				const text = message.text;
 				this._pullRequestManager.createIssueComment(this._pullRequest, text).then(comment => {

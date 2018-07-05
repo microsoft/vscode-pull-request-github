@@ -10,7 +10,10 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri } from './common/uri';
 import { FileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
-import { IPullRequestManager, IPullRequestModel } from './github/interface';
+import { IPullRequestManager, IPullRequestModel, IPullRequest } from './github/interface';
+
+const _onDidClosePR = new vscode.EventEmitter<IPullRequest>();
+export const onDidClosePR: vscode.Event<IPullRequest> = _onDidClosePR.event;
 
 function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestModel): IPullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
@@ -61,13 +64,14 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode) => {
 		const pullRequest = ensurePR(prManager, pr);
-		vscode.window.showWarningMessage(`Are you sure you want to close PR`, 'Yes', 'No').then(async value => {
+		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				let newPR = await prManager.closePullRequest(pullRequest);
-				return newPR;
+				vscode.commands.executeCommand('pr.refreshList');
+				_onDidClosePR.fire(newPR);
 			}
 
-			return null;
+			_onDidClosePR.fire(null);
 		});
 	}));
 
