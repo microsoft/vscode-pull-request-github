@@ -149,6 +149,10 @@ body .comment-form textarea {
 	color: var(--vscode-editor-foreground);
 }
 
+body .comment-form textarea:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
 body .comment-form .form-actions {
 	overflow: auto;
 	padding: 10px 0;
