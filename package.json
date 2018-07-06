@@ -1,8 +1,8 @@
 {
   "name": "vscode-pull-request-github",
-  "displayName": "VS Code Pull Request Provider for GitHub",
-  "description": "VS Code Pull Request Provider for GitHub",
-  "icon": "resources/github_logo.png",
+  "displayName": "GitHub Pull Requests",
+  "description": "Pull Request Provider for GitHub",
+  "icon": "resources/icons/github_logo.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
