@@ -32,6 +32,10 @@ export class PullRequestManager implements IPullRequestManager {
 		this._credentialStore = new CredentialStore(this._configuration);
 	}
 
+	async clearCredentialCache(): Promise<void> {
+		this._credentialStore.reset();
+	}
+
 	async updateRepositories(): Promise<void> {
 		this._githubRepositories = [];
 

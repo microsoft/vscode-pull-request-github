@@ -16,6 +16,10 @@ export class CredentialStore {
 		this._octokits = [];
 	}
 
+	reset() {
+		this._octokits = [];
+	}
+
 	async getOctokit(remote: Remote) {
 		if (this._octokits[remote.url]) {
 			return this._octokits[remote.url];

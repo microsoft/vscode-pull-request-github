@@ -150,6 +150,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		const repositoryName = matchingPullRequestMetadata.repositoryName.toLowerCase();
 		const pr = await this._prManager.resolvePullRequest(owner, repositoryName, this._prNumber);
 		if (!pr) {
+			this._prNumber = null;
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}

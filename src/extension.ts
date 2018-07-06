@@ -37,6 +37,20 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
+	configuration.onDidChange(async _ => {
+		if (prManager) {
+			try {
+				await prManager.clearCredentialCache();
+				if (repository) {
+					repository.status();
+				}
+			} catch (e) {
+				vscode.window.showErrorMessage(e);
+			}
+
+		}
+	});
+
 	let gitExt = vscode.extensions.getExtension('vscode.git');
 	let importedGitApi = gitExt.exports;
 	let gitPath = await importedGitApi.getGitPath();
