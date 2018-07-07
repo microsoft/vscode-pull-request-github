@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Comment } from '../../common/comment';
 import { parseDiff } from '../../common/diffHunk';
-import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
+import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition, getZeroBased } from '../../common/diffPositionMapping';
 import { RichFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
@@ -149,11 +149,18 @@ export class PRNode extends TreeNode {
 
 			for (let i = 0; i < diffHunks.length; i++) {
 				let diffHunk = diffHunks[i];
+				let startingLine: number;
+				let length: number;
 				if (isBase) {
-					commentingRanges.push(new vscode.Range(diffHunk.oldLineNumber - 1, 0, diffHunk.oldLineNumber + diffHunk.oldLength - 1 - 1, 0));
+					startingLine = getZeroBased(diffHunk.oldLineNumber);
+					length = getZeroBased(diffHunk.oldLength);
+
 				} else {
-					commentingRanges.push(new vscode.Range(diffHunk.newLineNumber - 1, 0, diffHunk.newLineNumber + diffHunk.newLength - 1 - 1, 0));
+					startingLine = getZeroBased(diffHunk.newLineNumber);
+					length = getZeroBased(diffHunk.newLength);
 				}
+
+				commentingRanges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
 			}
 
 			let matchingComments = this.commentsCache.get(fileChange.fileName);
@@ -183,7 +190,7 @@ export class PRNode extends TreeNode {
 					continue;
 				}
 
-				const pos = new vscode.Position(commentAbsolutePosition - 1, 0);
+				const pos = new vscode.Position(getZeroBased(commentAbsolutePosition), 0);
 				const range = new vscode.Range(pos, pos);
 
 				threads.push({

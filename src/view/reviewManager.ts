@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { parseDiff } from '../common/diffHunk';
-import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew } from '../common/diffPositionMapping';
+import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { Comment } from '../common/comment';
@@ -418,7 +418,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					comment.absolutePosition = diffLine.newLineNumber;
 				}
 
-				const pos = new vscode.Position(comment.absolutePosition ? comment.absolutePosition - 1 : 0, 0);
+				const pos = new vscode.Position(getZeroBased(comment.absolutePosition), 0);
 				const range = new vscode.Range(pos, pos);
 
 				ret.push({
@@ -464,7 +464,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				let comments = sections[i];
 
 				const comment = comments[0];
-				const pos = new vscode.Position(comment.absolutePosition && comment.absolutePosition > 0 ? comment.absolutePosition - 1 : 0, 0);
+				const pos = new vscode.Position(getZeroBased(comment.absolutePosition), 0);
 				const range = new vscode.Range(pos, pos);
 
 				ret.push({
@@ -586,11 +586,18 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 						for (let i = 0; i < diffHunks.length; i++) {
 							let diffHunk = diffHunks[i];
-							ranges.push(
-								isBase ?
-									new vscode.Range(diffHunk.oldLineNumber, 1, diffHunk.oldLineNumber + diffHunk.oldLength - 1, 1) :
-									new vscode.Range(diffHunk.newLineNumber, 1, diffHunk.newLineNumber + diffHunk.newLength - 1, 1)
-							);
+							let startingLine: number;
+							let length: number;
+							if (isBase) {
+								startingLine = getZeroBased(diffHunk.oldLineNumber);
+								length = getZeroBased(diffHunk.oldLength);
+
+							} else {
+								startingLine = getZeroBased(diffHunk.newLineNumber);
+								length = getZeroBased(diffHunk.newLength);
+							}
+
+							ranges.push(new vscode.Range(startingLine, 1, startingLine + length, 1));
 						}
 
 
@@ -613,7 +620,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						let comments = sections[i];
 						const comment = comments[0];
 						let diffLine = getLastDiffLine(comment.diff_hunk);
-						const pos = new vscode.Position(diffLine.newLineNumber - 1, 0);
+						const pos = new vscode.Position(getZeroBased(diffLine.newLineNumber), 0);
 						const range = new vscode.Range(pos, pos);
 
 						ret.push({

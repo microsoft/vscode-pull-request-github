@@ -5,6 +5,20 @@
 
 import { DiffLine, DiffHunk, parseDiffHunk } from './diffHunk';
 import { Comment } from './comment';
+
+/**
+ * Line position in a git diff is 1 based, except for the case when the original or changed file have
+ * no content, in which case it is 0. Normalize the position to be zero based.
+ * @param line The line in a file from the diff header
+ */
+export function getZeroBased(line: number): number {
+	if (line === undefined || line === 0) {
+		return 0;
+	}
+
+	return line - 1;
+}
+
 export function getLastDiffLine(prPatch: string): DiffLine {
 	let lastDiffLine = null;
 	let prDiffReader = parseDiffHunk(prPatch);
