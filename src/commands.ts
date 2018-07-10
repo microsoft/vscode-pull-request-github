@@ -31,7 +31,7 @@ function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestMode
 
 export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager, reviewManager: ReviewManager) {
 	// initialize resources
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openInGitHub', (e: PRNode | FileChangeNode | IPullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | IPullRequestModel) => {
 		if (!e) {
 			if (prManager.activePullRequest) {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
@@ -40,11 +40,13 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		}
 		if (e instanceof PRNode) {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
-		} else if (e instanceof FileChangeNode) {
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 		} else {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
 		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: FileChangeNode) => {
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | IPullRequestModel) => {

@@ -77,8 +77,13 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.openInGitHub",
+        "command": "pr.openPullRequestInGitHub",
         "title": "Open Pull Request in GitHub",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.openFileInGitHub",
+        "title": "Open File in GitHub",
         "category": "GitHub Pull Requests"
       },
       {
@@ -120,8 +125,12 @@
           "when": "config.git.enabled && github:inReviewMode"
         },
         {
-          "command": "pr.openInGitHub",
+          "command": "pr.openPullRequestInGitHub",
           "when": "config.git.enabled && github:inReviewMode"
+        },
+        {
+          "command": "pr.openFileInGitHub",
+          "when": "false"
         },
         {
           "command": "pr.openDescription",
@@ -145,7 +154,7 @@
           "when": "view == pr && viewItem =~ /pullrequest:nonactive/"
         },
         {
-          "command": "pr.openInGitHub",
+          "command": "pr.openPullRequestInGitHub",
           "when": "view == pr && viewItem =~ /pullrequest/"
         },
         {
@@ -153,7 +162,7 @@
           "when": "view == pr && viewItem =~ /pullrequest/"
         },
         {
-          "command": "pr.openInGitHub",
+          "command": "pr.openFileInGitHub",
           "when": "view =~ /(pr|prStatus)/ && viewItem == filechange"
         }
       ],

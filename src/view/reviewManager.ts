@@ -168,7 +168,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.registerCommentProvider();
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
-		this.statusBarItem.command = 'pr.openInGitHub';
+		this.statusBarItem.command = 'pr.openPullRequestInGitHub';
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
