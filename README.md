@@ -24,7 +24,7 @@ This extension allows users to manage GitHub pull requests in VS Code. The suppo
 ## Getting started
 1. Install latest VS Code Insiders
 1. Grag the latest VSIX from https://github.com/Microsoft/vscode-pull-request-github/releases/
-1. Install the VSIX by running 1Extensions: Install from VSIX1 from your command palette.
+1. Install the VSIX by running `Extensions: Install from VSIX` from your command palette.
 1. Reload VS Code after the installation (click the reload button next to the extension)
 1. Exit VS Code.
 1. Start VS Code Insiders from command line with flag: `code-insiders --enable-proposed-api Microsoft.vscode-pull-request-github`
