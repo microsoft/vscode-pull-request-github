@@ -84,3 +84,17 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 		return result;
 	}, Object.create(null));
 }
+
+
+export function formatError(e: any): string {
+	if (!(e instanceof Error)) {
+		return 'Error';
+	}
+
+	try {
+		const message = JSON.parse(e.message);
+		return message && message.message ? message.message : e.message;
+	} catch (_) {
+		return e.message;
+	}
+}

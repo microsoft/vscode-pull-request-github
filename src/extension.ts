@@ -13,6 +13,7 @@ import { registerCommands } from './commands';
 import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
 import { setGitPath } from './common/git';
+import { formatError } from './common/utils';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// initialize resources
@@ -45,7 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					repository.status();
 				}
 			} catch (e) {
-				vscode.window.showErrorMessage(e);
+				vscode.window.showErrorMessage(formatError(e));
 			}
 
 		}

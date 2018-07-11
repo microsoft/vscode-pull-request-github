@@ -8,6 +8,7 @@ import { Repository } from '../../common/repository';
 import { IPullRequestManager, IPullRequestModel, PRType } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
+import { formatError } from '../../common/utils';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -98,7 +99,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			try {
 				this.prs = await this._prManager.getLocalPullRequests();
 			} catch (e) {
-				vscode.window.showErrorMessage(`Fetching local pull requests: ${e}`);
+				vscode.window.showErrorMessage(`Fetching local pull requests failed: ${formatError(e)}`);
 			}
 		} else {
 			if (!this.fetchNextPage) {
@@ -107,7 +108,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					this.prs = ret[0];
 					hasMorePages = ret[1];
 				} catch (e) {
-					vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
+					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);
 				}
 			} else {
 				try {
@@ -115,7 +116,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					this.prs = this.prs.concat(ret[0]);
 					hasMorePages = ret[1];
 				} catch (e) {
-					vscode.window.showErrorMessage(`Fetching pull requests failed: ${e}`);
+					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);
 				}
 
 				this.fetchNextPage = false;

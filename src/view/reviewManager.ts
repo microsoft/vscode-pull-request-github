@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { parseDiff } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri } from '../common/uri';
-import { groupBy } from '../common/utils';
+import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType } from '../common/file';
 import { GitErrorCodes } from '../common/gitError';
@@ -725,7 +725,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 			}
 
-			vscode.window.showErrorMessage(e);
+			vscode.window.showErrorMessage(formatError(e));
 			// todo, we should try to recover, for example, git checkout succeeds but set config fails.
 			return;
 		}
