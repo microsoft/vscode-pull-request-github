@@ -68,7 +68,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode) => {
 		const pullRequest = ensurePR(prManager, pr);
-		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
+		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				let newPR = await prManager.closePullRequest(pullRequest);
 				vscode.commands.executeCommand('pr.refreshList');
