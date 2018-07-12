@@ -97,7 +97,10 @@ export class PullRequestOverviewPanel {
 				author: pullRequestModel.author,
 				state: pullRequestModel.state,
 				events: timelineEvents,
-				isCurrentlyCheckedOut: isCurrentlyCheckedOut
+				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+				base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
+				head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
+				commitsCount: pullRequestModel.commitCount
 			}
 		});
 	}
