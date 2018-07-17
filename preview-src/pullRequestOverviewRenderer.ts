@@ -217,6 +217,14 @@ export enum PullRequestStateEnum {
 
 export type TimelineEvent = CommitEvent | ReviewEvent | SubscribeEvent | CommentEvent | MentionEvent;
 
+function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[] } {
+	return arr.reduce((result, el) => {
+		const key = fn(el);
+		result[key] = [...(result[key] || []), el];
+		return result;
+	}, Object.create(null));
+}
+
 export function renderCommentBody(comment: Comment): string {
 	return `
 			<div class="comment-body">
@@ -278,26 +286,36 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 		return '';
 	}
 
-	let comments = timelineEvent.comments;
+	let groups = groupBy(timelineEvent.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
+	let body = '';
 	let avatar = '';
-	let diffView = '';
-	let diffLines = [];
-	if (comments && comments.length) {
-		avatar = `<div class="avatar-container">
-			<img class="avatar" src="${timelineEvent.comments[0].user.avatar_url}">
-		</div>`;
-		for (let i = 0; i < comments[0].diff_hunks.length; i++) {
-			diffLines.push(comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => `<div class="diffLine ${getDiffChangeClass(diffLine.type)}">
-				<span class="lineNumber old">${diffLine.oldLineNumber > 0 ? diffLine.oldLineNumber : ' '}</span>
-				<span class="lineNumber new">${diffLine.newLineNumber > 0 ? diffLine.newLineNumber : ' '}</span>
-				<span class="lineContent">${(diffLine as any)._raw}</span>
-				</div>`).join(''));
+
+	for (let path in groups) {
+		let comments = groups[path];
+		let diffView = '';
+		let diffLines = [];
+		if (comments && comments.length) {
+			avatar = `<div class="avatar-container">
+				<img class="avatar" src="${timelineEvent.comments[0].user.avatar_url}">
+			</div>`;
+			for (let i = 0; i < comments[0].diff_hunks.length; i++) {
+				diffLines.push(comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => `<div class="diffLine ${getDiffChangeClass(diffLine.type)}">
+					<span class="lineNumber old">${diffLine.oldLineNumber > 0 ? diffLine.oldLineNumber : ' '}</span>
+					<span class="lineNumber new">${diffLine.newLineNumber > 0 ? diffLine.newLineNumber : ' '}</span>
+					<span class="lineContent">${(diffLine as any)._raw}</span>
+					</div>`).join(''));
+			}
+
+			diffView = `<div class="diff">
+				<div class="diffHeader">${comments[0].path}</div>
+				${diffLines.join('')}
+			</div>`;
 		}
 
-		diffView = `<div class="diff">
-			<div class="diffHeader">${comments[0].path}</div>
-			${diffLines.join('')}
-		</div>`;
+		body += `
+			${diffView}
+			<div>${ comments && comments.length ? comments.map(comment => renderCommentBody(comment)) : ''}</div>
+		`;
 	}
 	return `<div class="comment-container">
 
@@ -308,8 +326,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 				<strong class="author">${timelineEvent.user.login} left a <a href="${timelineEvent.html_url}">review </a></strong><span></span>
 				<div class="timestamp">${moment(timelineEvent.submitted_at).fromNow()}</div>
 			</div>
-			${diffView}
-			<div>${ timelineEvent.comments && timelineEvent.comments.length ? timelineEvent.comments.map(comment => renderCommentBody(comment)) : ''}</div>
+			${body}
 		</div>
 	</div>
 </div>`;
