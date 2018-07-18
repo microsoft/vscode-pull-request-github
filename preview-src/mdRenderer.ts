@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 const MarkdownIt = require('markdown-it');
-const md = MarkdownIt();
+const md = MarkdownIt({
+	html: true
+});
 
 export default md;
