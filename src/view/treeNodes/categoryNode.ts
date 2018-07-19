@@ -28,7 +28,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
 		switch (type) {
 			case PRCategoryActionType.Empty:
-				this.label = '0 pull request in this category';
+				this.label = '0 pull requests in this category';
 				break;
 			case PRCategoryActionType.More:
 				this.label = 'Load more';

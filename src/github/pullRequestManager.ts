@@ -37,8 +37,6 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
-		this._githubRepositories = [];
-
 		const gitHubRemotes = this._repository.remotes.filter(remote => remote.host && remote.host.toLowerCase() === "github.com");
 		if (gitHubRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
@@ -46,15 +44,18 @@ export class PullRequestManager implements IPullRequestManager {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
 		}
 
+		let repositories = [];
 		for (let remote of gitHubRemotes) {
 			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
 			if (!isRemoteForPR) {
 				const octokit = await this._credentialStore.getOctokit(remote);
 				if (octokit) {
-					this._githubRepositories.push(new GitHubRepository(remote, octokit));
+					repositories.push(new GitHubRepository(remote, octokit));
 				}
 			}
 		}
+
+		this._githubRepositories = repositories;
 
 		for (let repository of this._githubRepositories) {
 			const remoteId = repository.remote.url.toString();

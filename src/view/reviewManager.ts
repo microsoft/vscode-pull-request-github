@@ -760,9 +760,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			// so comments only needs to be emptied in this case.
 			this._comments = [];
 			this._onDidChangeDecorations.fire();
-		}
 
-		vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('pr.refreshList');
+		}
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
