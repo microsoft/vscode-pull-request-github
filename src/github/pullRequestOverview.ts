@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { IPullRequest, IPullRequestManager, IPullRequestModel } from './interface';
 import { onDidClosePR } from '../commands';
+import { exec } from '../common/git';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -70,6 +71,16 @@ export class PullRequestOverviewPanel {
 			this._onDidReceiveMessage(message);
 		}, null, this._disposables);
 
+		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
+			if (this._pullRequestManager && this._pullRequest) {
+				const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+				this._panel.webview.postMessage({
+					command: 'pr.update-checkout-status',
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut
+				});
+			}
+		});
+
 		onDidClosePR(pr => {
 			if (pr) {
 				this._pullRequest.update(pr);
@@ -79,7 +90,7 @@ export class PullRequestOverviewPanel {
 				command: 'update-state',
 				state: this._pullRequest.state,
 			});
-		})
+		});
 	}
 
 	public async update(pullRequestModel: IPullRequestModel) {
@@ -111,23 +122,28 @@ export class PullRequestOverviewPanel {
 				vscode.window.showErrorMessage(message.text);
 				return;
 			case 'pr.checkout':
-				vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {
+				vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {}, () => {
+					const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 					this._panel.webview.postMessage({
-						command: 'checked-out'
-					});
-				}, (reason: any) => {
-					this._panel.webview.postMessage({
-						command: 'checked-out'
+						command: 'pr.update-checkout-status',
+						isCurrentlyCheckedOut: isCurrentlyCheckedOut
 					});
 				});
 				return;
 			case 'pr.close':
 				vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest);
+				return;
+			case 'pr.checkout-master':
+				// This should be updated for multi-root support and consume the git extension API if possible
+				exec(['checkout', 'master'], {
+					cwd: vscode.workspace.rootPath
+				});
+				return;
 			case 'pr.comment':
 				const text = message.text;
 				this._pullRequestManager.createIssueComment(this._pullRequest, text).then(comment => {
 					this._panel.webview.postMessage({
-						command: 'append-comment',
+						command: 'pr.update-checkout-status',
 						value: comment
 					});
 				});

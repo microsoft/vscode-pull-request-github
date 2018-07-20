@@ -22,14 +22,26 @@ interface PageInformation {
 }
 
 export class PullRequestManager implements IPullRequestManager {
-	public activePullRequest?: IPullRequestModel;
+	private _activePullRequest?: IPullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
+	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
+	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
+
 	constructor(private _configuration: Configuration, private _repository: Repository) {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._configuration);
+	}
+
+	get activePullRequest() {
+		return this._activePullRequest;
+	}
+
+	set activePullRequest(pullRequest: IPullRequestModel) {
+		this._activePullRequest = pullRequest;
+		this._onDidChangeActivePullRequest.fire();
 	}
 
 	async clearCredentialCache(): Promise<void> {

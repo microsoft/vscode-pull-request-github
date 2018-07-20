@@ -75,6 +75,26 @@ body {
 	box-sizing: border-box;
 }
 
+body .hidden {
+	display: none !important;
+}
+
+body button {
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-radius: 0px;
+	border: 1px solid transparent;
+	outline: none;
+	padding: 4px 8px;
+	line-height: 18px;
+	height: 28px;
+}
+
+button:hover:enabled, button:focus:enabled {
+	background-color: var(--vscode-button-hoverBackground);
+	cursor: pointer;
+}
+
 .prIcon {
 	display: flex;
 	border-radius: 10px;
@@ -86,40 +106,37 @@ body {
 	display: flex;
 }
 
+.overview-title .button-group {
+	align-self: center;
+	margin-left: auto;
+	display: flex;
+}
+
 .subtitle {
 	display: flex;
 	align-items: center;
 	margin-top: 5px;
 }
 
-#checkout {
-	align-self: center;
-	margin-left: auto;
-	padding: 4px 8px;
-	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
-	border-radius: 0px;
-	border: 1px solid transparent;
-	outline: none;
+body .overview-title button {
+	margin-left: 10px;
 	display: flex;
 }
+
 
 #checkout .octicon {
 	margin-right: 8px;
 	fill: var(--vscode-button-foreground);
 }
 
-#checkout:hover:enabled, #checkout:focus:enabled {
-	background-color: var(--vscode-button-hoverBackground);
-	cursor: pointer;
-}
+
 
 #status {
-	height: 28px;
 	box-sizing: border-box;
-	line-height: 20px;
+	line-height: 18px;
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
+	border: 1px solid transparent;
 	padding: 4px 8px;
 	margin-right: 5px;
 }
@@ -174,28 +191,12 @@ body .comment-form .form-actions {
 	padding: 10px 0;
 }
 
-body .comment-form .form-actions button {
-	width: auto;
-	padding: 4px 10px;
-	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
-	border-radius: 0px;
-	border: 1px solid transparent;
-	outline: none;
-}
-
 body .comment-form .form-actions button.close-button {
 	float: left;
 }
 
 body .comment-form .form-actions button.reply-button {
 	float: right;
-}
-
-body .comment-form .form-actions button:hover:enabled,
-body .comment-form .form-actions button:focus:enabled {
-	background-color: var(--vscode-button-hoverBackground);
-	cursor: pointer;
 }
 
 .comment-body img {

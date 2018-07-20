@@ -734,8 +734,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private clear(quitReviewMode: boolean) {
-		this._prNumber = null;
-		this._prManager.activePullRequest = null;
 		this._updateMessageShown = false;
 
 		if (this._documentCommentProvider) {
@@ -747,6 +745,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		if (quitReviewMode) {
+			this._prNumber = null;
+			this._prManager.activePullRequest = null;
+
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();
 			}

@@ -58,7 +58,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 			pullRequestModel = pr;
 		}
 
-		vscode.window.withProgress({
+		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.SourceControl,
 			title: `Switching to Pull Request #${pullRequestModel.prNumber}`,
 		}, async (progress, token) => {

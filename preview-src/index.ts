@@ -11,6 +11,7 @@ const vscode = acquireVsCodeApi();
 
 const ElementIds = {
 	Checkout: 'checkout',
+	CheckoutMaster: 'checkout-master',
 	Close: 'close',
 	Reply: 'reply',
 	Status: 'status',
@@ -27,8 +28,8 @@ function handleMessage(event: any) {
 		case 'update-state':
 			updatePullRequestState(message.state);
 			break;
-		case 'checked-out':
-			updateCheckoutButton(true);
+		case 'pr.update-checkout-status':
+			updateCheckoutButton(message.isCurrentlyCheckedOut);
 			break;
 		case 'append-comment':
 			appendComment(message.value);
@@ -67,7 +68,11 @@ function setTitleHTML(pr: any) {
 	document.getElementById('title')!.innerHTML = `
 			<div class="details">
 				<div class="overview-title">
-					<h2>${pr.title} (<a href=${pr.url}>#${pr.number}</a>) </h2> <button id="${ElementIds.Checkout}" aria-live="polite"><svg class="octicon octicon-desktop-download" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M4 6h3V0h2v6h3l-4 4-4-4zm11-4h-4v1h4v8H1V3h4V2H1c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h5.34c-.25.61-.86 1.39-2.34 2h8c-1.48-.61-2.09-1.39-2.34-2H15c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1z"></path></svg>Checkout Pull Request</button>
+					<h2>${pr.title} (<a href=${pr.url}>#${pr.number}</a>) </h2>
+					<div class="button-group">
+						<button id="${ElementIds.Checkout}" aria-live="polite">
+						</button><button id="${ElementIds.CheckoutMaster}" aria-live="polite">Checkout Master</button>
+					</div>
 				</div>
 				<div class="subtitle">
 					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
@@ -109,6 +114,12 @@ function addEventListeners() {
 			command: 'pr.close'
 		});
 	});
+
+	document.getElementById(ElementIds.CheckoutMaster)!.addEventListener('click', () => {
+		vscode.postMessage({
+			command: 'pr.checkout-master'
+		});
+	});
 }
 
 function appendComment(comment: any) {
@@ -121,7 +132,14 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 	checkoutButton.disabled = isCheckedOut;
 	const checkoutIcon = '<svg class="octicon octicon-desktop-download" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M4 6h3V0h2v6h3l-4 4-4-4zm11-4h-4v1h4v8H1V3h4V2H1c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h5.34c-.25.61-.86 1.39-2.34 2h8c-1.48-.61-2.09-1.39-2.34-2H15c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1z"></path></svg>';
 	const activeIcon = '<svg class="octicon octicon-check" viewBox="0 0 12 16" version="1.1" width="12" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M12 5l-8 8-4-4 1.5-1.5L4 10l6.5-6.5L12 5z"></path></svg>';
-	checkoutButton.innerHTML = isCheckedOut ? `${activeIcon} Currently Active` : `${checkoutIcon} Checkout Pull Request`;
+	checkoutButton.innerHTML = isCheckedOut ? `${activeIcon} Checked Out` : `${checkoutIcon} Checkout Pull Request`;
+
+	const backButton = (<HTMLButtonElement>document.getElementById(ElementIds.CheckoutMaster));
+	if (isCheckedOut) {
+		backButton.classList.remove('hidden');
+	} else {
+		backButton.classList.add('hidden');
+	}
 }
 
 function setTextArea() {
