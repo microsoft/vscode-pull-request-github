@@ -614,7 +614,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					}
 
 
-					let sections = groupBy(matchedFile.comments, comment => comment.original_position); // comment.position is null in this case.
+					let sections = groupBy(matchedFile.comments, comment => String(comment.original_position)); // comment.position is null in this case.
 					let ret: vscode.CommentThread[] = [];
 					for (let i in sections) {
 						let comments = sections[i];
@@ -788,7 +788,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let changedItem = changedItems[0];
 			let diffChangeTypeFilter = commit === changedItem.sha ? DiffChangeType.Delete : DiffChangeType.Add;
 			let ret = [];
-			let commentGroups = groupBy(changedItem.comments, comment => comment.original_position);
+			let commentGroups = groupBy(changedItem.comments, comment => String(comment.original_position));
 
 			for (let comment_position in commentGroups) {
 				let lines = commentGroups[comment_position][0].diff_hunks
