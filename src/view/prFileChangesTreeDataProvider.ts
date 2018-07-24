@@ -44,13 +44,7 @@ export class PullRequestFileChangesTreeDataProvider extends vscode.Disposable im
 			return element;
 		}
 
-		if (element.comments && element.comments.length) {
-			element.iconPath = Resource.icons.light.Comment;
-		} else {
-			element.iconPath = Resource.getFileStatusUri(element);
-		}
-		element.resourceUri = element.filePath;
-		return element;
+		return element.getTreeItem();
 	}
 
 	getChildren(element?: FileChangeNode): vscode.ProviderResult<(FileChangeNode | DescriptionNode)[]> {
