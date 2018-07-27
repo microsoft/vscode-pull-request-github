@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { DiffHunk } from '../../common/diffHunk';
+import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
 import { Resource } from '../../common/resources';
 import { IPullRequestModel } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { Comment } from '../../common/comment';
-import { getDiffLineByPosition } from '../../common/diffPositionMapping';
+import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
@@ -72,8 +72,10 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 				let diffLine = getDiffLineByPosition(comment.diff_hunks, comment.position === null ? comment.original_position : comment.position);
 
 				if (diffLine) {
+					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
+					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
 					opts = {
-						selection: new vscode.Range(diffLine.newLineNumber - 1, 0, diffLine.newLineNumber - 1, 0)
+						selection: new vscode.Range(lineNumber, 0, lineNumber, 0)
 					};
 				}
 			}
