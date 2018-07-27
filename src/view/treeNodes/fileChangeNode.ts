@@ -69,7 +69,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 			if (sortedActiveComments.length) {
 				let comment = sortedActiveComments[0];
-				let diffLine = getDiffLineByPosition(comment.diff_hunks, comment.position === null ? comment.original_position : comment.position);
+				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.original_position : comment.position);
 
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
