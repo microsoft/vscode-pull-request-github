@@ -10,6 +10,7 @@ import { TreeNode } from './treeNode';
 import { FileChangeNode } from './fileChangeNode';
 import { toReviewUri } from '../../common/uri';
 import { getGitChangeType } from '../../common/diffHunk';
+import { Comment } from '../../common/comment';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
@@ -19,6 +20,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		private readonly pullRequestManager: IPullRequestManager,
 		private readonly pullRequest: IPullRequestModel,
 		private readonly commit: Commit,
+		private readonly comments: Comment[]
 	) {
 		super();
 		this.label = commit.commit.message;
@@ -32,7 +34,9 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	async getChildren(): Promise<TreeNode[]> {
 		const fileChanges = await this.pullRequestManager.getCommitChangedFiles(this.pullRequest, this.commit);
 
+
 		const fileChangeNodes = fileChanges.map(change => {
+			const matchingComments = this.comments.filter(comment => comment.path === change.filename && comment.original_commit_id === this.commit.sha);
 			const fileName = change.filename;
 			const uri = vscode.Uri.parse(path.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
 			const fileChangeNode = new FileChangeNode(
@@ -43,7 +47,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				toReviewUri(uri, fileName, null, this.commit.sha, { base: false }),
 				toReviewUri(uri, fileName, null, this.commit.sha, { base: true }),
 				[],
-				[],
+				matchingComments,
 				this.commit.sha
 			);
 

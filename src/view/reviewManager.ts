@@ -160,7 +160,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		await this.getPullRequestData(pr);
-		await this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, pr, this._localFileChanges);
+		await this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, pr, this._localFileChanges, this._comments);
 
 		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
@@ -603,12 +603,25 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					// comments are outdated
 					matchedFile = this.findMatchedFileChange(this._obsoleteFileChanges, document.uri);
+					let comments = [];
 					if (!matchedFile) {
-						return null;
+						// The file may be a change from a specific commit, check the comments themselves to see if they match it, as obsolete file changs
+						// may not contain it
+						try {
+							const query = JSON.parse(document.uri.query);
+							comments = this._comments.filter(comment => comment.path === query.path && `${comment.original_commit_id}^` === query.commit);
+						} catch (_) {
+							// Do nothing
+						}
+
+						if (!comments.length) {
+							return null;
+						}
+					} else {
+						comments = matchedFile.comments
 					}
 
-
-					let sections = groupBy(matchedFile.comments, comment => String(comment.original_position)); // comment.position is null in this case.
+					let sections = groupBy(comments, comment => String(comment.original_position)); // comment.position is null in this case.
 					let ret: vscode.CommentThread[] = [];
 					for (let i in sections) {
 						let comments = sections[i];
@@ -619,7 +632,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 						ret.push({
 							threadId: comment.id,
-							resource: matchedFile.filePath,
+							resource: vscode.Uri.file(path.resolve(this._repository.path, comment.path)),
 							range,
 							comments: comments.map(comment => {
 								return {
