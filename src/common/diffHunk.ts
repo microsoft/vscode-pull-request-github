@@ -248,6 +248,21 @@ async function parseModifiedHunkFast(modifyDiffInfo, a, b) {
 	return new RichFileChange(contentPath, originalContentPath, GitChangeType.MODIFY, b, diffHunks);
 }
 
+export function getGitChangeType(status: string): GitChangeType {
+	switch (status) {
+		case 'removed':
+			return GitChangeType.DELETE;
+		case 'added':
+			return GitChangeType.ADD;
+		case 'renamed':
+			return GitChangeType.RENAME;
+		case 'modified':
+			return GitChangeType.MODIFY;
+		default:
+			return GitChangeType.UNKNOWN
+	}
+}
+
 export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<RichFileChange[]> {
 	let richFileChanges: RichFileChange[] = [];
 	for (let i = 0; i < reviews.length; i++) {
@@ -270,21 +285,7 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 				continue;
 			}
 
-			let gitChangeType = GitChangeType.UNKNOWN;
-			switch (review.status) {
-				case 'removed':
-					gitChangeType = GitChangeType.DELETE;
-					break;
-				case 'added':
-					gitChangeType = GitChangeType.ADD;
-					break;
-				case 'renamed':
-					gitChangeType = GitChangeType.RENAME;
-					break;
-				default:
-					break;
-			}
-
+			const gitChangeType = getGitChangeType(review.status);
 			let contentArray = [];
 			let fileName = review.filename;
 			let prDiffReader = parseDiffHunk(review.patch);

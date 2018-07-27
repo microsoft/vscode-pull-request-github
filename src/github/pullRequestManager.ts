@@ -10,11 +10,12 @@ import { Remote } from "../common/remote";
 import { Repository } from "../common/repository";
 import { TimelineEvent, EventType } from "../common/timelineEvent";
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from "./githubRepository";
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType } from "./interface";
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange } from "./interface";
 import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from "../configuration";
+import { formatError } from '../common/utils';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -174,6 +175,38 @@ export class PullRequestManager implements IPullRequestManager {
 		return parserCommentDiffHunk(rawComments);
 	}
 
+	async getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]> {
+		try {
+			const { octokit, remote } = (pullRequest as PullRequestModel).githubRepository;
+			const commitData = await octokit.pullRequests.getCommits({
+					number: pullRequest.prNumber,
+					owner: remote.owner,
+					repo: remote.repositoryName
+			});
+
+			return commitData.data;
+		} catch (e) {
+			vscode.window.showErrorMessage(`Fetching commits failed: ${formatError(e)}`);
+			return [];
+		}
+	}
+
+	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Commit): Promise<FileChange[]> {
+		try {
+			const { octokit, remote } = (pullRequest as PullRequestModel).githubRepository;
+			const fullCommit = await octokit.repos.getCommit({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				sha: commit.sha
+			});
+
+			return fullCommit.data.files.filter(file => !!file.patch);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Fetching commit file changes failed: ${formatError(e)}`);
+			return [];
+		}
+	}
+
 	async getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]> {
 		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
@@ -286,7 +319,7 @@ export class PullRequestManager implements IPullRequestManager {
 		return ret.data;
 	}
 
-	async getPullRequestChagnedFiles(pullRequest: IPullRequestModel): Promise<any> {
+	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]> {
 		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		let octokit = githubRepository.octokit;
 		let remote = githubRepository.remote;
