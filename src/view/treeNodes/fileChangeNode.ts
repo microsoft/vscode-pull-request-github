@@ -13,47 +13,28 @@ import { Comment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
+	public label: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
 	public resourceUri: vscode.Uri;
-	public sha: string;
 	public parentSha: string;
-	public command?: vscode.Command;
-	public comments?: Comment[];
 	public contextValue: string;
-
-	get letter(): string {
-		switch (this.status) {
-			case GitChangeType.MODIFY:
-				return 'M';
-			case GitChangeType.ADD:
-				return 'A';
-			case GitChangeType.DELETE:
-				return 'D';
-			case GitChangeType.RENAME:
-				return 'R';
-			case GitChangeType.UNKNOWN:
-				return 'U';
-			default:
-				return 'C';
-		}
-	}
+	public command: vscode.Command;
 
 	constructor(
 		public readonly pullRequest: IPullRequestModel,
-		public readonly label: string,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
-		public blobUrl: string,
+		public readonly blobUrl: string,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public readonly workspaceRoot: string,
-		public readonly diffHunks: DiffHunk[]
+		public readonly diffHunks: DiffHunk[],
+		public readonly comments: Comment[] = [],
+		public readonly sha?: string,
 	) {
 		super();
 		this.contextValue = 'filechange';
-	}
+		this.label = fileName;
 
-	getTreeItem(): vscode.TreeItem {
 		if (this.comments && this.comments.length) {
 			this.iconPath = Resource.icons.light.Comment;
 		} else {
@@ -91,7 +72,9 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 				opts
 			]
 		};
+	}
 
+	getTreeItem(): vscode.TreeItem {
 		return this;
 	}
 

@@ -65,6 +65,35 @@ export interface IPullRequest {
 	user: any;
 }
 
+export interface FileChange {
+	additions: number;
+	blob_url: string;
+	changes: number;
+	contents_url: string;
+	deletions: number;
+	filename: string;
+	patch?: string;
+	raw_url: string;
+	sha: string;
+	status: string;
+}
+
+export interface Commit {
+	author: {
+		login: string;
+	};
+	commit: {
+		author: {
+			name: string;
+			date: string;
+			email: string;
+		};
+		message: string;
+	};
+	html_url: string;
+	sha: string;
+	parents: any;
+}
 
 export interface IPullRequestModel {
 	prNumber: number;
@@ -99,6 +128,8 @@ export interface IPullRequestManager {
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<[IPullRequestModel[], boolean]>;
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
+	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]>;
+	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Commit): Promise<FileChange[]>;
 	getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
 	getIssueComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
@@ -106,7 +137,7 @@ export interface IPullRequestManager {
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string);
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number);
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
-	getPullRequestChagnedFiles(pullRequest: IPullRequestModel): Promise<any>;
+	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]>;
 	fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void>;
 	updateRepositories(): Promise<void>;
 

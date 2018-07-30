@@ -34,7 +34,7 @@ export class PRNode extends TreeNode {
 	async getChildren(): Promise<TreeNode[]> {
 		try {
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
-			const data = await this._prManager.getPullRequestChagnedFiles(this.pullRequestModel);
+			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
 			await this._prManager.fullfillPullRequestCommitInfo(this.pullRequestModel);
 			this.richContentChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
 			this.commentsCache = new Map<String, Comment[]>();
@@ -42,16 +42,14 @@ export class PRNode extends TreeNode {
 				let fileInRepo = path.resolve(this.repository.path, change.fileName);
 				let changedItem = new FileChangeNode(
 					this.pullRequestModel,
-					change.fileName,
 					change.status,
 					change.fileName,
 					change.blobUrl,
 					toPRUri(vscode.Uri.file(change.filePath), fileInRepo, change.fileName, false),
 					toPRUri(vscode.Uri.file(change.originalFilePath), fileInRepo, change.fileName, true),
-					this.repository.path,
-					change.diffHunks
+					change.diffHunks,
+					comments.filter(comment => comment.path === change.fileName)
 				);
-				changedItem.comments = comments.filter(comment => comment.path === changedItem.fileName);
 				this.commentsCache.set(change.fileName, changedItem.comments);
 				return changedItem;
 			});
