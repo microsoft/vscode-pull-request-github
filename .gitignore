@@ -333,3 +333,4 @@ ASALocalRun/
 out
 node_modules
 media
+.DS_Store

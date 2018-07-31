@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { Repository } from './common/repository';
-import { Configuration } from './configuration';
+import { VSCodeConfiguration } from './authentication/vsConfiguration';
 import { Resource } from './common/resources';
 import { ReviewManager } from './view/reviewManager';
 import { registerCommands } from './commands';
@@ -20,38 +20,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	Resource.initialize(context);
 
 	const rootPath = vscode.workspace.rootPath;
-
-	const config = vscode.workspace.getConfiguration('github');
-	const configuration = new Configuration(
-		config.get<string>('username'),
-		config.get<string>('host'),
-		config.get<string>('accessToken')
-	);
-	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(() => {
-			const config = vscode.workspace.getConfiguration('github');
-			configuration.update(
-				config.get<string>('username'),
-				config.get<string>('host'),
-				config.get<string>('accessToken')
-			);
-		})
-	);
-
-	configuration.onDidChange(async _ => {
-		if (prManager) {
-			try {
-				await prManager.clearCredentialCache();
-				if (repository) {
-					repository.status();
-				}
-			} catch (e) {
-				vscode.window.showErrorMessage(formatError(e));
-			}
-
-		}
-	});
-
 	let gitExt = vscode.extensions.getExtension('vscode.git');
 	let importedGitApi = gitExt.exports;
 	let gitPath = await importedGitApi.getGitPath();
@@ -61,10 +29,36 @@ export async function activate(context: vscode.ExtensionContext) {
 	const repository = new Repository(rootPath);
 	let repositoryInitialized = false;
 	let prManager: PullRequestManager;
+
 	repository.onDidRunGitStatus(async e => {
 		if (repositoryInitialized) {
 			return;
 		}
+
+		let remotes = repository.remotes.filter(remote => remote.host);
+		let remote = remotes.find(remote => remote.remoteName === 'origin');
+		if (!remote && remotes.length > 0) {
+			remote = remotes[0];
+		}
+
+		if (!remote) {
+			return;
+		}
+
+		const configuration = new VSCodeConfiguration(remote.host);
+		configuration.onDidChange(async _ => {
+			if (prManager) {
+				try {
+					await prManager.clearCredentialCache();
+					if (repository) {
+						repository.status();
+					}
+				} catch (e) {
+					vscode.window.showErrorMessage(formatError(e));
+				}
+
+			}
+		});
 
 		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 		repositoryInitialized = true;

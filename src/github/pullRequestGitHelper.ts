@@ -31,7 +31,7 @@ export class PullRequestGitHelper {
 		let existing = await repository.getBranch(localBranchName);
 		if (existing) {
 			// already exist but the metadata is missing.
-			Logger.appendLine(`GitHelper> branch ${localBranchName} exits locally but metadata is missing.`)
+			Logger.appendLine(`GitHelper> branch ${localBranchName} exists locally but metadata is missing.`)
 			await repository.checkout(localBranchName);
 		} else {
 			// the branch is from a fork

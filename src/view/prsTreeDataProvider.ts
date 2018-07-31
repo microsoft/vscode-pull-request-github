@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { Configuration } from '../configuration';
+import { Configuration } from '../authentication/configuration';
 import { Repository } from '../common/repository';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';

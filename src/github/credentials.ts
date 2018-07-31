@@ -3,9 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Configuration } from '../configuration';
+import { Configuration, IHostConfiguration } from '../authentication/configuration';
+import { WebFlow } from '../authentication/webflow';
 import { Remote } from '../common/remote';
 import { fill } from 'git-credential-node';
+import { VSCodeAppConfiguration } from '../authentication/vsConfiguration';
 const Octokit = require('@octokit/rest');
 
 export class CredentialStore {
@@ -25,26 +27,49 @@ export class CredentialStore {
 			return this._octokits[remote.url];
 		}
 
-		if (this._configuration.host === remote.host && this._configuration.accessToken) {
-			this._octokits[remote.url] = Octokit({});
-			this._octokits[remote.url].authenticate({
-				type: 'token',
-				token: this._configuration.accessToken
-			});
-			return this._octokits[remote.url];
+		const webflow = new WebFlow(new VSCodeAppConfiguration(), remote.host);
+		let creds = this._configuration as IHostConfiguration;
+		if (creds.host === remote.host && creds.token && await webflow.validate(creds)) {
+			return this.authenticate('token', remote.url, creds);
 		} else {
-			const data = await fill(remote.url);
-			if (!data) {
-				return null;
+			let data = await fill(remote.url);
+			if (data) {
+				creds.username = data.username;
+				creds.token = data.password;
+				if (await webflow.validate(creds)) {
+					return this.authenticate('basic', remote.url, creds);
+				}
 			}
-			this._octokits[remote.url] = Octokit({});
-			this._octokits[remote.url].authenticate({
-				type: 'basic',
-				username: data.username,
-				password: data.password
-			});
 
-			return this._octokits[remote.url];
+			const login = await webflow.login();
+
+			if (login.authenticated)
+			{
+				creds = login.host;
+				if (creds.host === remote.host) {
+					this._configuration.update(creds.username, creds.token);
+				}
+				return this.authenticate('token', remote.url, creds);
+			}
+			return null;
 		}
+	}
+
+	private authenticate(type: string, url: string, creds: IHostConfiguration) {
+		this._octokits[url] = Octokit({});
+		if (type === 'token') {
+			this._octokits[url].authenticate({
+				type: 'token',
+				token: creds.token,
+			});
+		}
+		else {
+			this._octokits[url].authenticate({
+				type: 'basic',
+				username: creds.username,
+				password: creds.token,
+			});
+		}
+		return this._octokits[url];
 	}
 }
