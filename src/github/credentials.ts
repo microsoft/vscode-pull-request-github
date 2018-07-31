@@ -7,8 +7,7 @@ import { Configuration, IHostConfiguration } from '../authentication/configurati
 import { WebFlow } from '../authentication/webflow';
 import { Remote } from '../common/remote';
 import { fill } from 'git-credential-node';
-import { VSCodeAppConfiguration } from '../authentication/vsConfiguration';
-const Octokit = require('@octokit/rest');
+import * as Octokit from '@octokit/rest';
 
 export class CredentialStore {
 	private _octokits: { [key: string]: any };
@@ -22,12 +21,12 @@ export class CredentialStore {
 		this._octokits = [];
 	}
 
-	async getOctokit(remote: Remote) {
+	async getOctokit(remote: Remote): Promise<Octokit> {
 		if (this._octokits[remote.url]) {
 			return this._octokits[remote.url];
 		}
 
-		const webflow = new WebFlow(new VSCodeAppConfiguration(), remote.host);
+		const webflow = new WebFlow(remote.host);
 		let creds = this._configuration as IHostConfiguration;
 		if (creds.host === remote.host && creds.token && await webflow.validate(creds)) {
 			return this.authenticate('token', remote.url, creds);
@@ -41,22 +40,22 @@ export class CredentialStore {
 				}
 			}
 
-			const login = await webflow.login();
-
-			if (login.authenticated)
-			{
-				creds = login.host;
-				if (creds.host === remote.host) {
-					this._configuration.update(creds.username, creds.token);
-				}
-				return this.authenticate('token', remote.url, creds);
-			}
-			return null;
+			return webflow.login()
+				.then(login => {
+					creds = login.host;
+					if (creds.host === remote.host) {
+						this._configuration.update(creds.username, creds.token);
+					}
+					return this.authenticate('token', remote.url, creds);
+				})
+				.catch(reason => {
+					return undefined;
+				});
 		}
 	}
 
-	private authenticate(type: string, url: string, creds: IHostConfiguration) {
-		this._octokits[url] = Octokit({});
+	private authenticate(type: string, url: string, creds: IHostConfiguration): Octokit {
+		this._octokits[url] = new Octokit();
 		if (type === 'token') {
 			this._octokits[url].authenticate({
 				type: 'token',

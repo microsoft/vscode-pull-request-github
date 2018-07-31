@@ -56,9 +56,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				} catch (e) {
 					vscode.window.showErrorMessage(formatError(e));
 				}
-
 			}
 		});
+		context.subscriptions.push(configuration.listenForVSCodeChanges());
 
 		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 		repositoryInitialized = true;
