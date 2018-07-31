@@ -188,25 +188,26 @@
     "@types/mocha": "^5.2.2",
     "@types/node": "*",
     "css-loader": "^0.28.11",
+    "del": "^3.0.0",
+    "gulp": "3.9.1",
+    "gulp-mocha": "^6.0.0",
+    "gulp-typescript": "^5.0.0-alpha.2",
+    "gulp-util": "^3.0.8",
     "mocha": "^5.2.0",
     "style-loader": "^0.21.0",
     "ts-loader": "^4.0.1",
     "typescript": "^2.1.4",
     "webpack": "^4.1.0",
-    "webpack-cli": "^2.0.10",
-    "gulp": "3.9.1",
-    "gulp-typescript": "^5.0.0-alpha.2",
-    "del": "^3.0.0",
-    "gulp-mocha": "^6.0.0",
-    "gulp-util": "^3.0.8"
+    "webpack-cli": "^2.0.10"
   },
   "dependencies": {
-    "iconv-lite": "0.4.23",
-    "vscode": "^1.1.18",
     "@octokit/rest": "^15.8.0",
-    "markdown-it": "^8.4.0",
     "git-credential-node": "^1.1.0",
+    "iconv-lite": "0.4.23",
+    "markdown-it": "^8.4.0",
+    "moment": "^2.22.1",
     "tmp": "^0.0.31",
-    "moment": "^2.22.1"
+    "vscode": "^1.1.18",
+    "ws": "^6.0.0"
   }
 }
