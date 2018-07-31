@@ -34,7 +34,7 @@
           "description": "Host tokens",
           "items": {
             "type": "object"
-           }
+          }
         }
       }
     },
@@ -189,6 +189,7 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.8.0",
+    "@types/ws": "^5.1.2",
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",
