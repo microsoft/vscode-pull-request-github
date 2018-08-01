@@ -74,26 +74,52 @@ class Client {
 
 export interface IWebFlow {
 	authenticated: boolean;
-	host: IHostConfiguration;
+	hostConfiguration: IHostConfiguration;
 }
 
 export class WebFlow implements IWebFlow {
 	authenticated: boolean;
-	host: IHostConfiguration;
+	hostConfiguration: IHostConfiguration;
 
 	public constructor(host: string) {
-		this.host = { host: host, username: 'oauth', token: undefined };
+		this.hostConfiguration = { host: host, username: 'oauth', token: undefined };
 	}
 
 	public async login(): Promise<IWebFlow> {
 		return new Promise<IWebFlow>((resolve, reject) => {
-			new Client(this.host.host, SCOPES)
+			new Client(this.hostConfiguration.host, SCOPES)
 				.start()
 				.then(token => {
-					this.host.token = token;
+					this.hostConfiguration.token = token;
 					resolve(this);
 				})
 				.catch(reject);
+		});
+	}
+
+	public async checkAnonymousAccess(): Promise<boolean> {
+		let options = {
+			host: `api.${this.hostConfiguration.host}`,
+			port: 443,
+			method: 'GET',
+			path: '/rate_limit',
+			headers: {
+				'User-Agent': 'GitHub VSCode Pull Requests',
+			},
+		};
+		return new Promise<boolean>((resolve, _) => {
+			const get = https.request(options, res => {
+				if (res.statusCode !== 200) {
+					resolve(false);
+				} else {
+					resolve(true);
+				}
+			});
+
+			get.end();
+			get.on('error', err => {
+				resolve(false);
+			});
 		});
 	}
 

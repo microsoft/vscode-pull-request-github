@@ -18,12 +18,12 @@ export class VSCodeConfiguration extends Configuration {
 		return vscode.workspace.onDidChangeConfiguration(() => {
 			this.loadHosts();
 			const config = this.getHost(this.host);
-			super.update(config.username, config.token);
+			super.update(config.username, config.token, true);
 		});
 	}
 
-	public update(username: string | undefined, token: string | undefined): void {
-		super.update(username, token);
+	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): void {
+		super.update(username, token, raiseEvent);
 		this.saveConfiguration();
 	}
 

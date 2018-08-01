@@ -21,11 +21,13 @@ export class Configuration implements IConfiguration {
 		this.onDidChange = this._emitter.event;
 	}
 
-	public update(username: string | undefined, token: string | undefined): void {
+	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): void {
 		if (username !== this.username || token !== this.token) {
 			this.username = username;
 			this.token = token;
-			this._emitter.fire(this);
+			if (raiseEvent) {
+				this._emitter.fire(this);
+			}
 		}
 	}
 }
