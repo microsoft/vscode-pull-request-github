@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { IHostConfiguration } from './configuration';
+import { IHostConfiguration, HostHelper } from './configuration';
 import * as ws from 'ws';
 import * as https from 'https';
 
@@ -72,37 +72,33 @@ class Client {
 	}
 }
 
-export interface IWebFlow {
-	authenticated: boolean;
-	hostConfiguration: IHostConfiguration;
-}
-
-export class WebFlow implements IWebFlow {
-	authenticated: boolean;
+export class WebFlow {
 	hostConfiguration: IHostConfiguration;
 
 	public constructor(host: string) {
 		this.hostConfiguration = { host: host, username: 'oauth', token: undefined };
 	}
 
-	public async login(): Promise<IWebFlow> {
-		return new Promise<IWebFlow>((resolve, reject) => {
+	public async login(): Promise<IHostConfiguration> {
+		return new Promise<IHostConfiguration>((resolve, reject) => {
 			new Client(this.hostConfiguration.host, SCOPES)
 				.start()
 				.then(token => {
 					this.hostConfiguration.token = token;
-					resolve(this);
+					resolve(this.hostConfiguration);
 				})
-				.catch(reject);
+				.catch(reason => {
+					resolve(undefined);
+				});
 		});
 	}
 
 	public async checkAnonymousAccess(): Promise<boolean> {
 		let options = {
-			host: `api.${this.hostConfiguration.host}`,
+			host: HostHelper.getApiHost(this.hostConfiguration).authority,
 			port: 443,
 			method: 'GET',
-			path: '/rate_limit',
+			path: HostHelper.getApiPath(this.hostConfiguration, '/rate_limit'),
 			headers: {
 				'User-Agent': 'GitHub VSCode Pull Requests',
 			},
@@ -123,34 +119,41 @@ export class WebFlow implements IWebFlow {
 		});
 	}
 
-	public async validate(creds: IHostConfiguration): Promise<boolean> {
+	public async validate(username?: string, token?: string): Promise<IHostConfiguration> {
+		if (!username) username = this.hostConfiguration.username;
+		if (!token) token = this.hostConfiguration.token;
 		let options = {
-			host: `api.${creds.host}`,
+			host: HostHelper.getApiHost(this.hostConfiguration).authority,
 			port: 443,
 			method: 'GET',
-			path: '/rate_limit',
+			path: HostHelper.getApiPath(this.hostConfiguration, '/rate_limit'),
 			headers: {
 				'User-Agent': 'GitHub VSCode Pull Requests',
-				Authorization: `token ${creds.token}`,
+				Authorization: `token ${token}`,
 			},
 		};
-		return new Promise<boolean>((resolve, _) => {
+
+		return new Promise<IHostConfiguration>((resolve, _) => {
 			const get = https.request(options, res => {
 				if (res.statusCode !== 200) {
-					resolve(false);
+					resolve(undefined);
 				}
 				let scopes = res.headers['x-oauth-scopes'] as string;
 				if (!scopes) {
-					resolve(false);
+					resolve(undefined);
 				}
 				let expected = SCOPES.split(' ');
 				let serverScopes = new Set(scopes.split(', '));
-				resolve(expected.every(x => serverScopes.has(x)));
+				if (expected.every(x => serverScopes.has(x))) {
+					this.hostConfiguration.username = username;
+					this.hostConfiguration.token = token;
+					resolve(this.hostConfiguration);
+				}
 			});
 
 			get.end();
 			get.on('error', err => {
-				resolve(false);
+				resolve(undefined);
 			});
 		});
 	}

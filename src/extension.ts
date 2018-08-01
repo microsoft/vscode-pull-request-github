@@ -45,7 +45,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		const configuration = new VSCodeConfiguration(remote.host);
+		const host = remote.gitProtocol.normalizeUri();
+		const configuration = new VSCodeConfiguration(`${host.scheme}://${host.authority}`);
 		configuration.onDidChange(async _ => {
 			if (prManager) {
 				try {

@@ -6,6 +6,26 @@ export interface IHostConfiguration {
 	token: string | undefined;
 }
 
+export const HostHelper = class {
+	public static getApiHost(host: IHostConfiguration): vscode.Uri {
+		const hostUri = vscode.Uri.parse(host.host);
+		if (hostUri.authority === 'github.com') {
+			return vscode.Uri.parse('https://api.github.com');
+		} else {
+			return vscode.Uri.parse(`${hostUri.scheme}://${hostUri.authority}`);
+		}
+	}
+
+	public static getApiPath(host: IHostConfiguration, path: string): string {
+		const hostUri = vscode.Uri.parse(host.host);
+		if (hostUri.authority === 'github.com') {
+			return path;
+		} else {
+			return `/api/v3${path}`;
+		}
+	}
+};
+
 export interface IConfiguration extends IHostConfiguration {
 	onDidChange: vscode.Event<IConfiguration>;
 }

@@ -50,12 +50,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
-		const gitHubRemotes = this._repository.remotes.filter(remote => remote.host && remote.host.toLowerCase() === "github.com");
-		if (gitHubRemotes.length) {
-			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
-		} else {
-			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
-		}
+		const gitHubRemotes = this._repository.remotes.filter(remote => remote.host);
 
 		let repositories = [];
 		for (let remote of gitHubRemotes) {
@@ -67,6 +62,13 @@ export class PullRequestManager implements IPullRequestManager {
 				}
 			}
 		}
+
+		if (repositories.length > 0) {
+			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
+		} else {
+			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
+		}
+
 
 		this._githubRepositories = repositories;
 

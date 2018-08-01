@@ -6,7 +6,7 @@
 import * as Octokit from '@octokit/rest';
 import { fill } from 'git-credential-node';
 import * as vscode from 'vscode';
-import { Configuration, IHostConfiguration } from '../authentication/configuration';
+import { Configuration, IHostConfiguration, HostHelper } from '../authentication/configuration';
 import { WebFlow } from '../authentication/webflow';
 import { Remote } from '../common/remote';
 
@@ -29,40 +29,46 @@ export class CredentialStore {
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
 		// so use a normalized http[s] url regardless of the original protocol
 		const normalizedUri = remote.gitProtocol.normalizeUri();
-		const host = vscode.Uri.parse(`${normalizedUri.scheme}://${normalizedUri.authority}`);
-		const hostString = host.toString();
+		const host = vscode.Uri.parse(`${normalizedUri.scheme}://${normalizedUri.authority}`).toString();
 
 		// for authentication purposes only the host portion matters
-		if (this._octokits.has(hostString)) {
-			return this._octokits.get(hostString);
+		if (this._octokits.has(host)) {
+			return this._octokits.get(host);
 		}
 		let octokit: Octokit;
 
-		const webflow = new WebFlow(normalizedUri.authority);
+		const webflow = new WebFlow(host);
 		const creds: IHostConfiguration = this._configuration;
-		if (creds.token && await webflow.validate(creds)) {
-			octokit = this.createOctokit('token', hostString, creds);
+		if (creds.token && await webflow.validate(creds.username, creds.token)) {
+			octokit = this.createOctokit('token', creds);
 		} else {
-			const data = await fill(host.toString());
+
+			// see if the system keychain has something we can use
+			const data = await fill(host);
 			if (data) {
-				const newCreds = { host: creds.host, username: data.username, token: data.password };
-				if (await webflow.validate(newCreds)) {
-					octokit = this.createOctokit('token', hostString, newCreds)
-					this._configuration.update(newCreds.username, newCreds.token, false);
+				const login = await webflow.validate(data.username, data.password);
+				if (login) {
+					octokit = this.createOctokit('token', login)
+					this._configuration.update(login.username, login.token, false);
 				}
 			}
 
-			const result = await vscode.window.showInformationMessage(`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
+			const result = await vscode.window.showInformationMessage(
+				`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
 				SIGNIN_COMMAND);
+
 			if (result === SIGNIN_COMMAND) {
-				webflow.login()
-					.then(login => {
-						octokit = this.createOctokit('token', hostString, login.hostConfiguration)
-						this._configuration.update(login.hostConfiguration.username, login.hostConfiguration.token, false);
-					})
-					.catch(reason => {
-						vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}: ${reason}`);
-					});
+				try {
+					const login = await webflow.login();
+					if (login) {
+						octokit = this.createOctokit('token', login)
+						this._configuration.update(login.username, login.token, false);
+					}
+				} catch (e) {
+					vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}: ${e}`);
+				}
+			} else {
+				vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}`);
 			}
 		}
 
@@ -71,21 +77,25 @@ export class CredentialStore {
 			// anonymous access, not guaranteed to work for everything, and rate limited
 			if (await webflow.checkAnonymousAccess()) {
 				vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Some functionality may fail.`)
-				octokit = this.createOctokit('token', hostString);
+				octokit = this.createOctokit('token', creds);
 
-			// the server does not support anonymous access, disable everything
+				// the server does not support anonymous access, disable everything
 			} else {
 				vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Pull Requests functionality won't work.`)
 			}
 		}
 
-		this._octokits.set(hostString, octokit);
+		this._octokits.set(host, octokit);
 		return octokit;
 	}
 
-	private createOctokit(type: string, url: string, creds?: IHostConfiguration): Octokit {
-		const octokit = new Octokit();
-		if (creds) {
+	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
+		const octokit = new Octokit({
+			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
+			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
+		});
+
+		if (creds.token) {
 			if (type === 'token') {
 				octokit.authenticate({
 					type: 'token',
