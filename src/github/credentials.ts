@@ -10,6 +10,7 @@ import { IHostConfiguration, HostHelper } from '../authentication/configuration'
 import { GitHubServer } from '../authentication/githubServer';
 import { Remote } from '../common/remote';
 import { VSCodeConfiguration } from '../authentication/vsConfiguration';
+import Logger from '../common/logger';
 
 const SIGNIN_COMMAND = 'Sign in';
 
@@ -41,6 +42,7 @@ export class CredentialStore {
 		let octokit: Octokit;
 		const creds: IHostConfiguration = this._configuration;
 		const server = new GitHubServer(host);
+		let error: string;
 
 		if (creds.token && await server.validate(creds.username, creds.token)) {
 			octokit = this.createOctokit('token', creds);
@@ -69,23 +71,31 @@ export class CredentialStore {
 						vscode.window.showInformationMessage(`You are now signed in to ${normalizedUri.authority}`);
 					}
 				} catch (e) {
-					vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}: ${e}`);
+					error = e;
 				}
-			} else {
-				vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}`);
 			}
 		}
 
 		if (!octokit) {
 
+			Logger.appendLine(`Error signing in to ${normalizedUri.authority}: ${error}`);
+
 			// anonymous access, not guaranteed to work for everything, and rate limited
 			if (await server.checkAnonymousAccess()) {
-				vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Some functionality may fail.`)
 				octokit = this.createOctokit('token', creds);
+				if (error) {
+					vscode.window.showWarningMessage(`Error signing in to ${normalizedUri.authority}: ${error}. Pull Requests functionality might not work correctly for this server.`)
+				} else {
+					vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Pull Requests functionality might not work correctly for this server.`)
+				}
 
 				// the server does not support anonymous access, disable everything
 			} else {
-				vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Pull Requests functionality won't work.`)
+				if (error) {
+					vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}: ${error}`);
+				} else {
+					vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Pull Requests functionality is disabled for this server.`)
+				}
 			}
 		}
 
