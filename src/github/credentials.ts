@@ -6,47 +6,50 @@
 import * as Octokit from '@octokit/rest';
 import { fill } from 'git-credential-node';
 import * as vscode from 'vscode';
-import { Configuration, IHostConfiguration, HostHelper } from '../authentication/configuration';
-import { WebFlow } from '../authentication/webflow';
+import { IHostConfiguration, HostHelper } from '../authentication/configuration';
+import { GitHubServer } from '../authentication/githubServer';
 import { Remote } from '../common/remote';
+import { VSCodeConfiguration } from '../authentication/vsConfiguration';
 
 const SIGNIN_COMMAND = 'Sign in';
 
 export class CredentialStore {
-	//private _octokits: { [key: string]: Octokit | Promise<Octokit> };
 	private _octokits: Map<string, Octokit>;
-	private _configuration: Configuration;
-	constructor(configuration: Configuration) {
+	private _configuration: VSCodeConfiguration;
+	constructor(configuration: any) {
 		this._configuration = configuration;
 		this._octokits = new Map<string, Octokit>();
 	}
 
-	reset() {
+	public reset() {
 		this._octokits = new Map<string, Octokit>();
 	}
 
-	async getOctokit(remote: Remote): Promise<Octokit> {
+	public async getOctokit(remote: Remote): Promise<Octokit> {
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
 		// so use a normalized http[s] url regardless of the original protocol
 		const normalizedUri = remote.gitProtocol.normalizeUri();
-		const host = vscode.Uri.parse(`${normalizedUri.scheme}://${normalizedUri.authority}`).toString();
+		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
 
 		// for authentication purposes only the host portion matters
 		if (this._octokits.has(host)) {
 			return this._octokits.get(host);
 		}
-		let octokit: Octokit;
 
-		const webflow = new WebFlow(host);
+		this._configuration.setHost(host);
+
+		let octokit: Octokit;
 		const creds: IHostConfiguration = this._configuration;
-		if (creds.token && await webflow.validate(creds.username, creds.token)) {
+		const server = new GitHubServer(host);
+
+		if (creds.token && await server.validate(creds.username, creds.token)) {
 			octokit = this.createOctokit('token', creds);
 		} else {
 
 			// see if the system keychain has something we can use
 			const data = await fill(host);
 			if (data) {
-				const login = await webflow.validate(data.username, data.password);
+				const login = await server.validate(data.username, data.password);
 				if (login) {
 					octokit = this.createOctokit('token', login)
 					this._configuration.update(login.username, login.token, false);
@@ -59,10 +62,11 @@ export class CredentialStore {
 
 			if (result === SIGNIN_COMMAND) {
 				try {
-					const login = await webflow.login();
+					const login = await server.login();
 					if (login) {
 						octokit = this.createOctokit('token', login)
 						this._configuration.update(login.username, login.token, false);
+						vscode.window.showInformationMessage(`You are now signed in to ${normalizedUri.authority}`);
 					}
 				} catch (e) {
 					vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}: ${e}`);
@@ -75,7 +79,7 @@ export class CredentialStore {
 		if (!octokit) {
 
 			// anonymous access, not guaranteed to work for everything, and rate limited
-			if (await webflow.checkAnonymousAccess()) {
+			if (await server.checkAnonymousAccess()) {
 				vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Some functionality may fail.`)
 				octokit = this.createOctokit('token', creds);
 

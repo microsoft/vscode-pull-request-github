@@ -16,6 +16,7 @@ import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from '../authentication/configuration';
 import { formatError } from '../common/utils';
+import { GitHubManager } from '../authentication/githubserver';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -26,6 +27,7 @@ export class PullRequestManager implements IPullRequestManager {
 	private _activePullRequest?: IPullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
+	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
@@ -34,6 +36,7 @@ export class PullRequestManager implements IPullRequestManager {
 	constructor(private _configuration: Configuration, private _repository: Repository) {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._configuration);
+		this._githubManager = new GitHubManager();
 	}
 
 	get activePullRequest() {
@@ -50,7 +53,15 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
-		const gitHubRemotes = this._repository.remotes.filter(remote => remote.host);
+		const potentialRemotes = this._repository.remotes.filter(remote => remote.host);
+		const gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
+			.then(results => potentialRemotes.filter((_, index, __) => results[index]));
+
+		if (gitHubRemotes.length) {
+			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
+		} else {
+			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
+		}
 
 		let repositories = [];
 		for (let remote of gitHubRemotes) {
@@ -62,13 +73,6 @@ export class PullRequestManager implements IPullRequestManager {
 				}
 			}
 		}
-
-		if (repositories.length > 0) {
-			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
-		} else {
-			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
-		}
-
 
 		this._githubRepositories = repositories;
 
@@ -159,7 +163,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	public mayHaveMorePages(): boolean {
-		return this._githubRepositories.some(repo =>  this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
+		return this._githubRepositories.some(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
@@ -181,9 +185,9 @@ export class PullRequestManager implements IPullRequestManager {
 		try {
 			const { octokit, remote } = (pullRequest as PullRequestModel).githubRepository;
 			const commitData = await octokit.pullRequests.getCommits({
-					number: pullRequest.prNumber,
-					owner: remote.owner,
-					repo: remote.repositoryName
+				number: pullRequest.prNumber,
+				owner: remote.owner,
+				repo: remote.repositoryName
 			});
 
 			return commitData.data;
@@ -386,7 +390,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel) {
-		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, this._githubRepositories,pullRequest);
+		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, this._githubRepositories, pullRequest);
 	}
 
 	async checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {

@@ -29,7 +29,6 @@ class Client {
 	public start(): Promise<string> {
 		return new Promise((resolve, reject) => {
 			const socket = new ws(`${WS_PROTOCOL}://${HOST}`);
-			socket.on('open', () => {});
 			socket.on('message', data => {
 				const message: IMessage = JSON.parse(data.toString());
 
@@ -72,11 +71,62 @@ class Client {
 	}
 }
 
-export class WebFlow {
-	hostConfiguration: IHostConfiguration;
+export class GitHubManager {
+	private servers: Map<string, boolean>;
+
+	constructor() {
+		this.servers = new Map().set('github.com', true);
+	}
+
+	public async isGitHub(host: vscode.Uri): Promise<boolean> {
+		if (this.servers.has(host.authority)) {
+			return this.servers.get(host.authority);
+		}
+
+		const options = GitHubManager.getOptions(host, 'HEAD');
+		return new Promise<boolean>((resolve, _) => {
+			const get = https.request(options, res => {
+				let ret = res.headers['x-github-request-id'];
+				resolve(ret !== undefined);
+			});
+
+			get.end();
+			get.on('error', err => {
+				resolve(false);
+			});
+		}).then(isGitHub => {
+			this.servers.set(host.authority, isGitHub);
+			return isGitHub;
+		});
+	}
+
+	public static getOptions(hostUri: vscode.Uri, method: string = 'GET', token?: string) {
+		const headers: {
+			'user-agent': string;
+			authorization?: string;
+		} = {
+			'user-agent': 'GitHub VSCode Pull Requests',
+		};
+		if (token) {
+			headers.authorization = `token ${token}`;
+		}
+		return {
+			host: HostHelper.getApiHost(hostUri).authority,
+			port: 443,
+			method,
+			path: HostHelper.getApiPath(hostUri, '/rate_limit'),
+			headers,
+		};
+	}
+}
+
+export class GitHubServer {
+	public hostConfiguration: IHostConfiguration;
+	private hostUri: vscode.Uri;
 
 	public constructor(host: string) {
-		this.hostConfiguration = { host: host, username: 'oauth', token: undefined };
+		this.hostConfiguration = { host, username: 'oauth', token: undefined };
+		this.hostUri = vscode.Uri.parse(host);
 	}
 
 	public async login(): Promise<IHostConfiguration> {
@@ -94,15 +144,7 @@ export class WebFlow {
 	}
 
 	public async checkAnonymousAccess(): Promise<boolean> {
-		let options = {
-			host: HostHelper.getApiHost(this.hostConfiguration).authority,
-			port: 443,
-			method: 'GET',
-			path: HostHelper.getApiPath(this.hostConfiguration, '/rate_limit'),
-			headers: {
-				'User-Agent': 'GitHub VSCode Pull Requests',
-			},
-		};
+		const options = GitHubManager.getOptions(this.hostUri);
 		return new Promise<boolean>((resolve, _) => {
 			const get = https.request(options, res => {
 				if (res.statusCode !== 200) {
@@ -120,30 +162,26 @@ export class WebFlow {
 	}
 
 	public async validate(username?: string, token?: string): Promise<IHostConfiguration> {
-		if (!username) username = this.hostConfiguration.username;
-		if (!token) token = this.hostConfiguration.token;
-		let options = {
-			host: HostHelper.getApiHost(this.hostConfiguration).authority,
-			port: 443,
-			method: 'GET',
-			path: HostHelper.getApiPath(this.hostConfiguration, '/rate_limit'),
-			headers: {
-				'User-Agent': 'GitHub VSCode Pull Requests',
-				Authorization: `token ${token}`,
-			},
-		};
+		if (!username) {
+			username = this.hostConfiguration.username;
+		}
+		if (!token) {
+			token = this.hostConfiguration.token;
+		}
+
+		const options = GitHubManager.getOptions(this.hostUri, 'GET', token);
 
 		return new Promise<IHostConfiguration>((resolve, _) => {
 			const get = https.request(options, res => {
 				if (res.statusCode !== 200) {
 					resolve(undefined);
 				}
-				let scopes = res.headers['x-oauth-scopes'] as string;
+				const scopes = res.headers['x-oauth-scopes'] as string;
 				if (!scopes) {
 					resolve(undefined);
 				}
-				let expected = SCOPES.split(' ');
-				let serverScopes = new Set(scopes.split(', '));
+				const expected = SCOPES.split(' ');
+				const serverScopes = new Set(scopes.split(', '));
 				if (expected.every(x => serverScopes.has(x))) {
 					this.hostConfiguration.username = username;
 					this.hostConfiguration.token = token;

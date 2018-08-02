@@ -7,8 +7,8 @@ export interface IHostConfiguration {
 }
 
 export const HostHelper = class {
-	public static getApiHost(host: IHostConfiguration): vscode.Uri {
-		const hostUri = vscode.Uri.parse(host.host);
+	public static getApiHost(host: IHostConfiguration | vscode.Uri): vscode.Uri {
+		const hostUri: vscode.Uri = host instanceof vscode.Uri ? host : vscode.Uri.parse(host.host);
 		if (hostUri.authority === 'github.com') {
 			return vscode.Uri.parse('https://api.github.com');
 		} else {
@@ -16,8 +16,8 @@ export const HostHelper = class {
 		}
 	}
 
-	public static getApiPath(host: IHostConfiguration, path: string): string {
-		const hostUri = vscode.Uri.parse(host.host);
+	public static getApiPath(host: IHostConfiguration | vscode.Uri, path: string): string {
+		const hostUri: vscode.Uri = host instanceof vscode.Uri ? host : vscode.Uri.parse(host.host);
 		if (hostUri.authority === 'github.com') {
 			return path;
 		} else {
@@ -31,9 +31,9 @@ export interface IConfiguration extends IHostConfiguration {
 }
 
 export class Configuration implements IConfiguration {
-	username: string | undefined;
-	token: string | undefined;
-	onDidChange: vscode.Event<IConfiguration>;
+	public username: string | undefined;
+	public token: string | undefined;
+	public onDidChange: vscode.Event<IConfiguration>;
 	private _emitter: vscode.EventEmitter<IConfiguration>;
 
 	constructor(public host: string) {

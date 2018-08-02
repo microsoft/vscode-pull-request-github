@@ -35,18 +35,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		let remotes = repository.remotes.filter(remote => remote.host);
-		let remote = remotes.find(remote => remote.remoteName === 'origin');
-		if (!remote && remotes.length > 0) {
-			remote = remotes[0];
-		}
+		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
-		if (!remote) {
-			return;
-		}
-
-		const host = remote.gitProtocol.normalizeUri();
-		const configuration = new VSCodeConfiguration(`${host.scheme}://${host.authority}`);
+		const configuration = new VSCodeConfiguration();
 		configuration.onDidChange(async _ => {
 			if (prManager) {
 				try {
@@ -61,7 +52,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 		context.subscriptions.push(configuration.listenForVSCodeChanges());
 
-		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 		repositoryInitialized = true;
 		prManager = new PullRequestManager(configuration, repository);
 		await prManager.updateRepositories();
