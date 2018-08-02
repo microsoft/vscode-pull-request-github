@@ -71,13 +71,21 @@ export class VSCodeConfiguration extends Configuration {
 		configHosts.map(c => this._hosts.set(c.host, c));
 
 		if (this.host && !this._hosts.has(this.host)) {
-			this._hosts.set(this.host, this);
+			this._hosts.set(this.host, {
+				host: this.host,
+				username: this.username,
+				token: this.token,
+			});
 		}
 	}
 
 	private saveConfiguration(): void {
 		if (this.host) {
-			this._hosts.set(this.host, this);
+			this._hosts.set(this.host, {
+				host: this.host,
+				username: this.username,
+				token: this.token,
+			});
 		}
 		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
 		config.update(HOSTS_KEY, Array.from(this._hosts.values()), true);
