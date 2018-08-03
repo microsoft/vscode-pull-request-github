@@ -93,7 +93,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 			query: JSON.stringify({
 				path: path,
 				ref: ref,
-				commit: previousCommit
+				commit: previousCommit,
+				base: true
 			})
 		});
 		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${commit.substr(0, 8)}`);

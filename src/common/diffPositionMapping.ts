@@ -19,6 +19,36 @@ export function getZeroBased(line: number): number {
 	return line - 1;
 }
 
+/**
+ * Returns the absolute position of a comment in a file. If the comment is outdated, returns -1.
+ *
+ * For the base file, only the old line number of the comment should be considered. If it's -1, the comment
+ * is on a line that is entirely new, so the comment should not be displayed on the base file. This means
+ * that for the modified file, if the comment has a non-negative old line number, it has already been
+ * displayed on the base and does not need to be shown again.
+ * @param comment The comment
+ * @param fileDiffHunks The diff hunks of the file
+ * @param isBase Whether the file, if a diff, is the base or modified
+ */
+export function getAbsolutePosition(comment: Comment, fileDiffHunks: DiffHunk[], isBase: boolean): number {
+	let commentAbsolutePosition = -1;
+	// Ignore outdated comments
+	if (comment.position !== null) {
+		let diffLine = getDiffLineByPosition(fileDiffHunks, comment.position);
+
+		if (diffLine) {
+			if (isBase) {
+				commentAbsolutePosition = diffLine.oldLineNumber;
+			} else {
+				commentAbsolutePosition = diffLine.oldLineNumber > 0 ? -1 : diffLine.newLineNumber;
+			}
+		}
+	}
+
+	return commentAbsolutePosition;
+}
+
+
 export function getLastDiffLine(prPatch: string): DiffLine {
 	let lastDiffLine = null;
 	let prDiffReader = parseDiffHunk(prPatch);
