@@ -217,7 +217,6 @@ export class PullRequestManager implements IPullRequestManager {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
-			id: reviewId,
 			review_id: reviewId
 		});
 
@@ -233,7 +232,6 @@ export class PullRequestManager implements IPullRequestManager {
 		let ret = await octokit.issues.getEventsTimeline({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			issue_number: pullRequest.prNumber,
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
