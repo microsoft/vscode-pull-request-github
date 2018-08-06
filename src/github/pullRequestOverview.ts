@@ -143,7 +143,7 @@ export class PullRequestOverviewPanel {
 				const text = message.text;
 				this._pullRequestManager.createIssueComment(this._pullRequest, text).then(comment => {
 					this._panel.webview.postMessage({
-						command: 'pr.update-checkout-status',
+						command: 'pr.append-comment',
 						value: comment
 					});
 				});
