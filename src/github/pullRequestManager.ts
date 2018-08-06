@@ -15,7 +15,7 @@ import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from "../configuration";
-import { formatError } from '../common/utils';
+import { formatError, uniqBy } from '../common/utils';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -50,7 +50,8 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
-		const gitHubRemotes = this._repository.remotes.filter(remote => remote.host && remote.host.toLowerCase() === "github.com");
+		let gitHubRemotes = this._repository.remotes.filter(remote => remote.host && remote.host.toLowerCase() === "github.com");
+		gitHubRemotes = uniqBy(gitHubRemotes, remote => `${remote.host}:${remote.owner}/${remote.repositoryName}`);
 		if (gitHubRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
 		} else {
