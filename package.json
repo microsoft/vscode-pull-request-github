@@ -108,6 +108,11 @@
           "light": "resources/icons/light/refresh.svg"
         },
         "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.deleteLocalBranch",
+        "title": "Delete Local Branch",
+        "category": "GitHub Pull Requests"
       }
     ],
     "menus": {
@@ -133,6 +138,10 @@
           "when": "false"
         },
         {
+          "command": "pr.deleteLocalBranch",
+          "when": "false"
+        },
+        {
           "command": "pr.openDescription",
           "when": "config.git.enabled && github:inReviewMode"
         },
@@ -151,15 +160,23 @@
       "view/item/context": [
         {
           "command": "pr.pick",
-          "when": "view == pr && viewItem =~ /pullrequest:nonactive/"
+          "when": "view == pr && viewItem =~ /pullrequest(:local)?:nonactive/",
+          "group": "pullrequest@1"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "view == pr && viewItem =~ /pullrequest/"
+          "when": "view == pr && viewItem =~ /pullrequest/",
+          "group": "pullrequest@2"
         },
         {
           "command": "pr.close",
-          "when": "view == pr && viewItem =~ /pullrequest/"
+          "when": "view == pr && viewItem =~ /pullrequest/",
+          "group": "pullrequest@3"
+        },
+        {
+          "command": "pr.deleteLocalBranch",
+          "when": "view == pr && viewItem =~ /pullrequest:local:nonactive/",
+          "group": "pullrequest@4"
         },
         {
           "command": "pr.openFileInGitHub",

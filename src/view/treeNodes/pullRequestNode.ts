@@ -26,7 +26,8 @@ export class PRNode extends TreeNode {
 	constructor(
 		private _prManager: IPullRequestManager,
 		private repository: Repository,
-		public pullRequestModel: IPullRequestModel
+		public pullRequestModel: IPullRequestModel,
+		private _isLocal: boolean
 	) {
 		super();
 	}
@@ -77,7 +78,7 @@ export class PRNode extends TreeNode {
 			label: (currentBranchIsForThisPR ? ' * ' : '') + this.pullRequestModel.title,
 			tooltip: (currentBranchIsForThisPR ? 'Current Branch * ' : '') + this.pullRequestModel.title,
 			collapsibleState: 1,
-			contextValue: 'pullrequest' + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
+			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
 			iconPath: this.pullRequestModel.userAvatarUri
 		};
 	}

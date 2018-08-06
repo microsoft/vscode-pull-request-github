@@ -124,7 +124,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this._prManager, this._repository, prItem));
+			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this._prManager, this._repository, prItem, this._type === PRType.LocalPullRequest));
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(PRCategoryActionType.More, this));
 			}

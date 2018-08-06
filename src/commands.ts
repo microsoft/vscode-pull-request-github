@@ -11,6 +11,7 @@ import { fromReviewUri } from './common/uri';
 import { FileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { IPullRequestManager, IPullRequestModel, IPullRequest } from './github/interface';
+import { exec } from './common/git';
 
 const _onDidClosePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidClosePR: vscode.Event<IPullRequest> = _onDidClosePR.event;
@@ -47,6 +48,17 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: FileChangeNode) => {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
+		const result = await exec(['branch', '-D', e.pullRequestModel.head.ref], { cwd: vscode.workspace.rootPath });
+
+		if (result.stderr) {
+			vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${result.stderr}`);
+			return;
+		}
+
+		vscode.commands.executeCommand('pr.refreshList');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | IPullRequestModel) => {
