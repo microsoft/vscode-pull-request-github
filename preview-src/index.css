@@ -88,6 +88,7 @@ body button {
 	padding: 4px 8px;
 	line-height: 18px;
 	height: 28px;
+	white-space: nowrap;
 }
 
 button:hover:enabled, button:focus:enabled {
