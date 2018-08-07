@@ -259,7 +259,7 @@ export function renderCommit(timelineEvent: CommitEvent): string {
 	<div class="review-comment" role="treeitem">
 		<div class="review-comment-contents">
 			<div class="commit">
-				<strong>${timelineEvent.author.name} commit: <a href="${timelineEvent.html_url}">${timelineEvent.message} (${timelineEvent.sha})</a></strong>
+				${timelineEvent.author.name}: ${timelineEvent.message} <code><a href="${timelineEvent.html_url}">(${timelineEvent.sha})</a></code>
 			</div>
 		</div>
 	</div>
