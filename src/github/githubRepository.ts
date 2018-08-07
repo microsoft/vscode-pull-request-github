@@ -8,6 +8,7 @@ import Logger from "../common/logger";
 import { Remote } from "../common/remote";
 import { PRType } from "./interface";
 import { PullRequestModel } from "./pullRequestModel";
+import { CredentialStore } from './credentials';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -16,8 +17,20 @@ export interface PullRequestData {
 	hasMorePages: boolean;
 }
 export class GitHubRepository {
+	private _octokit: Octokit;
+	public get octokit(): Octokit {
+		if (this._octokit === undefined) {
+			throw new Error("Call ensure() before accessing this property.");
+		}
+		return this._octokit;
+	}
 
-	constructor(public readonly remote: Remote, public readonly octokit: Octokit) {
+	constructor(public readonly remote: Remote, private readonly _credentialStore: CredentialStore) {
+	}
+
+	async ensure(): Promise<GitHubRepository> {
+		this._octokit = await this._credentialStore.getOctokit(this.remote);
+		return this;
 	}
 
 	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData> {
@@ -26,9 +39,10 @@ export class GitHubRepository {
 
 	private async getAllPullRequests(page?: number): Promise<PullRequestData> {
 		try {
-			const result = await this.octokit.pullRequests.getAll({
-				owner: this.remote.owner,
-				repo: this.remote.repositoryName,
+			const { octokit, remote } = await this.ensure();
+			const result = await octokit.pullRequests.getAll({
+				owner: remote.owner,
+				repo: remote.repositoryName,
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
@@ -54,10 +68,11 @@ export class GitHubRepository {
 
 	private async getPullRequestsForCategory(prType: PRType, page: number): Promise<PullRequestData> {
 		try {
-			const user = await this.octokit.users.get({});
+			const { octokit, remote } = await this.ensure();
+			const user = await octokit.users.get({});
 			// Search api will not try to resolve repo that redirects, so get full name first
-			const repo = await this.octokit.repos.get({owner: this.remote.owner, repo: this.remote.repositoryName});
-			const { data, headers } = await this.octokit.search.issues({
+			const repo = await octokit.repos.get({owner: this.remote.owner, repo: this.remote.repositoryName});
+			const { data, headers } = await octokit.search.issues({
 				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, prType),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
@@ -65,9 +80,9 @@ export class GitHubRepository {
 			let promises = [];
 			data.items.forEach(item => {
 				promises.push(new Promise(async (resolve, reject) => {
-					let prData = await this.octokit.pullRequests.get({
-						owner: this.remote.owner,
-						repo: this.remote.repositoryName,
+					let prData = await octokit.pullRequests.get({
+						owner: remote.owner,
+						repo: remote.repositoryName,
 						number: item.number
 					});
 					resolve(prData);
@@ -97,9 +112,10 @@ export class GitHubRepository {
 
 	async getPullRequest(id: number): Promise<PullRequestModel> {
 		try {
-			let { data } = await this.octokit.pullRequests.get({
-				owner: this.remote.owner,
-				repo: this.remote.repositoryName,
+			const { octokit, remote } = await this.ensure();
+			let { data } = await octokit.pullRequests.get({
+				owner: remote.owner,
+				repo: remote.repositoryName,
 				number: id
 			});
 
@@ -108,7 +124,7 @@ export class GitHubRepository {
 				return null;
 			}
 
-			return new PullRequestModel(this, this.remote, data);
+			return new PullRequestModel(this, remote, data);
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return null;

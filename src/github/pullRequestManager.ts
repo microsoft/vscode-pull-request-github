@@ -68,10 +68,7 @@ export class PullRequestManager implements IPullRequestManager {
 		for (let remote of gitHubRemotes) {
 			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
 			if (!isRemoteForPR) {
-				const octokit = await this._credentialStore.getOctokit(remote);
-				if (octokit) {
-					repositories.push(new GitHubRepository(remote, octokit));
-				}
+				repositories.push(new GitHubRepository(remote, this._credentialStore));
 			}
 		}
 
@@ -168,9 +165,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const {remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const reviewData = await octokit.pullRequests.getComments({
 			owner: remote.owner,
@@ -184,7 +179,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]> {
 		try {
-			const { octokit, remote } = (pullRequest as PullRequestModel).githubRepository;
+			const {remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const commitData = await octokit.pullRequests.getCommits({
 				number: pullRequest.prNumber,
 				owner: remote.owner,
@@ -200,7 +195,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Commit): Promise<FileChange[]> {
 		try {
-			const { octokit, remote } = (pullRequest as PullRequestModel).githubRepository;
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -215,9 +210,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]> {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const reviewData = await octokit.pullRequests.getReviewComments({
 			owner: remote.owner,
@@ -231,9 +224,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]> {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.issues.getEventsTimeline({
 			owner: remote.owner,
@@ -246,9 +237,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getIssueComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const promise = await octokit.issues.getComments({
 			owner: remote.owner,
@@ -261,9 +250,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment> {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const promise = await octokit.issues.createComment({
 			body: text,
@@ -276,9 +263,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string) {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.createCommentReply({
 			owner: remote.owner,
@@ -292,9 +277,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number) {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.createComment({
 			owner: remote.owner,
@@ -310,9 +293,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.update({
 			owner: remote.owner,
@@ -325,9 +306,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]> {
-		let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		let octokit = githubRepository.octokit;
-		let remote = githubRepository.remote;
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const { data } = await octokit.pullRequests.getFiles({
 			owner: remote.owner,
@@ -351,9 +330,7 @@ export class PullRequestManager implements IPullRequestManager {
 	async fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void> {
 		if (!pullRequest.base) {
 			// this one is from search results, which is not complete.
-			let githubRepository = (pullRequest as PullRequestModel).githubRepository;
-			let octokit = githubRepository.octokit;
-			let remote = githubRepository.remote;
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 			const { data } = await octokit.pullRequests.get({
 				owner: remote.owner,

@@ -86,7 +86,7 @@ export class GitHubManager {
 		const options = GitHubManager.getOptions(host, 'HEAD');
 		return new Promise<boolean>((resolve, _) => {
 			const get = https.request(options, res => {
-				let ret = res.headers['x-github-request-id'];
+				const ret = res.headers['x-github-request-id'];
 				resolve(ret !== undefined);
 			});
 
