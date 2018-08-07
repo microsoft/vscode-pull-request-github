@@ -33,6 +33,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _obsoleteFileChanges: FileChangeNode[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
+	private _updateCurrentBranch: boolean = false;
 	private _validateStatusInProgress: boolean = false;
 
 	private _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
@@ -104,8 +105,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._validateStatusInProgress = true;
 			try {
 				await this.validateState();
+				this._updateCurrentBranch = false;
 				this._validateStatusInProgress = false;
 			} catch (e) {
+				this._updateCurrentBranch = false;
 				this._validateStatusInProgress = false;
 			}
 		}
@@ -128,7 +131,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		if (this._prNumber === matchingPullRequestMetadata.prNumber) {
+		if (this._prNumber === matchingPullRequestMetadata.prNumber && !this._updateCurrentBranch) {
 			return;
 		}
 
@@ -263,6 +266,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let result = await vscode.window.showInformationMessage('There are updates available for this branch.', {}, 'Pull');
 
 			if (result === 'Pull') {
+				this._updateCurrentBranch = true;
 				await vscode.commands.executeCommand('git.pull');
 				this._updateMessageShown = false;
 			}

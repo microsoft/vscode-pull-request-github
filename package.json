@@ -102,6 +102,15 @@
       },
       {
         "command": "pr.refreshList",
+        "title": "Refresh Pull Requests List",
+        "icon": {
+          "dark": "resources/icons/dark/refresh.svg",
+          "light": "resources/icons/light/refresh.svg"
+        },
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.refreshChanges",
         "title": "Refresh",
         "icon": {
           "dark": "resources/icons/dark/refresh.svg",
@@ -148,12 +157,21 @@
         {
           "command": "pr.refreshList",
           "when": "config.git.enabled && github:hasGitHubRemotes"
+        },
+        {
+          "command": "pr.refreshChanges",
+          "when": "false"
         }
       ],
       "view/title": [
         {
           "command": "pr.refreshList",
           "when": "view == pr",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.refreshChanges",
+          "when": "view == prStatus",
           "group": "navigation"
         }
       ],

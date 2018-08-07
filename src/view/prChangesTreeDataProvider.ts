@@ -16,6 +16,7 @@ import { Comment } from '../common/comment';
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<FileChangeNode | DescriptionNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+	private _disposables: vscode.Disposable[] = []
 
 	private _localFileChanges: FileChangeNode[] = [];
 	private _comments: Comment[] = [];
@@ -25,6 +26,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	constructor(private context: vscode.ExtensionContext) {
 		super(() => this.dispose());
 		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<TreeNode>('prStatus', this));
+
+		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
+			this._onDidChangeTreeData.fire();
+		}));
 	}
 
 	async showPullRequestFileChanges(pullRequestManager: IPullRequestManager, pullrequest: IPullRequestModel, fileChanges: FileChangeNode[], comments: Comment[]) {
@@ -67,5 +72,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		} else {
 			return element.getChildren();
 		}
+	}
+
+	dispose() {
+		this._disposables.forEach(disposable => disposable.dispose());
 	}
 }
