@@ -2,11 +2,12 @@ import * as vscode from 'vscode';
 import { IHostConfiguration, HostHelper } from './configuration';
 import * as ws from 'ws';
 import * as https from 'https';
+import Logger from '../common/logger';
 
-const SCOPES = 'read:user user:email repo write:discussion';
-const HOST = 'github-editor-auth.herokuapp.com';
-const HTTP_PROTOCOL = 'https';
-const WS_PROTOCOL = 'wss';
+const SCOPES: string = 'read:user user:email repo write:discussion';
+const HOST: string = 'github-editor-auth.herokuapp.com';
+const HTTP_PROTOCOL: string = 'https';
+const WS_PROTOCOL: string = 'wss';
 
 enum MessageType {
 	Host = 0x2,
@@ -74,6 +75,21 @@ class Client {
 export class GitHubManager {
 	private servers: Map<string, boolean>;
 
+	private static GitHubScopesTable: { [key: string] : string[] } = {
+		'repo': ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
+		'admin:org': ['write:org', 'read:org'],
+		'admin:public_key': ['write:public_key', 'read:public_key'],
+		'admin:org_hook': [],
+		'gist': [],
+		'notifications': [],
+		'user': ['read:user', 'user:email', 'user:follow'],
+		'delete_repo': [],
+		'write:discussion': ['read:discussion'],
+		'admin:gpg_key': ['write:gpg_key', 'read:gpg_key']
+	};
+
+	public static AppScopes: string[] = SCOPES.split(' ');
+
 	constructor() {
 		this.servers = new Map().set('github.com', true);
 	}
@@ -118,6 +134,24 @@ export class GitHubManager {
 			headers,
 		};
 	}
+
+	public static validateScopes(scopes: string): boolean {
+		if (!scopes) {
+			return false;
+		}
+		const tokenScopes = scopes.split(', ');
+		return (this.AppScopes.every(x => tokenScopes.indexOf(x) >= 0 || tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0))
+	}
+
+	private static getScopeSuperset(scope: string): string
+	{
+		for (let key in this.GitHubScopesTable) {
+			if (this.GitHubScopesTable[key].indexOf(scope) >= 0)
+				return key;
+		}
+		return scope;
+	}
+
 }
 
 export class GitHubServer {
@@ -147,11 +181,7 @@ export class GitHubServer {
 		const options = GitHubManager.getOptions(this.hostUri);
 		return new Promise<boolean>((resolve, _) => {
 			const get = https.request(options, res => {
-				if (res.statusCode !== 200) {
-					resolve(false);
-				} else {
-					resolve(true);
-				}
+				resolve(res.statusCode === 200);
 			});
 
 			get.end();
@@ -173,20 +203,20 @@ export class GitHubServer {
 
 		return new Promise<IHostConfiguration>((resolve, _) => {
 			const get = https.request(options, res => {
-				if (res.statusCode !== 200) {
-					resolve(undefined);
+				let hostConfig: IHostConfiguration | undefined;
+				try {
+					if (res.statusCode === 200) {
+						const scopes = res.headers['x-oauth-scopes'] as string;
+						if (GitHubManager.validateScopes(scopes)) {
+							this.hostConfiguration.username = username;
+							this.hostConfiguration.token = token;
+							hostConfig = this.hostConfiguration;
+						}
+					}
+				} catch(e) {
+					Logger.appendLine(`validate() error ${e}`);
 				}
-				const scopes = res.headers['x-oauth-scopes'] as string;
-				if (!scopes) {
-					resolve(undefined);
-				}
-				const expected = SCOPES.split(' ');
-				const serverScopes = new Set(scopes.split(', '));
-				if (expected.every(x => serverScopes.has(x))) {
-					this.hostConfiguration.username = username;
-					this.hostConfiguration.token = token;
-					resolve(this.hostConfiguration);
-				}
+				resolve(hostConfig);
 			});
 
 			get.end();
