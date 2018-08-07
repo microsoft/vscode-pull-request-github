@@ -17,6 +17,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
 	private _disposables: vscode.Disposable[];
+	private _childrenDisposables: vscode.Disposable[];
 
 	constructor(
 		private _configuration: Configuration,
@@ -39,6 +40,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._disposables.push(this._configuration.onDidChange(e => {
 			this._onDidChangeTreeData.fire();
 		}));
+		this._childrenDisposables = [];
 	}
 
 	getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -47,13 +49,20 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
-			return Promise.resolve([
+			if (this._childrenDisposables && this._childrenDisposables.length) {
+				this._childrenDisposables.forEach(dispose => dispose.dispose());
+			}
+
+			let result = [
 				new CategoryTreeNode(this._prManager, this._repository, PRType.LocalPullRequest),
 				new CategoryTreeNode(this._prManager, this._repository, PRType.RequestReview),
 				new CategoryTreeNode(this._prManager, this._repository, PRType.AssignedToMe),
 				new CategoryTreeNode(this._prManager, this._repository, PRType.Mine),
 				new CategoryTreeNode(this._prManager, this._repository, PRType.All)
-			]);
+			];
+
+			this._childrenDisposables = result;
+			return Promise.resolve(result);
 		}
 		if (!this._repository.remotes || !this._repository.remotes.length) {
 			return Promise.resolve([new PRCategoryActionNode(PRCategoryActionType.Empty)]);

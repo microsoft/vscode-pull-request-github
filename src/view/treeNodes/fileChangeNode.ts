@@ -77,5 +77,4 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	getTreeItem(): vscode.TreeItem {
 		return this;
 	}
-
 }

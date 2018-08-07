@@ -20,8 +20,9 @@ import { FileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 
 export class PRNode extends TreeNode {
-	private richContentChanges: RichFileChange[];
-	private commentsCache: Map<String, Comment[]>;
+	private _richContentChanges: RichFileChange[];
+	private _commentsCache: Map<String, Comment[]>;
+	private _documentCommentsProvider: vscode.Disposable;
 
 	constructor(
 		private _prManager: IPullRequestManager,
@@ -30,16 +31,25 @@ export class PRNode extends TreeNode {
 		private _isLocal: boolean
 	) {
 		super();
+		this._documentCommentsProvider = null;
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
 		try {
+			if (this._documentCommentsProvider) {
+				this._documentCommentsProvider.dispose();
+			}
+
+			if (this.childrenDisposables && this.childrenDisposables.length) {
+				this.childrenDisposables.forEach(dp => dp.dispose());
+			}
+
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
 			await this._prManager.fullfillPullRequestCommitInfo(this.pullRequestModel);
-			this.richContentChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
-			this.commentsCache = new Map<String, Comment[]>();
-			let fileChanges = this.richContentChanges.map(change => {
+			this._richContentChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
+			this._commentsCache = new Map<String, Comment[]>();
+			let fileChanges = this._richContentChanges.map(change => {
 				let fileInRepo = path.resolve(this.repository.path, change.fileName);
 				let changedItem = new FileChangeNode(
 					this.pullRequestModel,
@@ -51,22 +61,26 @@ export class PRNode extends TreeNode {
 					change.diffHunks,
 					comments.filter(comment => comment.path === change.fileName && comment.position !== null)
 				);
-				this.commentsCache.set(change.fileName, changedItem.comments);
+				this._commentsCache.set(change.fileName, changedItem.comments);
 				return changedItem;
 			});
 
 			const _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
-			vscode.workspace.registerDocumentCommentProvider({
+
+			this._documentCommentsProvider = vscode.workspace.registerDocumentCommentProvider({
 				onDidChangeCommentThreads: _onDidChangeCommentThreads.event,
 				provideDocumentComments: this.provideDocumentComments.bind(this),
 				createNewCommentThread: this.createNewCommentThread.bind(this),
 				replyToCommentThread: this.replyToCommentThread.bind(this)
 			});
 
-			return [new DescriptionNode('Description', {
+			let result = [new DescriptionNode('Description', {
 				light: Resource.icons.light.Description,
 				dark: Resource.icons.dark.Description
 			}, this.pullRequestModel), ...fileChanges];
+
+			this.childrenDisposables = result;
+			return result;
 		} catch (e) {
 			Logger.appendLine(e);
 		}
@@ -88,7 +102,7 @@ export class PRNode extends TreeNode {
 			let uri = document.uri;
 			let params = JSON.parse(uri.query);
 
-			let fileChange = this.richContentChanges.find(change => change.fileName === params.fileName);
+		let fileChange = this._richContentChanges.find(change => change.fileName === params.fileName);
 
 			if (!fileChange) {
 				return null;
@@ -144,7 +158,7 @@ export class PRNode extends TreeNode {
 		if (document.uri.scheme === 'pr') {
 			let params = JSON.parse(document.uri.query);
 			let isBase = params.base;
-			let fileChange = this.richContentChanges.find(change => change.fileName === params.fileName);
+			let fileChange = this._richContentChanges.find(change => change.fileName === params.fileName);
 			if (!fileChange) {
 				return null;
 			}
@@ -168,7 +182,7 @@ export class PRNode extends TreeNode {
 				commentingRanges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
 			}
 
-			let matchingComments = this.commentsCache.get(fileChange.fileName);
+			let matchingComments = this._commentsCache.get(fileChange.fileName);
 
 			if (!matchingComments || !matchingComments.length) {
 				return {
@@ -217,5 +231,13 @@ export class PRNode extends TreeNode {
 		}
 
 		return null;
+	}
+
+	dispose(): void {
+		super.dispose();
+
+		if (this._documentCommentsProvider) {
+			this._documentCommentsProvider.dispose();
+		}
 	}
 }
