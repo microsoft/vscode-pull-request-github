@@ -31,7 +31,7 @@ function handleMessage(event: any) {
 		case 'pr.update-checkout-status':
 			updateCheckoutButton(message.isCurrentlyCheckedOut);
 			break;
-		case 'append-comment':
+		case 'pr.append-comment':
 			appendComment(message.value);
 		default:
 			break;

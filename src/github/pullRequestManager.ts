@@ -15,8 +15,8 @@ import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from '../authentication/configuration';
-import { formatError } from '../common/utils';
 import { GitHubManager } from '../authentication/githubserver';
+import { formatError, uniqBy } from '../common/utils';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -54,8 +54,9 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async updateRepositories(): Promise<void> {
 		const potentialRemotes = this._repository.remotes.filter(remote => remote.host);
-		const gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
+		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]));
+		gitHubRemotes = uniqBy(gitHubRemotes, remote => `${remote.host}:${remote.owner}/${remote.repositoryName}`);
 
 		if (gitHubRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
@@ -222,7 +223,6 @@ export class PullRequestManager implements IPullRequestManager {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
-			id: reviewId,
 			review_id: reviewId
 		});
 
@@ -238,7 +238,6 @@ export class PullRequestManager implements IPullRequestManager {
 		let ret = await octokit.issues.getEventsTimeline({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			issue_number: pullRequest.prNumber,
 			number: pullRequest.prNumber,
 			per_page: 100
 		});

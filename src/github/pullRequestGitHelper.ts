@@ -58,6 +58,7 @@ export class PullRequestGitHelper {
 		if (!branch) {
 			Logger.appendLine(`GitHelper> branch ${remoteName}/${branchName} doesn't exist on local disk yet.`);
 			await PullRequestGitHelper.fetchAndCreateBranch(repository, remote, branchName, pullRequest);
+			branch = await repository.getBranch(branchName);
 		}
 
 		await repository.checkout(branchName);

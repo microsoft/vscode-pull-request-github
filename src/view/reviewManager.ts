@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { parseDiff } from '../common/diffHunk';
-import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased } from '../common/diffPositionMapping';
+import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
@@ -406,7 +406,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				let comments = sections[i];
 
 				const comment = comments[0];
-				let diffLine = getDiffLineByPosition(comment.diff_hunks, comment.position === null ? comment.original_position : comment.position);
+				let diffLine = getDiffLineByPosition(comment.diff_hunks, comment.original_position);
 
 				if (diffLine) {
 					comment.absolutePosition = diffLine.newLineNumber;
@@ -486,7 +486,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
 		if (uri.scheme === 'review') {
 			let query = JSON.parse(uri.query);
-			let matchingComments = this._comments.filter(comment => comment.path === query.path);
+			let matchingComments = this._comments.filter(comment => comment.path === query.path && comment.position !== null);
 			if (matchingComments && matchingComments.length) {
 				return {
 					bubble: true,
@@ -497,7 +497,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		} else if (uri.scheme === 'file') {
 			// local file
 			let fileName = uri.path;
-			let matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName);
+			let matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName && comment.position !== null);
 			if (matchingComments && matchingComments.length) {
 				return {
 					bubble: true,
@@ -568,13 +568,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					if (matchedFile) {
 						let matchingComments = matchedFile.comments;
-						matchingComments.forEach(comment => {
-							let diffLine = getDiffLineByPosition(matchedFile.diffHunks, comment.position === null ? comment.original_position : comment.position);
-
-							if (diffLine) {
-								comment.absolutePosition = isBase ? diffLine.oldLineNumber : diffLine.newLineNumber;
-							}
-						});
+						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase)});
 
 						let diffHunks = matchedFile.diffHunks;
 
@@ -627,8 +621,17 @@ export class ReviewManager implements vscode.DecorationProvider {
 						let comments = sections[i];
 						const comment = comments[0];
 						let diffLine = getLastDiffLine(comment.diff_hunk);
-						const pos = new vscode.Position(getZeroBased(diffLine.newLineNumber), 0);
-						const range = new vscode.Range(pos, pos);
+						const lineNumber = isBase
+							? diffLine.oldLineNumber
+							: diffLine.oldLineNumber > 0
+								? -1
+								: diffLine.newLineNumber;
+
+						if (lineNumber < 0) {
+							continue;
+						}
+
+						const range = new vscode.Range(new vscode.Position(lineNumber, 0), new vscode.Position(lineNumber, 0));
 
 						ret.push({
 							threadId: comment.id,

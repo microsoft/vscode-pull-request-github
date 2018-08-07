@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Comment } from '../../common/comment';
 import { parseDiff } from '../../common/diffHunk';
-import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition, getZeroBased } from '../../common/diffPositionMapping';
+import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition } from '../../common/diffPositionMapping';
 import { RichFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
@@ -26,7 +26,8 @@ export class PRNode extends TreeNode {
 	constructor(
 		private _prManager: IPullRequestManager,
 		private repository: Repository,
-		public pullRequestModel: IPullRequestModel
+		public pullRequestModel: IPullRequestModel,
+		private _isLocal: boolean
 	) {
 		super();
 	}
@@ -48,7 +49,7 @@ export class PRNode extends TreeNode {
 					toPRUri(vscode.Uri.file(change.filePath), fileInRepo, change.fileName, false),
 					toPRUri(vscode.Uri.file(change.originalFilePath), fileInRepo, change.fileName, true),
 					change.diffHunks,
-					comments.filter(comment => comment.path === change.fileName)
+					comments.filter(comment => comment.path === change.fileName && comment.position !== null)
 				);
 				this.commentsCache.set(change.fileName, changedItem.comments);
 				return changedItem;
@@ -77,7 +78,7 @@ export class PRNode extends TreeNode {
 			label: (currentBranchIsForThisPR ? ' * ' : '') + this.pullRequestModel.title,
 			tooltip: (currentBranchIsForThisPR ? 'Current Branch * ' : '') + this.pullRequestModel.title,
 			collapsibleState: 1,
-			contextValue: 'pullrequest' + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
+			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
 			iconPath: this.pullRequestModel.userAvatarUri
 		};
 	}
@@ -177,12 +178,7 @@ export class PRNode extends TreeNode {
 				let comments = sections[i];
 
 				const comment = comments[0];
-				// If the position is null, the comment is on a line that has been changed. Fall back to using original position.
-				let diffLine = getDiffLineByPosition(fileChange.diffHunks, comment.position === null ? comment.original_position : comment.position);
-				let commentAbsolutePosition = 1;
-				if (diffLine) {
-					commentAbsolutePosition = isBase ? diffLine.oldLineNumber : diffLine.newLineNumber;
-				}
+				let commentAbsolutePosition = getAbsolutePosition(comment, fileChange.diffHunks, isBase);
 
 				if (commentAbsolutePosition < 0) {
 					continue;

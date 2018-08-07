@@ -8,7 +8,7 @@
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
   },
   "enableProposedApi": true,
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "Microsoft",
   "engines": {
     "vscode": "^1.25.0"
@@ -95,6 +95,11 @@
           "light": "resources/icons/light/refresh.svg"
         },
         "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.deleteLocalBranch",
+        "title": "Delete Local Branch",
+        "category": "GitHub Pull Requests"
       }
     ],
     "menus": {
@@ -120,6 +125,10 @@
           "when": "false"
         },
         {
+          "command": "pr.deleteLocalBranch",
+          "when": "false"
+        },
+        {
           "command": "pr.openDescription",
           "when": "config.git.enabled && github:inReviewMode"
         },
@@ -138,15 +147,23 @@
       "view/item/context": [
         {
           "command": "pr.pick",
-          "when": "view == pr && viewItem =~ /pullrequest:nonactive/"
+          "when": "view == pr && viewItem =~ /pullrequest(:local)?:nonactive/",
+          "group": "pullrequest@1"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "view == pr && viewItem =~ /pullrequest/"
+          "when": "view == pr && viewItem =~ /pullrequest/",
+          "group": "pullrequest@2"
         },
         {
           "command": "pr.close",
-          "when": "view == pr && viewItem =~ /pullrequest/"
+          "when": "view == pr && viewItem =~ /pullrequest/",
+          "group": "pullrequest@3"
+        },
+        {
+          "command": "pr.deleteLocalBranch",
+          "when": "view == pr && viewItem =~ /pullrequest:local:nonactive/",
+          "group": "pullrequest@4"
         },
         {
           "command": "pr.openFileInGitHub",
@@ -175,27 +192,27 @@
     "@types/mocha": "^5.2.2",
     "@types/node": "*",
     "css-loader": "^0.28.11",
-    "del": "^3.0.0",
-    "gulp": "3.9.1",
-    "gulp-mocha": "^6.0.0",
-    "gulp-typescript": "^5.0.0-alpha.2",
-    "gulp-util": "^3.0.8",
     "mocha": "^5.2.0",
     "style-loader": "^0.21.0",
     "ts-loader": "^4.0.1",
     "typescript": "^2.1.4",
     "webpack": "^4.1.0",
-    "webpack-cli": "^2.0.10"
+    "webpack-cli": "^2.0.10",
+    "gulp": "3.9.1",
+    "gulp-typescript": "^5.0.0-alpha.2",
+    "del": "^3.0.0",
+    "gulp-mocha": "^6.0.0",
+    "gulp-util": "^3.0.8"
   },
   "dependencies": {
-    "@octokit/rest": "^15.8.0",
-    "@types/ws": "^5.1.2",
-    "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
-    "markdown-it": "^8.4.0",
-    "moment": "^2.22.1",
-    "tmp": "^0.0.31",
     "vscode": "^1.1.18",
+    "@octokit/rest": "^15.9.5",
+    "@types/ws": "^5.1.2",
+    "markdown-it": "^8.4.0",
+    "git-credential-node": "^1.1.0",
+    "tmp": "^0.0.31",
+    "moment": "^2.22.1",
     "ws": "^6.0.0"
   }
 }
