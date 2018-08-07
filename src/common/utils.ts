@@ -92,8 +92,19 @@ export function formatError(e: any): string {
 	}
 
 	try {
+		let errorMessage = e.message;
+
 		const message = JSON.parse(e.message);
-		return message && message.message ? message.message : e.message;
+		if (message) {
+			errorMessage = message.message;
+
+			const furtherInfo = message.errors && message.errors.map(error => error.message).join(', ');
+			if (furtherInfo) {
+				errorMessage = `${errorMessage}: ${furtherInfo}`;
+			}
+		}
+
+		return errorMessage;
 	} catch (_) {
 		return e.message;
 	}
