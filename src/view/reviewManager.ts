@@ -187,6 +187,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			});
 			return thread;
 		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
 			return null;
 		}
 	}
@@ -240,6 +241,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				return commentThread;
 			}
 		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
 			return null;
 		}
 	}

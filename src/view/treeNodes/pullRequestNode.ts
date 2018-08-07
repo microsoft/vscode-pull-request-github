@@ -13,7 +13,7 @@ import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
 import { Resource } from '../../common/resources';
 import { toPRUri } from '../../common/uri';
-import { groupBy } from '../../common/utils';
+import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
 import { FileChangeNode } from './fileChangeNode';
@@ -84,39 +84,44 @@ export class PRNode extends TreeNode {
 	}
 
 	private async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string) {
-		let uri = document.uri;
-		let params = JSON.parse(uri.query);
+		try {
+			let uri = document.uri;
+			let params = JSON.parse(uri.query);
 
-		let fileChange = this.richContentChanges.find(change => change.fileName === params.fileName);
+			let fileChange = this.richContentChanges.find(change => change.fileName === params.fileName);
 
-		if (!fileChange) {
+			if (!fileChange) {
+				return null;
+			}
+
+			let isBase = params && params.base;
+			let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
+
+			if (position < 0) {
+				return;
+			}
+
+			// there is no thread Id, which means it's a new thread
+			let ret = await this._prManager.createComment(this.pullRequestModel, text, params.fileName, position);
+			let comment: vscode.Comment = {
+				commentId: ret.data.id,
+				body: new vscode.MarkdownString(ret.data.body),
+				userName: ret.data.user.login,
+				gravatar: ret.data.user.avatar_url
+			};
+
+			let commentThread: vscode.CommentThread = {
+				threadId: comment.commentId,
+				resource: uri,
+				range: range,
+				comments: [comment]
+			};
+
+			return commentThread;
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
 			return null;
 		}
-
-		let isBase = params && params.base;
-		let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
-
-		if (position < 0) {
-			return;
-		}
-
-		// there is no thread Id, which means it's a new thread
-		let ret = await this._prManager.createComment(this.pullRequestModel, text, params.fileName, position);
-		let comment: vscode.Comment = {
-			commentId: ret.data.id,
-			body: new vscode.MarkdownString(ret.data.body),
-			userName: ret.data.user.login,
-			gravatar: ret.data.user.avatar_url
-		};
-
-		let commentThread: vscode.CommentThread = {
-			threadId: comment.commentId,
-			resource: uri,
-			range: range,
-			comments: [comment]
-		};
-
-		return commentThread;
 	};
 
 	private async replyToCommentThread(_document: vscode.TextDocument, _range: vscode.Range, thread: vscode.CommentThread, text: string) {
@@ -130,6 +135,7 @@ export class PRNode extends TreeNode {
 			});
 			return thread;
 		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
 			return null;
 		}
 	};
