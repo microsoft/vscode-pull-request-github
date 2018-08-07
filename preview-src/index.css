@@ -7,6 +7,7 @@
 	display: flex;
 	align-items: flex-start;
 	margin: 20px 0;
+	border-bottom: 1px solid rgba(136, 136, 136, 0.45);
 }
 
 h2 {
@@ -32,21 +33,19 @@ body .review-comment .avatar-container {
 }
 
 body img.avatar {
-	height: 28px;
-	width: 28px;
-	max-width: 28px;
-	max-height: 28px;
+	height: 24px;
+	width: 24px;
+	max-width: 24px;
+	max-height: 24px;
 	overflow: hidden;
 	line-height: 1;
 	vertical-align: middle;
-	border-radius: 3px;
-	border-style: none;
-	margin-right: 5px;
+	margin-right: 8px;
 }
 
 body .review-comment .review-comment-contents {
 	width: 100%;
-	border: 1px solid var(--vscode-activityBar-background);
+	/* border: 1px solid var(--vscode-activityBar-background); */
 }
 
 body .review-comment .review-comment-header {
@@ -71,7 +70,7 @@ body .review-comment .review-comment-contents .comment-body p {
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 1200px;
+	max-width: 1000px;
 	box-sizing: border-box;
 }
 
@@ -107,6 +106,10 @@ button:hover:enabled, button:focus:enabled {
 	display: flex;
 }
 
+.overview-title h2{
+	font-size: 26px;
+}
+
 .overview-title .button-group {
 	align-self: center;
 	margin-left: auto;
@@ -116,7 +119,10 @@ button:hover:enabled, button:focus:enabled {
 .subtitle {
 	display: flex;
 	align-items: center;
-	margin-top: 5px;
+	margin-top: 8px;
+	font-size: 14px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid rgba(136, 136, 136, 0.45);
 }
 
 body .overview-title button {
@@ -135,17 +141,17 @@ body .overview-title button {
 #status {
 	box-sizing: border-box;
 	line-height: 18px;
-	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
-	border: 1px solid transparent;
-	padding: 4px 8px;
-	margin-right: 5px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-foreground);
+	border-radius: 4px;
+	padding: 2px 8px;
+	margin-right: 12px;
 }
 
 .commit, .review {
 	display: flex;
-	padding: 14px 4px 14px 10px;
-	background-color: var(--vscode-activityBar-background);
+	padding: 0;
+	border: none;
 	color: var(--vscode-activityBar-foreground);
 
 }
