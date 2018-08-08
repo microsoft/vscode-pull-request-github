@@ -242,7 +242,7 @@ export function renderComment(comment: CommentEvent): string {
 				<div class="avatar-container">
 					<img class="avatar" src="${comment.user.avatar_url}">
 				</div>
-				<strong class="author"><a href="${comment.user.html_url}">${comment.user.login}</a></strong>
+				<a class="author" href="${comment.user.html_url}">${comment.user.login}</a>
 				<div class="timestamp">${moment(comment.created_at).fromNow()}</div>
 			</div>
 			<div class="comment-body">
