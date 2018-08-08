@@ -292,7 +292,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 
 		function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vscode.Comment[]): boolean {
-			oldComments.forEach(oldComment => {
+			return oldComments.some(oldComment => {
 				const matchingComment = newComments.filter(newComment => newComment.commentId === oldComment.commentId);
 				if (matchingComment.length !== 1) {
 					return true;
@@ -301,9 +301,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 				if (matchingComment[0].body.value !== oldComment.body.value) {
 					return true;
 				}
-			});
 
-			return false;
+				return false;
+			});
 		}
 
 		newCommentThreads.forEach(thread => {
