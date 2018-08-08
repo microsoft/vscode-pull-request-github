@@ -6,8 +6,8 @@
  .title {
 	display: flex;
 	align-items: flex-start;
-	margin: 20px 0;
-	border-bottom: 1px solid rgba(136, 136, 136, 0.45);
+	margin: 20px 0 12px;
+	border-bottom: 1px solid var(--vscode-notifications-border);
 }
 
 h2 {
@@ -17,26 +17,27 @@ h2 {
 body hr {
 	display: block;
 	height: 1px;
-	border: 0;
 	border-top: 1px solid #555;
 	margin: 0 !important;
 	padding: 0;
 
 }
 body .review-comment {
-	padding: 10px 0;
 	display: flex;
+
 }
 
 body .review-comment .avatar-container {
-	padding: 4px;
+	margin-left: 0px;
+}
+
+body .review-comment .avatar-container img.avatar{
+	width: 32px;
 }
 
 body img.avatar {
-	height: 24px;
 	width: 24px;
-	max-width: 24px;
-	max-height: 24px;
+	height: auto;
 	overflow: hidden;
 	line-height: 1;
 	vertical-align: middle;
@@ -45,22 +46,33 @@ body img.avatar {
 
 body .review-comment .review-comment-contents {
 	width: 100%;
-	/* border: 1px solid var(--vscode-activityBar-background); */
+}
+body .review-comment .review-comment-contents::before{
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 14px;
+    z-index: -1;
+    display: block;
+    width: 2px;
+	content: "";
+    background-color: var(--vscode-notifications-border);
 }
 
 body .review-comment .review-comment-header {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	padding: 4px;
+	padding-top: 20px;
 	box-sizing: border-box;
-	background-color: var(--vscode-activityBar-background);
-	color: var(--vscode-activityBar-foreground);
-
+	color: var(--vscode-foreground);
+	/* border-top: 1px solid var(--vscode-notifications-border); */
+	background-color: var(--vscode-editor-background);
 }
 
 body .review-comment .review-comment-contents .comment-body {
-	padding: 10px;
+	padding: 0px 10px 20px 40px;
+	background-color: var(--vscode-editor-background);
 }
 
 body .review-comment .review-comment-contents .comment-body p {
@@ -122,7 +134,7 @@ button:hover:enabled, button:focus:enabled {
 	margin-top: 8px;
 	font-size: 14px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid rgba(136, 136, 136, 0.45);
+	border-bottom: 1px solid var(--vscode-notifications-border);
 }
 
 body .overview-title button {
@@ -148,22 +160,33 @@ body .overview-title button {
 	margin-right: 12px;
 }
 
+.commit svg{
+	margin-right: 8px;
+	fill: var(--vscode-notifications-border);
+}
 .commit, .review {
 	display: flex;
 	padding: 0;
 	border: none;
-	color: var(--vscode-activityBar-foreground);
-
+	margin: 12px 8px;
+	opacity: .9;
+	font-size: 12px;
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-editor-background);
 }
 
 .timestamp {
-	margin-left: auto;
+	margin-left: 6px;
 }
 
 .details {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
+}
+
+.comment-container{
+	position: relative;
 }
 
 body .comment-form {
