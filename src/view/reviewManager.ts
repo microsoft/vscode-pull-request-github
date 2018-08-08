@@ -185,6 +185,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 				userName: ret.data.user.login,
 				gravatar: ret.data.user.avatar_url
 			});
+
+			setTimeout(() => {
+				this.updateComments();
+			}, 0);
 			return thread;
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -236,6 +240,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 					range: range,
 					comments: [comment]
 				};
+
+				setTimeout(() => {
+					this.updateComments();
+				}, 0);
 
 				return commentThread;
 			}
