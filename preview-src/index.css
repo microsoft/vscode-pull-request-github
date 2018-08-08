@@ -201,6 +201,7 @@ body .comment-form textarea {
 	min-height: 100px;
 	max-height: 500px;
 	resize: vertical;
+	font-size: 13px;
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
@@ -214,19 +215,20 @@ body .comment-form textarea:focus {
 body .comment-form .form-actions {
 	overflow: auto;
 	padding: 10px 0;
+	margin-bottom: 10px;
 }
 body .comment-form .form-actions {
 	overflow: auto;
 	padding: 10px 0;
 }
 
-body .comment-form .form-actions button.close-button {
-	float: left;
+body .comment-form .form-actions button[disabled="true"]{
+	opacity: .5;
+}
+body .comment-form .form-actions button {
+	margin-right:10px;
 }
 
-body .comment-form .form-actions button.reply-button {
-	float: right;
-}
 
 .comment-body img {
 	max-width: 100%;
