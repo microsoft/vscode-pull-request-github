@@ -133,8 +133,7 @@ export class PRNode extends TreeNode {
 
 			return commentThread;
 		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-			return null;
+			throw new Error(formatError(e));
 		}
 	};
 
@@ -149,8 +148,7 @@ export class PRNode extends TreeNode {
 			});
 			return thread;
 		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-			return null;
+			throw new Error(formatError(e));
 		}
 	};
 
