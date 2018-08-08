@@ -126,6 +126,7 @@ export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
+	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<[IPullRequestModel[], boolean]>;
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;

@@ -151,12 +151,11 @@ export class PullRequestGitHelper {
 		Logger.appendLine(`GitHelper> create remote for ${cloneUrl}.`)
 
 		let remotes = repository.remotes;
-
-		remotes.forEach(remote => {
+		for (let remote of remotes) {
 			if (new Protocol(remote.url).equals(cloneUrl)) {
-				return remote.repositoryName;
+				return remote.remoteName;
 			}
-		});
+		}
 
 		let remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
 		await repository.addRemote(remoteName, cloneUrl.normalizeUri().toString());

@@ -118,6 +118,37 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 	}
 
+	async deleteLocalPullRequest(pullRequest: PullRequestModel): Promise<void> {
+		const remoteName = await this._repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
+		if (!remoteName) {
+			throw new Error('Unable to find remote for branch');
+		}
+
+		const result = await this._repository.run(['branch', '-D', pullRequest.localBranchName]);
+		if (result.stderr) {
+			throw new Error(result.stderr);
+		}
+
+		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
+		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remoteName);
+		if (isPRRemote) {
+			const configKeyValues = await this._repository.run(['config', '--local', '-l']);
+			if (configKeyValues.stderr) {
+				throw new Error(configKeyValues.stderr);
+			}
+
+			const result = configKeyValues.stdout.trim();
+			const hasOtherAssociatedBranches = new RegExp(`^branch.*\.remote=${remoteName}$`, 'm').test(result);
+
+			if (!hasOtherAssociatedBranches) {
+				const remoteResult = await this._repository.run(['remote', 'remove', remoteName]);
+				if (remoteResult.stderr) {
+					throw new Error(remoteResult.stderr);
+				}
+			}
+		}
+	}
+
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[IPullRequestModel[], boolean]> {
 		let githubRepositories = this._githubRepositories;
 
