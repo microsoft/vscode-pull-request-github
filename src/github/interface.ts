@@ -110,6 +110,7 @@ export interface IPullRequestModel {
 	isMerged: boolean;
 	head?: GitHubRef;
 	base?: GitHubRef;
+	localBranchName?: string;
 	userAvatar: string;
 	userAvatarUri: vscode.Uri;
 	body: string;

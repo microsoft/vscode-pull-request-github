@@ -85,27 +85,36 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getLocalPullRequests(): Promise<IPullRequestModel[]> {
-		let githubRepositories = this._githubRepositories;
+		const githubRepositories = this._githubRepositories;
 
 		if (!githubRepositories || !githubRepositories.length) {
 			return [];
 		}
 
-		let infos = await PullRequestGitHelper.getLocalBranchesAssociatedWithPullRequest(this._repository);
-		let promises = infos.map(async info => {
-			let owner = info.owner;
-			let prNumber = info.prNumber;
-			let githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+		const localBranches = await this._repository.getLocalBranches();
 
-			if (!githubRepo) {
-				return Promise.resolve([]);
+		const promises = localBranches.map(async localBranchName => {
+			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, localBranchName);
+
+			if (matchingPRMetadata) {
+				const { owner, prNumber } = matchingPRMetadata;
+				const githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+
+				if (githubRepo) {
+					const pullRequest: PullRequestModel = await githubRepo.getPullRequest(prNumber);
+
+					if (pullRequest) {
+						pullRequest.localBranchName = localBranchName;
+						return pullRequest;
+					}
+				}
 			}
 
-			return [await githubRepo.getPullRequest(prNumber)];
+			return Promise.resolve(null);
 		});
 
-		return await Promise.all(promises).then(values => {
-			return values.reduce((prev, curr) => prev.concat(...curr), []).filter(value => value !== null);
+		return Promise.all(promises).then(values => {
+			return values.filter(value => value !== null);
 		});
 	}
 

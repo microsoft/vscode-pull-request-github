@@ -21,6 +21,7 @@ export class PullRequestModel implements IPullRequestModel {
 	public assignee: IAccount;
 	public createdAt: string;
 	public updatedAt: string;
+	public localBranchName?: string;
 
 	public get isOpen(): boolean {
 		return this.state === PullRequestStateEnum.Open;

@@ -219,18 +219,4 @@ export class PullRequestGitHelper {
 		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
-
-	static async getLocalBranchesAssociatedWithPullRequest(repository: Repository): Promise<PullRequestMetadata[]> {
-		let branches = await repository.getLocalBranches();
-
-		let ret: PullRequestMetadata[] = [];
-		for (let i = 0; i < branches.length; i++) {
-			let matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, branches[i]);
-			if (matchingPRMetadata) {
-				ret.push(matchingPRMetadata);
-			}
-		}
-
-		return ret;
-	}
 }

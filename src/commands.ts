@@ -51,7 +51,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
-		const result = await exec(['branch', '-D', e.pullRequestModel.head.ref], { cwd: vscode.workspace.rootPath });
+		const result = await exec(['branch', '-D', e.pullRequestModel.localBranchName], { cwd: vscode.workspace.rootPath });
 
 		if (result.stderr) {
 			vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${result.stderr}`);
