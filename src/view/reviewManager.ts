@@ -10,14 +10,14 @@ import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineT
 import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
-import { GitChangeType } from '../common/file';
+import { GitChangeType, SlimFileChange } from '../common/file';
 import { GitErrorCodes } from '../common/gitError';
 import { IPullRequestModel, IPullRequestManager } from '../github/interface';
 import { Repository } from '../common/repository';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
-import { FileChangeNode } from './treeNodes/fileChangeNode';
+import { FileChangeNode, RemoteFileChangeNode, fileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { Configuration } from '../configuration';
@@ -29,8 +29,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _disposables: vscode.Disposable[];
 
 	private _comments: Comment[] = [];
-	private _localFileChanges: FileChangeNode[] = [];
-	private _obsoleteFileChanges: FileChangeNode[] = [];
+	private _localFileChanges: (FileChangeNode | RemoteFileChangeNode)[] = [];
+	private _obsoleteFileChanges: (FileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
 	private _updateCurrentBranch: boolean = false;
@@ -199,7 +199,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		try {
 			let uri = document.uri;
 			let fileName = uri.path;
-			let matchedFiles = this._localFileChanges.filter(fileChange => {
+			let matchedFiles = fileChangeNodeFilter(this._localFileChanges).filter(fileChange => {
 				if (uri.scheme === 'review') {
 					return fileChange.fileName === fileName;
 				} else {
@@ -356,8 +356,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 			await this._prManager.fullfillPullRequestCommitInfo(pr);
 			let baseSha = pr.base.sha;
 			let headSha = pr.head.sha;
-			const richContentChanges = await parseDiff(data, this._repository, baseSha);
-			this._localFileChanges = richContentChanges.map(change => {
+			const contentChanges = await parseDiff(data, this._repository, baseSha);
+			this._localFileChanges = contentChanges.map(change => {
+				if (change instanceof SlimFileChange) {
+					return new RemoteFileChangeNode(
+						pr,
+						change.status,
+						change.fileName,
+						change.blobUrl
+					);
+				}
 				let changedItem = new FileChangeNode(
 					pr,
 					change.status,
@@ -533,9 +541,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 					// local file, we only provide active comments
 					// TODO. for comments in deleted ranges, they should show on top of the first line.
 					const fileName = document.uri.fsPath;
-					const matchedFiles = this._localFileChanges.filter(fileChange => path.resolve(this._repository.path, fileChange.fileName) === fileName);
+					const matchedFiles = fileChangeNodeFilter(this._localFileChanges).filter(fileChange => path.resolve(this._repository.path, fileChange.fileName) === fileName);
 					if (matchedFiles && matchedFiles.length) {
-						const matchedFile = matchedFiles[0];
+						const matchedFile: FileChangeNode = matchedFiles[0];
 
 						let contentDiff: string;
 						if (document.isDirty) {
@@ -674,10 +682,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._workspaceCommentProvider = vscode.workspace.registerWorkspaceCommentProvider({
 			onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
 			provideWorkspaceComments: async (token: vscode.CancellationToken) => {
-				const comments = await Promise.all(this._localFileChanges.map(async fileChange => {
+				const comments = await Promise.all(fileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
 					return this.commentsToCommentThreads(fileChange.comments);
 				}));
-				const outdatedComments = this._obsoleteFileChanges.map(fileChange => {
+				const outdatedComments = fileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
 					return this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments);
 				});
 				return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
@@ -686,9 +694,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private findMatchedFileChange(fileChanges: FileChangeNode[], uri: vscode.Uri) {
+	private findMatchedFileChange(fileChanges: (FileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): FileChangeNode {
 		let query = JSON.parse(uri.query);
 		let matchedFiles = fileChanges.filter(fileChange => {
+			if (fileChange instanceof RemoteFileChangeNode) {
+				return false;
+			}
+
 			if (fileChange.fileName !== query.path) {
 				return false;
 			}
@@ -708,7 +720,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 
 		if (matchedFiles && matchedFiles.length) {
-			return matchedFiles[0];
+			return matchedFiles[0] as FileChangeNode;
 		}
 
 		return null;
@@ -790,7 +802,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
 		let { path, commit } = fromReviewUri(uri);
-		let changedItems = this._localFileChanges
+		let changedItems = fileChangeNodeFilter(this._localFileChanges)
 			.filter(change => change.fileName === path)
 			.filter(fileChange => fileChange.sha === commit || (fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit);
 
@@ -801,7 +813,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return ret.reduce((prev, curr) => prev.concat(...curr), []).join('\n');
 		}
 
-		changedItems = this._obsoleteFileChanges
+		changedItems = fileChangeNodeFilter(this._obsoleteFileChanges)
 			.filter(change => change.fileName === path)
 			.filter(fileChange => fileChange.sha === commit || (fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit);
 

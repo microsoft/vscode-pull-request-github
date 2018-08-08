@@ -8,8 +8,7 @@
  */
 
 import * as path from 'path';
-import { getFileContent, writeTmpFile } from './file';
-import { GitChangeType, RichFileChange } from './file';
+import { getFileContent, writeTmpFile, GitChangeType, RichFileChange, SlimFileChange } from './file';
 import { Repository } from './repository';
 import { Comment } from './comment';
 
@@ -263,22 +262,27 @@ export function getGitChangeType(status: string): GitChangeType {
 	}
 }
 
-export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<RichFileChange[]> {
-	let richFileChanges: RichFileChange[] = [];
+export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<(RichFileChange | SlimFileChange)[]> {
+	let fileChanges: (RichFileChange | SlimFileChange)[] = [];
 	for (let i = 0; i < reviews.length; i++) {
 		let review = reviews[i];
+		if (!review.patch) {
+			const gitChangeType = getGitChangeType(review.status);
+			fileChanges.push(new SlimFileChange(review.blob_url, gitChangeType, review.filename));
+			continue;
+		}
+
 		if (review.status === 'modified') {
 			let fileName = review.filename;
-
 			try {
 				let originalContent = await getFileContent(repository.path, parentCommit, fileName);
 				let richFileChange = await parseModifiedHunkComplete(originalContent, review.patch, fileName, fileName);
 				richFileChange.blobUrl = review.blob_url;
-				richFileChanges.push(richFileChange);
+				fileChanges.push(richFileChange);
 			} catch (e) {
 				let richFileChange = await parseModifiedHunkFast(review.patch, fileName, fileName);
 				richFileChange.blobUrl = review.blob_url;
-				richFileChanges.push(richFileChange);
+				fileChanges.push(richFileChange);
 			}
 		} else if (review.status === 'removed' || review.status === 'added' || review.status === 'renamed') {
 			if (!review.patch) {
@@ -310,10 +314,10 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 				new RichFileChange(emptyContentFilePath, contentFilePath, gitChangeType, fileName, diffHunks) :
 				new RichFileChange(contentFilePath, emptyContentFilePath, gitChangeType, fileName, diffHunks);
 			richFileChange.blobUrl = review.blob_url;
-			richFileChanges.push(richFileChange);
+			fileChanges.push(richFileChange);
 		}
 	}
-	return richFileChanges;
+	return fileChanges;
 }
 
 export function parserCommentDiffHunk(comments: any[]): Comment[] {

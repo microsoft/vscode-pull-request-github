@@ -12,6 +12,35 @@ import { TreeNode } from './treeNode';
 import { Comment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 
+export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
+	public label: string;
+	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public command: vscode.Command;
+
+	constructor(
+		public readonly pullRequest: IPullRequestModel,
+		public readonly status: GitChangeType,
+		public readonly fileName: string,
+		public readonly blobUrl: string
+	) {
+		super();
+		this.label = fileName;
+		this.iconPath = Resource.getFileStatusUri(this);
+
+		this.command = {
+			title: 'show remote file',
+			command: 'vscode.open',
+			arguments: [
+				vscode.Uri.parse(this.blobUrl)
+			]
+		};
+	}
+
+	getTreeItem(): vscode.TreeItem {
+		return this;
+	}
+}
+
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
@@ -77,4 +106,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	getTreeItem(): vscode.TreeItem {
 		return this;
 	}
+}
+
+export function fileChangeNodeFilter(nodes: (FileChangeNode | RemoteFileChangeNode)[]): FileChangeNode[] {
+	return nodes.filter(node => node instanceof FileChangeNode) as FileChangeNode[];
 }

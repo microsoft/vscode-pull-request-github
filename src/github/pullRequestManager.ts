@@ -338,17 +338,7 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber
 		});
 
-		const largeChanges = data.filter(fileChange => !fileChange.patch);
-		if (largeChanges.length) {
-			const fileNames = largeChanges.map(change => change.filename).join(', ');
-			vscode.window.showInformationMessage(`This pull request contains file changes that are too large to load: ${fileNames}`, 'Open in GitHub').then(result => {
-				if (result === 'Open in GitHub') {
-					vscode.commands.executeCommand('pr.openPullRequestInGitHub', pullRequest);
-				}
-			});
-		}
-
-		return data.filter(fileChange => !!fileChange.patch);
+		return data;
 	}
 
 	async fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void> {

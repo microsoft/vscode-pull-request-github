@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Resource } from '../common/resources';
 import { IPullRequestModel, IPullRequestManager } from '../github/interface';
-import { FileChangeNode } from './treeNodes/fileChangeNode';
+import { FileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { DescriptionNode } from './treeNodes/descriptionNode';
 import { TreeNode } from './treeNodes/treeNode';
 import { FilesCategoryNode } from './treeNodes/filesCategoryNode';
@@ -18,7 +18,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _disposables: vscode.Disposable[] = []
 
-	private _localFileChanges: FileChangeNode[] = [];
+	private _localFileChanges: (FileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: Comment[] = [];
 	private _pullrequest: IPullRequestModel = null;
 	private _pullRequestManager: IPullRequestManager;
@@ -32,7 +32,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}));
 	}
 
-	async showPullRequestFileChanges(pullRequestManager: IPullRequestManager, pullrequest: IPullRequestModel, fileChanges: FileChangeNode[], comments: Comment[]) {
+	async showPullRequestFileChanges(pullRequestManager: IPullRequestManager, pullrequest: IPullRequestModel, fileChanges: (FileChangeNode | RemoteFileChangeNode)[], comments: Comment[]) {
 		this._pullRequestManager = pullRequestManager;
 		this._pullrequest = pullrequest;
 		this._comments = comments;

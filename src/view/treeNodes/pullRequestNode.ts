@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { Comment } from '../../common/comment';
 import { parseDiff } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition } from '../../common/diffPositionMapping';
-import { RichFileChange } from '../../common/file';
+import { RichFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
 import { Resource } from '../../common/resources';
@@ -16,11 +16,11 @@ import { toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
-import { FileChangeNode } from './fileChangeNode';
+import { FileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 
 export class PRNode extends TreeNode {
-	private _richContentChanges: RichFileChange[];
+	private _contentChanges: (RichFileChange | SlimFileChange)[];
 	private _commentsCache: Map<String, Comment[]>;
 	private _documentCommentsProvider: vscode.Disposable;
 
@@ -47,9 +47,17 @@ export class PRNode extends TreeNode {
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
 			await this._prManager.fullfillPullRequestCommitInfo(this.pullRequestModel);
-			this._richContentChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
+			this._contentChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
 			this._commentsCache = new Map<String, Comment[]>();
-			let fileChanges = this._richContentChanges.map(change => {
+			let fileChanges = this._contentChanges.map(change => {
+				if (change instanceof SlimFileChange) {
+					return new RemoteFileChangeNode(
+						this.pullRequestModel,
+						change.status,
+						change.fileName,
+						change.blobUrl
+					);
+				}
 				let fileInRepo = path.resolve(this.repository.path, change.fileName);
 				let changedItem = new FileChangeNode(
 					this.pullRequestModel,
@@ -102,9 +110,13 @@ export class PRNode extends TreeNode {
 			let uri = document.uri;
 			let params = JSON.parse(uri.query);
 
-		let fileChange = this._richContentChanges.find(change => change.fileName === params.fileName);
+			let fileChange = this._contentChanges.find(change => change.fileName === params.fileName);
 
 			if (!fileChange) {
+				return null;
+			}
+
+			if (fileChange instanceof SlimFileChange) {
 				return null;
 			}
 
@@ -156,8 +168,12 @@ export class PRNode extends TreeNode {
 		if (document.uri.scheme === 'pr') {
 			let params = JSON.parse(document.uri.query);
 			let isBase = params.base;
-			let fileChange = this._richContentChanges.find(change => change.fileName === params.fileName);
+			let fileChange = this._contentChanges.find(change => change.fileName === params.fileName);
 			if (!fileChange) {
+				return null;
+			}
+
+			if (fileChange instanceof SlimFileChange) {
 				return null;
 			}
 
