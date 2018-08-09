@@ -48,7 +48,7 @@ export class Protocol {
 
 			if (this.url.scheme === 'https' || this.url.scheme === 'http') {
 				this.type = ProtocolType.HTTP;
-				this.host = this.url.authority;
+				this.host = this.getHostName(this.url.authority);
 				this.repositoryName = this.getRepositoryName(this.url.path);
 				this.owner = this.getOwnerName(this.url.path);
 				return;
@@ -82,6 +82,16 @@ export class Protocol {
 				return;
 			}
 		} catch (e) { }
+	}
+
+	getHostName(authority: string) {
+		let matches = /^(?:([^:]+)(?::([^@]+))?@)?([^\/]+)$/.exec(authority);
+
+		if (matches && matches[3]) {
+			return matches[3];
+		}
+
+		return authority;
 	}
 
 	getRepositoryName(path: string) {
