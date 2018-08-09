@@ -6,8 +6,9 @@
  .title {
 	display: flex;
 	align-items: flex-start;
-	margin: 20px 0 12px;
-	border-bottom: 1px solid var(--vscode-notifications-border);
+	margin: 20px 0 0;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
 h2 {
@@ -17,6 +18,7 @@ h2 {
 body hr {
 	display: block;
 	height: 1px;
+	border: 0;
 	border-top: 1px solid #555;
 	margin: 0 !important;
 	padding: 0;
@@ -28,15 +30,16 @@ body .review-comment {
 }
 
 body .review-comment .avatar-container {
-	margin-left: 0px;
+	margin-right: 12px;
 }
 
 body .review-comment .avatar-container img.avatar{
-	width: 32px;
+	width: 24px;
+	margin-right: 0;
 }
 
 body img.avatar {
-	width: 24px;
+	width: 28px;
 	height: auto;
 	overflow: hidden;
 	line-height: 1;
@@ -46,8 +49,28 @@ body img.avatar {
 
 body .review-comment .review-comment-contents {
 	width: 100%;
+	display: flex;
+	margin: 0;
 }
-body .review-comment .review-comment-contents::before{
+
+body .review-comment .review-comment-contents.comment,
+body .review-comment .review-comment-contents.review{
+	background-color: var(--vscode-editor-background);
+}
+
+body .comment-container:last-child .comment{
+	padding-bottom: 12px;
+	border-bottom: none;
+}
+
+.review-comment-container{
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+/* timeline line */
+/* body .review-comment .review-comment-contents.comment::before{
     position: absolute;
     top: 0;
     bottom: 0;
@@ -56,23 +79,25 @@ body .review-comment .review-comment-contents::before{
     display: block;
     width: 2px;
 	content: "";
-    background-color: var(--vscode-notifications-border);
-}
+    background-color: var(--vscode-tab-inactiveBackground);
+} */
 
 body .review-comment .review-comment-header {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	padding-top: 20px;
 	box-sizing: border-box;
+	padding: 2px 0;
+	font-size: 12px;
 	color: var(--vscode-foreground);
-	/* border-top: 1px solid var(--vscode-notifications-border); */
-	background-color: var(--vscode-editor-background);
+}
+
+body .review-comment .review-comment-header > span, a{
+	margin-right: 4px;
 }
 
 body .review-comment .review-comment-contents .comment-body {
-	padding: 0px 10px 20px 40px;
-	background-color: var(--vscode-editor-background);
+	padding: 4px 0 0;
 }
 
 body .review-comment .review-comment-contents .comment-body p {
@@ -82,7 +107,8 @@ body .review-comment .review-comment-contents .comment-body p {
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 1000px;
+	max-width: 1024px;
+	padding: 0 32px;
 	box-sizing: border-box;
 }
 
@@ -119,7 +145,7 @@ button:hover:enabled, button:focus:enabled {
 }
 
 .overview-title h2{
-	font-size: 26px;
+	font-size: 24px;
 }
 
 .overview-title .button-group {
@@ -132,9 +158,12 @@ button:hover:enabled, button:focus:enabled {
 	display: flex;
 	align-items: center;
 	margin-top: 8px;
-	font-size: 14px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid var(--vscode-notifications-border);
+	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
+}
+
+.subtitle .avatar{
+	margin-right: 8px;
 }
 
 body .overview-title button {
@@ -161,22 +190,40 @@ body .overview-title button {
 }
 
 .commit svg{
+	width: 14px;
+	height: auto;
 	margin-right: 8px;
-	fill: var(--vscode-notifications-border);
-}
-.commit, .review {
-	display: flex;
-	padding: 0;
-	border: none;
-	margin: 12px 8px;
-	opacity: .9;
-	font-size: 12px;
-	color: var(--vscode-foreground);
-	background-color: var(--vscode-editor-background);
+	opacity: .3;
+	flex-shrink: 0;
+	fill: var(--vscode-foreground);
 }
 
-.timestamp {
-	margin-left: 6px;
+.commit, .review {
+	display: flex;
+	width: 100%;
+	border: none;
+	font-size: 12px;
+	color: var(--vscode-foreground);
+}
+
+.review-comment-contents.review{
+	margin: 0px 8px;
+	padding: 4px 0;
+}
+
+.commit .commit-message{
+	display: flex;
+	align-items: flex-start;
+	line-height: 18px;
+}
+
+.commit .sha{
+	margin-left: auto;
+    width: 8ch;
+    overflow: hidden;
+	font-family: monospace;
+	white-space: nowrap;
+	padding-left: 12px;
 }
 
 .details {
@@ -187,10 +234,40 @@ body .overview-title button {
 
 .comment-container{
 	position: relative;
+	padding: 20px 0;
+    margin-bottom: 10px;
+    border-top: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
+.comment-container[data-type="commit"]{
+	padding: 4px 0;
+	margin: 0;
+}
+
+/* .discussion > .comment-container[data-type="commit"]:first-of-type, */
+.comment-container[data-type="commit"] + .comment-container[data-type="commit"]{
+	/* padding: 4px 0; */
+}
+
+.comment-container[data-type="commit"] + .comment-container[data-type="commit"],
+.comment-container:first-of-type{
+	border-top: none;
+}
+
+/* .comment-container[data-type="comment"] + .comment-container[data-type="commit"],
+.comment-container[data-type="review"] + .comment-container[data-type="commit"]{
+	padding-top: 20px;
+} */
+
+/* .comment-container[data-type="commit"] + .comment-container[data-type="commit"]:last-of-type,
+.comment-container[data-type="comment"] + .comment-container[data-type="commit"]:last-of-type,
+.comment-container[data-type="review"] + .comment-container[data-type="commit"]:last-of-type{
+	padding-bottom: 20px;
+} */
+
 body .comment-form {
-	padding: 10px 0;
+	padding-top: 20px;
+	border-top: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
 body .comment-form textarea {
@@ -230,8 +307,7 @@ body .comment-form .form-actions button {
 }
 
 .details .comment-body{
-	padding: 20px 0;
-	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
+	padding: 12px 0;
 }
 
 .details .comment-body:empty::after{
@@ -244,6 +320,8 @@ body .comment-form .form-actions button {
 .comment-body img {
 	max-width: 100%;
 	max-height: 100%;
+	margin-top: 8px;
+	display: block;
 }
 
 .comment-body a {
@@ -385,18 +463,19 @@ body .comment-form .form-actions button {
 }
 
 .diff {
-	background-color: var(--vscode-peekViewEditor-background);
-	margin: 8px;
-	border: 1px;
+	margin: 8px 0;
+	border: 1px solid var(--vscode-notifications-background) !important;
 }
 
 .diff .diffHeader {
 	padding: 2px 12px;
-	border-bottom: solid 1px;
 	line-height: 1.5;
+	border-bottom: solid 1px var(--vscode-notifications-background);
+	background-color: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
 .diff .diffLine.add {
+	border: 1px solid var(--vscode-diffEditor-insertedTextBorder);
 	background-color: var(--vscode-diffEditor-insertedTextBackground);
 }
 

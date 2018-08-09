@@ -234,19 +234,21 @@ export function renderCommentBody(comment: Comment): string {
 
 
 export function renderComment(comment: CommentEvent): string {
-	return `<div class="comment-container">
+	return `<div class="comment-container" data-type="comment">
 
 	<div class="review-comment" role="treeitem">
-		<div class="review-comment-contents">
-			<div class="review-comment-header">
-				<div class="avatar-container">
-					<img class="avatar" src="${comment.user.avatar_url}">
-				</div>
-				<a class="author" href="${comment.user.html_url}">${comment.user.login}</a>
-				<div class="timestamp">${moment(comment.created_at).fromNow()}</div>
+		<div class="review-comment-contents comment">
+			<div class="avatar-container">
+				<img class="avatar" src="${comment.user.avatar_url}">
 			</div>
-			<div class="comment-body">
-				${md.render(comment.body)}
+			<div class="review-comment-container">
+				<div class="review-comment-header">
+					<a class="author" href="${comment.user.html_url}">${comment.user.login}</a>
+					<div class="timestamp">${moment(comment.created_at).fromNow()}</div>
+				</div>
+				<div class="comment-body">
+					${md.render(comment.body)}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -254,15 +256,18 @@ export function renderComment(comment: CommentEvent): string {
 }
 
 export function renderCommit(timelineEvent: CommitEvent): string {
-	return `<div class="comment-container">
+	return `<div class="comment-container"  data-type="commit">
 
 	<div class="review-comment" role="treeitem">
-		<div class="review-comment-contents">
+		<div class="review-comment-contents commit">
 			<div class="commit">
-				<svg class="octicon octicon-git-commit" width="14" height="16" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<path fill-rule="evenodd" clip-rule="evenodd" d="M10.86 3C10.41 1.28 8.86 0 7 0C5.14 0 3.59 1.28 3.14 3H0V5H3.14C3.59 6.72 5.14 8 7 8C8.86 8 10.41 6.72 10.86 5H14V3H10.86V3ZM7 6.2C5.78 6.2 4.8 5.22 4.8 4C4.8 2.78 5.78 1.8 7 1.8C8.22 1.8 9.2 2.78 9.2 4C9.2 5.22 8.22 6.2 7 6.2V6.2Z" transform="translate(0 4)"/>
-				</svg>
-				${timelineEvent.author.name}: ${timelineEvent.message} <code><a href="${timelineEvent.html_url}">(${timelineEvent.sha})</a></code>
+				<div class="commit-message">
+					<svg class="octicon octicon-git-commit" width="14" height="16" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path fill-rule="evenodd" clip-rule="evenodd" d="M10.86 3C10.41 1.28 8.86 0 7 0C5.14 0 3.59 1.28 3.14 3H0V5H3.14C3.59 6.72 5.14 8 7 8C8.86 8 10.41 6.72 10.86 5H14V3H10.86V3ZM7 6.2C5.78 6.2 4.8 5.22 4.8 4C4.8 2.78 5.78 1.8 7 1.8C8.22 1.8 9.2 2.78 9.2 4C9.2 5.22 8.22 6.2 7 6.2V6.2Z" transform="translate(0 4)"/>
+					</svg>
+					${timelineEvent.author.name}: ${timelineEvent.message}
+				</div>
+				<a class="sha" href="${timelineEvent.html_url}">${timelineEvent.sha}</a>
 			</div>
 		</div>
 	</div>
@@ -320,18 +325,28 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 			<div>${ comments && comments.length ? comments.map(comment => renderCommentBody(comment)) : ''}</div>
 		`;
 	}
-	return `<div class="comment-container">
+	return `<div class="comment-container"  data-type="review">
 
 	<div class="review-comment" role="treeitem">
-		<div class="review-comment-contents">
-			<div class="review-comment-header">
-				${avatar}
-				<strong class="author">${timelineEvent.user.login} left a <a href="${timelineEvent.html_url}">review </a></strong><span></span>
-				<div class="timestamp">${moment(timelineEvent.submitted_at).fromNow()}</div>
+
+		<div class="review-comment-contents review">
+			${avatar}
+			<div class="review-comment-container">
+				<div class="review-comment-header">
+					<span>${timelineEvent.user.login} left a </span> <a href="${timelineEvent.html_url}">review </a>
+					<div class="timestamp">${moment(timelineEvent.submitted_at).fromNow()}</div>
+				</div>
+				<div class="comment-body">
+					${body}
+				</div>
 			</div>
-			${body}
 		</div>
+
 	</div>
+
+
+
+
 </div>`;
 }
 
