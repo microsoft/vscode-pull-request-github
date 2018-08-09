@@ -79,9 +79,7 @@ function setTitleHTML(pr: any) {
 					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
 					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
 				</div>
-				<div class="comment-body">
-					${md.render(pr.body)}
-				</div>
+				<div class="comment-body">${md.render(pr.body)}</div>
 			</div>
 		`;
 }

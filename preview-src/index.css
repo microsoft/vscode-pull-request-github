@@ -229,6 +229,17 @@ body .comment-form .form-actions button {
 	margin-right:10px;
 }
 
+.details .comment-body{
+	padding: 20px 0;
+	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
+}
+
+.details .comment-body:empty::after{
+	opacity: .9;
+	font-style: italic;
+	content: "No description provided."
+}
+
 
 .comment-body img {
 	max-width: 100%;
