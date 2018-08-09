@@ -6,6 +6,7 @@
 'use strict';
 
 import { Uri } from 'vscode';
+import { IPullRequestModel } from '../github/interface';
 
 export interface ReviewUriParams {
 	path: string;
@@ -15,6 +16,17 @@ export interface ReviewUriParams {
 }
 
 export function fromReviewUri(uri: Uri): ReviewUriParams {
+	return JSON.parse(uri.query);
+}
+
+export interface PRUriParams {
+	path: string;
+	base: boolean;
+	fileName: string;
+	prNumber: number;
+}
+
+export function fromPRUri(uri: Uri): PRUriParams {
 	return JSON.parse(uri.query);
 }
 
@@ -48,11 +60,12 @@ export function toReviewUri(uri: Uri, filePath: string, ref: string, commit: str
 	});
 }
 
-export function toPRUri(uri: Uri, fileInRepo: string, fileName: string, base: boolean): Uri {
+export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, fileInRepo: string, fileName: string, base: boolean): Uri {
 	const params = {
 		path: uri.path,
 		base: base,
-		fileName: fileName
+		fileName: fileName,
+		prNumber: pullRequestModel.prNumber
 	};
 
 	let path = uri.path;

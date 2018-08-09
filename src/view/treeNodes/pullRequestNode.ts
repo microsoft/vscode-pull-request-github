@@ -12,7 +12,7 @@ import { RichFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
 import { Resource } from '../../common/resources';
-import { toPRUri } from '../../common/uri';
+import { toPRUri, fromPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
@@ -64,8 +64,8 @@ export class PRNode extends TreeNode {
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toPRUri(vscode.Uri.file(change.filePath), fileInRepo, change.fileName, false),
-					toPRUri(vscode.Uri.file(change.originalFilePath), fileInRepo, change.fileName, true),
+					toPRUri(vscode.Uri.file(change.filePath), this.pullRequestModel, fileInRepo, change.fileName, false),
+					toPRUri(vscode.Uri.file(change.originalFilePath), this.pullRequestModel, fileInRepo, change.fileName, true),
 					change.diffHunks,
 					comments.filter(comment => comment.path === change.fileName && comment.position !== null)
 				);
@@ -108,7 +108,11 @@ export class PRNode extends TreeNode {
 	private async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string) {
 		try {
 			let uri = document.uri;
-			let params = JSON.parse(uri.query);
+			let params = fromPRUri(uri);
+
+			if (params.prNumber !== this.pullRequestModel.prNumber) {
+				return null;
+			}
 
 			let fileChange = this._contentChanges.find(change => change.fileName === params.fileName);
 
@@ -166,7 +170,12 @@ export class PRNode extends TreeNode {
 
 	private async provideDocumentComments(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CommentInfo> {
 		if (document.uri.scheme === 'pr') {
-			let params = JSON.parse(document.uri.query);
+			let params = fromPRUri(document.uri);
+
+			if (params.prNumber !== this.pullRequestModel.prNumber) {
+				return null;
+			}
+
 			let isBase = params.base;
 			let fileChange = this._contentChanges.find(change => change.fileName === params.fileName);
 			if (!fileChange) {
