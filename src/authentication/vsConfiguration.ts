@@ -21,6 +21,7 @@ export class VSCodeConfiguration extends Configuration {
 	}
 
 	public setHost(host: string): IHostConfiguration {
+		host = host.toLocaleLowerCase();
 		if (host && host.substr(host.length - 2, 1) === '/') {
 			host = host.slice(0, -1);
 		}
@@ -49,7 +50,7 @@ export class VSCodeConfiguration extends Configuration {
 	}
 
 	public getHost(host: string): IHostConfiguration {
-		return this._hosts.get(host);
+		return this._hosts.get(host.toLocaleLowerCase());
 	}
 
 	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): void {
@@ -68,6 +69,7 @@ export class VSCodeConfiguration extends Configuration {
 		let defaultEntry: IHostConfiguration[] = [];
 		let configHosts = config.get(HOSTS_KEY, defaultEntry);
 
+		configHosts.forEach(c => c.host = c.host.toLocaleLowerCase());
 		configHosts.map(c => this._hosts.set(c.host, c));
 
 		if (this.host && !this._hosts.has(this.host)) {

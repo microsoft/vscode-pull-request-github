@@ -120,7 +120,7 @@ export class Protocol {
 		}
 
 		try {
-			return vscode.Uri.parse(`${scheme}://${this.host}/${this.nameWithOwner}`);
+			return vscode.Uri.parse(`${scheme}://${this.host.toLocaleLowerCase()}/${this.nameWithOwner.toLocaleLowerCase()}`);
 		} catch (e) {
 			return null;
 		}

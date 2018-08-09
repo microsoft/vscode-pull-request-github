@@ -56,7 +56,7 @@ export class PullRequestManager implements IPullRequestManager {
 		const potentialRemotes = this._repository.remotes.filter(remote => remote.host);
 		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]));
-		gitHubRemotes = uniqBy(gitHubRemotes, remote => `${remote.host}:${remote.owner}/${remote.repositoryName}`);
+		gitHubRemotes = uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().toString());
 
 		if (gitHubRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
