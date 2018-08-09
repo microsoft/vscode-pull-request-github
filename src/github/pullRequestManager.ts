@@ -15,7 +15,7 @@ import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from '../authentication/configuration';
-import { GitHubManager } from '../authentication/githubserver';
+import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy } from '../common/utils';
 
 interface PageInformation {
