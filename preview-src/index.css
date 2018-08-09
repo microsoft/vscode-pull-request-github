@@ -235,7 +235,7 @@ body .overview-title button {
 }
 
 body .comment-form {
-	padding-top: 20px;
+	padding: 20px 0 10px;
 	border-top: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
