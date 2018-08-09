@@ -65,3 +65,11 @@ export class RichFileChange {
 		public readonly diffHunks: DiffHunk[]
 	) { }
 }
+
+export class SlimFileChange {
+	constructor(
+		public readonly blobUrl: string,
+		public readonly status: GitChangeType,
+		public readonly fileName: string
+	) { }
+}

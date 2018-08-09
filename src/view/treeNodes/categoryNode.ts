@@ -129,9 +129,13 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				nodes.push(new PRCategoryActionNode(PRCategoryActionType.More, this));
 			}
 
+			this.childrenDisposables = nodes;
 			return nodes;
 		} else {
-			return [new PRCategoryActionNode(PRCategoryActionType.Empty)];
+			let result = [new PRCategoryActionNode(PRCategoryActionType.Empty)];
+
+			this.childrenDisposables = result;
+			return result;
 		}
 	}
 

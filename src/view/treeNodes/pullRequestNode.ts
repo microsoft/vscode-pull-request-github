@@ -8,20 +8,21 @@ import * as vscode from 'vscode';
 import { Comment } from '../../common/comment';
 import { parseDiff } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition } from '../../common/diffPositionMapping';
-import { RichFileChange } from '../../common/file';
+import { RichFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
 import { Resource } from '../../common/resources';
 import { toPRUri } from '../../common/uri';
-import { groupBy } from '../../common/utils';
+import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
-import { FileChangeNode } from './fileChangeNode';
+import { FileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 
 export class PRNode extends TreeNode {
-	private richContentChanges: RichFileChange[];
-	private commentsCache: Map<String, Comment[]>;
+	private _contentChanges: (RichFileChange | SlimFileChange)[];
+	private _commentsCache: Map<String, Comment[]>;
+	private _documentCommentsProvider: vscode.Disposable;
 
 	constructor(
 		private _prManager: IPullRequestManager,
@@ -30,16 +31,33 @@ export class PRNode extends TreeNode {
 		private _isLocal: boolean
 	) {
 		super();
+		this._documentCommentsProvider = null;
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
 		try {
+			if (this._documentCommentsProvider) {
+				this._documentCommentsProvider.dispose();
+			}
+
+			if (this.childrenDisposables && this.childrenDisposables.length) {
+				this.childrenDisposables.forEach(dp => dp.dispose());
+			}
+
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
 			await this._prManager.fullfillPullRequestCommitInfo(this.pullRequestModel);
-			this.richContentChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
-			this.commentsCache = new Map<String, Comment[]>();
-			let fileChanges = this.richContentChanges.map(change => {
+			this._contentChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
+			this._commentsCache = new Map<String, Comment[]>();
+			let fileChanges = this._contentChanges.map(change => {
+				if (change instanceof SlimFileChange) {
+					return new RemoteFileChangeNode(
+						this.pullRequestModel,
+						change.status,
+						change.fileName,
+						change.blobUrl
+					);
+				}
 				let fileInRepo = path.resolve(this.repository.path, change.fileName);
 				let changedItem = new FileChangeNode(
 					this.pullRequestModel,
@@ -51,22 +69,26 @@ export class PRNode extends TreeNode {
 					change.diffHunks,
 					comments.filter(comment => comment.path === change.fileName && comment.position !== null)
 				);
-				this.commentsCache.set(change.fileName, changedItem.comments);
+				this._commentsCache.set(change.fileName, changedItem.comments);
 				return changedItem;
 			});
 
 			const _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
-			vscode.workspace.registerDocumentCommentProvider({
+
+			this._documentCommentsProvider = vscode.workspace.registerDocumentCommentProvider({
 				onDidChangeCommentThreads: _onDidChangeCommentThreads.event,
 				provideDocumentComments: this.provideDocumentComments.bind(this),
 				createNewCommentThread: this.createNewCommentThread.bind(this),
 				replyToCommentThread: this.replyToCommentThread.bind(this)
 			});
 
-			return [new DescriptionNode('Description', {
+			let result = [new DescriptionNode('Description', {
 				light: Resource.icons.light.Description,
 				dark: Resource.icons.dark.Description
 			}, this.pullRequestModel), ...fileChanges];
+
+			this.childrenDisposables = result;
+			return result;
 		} catch (e) {
 			Logger.appendLine(e);
 		}
@@ -84,39 +106,47 @@ export class PRNode extends TreeNode {
 	}
 
 	private async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string) {
-		let uri = document.uri;
-		let params = JSON.parse(uri.query);
+		try {
+			let uri = document.uri;
+			let params = JSON.parse(uri.query);
 
-		let fileChange = this.richContentChanges.find(change => change.fileName === params.fileName);
+			let fileChange = this._contentChanges.find(change => change.fileName === params.fileName);
 
-		if (!fileChange) {
-			return null;
+			if (!fileChange) {
+				return null;
+			}
+
+			if (fileChange instanceof SlimFileChange) {
+				return null;
+			}
+
+			let isBase = params && params.base;
+			let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
+
+			if (position < 0) {
+				return;
+			}
+
+			// there is no thread Id, which means it's a new thread
+			let ret = await this._prManager.createComment(this.pullRequestModel, text, params.fileName, position);
+			let comment: vscode.Comment = {
+				commentId: ret.data.id,
+				body: new vscode.MarkdownString(ret.data.body),
+				userName: ret.data.user.login,
+				gravatar: ret.data.user.avatar_url
+			};
+
+			let commentThread: vscode.CommentThread = {
+				threadId: comment.commentId,
+				resource: uri,
+				range: range,
+				comments: [comment]
+			};
+
+			return commentThread;
+		} catch (e) {
+			throw new Error(formatError(e));
 		}
-
-		let isBase = params && params.base;
-		let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
-
-		if (position < 0) {
-			return;
-		}
-
-		// there is no thread Id, which means it's a new thread
-		let ret = await this._prManager.createComment(this.pullRequestModel, text, params.fileName, position);
-		let comment: vscode.Comment = {
-			commentId: ret.data.id,
-			body: new vscode.MarkdownString(ret.data.body),
-			userName: ret.data.user.login,
-			gravatar: ret.data.user.avatar_url
-		};
-
-		let commentThread: vscode.CommentThread = {
-			threadId: comment.commentId,
-			resource: uri,
-			range: range,
-			comments: [comment]
-		};
-
-		return commentThread;
 	};
 
 	private async replyToCommentThread(_document: vscode.TextDocument, _range: vscode.Range, thread: vscode.CommentThread, text: string) {
@@ -130,7 +160,7 @@ export class PRNode extends TreeNode {
 			});
 			return thread;
 		} catch (e) {
-			return null;
+			throw new Error(formatError(e));
 		}
 	};
 
@@ -138,8 +168,12 @@ export class PRNode extends TreeNode {
 		if (document.uri.scheme === 'pr') {
 			let params = JSON.parse(document.uri.query);
 			let isBase = params.base;
-			let fileChange = this.richContentChanges.find(change => change.fileName === params.fileName);
+			let fileChange = this._contentChanges.find(change => change.fileName === params.fileName);
 			if (!fileChange) {
+				return null;
+			}
+
+			if (fileChange instanceof SlimFileChange) {
 				return null;
 			}
 
@@ -162,7 +196,7 @@ export class PRNode extends TreeNode {
 				commentingRanges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
 			}
 
-			let matchingComments = this.commentsCache.get(fileChange.fileName);
+			let matchingComments = this._commentsCache.get(fileChange.fileName);
 
 			if (!matchingComments || !matchingComments.length) {
 				return {
@@ -211,5 +245,13 @@ export class PRNode extends TreeNode {
 		}
 
 		return null;
+	}
+
+	dispose(): void {
+		super.dispose();
+
+		if (this._documentCommentsProvider) {
+			this._documentCommentsProvider.dispose();
+		}
 	}
 }

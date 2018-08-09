@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Resource } from '../common/resources';
 import { IPullRequestModel, IPullRequestManager } from '../github/interface';
-import { FileChangeNode } from './treeNodes/fileChangeNode';
+import { FileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { DescriptionNode } from './treeNodes/descriptionNode';
 import { TreeNode } from './treeNodes/treeNode';
 import { FilesCategoryNode } from './treeNodes/filesCategoryNode';
@@ -16,8 +16,9 @@ import { Comment } from '../common/comment';
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<FileChangeNode | DescriptionNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+	private _disposables: vscode.Disposable[] = []
 
-	private _localFileChanges: FileChangeNode[] = [];
+	private _localFileChanges: (FileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: Comment[] = [];
 	private _pullrequest: IPullRequestModel = null;
 	private _pullRequestManager: IPullRequestManager;
@@ -25,9 +26,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	constructor(private context: vscode.ExtensionContext) {
 		super(() => this.dispose());
 		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<TreeNode>('prStatus', this));
+
+		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
+			this._onDidChangeTreeData.fire();
+		}));
 	}
 
-	async showPullRequestFileChanges(pullRequestManager: IPullRequestManager, pullrequest: IPullRequestModel, fileChanges: FileChangeNode[], comments: Comment[]) {
+	async showPullRequestFileChanges(pullRequestManager: IPullRequestManager, pullrequest: IPullRequestModel, fileChanges: (FileChangeNode | RemoteFileChangeNode)[], comments: Comment[]) {
 		this._pullRequestManager = pullRequestManager;
 		this._pullrequest = pullrequest;
 		this._comments = comments;
@@ -67,5 +72,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		} else {
 			return element.getChildren();
 		}
+	}
+
+	dispose() {
+		this._disposables.forEach(disposable => disposable.dispose());
 	}
 }

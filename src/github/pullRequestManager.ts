@@ -88,28 +88,68 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getLocalPullRequests(): Promise<IPullRequestModel[]> {
-		let githubRepositories = this._githubRepositories;
+		const githubRepositories = this._githubRepositories;
 
 		if (!githubRepositories || !githubRepositories.length) {
 			return [];
 		}
 
-		let infos = await PullRequestGitHelper.getLocalBranchesAssociatedWithPullRequest(this._repository);
-		let promises = infos.map(async info => {
-			let owner = info.owner;
-			let prNumber = info.prNumber;
-			let githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+		const localBranches = await this._repository.getLocalBranches();
 
-			if (!githubRepo) {
-				return Promise.resolve([]);
+		const promises = localBranches.map(async localBranchName => {
+			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, localBranchName);
+
+			if (matchingPRMetadata) {
+				const { owner, prNumber } = matchingPRMetadata;
+				const githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+
+				if (githubRepo) {
+					const pullRequest: PullRequestModel = await githubRepo.getPullRequest(prNumber);
+
+					if (pullRequest) {
+						pullRequest.localBranchName = localBranchName;
+						return pullRequest;
+					}
+				}
 			}
 
-			return [await githubRepo.getPullRequest(prNumber)];
+			return Promise.resolve(null);
 		});
 
-		return await Promise.all(promises).then(values => {
-			return values.reduce((prev, curr) => prev.concat(...curr), []).filter(value => value !== null);
+		return Promise.all(promises).then(values => {
+			return values.filter(value => value !== null);
 		});
+	}
+
+	async deleteLocalPullRequest(pullRequest: PullRequestModel): Promise<void> {
+		const remoteName = await this._repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
+		if (!remoteName) {
+			throw new Error('Unable to find remote for branch');
+		}
+
+		const result = await this._repository.run(['branch', '-D', pullRequest.localBranchName]);
+		if (result.stderr) {
+			throw new Error(result.stderr);
+		}
+
+		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
+		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remoteName);
+		if (isPRRemote) {
+			const configKeyValues = await this._repository.run(['config', '--local', '-l']);
+			if (configKeyValues.stderr) {
+				throw new Error(configKeyValues.stderr);
+			}
+
+			const result = configKeyValues.stdout.trim();
+			const hasOtherAssociatedBranches = new RegExp(`^branch.*\.remote=${remoteName}$`, 'm').test(result);
+
+			if (!hasOtherAssociatedBranches) {
+				const remoteResult = await this._repository.run(['remote', 'remove', remoteName]);
+				if (remoteResult.stderr) {
+					throw new Error(remoteResult.stderr);
+				}
+			}
+		}
 	}
 
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[IPullRequestModel[], boolean]> {
@@ -314,17 +354,7 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber
 		});
 
-		const largeChanges = data.filter(fileChange => !fileChange.patch);
-		if (largeChanges.length) {
-			const fileNames = largeChanges.map(change => change.filename).join(', ');
-			vscode.window.showInformationMessage(`This pull request contains file changes that are too large to load: ${fileNames}`, 'Open in GitHub').then(result => {
-				if (result === 'Open in GitHub') {
-					vscode.commands.executeCommand('pr.openPullRequestInGitHub', pullRequest);
-				}
-			});
-		}
-
-		return data.filter(fileChange => !!fileChange.patch);
+		return data;
 	}
 
 	async fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void> {

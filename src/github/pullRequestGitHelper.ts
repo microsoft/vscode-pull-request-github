@@ -151,12 +151,11 @@ export class PullRequestGitHelper {
 		Logger.appendLine(`GitHelper> create remote for ${cloneUrl}.`)
 
 		let remotes = repository.remotes;
-
-		remotes.forEach(remote => {
+		for (let remote of remotes) {
 			if (new Protocol(remote.url).equals(cloneUrl)) {
-				return remote.repositoryName;
+				return remote.remoteName;
 			}
-		});
+		}
 
 		let remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
 		await repository.addRemote(remoteName, cloneUrl.normalizeUri().toString());
@@ -218,19 +217,5 @@ export class PullRequestGitHelper {
 		Logger.appendLine(`GitHelper> associate ${branchName} with Pull Request #${pullRequest.prNumber}`)
 		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
-	}
-
-	static async getLocalBranchesAssociatedWithPullRequest(repository: Repository): Promise<PullRequestMetadata[]> {
-		let branches = await repository.getLocalBranches();
-
-		let ret: PullRequestMetadata[] = [];
-		for (let i = 0; i < branches.length; i++) {
-			let matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(repository, branches[i]);
-			if (matchingPRMetadata) {
-				ret.push(matchingPRMetadata);
-			}
-		}
-
-		return ret;
 	}
 }
