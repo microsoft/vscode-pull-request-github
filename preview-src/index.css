@@ -6,7 +6,8 @@
  .title {
 	display: flex;
 	align-items: flex-start;
-	margin: 20px 0;
+	margin-top: 20px;
+	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
 h2 {
@@ -20,48 +21,82 @@ body hr {
 	border-top: 1px solid #555;
 	margin: 0 !important;
 	padding: 0;
-
 }
 body .review-comment {
-	padding: 10px 0;
 	display: flex;
+
 }
 
 body .review-comment .avatar-container {
-	padding: 4px;
+	margin-right: 12px;
+}
+
+body .review-comment .avatar-container img.avatar{
+	margin-right: 0;
 }
 
 body img.avatar {
-	height: 28px;
-	width: 28px;
-	max-width: 28px;
-	max-height: 28px;
+	width: 24px;
+	height: auto;
 	overflow: hidden;
 	line-height: 1;
 	vertical-align: middle;
-	border-radius: 3px;
-	border-style: none;
-	margin-right: 5px;
+	margin-right: 8px;
+	flex-shrink: 0;
 }
+
 
 body .review-comment .review-comment-contents {
 	width: 100%;
-	border: 1px solid var(--vscode-activityBar-background);
+	display: flex;
+	margin: 0;
 }
+
+body .review-comment .review-comment-contents.comment,
+body .review-comment .review-comment-contents.review{
+	background-color: var(--vscode-editor-background);
+}
+
+body .comment-container:last-child .comment{
+	padding-bottom: 12px;
+	border-bottom: none;
+}
+
+.review-comment-container{
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+/* timeline line */
+/* body .review-comment .review-comment-contents.comment::before{
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 14px;
+    z-index: -1;
+    display: block;
+    width: 2px;
+	content: "";
+    background-color: var(--vscode-tab-inactiveBackground);
+} */
 
 body .review-comment .review-comment-header {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	padding: 4px;
 	box-sizing: border-box;
-	background-color: var(--vscode-activityBar-background);
-	color: var(--vscode-activityBar-foreground);
+	padding: 2px 0;
+	font-size: 12px;
+	color: var(--vscode-foreground);
+}
 
+body .review-comment .review-comment-header > span, a{
+	margin-right: 4px;
 }
 
 body .review-comment .review-comment-contents .comment-body {
-	padding: 10px;
+	padding: 4px 0 0;
 }
 
 body .review-comment .review-comment-contents .comment-body p {
@@ -71,7 +106,8 @@ body .review-comment .review-comment-contents .comment-body p {
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 1200px;
+	max-width: 1024px;
+	padding: 0 32px;
 	box-sizing: border-box;
 }
 
@@ -85,7 +121,8 @@ body button {
 	border-radius: 0px;
 	border: 1px solid transparent;
 	outline: none;
-	padding: 4px 8px;
+	padding: 4px 12px;
+	font-size: 13px;
 	line-height: 18px;
 	height: 28px;
 	white-space: nowrap;
@@ -107,6 +144,10 @@ button:hover:enabled, button:focus:enabled {
 	display: flex;
 }
 
+.overview-title h2{
+	font-size: 24px;
+}
+
 .overview-title .button-group {
 	align-self: center;
 	margin-left: auto;
@@ -116,7 +157,13 @@ button:hover:enabled, button:focus:enabled {
 .subtitle {
 	display: flex;
 	align-items: center;
-	margin-top: 5px;
+	margin-top: 8px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
+}
+
+.subtitle .avatar{
+	margin-right: 8px;
 }
 
 body .overview-title button {
@@ -124,33 +171,45 @@ body .overview-title button {
 	display: flex;
 }
 
-
-#checkout .octicon {
-	margin-right: 8px;
-	fill: var(--vscode-button-foreground);
-}
-
-
-
 #status {
 	box-sizing: border-box;
 	line-height: 18px;
-	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
-	border: 1px solid transparent;
-	padding: 4px 8px;
-	margin-right: 5px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-foreground);
+	border-radius: 4px;
+	padding: 2px 8px;
+	margin-right: 12px;
+}
+
+.commit svg{
+	width: 14px;
+	height: auto;
+	margin-right: 8px;
+	opacity: .3;
+	flex-shrink: 0;
+	fill: var(--vscode-foreground);
 }
 
 .commit, .review {
 	display: flex;
-	padding: 14px 4px 14px 10px;
-	background-color: var(--vscode-activityBar-background);
-	color: var(--vscode-activityBar-foreground);
-
+	width: 100%;
+	border: none;
+	font-size: 12px;
+	color: var(--vscode-foreground);
 }
 
-.timestamp {
+.review-comment-contents.review{
+	margin: 0px 8px;
+	padding: 4px 0;
+}
+
+.commit .commit-message{
+	display: flex;
+	align-items: flex-start;
+	line-height: 18px;
+}
+
+.commit .sha{
 	margin-left: auto;
 }
 
@@ -160,8 +219,24 @@ body .overview-title button {
 	width: 100%;
 }
 
+.comment-container{
+	position: relative;
+	padding: 20px 0;
+    border-top: 1px solid var(--vscode-tab-inactiveBackground);
+}
+
+.comment-container[data-type="commit"]{
+	padding: 8px 0;
+}
+
+.comment-container[data-type="commit"] + .comment-container[data-type="commit"],
+.comment-container:first-of-type{
+	border-top: none;
+}
+
 body .comment-form {
-	padding: 10px 0;
+	padding: 20px 0 10px;
+	border-top: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
 body .comment-form textarea {
@@ -172,6 +247,7 @@ body .comment-form textarea {
 	min-height: 100px;
 	max-height: 500px;
 	resize: vertical;
+	font-size: 13px;
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
@@ -184,24 +260,33 @@ body .comment-form textarea:focus {
 
 body .comment-form .form-actions {
 	overflow: auto;
-	padding: 10px 0;
-}
-body .comment-form .form-actions {
-	overflow: auto;
-	padding: 10px 0;
+	padding-top: 20px;
+	margin-bottom: 10px;
 }
 
-body .comment-form .form-actions button.close-button {
-	float: left;
+body .comment-form .form-actions button[disabled="true"]{
+	opacity: .5;
+}
+body .comment-form .form-actions button {
+	margin-right:10px;
 }
 
-body .comment-form .form-actions button.reply-button {
-	float: right;
+.details .comment-body{
+	padding: 19px 0;
 }
+
+.details .comment-body:empty::after{
+	opacity: .9;
+	font-style: italic;
+	content: "No description provided."
+}
+
 
 .comment-body img {
 	max-width: 100%;
 	max-height: 100%;
+	margin-top: 8px;
+	display: block;
 }
 
 .comment-body a {
@@ -276,8 +361,6 @@ body .comment-form .form-actions button.reply-button {
 
 .comment-body code {
 	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
-	font-size: 14px;
-	line-height: 19px;
 }
 
 .comment-body body.wordWrap pre {
@@ -343,18 +426,19 @@ body .comment-form .form-actions button.reply-button {
 }
 
 .diff {
-	background-color: var(--vscode-peekViewEditor-background);
-	margin: 8px;
-	border: 1px;
+	margin: 8px 0;
+	border: 1px solid var(--vscode-notifications-background) !important;
 }
 
 .diff .diffHeader {
 	padding: 2px 12px;
-	border-bottom: solid 1px;
 	line-height: 1.5;
+	border-bottom: solid 1px var(--vscode-notifications-background);
+	background-color: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
 .diff .diffLine.add {
+	border: 1px solid var(--vscode-diffEditor-insertedTextBorder);
 	background-color: var(--vscode-diffEditor-insertedTextBackground);
 }
 
