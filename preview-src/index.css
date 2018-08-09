@@ -219,11 +219,6 @@ body .overview-title button {
 
 .commit .sha{
 	margin-left: auto;
-    width: 8ch;
-    overflow: hidden;
-	font-family: monospace;
-	white-space: nowrap;
-	padding-left: 12px;
 }
 
 .details {

@@ -256,6 +256,9 @@ export function renderComment(comment: CommentEvent): string {
 }
 
 export function renderCommit(timelineEvent: CommitEvent): string {
+
+	let shaShort = timelineEvent.sha.substring(0, 8);
+
 	return `<div class="comment-container"  data-type="commit">
 
 	<div class="review-comment" role="treeitem">
@@ -267,7 +270,7 @@ export function renderCommit(timelineEvent: CommitEvent): string {
 					</svg>
 					${timelineEvent.author.name}: ${timelineEvent.message}
 				</div>
-				<a class="sha" href="${timelineEvent.html_url}">${timelineEvent.sha}</a>
+				<a class="sha" href="${timelineEvent.html_url}">${shaShort}</a>
 			</div>
 		</div>
 	</div>
