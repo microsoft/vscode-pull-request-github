@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { Configuration } from '../configuration';
+import { IConfiguration } from '../authentication/configuration';
 import { Repository } from '../common/repository';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
@@ -20,7 +20,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _childrenDisposables: vscode.Disposable[];
 
 	constructor(
-		private _configuration: Configuration,
+		private _configuration: IConfiguration,
 		private _repository: Repository,
 		private _prManager: IPullRequestManager
 	) {

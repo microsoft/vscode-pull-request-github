@@ -3,48 +3,127 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Configuration } from '../configuration';
-import { Remote } from '../common/remote';
+import * as Octokit from '@octokit/rest';
 import { fill } from 'git-credential-node';
-const Octokit = require('@octokit/rest');
+import * as vscode from 'vscode';
+import { IHostConfiguration, HostHelper } from '../authentication/configuration';
+import { GitHubServer } from '../authentication/githubServer';
+import { Remote } from '../common/remote';
+import { VSCodeConfiguration } from '../authentication/vsConfiguration';
+import Logger from '../common/logger';
+
+const SIGNIN_COMMAND = 'Sign in';
 
 export class CredentialStore {
-	private _octokits: { [key: string]: any };
-	private _configuration: Configuration;
-	constructor(configuration: Configuration) {
+	private _octokits: Map<string, Octokit>;
+	private _configuration: VSCodeConfiguration;
+	constructor(configuration: any) {
 		this._configuration = configuration;
-		this._octokits = [];
+		this._octokits = new Map<string, Octokit>();
 	}
 
-	reset() {
-		this._octokits = [];
+	public reset() {
+		this._octokits = new Map<string, Octokit>();
 	}
 
-	async getOctokit(remote: Remote) {
-		if (this._octokits[remote.url]) {
-			return this._octokits[remote.url];
+	public async getOctokit(remote: Remote): Promise<Octokit> {
+		// the remote url might be http[s]/git/ssh but we always go through https for the api
+		// so use a normalized http[s] url regardless of the original protocol
+		const normalizedUri = remote.gitProtocol.normalizeUri();
+		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
+
+		// for authentication purposes only the host portion matters
+		if (this._octokits.has(host)) {
+			return this._octokits.get(host);
 		}
 
-		if (this._configuration.host === remote.host && this._configuration.accessToken) {
-			this._octokits[remote.url] = Octokit({});
-			this._octokits[remote.url].authenticate({
-				type: 'token',
-				token: this._configuration.accessToken
-			});
-			return this._octokits[remote.url];
+		this._configuration.setHost(host);
+
+		let octokit: Octokit;
+		const creds: IHostConfiguration = this._configuration;
+		const server = new GitHubServer(host);
+		let error: string;
+
+		if (creds.token && await server.validate(creds.username, creds.token)) {
+			octokit = this.createOctokit('token', creds);
 		} else {
-			const data = await fill(remote.url);
-			if (!data) {
-				return null;
-			}
-			this._octokits[remote.url] = Octokit({});
-			this._octokits[remote.url].authenticate({
-				type: 'basic',
-				username: data.username,
-				password: data.password
-			});
 
-			return this._octokits[remote.url];
+			// see if the system keychain has something we can use
+			const data = await fill(host);
+			if (data) {
+				const login = await server.validate(data.username, data.password);
+				if (login) {
+					octokit = this.createOctokit('token', login)
+					this._configuration.update(login.username, login.token, false);
+				}
+			}
+
+			const result = await vscode.window.showInformationMessage(
+				`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
+				SIGNIN_COMMAND);
+
+			if (result === SIGNIN_COMMAND) {
+				try {
+					const login = await server.login();
+					if (login) {
+						octokit = this.createOctokit('token', login)
+						this._configuration.update(login.username, login.token, false);
+						vscode.window.showInformationMessage(`You are now signed in to ${normalizedUri.authority}`);
+					}
+				} catch (e) {
+					error = e;
+				}
+			}
 		}
+
+		if (!octokit) {
+
+			Logger.appendLine(`Error signing in to ${normalizedUri.authority}: ${error}`);
+
+			// anonymous access, not guaranteed to work for everything, and rate limited
+			if (await server.checkAnonymousAccess()) {
+				octokit = this.createOctokit('token', creds);
+				if (error) {
+					vscode.window.showWarningMessage(`Error signing in to ${normalizedUri.authority}: ${error}. Pull Requests functionality might not work correctly for this server.`)
+				} else {
+					vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Pull Requests functionality might not work correctly for this server.`)
+				}
+
+				// the server does not support anonymous access, disable everything
+			} else {
+				if (error) {
+					vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}: ${error}`);
+				} else {
+					vscode.window.showWarningMessage(`Not signed in to ${normalizedUri.authority}. Pull Requests functionality is disabled for this server.`)
+				}
+			}
+		}
+
+		this._octokits.set(host, octokit);
+		return octokit;
+	}
+
+	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
+		const octokit = new Octokit({
+			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
+			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
+		});
+
+		if (creds.token) {
+			if (type === 'token') {
+				octokit.authenticate({
+					type: 'token',
+					token: creds.token,
+				});
+			}
+			else {
+				octokit.authenticate({
+					type: 'basic',
+					username: creds.username,
+					password: creds.token,
+				});
+			}
+		}
+		return octokit;
 	}
 }

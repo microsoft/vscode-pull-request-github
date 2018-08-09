@@ -20,7 +20,7 @@ import { DiffChangeType } from '../common/diffHunk';
 import { FileChangeNode, RemoteFileChangeNode, fileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { Configuration } from '../configuration';
+import { IConfiguration } from '../authentication/configuration';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -45,7 +45,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	constructor(
 		private _context: vscode.ExtensionContext,
-		private _configuration: Configuration,
+		private _configuration: IConfiguration,
 		private _repository: Repository,
 		private _prManager: IPullRequestManager
 	) {
