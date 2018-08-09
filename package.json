@@ -33,7 +33,21 @@
           "default": [],
           "description": "Host tokens",
           "items": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "string",
+                "description": "The host name of the GitHub server (for eg., 'https://github.com')"
+              },
+              "username": {
+                "type": "string",
+                "description": "The username to access GitHub"
+              },
+              "token": {
+                "type": "string",
+                "description": "GitHub access token with the following scopes: read:user, user:email, repo, write:discussion"
+              }
+            }
           }
         }
       }
