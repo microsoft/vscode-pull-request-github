@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffLine, DiffHunk, parseDiffHunk } from './diffHunk';
+import { DiffLine, DiffHunk, parseDiffHunk, DiffChangeType } from './diffHunk';
 import { Comment } from './comment';
 
 /**
@@ -145,9 +145,9 @@ export function mapCommentsToHead(diffHunks: DiffHunk[], localDiff: string, comm
 		const comment = comments[i];
 
 		// Diff line is null when the original line the comment was on has been removed
-		const diffLine = getDiffLineByPosition(diffHunks, comment.position | comment.original_position);
+		const diffLine = getDiffLineByPosition(diffHunks, comment.position || comment.original_position);
 		if (diffLine) {
-			const positionInPr = diffLine.newLineNumber;
+			const positionInPr = diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber;
 			const newPosition = mapOldPositionToNew(localDiff, positionInPr);
 			comment.absolutePosition = newPosition;
 		}

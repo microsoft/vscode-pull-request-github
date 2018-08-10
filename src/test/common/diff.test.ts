@@ -1,7 +1,7 @@
 import * as assert from 'assert';
-import { parseDiffHunk } from '../../common/diffHunk';
+import { parseDiffHunk, DiffHunk } from '../../common/diffHunk';
 import { DiffLine, DiffChangeType } from '../../common/diffHunk';
-import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
+import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition, mapCommentsToHead } from '../../common/diffPositionMapping';
 
 const diff_hunk_0 = [
 	`@@ -1,5 +1,6 @@`,
@@ -68,5 +68,21 @@ describe('diff hunk parsing', () => {
 					break;
 			}
 		}
+	});
+
+	describe('mapCommentsToHead', () => {
+		it('should handle comments that are on a deleted diff line', () => {
+			const comments = [{
+				position: 66
+			}];
+
+			const diffHunk = new DiffHunk(481, 16, 489, 10, 54);
+			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Delete, 489, -1, 66, "-		this.editorBlurTimeout.cancelAndSet(() => {"));
+
+			const mappedComments = mapCommentsToHead([diffHunk], "", comments as any);
+			assert(mappedComments.length === 1);
+			console.log(mappedComments[0].absolutePosition);
+			assert.equal(mappedComments[0].absolutePosition, 489);
+		});
 	});
 });
