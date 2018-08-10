@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Comment } from "./comment";
+
 export enum EventType {
 	Committed,
 	Mentioned,
@@ -113,6 +115,7 @@ export interface ReviewEvent {
 	id: number;
 	user: User;
 	body: string;
+	comments: Comment[];
 	commit_id: string;
 	submitted_at: Date;
 	state: string;

@@ -225,15 +225,7 @@ function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[] } {
 	}, Object.create(null));
 }
 
-export function renderCommentBody(comment: Comment): string {
-	return `
-			<div class="comment-body">
-				${md.render(comment.body)}
-			</div>`;
-}
-
-
-export function renderComment(comment: CommentEvent): string {
+export function renderComment(comment: CommentEvent | Comment): string {
 	return `<div class="comment-container" data-type="comment">
 
 	<div class="review-comment" role="treeitem">
@@ -325,7 +317,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 
 		body += `
 			${diffView}
-			<div>${ comments && comments.length ? comments.map(comment => renderCommentBody(comment)) : ''}</div>
+			<div>${ comments && comments.length ? comments.map(comment => renderComment(comment)).join('') : ''}</div>
 		`;
 	}
 	return `<div class="comment-container"  data-type="review">
@@ -346,10 +338,6 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 		</div>
 
 	</div>
-
-
-
-
 </div>`;
 }
 

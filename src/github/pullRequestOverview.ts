@@ -9,6 +9,9 @@ import * as vscode from 'vscode';
 import { IPullRequest, IPullRequestManager, IPullRequestModel } from './interface';
 import { onDidClosePR } from '../commands';
 import { exec } from '../common/git';
+import { TimelineEvent, EventType, ReviewEvent } from '../common/timelineEvent';
+import { Comment } from '../common/comment';
+import { groupBy } from '../common/utils';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -98,6 +101,8 @@ export class PullRequestOverviewPanel {
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
 		const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 		const timelineEvents = await this._pullRequestManager.getTimelineEvents(pullRequestModel);
+		const reviewComments = await this._pullRequestManager.getPullRequestComments(pullRequestModel);
+		this.fixCommentThreads(timelineEvents, reviewComments);
 		this._panel.webview.postMessage({
 			command: 'pr.initialize',
 			pullrequest: {
@@ -114,6 +119,38 @@ export class PullRequestOverviewPanel {
 				commitsCount: pullRequestModel.commitCount
 			}
 		});
+	}
+
+	/**
+	 * For review timeline events, the comments on the event are only those in that review. Any reponses to those comments
+	 * belong to separate reviews. This modifies review timeline event comments to contain both their comments and responses to them.
+	 * @param timelineEvents The timeline events
+	 * @param reviewComments All review comments
+	 */
+	private fixCommentThreads(timelineEvents: TimelineEvent[], reviewComments: Comment[]): void {
+		const reviewEvents: ReviewEvent[] = (<ReviewEvent[]>timelineEvents.filter(event => event.event === EventType.Reviewed));
+
+		reviewEvents.forEach(review => review.comments = []);
+
+		// Group comments by file and position
+		const commentsByFile = groupBy(reviewComments, comment => comment.path);
+		for (let file in commentsByFile) {
+			const fileComments = commentsByFile[file];
+			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.original_position : comment.position));
+
+			// Loop through threads, for each thread, see if there is a matching review, push all comments to it
+			for (let i in commentThreads) {
+				const comments = commentThreads[i];
+				const reviewId = comments[0].pull_request_review_id;
+
+				if (reviewId) {
+					const matchingEvent = reviewEvents.find(review => review.id === reviewId);
+					if (matchingEvent) {
+						matchingEvent.comments = matchingEvent.comments.concat(comments);
+					}
+				}
+			}
+		}
 	}
 
 	private _onDidReceiveMessage(message) {

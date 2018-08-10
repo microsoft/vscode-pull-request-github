@@ -15,7 +15,7 @@ export interface Comment {
 	url: string;
 	id: string;
 	path: string;
-	pull_request_review_id: string;
+	pull_request_review_id: number;
 	diff_hunk: string;
 	diff_hunks: DiffHunk[];
 	position: number;
