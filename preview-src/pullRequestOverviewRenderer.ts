@@ -257,7 +257,7 @@ export function renderComment(comment: CommentEvent): string {
 
 export function renderCommit(timelineEvent: CommitEvent): string {
 
-	let shaShort = timelineEvent.sha.substring(0, 8);
+	let shaShort = timelineEvent.sha.substring(0, 7);
 
 	return `<div class="comment-container"  data-type="commit">
 
