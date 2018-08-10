@@ -136,8 +136,8 @@ export interface IPullRequestManager {
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
 	getIssueComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment>;
-	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string);
-	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number);
+	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
+	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]>;
 	fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void>;

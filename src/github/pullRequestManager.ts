@@ -302,7 +302,7 @@ export class PullRequestManager implements IPullRequestManager {
 		return promise.data;
 	}
 
-	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string) {
+	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.createCommentReply({
@@ -313,10 +313,10 @@ export class PullRequestManager implements IPullRequestManager {
 			in_reply_to: Number(reply_to)
 		});
 
-		return ret;
+		return ret.data;
 	}
 
-	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number) {
+	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.createComment({
@@ -329,7 +329,7 @@ export class PullRequestManager implements IPullRequestManager {
 			position: position
 		});
 
-		return ret;
+		return ret.data;
 	}
 
 	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
