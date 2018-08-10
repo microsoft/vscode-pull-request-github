@@ -103,8 +103,12 @@ body .review-comment .review-comment-contents .comment-body {
 	padding: 4px 0 0;
 }
 
-body .review-comment .review-comment-contents .comment-body p {
-	margin: 0;
+body .review-comment .review-comment-contents .comment-body > p {
+	margin-top: 0;
+}
+
+body .review-comment .review-comment-contents .comment-body > p:last-child {
+	margin-bottom: 0;
 }
 
 body {
