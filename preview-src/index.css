@@ -10,6 +10,10 @@
 	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
+#title:empty{
+	border: none;
+}
+
 h2 {
 	margin: 0;
 }
@@ -225,6 +229,10 @@ body .overview-title button {
     border-top: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
+.comment-container:last-of-type{
+	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
+}
+
 .comment-container[data-type="commit"]{
 	padding: 8px 0;
 }
@@ -236,7 +244,6 @@ body .overview-title button {
 
 body .comment-form {
 	padding: 20px 0 10px;
-	border-top: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
 body .comment-form textarea {
