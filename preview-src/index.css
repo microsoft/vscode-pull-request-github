@@ -264,9 +264,10 @@ body .comment-form .form-actions {
 	margin-bottom: 10px;
 }
 
-body .comment-form .form-actions button[disabled="true"]{
-	opacity: .5;
+body button:disabled {
+	opacity: 0.4;
 }
+
 body .comment-form .form-actions button {
 	margin-right:10px;
 }
