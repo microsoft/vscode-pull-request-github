@@ -98,12 +98,7 @@ function addEventListeners() {
 	})
 
 	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
-		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
-		vscode.postMessage({
-			command: 'pr.comment',
-			text: (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value
-		});
-		(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
+		submitComment();
 	});
 
 	document.getElementById(ElementIds.Close)!.addEventListener('click', () => {
@@ -118,6 +113,15 @@ function addEventListeners() {
 			command: 'pr.checkout-master'
 		});
 	});
+}
+
+function submitComment() {
+	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
+	vscode.postMessage({
+		command: 'pr.comment',
+		text: (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value
+	});
+	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
 }
 
 function appendComment(comment: any) {
@@ -149,6 +153,12 @@ function setTextArea() {
 	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).addEventListener('keydown', e => {
 		if (e.keyCode === 65 && e.metaKey) {
 			(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).select();
+			return;
+		}
+
+		if (e.keyCode === 13 && e.ctrlKey) {
+			submitComment();
+			return;
 		}
 	});
 	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)!).textContent = 'Comment';
