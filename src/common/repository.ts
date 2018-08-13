@@ -288,6 +288,15 @@ export class Repository {
 		}
 	}
 
+	async checkCommitExists(commit: string): Promise<boolean> {
+		try {
+			const result = await this.run(['show', '-q', commit]);
+			return result.stdout.trim().length !== 0;
+		} catch (e) {
+			return false;
+		}
+	}
+
 	async getFileObjectId(commit: string, path: string): Promise<string> {
 		try {
 			const args = ['rev-parse', `${commit}:${path}`];
