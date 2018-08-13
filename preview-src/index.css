@@ -142,14 +142,19 @@ button:hover:enabled, button:focus:enabled {
 	cursor: pointer;
 }
 
-body button.checkedOut{
+body button.checkedOut {
+	color: var(--vscode-foreground);
 	opacity: 1 !important;
 	background-color: transparent;
 }
 
-body button svg{
+body button svg {
 	fill: var(--vscode-button-foreground);
 	margin-right: 6px;
+}
+
+body button.checkedOut svg {
+	fill: var(--vscode-foreground);
 }
 
 .prIcon {
