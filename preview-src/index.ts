@@ -132,13 +132,17 @@ function appendComment(comment: any) {
 function updateCheckoutButton(isCheckedOut: boolean) {
 	const checkoutButton = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
 	checkoutButton.disabled = isCheckedOut;
-	checkoutButton.innerHTML = isCheckedOut ? `Checked Out` : `Checkout`;
+	checkoutMasterButton.disabled = false;
+	const activeIcon = '<svg class="octicon octicon-check" viewBox="0 0 12 16" version="1.1" width="12" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M12 5l-8 8-4-4 1.5-1.5L4 10l6.5-6.5L12 5z"></path></svg>';
+	checkoutButton.innerHTML = isCheckedOut ? `${activeIcon} Checked Out` : `Checkout`;
 
 	const backButton = (<HTMLButtonElement>document.getElementById(ElementIds.CheckoutMaster));
 	if (isCheckedOut) {
 		backButton.classList.remove('hidden');
+		checkoutButton.classList.add('checkedOut');
 	} else {
 		backButton.classList.add('hidden');
+		checkoutButton.classList.remove('checkedOut');
 	}
 }
 
