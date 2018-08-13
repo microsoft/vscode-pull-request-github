@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from "../common/logger";
 import { Remote } from "../common/remote";
@@ -62,6 +63,12 @@ export class GitHubRepository {
 			}
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Fetching all pull requests failed: ${e}`);
+			if (e.code === 404) {
+				// not found
+				vscode.window.showWarningMessage(`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`);
+			} else {
+				throw e;
+			}
 		}
 
 		return null;
@@ -106,8 +113,13 @@ export class GitHubRepository {
 				hasMorePages
 			}
 		} catch (e) {
-			Logger.appendLine(`GitHubRepository> Fetching pull requests failed: ${e}`);
-			throw e;
+			Logger.appendLine(`GitHubRepository> Fetching all pull requests failed: ${e}`);
+			if (e.code === 404) {
+				// not found
+				vscode.window.showWarningMessage(`Fetching pull requests for remote ${this.remote.remoteName}, please check if the url ${this.remote.url} is valid.`);
+			} else {
+				throw e;
+			}
 		}
 	}
 
