@@ -62,8 +62,9 @@ export class GitHubRepository {
 			}
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Fetching all pull requests failed: ${e}`);
-			throw e;
 		}
+
+		return null;
 	}
 
 	private async getPullRequestsForCategory(prType: PRType, page: number): Promise<PullRequestData> {

@@ -187,6 +187,9 @@ export class PullRequestManager implements IPullRequestManager {
 				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
 				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
 					const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
+					if (!pullRequestData) {
+						break;
+					}
 					numPullRequests += pullRequestData.pullRequests.length;
 					pullRequests = pullRequests.concat(...pullRequestData.pullRequests);
 
