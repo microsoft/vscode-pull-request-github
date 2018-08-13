@@ -134,6 +134,7 @@ body button {
 	line-height: 18px;
 	height: 28px;
 	white-space: nowrap;
+	user-select: none;
 }
 
 button:hover:enabled, button:focus:enabled {
