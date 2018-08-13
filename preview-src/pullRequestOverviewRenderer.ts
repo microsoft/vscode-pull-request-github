@@ -231,7 +231,7 @@ export function renderComment(comment: CommentEvent | Comment): string {
 	<div class="review-comment" role="treeitem">
 		<div class="review-comment-contents comment">
 			<div class="avatar-container">
-				<img class="avatar" src="${comment.user.avatar_url}">
+				<a href="${comment.user.html_url}"><img class="avatar" src="${comment.user.avatar_url}"></a>
 			</div>
 			<div class="review-comment-container">
 				<div class="review-comment-header">
@@ -299,7 +299,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 		let diffLines = [];
 		if (comments && comments.length) {
 			avatar = `<div class="avatar-container">
-				<img class="avatar" src="${timelineEvent.comments[0].user.avatar_url}">
+				<a href="${timelineEvent.comments[0].user.html_url}"><img class="avatar" src="${timelineEvent.comments[0].user.avatar_url}"></a>
 			</div>`;
 			for (let i = 0; i < comments[0].diff_hunks.length; i++) {
 				diffLines.push(comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => `<div class="diffLine ${getDiffChangeClass(diffLine.type)}">
@@ -328,7 +328,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 			${avatar}
 			<div class="review-comment-container">
 				<div class="review-comment-header">
-					<span>${timelineEvent.user.login} left a </span> <a href="${timelineEvent.html_url}">review </a>
+					<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> left a </span> <a href="${timelineEvent.html_url}">review </a>
 					<div class="timestamp">${moment(timelineEvent.submitted_at).fromNow()}</div>
 				</div>
 				<div class="comment-body">
