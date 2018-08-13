@@ -35,6 +35,11 @@ body .review-comment .avatar-container {
 	margin-right: 12px;
 }
 
+
+body .review-comment .avatar-container a {
+	display: inline-block;
+}
+
 body .review-comment .avatar-container img.avatar{
 	margin-right: 0;
 }
