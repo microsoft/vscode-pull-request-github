@@ -10,7 +10,7 @@
 	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
-#title:empty{
+#title:empty {
 	border: none;
 }
 
@@ -35,12 +35,11 @@ body .review-comment .avatar-container {
 	margin-right: 12px;
 }
 
-
 body .review-comment .avatar-container a {
 	display: inline-block;
 }
 
-body .review-comment .avatar-container img.avatar{
+body .review-comment .avatar-container img.avatar {
 	margin-right: 0;
 }
 
@@ -54,7 +53,6 @@ body img.avatar {
 	flex-shrink: 0;
 }
 
-
 body .review-comment .review-comment-contents {
 	width: 100%;
 	display: flex;
@@ -62,23 +60,23 @@ body .review-comment .review-comment-contents {
 }
 
 body .review-comment .review-comment-contents.comment,
-body .review-comment .review-comment-contents.review{
+body .review-comment .review-comment-contents.review {
 	background-color: var(--vscode-editor-background);
 }
 
-body .comment-container:last-child .comment{
+body .comment-container:last-child .comment {
 	padding-bottom: 12px;
 	border-bottom: none;
 }
 
-.review-comment-container{
+.review-comment-container {
 	width: 100%;
 	display: flex;
 	flex-direction: column;
 }
 
 /* timeline line */
-/* body .review-comment .review-comment-contents.comment::before{
+/* body .review-comment .review-comment-contents.comment::before {
     position: absolute;
     top: 0;
     bottom: 0;
@@ -100,7 +98,7 @@ body .review-comment .review-comment-header {
 	color: var(--vscode-foreground);
 }
 
-body .review-comment .review-comment-header > span, a{
+body .review-comment .review-comment-header > span, a {
 	margin-right: 4px;
 }
 
@@ -147,6 +145,21 @@ button:hover:enabled, button:focus:enabled {
 	cursor: pointer;
 }
 
+body button.checkedOut {
+	color: var(--vscode-foreground);
+	opacity: 1 !important;
+	background-color: transparent;
+}
+
+body button svg {
+	fill: var(--vscode-button-foreground);
+	margin-right: 6px;
+}
+
+body button.checkedOut svg {
+	fill: var(--vscode-foreground);
+}
+
 .prIcon {
 	display: flex;
 	border-radius: 10px;
@@ -158,7 +171,7 @@ button:hover:enabled, button:focus:enabled {
 	display: flex;
 }
 
-.overview-title h2{
+.overview-title h2 {
 	font-size: 24px;
 }
 
@@ -176,7 +189,7 @@ button:hover:enabled, button:focus:enabled {
 	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
-.subtitle .avatar{
+.subtitle .avatar {
 	margin-right: 8px;
 }
 
@@ -195,7 +208,7 @@ body .overview-title button {
 	margin-right: 12px;
 }
 
-.commit svg{
+.commit svg {
 	width: 14px;
 	height: auto;
 	margin-right: 8px;
@@ -212,18 +225,18 @@ body .overview-title button {
 	color: var(--vscode-foreground);
 }
 
-.review-comment-contents.review{
+.review-comment-contents.review {
 	margin: 0px 8px;
 	padding: 4px 0;
 }
 
-.commit .commit-message{
+.commit .commit-message {
 	display: flex;
 	align-items: flex-start;
 	line-height: 18px;
 }
 
-.commit .sha{
+.commit .sha {
 	margin-left: auto;
 }
 
@@ -233,22 +246,22 @@ body .overview-title button {
 	width: 100%;
 }
 
-.comment-container{
+.comment-container {
 	position: relative;
 	padding: 20px 0;
     border-top: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
-.comment-container:last-of-type{
+.comment-container:last-of-type {
 	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
 }
 
-.comment-container[data-type="commit"]{
+.comment-container[data-type="commit"] {
 	padding: 8px 0;
 }
 
 .comment-container[data-type="commit"] + .comment-container[data-type="commit"],
-.comment-container:first-of-type{
+.comment-container:first-of-type {
 	border-top: none;
 }
 
@@ -289,11 +302,11 @@ body .comment-form .form-actions button {
 	margin-right:10px;
 }
 
-.details .comment-body{
+.details .comment-body {
 	padding: 19px 0;
 }
 
-.details .comment-body:empty::after{
+.details .comment-body:empty::after {
 	opacity: .9;
 	font-style: italic;
 	content: "No description provided."
