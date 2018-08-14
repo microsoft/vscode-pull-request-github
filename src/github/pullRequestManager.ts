@@ -360,6 +360,11 @@ export class PullRequestManager implements IPullRequestManager {
 		return data;
 	}
 
+	async getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string> {
+		const branch = await (pullRequest as PullRequestModel).githubRepository.getDefaultBranch();
+		return branch;
+	}
+
 	async fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void> {
 		if (!pullRequest.base) {
 			// this one is from search results, which is not complete.

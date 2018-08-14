@@ -140,6 +140,8 @@ export interface IPullRequestManager {
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]>;
+	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
+
 	fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void>;
 	updateRepositories(): Promise<void>;
 

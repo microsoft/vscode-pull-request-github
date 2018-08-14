@@ -102,6 +102,7 @@ export class PullRequestOverviewPanel {
 		const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 		const timelineEvents = await this._pullRequestManager.getTimelineEvents(pullRequestModel);
 		const reviewComments = await this._pullRequestManager.getPullRequestComments(pullRequestModel);
+		const defaultBranch = await this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel);
 		this.fixCommentThreads(timelineEvents, reviewComments);
 		this._panel.webview.postMessage({
 			command: 'pr.initialize',
@@ -116,7 +117,8 @@ export class PullRequestOverviewPanel {
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 				base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
 				head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
-				commitsCount: pullRequestModel.commitCount
+				commitsCount: pullRequestModel.commitCount,
+				repositoryDefaultBranch: defaultBranch
 			}
 		});
 	}
@@ -170,9 +172,9 @@ export class PullRequestOverviewPanel {
 			case 'pr.close':
 				vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest);
 				return;
-			case 'pr.checkout-master':
+			case 'pr.checkout-default-branch':
 				// This should be updated for multi-root support and consume the git extension API if possible
-				exec(['checkout', 'master'], {
+				exec(['checkout', message.branch || 'master'], {
 					cwd: vscode.workspace.rootPath
 				});
 				return;

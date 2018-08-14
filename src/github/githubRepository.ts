@@ -34,6 +34,22 @@ export class GitHubRepository {
 		return this;
 	}
 
+	async getDefaultBranch(): Promise<string> {
+		try {
+			const { octokit, remote } = await this.ensure();
+			const { data } = await octokit.repos.get({
+				owner: remote.owner,
+				repo: remote.repositoryName
+			});
+
+			return data.default_branch;
+		} catch (e) {
+			Logger.appendLine(`GitHubRepository> Fetching default branch failed: ${e}`);
+		}
+
+		return 'master';
+	}
+
 	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData> {
 		return prType === PRType.All ? this.getAllPullRequests(page) : this.getPullRequestsForCategory(prType, page);
 	}
