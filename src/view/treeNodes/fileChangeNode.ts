@@ -56,6 +56,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly blobUrl: string,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
+		public readonly isPartial: boolean,
 		public readonly diffHunks: DiffHunk[],
 		public readonly comments: Comment[] = [],
 		public readonly sha?: string,

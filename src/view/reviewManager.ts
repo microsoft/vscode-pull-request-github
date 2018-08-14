@@ -395,6 +395,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.blobUrl,
 					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.head.sha, { base: false }),
 					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.base.sha, { base: true }),
+					change.isPartial,
 					change.diffHunks,
 					activeComments.filter(comment => comment.path === change.fileName),
 					headSha
@@ -416,6 +417,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						null,
 						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: false }),
 						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: true }),
+						false,
 						[], // @todo Peng.,
 						oldComments,
 						commit

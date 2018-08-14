@@ -48,6 +48,30 @@ export function getAbsolutePosition(comment: Comment, fileDiffHunks: DiffHunk[],
 	return commentAbsolutePosition;
 }
 
+/**
+ * Returns the position of the comment within the diff. This is simply the comment.position property,
+ * but the method ensures that the comment will be shown on the correct side of the diff by
+ * returning -1 when the comment's line is an addition and the document is the base and vice versa.
+ * @param comment The comment
+ * @param fileDiffHunks The diff hunks of the file
+ * @param isBase Whether the file, if a diff, is the base or modified
+ */
+export function getPositionInDiff(comment: Comment, fileDiffHunks: DiffHunk[], isBase: boolean): number {
+	let commentAbsolutePosition = -1;
+	// Ignore outdated comments
+	if (comment.position !== null) {
+		let diffLine = getDiffLineByPosition(fileDiffHunks, comment.position);
+
+		if (diffLine) {
+			if ((diffLine.type === DiffChangeType.Add && !isBase) || (diffLine.type == DiffChangeType.Delete && isBase)) {
+				commentAbsolutePosition = comment.position
+			}
+		}
+	}
+
+	return commentAbsolutePosition;
+}
+
 
 export function getLastDiffLine(prPatch: string): DiffLine {
 	let lastDiffLine = null;

@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { parseDiff } from '../../common/diffHunk';
-import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition } from '../../common/diffPositionMapping';
+import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
 import { SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
@@ -39,21 +39,27 @@ export function providePRDocumentComments(
 	}
 
 	let commentingRanges: vscode.Range[] = [];
-	const diffHunks = fileChange.diffHunks;
+	// Partial file change indicates that the file content is only the diff, so the entire
+	// document can be commented on.
+	if (fileChange.isPartial) {
+		commentingRanges.push(new vscode.Range(0, 0, document.lineCount, 0));
+	} else {
+		const diffHunks = fileChange.diffHunks;
 
-	for (let i = 0; i < diffHunks.length; i++) {
-		const diffHunk = diffHunks[i];
-		let startingLine: number;
-		let length: number;
-		if (isBase) {
-			startingLine = getZeroBased(diffHunk.oldLineNumber);
-			length = getZeroBased(diffHunk.oldLength);
-		} else {
-			startingLine = getZeroBased(diffHunk.newLineNumber);
-			length = getZeroBased(diffHunk.newLength);
+		for (let i = 0; i < diffHunks.length; i++) {
+			const diffHunk = diffHunks[i];
+			let startingLine: number;
+			let length: number;
+			if (isBase) {
+				startingLine = getZeroBased(diffHunk.oldLineNumber);
+				length = getZeroBased(diffHunk.oldLength);
+			} else {
+				startingLine = getZeroBased(diffHunk.newLineNumber);
+				length = getZeroBased(diffHunk.newLength);
+			}
+
+			commentingRanges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
 		}
-
-		commentingRanges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
 	}
 
 	const matchingComments = fileChange.comments;
@@ -71,7 +77,9 @@ export function providePRDocumentComments(
 		let comments = sections[i];
 
 		const comment = comments[0];
-		let commentAbsolutePosition = getAbsolutePosition(comment, fileChange.diffHunks, isBase);
+		let commentAbsolutePosition = fileChange.isPartial
+			? getPositionInDiff(comment, fileChange.diffHunks, isBase)
+			: getAbsolutePosition(comment, fileChange.diffHunks, isBase);
 
 		if (commentAbsolutePosition < 0) {
 			continue;
@@ -147,6 +155,7 @@ export class PRNode extends TreeNode {
 					change.blobUrl,
 					toPRUri(vscode.Uri.file(change.filePath), this.pullRequestModel, fileInRepo, change.fileName, false),
 					toPRUri(vscode.Uri.file(change.originalFilePath), this.pullRequestModel, fileInRepo, change.fileName, true),
+					change.isPartial,
 					change.diffHunks,
 					comments.filter(comment => comment.path === change.fileName && comment.position !== null)
 				);

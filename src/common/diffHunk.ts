@@ -210,7 +210,7 @@ async function parseModifiedHunkComplete(originalContent, patch, a, b) {
 	let contentPath = await writeTmpFile(right.join('\n'), path.extname(b));
 	let originalContentPath = await writeTmpFile(left.join('\n'), path.extname(a));
 
-	return new RichFileChange(contentPath, originalContentPath, GitChangeType.MODIFY, b, diffHunks);
+	return new RichFileChange(contentPath, originalContentPath, GitChangeType.MODIFY, b, diffHunks, false);
 }
 
 async function parseModifiedHunkFast(modifyDiffInfo, a, b) {
@@ -244,7 +244,7 @@ async function parseModifiedHunkFast(modifyDiffInfo, a, b) {
 	let contentPath = await writeTmpFile(right.join('\n'), path.extname(b));
 	let originalContentPath = await writeTmpFile(left.join('\n'), path.extname(a));
 
-	return new RichFileChange(contentPath, originalContentPath, GitChangeType.MODIFY, b, diffHunks);
+	return new RichFileChange(contentPath, originalContentPath, GitChangeType.MODIFY, b, diffHunks, true);
 }
 
 export function getGitChangeType(status: string): GitChangeType {
@@ -311,8 +311,8 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 			let contentFilePath = await writeTmpFile(contentArray.join('\n'), path.extname(fileName));
 			let emptyContentFilePath = await writeTmpFile('', path.extname(fileName));
 			let richFileChange = review.status === 'removed' ?
-				new RichFileChange(emptyContentFilePath, contentFilePath, gitChangeType, fileName, diffHunks) :
-				new RichFileChange(contentFilePath, emptyContentFilePath, gitChangeType, fileName, diffHunks);
+				new RichFileChange(emptyContentFilePath, contentFilePath, gitChangeType, fileName, diffHunks, false) :
+				new RichFileChange(contentFilePath, emptyContentFilePath, gitChangeType, fileName, diffHunks, false);
 			richFileChange.blobUrl = review.blob_url;
 			fileChanges.push(richFileChange);
 		}
