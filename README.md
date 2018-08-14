@@ -1,7 +1,7 @@
 <h1 align="center">
   <br>
     <img src="https://raw.githubusercontent.com/Microsoft/vscode-pull-request-github/master/resources/icons/github_logo.png" alt="logo" width="200">
-  <br> 
+  <br>
  vscode-pull-request-github
 </h1>
 
@@ -26,11 +26,9 @@ This extension allows users to manage GitHub pull requests in VS Code. The suppo
 1. Grab the latest VSIX from https://github.com/Microsoft/vscode-pull-request-github/releases/
 1. Install the VSIX by running `Extensions: Install from VSIX` from your command palette.
 1. Reload VS Code after the installation (click the reload button next to the extension)
-1. Exit VS Code.
-1. Start VS Code Insiders from command line with flag: `code-insiders --enable-proposed-api Microsoft.vscode-pull-request-github`
-1. Set your `"github.accessToken"` in your settings, which you grab from https://github.com/settings/tokens (permission repo, user, write:discussion).
 1. Open your desired repo
-1. Once set, go to the SCM Viewlet, and you should see the `GitHub Pull Request` treeview.
+1. Go to the SCM Viewlet, and you should see the `GitHub Pull Request` treeview.
+1. A notification should appear asking you to sign in GitHub, follow the directions to authenticate
 1. You should be good to go!
 
 ## Developing from source
