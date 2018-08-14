@@ -70,8 +70,8 @@ export class PullRequestOverviewPanel {
 		}, this, this._disposables);
 
 		// Handle messages from the webview
-		this._panel.webview.onDidReceiveMessage(message => {
-			this._onDidReceiveMessage(message);
+		this._panel.webview.onDidReceiveMessage(async message => {
+			await this._onDidReceiveMessage(message);
 		}, null, this._disposables);
 
 		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
@@ -155,7 +155,7 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private _onDidReceiveMessage(message) {
+	private async _onDidReceiveMessage(message) {
 		switch (message.command) {
 			case 'alert':
 				vscode.window.showErrorMessage(message.text);
@@ -174,9 +174,22 @@ export class PullRequestOverviewPanel {
 				return;
 			case 'pr.checkout-default-branch':
 				// This should be updated for multi-root support and consume the git extension API if possible
-				exec(['checkout', message.branch || 'master'], {
+				const result = await exec(['rev-parse', '--symbolic-full-name', '@{-1}'], {
 					cwd: vscode.workspace.rootPath
 				});
+
+				if (result) {
+					const branchFullName = result.stdout.trim();
+
+					if (`refs/heads/${message.branch}` === branchFullName) {
+						await exec(['checkout', message.branch], {
+							cwd: vscode.workspace.rootPath
+						});
+					} else {
+						await vscode.commands.executeCommand('git.checkout')
+					}
+				}
+
 				return;
 			case 'pr.comment':
 				const text = message.text;

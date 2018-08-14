@@ -71,7 +71,7 @@ function setTitleHTML(pr: any) {
 					<h2>${pr.title} (<a href=${pr.url}>#${pr.number}</a>) </h2>
 					<div class="button-group">
 						<button id="${ElementIds.Checkout}" aria-live="polite"></button>
-						<button id="${ElementIds.CheckoutDefaultBranch}" aria-live="polite">Checkout ${pr.repositoryDefaultBranch}</button>
+						<button id="${ElementIds.CheckoutDefaultBranch}" aria-live="polite">Exit Review Mode</button>
 					</div>
 				</div>
 				<div class="subtitle">
