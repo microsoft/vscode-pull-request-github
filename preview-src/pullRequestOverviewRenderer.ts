@@ -289,6 +289,23 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 		return '';
 	}
 
+	let reviewState = '';
+	switch (timelineEvent.state) {
+		case 'approved':
+			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> approved these changes</span>`
+			break;
+		case 'commented':
+			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> reviewed</span>`
+			break;
+		case 'changes_requested':
+			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> requested changes</span>`
+			break;
+		default:
+			break;
+	}
+
+	let reviewBody = `${md.render(timelineEvent.body)}`;
+
 	let groups = groupBy(timelineEvent.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
 	let body = '';
 	let avatar = '';
@@ -328,8 +345,11 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 			${avatar}
 			<div class="review-comment-container">
 				<div class="review-comment-header">
-					<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> left a </span> <a href="${timelineEvent.html_url}">review </a>
+					${reviewState}
 					<div class="timestamp">${moment(timelineEvent.submitted_at).fromNow()}</div>
+				</div>
+				<div class="review-body">
+					${reviewBody}
 				</div>
 				<div class="comment-body">
 					${body}
