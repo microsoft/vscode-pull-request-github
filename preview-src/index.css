@@ -384,10 +384,16 @@ body .comment-form .form-actions button {
 }
 
 .comment-body blockquote {
-	margin: 0 7px 0 5px;
-	padding: 0 16px 0 10px;
+	display: flex;
+	flex-direction: column;
+	margin: 8px 0;
+    padding: 0px 12px;
 	border-left-width: 5px;
 	border-left-style: solid;
+}
+
+.comment-body blockquote p{
+	margin: 8px 0;
 }
 
 .comment-body code {
