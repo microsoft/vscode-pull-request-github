@@ -3,11 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+ :root {
+	 --border-color: var(--vscode-notifications-border);
+ }
+
  .title {
 	display: flex;
 	align-items: flex-start;
 	margin-top: 20px;
-	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
+	border-bottom: 1px solid var(--border-color);
 }
 
 #title:empty {
@@ -85,7 +89,7 @@ body .comment-container:last-child .comment {
     display: block;
     width: 2px;
 	content: "";
-    background-color: var(--vscode-tab-inactiveBackground);
+    background-color: var(--border-color);
 } */
 
 body .review-comment .review-comment-header {
@@ -186,7 +190,7 @@ body button.checkedOut svg {
 	align-items: center;
 	margin-top: 8px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
+	border-bottom: 1px solid var(--border-color);
 }
 
 .subtitle .avatar {
@@ -249,11 +253,11 @@ body .overview-title button {
 .comment-container {
 	position: relative;
 	padding: 20px 0;
-    border-top: 1px solid var(--vscode-tab-inactiveBackground);
+    border-top: 1px solid var(--border-color);
 }
 
 .comment-container:last-of-type {
-	border-bottom: 1px solid var(--vscode-tab-inactiveBackground);
+	border-bottom: 1px solid var(--border-color);
 }
 
 .comment-container[data-type="commit"] {
@@ -263,6 +267,25 @@ body .overview-title button {
 .comment-container[data-type="commit"] + .comment-container[data-type="commit"],
 .comment-container:first-of-type {
 	border-top: none;
+}
+
+.comment-body div[data-type="review-comment"] {
+	padding: 0 20px;
+	border-right: 1px solid var(--vscode-notifications-background);
+	border-left: 1px solid var(--vscode-notifications-background);
+	border-bottom: 1px solid var(--vscode-notifications-background);
+}
+
+.comment-body div[data-type="review-comment"] .comment-container {
+	padding: 12px 0;
+}
+
+.comment-body div[data-type="review-comment"] .comment-container:last-child {
+	border-bottom: none;
+}
+
+.comment-body div[data-type="review-comment"] .comment-container:last-child .comment {
+	padding-bottom: 0;
 }
 
 body .comment-form {
@@ -316,7 +339,6 @@ body .comment-form .form-actions button {
 .comment-body img {
 	max-width: 100%;
 	max-height: 100%;
-	margin-top: 8px;
 	display: block;
 }
 
@@ -392,7 +414,7 @@ body .comment-form .form-actions button {
 	border-left-style: solid;
 }
 
-.comment-body blockquote p{
+.comment-body blockquote p {
 	margin: 8px 0;
 }
 
@@ -463,12 +485,16 @@ body .comment-form .form-actions button {
 }
 
 .diff {
-	margin: 8px 0;
+	margin: 40px 0 0px;
 	border: 1px solid var(--vscode-notifications-background) !important;
 }
 
+.diff:first-of-type {
+	margin-top: 8px;
+}
+
 .diff .diffHeader {
-	padding: 2px 12px;
+	padding: 6px 12px;
 	line-height: 1.5;
 	border-bottom: solid 1px var(--vscode-notifications-background);
 	background-color: var(--vscode-editorGroupHeader-tabsBackground);
