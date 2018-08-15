@@ -22,7 +22,7 @@
   "extensionDependencies": [
     "vscode.git"
   ],
-  "main": "./out/extension",
+  "main": "./media/extension",
   "contributes": {
     "configuration": {
       "type": "object",
@@ -214,8 +214,8 @@
   "scripts": {
     "vscode:prepublish": "tsc -p ./ && webpack --mode production",
     "postinstall": "node ./node_modules/vscode/bin/install",
-    "compile": "tsc -watch -p ./",
-    "build-preview": "webpack --watch --mode development",
+    "compile": "tsc -p ./",
+    "watch": "webpack --watch --mode development",
     "test": "node ./node_modules/mocha/bin/_mocha --timeout 1000 --colors ./out/test/**/*.js"
   },
   "devDependencies": {
