@@ -167,7 +167,7 @@ function setTextArea() {
 			return;
 		}
 
-		if (e.keyCode === 13 && e.ctrlKey) {
+		if (e.keyCode === 13 && (e.metaKey || e.ctrlKey)) {
 			submitComment();
 			return;
 		}
