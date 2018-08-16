@@ -290,7 +290,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 	}
 
 	let reviewState = '';
-	switch (timelineEvent.state) {
+	switch (timelineEvent.state.toLowerCase()) {
 		case 'approved':
 			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> approved these changes</span>`
 			break;
@@ -306,43 +306,45 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 
 	let reviewBody = timelineEvent.body ? `${md.render(timelineEvent.body)}` : '';
 
-	let groups = groupBy(timelineEvent.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
 	let body = '';
-	let avatar = '';
+	if (timelineEvent.comments) {
+		let groups = groupBy(timelineEvent.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
 
-	for (let path in groups) {
-		let comments = groups[path];
-		let diffView = '';
-		let diffLines = [];
-		if (comments && comments.length) {
-			avatar = `<div class="avatar-container">
-				<a href="${timelineEvent.comments[0].user.html_url}"><img class="avatar" src="${timelineEvent.comments[0].user.avatar_url}"></a>
-			</div>`;
-			for (let i = 0; i < comments[0].diff_hunks.length; i++) {
-				diffLines.push(comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => `<div class="diffLine ${getDiffChangeClass(diffLine.type)}">
-					<span class="lineNumber old">${diffLine.oldLineNumber > 0 ? diffLine.oldLineNumber : ' '}</span>
-					<span class="lineNumber new">${diffLine.newLineNumber > 0 ? diffLine.newLineNumber : ' '}</span>
-					<span class="lineContent">${(diffLine as any)._raw}</span>
-					</div>`).join(''));
+		for (let path in groups) {
+			let comments = groups[path];
+			let diffView = '';
+			let diffLines = [];
+			if (comments && comments.length) {
+				for (let i = 0; i < comments[0].diff_hunks.length; i++) {
+					diffLines.push(comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => `<div class="diffLine ${getDiffChangeClass(diffLine.type)}">
+						<span class="lineNumber old">${diffLine.oldLineNumber > 0 ? diffLine.oldLineNumber : ' '}</span>
+						<span class="lineNumber new">${diffLine.newLineNumber > 0 ? diffLine.newLineNumber : ' '}</span>
+						<span class="lineContent">${(diffLine as any)._raw}</span>
+						</div>`).join(''));
+				}
+
+				diffView = `<div class="diff">
+					<div class="diffHeader">${comments[0].path}</div>
+					${diffLines.join('')}
+				</div>`;
 			}
 
-			diffView = `<div class="diff">
-				<div class="diffHeader">${comments[0].path}</div>
-				${diffLines.join('')}
-			</div>`;
+			body += `
+				${diffView}
+				<div>${ comments && comments.length ? comments.map(comment => renderComment(comment)).join('') : ''}</div>
+			`;
 		}
-
-		body += `
-			${diffView}
-			<div>${ comments && comments.length ? comments.map(comment => renderComment(comment)).join('') : ''}</div>
-		`;
 	}
+
+
 	return `<div class="comment-container"  data-type="review">
 
 	<div class="review-comment" role="treeitem">
 
 		<div class="review-comment-contents review">
-			${avatar}
+			<div class="avatar-container">
+				<a href="${timelineEvent.user.html_url}"><img class="avatar" src="${timelineEvent.user.avatar_url}"></a>
+			</div>
 			<div class="review-comment-container">
 				<div class="review-comment-header">
 					${reviewState}

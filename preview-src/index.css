@@ -284,6 +284,10 @@ body .comment-form textarea {
 	font-family: var(--vscode-editor-font-family);
 }
 
+.reply-button {
+	margin-left: auto;
+}
+
 body .comment-form textarea:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
@@ -292,6 +296,7 @@ body .comment-form .form-actions {
 	overflow: auto;
 	padding-top: 20px;
 	margin-bottom: 10px;
+	display: flex;
 }
 
 body button:disabled {

@@ -13,6 +13,12 @@ export enum PRType {
 	LocalPullRequest = 5
 }
 
+export enum ReviewEvent {
+	Approve = "APPROVE",
+	RequestChanges = "REQUEST_CHANGES",
+	Comment = "COMMENT"
+}
+
 export enum PullRequestStateEnum {
 	Open,
 	Merged,
@@ -139,6 +145,8 @@ export interface IPullRequestManager {
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
+	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
+	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
 

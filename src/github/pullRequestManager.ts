@@ -10,7 +10,7 @@ import { Remote } from "../common/remote";
 import { Repository } from "../common/repository";
 import { TimelineEvent, EventType } from "../common/timelineEvent";
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from "./githubRepository";
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange } from "./interface";
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent } from "./interface";
 import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
@@ -346,6 +346,28 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 
 		return ret.data;
+	}
+
+	private async createReview(pullRequest: IPullRequestModel, event: ReviewEvent, message?: string): Promise<any> {
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+
+		let ret = await octokit.pullRequests.createReview({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			event: event,
+			body: message,
+		});
+
+		return ret.data;
+	}
+
+	async requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any> {
+		return this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
+	}
+
+	async approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any> {
+		return this.createReview(pullRequest, ReviewEvent.Approve, message);
 	}
 
 	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]> {
