@@ -64,6 +64,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 			// todo, validate state only when state changes.
 			this.updateState();
 		}));
+
+		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
+			this.updateComments();
+			this.prFileChangesProvider.refresh();
+		}));
+
 		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
@@ -220,10 +226,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 			});
 
 			matchedFile.comments.push(comment);
+			this._comments.push(comment);
 
-			setTimeout(() => {
-				this.updateComments();
-			}, 0);
+			this._onDidChangeCommentThreads.fire({
+				added: [],
+				changed: [thread],
+				removed: []
+			});
+
 			return thread;
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -257,16 +267,19 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			let commentThread: vscode.CommentThread = {
 				threadId: comment.commentId,
-				resource: uri,
+				resource: vscode.Uri.file(path.resolve(this._repository.path, rawComment.path)),
 				range: range,
 				comments: [comment]
 			};
 
 			matchedFile.comments.push(rawComment);
+			this._comments.push(rawComment);
 
-			setTimeout(() => {
-				this.updateComments();
-			}, 0);
+			this._onDidChangeCommentThreads.fire({
+				added: [commentThread],
+				changed: [],
+				removed: []
+			});
 
 			return commentThread;
 		} catch (e) {
@@ -361,6 +374,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 			});
 
 			this._comments = comments;
+			this._localFileChanges.forEach(change => {
+				if (change instanceof FileChangeNode) {
+					change.comments = this._comments.filter(comment => change.fileName === comment.path && comment.position !== null);
+				}
+			});
 			this._onDidChangeDecorations.fire();
 		}
 
