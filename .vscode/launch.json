@@ -15,7 +15,7 @@
 				"${workspaceFolder}/media/*.js"
 			],
 			"sourceMapPathOverrides": {
-				"webpack:///./*": "${workspaceRoot}\\*"
+				"webpack:///./*": "${workspaceRoot}/*"
 			}
 		},
 		{
