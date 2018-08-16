@@ -335,6 +335,26 @@ body .comment-form .form-actions button {
 	content: "No description provided."
 }
 
+blockquote {
+	display: block;
+	flex-direction: column;
+	margin: 8px 0;
+	padding: 8px 12px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+blockquote p {
+	margin: 8px 0;
+}
+
+blockquote p:first-child {
+	margin-top: 0;
+}
+
+blockquote p:last-child {
+	margin-bottom: 0;
+}
 
 .comment-body img {
 	max-width: 100%;
@@ -403,19 +423,6 @@ body .comment-form .form-actions button {
 
 .comment-body table > tbody > tr + tr > td {
 	border-top: 1px solid;
-}
-
-.comment-body blockquote {
-	display: flex;
-	flex-direction: column;
-	margin: 8px 0;
-    padding: 0px 12px;
-	border-left-width: 5px;
-	border-left-style: solid;
-}
-
-.comment-body blockquote p {
-	margin: 8px 0;
 }
 
 .comment-body code {
