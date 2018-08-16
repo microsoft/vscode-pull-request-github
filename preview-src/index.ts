@@ -104,8 +104,10 @@ function addEventListeners(pr: any) {
 
 	document.getElementById(ElementIds.Close)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Close)).disabled = true;
+		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
 		vscode.postMessage({
-			command: 'pr.close'
+			command: 'pr.close',
+			text: inputBox.value
 		});
 	});
 
@@ -124,12 +126,13 @@ function submitComment() {
 		command: 'pr.comment',
 		text: (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value
 	});
-	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
+
 }
 
 function appendComment(comment: any) {
 	let newComment = renderComment(comment);
 	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newComment);
+	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
 }
 
 function updateCheckoutButton(isCheckedOut: boolean) {

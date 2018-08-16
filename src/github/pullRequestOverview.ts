@@ -170,7 +170,14 @@ export class PullRequestOverviewPanel {
 				});
 				return;
 			case 'pr.close':
-				vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest);
+				vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest, message.text).then(comment => {
+					if (comment) {
+						this._panel.webview.postMessage({
+							command: 'pr.append-comment',
+							value: comment
+						});
+					}
+				});
 				return;
 			case 'pr.checkout-default-branch':
 				// This should be updated for multi-root support and consume the git extension API if possible

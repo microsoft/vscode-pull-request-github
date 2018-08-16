@@ -304,7 +304,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 			break;
 	}
 
-	let reviewBody = `${md.render(timelineEvent.body)}`;
+	let reviewBody = timelineEvent.body ? `${md.render(timelineEvent.body)}` : '';
 
 	let groups = groupBy(timelineEvent.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
 	let body = '';
