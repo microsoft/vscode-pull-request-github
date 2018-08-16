@@ -8,7 +8,7 @@
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
   },
   "enableProposedApi": true,
-  "version": "0.0.10",
+  "version": "0.0.11",
   "publisher": "Microsoft",
   "engines": {
     "vscode": "^1.25.0"
