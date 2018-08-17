@@ -155,8 +155,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._prNumber = matchingPullRequestMetadata.prNumber;
 		this._lastCommitSha = null;
 
-		const owner = matchingPullRequestMetadata.owner.toLowerCase();
-		const repositoryName = matchingPullRequestMetadata.repositoryName.toLowerCase();
+		const { owner, repositoryName } = matchingPullRequestMetadata;
 		const pr = await this._prManager.resolvePullRequest(owner, repositoryName, this._prNumber);
 		if (!pr) {
 			this._prNumber = null;
@@ -304,7 +303,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		if (pr.head.sha !== this._lastCommitSha && !this._updateMessageShown) {
+		if ((pr.head.sha !== this._lastCommitSha || (branch.behind !== undefined && branch.behind > 0)) && !this._updateMessageShown) {
 			this._updateMessageShown = true;
 			let result = await vscode.window.showInformationMessage('There are updates available for this branch.', {}, 'Pull');
 

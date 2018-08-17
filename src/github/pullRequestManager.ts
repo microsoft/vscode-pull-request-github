@@ -383,7 +383,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel> {
 		const githubRepo = this._githubRepositories.find(repo =>
-			repo.remote.owner.toLowerCase() === owner && repo.remote.repositoryName.toLowerCase() === repositoryName
+			repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase()
 		);
 
 		if (!githubRepo) {

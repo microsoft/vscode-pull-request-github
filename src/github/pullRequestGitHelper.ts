@@ -68,6 +68,11 @@ export class PullRequestGitHelper {
 			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
 			await repository.setTrackingBranch(branchName, trackedBranchName);
 		}
+
+		if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+			await repository.run(['pull']);
+		}
+
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
