@@ -8,7 +8,7 @@
 			"label": "npm",
 			"type": "npm",
 			"script": "watch",
-			"problemMatcher": [],
+			"problemMatcher": ["$ts-webpack-watch"],
 			"group":{
 				"kind": "build",
 				"isDefault": true
