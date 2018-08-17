@@ -15,8 +15,10 @@ export class VSCodeConfiguration extends Configuration {
 	public listenForVSCodeChanges(): vscode.Disposable {
 		return vscode.workspace.onDidChangeConfiguration(() => {
 			this.loadConfiguration();
-			const config = this.getHost(this.host);
-			super.update(config.username, config.token, true);
+			if (this.host) {
+				const config = this.getHost(this.host);
+				super.update(config.username, config.token, true);
+			}
 		});
 	}
 
