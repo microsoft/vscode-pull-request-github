@@ -393,9 +393,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			const data = await this._prManager.getPullRequestChangedFiles(pr);
 			await this._prManager.fullfillPullRequestCommitInfo(pr);
-			let baseSha = pr.base.sha;
 			let headSha = pr.head.sha;
-			const contentChanges = await parseDiff(data, this._repository, baseSha);
+			let mergeBase = await this._prManager.getPullRequestMergeBase(pr);
+
+			const contentChanges = await parseDiff(data, this._repository, mergeBase);
 			this._localFileChanges = contentChanges.map(change => {
 				if (change instanceof SlimFileChange) {
 					return new RemoteFileChangeNode(
