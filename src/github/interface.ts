@@ -131,6 +131,7 @@ export interface IPullRequestManager {
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]>;
+	getPullRequestMergeBase(pullRequest: IPullRequestModel): Promise<string>;
 	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Commit): Promise<FileChange[]>;
 	getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;

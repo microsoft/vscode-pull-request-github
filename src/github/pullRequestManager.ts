@@ -236,6 +236,16 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
+	async getPullRequestMergeBase(pullRequest: IPullRequestModel): Promise<string> {
+		try {
+			const { remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			return PullRequestGitHelper.getPullRequestMergeBase(this._repository, remote, pullRequest);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
+			return null;
+		}
+	}
+
 	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Commit): Promise<FileChange[]> {
 		try {
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
