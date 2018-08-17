@@ -392,9 +392,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let outdatedComments = this._comments.filter(comment => !comment.position);
 
 			const data = await this._prManager.getPullRequestChangedFiles(pr);
-			await this._prManager.fullfillPullRequestCommitInfo(pr);
+			await this._prManager.fullfillPullRequestMissingInfo(pr);
 			let headSha = pr.head.sha;
-			let mergeBase = await this._prManager.getPullRequestMergeBase(pr);
+			let mergeBase = pr.mergeBase;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase);
 			this._localFileChanges = contentChanges.map(change => {

@@ -110,6 +110,7 @@ export interface IPullRequestModel {
 	isMerged: boolean;
 	head?: GitHubRef;
 	base?: GitHubRef;
+	mergeBase?: string;
 	localBranchName?: string;
 	userAvatar: string;
 	userAvatarUri: vscode.Uri;
@@ -131,7 +132,6 @@ export interface IPullRequestManager {
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]>;
-	getPullRequestMergeBase(pullRequest: IPullRequestModel): Promise<string>;
 	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Commit): Promise<FileChange[]>;
 	getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
@@ -143,7 +143,14 @@ export interface IPullRequestManager {
 	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
 
-	fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void>;
+	/**
+	 * Fullfill information for a pull request which we can't fetch with one single api call.
+	 * 1. base. This property might not exist in search results
+	 * 2. head. This property might not exist in search results
+	 * 3. merge base. This is necessary as base might not be the commit that files in Pull Request are being compared to.
+	 * @param pullRequest
+	 */
+	fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void>;
 	updateRepositories(): Promise<void>;
 
 	/**

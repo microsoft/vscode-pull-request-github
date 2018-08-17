@@ -236,16 +236,6 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async getPullRequestMergeBase(pullRequest: IPullRequestModel): Promise<string> {
-		try {
-			const { remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-			return PullRequestGitHelper.getPullRequestMergeBase(this._repository, remote, pullRequest);
-		} catch (e) {
-			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
-			return null;
-		}
-	}
-
 	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Commit): Promise<FileChange[]> {
 		try {
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
@@ -375,17 +365,22 @@ export class PullRequestManager implements IPullRequestManager {
 		return branch;
 	}
 
-	async fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void> {
-		if (!pullRequest.base) {
-			// this one is from search results, which is not complete.
+	async fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void> {
+		try {
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-			const { data } = await octokit.pullRequests.get({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				number: pullRequest.prNumber
-			});
-			pullRequest.update(data);
+			if (!pullRequest.base) {
+				const { data } = await octokit.pullRequests.get({
+					owner: remote.owner,
+					repo: remote.repositoryName,
+					number: pullRequest.prNumber
+				});
+				pullRequest.update(data);
+			}
+
+			pullRequest.mergeBase = await PullRequestGitHelper.getPullRequestMergeBase(this._repository, remote, pullRequest);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
 	}
 
