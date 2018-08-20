@@ -82,7 +82,7 @@ export class PullRequestOverviewPanel {
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
 				});
 			}
-		});
+		}, null, this._disposables);
 
 		onDidClosePR(pr => {
 			if (pr) {
@@ -93,7 +93,7 @@ export class PullRequestOverviewPanel {
 				command: 'update-state',
 				state: this._pullRequest.state,
 			});
-		});
+		}, null, this._disposables);
 	}
 
 	public async update(pullRequestModel: IPullRequestModel) {
