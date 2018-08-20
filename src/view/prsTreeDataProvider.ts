@@ -10,6 +10,7 @@ import { Repository } from '../common/repository';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType } from '../github/interface';
+import { fromFileChangeNodeUri } from '../common/uri';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
@@ -74,15 +75,16 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
 	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
 	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
-		if (uri.scheme === 'pr') {
+		let fileChangeUriParams = fromFileChangeNodeUri(uri);
+		if (fileChangeUriParams && fileChangeUriParams.hasComments) {
 			return {
 				bubble: true,
 				abbreviation: '♪♪',
 				title: '♪♪'
-			};
-		} else {
-			return {};
+			}
 		}
+
+		return {};
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {

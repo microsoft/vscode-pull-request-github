@@ -11,6 +11,7 @@ import { IPullRequestModel } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { Comment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
+import { toFileChangeNodeUri } from '../../common/uri';
 
 export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
@@ -70,7 +71,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			this.iconPath = Resource.getFileStatusUri(this);
 		}
-		this.resourceUri = this.filePath;
+
+		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
 
 		let opts: vscode.TextDocumentShowOptions = {
 			preserveFocus: true

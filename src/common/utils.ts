@@ -88,6 +88,9 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 
 export function formatError(e: any): string {
 	if (!(e instanceof Error)) {
+		if (typeof e === 'string') {
+			return e;
+		}
 		return 'Error';
 	}
 

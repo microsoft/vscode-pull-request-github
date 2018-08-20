@@ -79,3 +79,25 @@ export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, fileInRep
 	});
 }
 
+export interface FileChangeNodeUriParams {
+	hasComments?: boolean;
+}
+
+export function toFileChangeNodeUri(uri: Uri, hasComments: boolean) {
+	const params = {
+		hasComments: hasComments
+	}
+
+	return uri.with({
+		scheme: 'file',
+		query: JSON.stringify(params)
+	})
+}
+
+export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams {
+	try {
+		return JSON.parse(uri.query) as FileChangeNodeUriParams;
+	} catch (e) {
+		return null;
+	}
+}
