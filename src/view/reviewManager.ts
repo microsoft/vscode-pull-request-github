@@ -21,7 +21,7 @@ import { FileChangeNode, RemoteFileChangeNode, fileChangeNodeFilter } from './tr
 import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { IConfiguration } from '../authentication/configuration';
-import { providePRDocumentComments } from './treeNodes/pullRequestNode';
+import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -68,6 +68,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			this.updateComments();
 			this.prFileChangesProvider.refresh();
+		}));
+
+		this._disposables.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
+			if (prNode.pullRequestModel.equals(this._prManager.activePullRequest)) {
+				this.updateComments();
+			}
+
+			this._prsTreeDataProvider.refresh(prNode);
 		}));
 
 		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager);

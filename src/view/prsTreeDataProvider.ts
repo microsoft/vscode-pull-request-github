@@ -44,6 +44,10 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._childrenDisposables = [];
 	}
 
+	async refresh(node?: TreeNode) {
+		return node ? this._onDidChangeTreeData.fire(node) : this._onDidChangeTreeData.fire();
+	}
+
 	getTreeItem(element: TreeNode): vscode.TreeItem {
 		return element.getTreeItem();
 	}

@@ -83,6 +83,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.refreshPullRequest",
+        "title": "Refresh Pull Request",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.openFileInGitHub",
         "title": "Open File in GitHub",
         "category": "GitHub Pull Requests"
@@ -153,6 +158,10 @@
           "when": "false"
         },
         {
+          "command": "pr.refreshPullRequest",
+          "when": "false"
+        },
+        {
           "command": "pr.deleteLocalBranch",
           "when": "false"
         },
@@ -188,19 +197,24 @@
           "group": "pullrequest@1"
         },
         {
-          "command": "pr.openPullRequestInGitHub",
+          "command": "pr.refreshPullRequest",
           "when": "view == pr && viewItem =~ /pullrequest/",
           "group": "pullrequest@2"
         },
         {
-          "command": "pr.close",
+          "command": "pr.openPullRequestInGitHub",
           "when": "view == pr && viewItem =~ /pullrequest/",
           "group": "pullrequest@3"
         },
         {
+          "command": "pr.close",
+          "when": "view == pr && viewItem =~ /pullrequest/",
+          "group": "pullrequest@4"
+        },
+        {
           "command": "pr.deleteLocalBranch",
           "when": "view == pr && viewItem =~ /pullrequest:local:nonactive/",
-          "group": "pullrequest@4"
+          "group": "pullrequest@5"
         },
         {
           "command": "pr.openFileInGitHub",
