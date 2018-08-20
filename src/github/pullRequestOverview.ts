@@ -34,7 +34,7 @@ export class PullRequestOverviewPanel {
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
 		if (PullRequestOverviewPanel.currentPanel) {
-			PullRequestOverviewPanel.currentPanel._panel.reveal(column);
+			PullRequestOverviewPanel.currentPanel._panel.reveal(column, true);
 			PullRequestOverviewPanel.currentPanel._panel.title = title;
 		} else {
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, column || vscode.ViewColumn.One, title, pullRequestManager);

@@ -128,6 +128,6 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 				base: true
 			})
 		});
-		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${commit.substr(0, 8)}`);
+		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${commit.substr(0, 8)}`, { preserveFocus: true });
 	}));
 }

@@ -72,7 +72,10 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 		this.resourceUri = this.filePath;
 
-		let opts = {};
+		let opts: vscode.TextDocumentShowOptions = {
+			preserveFocus: true
+		};
+
 		if (this.comments && this.comments.length) {
 			let sortedActiveComments = this.comments.filter(comment => comment.position).sort((a, b) => {
 				return a.position - b.position;
@@ -85,9 +88,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
 					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
-					opts = {
-						selection: new vscode.Range(lineNumber, 0, lineNumber, 0)
-					};
+					opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				}
 			}
 		}
