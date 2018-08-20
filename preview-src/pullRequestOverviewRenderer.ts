@@ -331,11 +331,10 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 
 			body += `
 				${diffView}
-				<div>${ comments && comments.length ? comments.map(comment => renderComment(comment)).join('') : ''}</div>
+				<div data-type="review-comment">${ comments && comments.length ? comments.map(comment => renderComment(comment)).join('') : ''}</div>
 			`;
 		}
 	}
-
 
 	return `<div class="comment-container"  data-type="review">
 
