@@ -5,3 +5,4 @@ preview-src/**
 node_modules/**
 .gitignore
 tsconfig.json
+*.vsix
