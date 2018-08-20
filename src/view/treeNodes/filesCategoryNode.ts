@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { FileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
+import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Files';
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 
-	constructor(private _fileChanges: (FileChangeNode | RemoteFileChangeNode)[]) {
+	constructor(private _fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 	}

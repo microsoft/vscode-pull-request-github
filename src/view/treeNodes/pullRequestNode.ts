@@ -14,14 +14,14 @@ import { fromPRUri, toInMemUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
-import { FileChangeNode, RemoteFileChangeNode, InMemFileChangeNode } from './fileChangeNode';
+import { GitFileChangeNode, RemoteFileChangeNode, InMemFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inmemPRContentProvider';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
 	prNumber: number,
-	fileChanges: (RemoteFileChangeNode | FileChangeNode)[]) {
+	fileChanges: (RemoteFileChangeNode | GitFileChangeNode)[]) {
 	const params = fromPRUri(document.uri);
 
 	if (params.prNumber !== prNumber) {
@@ -111,7 +111,7 @@ export function providePRDocumentComments(
 }
 
 export class PRNode extends TreeNode {
-	private _contentChanges: (RemoteFileChangeNode | FileChangeNode)[];
+	private _contentChanges: (RemoteFileChangeNode | GitFileChangeNode)[];
 	private _documentCommentsProvider: vscode.Disposable;
 	private _inMemPRContentProvider: vscode.Disposable;
 

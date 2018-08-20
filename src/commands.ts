@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri } from './common/uri';
-import { FileChangeNode } from './view/treeNodes/fileChangeNode';
+import { GitFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { IPullRequestManager, IPullRequestModel, IPullRequest } from './github/interface';
 import { Comment } from './common/comment';
@@ -47,7 +47,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: FileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: GitFileChangeNode) => {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 	}));
 
@@ -123,7 +123,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: FileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
 		// Show the file change in a diff view.
 		let { path, ref, commit } = fromReviewUri(fileChange.filePath);
 		let previousCommit = `${commit}^`;

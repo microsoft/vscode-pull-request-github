@@ -13,6 +13,9 @@ import { Comment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 import { toFileChangeNodeUri } from '../../common/uri';
 
+/**
+ * File change node whose content can not be resolved locally and we direct users to GitHub.
+ */
 export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
@@ -42,6 +45,9 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 }
 
+/**
+ * File change node whose content is stored in memory and resolved when being revealed.
+ */
 export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
@@ -115,7 +121,10 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 }
 
-export class FileChangeNode extends TreeNode implements vscode.TreeItem {
+/**
+ * File change node whose content can be resolved by git commit sha.
+ */
+export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
 	public resourceUri: vscode.Uri;
@@ -186,6 +195,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 }
 
-export function fileChangeNodeFilter(nodes: (FileChangeNode | RemoteFileChangeNode)[]): FileChangeNode[] {
-	return nodes.filter(node => node instanceof FileChangeNode) as FileChangeNode[];
+export function fileChangeNodeFilter(nodes: (GitFileChangeNode | RemoteFileChangeNode)[]): GitFileChangeNode[] {
+	return nodes.filter(node => node instanceof GitFileChangeNode) as GitFileChangeNode[];
 }
