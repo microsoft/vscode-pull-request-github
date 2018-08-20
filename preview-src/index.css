@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
- :root {
-	 --border-color: var(--vscode-notifications-border);
- }
+:root {
+	--border-color: var(--vscode-notifications-border);
+}
 
  .title {
 	display: flex;
