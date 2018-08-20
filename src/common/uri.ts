@@ -101,3 +101,20 @@ export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams {
 		return null;
 	}
 }
+
+export function toInMemUri(uri: Uri, pullRequestModel: IPullRequestModel, commit: string, fileName: string, base: boolean): Uri {
+	const params = {
+		commit: commit,
+		base: base,
+		fileName: fileName,
+		prNumber: pullRequestModel.prNumber
+	};
+
+	let path = uri.path;
+
+	return uri.with({
+		scheme: 'pr',
+		path,
+		query: JSON.stringify(params)
+	});
+}

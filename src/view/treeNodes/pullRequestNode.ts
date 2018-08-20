@@ -3,20 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseDiff } from '../../common/diffHunk';
+import { parseDiff2, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
-import { SlimFileChange } from '../../common/file';
+import { SlimFileChange, getFileContent } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
 import { Resource } from '../../common/resources';
-import { toPRUri, fromPRUri } from '../../common/uri';
+import { fromPRUri, toInMemUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
-import { FileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
+import { FileChangeNode, RemoteFileChangeNode, InMemFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
+import { getInMemPRContentProvider } from '../inmemPRContentProvider';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
@@ -113,6 +113,7 @@ export function providePRDocumentComments(
 export class PRNode extends TreeNode {
 	private _contentChanges: (RemoteFileChangeNode | FileChangeNode)[];
 	private _documentCommentsProvider: vscode.Disposable;
+	private _inMemPRContentProvider: vscode.Disposable;
 
 	constructor(
 		private _prManager: IPullRequestManager,
@@ -122,12 +123,17 @@ export class PRNode extends TreeNode {
 	) {
 		super();
 		this._documentCommentsProvider = null;
+		this._inMemPRContentProvider = null;
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
 		try {
 			if (this._documentCommentsProvider) {
 				this._documentCommentsProvider.dispose();
+			}
+
+			if (this._inMemPRContentProvider) {
+				this._inMemPRContentProvider.dispose();
 			}
 
 			if (this.childrenDisposables && this.childrenDisposables.length) {
@@ -138,7 +144,7 @@ export class PRNode extends TreeNode {
 			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
 			await this._prManager.fullfillPullRequestMissingInfo(this.pullRequestModel);
 			let mergeBase = this.pullRequestModel.mergeBase;
-			const rawChanges = await parseDiff(data, this.repository, mergeBase);
+			const rawChanges = await parseDiff2(data, this.repository, mergeBase);
 			this._contentChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
 					return new RemoteFileChangeNode(
@@ -148,19 +154,80 @@ export class PRNode extends TreeNode {
 						change.blobUrl
 					);
 				}
-				let fileInRepo = path.resolve(this.repository.path, change.fileName);
-				let changedItem = new FileChangeNode(
+
+				let changedItem = new InMemFileChangeNode(
 					this.pullRequestModel,
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toPRUri(vscode.Uri.file(change.filePath), this.pullRequestModel, fileInRepo, change.fileName, false),
-					toPRUri(vscode.Uri.file(change.originalFilePath), this.pullRequestModel, fileInRepo, change.fileName, true),
+					toInMemUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, false),
+					toInMemUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, true),
 					change.isPartial,
+					change.patch,
 					change.diffHunks,
 					comments.filter(comment => comment.path === change.fileName && comment.position !== null)
 				);
+
 				return changedItem;
+			});
+
+			this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContent(this.pullRequestModel.prNumber, async (uri: vscode.Uri) => {
+				let params = JSON.parse(uri.query);
+				let fileChanges = this._contentChanges.filter(contentChange => (contentChange instanceof InMemFileChangeNode) && contentChange.fileName === params.fileName);
+				if (fileChanges.length) {
+					let fileChange = fileChanges[0] as InMemFileChangeNode;
+					if (fileChange.isPartial) {
+						if (params.base) {
+							// left
+							let left = [];
+							for (let i = 0; i < fileChange.diffHunks.length; i++) {
+								for (let j = 0; j < fileChange.diffHunks[i].diffLines.length; j++) {
+									let diffLine = fileChange.diffHunks[i].diffLines[j];
+									if (diffLine.type === DiffChangeType.Add) {
+										// nothing
+									} else if (diffLine.type === DiffChangeType.Delete) {
+										left.push(diffLine.text);
+									} else if (diffLine.type === DiffChangeType.Control) {
+										// nothing
+									} else {
+										left.push(diffLine.text);
+									}
+								}
+							}
+
+							return left.join('\n');
+						} else {
+							let right = [];
+							for (let i = 0; i < fileChange.diffHunks.length; i++) {
+								for (let j = 0; j < fileChange.diffHunks[i].diffLines.length; j++) {
+									let diffLine = fileChange.diffHunks[i].diffLines[j];
+									if (diffLine.type === DiffChangeType.Add) {
+										right.push(diffLine.text);
+									} else if (diffLine.type === DiffChangeType.Delete) {
+										// nothing
+									} else if (diffLine.type === DiffChangeType.Control) {
+										// nothing
+									} else {
+										right.push(diffLine.text);
+									}
+								}
+							}
+
+							return right.join('\n');
+						}
+					} else {
+						if (params.base) {
+							let originalContent = await getFileContent(this.repository.path, params.commit, fileChange.fileName);
+							return originalContent;
+
+						} else {
+							let originalContent = await getFileContent(this.repository.path, params.commit, fileChange.fileName);
+							let modifiedContent = getModifiedContentFromDiffHunk(originalContent, fileChange.patch);
+							return modifiedContent;
+						}
+					}
+				}
+				return '';
 			});
 
 			// The review manager will register a document comment's provider, so the node does not need to
