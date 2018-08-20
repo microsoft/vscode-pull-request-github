@@ -251,7 +251,7 @@ export function getGitChangeType(status: string): GitChangeType {
 	}
 }
 
-export async function parseDiff2(reviews: any[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
+export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
 	let fileChanges: (InMemFileChange | SlimFileChange)[] = [];
 
 	for (let i = 0; i < reviews.length; i++) {

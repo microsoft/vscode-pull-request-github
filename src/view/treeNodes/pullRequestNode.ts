@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { parseDiff2, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
+import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
 import { SlimFileChange, getFileContent } from '../../common/file';
 import Logger from '../../common/logger';
@@ -144,7 +144,7 @@ export class PRNode extends TreeNode {
 			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
 			await this._prManager.fullfillPullRequestMissingInfo(this.pullRequestModel);
 			let mergeBase = this.pullRequestModel.mergeBase;
-			const rawChanges = await parseDiff2(data, this.repository, mergeBase);
+			const rawChanges = await parseDiff(data, this.repository, mergeBase);
 			this._contentChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
 					return new RemoteFileChangeNode(

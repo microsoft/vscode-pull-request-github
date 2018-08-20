@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseDiff2 } from '../common/diffHunk';
+import { parseDiff } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri, fromPRUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
@@ -396,7 +396,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let headSha = pr.head.sha;
 			let mergeBase = pr.mergeBase;
 
-			const contentChanges = await parseDiff2(data, this._repository, mergeBase);
+			const contentChanges = await parseDiff(data, this._repository, mergeBase);
 			this._localFileChanges = contentChanges.map(change => {
 				if (change instanceof SlimFileChange) {
 					return new RemoteFileChangeNode(
