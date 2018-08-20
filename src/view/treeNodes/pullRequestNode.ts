@@ -171,7 +171,7 @@ export class PRNode extends TreeNode {
 				return changedItem;
 			});
 
-			this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContent(this.pullRequestModel.prNumber, async (uri: vscode.Uri) => {
+			this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(this.pullRequestModel.prNumber, async (uri: vscode.Uri) => {
 				let params = JSON.parse(uri.query);
 				let fileChanges = this._contentChanges.filter(contentChange => (contentChange instanceof InMemFileChangeNode) && contentChange.fileName === params.fileName);
 				if (fileChanges.length) {
@@ -357,6 +357,10 @@ export class PRNode extends TreeNode {
 
 		if (this._documentCommentsProvider) {
 			this._documentCommentsProvider.dispose();
+		}
+
+		if (this._inMemPRContentProvider) {
+			this._inMemPRContentProvider.dispose();
 		}
 	}
 }

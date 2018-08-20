@@ -29,7 +29,7 @@ export class InMemPRContentProvider implements vscode.TextDocumentContentProvide
 		return '';
 	}
 
-	registerTextDocumentContent(prNumber: number, provider: (uri: vscode.Uri) => Promise<string>): vscode.Disposable {
+	registerTextDocumentContentProvider(prNumber: number, provider: (uri: vscode.Uri) => Promise<string>): vscode.Disposable {
 		this._prFileChangeContentProviders[prNumber] = provider;
 
 		return {
