@@ -8,7 +8,7 @@
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
   },
   "enableProposedApi": true,
-  "version": "0.0.10",
+  "version": "0.0.12",
   "publisher": "Microsoft",
   "engines": {
     "vscode": "^1.25.0"
@@ -22,7 +22,7 @@
   "extensionDependencies": [
     "vscode.git"
   ],
-  "main": "./out/extension",
+  "main": "./media/extension",
   "contributes": {
     "configuration": {
       "type": "object",
@@ -69,7 +69,7 @@
     "commands": [
       {
         "command": "pr.pick",
-        "title": "Checkout Pull Request",
+        "title": "Check Out Pull Request",
         "category": "GitHub Pull Requests"
       },
       {
@@ -214,8 +214,8 @@
   "scripts": {
     "vscode:prepublish": "tsc -p ./ && webpack --mode production",
     "postinstall": "node ./node_modules/vscode/bin/install",
-    "compile": "tsc -watch -p ./",
-    "build-preview": "webpack --watch --mode development",
+    "compile": "tsc -p ./",
+    "watch": "webpack --watch --mode development",
     "test": "node ./node_modules/mocha/bin/_mocha --timeout 1000 --colors ./out/test/**/*.js"
   },
   "devDependencies": {

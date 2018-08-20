@@ -9,9 +9,14 @@
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}"
 			],
+			"smartStep": true,
+			"sourceMaps": true,
 			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			]
+				"${workspaceFolder}/media/*.js"
+			],
+			"sourceMapPathOverrides": {
+				"webpack:///./*": "${workspaceRoot}/*"
+			}
 		},
 		{
 			"name": "Extension Tests",

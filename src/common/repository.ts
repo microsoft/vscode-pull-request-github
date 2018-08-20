@@ -398,6 +398,15 @@ export class Repository {
 		let result = await this.run(['diff', '--no-ext-diff', '--exit-code']);
 		return result.exitCode !== 0;
 	}
+
+	async getMergeBase(a: string, b: string) {
+		let result = await this.run(['merge-base', a, b]);
+		if (result.exitCode === 0) {
+			return result.stdout.trim();
+		} else {
+			return null;
+		}
+	}
 }
 
 function parseRemote(remoteName: string, url: string): Remote | null {

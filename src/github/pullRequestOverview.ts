@@ -11,7 +11,7 @@ import { onDidClosePR } from '../commands';
 import { exec } from '../common/git';
 import { TimelineEvent, EventType, ReviewEvent } from '../common/timelineEvent';
 import { Comment } from '../common/comment';
-import { groupBy } from '../common/utils';
+import { groupBy, formatError } from '../common/utils';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -161,46 +161,105 @@ export class PullRequestOverviewPanel {
 				vscode.window.showErrorMessage(message.text);
 				return;
 			case 'pr.checkout':
-				vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {}, () => {
-					const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
-					this._panel.webview.postMessage({
-						command: 'pr.update-checkout-status',
-						isCurrentlyCheckedOut: isCurrentlyCheckedOut
-					});
-				});
-				return;
+				return this.checkoutPullRequest();
 			case 'pr.close':
-				vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest);
-				return;
+				return this.closePullRequest(message.text);
+			case 'pr.approve':
+				return this.approvePullRequest(message.text);
+			case 'pr.request-changes':
+				return this.requestChanges(message.text);
 			case 'pr.checkout-default-branch':
-				// This should be updated for multi-root support and consume the git extension API if possible
-				const result = await exec(['rev-parse', '--symbolic-full-name', '@{-1}'], {
+				return this.checkoutDefaultBranch(message.branch);
+			case 'pr.comment':
+				return this.createComment(message.text);
+		}
+	}
+
+	private checkoutPullRequest(): void {
+		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {}, () => {
+			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+			this._panel.webview.postMessage({
+				command: 'pr.update-checkout-status',
+				isCurrentlyCheckedOut: isCurrentlyCheckedOut
+			});
+		});
+	}
+
+	private closePullRequest(message?: string): void {
+		vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest, message).then(comment => {
+			if (comment) {
+				this._panel.webview.postMessage({
+					command: 'pr.append-comment',
+					value: comment
+				});
+			}
+		});
+	}
+
+	private async checkoutDefaultBranch(branch: string): Promise<void> {
+		// This should be updated for multi-root support and consume the git extension API if possible
+		const result = await exec(['rev-parse', '--symbolic-full-name', '@{-1}'], {
+			cwd: vscode.workspace.rootPath
+		});
+
+		if (result) {
+			const branchFullName = result.stdout.trim();
+
+			if (`refs/heads/${branch}` === branchFullName) {
+				await exec(['checkout', branch], {
 					cwd: vscode.workspace.rootPath
 				});
-
-				if (result) {
-					const branchFullName = result.stdout.trim();
-
-					if (`refs/heads/${message.branch}` === branchFullName) {
-						await exec(['checkout', message.branch], {
-							cwd: vscode.workspace.rootPath
-						});
-					} else {
-						await vscode.commands.executeCommand('git.checkout')
-					}
-				}
-
-				return;
-			case 'pr.comment':
-				const text = message.text;
-				this._pullRequestManager.createIssueComment(this._pullRequest, text).then(comment => {
-					this._panel.webview.postMessage({
-						command: 'pr.append-comment',
-						value: comment
-					});
-				});
-				return;
+			} else {
+				await vscode.commands.executeCommand('git.checkout')
+			}
 		}
+	}
+
+	private createComment(text: string) {
+		this._pullRequestManager.createIssueComment(this._pullRequest, text).then(comment => {
+			this._panel.webview.postMessage({
+				command: 'pr.append-comment',
+				value: comment
+			});
+		});
+	}
+
+	private approvePullRequest(message?: string): void {
+		vscode.commands.executeCommand<IPullRequest>('pr.approve', this._pullRequest, message).then(review => {
+			if (review) {
+				this._panel.webview.postMessage({
+					command: 'pr.append-review',
+					value: review
+				});
+			}
+
+			this._panel.webview.postMessage({
+				command: 'pr.enable-approve'
+			});
+		}, (e) => {
+			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
+
+			this._panel.webview.postMessage({
+				command: 'pr.enable-approve'
+			});
+		});
+	}
+
+	private requestChanges(message?: string): void {
+		vscode.commands.executeCommand<IPullRequest>('pr.requestChanges', this._pullRequest, message).then(review => {
+			if (review) {
+				this._panel.webview.postMessage({
+					command: 'pr.append-review',
+					value: review
+				});
+			}
+		}, (e) => {
+			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
+
+			this._panel.webview.postMessage({
+				command: 'pr.enable-request-changes'
+			});
+		});
 	}
 
 	public dispose() {

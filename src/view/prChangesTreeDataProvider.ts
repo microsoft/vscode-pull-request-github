@@ -26,10 +26,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	constructor(private context: vscode.ExtensionContext) {
 		super(() => this.dispose());
 		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<TreeNode>('prStatus', this));
+	}
 
-		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
-			this._onDidChangeTreeData.fire();
-		}));
+	refresh() {
+		this._onDidChangeTreeData.fire();
 	}
 
 	async showPullRequestFileChanges(pullRequestManager: IPullRequestManager, pullrequest: IPullRequestModel, fileChanges: (FileChangeNode | RemoteFileChangeNode)[], comments: Comment[]) {

@@ -68,6 +68,11 @@ export class PullRequestGitHelper {
 			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
 			await repository.setTrackingBranch(branchName, trackedBranchName);
 		}
+
+		if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+			await repository.run(['pull']);
+		}
+
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
@@ -217,5 +222,20 @@ export class PullRequestGitHelper {
 		Logger.appendLine(`GitHelper> associate ${branchName} with Pull Request #${pullRequest.prNumber}`)
 		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+	}
+
+	static async getPullRequestMergeBase(repository: Repository, remote: Remote, pullRequest: IPullRequestModel): Promise<string> {
+		let mergeBase = await repository.getMergeBase(pullRequest.base.sha, pullRequest.head.sha);
+
+		if (mergeBase) {
+			return mergeBase;
+		}
+
+		const pullrequestHeadRef = `refs/pull/${pullRequest.prNumber}/head`;
+		await repository.fetch(remote.remoteName, pullrequestHeadRef);
+		await repository.fetch(remote.remoteName, pullRequest.base.ref);
+		mergeBase = await repository.getMergeBase(pullRequest.base.sha, pullRequest.head.sha);
+
+		return mergeBase;
 	}
 }

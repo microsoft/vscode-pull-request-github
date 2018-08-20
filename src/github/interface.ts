@@ -13,6 +13,12 @@ export enum PRType {
 	LocalPullRequest = 5
 }
 
+export enum ReviewEvent {
+	Approve = "APPROVE",
+	RequestChanges = "REQUEST_CHANGES",
+	Comment = "COMMENT"
+}
+
 export enum PullRequestStateEnum {
 	Open,
 	Merged,
@@ -110,6 +116,7 @@ export interface IPullRequestModel {
 	isMerged: boolean;
 	head?: GitHubRef;
 	base?: GitHubRef;
+	mergeBase?: string;
 	localBranchName?: string;
 	userAvatar: string;
 	userAvatarUri: vscode.Uri;
@@ -139,10 +146,19 @@ export interface IPullRequestManager {
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
+	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
+	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
 
-	fullfillPullRequestCommitInfo(pullRequest: IPullRequestModel): Promise<void>;
+	/**
+	 * Fullfill information for a pull request which we can't fetch with one single api call.
+	 * 1. base. This property might not exist in search results
+	 * 2. head. This property might not exist in search results
+	 * 3. merge base. This is necessary as base might not be the commit that files in Pull Request are being compared to.
+	 * @param pullRequest
+	 */
+	fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void>;
 	updateRepositories(): Promise<void>;
 
 	/**

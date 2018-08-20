@@ -305,6 +305,11 @@ body .comment-form textarea {
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
 	font-family: var(--vscode-editor-font-family);
+	resize: none;
+}
+
+.reply-button {
+	margin-left: auto;
 }
 
 body .comment-form textarea:focus {
@@ -315,6 +320,7 @@ body .comment-form .form-actions {
 	overflow: auto;
 	padding-top: 20px;
 	margin-bottom: 10px;
+	display: flex;
 }
 
 body button:disabled {

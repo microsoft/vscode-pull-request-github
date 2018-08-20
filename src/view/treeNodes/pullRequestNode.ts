@@ -136,8 +136,9 @@ export class PRNode extends TreeNode {
 
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
-			await this._prManager.fullfillPullRequestCommitInfo(this.pullRequestModel);
-			const rawChanges = await parseDiff(data, this.repository, this.pullRequestModel.base.sha);
+			await this._prManager.fullfillPullRequestMissingInfo(this.pullRequestModel);
+			let mergeBase = this.pullRequestModel.mergeBase;
+			const rawChanges = await parseDiff(data, this.repository, mergeBase);
 			this._contentChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
 					return new RemoteFileChangeNode(

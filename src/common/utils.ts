@@ -98,7 +98,13 @@ export function formatError(e: any): string {
 		if (message) {
 			errorMessage = message.message;
 
-			const furtherInfo = message.errors && message.errors.map(error => error.message).join(', ');
+			const furtherInfo = message.errors && message.errors.map(error => {
+				if (typeof error === "string") {
+					return error;
+				} else {
+					return error.message;
+				}
+			}).join(', ');
 			if (furtherInfo) {
 				errorMessage = `${errorMessage}: ${furtherInfo}`;
 			}
