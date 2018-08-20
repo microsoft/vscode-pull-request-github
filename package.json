@@ -88,6 +88,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.openDiffView",
+        "title": "Open Diff View",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.openDescription",
         "title": "View Pull Request Description",
         "category": "GitHub Pull Requests",

@@ -95,11 +95,12 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		this.command = {
 			title: 'show diff',
-			command: 'vscode.diff',
+			command: 'pr.openDiffView',
 			arguments: [
 				this.parentFilePath,
 				this.filePath,
 				this.fileName,
+				this.isPartial,
 				opts
 			]
 		};

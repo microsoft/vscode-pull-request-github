@@ -51,6 +51,13 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (parentFilePath: string, filePath: string, fileName: string, isPartial: boolean, opts: any) => {
+		if (isPartial) {
+			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
+		}
+		vscode.commands.executeCommand('vscode.diff', parentFilePath, filePath, fileName, opts);
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
 		const pullRequestModel = ensurePR(prManager, e);
 		try {
