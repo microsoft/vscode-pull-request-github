@@ -102,6 +102,14 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.approve',  async (pr: IPullRequestModel, message?: string) => {
+		return await prManager.approvePullRequest(pr, message);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges',  async (pr: IPullRequestModel, message?: string) => {
+		return await prManager.requestChanges(pr, message);
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: IPullRequestModel) => {
 		const pullRequest = ensurePR(prManager, pr);
 		// Create and show a new webview

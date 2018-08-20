@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import './index.css';
-import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 
 declare var acquireVsCodeApi: any;
@@ -14,6 +14,8 @@ const ElementIds = {
 	CheckoutDefaultBranch: 'checkout-default-branch',
 	Close: 'close',
 	Reply: 'reply',
+	Approve: 'approve',
+	RequestChanges: 'request-changes',
 	Status: 'status',
 	CommentTextArea: 'comment-textarea',
 	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
@@ -33,6 +35,16 @@ function handleMessage(event: any) {
 			break;
 		case 'pr.append-comment':
 			appendComment(message.value);
+			break;
+		case 'pr.append-review':
+			appendReview(message.value);
+			break;
+		case 'pr.enable-approve':
+			(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
+			break;
+		case 'pr.enable-request-changes':
+			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
+			break;
 		default:
 			break;
 	}
@@ -93,10 +105,13 @@ function addEventListeners(pr: any) {
 		});
 	});
 
-	// Enable 'Comment' button only when the user has entered text
+	// Enable 'Comment' and 'RequestChanges' button only when the user has entered text
 	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
-		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = !(<any>e.target).value;
-	})
+		const hasNoText = !(<any>e.target).value;
+		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = hasNoText;
+		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = hasNoText;
+
+	});
 
 	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
 		submitComment();
@@ -111,6 +126,24 @@ function addEventListeners(pr: any) {
 		});
 	});
 
+	document.getElementById(ElementIds.Approve)!.addEventListener('click', () => {
+		(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = true;
+		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
+		vscode.postMessage({
+			command: 'pr.approve',
+			text: inputBox.value
+		});
+	});
+
+	document.getElementById(ElementIds.RequestChanges)!.addEventListener('click', () => {
+		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
+		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
+		vscode.postMessage({
+			command: 'pr.request-changes',
+			text: inputBox.value
+		});
+	});
+
 	document.getElementById(ElementIds.CheckoutDefaultBranch)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = true;
 		vscode.postMessage({
@@ -118,6 +151,12 @@ function addEventListeners(pr: any) {
 			branch: pr.repositoryDefaultBranch
 		});
 	});
+}
+
+function clearTextArea() {
+	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
+	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
+	(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
 }
 
 function submitComment() {
@@ -129,10 +168,16 @@ function submitComment() {
 
 }
 
+function appendReview(review: any): void {
+	const newReview = renderReview(review);
+	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newReview);
+	clearTextArea();
+}
+
 function appendComment(comment: any) {
 	let newComment = renderComment(comment);
 	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newComment);
-	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
+	clearTextArea();
 }
 
 function updateCheckoutButton(isCheckedOut: boolean) {
@@ -156,8 +201,10 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 function setTextArea() {
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
-			<button class="reply-button" id="${ElementIds.Reply}" disabled="true"></button>
-			<button class="close-button" id="${ElementIds.Close}"></button>
+			<button id="${ElementIds.Close}">Close Pull Request</button>
+			<button id="${ElementIds.RequestChanges}" disabled="true">Request Changes</button>
+			<button id="${ElementIds.Approve}">Approve</button>
+			<button class="reply-button" id="${ElementIds.Reply}" disabled="true">Comment</button>
 		</div>`;
 
 	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).placeholder = 'Leave a comment';
@@ -172,6 +219,4 @@ function setTextArea() {
 			return;
 		}
 	});
-	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)!).textContent = 'Comment';
-	(<HTMLButtonElement>document.getElementById(ElementIds.Close)!).textContent = 'Close Pull Request';
 }
