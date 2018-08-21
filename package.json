@@ -190,6 +190,10 @@
         {
           "command": "pr.signin",
           "when": "config.git.enabled && github:hasGitHubRemotes"
+        },
+        {
+          "command": "pr.signinAndRefreshList",
+          "when": "false"
         }
       ],
       "view/title": [
