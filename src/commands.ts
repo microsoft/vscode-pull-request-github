@@ -137,4 +137,14 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${commit.substr(0, 8)}`, { preserveFocus: true });
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.signin', async () => {
+		await prManager.authenticate();
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
+		if (await prManager.authenticate()) {
+			vscode.commands.executeCommand('pr.refreshList');
+		}
+	}));
 }

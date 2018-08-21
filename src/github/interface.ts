@@ -129,6 +129,10 @@ export interface IPullRequestsPagingOptions {
 	fetchNextPage: boolean;
 }
 
+export interface IGitHubRepository {
+	authenticate(): Promise<boolean>;
+}
+
 export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
@@ -160,6 +164,7 @@ export interface IPullRequestManager {
 	 */
 	fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void>;
 	updateRepositories(): Promise<void>;
+	authenticate(): Promise<boolean>;
 
 	/**
 	 * git related APIs

@@ -55,6 +55,14 @@ export class VSCodeConfiguration extends Configuration {
 		return this._hosts.get(host.toLocaleLowerCase());
 	}
 
+	public removeHost(host: string): void {
+		this._hosts.delete(host);
+		if (host === this.host) {
+			super.update(undefined, undefined, false);
+		}
+		this.saveConfiguration();
+	}
+
 	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): void {
 		super.update(username, token, raiseEvent);
 		this.saveConfiguration();

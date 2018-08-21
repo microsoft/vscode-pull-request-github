@@ -16,6 +16,11 @@ export class Remote {
 		return this.gitProtocol.repositoryName;
 	}
 
+	public get normalizedHost(): string {
+		const normalizedUri = this.gitProtocol.normalizeUri();
+		return `${normalizedUri.scheme}://${normalizedUri.authority}`;
+	}
+
 	constructor(
 		public readonly remoteName: string,
 		public readonly url: string,

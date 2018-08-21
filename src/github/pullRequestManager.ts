@@ -87,6 +87,15 @@ export class PullRequestManager implements IPullRequestManager {
 		return Promise.resolve();
 	}
 
+	async authenticate(): Promise<boolean> {
+		let ret = false;
+		this._credentialStore.reset();
+		for (let repository of uniqBy(this._githubRepositories, x => x.remote.normalizedHost)) {
+			ret = await repository.authenticate() || ret;
+		}
+		return ret;
+	}
+
 	async getLocalPullRequests(): Promise<IPullRequestModel[]> {
 		const githubRepositories = this._githubRepositories;
 

@@ -133,6 +133,16 @@
         "command": "pr.deleteLocalBranch",
         "title": "Delete Local Branch",
         "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.signin",
+        "title": "Sign in to GitHub",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.signinAndRefreshList",
+        "title": "Sign in and Refresh",
+        "category": "GitHub Pull Requests"
       }
     ],
     "menus": {
@@ -176,6 +186,10 @@
         {
           "command": "pr.refreshChanges",
           "when": "false"
+        },
+        {
+          "command": "pr.signin",
+          "when": "config.git.enabled && github:hasGitHubRemotes"
         }
       ],
       "view/title": [
