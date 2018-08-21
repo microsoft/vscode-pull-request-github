@@ -7,8 +7,7 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import * as path from 'path';
-import { getFileContent, writeTmpFile, GitChangeType, RichFileChange, SlimFileChange } from './file';
+import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
 import { Repository } from './repository';
 import { Comment } from './comment';
 
@@ -167,7 +166,34 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 	}
 }
 
-async function parseModifiedHunkComplete(originalContent, patch, a, b) {
+function parsePatch(patch: string): DiffHunk[] {
+	let diffHunkReader = parseDiffHunk(patch);
+	let diffHunkIter = diffHunkReader.next();
+	let diffHunks = [];
+
+	let right = [];
+	while (!diffHunkIter.done) {
+		let diffHunk = diffHunkIter.value;
+		diffHunks.push(diffHunk);
+
+		for (let j = 0; j < diffHunk.diffLines.length; j++) {
+			let diffLine = diffHunk.diffLines[j];
+			if (diffLine.type === DiffChangeType.Delete || diffLine.type === DiffChangeType.Control) {
+			} else if (diffLine.type === DiffChangeType.Add) {
+				right.push(diffLine.text);
+			} else {
+				let codeInFirstLine = diffLine.text;
+				right.push(codeInFirstLine);
+			}
+		}
+
+		diffHunkIter = diffHunkReader.next();
+	}
+
+	return diffHunks;
+}
+
+export function getModifiedContentFromDiffHunk(originalContent, patch) {
 	let left = originalContent.split(/\r|\n|\r\n/);
 	let diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
@@ -207,44 +233,7 @@ async function parseModifiedHunkComplete(originalContent, patch, a, b) {
 		}
 	}
 
-	let contentPath = await writeTmpFile(right.join('\n'), path.extname(b));
-	let originalContentPath = await writeTmpFile(left.join('\n'), path.extname(a));
-
-	return new RichFileChange(contentPath, originalContentPath, GitChangeType.MODIFY, b, diffHunks, false);
-}
-
-async function parseModifiedHunkFast(modifyDiffInfo, a, b) {
-	let left = [];
-	let right = [];
-
-	let diffHunkReader = parseDiffHunk(modifyDiffInfo);
-	let diffHunkIter = diffHunkReader.next();
-	let diffHunks = [];
-
-	while (!diffHunkIter.done) {
-		let diffHunk = diffHunkIter.value;
-		diffHunks.push(diffHunk);
-		for (let i = 0, len = diffHunk.diffLines.length; i < len; i++) {
-			let diffLine = diffHunk.diffLines[i];
-			if (diffLine.type === DiffChangeType.Add) {
-				right.push(diffLine.text);
-			} else if (diffLine.type === DiffChangeType.Delete) {
-				left.push(diffLine.text);
-			} else if (diffLine.type === DiffChangeType.Control) {
-				// nothing
-			} else {
-				left.push(diffLine.text);
-				right.push(diffLine.text);
-			}
-		}
-
-		diffHunkIter = diffHunkReader.next();
-	}
-
-	let contentPath = await writeTmpFile(right.join('\n'), path.extname(b));
-	let originalContentPath = await writeTmpFile(left.join('\n'), path.extname(a));
-
-	return new RichFileChange(contentPath, originalContentPath, GitChangeType.MODIFY, b, diffHunks, true);
+	return right.join('\n');
 }
 
 export function getGitChangeType(status: string): GitChangeType {
@@ -262,61 +251,26 @@ export function getGitChangeType(status: string): GitChangeType {
 	}
 }
 
-export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<(RichFileChange | SlimFileChange)[]> {
-	let fileChanges: (RichFileChange | SlimFileChange)[] = [];
+export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
+	let fileChanges: (InMemFileChange | SlimFileChange)[] = [];
+
 	for (let i = 0; i < reviews.length; i++) {
 		let review = reviews[i];
+
 		if (!review.patch) {
 			const gitChangeType = getGitChangeType(review.status);
 			fileChanges.push(new SlimFileChange(review.blob_url, gitChangeType, review.filename));
 			continue;
 		}
 
-		if (review.status === 'modified') {
-			let fileName = review.filename;
-			try {
-				let originalContent = await getFileContent(repository.path, parentCommit, fileName);
-				let richFileChange = await parseModifiedHunkComplete(originalContent, review.patch, fileName, fileName);
-				richFileChange.blobUrl = review.blob_url;
-				fileChanges.push(richFileChange);
-			} catch (e) {
-				let richFileChange = await parseModifiedHunkFast(review.patch, fileName, fileName);
-				richFileChange.blobUrl = review.blob_url;
-				fileChanges.push(richFileChange);
-			}
-		} else if (review.status === 'removed' || review.status === 'added' || review.status === 'renamed') {
-			if (!review.patch) {
-				continue;
-			}
+		const gitChangeType = getGitChangeType(review.status);
 
-			const gitChangeType = getGitChangeType(review.status);
-			let contentArray = [];
-			let fileName = review.filename;
-			let prDiffReader = parseDiffHunk(review.patch);
-			let prDiffIter = prDiffReader.next();
-			let diffHunks = [];
-
-			while (!prDiffIter.done) {
-				let diffHunk = prDiffIter.value;
-				diffHunks.push(diffHunk);
-				for (let j = 0, len = diffHunk.diffLines.length; j < len; j++) {
-					let diffLine = diffHunk.diffLines[j];
-					if (diffLine.type !== DiffChangeType.Control) {
-						contentArray.push(diffLine.text);
-					}
-				}
-				prDiffIter = prDiffReader.next();
-			}
-
-			let contentFilePath = await writeTmpFile(contentArray.join('\n'), path.extname(fileName));
-			let emptyContentFilePath = await writeTmpFile('', path.extname(fileName));
-			let richFileChange = review.status === 'removed' ?
-				new RichFileChange(emptyContentFilePath, contentFilePath, gitChangeType, fileName, diffHunks, false) :
-				new RichFileChange(contentFilePath, emptyContentFilePath, gitChangeType, fileName, diffHunks, false);
-			richFileChange.blobUrl = review.blob_url;
-			fileChanges.push(richFileChange);
-		}
+		let originalFileExist = await repository.checkFileExistence(parentCommit, review.filename);
+		let diffHunks = parsePatch(review.patch);
+		let isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
+		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.patch, diffHunks, isPartial, review.blob_url))
 	}
+
 	return fileChanges;
 }
 

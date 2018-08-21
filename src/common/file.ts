@@ -3,28 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from 'fs';
-import * as tmp from 'tmp';
 import { DiffHunk } from './diffHunk';
 import { exec } from './git';
 
-export async function writeTmpFile(content: string, ext: string): Promise<string> {
-	return new Promise<string>((resolve, reject) => {
-		tmp.file({ postfix: ext }, async (err: any, tmpFilePath: string) => {
-			if (err) {
-				reject(err);
-				return;
-			}
-
-			try {
-				fs.appendFileSync(tmpFilePath, content);
-				resolve(tmpFilePath);
-			} catch (ex) {
-				reject(ex);
-			}
-		});
-	});
-}
 
 export async function getFileContent(rootDir: string, commitSha: string, sourceFilePath: string): Promise<string> {
 	const result = await exec([
@@ -55,15 +36,17 @@ export enum GitChangeType {
 	UNMERGED
 }
 
-export class RichFileChange {
-	public blobUrl: string;
+export class InMemFileChange {
+
 	constructor(
-		public readonly filePath: string,
-		public readonly originalFilePath: string,
+		public readonly baseCommit: string,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
+		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
-		public readonly isPartial: boolean
+
+		public readonly isPartial: boolean,
+		public blobUrl: string
 	) { }
 }
 

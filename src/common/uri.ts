@@ -20,7 +20,7 @@ export function fromReviewUri(uri: Uri): ReviewUriParams {
 }
 
 export interface PRUriParams {
-	path: string;
+	commit?: string;
 	base: boolean;
 	fileName: string;
 	prNumber: number;
@@ -60,24 +60,7 @@ export function toReviewUri(uri: Uri, filePath: string, ref: string, commit: str
 	});
 }
 
-export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, fileInRepo: string, fileName: string, base: boolean): Uri {
-	const params = {
-		path: uri.path,
-		base: base,
-		fileName: fileName,
-		prNumber: pullRequestModel.prNumber
-	};
 
-	let path = uri.path;
-
-	// path = `${path}.git`;
-
-	return uri.with({
-		scheme: 'pr',
-		path,
-		query: JSON.stringify(params),
-	});
-}
 
 export interface FileChangeNodeUriParams {
 	hasComments?: boolean;
@@ -100,4 +83,21 @@ export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams {
 	} catch (e) {
 		return null;
 	}
+}
+
+export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, commit: string, fileName: string, base: boolean): Uri {
+	const params: PRUriParams = {
+		commit: commit,
+		base: base,
+		fileName: fileName,
+		prNumber: pullRequestModel.prNumber
+	};
+
+	let path = uri.path;
+
+	return uri.with({
+		scheme: 'pr',
+		path,
+		query: JSON.stringify(params)
+	});
 }

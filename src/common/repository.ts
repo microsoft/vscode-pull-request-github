@@ -407,6 +407,12 @@ export class Repository {
 			return null;
 		}
 	}
+
+	async checkFileExistence(commitSha: string, fileName: string): Promise<boolean> {
+		let result = await this.run(['cat-file', '-e', `${commitSha}:` + fileName.replace(/\\/g, '/')]);
+
+		return result.exitCode === 0;
+	}
 }
 
 function parseRemote(remoteName: string, url: string): Remote | null {

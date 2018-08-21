@@ -17,7 +17,7 @@ import { Repository } from '../common/repository';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
-import { FileChangeNode, RemoteFileChangeNode, fileChangeNodeFilter } from './treeNodes/fileChangeNode';
+import { GitFileChangeNode, RemoteFileChangeNode, fileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { IConfiguration } from '../authentication/configuration';
@@ -30,8 +30,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _disposables: vscode.Disposable[];
 
 	private _comments: Comment[] = [];
-	private _localFileChanges: (FileChangeNode | RemoteFileChangeNode)[] = [];
-	private _obsoleteFileChanges: (FileChangeNode | RemoteFileChangeNode)[] = [];
+	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
+	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
 	private _updateCurrentBranch: boolean = false;
@@ -190,7 +190,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		vscode.commands.executeCommand('pr.refreshList');
 	}
 
-	private findMatchedFileByUri(document: vscode.TextDocument): FileChangeNode {
+	private findMatchedFileByUri(document: vscode.TextDocument): GitFileChangeNode {
 		const uri = document.uri;
 
 		let fileName: string;
@@ -343,7 +343,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return oldComments.some(oldComment => {
 				const matchingComment = newComments.filter(newComment => newComment.commentId === oldComment.commentId);
 				if (matchingComment.length !== 1) {
-					return true;
+					return true; 
 				}
 
 				if (matchingComment[0].body.value !== oldComment.body.value) {
@@ -382,7 +382,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			this._comments = comments;
 			this._localFileChanges.forEach(change => {
-				if (change instanceof FileChangeNode) {
+				if (change instanceof GitFileChangeNode) {
 					change.comments = this._comments.filter(comment => change.fileName === comment.path && comment.position !== null);
 				}
 			});
@@ -414,7 +414,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						change.blobUrl
 					);
 				}
-				let changedItem = new FileChangeNode(
+				let changedItem = new GitFileChangeNode(
 					pr,
 					change.status,
 					change.fileName,
@@ -436,7 +436,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				let commentsForFile = groupBy(commentsForCommit, comment => comment.path);
 				for (let fileName in commentsForFile) {
 					let oldComments = commentsForFile[fileName];
-					let obsoleteFileChange = new FileChangeNode(
+					let obsoleteFileChange = new GitFileChangeNode(
 						pr,
 						GitChangeType.MODIFY,
 						fileName,
@@ -460,7 +460,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	}
 
-	private outdatedCommentsToCommentThreads(fileChange: FileChangeNode, comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState = vscode.CommentThreadCollapsibleState.Expanded): vscode.CommentThread[] {
+	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState = vscode.CommentThreadCollapsibleState.Expanded): vscode.CommentThread[] {
 		if (!comments || !comments.length) {
 			return [];
 		}
@@ -593,7 +593,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					const fileName = document.uri.fsPath;
 					const matchedFiles = fileChangeNodeFilter(this._localFileChanges).filter(fileChange => path.resolve(this._repository.path, fileChange.fileName) === fileName);
 					if (matchedFiles && matchedFiles.length) {
-						const matchedFile: FileChangeNode = matchedFiles[0];
+						const matchedFile: GitFileChangeNode = matchedFiles[0];
 
 						let contentDiff: string;
 						if (document.isDirty) {
@@ -748,7 +748,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private findMatchedFileChange(fileChanges: (FileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): FileChangeNode {
+	private findMatchedFileChange(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode {
 		let query = JSON.parse(uri.query);
 		let matchedFiles = fileChanges.filter(fileChange => {
 			if (fileChange instanceof RemoteFileChangeNode) {
@@ -774,7 +774,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 
 		if (matchedFiles && matchedFiles.length) {
-			return matchedFiles[0] as FileChangeNode;
+			return matchedFiles[0] as GitFileChangeNode;
 		}
 
 		return null;

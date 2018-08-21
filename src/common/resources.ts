@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { GitChangeType } from './file';
-import { FileChangeNode, RemoteFileChangeNode } from '../view/treeNodes/fileChangeNode';
+import { GitFileChangeNode, RemoteFileChangeNode } from '../view/treeNodes/fileChangeNode';
 
 export class Resource {
 	static icons: any;
@@ -42,7 +42,7 @@ export class Resource {
 		};
 	}
 
-	static getFileStatusUri(element: FileChangeNode | RemoteFileChangeNode): vscode.Uri | { light: vscode.Uri, dark: vscode.Uri } {
+	static getFileStatusUri(element: GitFileChangeNode | RemoteFileChangeNode): vscode.Uri | { light: vscode.Uri, dark: vscode.Uri } {
 		let iconUri: vscode.Uri;
 		let iconDarkUri: vscode.Uri;
 

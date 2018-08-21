@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { IConfiguration } from '../authentication/configuration';
 import { Repository } from '../common/repository';
@@ -11,8 +10,9 @@ import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
+import { getInMemPRContentProvider } from './inmemPRContentProvider';
 
-export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.TextDocumentContentProvider, vscode.DecorationProvider, vscode.Disposable {
+export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
@@ -26,7 +26,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		private _prManager: IPullRequestManager
 	) {
 		this._disposables = [];
-		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', this));
+		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', getInMemPRContentProvider()));
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this._onDidChangeTreeData.fire();
@@ -89,16 +89,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		return {};
-	}
-
-	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
-		let { path } = JSON.parse(uri.query);
-		try {
-			let content = fs.readFileSync(vscode.Uri.file(path).fsPath);
-			return content.toString();
-		} catch (e) {
-			return '';
-		}
 	}
 
 	dispose() {
