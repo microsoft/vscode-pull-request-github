@@ -26,12 +26,12 @@
   "contributes": {
     "configuration": {
       "type": "object",
-      "title": "GitHub configuration",
+      "title": "GitHub Pull Requests",
       "properties": {
         "github.hosts": {
           "type": "array",
           "default": [],
-          "description": "Host tokens",
+          "description": "List of host credentials. For example, \"github.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
           "items": {
             "type": "object",
             "properties": {
@@ -41,7 +41,7 @@
               },
               "username": {
                 "type": "string",
-                "description": "The username to access GitHub"
+                "description": "The username to access GitHub (optional)"
               },
               "token": {
                 "type": "string",
