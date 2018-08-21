@@ -335,7 +335,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return oldComments.some(oldComment => {
 				const matchingComment = newComments.filter(newComment => newComment.commentId === oldComment.commentId);
 				if (matchingComment.length !== 1) {
-					return true;
+					return true; 
 				}
 
 				if (matchingComment[0].body.value !== oldComment.body.value) {

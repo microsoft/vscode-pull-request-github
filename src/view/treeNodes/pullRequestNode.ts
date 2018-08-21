@@ -6,11 +6,11 @@
 import * as vscode from 'vscode';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
-import { SlimFileChange, getFileContent } from '../../common/file';
+import { SlimFileChange, getFileContent, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../common/repository';
 import { Resource } from '../../common/resources';
-import { fromPRUri, toInMemUri } from '../../common/uri';
+import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
@@ -160,8 +160,8 @@ export class PRNode extends TreeNode {
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toInMemUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, false),
-					toInMemUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, true),
+					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, false),
+					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, true),
 					change.isPartial,
 					change.patch,
 					change.diffHunks,
@@ -172,11 +172,13 @@ export class PRNode extends TreeNode {
 			});
 
 			this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(this.pullRequestModel.prNumber, async (uri: vscode.Uri) => {
-				let params = JSON.parse(uri.query);
+				let params = fromPRUri(uri);
 				let fileChanges = this._contentChanges.filter(contentChange => (contentChange instanceof InMemFileChangeNode) && contentChange.fileName === params.fileName);
 				if (fileChanges.length) {
 					let fileChange = fileChanges[0] as InMemFileChangeNode;
-					if (fileChange.isPartial) {
+					let readContentFromDiffHunk = fileChange.isPartial || fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
+
+					if (readContentFromDiffHunk) {
 						if (params.base) {
 							// left
 							let left = [];
