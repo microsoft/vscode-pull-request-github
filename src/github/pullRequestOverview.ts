@@ -110,6 +110,7 @@ export class PullRequestOverviewPanel {
 				number: pullRequestModel.prNumber,
 				title: pullRequestModel.title,
 				url: pullRequestModel.html_url,
+				createdAt: pullRequestModel.createdAt,
 				body: pullRequestModel.body,
 				author: pullRequestModel.author,
 				state: pullRequestModel.state,
