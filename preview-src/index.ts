@@ -5,6 +5,7 @@
 import './index.css';
 import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
+import * as moment from 'moment';
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -90,6 +91,7 @@ function setTitleHTML(pr: any) {
 					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
 					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
 					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
+					<div class="created-at">${moment(pr.createdAt).fromNow()}</div>
 				</div>
 				<div class="comment-body">${md.render(pr.body)}</div>
 			</div>

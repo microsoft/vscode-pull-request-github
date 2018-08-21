@@ -197,6 +197,10 @@ body button.checkedOut svg {
 	margin-right: 8px;
 }
 
+.subtitle .created-at {
+	margin-left: auto;
+}
+
 body .overview-title button {
 	margin-left: 10px;
 	display: flex;
