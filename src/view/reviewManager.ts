@@ -17,7 +17,7 @@ import { Repository } from '../common/repository';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
-import { GitFileChangeNode, RemoteFileChangeNode, fileChangeNodeFilter } from './treeNodes/fileChangeNode';
+import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { IConfiguration } from '../authentication/configuration';
@@ -202,7 +202,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			fileName = fromPRUri(uri).fileName;
 		}
 
-		const matchedFiles = fileChangeNodeFilter(this._localFileChanges).filter(fileChange => {
+		const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => {
 			if (uri.scheme === 'review' || uri.scheme === 'pr') {
 				return fileChange.fileName === fileName;
 			} else {
@@ -328,8 +328,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		let removed: vscode.CommentThread[] = [];
 		let changed: vscode.CommentThread[] = [];
 
-		const oldCommentThreads = this.commentsToCommentThreads(this._comments);
-		const newCommentThreads = this.commentsToCommentThreads(comments);
+		const oldCommentThreads = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
+		const newCommentThreads = this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded);
 
 		oldCommentThreads.forEach(thread => {
 			// No current threads match old thread, it has been removed
@@ -343,7 +343,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return oldComments.some(oldComment => {
 				const matchingComment = newComments.filter(newComment => newComment.commentId === oldComment.commentId);
 				if (matchingComment.length !== 1) {
-					return true; 
+					return true;
 				}
 
 				if (matchingComment[0].body.value !== oldComment.body.value) {
@@ -460,59 +460,104 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	}
 
-	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState = vscode.CommentThreadCollapsibleState.Expanded): vscode.CommentThread[] {
-		if (!comments || !comments.length) {
+	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
+		if (!fileComments || !fileComments.length) {
 			return [];
 		}
 
-		let fileCommentGroups = groupBy(comments, comment => comment.path);
 		let ret: vscode.CommentThread[] = [];
+		let sections = groupBy(fileComments, comment => String(comment.position));
 
-		for (let file in fileCommentGroups) {
-			let fileComments = fileCommentGroups[file];
-			let sections = groupBy(fileComments, comment => String(comment.position));
+		for (let i in sections) {
+			let comments = sections[i];
 
-			for (let i in sections) {
-				let comments = sections[i];
+			const comment = comments[0];
+			let diffLine = getDiffLineByPosition(comment.diff_hunks, comment.original_position);
 
-				const comment = comments[0];
-				let diffLine = getDiffLineByPosition(comment.diff_hunks, comment.original_position);
-
-				if (diffLine) {
-					comment.absolutePosition = diffLine.newLineNumber;
-				}
-
-				const pos = new vscode.Position(getZeroBased(comment.absolutePosition), 0);
-				const range = new vscode.Range(pos, pos);
-
-				ret.push({
-					threadId: comment.id,
-					resource: fileChange.filePath,
-					range,
-					comments: comments.map(comment => {
-						return {
-							commentId: comment.id,
-							body: new vscode.MarkdownString(comment.body),
-							userName: comment.user.login,
-							gravatar: comment.user.avatar_url,
-							command: {
-								title: 'View Changes',
-								command: 'pr.viewChanges',
-								arguments: [
-									fileChange
-								]
-							}
-						};
-					}),
-					collapsibleState: collapsibleState
-				});
+			if (diffLine) {
+				comment.absolutePosition = diffLine.newLineNumber;
 			}
 
+			const pos = new vscode.Position(getZeroBased(comment.absolutePosition), 0);
+			const range = new vscode.Range(pos, pos);
+
+			ret.push({
+				threadId: comment.id,
+				resource: fileChange.filePath,
+				range,
+				comments: comments.map(comment => {
+					return {
+						commentId: comment.id,
+						body: new vscode.MarkdownString(comment.body),
+						userName: comment.user.login,
+						gravatar: comment.user.avatar_url,
+						command: {
+							title: 'View Changes',
+							command: 'pr.viewChanges',
+							arguments: [
+								fileChange
+							]
+						}
+					};
+				}),
+				collapsibleState: collapsibleState
+			});
 		}
+
 		return ret;
 	}
 
-	private commentsToCommentThreads(comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState = vscode.CommentThreadCollapsibleState.Expanded): vscode.CommentThread[] {
+	private fileCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
+		if (!fileChange) {
+			return [];
+		}
+
+		if (!fileComments || !fileComments.length) {
+			return [];
+		}
+
+		let ret: vscode.CommentThread[] = [];
+		let sections = groupBy(fileComments, comment => String(comment.position));
+
+		let command: vscode.Command = null;
+		if (fileChange.status === GitChangeType.DELETE) {
+			command = {
+				title: 'View Changes',
+				command: 'pr.viewChanges',
+				arguments: [
+					fileChange
+				]
+			}
+		}
+
+		for (let i in sections) {
+			let comments = sections[i];
+
+			const comment = comments[0];
+			const pos = new vscode.Position(getZeroBased(comment.absolutePosition), 0);
+			const range = new vscode.Range(pos, pos);
+
+			ret.push({
+				threadId: comment.id,
+				resource: vscode.Uri.file(path.resolve(this._repository.path, comment.path)),
+				range,
+				comments: comments.map(comment => {
+					return {
+						commentId: comment.id,
+						body: new vscode.MarkdownString(comment.body),
+						userName: comment.user.login,
+						gravatar: comment.user.avatar_url,
+						command: command
+					};
+				}),
+				collapsibleState: collapsibleState
+			});
+		}
+
+		return ret;
+	}
+
+	private allCommentsToCommentThreads(comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
 		if (!comments || !comments.length) {
 			return [];
 		}
@@ -522,31 +567,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		for (let file in fileCommentGroups) {
 			let fileComments = fileCommentGroups[file];
-			let sections = groupBy(fileComments, comment => String(comment.position));
 
-			for (let i in sections) {
-				let comments = sections[i];
+			let matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === file);
 
-				const comment = comments[0];
-				const pos = new vscode.Position(getZeroBased(comment.absolutePosition), 0);
-				const range = new vscode.Range(pos, pos);
-
-				ret.push({
-					threadId: comment.id,
-					resource: vscode.Uri.file(path.resolve(this._repository.path, comment.path)),
-					range,
-					comments: comments.map(comment => {
-						return {
-							commentId: comment.id,
-							body: new vscode.MarkdownString(comment.body),
-							userName: comment.user.login,
-							gravatar: comment.user.avatar_url
-						};
-					}),
-					collapsibleState: collapsibleState
-				});
+			if (matchedFiles && matchedFiles.length) {
+				return this.fileCommentsToCommentThreads(matchedFiles[0], fileComments, collapsibleState);
+			} else {
+				return [];
 			}
-
 		}
 		return ret;
 	}
@@ -591,9 +619,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 					// local file, we only provide active comments
 					// TODO. for comments in deleted ranges, they should show on top of the first line.
 					const fileName = document.uri.fsPath;
-					const matchedFiles = fileChangeNodeFilter(this._localFileChanges).filter(fileChange => path.resolve(this._repository.path, fileChange.fileName) === fileName);
+					const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => path.resolve(this._repository.path, fileChange.fileName) === fileName);
+					let matchedFile: GitFileChangeNode;
 					if (matchedFiles && matchedFiles.length) {
-						const matchedFile: GitFileChangeNode = matchedFiles[0];
+						matchedFile = matchedFiles[0];
 
 						let contentDiff: string;
 						if (document.isDirty) {
@@ -624,7 +653,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					}
 
 					return {
-						threads: this.commentsToCommentThreads(matchingComments, vscode.CommentThreadCollapsibleState.Collapsed),
+						threads: this.fileCommentsToCommentThreads(matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed),
 						commentingRanges: ranges,
 					};
 				}
@@ -642,7 +671,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					if (matchedFile) {
 						let matchingComments = matchedFile.comments;
-						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase)});
+						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase) });
 
 						let diffHunks = matchedFile.diffHunks;
 
@@ -664,7 +693,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 
 						return {
-							threads: this.commentsToCommentThreads(matchingComments.filter(comment => comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded),
+							threads: this.fileCommentsToCommentThreads(matchedFile, matchingComments.filter(comment => comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded),
 							commentingRanges: ranges,
 						};
 					}
@@ -736,11 +765,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._workspaceCommentProvider = vscode.workspace.registerWorkspaceCommentProvider({
 			onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
 			provideWorkspaceComments: async (token: vscode.CancellationToken) => {
-				const comments = await Promise.all(fileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
-					return this.commentsToCommentThreads(fileChange.comments);
+				const comments = await Promise.all(gitFileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
+					return this.fileCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
 				}));
-				const outdatedComments = fileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
-					return this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments);
+				const outdatedComments = gitFileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
+					return this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
 				});
 				return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
 			},
@@ -856,7 +885,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
 		let { path, commit } = fromReviewUri(uri);
-		let changedItems = fileChangeNodeFilter(this._localFileChanges)
+		let changedItems = gitFileChangeNodeFilter(this._localFileChanges)
 			.filter(change => change.fileName === path)
 			.filter(fileChange => fileChange.sha === commit || (fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit);
 
@@ -867,7 +896,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return ret.reduce((prev, curr) => prev.concat(...curr), []).join('\n');
 		}
 
-		changedItems = fileChangeNodeFilter(this._obsoleteFileChanges)
+		changedItems = gitFileChangeNodeFilter(this._obsoleteFileChanges)
 			.filter(change => change.fileName === path)
 			.filter(fileChange => fileChange.sha === commit || (fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit);
 

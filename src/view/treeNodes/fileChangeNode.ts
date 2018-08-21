@@ -195,6 +195,6 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 }
 
-export function fileChangeNodeFilter(nodes: (GitFileChangeNode | RemoteFileChangeNode)[]): GitFileChangeNode[] {
+export function gitFileChangeNodeFilter(nodes: (GitFileChangeNode | RemoteFileChangeNode)[]): GitFileChangeNode[] {
 	return nodes.filter(node => node instanceof GitFileChangeNode) as GitFileChangeNode[];
 }

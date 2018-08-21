@@ -13,6 +13,7 @@ import { PRNode } from './view/treeNodes/pullRequestNode';
 import { IPullRequestManager, IPullRequestModel, IPullRequest } from './github/interface';
 import { Comment } from './common/comment';
 import { formatError } from './common/utils';
+import { GitChangeType } from './common/file';
 
 const _onDidClosePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidClosePR: vscode.Event<IPullRequest> = _onDidClosePR.event;
@@ -124,6 +125,17 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
+		if (fileChange.status === GitChangeType.DELETE) {
+			// create an empty `review` uri without any path/commit info.
+			const emptyFileUri = fileChange.parentFilePath.with({
+				query: JSON.stringify({
+					path: null,
+					commit: null,
+				})
+			});
+			return vscode.commands.executeCommand('vscode.diff', fileChange.parentFilePath, emptyFileUri, `${fileChange.fileName}`, { preserveFocus: true });
+		}
+
 		// Show the file change in a diff view.
 		let { path, ref, commit } = fromReviewUri(fileChange.filePath);
 		let previousCommit = `${commit}^`;
