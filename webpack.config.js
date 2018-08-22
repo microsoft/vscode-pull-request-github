@@ -68,6 +68,9 @@ const extension = {
 	},
 	externals: {
 		'vscode': 'commonjs vscode',
+		'utf-8-validate': 'utf-8-validate',
+		'bufferutil': 'bufferutil',
+		'encoding': 'encoding'
 	},
 };
 
