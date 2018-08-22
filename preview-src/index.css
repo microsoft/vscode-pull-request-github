@@ -155,6 +155,11 @@ body button.checkedOut {
 	background-color: transparent;
 }
 
+body button.secondary,
+body button.secondary:hover {
+	-webkit-filter: grayscale(100%);
+}
+
 body button svg {
 	fill: var(--vscode-button-foreground);
 	margin-right: 6px;
