@@ -29,14 +29,13 @@ export class PullRequestOverviewPanel {
 
 	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel) {
 		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
-		const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
 		if (PullRequestOverviewPanel.currentPanel) {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(column, true);
-			PullRequestOverviewPanel.currentPanel._panel.title = title;
 		} else {
+			const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, column || vscode.ViewColumn.One, title, pullRequestManager);
 		}
 
@@ -97,31 +96,36 @@ export class PullRequestOverviewPanel {
 	}
 
 	public async update(pullRequestModel: IPullRequestModel) {
-		this._pullRequest = pullRequestModel;
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
-		const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
-		const timelineEvents = await this._pullRequestManager.getTimelineEvents(pullRequestModel);
-		const reviewComments = await this._pullRequestManager.getPullRequestComments(pullRequestModel);
-		const defaultBranch = await this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel);
-		this.fixCommentThreads(timelineEvents, reviewComments);
-		this._panel.webview.postMessage({
-			command: 'pr.initialize',
-			pullrequest: {
-				number: pullRequestModel.prNumber,
-				title: pullRequestModel.title,
-				url: pullRequestModel.html_url,
-				createdAt: pullRequestModel.createdAt,
-				body: pullRequestModel.body,
-				author: pullRequestModel.author,
-				state: pullRequestModel.state,
-				events: timelineEvents,
-				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-				base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
-				head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
-				commitsCount: pullRequestModel.commitCount,
-				repositoryDefaultBranch: defaultBranch
-			}
-		});
+
+		if (!pullRequestModel.equals(this._pullRequest)) {
+			this._pullRequest = pullRequestModel;
+			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
+
+			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
+			const timelineEvents = await this._pullRequestManager.getTimelineEvents(pullRequestModel);
+			const reviewComments = await this._pullRequestManager.getPullRequestComments(pullRequestModel);
+			const defaultBranch = await this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel);
+			this.fixCommentThreads(timelineEvents, reviewComments);
+			this._panel.webview.postMessage({
+				command: 'pr.initialize',
+				pullrequest: {
+					number: pullRequestModel.prNumber,
+					title: pullRequestModel.title,
+					url: pullRequestModel.html_url,
+					createdAt: pullRequestModel.createdAt,
+					body: pullRequestModel.body,
+					author: pullRequestModel.author,
+					state: pullRequestModel.state,
+					events: timelineEvents,
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+					base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
+					head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
+					commitsCount: pullRequestModel.commitCount,
+					repositoryDefaultBranch: defaultBranch
+				}
+			});
+		}
 	}
 
 	/**

@@ -22,11 +22,19 @@ const ElementIds = {
 	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
 }
 
+window.onload = () => {
+	const previousState = vscode.getState();
+	if (previousState) {
+		renderPullRequest(previousState.pullRequest);
+	}
+}
+
 function handleMessage(event: any) {
 	const message = event.data; // The json data that the extension sent
 	switch (message.command) {
 		case 'pr.initialize':
 			renderPullRequest(message.pullrequest);
+			vscode.setState({ pullRequest: message.pullrequest });
 			break;
 		case 'update-state':
 			updatePullRequestState(message.state);
