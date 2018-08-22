@@ -37,7 +37,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _updateCurrentBranch: boolean = false;
 	private _validateStatusInProgress: boolean = false;
 
-	private _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
+	private _onDidChangeDocumentCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
+	private _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
 	private _prsTreeDataProvider: PullRequestsTreeDataProvider;
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
@@ -248,7 +249,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			matchedFile.comments.push(comment);
 			this._comments.push(comment);
 
-			this._onDidChangeCommentThreads.fire({
+			this._onDidChangeWorkspaceCommentThreads.fire({
 				added: [],
 				changed: [thread],
 				removed: []
@@ -295,7 +296,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			matchedFile.comments.push(rawComment);
 			this._comments.push(rawComment);
 
-			this._onDidChangeCommentThreads.fire({
+			this._onDidChangeWorkspaceCommentThreads.fire({
 				added: [commentThread],
 				changed: [],
 				removed: []
@@ -387,7 +388,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 
 		if (added.length || removed.length || changed.length) {
-			this._onDidChangeCommentThreads.fire({
+			this._onDidChangeDocumentCommentThreads.fire({
+				added: added,
+				removed: removed,
+				changed: changed
+			});
+
+			this._onDidChangeWorkspaceCommentThreads.fire({
 				added: added,
 				removed: removed,
 				changed: changed
@@ -623,7 +630,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private registerCommentProvider() {
 		this._documentCommentProvider = vscode.workspace.registerDocumentCommentProvider({
-			onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
+			onDidChangeCommentThreads: this._onDidChangeDocumentCommentThreads.event,
 			provideDocumentComments: async (document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo> => {
 				let ranges: vscode.Range[] = [];
 				let matchingComments: Comment[];
@@ -776,7 +783,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 
 		this._workspaceCommentProvider = vscode.workspace.registerWorkspaceCommentProvider({
-			onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
+			onDidChangeCommentThreads: this._onDidChangeWorkspaceCommentThreads.event,
 			provideWorkspaceComments: async (token: vscode.CancellationToken) => {
 				const comments = await Promise.all(gitFileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
 					return this.fileCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
