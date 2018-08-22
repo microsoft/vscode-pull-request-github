@@ -211,22 +211,22 @@
       "view/item/context": [
         {
           "command": "pr.pick",
-          "when": "view == pr && viewItem =~ /pullrequest(:local)?:nonactive/",
+          "when": "view == pr && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "pr.refreshPullRequest",
-          "when": "view == pr && viewItem =~ /pullrequest/",
+          "when": "view == pr && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "view == pr && viewItem =~ /pullrequest/",
+          "when": "view == pr && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
         {
           "command": "pr.close",
-          "when": "view == pr && viewItem =~ /pullrequest/",
+          "when": "view == pr && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@4"
         },
         {
