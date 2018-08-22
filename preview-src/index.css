@@ -435,7 +435,7 @@ blockquote p:last-child {
 	border-top: 1px solid;
 }
 
-.comment-body code {
+code {
 	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
 }
 
