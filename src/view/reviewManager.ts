@@ -608,7 +608,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			if (matchingComments && matchingComments.length) {
 				return {
 					bubble: true,
-					abbreviation: '♪♪',
+					// abbreviation: '♪♪',
 					title: '♪♪'
 				};
 			}
@@ -618,9 +618,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName && comment.position !== null);
 			if (matchingComments && matchingComments.length) {
 				return {
-					bubble: true,
-					abbreviation: '♪♪',
-					title: '♪♪'
+					bubble: false,
+					title: '♪♪',
+					letter: '♪♪'
 				};
 			}
 		}
