@@ -5,7 +5,7 @@
  vscode-pull-request-github
 </h1>
 
-<h4 align="center">Managing your GitHub Pull Requests directly in VS Code.</h4>
+<h4 align="center">Review and manage your GitHub Pull Requests directly in VS Code</h4>
 
 <p align="center">
 
@@ -13,16 +13,18 @@
 
 </p>
 
-This extension allows users to manage GitHub pull requests in VS Code. The support includes
-- Authentication to GitHub
-- Listing of PRs
-- Reviewing PRs
-- Validating PRs
+This extension allows you to review and manage GitHub Pull Requests in Visual Studio Code. The support includes:
+- Authenticate and connect VS Code to GitHub
+- List and browse Pull Requests from within VS Code
+- Review PRs from within VS Code with in-editor commenting.
+- Validating PRs from within VS Code with easy checkouts.
 
-![Demo](https://github.com/Microsoft/vscode-pull-request-github/blob/master/documentation/images/demo.gif?raw=true)
+![Overview](https://github.com/Microsoft/vscode-pull-request-github/blob/master/documentation/.readme/overview.png?raw=true)
 
-## Getting started
-1. Install latest VS Code Insiders
+# How to get started?
+It's easy to get started with Pull Requests for GitHub in VS Code. Simply follow these steps to get started.
+
+1. Install latest VS Code Insiders from [https://code.visualstudio.com/insiders](https://code.visualstudio.com/insiders)
 1. Grab the latest VSIX from https://github.com/Microsoft/vscode-pull-request-github/releases/
 1. Install the VSIX by running `Extensions: Install from VSIX` from your command palette.
 1. Reload VS Code after the installation (click the reload button next to the extension)
@@ -31,16 +33,22 @@ This extension allows users to manage GitHub pull requests in VS Code. The suppo
 1. A notification should appear asking you to sign in GitHub, follow the directions to authenticate
 1. You should be good to go!
 
-## Developing from source
-* Clone the repository
-* Run `npm install`
-* Compile in the background
-  * Run `npm run compile`
-  * Run `npm run build-preview`
-  * Or you can directly start these two tasks by Command Palette -> Run Build Task
-* F5, launch the extension in latest VSCode Insiders.
+# Extension
+This extension is still in development, so please refer to our [issue tracker for known issues](https://github.com/Microsoft/vscode-pull-request-github/issues), and please contribute with additional information if you encounter an issue yourself.
 
-## Contributing
+### How to run from source?
+If you want explore the source code of this extension yourself, it's easy to get started. Simply follow these steps:
+
+1. Clone the repository
+2. Run `npm install`
+3. Compile in the background
+    - Run `npm run compile`
+    - Run `npm run build-preview`
+    - Or you can directly start these two tasks by Command Palette -> Run Build Task
+4. F5, launch the extension in latest VS Code Insiders.
+
+
+### Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
