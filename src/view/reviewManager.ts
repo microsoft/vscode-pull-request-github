@@ -602,27 +602,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
 	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
 	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
-		if (uri.scheme === 'review') {
-			let query = JSON.parse(uri.query);
-			let matchingComments = this._comments.filter(comment => comment.path === query.path && comment.position !== null);
-			if (matchingComments && matchingComments.length) {
-				return {
-					bubble: true,
-					// abbreviation: '♪♪',
-					title: '♪♪'
-				};
-			}
-		} else if (uri.scheme === 'file') {
-			// local file
-			let fileName = uri.path;
-			let matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName && comment.position !== null);
-			if (matchingComments && matchingComments.length) {
-				return {
-					bubble: false,
-					title: '♪♪',
-					letter: '♪♪'
-				};
-			}
+		let fileName = uri.path;
+		let matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName && comment.position !== null);
+		if (matchingComments && matchingComments.length) {
+			return {
+				bubble: false,
+				title: '♪♪',
+				letter: '♪♪'
+			};
 		}
 
 		return {};
