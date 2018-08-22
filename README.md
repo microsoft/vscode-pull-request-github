@@ -41,11 +41,10 @@ This extension is still in development, so please refer to our [issue tracker fo
 If you want explore the source code of this extension yourself, it's easy to get started. Simply follow these steps:
 
 1. Clone the repository
-2. Run `npm install`
+2. Run `yarn`
 3. Compile in the background
-    - Run `npm run compile`
-    - Run `npm run build-preview`
-    - Or you can directly start these two tasks by Command Palette -> Run Build Task
+    - Run `npm run watch`
+    - Or you can directly start this task by Command Palette -> Run Build Task
 4. F5, launch the extension in latest VS Code Insiders.
 
 
