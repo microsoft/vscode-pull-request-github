@@ -58,7 +58,20 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
 		this._disposables.push(vscode.commands.registerCommand('review.openFile', (uri: vscode.Uri) => {
 			let params = JSON.parse(uri.query);
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.resolve(this._repository.path, params.path)), {});
+
+			const activeTextEditor = vscode.window.activeTextEditor;
+			const opts: vscode.TextDocumentShowOptions = {
+				preserveFocus: false,
+				viewColumn: vscode.ViewColumn.Active
+			};
+
+			// Check if active text editor has same path as other editor. we cannot compare via
+			// URI.toString() here because the schemas can be different. Instead we just go by path.
+			if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
+				opts.selection = activeTextEditor.selection;
+			}
+
+			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.resolve(this._repository.path, params.path)), opts);
 		}));
 		this._disposables.push(_repository.onDidRunGitStatus(e => {
 			// todo, validate state only when state changes.
