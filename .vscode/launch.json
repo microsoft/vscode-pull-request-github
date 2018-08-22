@@ -13,10 +13,7 @@
 			"sourceMaps": true,
 			"outFiles": [
 				"${workspaceFolder}/media/*.js"
-			],
-			"sourceMapPathOverrides": {
-				"webpack:///./*": "${workspaceRoot}/*"
-			}
+			]
 		},
 		{
 			"name": "Extension Tests",

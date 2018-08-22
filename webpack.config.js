@@ -53,7 +53,8 @@ module.exports = [{
 	output: {
 		filename: '[name].js',
 		path: path.resolve(__dirname, 'media'),
-		libraryTarget: "commonjs"
+		libraryTarget: "commonjs",
+		devtoolModuleFilenameTemplate: 'file:///[absolute-resource-path]'
 	},
 	externals: {
 		'vscode': 'commonjs vscode',
