@@ -335,3 +335,4 @@ node_modules
 media
 .DS_Store
 *.vsix
+package-lock.json
