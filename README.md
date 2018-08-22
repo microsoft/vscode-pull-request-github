@@ -19,7 +19,7 @@ This extension allows you to review and manage GitHub Pull Requests in Visual St
 - Review PRs from within VS Code with in-editor commenting.
 - Validating PRs from within VS Code with easy checkouts.
 
-![Overview](https://github.com/Microsoft/vscode-pull-request-github/blob/master/documentation/.readme/overview.png?raw=true)
+![Overview](https://github.com/Microsoft/vscode-pull-request-github/blob/master/.readme/overview.png?raw=true)
 
 # How to get started?
 It's easy to get started with Pull Requests for GitHub in VS Code. Simply follow these steps to get started.
