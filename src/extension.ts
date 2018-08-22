@@ -21,8 +21,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	Resource.initialize(context);
 
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
-	const api = gitExtension.getAPI('^1.0.0');
-	setGitPath(api.gitPath);
+	const api = gitExtension.getAPI(1);
+	setGitPath(api.git.path);
 
 	Logger.appendLine('Looking for git repository');
 
