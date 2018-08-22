@@ -284,5 +284,8 @@
     "tmp": "^0.0.31",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"
+  },
+  "optionalDependencies": {
+    "spawn-sync": "^2.0.0"
   }
 }
