@@ -16,7 +16,7 @@ import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
 import { GitFileChangeNode, RemoteFileChangeNode, InMemFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
-import { getInMemPRContentProvider } from '../inmemPRContentProvider';
+import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,

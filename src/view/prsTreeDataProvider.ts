@@ -10,7 +10,7 @@ import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
-import { getInMemPRContentProvider } from './inmemPRContentProvider';
+import { getInMemPRContentProvider } from './inMemPRContentProvider';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
