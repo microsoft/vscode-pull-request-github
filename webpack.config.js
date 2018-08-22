@@ -2,9 +2,15 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-const path = require('path');
 
-module.exports = [{
+//@ts-check
+
+const path = require('path');
+const webpack = require('webpack');
+
+/** @type webpack.Configuration */
+const webview = {
+	name: 'webiew',
 	entry: {
 		index: './preview-src/index.ts'
 	},
@@ -29,7 +35,11 @@ module.exports = [{
 		filename: '[name].js',
 		path: path.resolve(__dirname, 'media')
 	}
-}, {
+};
+
+/** @type webpack.Configuration */
+const extension = {
+	name: 'extension',
 	target: 'node',
 	entry: {
 		extension: './src/extension.ts'
@@ -59,4 +69,6 @@ module.exports = [{
 	externals: {
 		'vscode': 'commonjs vscode',
 	},
-}];
+};
+
+module.exports = [webview, extension];
