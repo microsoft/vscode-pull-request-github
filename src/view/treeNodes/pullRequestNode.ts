@@ -8,7 +8,7 @@ import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../..
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
 import { SlimFileChange, getFileContent, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
-import { Repository } from '../../common/repository';
+import { Repository } from '../../typings/git';
 import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';

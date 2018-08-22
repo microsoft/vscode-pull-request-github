@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Protocol } from './protocol';
+import { Repository } from '../typings/git';
 
 export class Remote {
 	public get host(): string {
@@ -43,4 +44,20 @@ export class Remote {
 
 		return true;
 	}
+}
+
+function parseRemote(remoteName: string, url: string): Remote | null {
+	let gitProtocol = new Protocol(url);
+
+	if (gitProtocol.host) {
+		return new Remote(remoteName, url, gitProtocol);
+	}
+
+	return null;
+}
+
+export function parseRepositoryRemotes(repository: Repository): Remote[] {
+	return repository.remotes
+		.map(r => parseRemote(r.name, r.fetchUrl || r.pushUrl))
+		.filter(r => !!r);
 }

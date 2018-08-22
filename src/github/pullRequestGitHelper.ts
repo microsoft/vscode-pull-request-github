@@ -9,10 +9,10 @@
 
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { Remote } from '../common/remote';
-import { Repository } from '../common/repository';
+import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { IPullRequestModel } from './interface';
 import { GitHubRepository } from './githubRepository';
+import { Repository } from '../typings/git';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -98,7 +98,7 @@ export class PullRequestGitHelper {
 
 			if (branchInfos && branchInfos.length) {
 				let remoteName = await repository.getConfig(`branch.${branchInfos[0].branch}.remote`);
-				let headRemote = repository.remotes.filter(remote => remote.remoteName === remoteName);
+				let headRemote = parseRepositoryRemotes(repository).filter(remote => remote.remoteName === remoteName);
 				if (headRemote && headRemote.length) {
 					return {
 						remote: headRemote[0],
@@ -155,7 +155,7 @@ export class PullRequestGitHelper {
 	static async createRemote(repository: Repository, cloneUrl: Protocol) {
 		Logger.appendLine(`GitHelper> create remote for ${cloneUrl}.`)
 
-		let remotes = repository.remotes;
+		let remotes = parseRepositoryRemotes(repository);
 		for (let remote of remotes) {
 			if (new Protocol(remote.url).equals(cloneUrl)) {
 				return remote.remoteName;
@@ -199,8 +199,9 @@ export class PullRequestGitHelper {
 	static getUniqueRemoteName(repository: Repository, name: string) {
 		let uniqueName = name;
 		let number = 1;
+		const remotes = parseRepositoryRemotes(repository);
 
-		while (repository.remotes.find(e => e.remoteName === uniqueName)) {
+		while (remotes.find(e => e.remoteName === uniqueName)) {
 			uniqueName = name + number++;
 		}
 

@@ -13,7 +13,7 @@ import { Comment } from '../common/comment';
 import { GitChangeType, SlimFileChange } from '../common/file';
 import { GitErrorCodes } from '../common/gitError';
 import { IPullRequestModel, IPullRequestManager } from '../github/interface';
-import { Repository } from '../common/repository';
+import { Repository } from '../typings/git';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';

@@ -8,9 +8,8 @@
  */
 
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
-import { Repository } from './repository';
+import { Repository } from '../typings/git';
 import { Comment } from './comment';
-
 
 export enum DiffChangeType {
 	Context,

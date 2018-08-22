@@ -5,7 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { Repository } from '../common/repository';
+import { Repository } from '../typings/git';
 import { fromReviewUri } from '../common/uri';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {

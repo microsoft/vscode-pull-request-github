@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { IConfiguration } from '../authentication/configuration';
-import { Repository } from '../common/repository';
+import { Repository } from '../typings/git';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType } from '../github/interface';

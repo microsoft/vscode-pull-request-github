@@ -6,8 +6,7 @@
 import * as vscode from 'vscode';
 import { CredentialStore } from "./credentials";
 import { Comment } from "../common/comment";
-import { Remote } from "../common/remote";
-import { Repository } from "../common/repository";
+import { Remote, parseRepositoryRemotes } from "../common/remote";
 import { TimelineEvent, EventType } from "../common/timelineEvent";
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from "./githubRepository";
 import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent } from "./interface";
@@ -17,6 +16,7 @@ import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy } from '../common/utils';
+import { Repository } from '../typings/git';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -53,7 +53,8 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
-		const potentialRemotes = this._repository.remotes.filter(remote => remote.host);
+		const remotes = parseRepositoryRemotes(this._repository);
+		const potentialRemotes = remotes.filter(remote => remote.host);
 		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]));
 		gitHubRemotes = uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().toString());
@@ -217,7 +218,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
-		const {remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const reviewData = await octokit.pullRequests.getComments({
 			owner: remote.owner,
@@ -231,7 +232,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]> {
 		try {
-			const {remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const commitData = await octokit.pullRequests.getCommits({
 				number: pullRequest.prNumber,
 				owner: remote.owner,
