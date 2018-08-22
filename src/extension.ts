@@ -14,18 +14,19 @@ import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
 import { setGitPath } from './common/git';
 import { formatError } from './common/utils';
+import { GitExtension } from './typings/git';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// initialize resources
 	Resource.initialize(context);
 
-	const rootPath = vscode.workspace.rootPath;
-	let gitExt = vscode.extensions.getExtension('vscode.git');
-	let importedGitApi = gitExt.exports;
-	let gitPath = await importedGitApi.getGitPath();
-	setGitPath(gitPath);
+	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
+	const api = gitExtension.getAPI('^1.0.0');
+	setGitPath(api.gitPath);
 
 	Logger.appendLine('Looking for git repository');
+
+	const rootPath = vscode.workspace.rootPath;
 	const repository = new Repository(rootPath);
 	let repositoryInitialized = false;
 	let prManager: PullRequestManager;
