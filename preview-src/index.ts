@@ -244,9 +244,9 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 function setTextArea() {
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
-			<button id="${ElementIds.Close}">Close Pull Request</button>
-			<button id="${ElementIds.RequestChanges}" disabled="true">Request Changes</button>
-			<button id="${ElementIds.Approve}">Approve</button>
+			<button id="${ElementIds.Close}" class="secondary">Close Pull Request</button>
+			<button id="${ElementIds.RequestChanges}" disabled="true" class="secondary">Request Changes</button>
+			<button id="${ElementIds.Approve}" class="secondary">Approve</button>
 			<button class="reply-button" id="${ElementIds.Reply}" disabled="true">Comment</button>
 		</div>`;
 
