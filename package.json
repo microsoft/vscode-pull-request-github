@@ -249,10 +249,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "tsc -p ./ && webpack --mode production",
+    "vscode:prepublish": "webpack --env.production",
     "postinstall": "node ./node_modules/vscode/bin/install",
     "compile": "tsc -p ./",
-    "watch": "webpack --watch --mode development",
+    "watch": "webpack --watch --env.development",
     "test": "node ./node_modules/mocha/bin/_mocha --timeout 1000 --colors ./out/test/**/*.js"
   },
   "devDependencies": {
