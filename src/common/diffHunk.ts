@@ -166,7 +166,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 	}
 }
 
-function parsePatch(patch: string): DiffHunk[] {
+export function parsePatch(patch: string): DiffHunk[] {
 	let diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
 	let diffHunks = [];

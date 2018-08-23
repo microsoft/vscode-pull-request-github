@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseDiff } from '../common/diffHunk';
+import { parseDiff, parsePatch } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri, fromPRUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
@@ -454,7 +454,23 @@ export class ReviewManager implements vscode.DecorationProvider {
 			for (let commit in commitsGroup) {
 				let commentsForCommit = commitsGroup[commit];
 				let commentsForFile = groupBy(commentsForCommit, comment => comment.path);
+
 				for (let fileName in commentsForFile) {
+
+					let diffHunks = [];
+					try {
+						const gitResult = await this._repository.run(['diff', `${pr.base.sha}...${commit}`, '--', fileName]);
+
+						if (gitResult.stderr) {
+							throw new Error(gitResult.stderr);
+						}
+
+						const patch = gitResult.stdout.trim();
+						diffHunks = parsePatch(patch);
+					} catch (e) {
+						Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
+					}
+
 					let oldComments = commentsForFile[fileName];
 					let obsoleteFileChange = new GitFileChangeNode(
 						pr,
@@ -464,7 +480,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: false }),
 						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: true }),
 						false,
-						[], // @todo Peng.,
+						diffHunks,
 						oldComments,
 						commit
 					);
