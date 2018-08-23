@@ -2,7 +2,7 @@
   <br>
     <img src="https://raw.githubusercontent.com/Microsoft/vscode-pull-request-github/master/resources/icons/github_logo.png" alt="logo" width="200">
   <br>
- vscode-pull-request-github
+ GitHub Pull Requests
 </h1>
 
 <h4 align="center">Review and manage your GitHub Pull Requests directly in VS Code</h4>
