@@ -194,7 +194,7 @@ function parsePatch(patch: string): DiffHunk[] {
 }
 
 export function getModifiedContentFromDiffHunk(originalContent, patch) {
-	let left = originalContent.split(/\r|\n|\r\n/);
+	let left = originalContent.split(/\r?\n/);
 	let diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
 	let diffHunks = [];
