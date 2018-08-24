@@ -176,6 +176,10 @@
           "when": "false"
         },
         {
+          "command": "pr.openDiffView",
+          "when": "false"
+        },
+        {
           "command": "pr.openDescription",
           "when": "config.git.enabled && github:inReviewMode"
         },
