@@ -33,7 +33,7 @@ export class PullRequestManager implements IPullRequestManager {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
-	constructor(private _configuration: Configuration, private _repository: Repository) {
+	constructor(private _configuration: Configuration, readonly repository: Repository) {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._configuration);
 		this._githubManager = new GitHubManager();
@@ -53,7 +53,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
-		const remotes = parseRepositoryRemotes(this._repository);
+		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]));
@@ -67,7 +67,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 		let repositories = [];
 		for (let remote of gitHubRemotes) {
-			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
+			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote.remoteName);
 			if (!isRemoteForPR) {
 				repositories.push(new GitHubRepository(remote, this._credentialStore));
 			}
@@ -104,12 +104,12 @@ export class PullRequestManager implements IPullRequestManager {
 			return [];
 		}
 
-		const localBranches = this._repository.state.refs
+		const localBranches = this.repository.state.refs
 			.filter(r => r.type === RefType.Head && r.name)
 			.map(r => r.name);
 
 		const promises = localBranches.map(async localBranchName => {
-			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, localBranchName);
+			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, localBranchName);
 
 			if (matchingPRMetadata) {
 				const { owner, prNumber } = matchingPRMetadata;
@@ -134,22 +134,22 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async deleteLocalPullRequest(pullRequest: PullRequestModel): Promise<void> {
-		const remoteName = await this._repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
+		const remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
 		if (!remoteName) {
 			throw new Error('Unable to find remote for branch');
 		}
 
-		await this._repository.deleteBranch(pullRequest.localBranchName);
+		await this.repository.deleteBranch(pullRequest.localBranchName);
 
 		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
-		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remoteName);
+		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remoteName);
 		if (isPRRemote) {
-			const configs = await this._repository.getConfigs();
+			const configs = await this.repository.getConfigs();
 			const hasOtherAssociatedBranches = configs
 				.some(({ key, value }) => /^branch.*\.remote$/.test(key) && value === remoteName);
 
 			if (!hasOtherAssociatedBranches) {
-				await this._repository.removeRemote(remoteName);
+				await this.repository.removeRemote(remoteName);
 			}
 		}
 	}
@@ -184,7 +184,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 			const githubRepository = githubRepositories[i];
 			const remote = githubRepository.remote.remoteName;
-			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote);
+			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
 			if (!isRemoteForPR) {
 				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
 				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
@@ -418,7 +418,7 @@ export class PullRequestManager implements IPullRequestManager {
 				pullRequest.update(data);
 			}
 
-			pullRequest.mergeBase = await PullRequestGitHelper.getPullRequestMergeBase(this._repository, remote, pullRequest);
+			pullRequest.mergeBase = await PullRequestGitHelper.getPullRequestMergeBase(this.repository, remote, pullRequest);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
@@ -440,25 +440,25 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
-		if (!this._repository || !this._repository.state.HEAD) {
+		if (!this.repository || !this.repository.state.HEAD) {
 			return null;
 		}
 
-		const HEAD = this._repository.state.HEAD;
-		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, HEAD.name);
+		const HEAD = this.repository.state.HEAD;
+		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, HEAD.name);
 		return matchingPullRequestMetadata;
 	}
 
 	async getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel) {
-		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, this._githubRepositories, pullRequest);
+		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this.repository, this._githubRepositories, pullRequest);
 	}
 
 	async checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.checkout(this._repository, remote, branchName, pullRequest);
+		await PullRequestGitHelper.checkout(this.repository, remote, branchName, pullRequest);
 	}
 
 	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.createAndCheckout(this._repository, pullRequest);
+		await PullRequestGitHelper.createAndCheckout(this.repository, pullRequest);
 	}
 
 	//#endregion

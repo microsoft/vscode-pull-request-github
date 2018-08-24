@@ -11,7 +11,6 @@ import { ReviewManager } from './view/reviewManager';
 import { registerCommands } from './commands';
 import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
-import { setGitPath } from './common/git';
 import { formatError, isDescendant, filterEvent, onceEvent } from './common/utils';
 import { GitExtension, Repository } from './typings/git';
 
@@ -48,7 +47,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
 	const api = gitExtension.getAPI(1);
-	setGitPath(api.git.path);
 
 	Logger.appendLine('Looking for git repository');
 

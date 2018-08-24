@@ -8,7 +8,6 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { IPullRequest, IPullRequestManager, IPullRequestModel } from './interface';
 import { onDidClosePR } from '../commands';
-import { exec } from '../common/git';
 import { TimelineEvent, EventType, ReviewEvent } from '../common/timelineEvent';
 import { Comment } from '../common/comment';
 import { groupBy, formatError } from '../common/utils';
@@ -181,7 +180,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private checkoutPullRequest(): void {
-		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {}, () => {
+		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => { }, () => {
 			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 			this._panel.webview.postMessage({
 				command: 'pr.update-checkout-status',
@@ -202,21 +201,12 @@ export class PullRequestOverviewPanel {
 	}
 
 	private async checkoutDefaultBranch(branch: string): Promise<void> {
-		// This should be updated for multi-root support and consume the git extension API if possible
-		const result = await exec(['rev-parse', '--symbolic-full-name', '@{-1}'], {
-			cwd: vscode.workspace.rootPath
-		});
+		const branchObj = await this._pullRequestManager.repository.getBranch('@{-1}');
 
-		if (result) {
-			const branchFullName = result.stdout.trim();
-
-			if (`refs/heads/${branch}` === branchFullName) {
-				await exec(['checkout', branch], {
-					cwd: vscode.workspace.rootPath
-				});
-			} else {
-				await vscode.commands.executeCommand('git.checkout')
-			}
+		if (branch === branchObj.name) {
+			await this._pullRequestManager.repository.checkout(branch);
+		} else {
+			await vscode.commands.executeCommand('git.checkout')
 		}
 	}
 

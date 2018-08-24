@@ -3,6 +3,7 @@ import { GitHubRef } from "../common/githubRef";
 import { Comment } from "../common/comment";
 import { TimelineEvent } from "../common/timelineEvent";
 import { Remote } from "../common/remote";
+import { Repository } from '../typings/git';
 
 export enum PRType {
 	RequestReview = 0,
@@ -135,10 +136,11 @@ export interface IGitHubRepository {
 
 export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
+	readonly repository: Repository;
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
 	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;
-	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<[IPullRequestModel[], boolean]>;
+	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]>;
