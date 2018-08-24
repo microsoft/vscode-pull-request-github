@@ -12,7 +12,7 @@ import { Protocol } from '../common/protocol';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { IPullRequestModel } from './interface';
 import { GitHubRepository } from './githubRepository';
-import { Repository, ConfigScope } from '../typings/git';
+import { Repository } from '../typings/git';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -47,7 +47,7 @@ export class PullRequestGitHelper {
 		}
 
 		let prBranchMetadataKey = `branch.${localBranchName}.${PullRequestMetadataKey}`;
-		await repository.setConfig(ConfigScope.Local, prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		await repository.setConfig(prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 
 	static async checkout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
@@ -86,7 +86,7 @@ export class PullRequestGitHelper {
 			};
 		} else {
 			let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
-			let configs = await repository.getConfigs(ConfigScope.Local);
+			let configs = await repository.getConfigs();
 
 			let branchInfos = configs.map(config => {
 				let matches = PullRequestBranchRegex.exec(config.key);
@@ -97,7 +97,7 @@ export class PullRequestGitHelper {
 			}).filter(c => c.branch && c.value === key);
 
 			if (branchInfos && branchInfos.length) {
-				let remoteName = await repository.getConfig(ConfigScope.Local, `branch.${branchInfos[0].branch}.remote`);
+				let remoteName = await repository.getConfig(`branch.${branchInfos[0].branch}.remote`);
 				let headRemote = parseRepositoryRemotes(repository).filter(remote => remote.remoteName === remoteName);
 				if (headRemote && headRemote.length) {
 					return {
@@ -148,7 +148,7 @@ export class PullRequestGitHelper {
 
 	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata> {
 		let configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-		let configValue = await repository.getConfig(ConfigScope.Local, configKey);
+		let configValue = await repository.getConfig(configKey);
 		return PullRequestGitHelper.parsePullRequestMetadata(configValue);
 	}
 
@@ -164,12 +164,12 @@ export class PullRequestGitHelper {
 
 		let remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
 		await repository.addRemote(remoteName, cloneUrl.normalizeUri().toString());
-		await repository.setConfig(ConfigScope.Local, `remote.${remoteName}.${PullRequestRemoteMetadataKey}`, 'true');
+		await repository.setConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`, 'true');
 		return remoteName;
 	}
 
 	static async isRemoteCreatedForPullRequest(repository: Repository, remoteName: string) {
-		let isForPR = await repository.getConfig(ConfigScope.Local, `remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
+		let isForPR = await repository.getConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
 
 		if (isForPR === 'true') {
 			return true;
@@ -222,7 +222,7 @@ export class PullRequestGitHelper {
 	static async associateBranchWithPullRequest(repository: Repository, pullRequest: IPullRequestModel, branchName: string) {
 		Logger.appendLine(`GitHelper> associate ${branchName} with Pull Request #${pullRequest.prNumber}`)
 		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-		await repository.setConfig(ConfigScope.Local, prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 
 	static async getPullRequestMergeBase(repository: Repository, remote: Remote, pullRequest: IPullRequestModel): Promise<string> {

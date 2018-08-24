@@ -16,7 +16,7 @@ import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy } from '../common/utils';
-import { Repository, ConfigScope, RefType } from '../typings/git';
+import { Repository, RefType } from '../typings/git';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -134,7 +134,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async deleteLocalPullRequest(pullRequest: PullRequestModel): Promise<void> {
-		const remoteName = await this._repository.getConfig(ConfigScope.Local, `branch.${pullRequest.localBranchName}.remote`);
+		const remoteName = await this._repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
 		if (!remoteName) {
 			throw new Error('Unable to find remote for branch');
 		}
@@ -144,7 +144,7 @@ export class PullRequestManager implements IPullRequestManager {
 		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
 		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remoteName);
 		if (isPRRemote) {
-			const configs = await this._repository.getConfigs(ConfigScope.Local);
+			const configs = await this._repository.getConfigs();
 			const hasOtherAssociatedBranches = configs
 				.some(({ key, value }) => /^branch.*\.remote$/.test(key) && value === remoteName);
 
