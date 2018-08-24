@@ -18,6 +18,7 @@ import { RemoteFileChangeNode, InMemFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
+import { getPRDocumentCommentProvider } from '../prDocumentCommentProvider';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
@@ -273,14 +274,13 @@ export class PRNode extends TreeNode {
 				} else {
 					this._fileChanges = fileChanges;
 					this._onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
-					this._documentCommentsProvider = vscode.workspace.registerDocumentCommentProvider({
+					this._documentCommentsProvider = getPRDocumentCommentProvider().registerDocumentCommentProvider(this.pullRequestModel, {
 						onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
 						provideDocumentComments: this.provideDocumentComments.bind(this),
 						createNewCommentThread: this.createNewCommentThread.bind(this),
 						replyToCommentThread: this.replyToCommentThread.bind(this)
 					});
 				}
-
 			}
 
 			let result = [new DescriptionNode('Description', {
