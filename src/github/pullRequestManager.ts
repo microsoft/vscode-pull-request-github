@@ -72,6 +72,11 @@ export class PullRequestManager implements IPullRequestManager {
 			}
 		}
 
+		const repositoriesByAuthority: GitHubRepository[] = uniqBy(repositories, repository => repository.remote.gitProtocol.normalizeUri().authority);
+		repositoriesByAuthority.forEach(repository => {
+			this._credentialStore.createAuthenticationStatusBarItem(repository.remote);
+		});
+
 		this._githubRepositories = repositories;
 
 		for (let repository of this._githubRepositories) {
