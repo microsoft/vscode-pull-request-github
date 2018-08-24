@@ -70,8 +70,9 @@ export class CredentialStore {
 
 		if (octokit) {
 			this._octokits.set(host, octokit);
-			this.updateAuthenticationStatusBar(remote);
 		}
+
+		this.updateAuthenticationStatusBar(remote);
 
 		return this._octokits.has(host);
 	}
@@ -116,8 +117,10 @@ export class CredentialStore {
 
 		if (octokit) {
 			this._octokits.set(host, octokit);
-			this.updateAuthenticationStatusBar(remote);
 		}
+
+		this.updateAuthenticationStatusBar(remote);
+
 		return octokit;
 	}
 
@@ -145,44 +148,42 @@ export class CredentialStore {
 		return octokit;
 	}
 
-	private async getAuthenticationStatusText(remote: Remote): Promise<string> {
+	private async updateStatusBarItem(statusBarItem: vscode.StatusBarItem, remote: Remote): Promise<void> {
 		const octokit = this.getOctokit(remote);
+		let text: string;
+		let command: string;
+
 		if (octokit) {
 			try {
 				const user = await octokit.users.get({});
-				return `Signed in as ${user.data.login}`;
+				text = `Signed in as ${user.data.login}`;
 			} catch (e) {
-				return 'Signed in';
+				text = 'Signed in';
 			}
+
+			command = null;
 		} else {
 			const authority = remote.gitProtocol.normalizeUri().authority;
-			return `Sign in to ${authority}`;
+			text = `Sign in to ${authority}`;
+			command = 'pr.signin';
 		}
+
+		statusBarItem.text = text;
+		statusBarItem.command = command;
 	}
 
 	private async updateAuthenticationStatusBar(remote: Remote): Promise<void> {
 		const authority = remote.gitProtocol.normalizeUri().authority;
 		const statusBarItem = this._authenticationStatusBarItems.get(authority);
 		if (statusBarItem) {
-			statusBarItem.command = null;
-			statusBarItem.text = await this.getAuthenticationStatusText(remote);
+			await this.updateStatusBarItem(statusBarItem, remote);
 		} else {
-			return await this.createAuthenticationStatusBarItem(remote);
+			const newStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+			this._authenticationStatusBarItems.set(authority, newStatusBarItem);
+
+			await this.updateStatusBarItem(newStatusBarItem, remote);
+			newStatusBarItem.show();
 		}
-	}
-
-	public async createAuthenticationStatusBarItem(remote: Remote): Promise<void> {
-		const authority = remote.gitProtocol.normalizeUri().authority;
-		if (this._authenticationStatusBarItems.has(authority)) {
-			return;
-		}
-
-		const newStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-		newStatusBarItem.text = await this.getAuthenticationStatusText(remote);
-		newStatusBarItem.command = 'pr.signin';
-		newStatusBarItem.show();
-
-		this._authenticationStatusBarItems.set(authority, newStatusBarItem);
 	}
 
 }
