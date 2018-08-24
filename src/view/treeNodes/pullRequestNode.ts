@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
-import { SlimFileChange, getFileContent, GitChangeType } from '../../common/file';
+import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
 import { Repository } from '../../typings/git';
 import { Resource } from '../../common/resources';
@@ -218,12 +218,11 @@ export class PRNode extends TreeNode {
 							return right.join('\n');
 						}
 					} else {
-						if (params.base) {
-							let originalContent = await getFileContent(this.repository.rootUri.fsPath, params.commit, fileChange.fileName);
-							return originalContent;
+						let originalContent = await this.repository.show(params.commit, fileChange.fileName);
 
+						if (params.base) {
+							return originalContent;
 						} else {
-							let originalContent = await getFileContent(this.repository.rootUri.fsPath, params.commit, fileChange.fileName);
 							let modifiedContent = getModifiedContentFromDiffHunk(originalContent, fileChange.patch);
 							return modifiedContent;
 						}

@@ -4,26 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DiffHunk } from './diffHunk';
-import { exec } from './git';
-
-
-export async function getFileContent(rootDir: string, commitSha: string, sourceFilePath: string): Promise<string> {
-	const result = await exec([
-		'show',
-		`${commitSha}:` + sourceFilePath.replace(/\\/g, '/')
-	], {
-		cwd: rootDir
-	});
-
-	const out = result.stdout;
-	const error = result.stderr;
-
-	if (result.exitCode === 0) {
-		return out;
-	} else {
-		throw error;
-	}
-}
 
 export enum GitChangeType {
 	ADD,
