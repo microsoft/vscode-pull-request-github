@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Octokit from '@octokit/rest';
-import { fill } from 'git-credential-node';
 import * as vscode from 'vscode';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
 import { GitHubServer } from '../authentication/githubServer';
@@ -56,18 +55,6 @@ export class CredentialStore {
 			}
 		}
 
-		if (!octokit) {
-			// see if the system keychain has something we can use
-			const data = await fill(host);
-			if (data) {
-				const login = await server.validate(data.username, data.password);
-				if (login) {
-					octokit = this.createOctokit('token', login)
-					this._configuration.update(login.username, login.token, false);
-				}
-			}
-		}
-
 		if (octokit) {
 			this._octokits.set(host, octokit);
 		}
@@ -100,7 +87,7 @@ export class CredentialStore {
 				const login = await server.login();
 				if (login) {
 					octokit = this.createOctokit('token', login)
-					this._configuration.update(login.username, login.token, false);
+					await this._configuration.update(login.username, login.token, false);
 					vscode.window.showInformationMessage(`You are now signed in to ${normalizedUri.authority}`);
 				}
 			} catch (e) {

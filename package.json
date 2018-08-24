@@ -261,6 +261,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
+    "@types/keytar": "^4.0.1",
     "@types/lodash": "^4.14.106",
     "@types/mocha": "^5.2.2",
     "@types/node": "*",

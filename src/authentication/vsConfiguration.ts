@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import { Configuration, IHostConfiguration } from './configuration';
+import { keychain } from '../common/keychain';
 
 const SETTINGS_NAMESPACE = 'github';
 const HOSTS_KEY = 'hosts';
+const CREDENTIAL_SERVICE = 'vscode-pull-request-github';
 
 export class VSCodeConfiguration extends Configuration {
 	private _hosts: Map<string, IHostConfiguration>;
@@ -32,17 +34,15 @@ export class VSCodeConfiguration extends Configuration {
 			return this;
 		}
 
-		if (host === undefined) {
-			this.host = host;
-			this.username = undefined;
-			this.token = undefined;
-			return this;
-		}
-
 		this.host = host;
 		this.username = undefined;
 		this.token = undefined;
-		if (this.host && !this._hosts.has(this.host)) {
+
+		if (!host) {
+			return this;
+		}
+
+		if (!this._hosts.has(this.host)) {
 			this._hosts.set(this.host, this);
 		} else {
 			const config = this.getHost(host);
@@ -63,8 +63,9 @@ export class VSCodeConfiguration extends Configuration {
 		this.saveConfiguration();
 	}
 
-	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): void {
+	public async update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): Promise<void> {
 		super.update(username, token, raiseEvent);
+		await keychain.setPassword(CREDENTIAL_SERVICE, this.host, token);
 		this.saveConfiguration();
 	}
 
@@ -80,7 +81,17 @@ export class VSCodeConfiguration extends Configuration {
 		let configHosts = config.get(HOSTS_KEY, defaultEntry);
 
 		configHosts.forEach(c => c.host = c.host.toLocaleLowerCase());
-		configHosts.map(c => this._hosts.set(c.host, c));
+		configHosts.map(async c => {
+
+			// if the token is not in the user settings file, load it from the system credential manager
+			if (c.token === 'system') {
+				c.token = await keychain.getPassword(CREDENTIAL_SERVICE, c.host) || undefined;
+			} else {
+				// the token might have been filled out in the settings file, load it from there if so
+				await keychain.setPassword(CREDENTIAL_SERVICE, c.host, c.token);
+			}
+			this._hosts.set(c.host, c);
+		});
 
 		if (this.host && !this._hosts.has(this.host)) {
 			this._hosts.set(this.host, {
@@ -100,6 +111,7 @@ export class VSCodeConfiguration extends Configuration {
 			});
 		}
 		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
-		config.update(HOSTS_KEY, Array.from(this._hosts.values()), true);
+		// don't save the token to the user settings file
+		config.update(HOSTS_KEY, Array.from(this._hosts.values()).map(x => { return { host: x.host, username: x.username, token: 'system' } }), true);
 	}
 }
