@@ -73,13 +73,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		super();
 		this.contextValue = 'filechange';
 		this.label = fileName;
-
-		if (this.comments && this.comments.length) {
-			this.iconPath = Resource.icons.light.Comment;
-		} else {
-			this.iconPath = Resource.getFileStatusUri(this);
-		}
-
+		this.iconPath = Resource.getFileStatusUri(this);
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
 
 		let opts: vscode.TextDocumentShowOptions = {
@@ -147,13 +141,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		super();
 		this.contextValue = 'filechange';
 		this.label = fileName;
-
-		if (this.comments && this.comments.length) {
-			this.iconPath = Resource.icons.light.Comment;
-		} else {
-			this.iconPath = Resource.getFileStatusUri(this);
-		}
-
+		this.iconPath = Resource.getFileStatusUri(this);
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
 
 		let opts: vscode.TextDocumentShowOptions = {

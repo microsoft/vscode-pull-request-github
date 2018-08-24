@@ -14,6 +14,8 @@ import { IPullRequestManager, IPullRequestModel, IPullRequest } from './github/i
 import { Comment } from './common/comment';
 import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
+import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
+import { DiffChangeType } from './common/diffHunk';
 
 const _onDidClosePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidClosePR: vscode.Event<IPullRequest> = _onDidClosePR.event;
@@ -147,7 +149,27 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 				base: true
 			})
 		});
-		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${commit.substr(0, 8)}`, { preserveFocus: true });
+
+		const options: vscode.TextDocumentShowOptions = {
+			preserveFocus: true
+		};
+
+		if (fileChange.comments && fileChange.comments.length) {
+			const sortedOutdatedComments = fileChange.comments.filter(comment => comment.position === null).sort((a, b) => {
+				return a.original_position - b.original_position;
+			});
+
+			if (sortedOutdatedComments.length) {
+				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].original_position);
+
+				if (diffLine) {
+					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+					options.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
+				}
+			}
+		}
+
+		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${commit.substr(0, 8)}`, options);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signin', async () => {

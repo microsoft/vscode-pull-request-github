@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import './index.css';
-import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, TimelineEvent, EventType } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 import * as moment from 'moment';
 
@@ -22,10 +22,28 @@ const ElementIds = {
 	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
 }
 
+interface PullRequest {
+	number: number;
+	title: string;
+	url: string;
+	createdAt: Date;
+	body: string;
+	author: any;
+	state: PullRequestStateEnum;
+	events: TimelineEvent[];
+	isCurrentlyCheckedOut: boolean;
+	base: string;
+	head: string;
+	commitsCount: number;
+	repositoryDefaultBranch: any;
+}
+
+let pullRequest: PullRequest;
+
 window.onload = () => {
-	const previousState = vscode.getState();
-	if (previousState) {
-		renderPullRequest(previousState.pullRequest);
+	pullRequest = vscode.getState();
+	if (pullRequest) {
+		renderPullRequest(pullRequest);
 	}
 }
 
@@ -33,8 +51,9 @@ function handleMessage(event: any) {
 	const message = event.data; // The json data that the extension sent
 	switch (message.command) {
 		case 'pr.initialize':
-			renderPullRequest(message.pullrequest);
-			vscode.setState({ pullRequest: message.pullrequest });
+			pullRequest = message.pullrequest;
+			renderPullRequest(pullRequest);
+			vscode.setState(pullRequest);
 			break;
 		case 'update-state':
 			updatePullRequestState(message.state);
@@ -61,7 +80,7 @@ function handleMessage(event: any) {
 
 window.addEventListener('message', handleMessage);
 
-function renderPullRequest(pullRequest: any) {
+function renderPullRequest(pullRequest: PullRequest): void {
 	document.getElementById(ElementIds.TimelineEvents)!.innerHTML = pullRequest.events.map(renderTimelineEvent).join('');
 	setTitleHTML(pullRequest);
 	setTextArea();
@@ -70,7 +89,10 @@ function renderPullRequest(pullRequest: any) {
 	addEventListeners(pullRequest);
 }
 
-function updatePullRequestState(state: PullRequestStateEnum) {
+function updatePullRequestState(state: PullRequestStateEnum): void {
+	pullRequest.state = state;
+	vscode.setState(pullRequest);
+
 	const close = (<HTMLButtonElement>document.getElementById(ElementIds.Close));
 	if (close) {
 		close.disabled = state !== PullRequestStateEnum.Open;
@@ -85,7 +107,7 @@ function updatePullRequestState(state: PullRequestStateEnum) {
 	status!.innerHTML = getStatus(state);
 }
 
-function setTitleHTML(pr: any) {
+function setTitleHTML(pr: PullRequest): void {
 	document.getElementById('title')!.innerHTML = `
 			<div class="details">
 				<div class="overview-title">
@@ -106,7 +128,7 @@ function setTitleHTML(pr: any) {
 		`;
 }
 
-function addEventListeners(pr: any) {
+function addEventListeners(pr: PullRequest): void {
 	document.getElementById(ElementIds.Checkout)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Checkout)).disabled = true;
 		(<HTMLButtonElement>document.getElementById(ElementIds.Checkout)).innerHTML = 'Checking Out...';
@@ -179,18 +201,29 @@ function submitComment() {
 }
 
 function appendReview(review: any): void {
+	review.event = EventType.Reviewed;
+	pullRequest.events.push(review);
+	vscode.setState(pullRequest);
+
 	const newReview = renderReview(review);
 	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newReview);
 	clearTextArea();
 }
 
 function appendComment(comment: any) {
+	comment.event = EventType.Commented;
+	pullRequest.events.push(comment);
+	vscode.setState(pullRequest);
+
 	let newComment = renderComment(comment);
 	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newComment);
 	clearTextArea();
 }
 
 function updateCheckoutButton(isCheckedOut: boolean) {
+	pullRequest.isCurrentlyCheckedOut = isCheckedOut;
+	vscode.setState(pullRequest);
+
 	const checkoutButton = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
 	const checkoutMasterButton = (<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch));
 	checkoutButton.disabled = isCheckedOut;
@@ -211,9 +244,9 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 function setTextArea() {
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
-			<button id="${ElementIds.Close}">Close Pull Request</button>
-			<button id="${ElementIds.RequestChanges}" disabled="true">Request Changes</button>
-			<button id="${ElementIds.Approve}">Approve</button>
+			<button id="${ElementIds.Close}" class="secondary">Close Pull Request</button>
+			<button id="${ElementIds.RequestChanges}" disabled="true" class="secondary">Request Changes</button>
+			<button id="${ElementIds.Approve}" class="secondary">Approve</button>
 			<button class="reply-button" id="${ElementIds.Reply}" disabled="true">Comment</button>
 		</div>`;
 

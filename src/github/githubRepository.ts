@@ -23,6 +23,7 @@ export interface PullRequestData {
 export class GitHubRepository implements IGitHubRepository {
 	private _octokit: Octokit;
 	private _initialized: boolean;
+	private _authenticationStatus: vscode.StatusBarItem;
 	public get octokit(): Octokit {
 		if (this._octokit === undefined) {
 			if (!this._initialized) {
@@ -34,7 +35,32 @@ export class GitHubRepository implements IGitHubRepository {
 		return this._octokit;
 	}
 
+	public set octokit(newOctokit: Octokit) {
+		if (newOctokit !== this._octokit) {
+			this._octokit = newOctokit;
+
+			// update status bar item
+			this.updateAuthenticationStatus();
+		}
+	}
+
 	constructor(public readonly remote: Remote, private readonly _credentialStore: CredentialStore) {
+		this._authenticationStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+		const normalizedUri = this.remote.gitProtocol.normalizeUri();
+		this._authenticationStatus.text = `${remote.owner}/${remote.repositoryName} ⟷ Sign in to ${normalizedUri.authority}`;
+		this._authenticationStatus.command = 'pr.signin';
+		this._authenticationStatus.show();
+	}
+
+	updateAuthenticationStatus() {
+		setTimeout(async () => {
+			if (this._octokit) {
+				const currentUser = await this._octokit.users.get({});
+				const userName = currentUser.data.login;
+				this._authenticationStatus.text = `${this.remote.owner}/${this.remote.repositoryName} ⟷ ${userName}`;
+				this._authenticationStatus.command = null;
+			}
+		}, 0);
 	}
 
 	async ensure(): Promise<GitHubRepository> {
@@ -47,10 +73,10 @@ export class GitHubRepository implements IGitHubRepository {
 				SIGNIN_COMMAND);
 
 			if (result === SIGNIN_COMMAND) {
-				this._octokit = await this._credentialStore.login(this.remote);
+				this.octokit = await this._credentialStore.login(this.remote);
 			}
 		} else {
-			this._octokit = await this._credentialStore.getOctokit(this.remote);
+			this.octokit = await this._credentialStore.getOctokit(this.remote);
 		}
 
 		return this;
@@ -59,11 +85,11 @@ export class GitHubRepository implements IGitHubRepository {
 	async authenticate(): Promise<boolean> {
 		this._initialized = true;
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			this._octokit = await this._credentialStore.login(this.remote);
+			this.octokit = await this._credentialStore.login(this.remote);
 		} else {
-			this._octokit = this._credentialStore.getOctokit(this.remote);
+			this.octokit = this._credentialStore.getOctokit(this.remote);
 		}
-		return this._octokit !== undefined;
+		return this.octokit !== undefined;
 	}
 
 	async getDefaultBranch(): Promise<string> {

@@ -82,9 +82,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		let fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.hasComments) {
 			return {
-				bubble: true,
-				abbreviation: '♪♪',
-				title: '♪♪'
+				bubble: false,
+				title: '♪♪',
+				letter: '♪♪'
 			}
 		}
 

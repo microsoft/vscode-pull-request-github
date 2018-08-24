@@ -8,7 +8,7 @@
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
   },
   "enableProposedApi": true,
-  "version": "0.0.13",
+  "version": "0.0.14",
   "publisher": "Microsoft",
   "engines": {
     "vscode": "^1.27.0"
@@ -211,22 +211,22 @@
       "view/item/context": [
         {
           "command": "pr.pick",
-          "when": "view == pr && viewItem =~ /pullrequest(:local)?:nonactive/",
+          "when": "view == pr && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "pr.refreshPullRequest",
-          "when": "view == pr && viewItem =~ /pullrequest/",
+          "when": "view == pr && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "view == pr && viewItem =~ /pullrequest/",
+          "when": "view == pr && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
         {
           "command": "pr.close",
-          "when": "view == pr && viewItem =~ /pullrequest/",
+          "when": "view == pr && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@4"
         },
         {
@@ -249,10 +249,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "tsc -p ./ && webpack --mode production",
+    "vscode:prepublish": "webpack --env.production",
     "postinstall": "node ./node_modules/vscode/bin/install",
     "compile": "tsc -p ./",
-    "watch": "webpack --watch --mode development",
+    "watch": "webpack --watch --env.development",
     "test": "node ./node_modules/mocha/bin/_mocha --timeout 1000 --colors ./out/test/**/*.js"
   },
   "devDependencies": {
@@ -260,6 +260,8 @@
     "@types/lodash": "^4.14.106",
     "@types/mocha": "^5.2.2",
     "@types/node": "*",
+    "@types/webpack": "^4.4.10",
+    "@types/ws": "^5.1.2",
     "css-loader": "^0.28.11",
     "del": "^3.0.0",
     "gulp": "3.9.1",
@@ -275,7 +277,6 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
-    "@types/ws": "^5.1.2",
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",
@@ -283,5 +284,8 @@
     "tmp": "^0.0.31",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"
+  },
+  "optionalDependencies": {
+    "spawn-sync": "^2.0.0"
   }
 }

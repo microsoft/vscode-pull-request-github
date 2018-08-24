@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseDiff } from '../common/diffHunk';
+import { parseDiff, parsePatch } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri, fromPRUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
@@ -37,7 +37,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _updateCurrentBranch: boolean = false;
 	private _validateStatusInProgress: boolean = false;
 
-	private _onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
+	private _onDidChangeDocumentCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
+	private _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
 	private _prsTreeDataProvider: PullRequestsTreeDataProvider;
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
@@ -58,7 +59,20 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
 		this._disposables.push(vscode.commands.registerCommand('review.openFile', (uri: vscode.Uri) => {
 			let params = JSON.parse(uri.query);
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.resolve(this._repository.path, params.path)), {});
+
+			const activeTextEditor = vscode.window.activeTextEditor;
+			const opts: vscode.TextDocumentShowOptions = {
+				preserveFocus: false,
+				viewColumn: vscode.ViewColumn.Active
+			};
+
+			// Check if active text editor has same path as other editor. we cannot compare via
+			// URI.toString() here because the schemas can be different. Instead we just go by path.
+			if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
+				opts.selection = activeTextEditor.selection;
+			}
+
+			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.resolve(this._repository.path, params.path)), opts);
 		}));
 		this._disposables.push(_repository.onDidRunGitStatus(e => {
 			// todo, validate state only when state changes.
@@ -235,7 +249,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			matchedFile.comments.push(comment);
 			this._comments.push(comment);
 
-			this._onDidChangeCommentThreads.fire({
+			this._onDidChangeWorkspaceCommentThreads.fire({
 				added: [],
 				changed: [thread],
 				removed: []
@@ -282,7 +296,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			matchedFile.comments.push(rawComment);
 			this._comments.push(rawComment);
 
-			this._onDidChangeCommentThreads.fire({
+			this._onDidChangeWorkspaceCommentThreads.fire({
 				added: [commentThread],
 				changed: [],
 				removed: []
@@ -374,7 +388,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 
 		if (added.length || removed.length || changed.length) {
-			this._onDidChangeCommentThreads.fire({
+			this._onDidChangeDocumentCommentThreads.fire({
+				added: added,
+				removed: removed,
+				changed: changed
+			});
+
+			this._onDidChangeWorkspaceCommentThreads.fire({
 				added: added,
 				removed: removed,
 				changed: changed
@@ -434,7 +454,23 @@ export class ReviewManager implements vscode.DecorationProvider {
 			for (let commit in commitsGroup) {
 				let commentsForCommit = commitsGroup[commit];
 				let commentsForFile = groupBy(commentsForCommit, comment => comment.path);
+
 				for (let fileName in commentsForFile) {
+
+					let diffHunks = [];
+					try {
+						const gitResult = await this._repository.run(['diff', `${pr.base.sha}...${commit}`, '--', fileName]);
+
+						if (gitResult.stderr) {
+							throw new Error(gitResult.stderr);
+						}
+
+						const patch = gitResult.stdout.trim();
+						diffHunks = parsePatch(patch);
+					} catch (e) {
+						Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
+					}
+
 					let oldComments = commentsForFile[fileName];
 					let obsoleteFileChange = new GitFileChangeNode(
 						pr,
@@ -444,7 +480,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: false }),
 						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: true }),
 						false,
-						[], // @todo Peng.,
+						diffHunks,
 						oldComments,
 						commit
 					);
@@ -582,27 +618,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
 	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
 	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
-		if (uri.scheme === 'review') {
-			let query = JSON.parse(uri.query);
-			let matchingComments = this._comments.filter(comment => comment.path === query.path && comment.position !== null);
-			if (matchingComments && matchingComments.length) {
-				return {
-					bubble: true,
-					abbreviation: '♪♪',
-					title: '♪♪'
-				};
-			}
-		} else if (uri.scheme === 'file') {
-			// local file
-			let fileName = uri.path;
-			let matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName && comment.position !== null);
-			if (matchingComments && matchingComments.length) {
-				return {
-					bubble: true,
-					abbreviation: '♪♪',
-					title: '♪♪'
-				};
-			}
+		let fileName = uri.path;
+		let matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName && comment.position !== null);
+		if (matchingComments && matchingComments.length) {
+			return {
+				bubble: false,
+				title: '♪♪',
+				letter: '♪♪'
+			};
 		}
 
 		return {};
@@ -610,7 +633,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private registerCommentProvider() {
 		this._documentCommentProvider = vscode.workspace.registerDocumentCommentProvider({
-			onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
+			onDidChangeCommentThreads: this._onDidChangeDocumentCommentThreads.event,
 			provideDocumentComments: async (document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo> => {
 				let ranges: vscode.Range[] = [];
 				let matchingComments: Comment[];
@@ -763,7 +786,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 
 		this._workspaceCommentProvider = vscode.workspace.registerWorkspaceCommentProvider({
-			onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
+			onDidChangeCommentThreads: this._onDidChangeWorkspaceCommentThreads.event,
 			provideWorkspaceComments: async (token: vscode.CancellationToken) => {
 				const comments = await Promise.all(gitFileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
 					return this.fileCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);

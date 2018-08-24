@@ -318,31 +318,47 @@ export class PullRequestManager implements IPullRequestManager {
 	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-		let ret = await octokit.pullRequests.createCommentReply({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
-			body: body,
-			in_reply_to: Number(reply_to)
-		});
+		try {
+			let ret = await octokit.pullRequests.createCommentReply({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				number: pullRequest.prNumber,
+				body: body,
+				in_reply_to: Number(reply_to)
+			});
 
-		return ret.data;
+			return ret.data;
+		} catch (e) {
+			if (e.code && e.code === 422) {
+				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
+			} else {
+				throw e;
+			}
+		}
 	}
 
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-		let ret = await octokit.pullRequests.createComment({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
-			body: body,
-			commit_id: pullRequest.head.sha,
-			path: path,
-			position: position
-		});
+		try {
+			let ret = await octokit.pullRequests.createComment({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				number: pullRequest.prNumber,
+				body: body,
+				commit_id: pullRequest.head.sha,
+				path: path,
+				position: position
+			});
 
-		return ret.data;
+			return ret.data;
+		} catch (e) {
+			if (e.code && e.code === 422) {
+				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
+			} else {
+				throw e;
+			}
+		}
 	}
 
 	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {

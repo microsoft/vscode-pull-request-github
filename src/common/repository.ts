@@ -237,7 +237,7 @@ export class Repository {
 			return [];
 		}
 
-		return result.stdout.trimRight().split(/\r|\n|\r\n/).map(branchName => {
+		return result.stdout.trimRight().split(/\r?\n/).map(branchName => {
 			return branchName.substr(2);
 		});
 	}
