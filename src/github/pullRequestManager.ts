@@ -16,7 +16,7 @@ import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy } from '../common/utils';
-import { Repository } from '../typings/git';
+import { Repository, ConfigScope, RefType } from '../typings/git';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -104,7 +104,9 @@ export class PullRequestManager implements IPullRequestManager {
 			return [];
 		}
 
-		const localBranches = await this._repository.getLocalBranches();
+		const localBranches = this._repository.state.refs
+			.filter(r => r.type === RefType.Head && r.name)
+			.map(r => r.name);
 
 		const promises = localBranches.map(async localBranchName => {
 			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, localBranchName);
@@ -132,32 +134,22 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async deleteLocalPullRequest(pullRequest: PullRequestModel): Promise<void> {
-		const remoteName = await this._repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
+		const remoteName = await this._repository.getConfig(ConfigScope.Local, `branch.${pullRequest.localBranchName}.remote`);
 		if (!remoteName) {
 			throw new Error('Unable to find remote for branch');
 		}
 
-		const result = await this._repository.run(['branch', '-D', pullRequest.localBranchName]);
-		if (result.stderr) {
-			throw new Error(result.stderr);
-		}
+		await this._repository.deleteBranch(pullRequest.localBranchName);
 
 		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
 		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remoteName);
 		if (isPRRemote) {
-			const configKeyValues = await this._repository.run(['config', '--local', '-l']);
-			if (configKeyValues.stderr) {
-				throw new Error(configKeyValues.stderr);
-			}
-
-			const result = configKeyValues.stdout.trim();
-			const hasOtherAssociatedBranches = new RegExp(`^branch.*\.remote=${remoteName}$`, 'm').test(result);
+			const configs = await this._repository.getConfigs(ConfigScope.Local);
+			const hasOtherAssociatedBranches = configs
+				.some(({ key, value }) => /^branch.*\.remote$/.test(key) && value === remoteName);
 
 			if (!hasOtherAssociatedBranches) {
-				const remoteResult = await this._repository.run(['remote', 'remove', remoteName]);
-				if (remoteResult.stderr) {
-					throw new Error(remoteResult.stderr);
-				}
+				await this._repository.removeRemote(remoteName);
 			}
 		}
 	}
@@ -448,11 +440,12 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
-		if (!this._repository || !this._repository.HEAD) {
+		if (!this._repository || !this._repository.state.HEAD) {
 			return null;
 		}
 
-		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
+		const HEAD = this._repository.state.HEAD;
+		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, HEAD.name);
 		return matchingPullRequestMetadata;
 	}
 

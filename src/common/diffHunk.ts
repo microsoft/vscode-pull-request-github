@@ -264,7 +264,15 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 
 		const gitChangeType = getGitChangeType(review.status);
 
-		let originalFileExist = await repository.checkFileExistence(parentCommit, review.filename);
+		let originalFileExist: boolean;
+
+		try {
+			await repository.getObjectDetails(parentCommit, review.filename);
+			originalFileExist = true;
+		} catch (err) {
+			originalFileExist = false;
+		}
+
 		let diffHunks = parsePatch(review.patch);
 		let isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
 		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.patch, diffHunks, isPartial, review.blob_url))

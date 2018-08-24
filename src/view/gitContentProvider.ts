@@ -23,15 +23,17 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 			return '';
 		}
 
-		let content = await this.repository.show(`${commit}:${path}`);
+		let content = await this.repository.show(commit, path);
 
 		if (!content) {
 			content = await this._fallback(uri);
 			if (!content) {
 				// Content does not exist for the base or modified file for a file deletion or addition.
 				// Manually check if the commit exists before notifying the user.
-				const commitExistsLocally = await this.repository.checkCommitExists(commit);
-				if (!commitExistsLocally) {
+
+				try {
+					await this.repository.getCommit(commit);
+				} catch (err) {
 					vscode.window.showErrorMessage(`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`);
 				}
 			}

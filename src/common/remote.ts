@@ -57,7 +57,7 @@ function parseRemote(remoteName: string, url: string): Remote | null {
 }
 
 export function parseRepositoryRemotes(repository: Repository): Remote[] {
-	return repository.remotes
+	return repository.state.remotes
 		.map(r => parseRemote(r.name, r.fetchUrl || r.pushUrl))
 		.filter(r => !!r);
 }

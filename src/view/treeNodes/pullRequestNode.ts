@@ -219,11 +219,11 @@ export class PRNode extends TreeNode {
 						}
 					} else {
 						if (params.base) {
-							let originalContent = await getFileContent(this.repository.path, params.commit, fileChange.fileName);
+							let originalContent = await getFileContent(this.repository.rootUri.fsPath, params.commit, fileChange.fileName);
 							return originalContent;
 
 						} else {
-							let originalContent = await getFileContent(this.repository.path, params.commit, fileChange.fileName);
+							let originalContent = await getFileContent(this.repository.rootUri.fsPath, params.commit, fileChange.fileName);
 							let modifiedContent = getModifiedContentFromDiffHunk(originalContent, fileChange.patch);
 							return modifiedContent;
 						}

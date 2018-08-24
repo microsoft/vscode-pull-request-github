@@ -12,7 +12,7 @@ import { Protocol } from '../common/protocol';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { IPullRequestModel } from './interface';
 import { GitHubRepository } from './githubRepository';
-import { Repository } from '../typings/git';
+import { Repository, ConfigScope } from '../typings/git';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -43,11 +43,11 @@ export class PullRequestGitHelper {
 			await repository.fetch(remoteName, ref);
 			await repository.checkout(localBranchName);
 			// set remote tracking branch for the local branch
-			await repository.setTrackingBranch(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
+			await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
 		}
 
 		let prBranchMetadataKey = `branch.${localBranchName}.${PullRequestMetadataKey}`;
-		await repository.setConfig(prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		await repository.setConfig(ConfigScope.Local, prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 
 	static async checkout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
@@ -66,11 +66,11 @@ export class PullRequestGitHelper {
 		if (!branch.upstream) {
 			// this branch is not associated with upstream yet
 			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
-			await repository.setTrackingBranch(branchName, trackedBranchName);
+			await repository.setBranchUpstream(branchName, trackedBranchName);
 		}
 
 		if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
-			await repository.run(['pull']);
+			await repository.pull();
 		}
 
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
@@ -86,7 +86,7 @@ export class PullRequestGitHelper {
 			};
 		} else {
 			let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
-			let configs = await repository.getConfigs();
+			let configs = await repository.getConfigs(ConfigScope.Local);
 
 			let branchInfos = configs.map(config => {
 				let matches = PullRequestBranchRegex.exec(config.key);
@@ -97,7 +97,7 @@ export class PullRequestGitHelper {
 			}).filter(c => c.branch && c.value === key);
 
 			if (branchInfos && branchInfos.length) {
-				let remoteName = await repository.getConfig(`branch.${branchInfos[0].branch}.remote`);
+				let remoteName = await repository.getConfig(ConfigScope.Local, `branch.${branchInfos[0].branch}.remote`);
 				let headRemote = parseRepositoryRemotes(repository).filter(remote => remote.remoteName === remoteName);
 				if (headRemote && headRemote.length) {
 					return {
@@ -119,8 +119,8 @@ export class PullRequestGitHelper {
 
 		if (trackedBranch) {
 			// create branch
-			await repository.createBranch(branchName, trackedBranch.commit);
-			await repository.setTrackingBranch(branchName, trackedBranchName);
+			await repository.createBranch(branchName, false, trackedBranch.commit);
+			await repository.setBranchUpstream(branchName, trackedBranchName);
 		} else {
 			throw new Error(`Could not find branch '${trackedBranchName}'.`);
 		}
@@ -148,7 +148,7 @@ export class PullRequestGitHelper {
 
 	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata> {
 		let configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-		let configValue = await repository.getConfig(configKey);
+		let configValue = await repository.getConfig(ConfigScope.Local, configKey);
 		return PullRequestGitHelper.parsePullRequestMetadata(configValue);
 	}
 
@@ -164,12 +164,12 @@ export class PullRequestGitHelper {
 
 		let remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
 		await repository.addRemote(remoteName, cloneUrl.normalizeUri().toString());
-		await repository.setConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`, 'true');
+		await repository.setConfig(ConfigScope.Local, `remote.${remoteName}.${PullRequestRemoteMetadataKey}`, 'true');
 		return remoteName;
 	}
 
 	static async isRemoteCreatedForPullRequest(repository: Repository, remoteName: string) {
-		let isForPR = await repository.getConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
+		let isForPR = await repository.getConfig(ConfigScope.Local, `remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
 
 		if (isForPR === 'true') {
 			return true;
@@ -222,21 +222,18 @@ export class PullRequestGitHelper {
 	static async associateBranchWithPullRequest(repository: Repository, pullRequest: IPullRequestModel, branchName: string) {
 		Logger.appendLine(`GitHelper> associate ${branchName} with Pull Request #${pullRequest.prNumber}`)
 		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		await repository.setConfig(ConfigScope.Local, prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 
 	static async getPullRequestMergeBase(repository: Repository, remote: Remote, pullRequest: IPullRequestModel): Promise<string> {
-		let mergeBase = await repository.getMergeBase(pullRequest.base.sha, pullRequest.head.sha);
+		try {
+			return await repository.getMergeBase(pullRequest.base.sha, pullRequest.head.sha);
+		} catch (err) {
+			const pullrequestHeadRef = `refs/pull/${pullRequest.prNumber}/head`;
+			await repository.fetch(remote.remoteName, pullrequestHeadRef);
+			await repository.fetch(remote.remoteName, pullRequest.base.ref);
 
-		if (mergeBase) {
-			return mergeBase;
+			return await repository.getMergeBase(pullRequest.base.sha, pullRequest.head.sha);
 		}
-
-		const pullrequestHeadRef = `refs/pull/${pullRequest.prNumber}/head`;
-		await repository.fetch(remote.remoteName, pullrequestHeadRef);
-		await repository.fetch(remote.remoteName, pullRequest.base.ref);
-		mergeBase = await repository.getMergeBase(pullRequest.base.sha, pullRequest.head.sha);
-
-		return mergeBase;
 	}
 }

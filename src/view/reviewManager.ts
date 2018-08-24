@@ -72,9 +72,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 				opts.selection = activeTextEditor.selection;
 			}
 
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.resolve(this._repository.path, params.path)), opts);
+			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.resolve(this._repository.rootUri.fsPath, params.path)), opts);
 		}));
-		this._disposables.push(_repository.onDidRunGitStatus(e => {
+		this._disposables.push(_repository.state.onDidChange(e => {
 			// todo, validate state only when state changes.
 			this.updateState();
 		}));
@@ -146,7 +146,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private async validateState() {
 		await this._prManager.updateRepositories();
 
-		let branch = this._repository.HEAD;
+		let branch = this._repository.state.HEAD;
 		if (!branch) {
 			this.clear(true);
 			return;
@@ -155,7 +155,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		let matchingPullRequestMetadata = await this._prManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {
-			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${this._repository.HEAD.name}`);
+			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${this._repository.state.HEAD.name}`);
 			this.clear(true);
 			return;
 		}
@@ -166,13 +166,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		let remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) {
-			Logger.appendLine(`Review> current branch ${this._repository.HEAD.name} hasn't setup remote yet`);
+			Logger.appendLine(`Review> current branch ${this._repository.state.HEAD.name} hasn't setup remote yet`);
 			this.clear(true);
 			return;
 		}
 
 		// we switch to another PR, let's clean up first.
-		Logger.appendLine(`Review> current branch ${this._repository.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`);
+		Logger.appendLine(`Review> current branch ${this._repository.state.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`);
 		this.clear(false);
 		this._prNumber = matchingPullRequestMetadata.prNumber;
 		this._lastCommitSha = null;
@@ -220,7 +220,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			if (uri.scheme === 'review' || uri.scheme === 'pr') {
 				return fileChange.fileName === fileName;
 			} else {
-				let absoluteFilePath = vscode.Uri.file(path.resolve(this._repository.path, fileChange.fileName));
+				let absoluteFilePath = vscode.Uri.file(path.resolve(this._repository.rootUri.fsPath, fileChange.fileName));
 				let targetFilePath = vscode.Uri.file(fileName);
 				return absoluteFilePath.fsPath === targetFilePath.fsPath;
 			}
@@ -269,7 +269,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const isBase = query && query.base;
 
 			// git diff sha -- fileName
-			const contentDiff = await this._repository.diff(matchedFile.fileName, this._lastCommitSha);
+			const contentDiff = await this._repository.diffWith(this._lastCommitSha, matchedFile.fileName);
 			const position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, range.start.line + 1, isBase);
 
 			if (position < 0) {
@@ -288,7 +288,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			let commentThread: vscode.CommentThread = {
 				threadId: comment.commentId,
-				resource: vscode.Uri.file(path.resolve(this._repository.path, rawComment.path)),
+				resource: vscode.Uri.file(path.resolve(this._repository.rootUri.fsPath, rawComment.path)),
 				range: range,
 				comments: [comment]
 			};
@@ -309,7 +309,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async updateComments(): Promise<void> {
-		const branch = this._repository.HEAD;
+		const branch = this._repository.state.HEAD;
 		if (!branch) { return; }
 
 		const matchingPullRequestMetadata = await this._prManager.getMatchingPullRequestMetadataForBranch();
@@ -459,13 +459,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					let diffHunks = [];
 					try {
-						const gitResult = await this._repository.run(['diff', `${pr.base.sha}...${commit}`, '--', fileName]);
-
-						if (gitResult.stderr) {
-							throw new Error(gitResult.stderr);
-						}
-
-						const patch = gitResult.stdout.trim();
+						const patch = await this._repository.diffBetween(pr.base.sha, commit, fileName);
 						diffHunks = parsePatch(patch);
 					} catch (e) {
 						Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
@@ -575,7 +569,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			ret.push({
 				threadId: comment.id,
-				resource: vscode.Uri.file(path.resolve(this._repository.path, comment.path)),
+				resource: vscode.Uri.file(path.resolve(this._repository.rootUri.fsPath, comment.path)),
 				range,
 				comments: comments.map(comment => {
 					return {
@@ -619,7 +613,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
 	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
 		let fileName = uri.path;
-		let matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName && comment.position !== null);
+		let matchingComments = this._comments.filter(comment => path.resolve(this._repository.rootUri.fsPath, comment.path) === fileName && comment.position !== null);
 		if (matchingComments && matchingComments.length) {
 			return {
 				bubble: false,
@@ -642,7 +636,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					// local file, we only provide active comments
 					// TODO. for comments in deleted ranges, they should show on top of the first line.
 					const fileName = document.uri.fsPath;
-					const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => path.resolve(this._repository.path, fileChange.fileName) === fileName);
+					const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => path.resolve(this._repository.rootUri.fsPath, fileChange.fileName) === fileName);
 					let matchedFile: GitFileChangeNode;
 					if (matchedFiles && matchedFiles.length) {
 						matchedFile = matchedFiles[0];
@@ -650,17 +644,18 @@ export class ReviewManager implements vscode.DecorationProvider {
 						let contentDiff: string;
 						if (document.isDirty) {
 							const documentText = document.getText();
-							const idAtLastCommit = await this._repository.getFileObjectId(this._lastCommitSha, matchedFile.fileName);
+							const details = await this._repository.getObjectDetails(this._lastCommitSha, matchedFile.fileName);
+							const idAtLastCommit = details.object;
 							const idOfCurrentText = await this._repository.hashObject(documentText);
 
 							// git diff <blobid> <blobid>
-							contentDiff = await this._repository.diffHashed(idAtLastCommit, idOfCurrentText);
+							contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
 						} else {
 							// git diff sha -- fileName
-							contentDiff = await this._repository.diff(matchedFile.fileName, this._lastCommitSha);
+							contentDiff = await this._repository.diffWith(this._lastCommitSha, matchedFile.fileName);
 						}
 
-						matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName);
+						matchingComments = this._comments.filter(comment => path.resolve(this._repository.rootUri.fsPath, comment.path) === fileName);
 						matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
 
 						let diffHunks = matchedFile.diffHunks;
@@ -761,7 +756,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 						ret.push({
 							threadId: comment.id,
-							resource: vscode.Uri.file(path.resolve(this._repository.path, comment.path)),
+							resource: vscode.Uri.file(path.resolve(this._repository.rootUri.fsPath, comment.path)),
 							range,
 							comments: comments.map(comment => {
 								return {
@@ -834,8 +829,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	public async switch(pr: IPullRequestModel): Promise<void> {
 		Logger.appendLine(`Review> swtich to Pull Requet #${pr.prNumber}`);
-		let isDirty = await this._repository.isDirty();
-		if (isDirty) {
+		if (this._repository.state.workingTreeChanges.length > 0) {
 			vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
 			throw new Error('Has local changes');
 		}

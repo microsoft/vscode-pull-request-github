@@ -16,7 +16,7 @@ import { formatError, isDescendant, filterEvent, onceEvent } from './common/util
 import { GitExtension, Repository } from './typings/git';
 
 async function init(context: vscode.ExtensionContext, repository: Repository): Promise<void> {
-	repository.onDidRunGitStatus(async e => {
+	repository.state.onDidChange(async e => {
 		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
 		const configuration = new VSCodeConfiguration();
