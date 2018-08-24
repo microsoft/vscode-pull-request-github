@@ -17,13 +17,19 @@ const TRY_AGAIN = 'Try again?';
 export class CredentialStore {
 	private _octokits: Map<string, Octokit>;
 	private _configuration: VSCodeConfiguration;
+	private _authenticationStatusBarItems: Map<string, vscode.StatusBarItem>;
+
 	constructor(configuration: any) {
 		this._configuration = configuration;
 		this._octokits = new Map<string, Octokit>();
+		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 	}
 
 	public reset() {
 		this._octokits = new Map<string, Octokit>();
+
+		this._authenticationStatusBarItems.forEach(statusBarItem => statusBarItem.dispose());
+		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 	}
 
 	public async hasOctokit(remote: Remote): Promise<boolean> {
@@ -65,6 +71,8 @@ export class CredentialStore {
 		if (octokit) {
 			this._octokits.set(host, octokit);
 		}
+
+		this.updateAuthenticationStatusBar(remote);
 
 		return this._octokits.has(host);
 	}
@@ -110,6 +118,9 @@ export class CredentialStore {
 		if (octokit) {
 			this._octokits.set(host, octokit);
 		}
+
+		this.updateAuthenticationStatusBar(remote);
+
 		return octokit;
 	}
 
@@ -136,4 +147,43 @@ export class CredentialStore {
 		}
 		return octokit;
 	}
+
+	private async updateStatusBarItem(statusBarItem: vscode.StatusBarItem, remote: Remote): Promise<void> {
+		const octokit = this.getOctokit(remote);
+		let text: string;
+		let command: string;
+
+		if (octokit) {
+			try {
+				const user = await octokit.users.get({});
+				text = `Signed in as ${user.data.login}`;
+			} catch (e) {
+				text = 'Signed in';
+			}
+
+			command = null;
+		} else {
+			const authority = remote.gitProtocol.normalizeUri().authority;
+			text = `Sign in to ${authority}`;
+			command = 'pr.signin';
+		}
+
+		statusBarItem.text = text;
+		statusBarItem.command = command;
+	}
+
+	private async updateAuthenticationStatusBar(remote: Remote): Promise<void> {
+		const authority = remote.gitProtocol.normalizeUri().authority;
+		const statusBarItem = this._authenticationStatusBarItems.get(authority);
+		if (statusBarItem) {
+			await this.updateStatusBarItem(statusBarItem, remote);
+		} else {
+			const newStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+			this._authenticationStatusBarItems.set(authority, newStatusBarItem);
+
+			await this.updateStatusBarItem(newStatusBarItem, remote);
+			newStatusBarItem.show();
+		}
+	}
+
 }
