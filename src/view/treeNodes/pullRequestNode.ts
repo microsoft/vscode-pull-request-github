@@ -281,6 +281,8 @@ export class PRNode extends TreeNode {
 						replyToCommentThread: this.replyToCommentThread.bind(this)
 					});
 				}
+			} else {
+				this._fileChanges = fileChanges;
 			}
 
 			let result = [new DescriptionNode('Description', {
