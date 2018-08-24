@@ -29,13 +29,15 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 
 	async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo> {
 		let uri = document.uri;
-		let params = fromPRUri(uri);
+		if (uri.scheme === 'pr') {
+			let params = fromPRUri(uri);
 
-		if (!this._prDocumentCommentProviders[params.prNumber]) {
-			return null;
+			if (!this._prDocumentCommentProviders[params.prNumber]) {
+				return null;
+			}
+
+			return await this._prDocumentCommentProviders[params.prNumber].provideDocumentComments(document, token);
 		}
-
-		return await this._prDocumentCommentProviders[params.prNumber].provideDocumentComments(document, token);
 	}
 
 	async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread> {
