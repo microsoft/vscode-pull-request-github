@@ -43,7 +43,7 @@ If you want explore the source code of this extension yourself, it's easy to get
 1. Clone the repository
 2. Run `yarn`
 3. Compile in the background
-    - Run `yarn run watch`
+    - Run `yarn watch`
     - Or you can directly start this task by Command Palette -> Run Build Task
 4. F5, launch the extension in latest VS Code Insiders.
 
