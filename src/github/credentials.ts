@@ -143,15 +143,15 @@ export class CredentialStore {
 		if (octokit) {
 			try {
 				const user = await octokit.users.get({});
-				text = `Signed in as ${user.data.login}`;
+				text = `$(mark-github) Signed in as ${user.data.login}`;
 			} catch (e) {
-				text = 'Signed in';
+				text = '$(mark-github) Signed in';
 			}
 
 			command = null;
 		} else {
 			const authority = remote.gitProtocol.normalizeUri().authority;
-			text = `Sign in to ${authority}`;
+			text = `$(mark-github) Sign in to ${authority}`;
 			command = 'pr.signin';
 		}
 
