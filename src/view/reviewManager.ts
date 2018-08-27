@@ -834,6 +834,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	public async switch(pr: IPullRequestModel): Promise<void> {
 		Logger.appendLine(`Review> swtich to Pull Requet #${pr.prNumber}`);
+		await this._prManager.fullfillPullRequestMissingInfo(pr);
+
 		let isDirty = await this._repository.isDirty();
 		if (isDirty) {
 			vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
