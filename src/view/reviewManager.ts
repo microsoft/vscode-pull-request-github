@@ -623,8 +623,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		if (matchingComments && matchingComments.length) {
 			return {
 				bubble: false,
-				title: '♪♪',
-				letter: '♪♪'
+				title: '◆',
+				letter: '◆'
 			};
 		}
 

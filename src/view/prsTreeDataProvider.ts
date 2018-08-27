@@ -85,8 +85,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		if (fileChangeUriParams && fileChangeUriParams.hasComments) {
 			return {
 				bubble: false,
-				title: '♪♪',
-				letter: '♪♪'
+				title: '◆',
+				letter: '◆'
 			}
 		}
 
