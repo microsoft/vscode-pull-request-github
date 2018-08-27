@@ -102,19 +102,16 @@ export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: num
 }
 
 export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: string, line: number, isBase: boolean = false): number {
-	let delta = 0;
-
 	let localDiffReader = parseDiffHunk(localDiff);
 	let localDiffIter = localDiffReader.next();
 	let lineInPRDiff = line;
 
 	while (!localDiffIter.done) {
 		let diffHunk = localDiffIter.value;
-		if (diffHunk.newLineNumber + diffHunk.newLength - 1 < line) {
-			delta += diffHunk.oldLength - diffHunk.newLength;
-		} else {
-			lineInPRDiff = line + delta;
+		if (diffHunk.oldLineNumber > line) {
 			break;
+		} else {
+			lineInPRDiff += diffHunk.oldLength - diffHunk.newLength;
 		}
 
 		localDiffIter = localDiffReader.next();

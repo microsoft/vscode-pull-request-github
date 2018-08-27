@@ -413,6 +413,24 @@ export class Repository {
 
 		return result.exitCode === 0;
 	}
+
+
+	/**
+	 * Returns the diff between the document's current content and the document's content at lastCommitSha.
+	 */
+	async getFileContentDiff(document: vscode.TextDocument, fileName: string, lastCommitSha: string): Promise<string> {
+		if (document.isDirty) {
+			const documentText = document.getText();
+			const idAtLastCommit = await this.getFileObjectId(lastCommitSha, fileName);
+			const idOfCurrentText = await this.hashObject(documentText);
+
+			// git diff <blobid> <blobid>
+			return await this.diffHashed(idAtLastCommit, idOfCurrentText);
+		} else {
+			// git diff sha -- fileName
+			return await this.diff(fileName, lastCommitSha);
+		}
+	}
 }
 
 function parseRemote(remoteName: string, url: string): Remote | null {

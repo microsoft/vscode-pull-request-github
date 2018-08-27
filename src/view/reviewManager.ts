@@ -269,7 +269,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const isBase = query && query.base;
 
 			// git diff sha -- fileName
-			const contentDiff = await this._repository.diff(matchedFile.fileName, this._lastCommitSha);
+			const contentDiff = await this._repository.getFileContentDiff(document, matchedFile.fileName, this._lastCommitSha);
 			const position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, range.start.line + 1, isBase);
 
 			if (position < 0) {
@@ -647,18 +647,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					if (matchedFiles && matchedFiles.length) {
 						matchedFile = matchedFiles[0];
 
-						let contentDiff: string;
-						if (document.isDirty) {
-							const documentText = document.getText();
-							const idAtLastCommit = await this._repository.getFileObjectId(this._lastCommitSha, matchedFile.fileName);
-							const idOfCurrentText = await this._repository.hashObject(documentText);
-
-							// git diff <blobid> <blobid>
-							contentDiff = await this._repository.diffHashed(idAtLastCommit, idOfCurrentText);
-						} else {
-							// git diff sha -- fileName
-							contentDiff = await this._repository.diff(matchedFile.fileName, this._lastCommitSha);
-						}
+						const contentDiff = await this._repository.getFileContentDiff(document, matchedFile.fileName, this._lastCommitSha);
 
 						matchingComments = this._comments.filter(comment => path.resolve(this._repository.path, comment.path) === fileName);
 						matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
