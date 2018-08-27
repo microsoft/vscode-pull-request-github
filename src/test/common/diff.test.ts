@@ -71,7 +71,7 @@ describe('diff hunk parsing', () => {
 	});
 
 	it('#239. Diff hunk parsing fails when line count for added content is omitted', () => {
-		let diffHunkReader = parseDiffHunk('@ -0,0 +1 @');
+		let diffHunkReader = parseDiffHunk('@@ -0,0 +1 @@');
 		let diffHunkIter = diffHunkReader.next();
 		let diffHunk = diffHunkIter.value;
 		assert.equal(diffHunk.diffLines.length, 1);
