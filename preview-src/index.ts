@@ -6,6 +6,7 @@ import './index.css';
 import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, TimelineEvent, EventType } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 import * as moment from 'moment';
+const emoji = require('node-emoji');
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -123,7 +124,7 @@ function setTitleHTML(pr: PullRequest): void {
 					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
 					<div class="created-at">${moment(pr.createdAt).fromNow()}</div>
 				</div>
-				<div class="comment-body">${md.render(pr.body)}</div>
+				<div class="comment-body">${md.render(emoji.emojify(pr.body))}</div>
 			</div>
 		`;
 }
