@@ -36,7 +36,10 @@ function getWebviewConfig(env) {
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'media')
-		}
+		},
+		plugins: [
+			new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/)
+		]
 	};
 
 	return webview;
