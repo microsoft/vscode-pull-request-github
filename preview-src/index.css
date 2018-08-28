@@ -544,3 +544,14 @@ code {
 	box-sizing: border-box;
 	display: inline-block;
 }
+
+/* High Contrast Mode */
+
+.vscode-high-contrast button {
+	background: none;
+	border: 1px solid var(--vscode-contrastBorder);
+}
+
+.vscode-high-contrast button.secondary {
+	-webkit-filter: none;
+}
