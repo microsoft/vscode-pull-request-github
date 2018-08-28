@@ -527,7 +527,6 @@ code {
 }
 
 .diff .diffLine.add {
-	border: 1px solid var(--vscode-diffEditor-insertedTextBorder);
 	background-color: var(--vscode-diffEditor-insertedTextBackground);
 }
 
@@ -570,4 +569,16 @@ code {
 
 .vscode-high-contrast button.secondary {
 	-webkit-filter: none;
+}
+
+.vscode-high-contrast .diff .diffLine {
+	background: none;
+}
+
+.vscode-high-contrast .diff .diffLine.add {
+	border: 1px dashed var(--vscode-diffEditor-insertedTextBorder);
+}
+
+.vscode-high-contrast .diff .diffLine.delete {
+	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
 }
