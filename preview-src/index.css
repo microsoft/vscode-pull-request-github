@@ -569,6 +569,10 @@ code {
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
+.vscode-high-contrast button:focus{
+	border-color: var(--vscode-contrastActiveBorder);
+}
+
 .vscode-high-contrast button.secondary {
 	-webkit-filter: none;
 }
