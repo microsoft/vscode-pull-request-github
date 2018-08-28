@@ -547,6 +547,10 @@ code {
 
 /* High Contrast Mode */
 
+.vscode-high-contrast a:focus {
+	outline-color: var(--vscode-contrastActiveBorder);
+}
+
 .vscode-high-contrast button {
 	background: none;
 	border: 1px solid var(--vscode-contrastBorder);
