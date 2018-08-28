@@ -11,16 +11,16 @@ export class VSCodeConfiguration extends Configuration {
 
 	constructor() {
 		super(undefined);
-		this.loadConfiguration();
 	}
 
 	public listenForVSCodeChanges(): vscode.Disposable {
 		return vscode.workspace.onDidChangeConfiguration(() => {
-			this.loadConfiguration();
-			if (this.host) {
-				const config = this.getHost(this.host);
-				super.update(config.username, config.token, true);
-			}
+			this.loadConfiguration().then(_ => {
+				if (this.host) {
+					const config = this.getHost(this.host);
+					super.update(config.username, config.token, true);
+				}
+			});
 		});
 	}
 
@@ -73,7 +73,7 @@ export class VSCodeConfiguration extends Configuration {
 		this._hosts = new Map<string, IHostConfiguration>();
 	}
 
-	private loadConfiguration(): void {
+	public async loadConfiguration(): Promise<void> {
 		this.reset();
 
 		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
@@ -81,8 +81,7 @@ export class VSCodeConfiguration extends Configuration {
 		let configHosts = config.get(HOSTS_KEY, defaultEntry);
 
 		configHosts.forEach(c => c.host = c.host.toLocaleLowerCase());
-		configHosts.map(async c => {
-
+		return Promise.all(configHosts.map(async c => {
 			// if the token is not in the user settings file, load it from the system credential manager
 			if (c.token === 'system') {
 				c.token = await keychain.getPassword(CREDENTIAL_SERVICE, c.host) || undefined;
@@ -91,15 +90,15 @@ export class VSCodeConfiguration extends Configuration {
 				await keychain.setPassword(CREDENTIAL_SERVICE, c.host, c.token);
 			}
 			this._hosts.set(c.host, c);
+		})).then(_ => {
+			if (this.host && !this._hosts.has(this.host)) {
+				this._hosts.set(this.host, {
+					host: this.host,
+					username: this.username,
+					token: this.token,
+				});
+			}
 		});
-
-		if (this.host && !this._hosts.has(this.host)) {
-			this._hosts.set(this.host, {
-				host: this.host,
-				username: this.username,
-				token: this.token,
-			});
-		}
 	}
 
 	private saveConfiguration(): void {
