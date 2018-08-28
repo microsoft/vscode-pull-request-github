@@ -156,6 +156,7 @@ button:hover:enabled, button:focus:enabled {
 body button.checkedOut {
 	color: var(--vscode-foreground);
 	opacity: 1 !important;
+	border: none;
 	background-color: transparent;
 }
 
