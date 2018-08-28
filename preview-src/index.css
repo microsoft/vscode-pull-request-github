@@ -83,19 +83,6 @@ body .comment-container:last-child .comment {
 	flex-direction: column;
 }
 
-/* timeline line */
-/* body .review-comment .review-comment-contents.comment::before {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 14px;
-    z-index: -1;
-    display: block;
-    width: 2px;
-	content: "";
-    background-color: var(--border-color);
-} */
-
 body .review-comment .review-comment-header {
 	display: flex;
 	align-items: center;
@@ -252,6 +239,13 @@ body .overview-title button {
 	display: flex;
 	align-items: flex-start;
 	line-height: 18px;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.commit .commit-message span {
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .commit .sha {
