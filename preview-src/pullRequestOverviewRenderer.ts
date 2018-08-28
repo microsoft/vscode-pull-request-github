@@ -231,7 +231,7 @@ export function renderComment(comment: CommentEvent | Comment): string {
 	<div class="review-comment" role="treeitem">
 		<div class="review-comment-contents comment">
 			<div class="avatar-container">
-				<a href="${comment.user.html_url}"><img class="avatar" src="${comment.user.avatar_url}"></a>
+				<a class="avatar-link" href="${comment.user.html_url}"><img class="avatar" src="${comment.user.avatar_url}"></a>
 			</div>
 			<div class="review-comment-container">
 				<div class="review-comment-header">
@@ -342,7 +342,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 
 		<div class="review-comment-contents review">
 			<div class="avatar-container">
-				<a href="${timelineEvent.user.html_url}"><img class="avatar" src="${timelineEvent.user.avatar_url}"></a>
+				<a class="avatar-link" href="${timelineEvent.user.html_url}"><img class="avatar" src="${timelineEvent.user.avatar_url}"></a>
 			</div>
 			<div class="review-comment-container">
 				<div class="review-comment-header">

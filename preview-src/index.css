@@ -57,6 +57,10 @@ body img.avatar {
 	flex-shrink: 0;
 }
 
+body a.avatar-link:focus {
+	outline-offset: 2px;
+}
+
 body .review-comment .review-comment-contents {
 	width: 100%;
 	display: flex;
