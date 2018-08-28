@@ -11,6 +11,7 @@ import { PRType, IGitHubRepository } from "./interface";
 import { PullRequestModel } from "./pullRequestModel";
 import { CredentialStore } from './credentials';
 import { AuthenticationError } from '../common/authentication';
+import { parseRemote } from '../common/repository';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 const SIGNIN_COMMAND = 'Sign in';
@@ -34,7 +35,21 @@ export class GitHubRepository implements IGitHubRepository {
 		return this._octokit;
 	}
 
-	constructor(public readonly remote: Remote, private readonly _credentialStore: CredentialStore) {
+	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
+	}
+
+	async resolveRemote(): Promise<void> {
+		try {
+			const { octokit, remote } = await this.ensure();
+			const { data } = await octokit.repos.get({
+				owner: remote.owner,
+				repo: remote.repositoryName
+			});
+
+			this.remote = parseRemote(remote.remoteName, data.clone_url);
+		} catch (e) {
+			Logger.appendLine(`Unable to resolve remote: ${e}`);
+		}
 	}
 
 	async ensure(): Promise<GitHubRepository> {

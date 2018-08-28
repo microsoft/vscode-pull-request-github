@@ -5,7 +5,7 @@
 
 import * as moment from 'moment';
 import md from './mdRenderer';
-
+const emoji = require('node-emoji')
 
 export enum DiffChangeType {
 	Context,
@@ -239,7 +239,7 @@ export function renderComment(comment: CommentEvent | Comment): string {
 					<div class="timestamp">${moment(comment.created_at).fromNow()}</div>
 				</div>
 				<div class="comment-body">
-					${md.render(comment.body)}
+					${md.render(emoji.emojify(comment.body))}
 				</div>
 			</div>
 		</div>
@@ -304,7 +304,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 			break;
 	}
 
-	let reviewBody = timelineEvent.body ? `${md.render(timelineEvent.body)}` : '';
+	let reviewBody = timelineEvent.body ? `${md.render(emoji.emojify(timelineEvent.body))}` : '';
 
 	let body = '';
 	if (timelineEvent.comments) {

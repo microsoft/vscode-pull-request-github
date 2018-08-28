@@ -282,9 +282,11 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
+    "node-emoji": "^1.8.1",
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",
+    "markdown-it-checkbox": "^1.1.0",
     "moment": "^2.22.1",
     "tmp": "^0.0.31",
     "vscode": "^1.1.18",

@@ -4,8 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 const MarkdownIt = require('markdown-it');
+const Checkbox = require('markdown-it-checkbox');
 const md = MarkdownIt({
 	html: true
+})
+.use(Checkbox, {
+	divWrap: true,
+	divClass: 'github-checkbox',
+
 });
 
 export default md;

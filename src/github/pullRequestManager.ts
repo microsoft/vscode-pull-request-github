@@ -68,7 +68,9 @@ export class PullRequestManager implements IPullRequestManager {
 		for (let remote of gitHubRemotes) {
 			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
 			if (!isRemoteForPR) {
-				repositories.push(new GitHubRepository(remote, this._credentialStore));
+				const repository = new GitHubRepository(remote, this._credentialStore);
+				await repository.resolveRemote();
+				repositories.push(repository);
 			}
 		}
 

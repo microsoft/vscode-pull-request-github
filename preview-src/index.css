@@ -549,6 +549,14 @@ code {
 	display: inline-block;
 }
 
+.github-checkbox {
+	pointer-events: none;
+}
+
+.github-checkbox input {
+	color: rgb(84, 84, 84);
+	opacity: 0.6;
+}
 /* High Contrast Mode */
 
 .vscode-high-contrast a:focus {
