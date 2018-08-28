@@ -86,6 +86,7 @@ function renderPullRequest(pullRequest: PullRequest): void {
 	setTitleHTML(pullRequest);
 	setTextArea();
 	updateCheckoutButton(pullRequest.isCurrentlyCheckedOut);
+	updatePullRequestState(pullRequest.state);
 
 	addEventListeners(pullRequest);
 }
@@ -102,6 +103,11 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 	const checkout = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
 	if (checkout) {
 		checkout.disabled = checkout.disabled || state !== PullRequestStateEnum.Open;
+	}
+
+	const approve = (<HTMLButtonElement>document.getElementById(ElementIds.Approve));
+	if (approve) {
+		approve.disabled = state !== PullRequestStateEnum.Open;
 	}
 
 	const status = document.getElementById(ElementIds.Status);
@@ -142,7 +148,7 @@ function addEventListeners(pr: PullRequest): void {
 	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
 		const hasNoText = !(<any>e.target).value;
 		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = hasNoText;
-		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = hasNoText;
+		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = hasNoText || pullRequest.state !== PullRequestStateEnum.Open;
 
 	});
 
