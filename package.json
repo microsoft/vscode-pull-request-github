@@ -9,7 +9,7 @@
   },
   "enableProposedApi": true,
   "version": "0.0.18",
-  "publisher": "Microsoft",
+  "publisher": "GitHub",
   "engines": {
     "vscode": "^1.27.0"
   },
