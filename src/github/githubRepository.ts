@@ -123,7 +123,7 @@ export class GitHubRepository implements IGitHubRepository {
 			return {
 				pullRequests,
 				hasMorePages
-			}
+			};
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Fetching all pull requests failed: ${e}`);
 			if (e.code === 404) {
@@ -174,7 +174,7 @@ export class GitHubRepository implements IGitHubRepository {
 			return {
 				pullRequests,
 				hasMorePages
-			}
+			};
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Fetching all pull requests failed: ${e}`);
 			if (e.code === 404) {

@@ -16,7 +16,7 @@ import { Comment } from '../common/comment';
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<GitFileChangeNode | DescriptionNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-	private _disposables: vscode.Disposable[] = []
+	private _disposables: vscode.Disposable[] = [];
 
 	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: Comment[] = [];

@@ -209,7 +209,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 					pageInformation.hasMorePages = pullRequestData.hasMorePages;
 					hasMorePages = hasMorePages || pageInformation.hasMorePages;
-					pageInformation.pullRequestPage++;;
+					pageInformation.pullRequestPage++;
 				}
 			}
 		}

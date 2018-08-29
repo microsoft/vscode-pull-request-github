@@ -21,7 +21,7 @@ const ElementIds = {
 	Status: 'status',
 	CommentTextArea: 'comment-textarea',
 	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
-}
+};
 
 interface PullRequest {
 	number: number;
@@ -46,7 +46,7 @@ window.onload = () => {
 	if (pullRequest) {
 		renderPullRequest(pullRequest);
 	}
-}
+};
 
 function handleMessage(event: any) {
 	const message = event.data; // The json data that the extension sent

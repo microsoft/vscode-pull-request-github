@@ -558,7 +558,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				arguments: [
 					fileChange
 				]
-			}
+			};
 		}
 
 		for (let i in sections) {
@@ -678,7 +678,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					if (matchedFile) {
 						let matchingComments = matchedFile.comments;
-						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase) });
+						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase); });
 
 						let diffHunks = matchedFile.diffHunks;
 
@@ -722,7 +722,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 							return null;
 						}
 					} else {
-						comments = matchedFile.comments
+						comments = matchedFile.comments;
 					}
 
 					let sections = groupBy(comments, comment => String(comment.original_position)); // comment.position is null in this case.

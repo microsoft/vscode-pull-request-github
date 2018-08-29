@@ -215,7 +215,7 @@ export class PullRequestOverviewPanel {
 					cwd: vscode.workspace.rootPath
 				});
 			} else {
-				await vscode.commands.executeCommand('git.checkout')
+				await vscode.commands.executeCommand('git.checkout');
 			}
 		}
 	}

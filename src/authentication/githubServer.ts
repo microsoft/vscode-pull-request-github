@@ -140,14 +140,15 @@ export class GitHubManager {
 			return false;
 		}
 		const tokenScopes = scopes.split(', ');
-		return (this.AppScopes.every(x => tokenScopes.indexOf(x) >= 0 || tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0))
+		return (this.AppScopes.every(x => tokenScopes.indexOf(x) >= 0 || tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0));
 	}
 
 	private static getScopeSuperset(scope: string): string
 	{
 		for (let key in this.GitHubScopesTable) {
-			if (this.GitHubScopesTable[key].indexOf(scope) >= 0)
+			if (this.GitHubScopesTable[key].indexOf(scope) >= 0) {
 				return key;
+			}
 		}
 		return scope;
 	}

@@ -63,8 +63,8 @@ export function getPositionInDiff(comment: Comment, fileDiffHunks: DiffHunk[], i
 		let diffLine = getDiffLineByPosition(fileDiffHunks, comment.position);
 
 		if (diffLine) {
-			if ((diffLine.type === DiffChangeType.Add && !isBase) || (diffLine.type == DiffChangeType.Delete && isBase)) {
-				commentAbsolutePosition = comment.position
+			if ((diffLine.type === DiffChangeType.Add && !isBase) || (diffLine.type === DiffChangeType.Delete && isBase)) {
+				commentAbsolutePosition = comment.position;
 			}
 		}
 	}

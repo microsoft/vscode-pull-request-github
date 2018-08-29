@@ -111,6 +111,6 @@ export class VSCodeConfiguration extends Configuration {
 		}
 		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
 		// don't save the token to the user settings file
-		config.update(HOSTS_KEY, Array.from(this._hosts.values()).map(x => { return { host: x.host, username: x.username, token: 'system' } }), true);
+		config.update(HOSTS_KEY, Array.from(this._hosts.values()).map(x => { return { host: x.host, username: x.username, token: 'system' }; }), true);
 	}
 }

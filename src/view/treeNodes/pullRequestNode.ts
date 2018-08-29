@@ -432,7 +432,7 @@ export class PRNode extends TreeNode {
 			}
 
 			if (fileChange instanceof RemoteFileChangeNode) {
-				throw new Error('Cannot add comment to this file')
+				throw new Error('Cannot add comment to this file');
 			}
 
 			let isBase = params && params.base;
@@ -464,7 +464,7 @@ export class PRNode extends TreeNode {
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
-	};
+	}
 
 	private async replyToCommentThread(document: vscode.TextDocument, _range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
@@ -477,7 +477,7 @@ export class PRNode extends TreeNode {
 			}
 
 			if (fileChange instanceof RemoteFileChangeNode) {
-				throw new Error('Cannot add comment to this file')
+				throw new Error('Cannot add comment to this file');
 			}
 
 			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, text, thread.threadId);
@@ -494,7 +494,7 @@ export class PRNode extends TreeNode {
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
-	};
+	}
 
 	private async provideDocumentComments(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CommentInfo> {
 		if (document.uri.scheme === 'pr') {

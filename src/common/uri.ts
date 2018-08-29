@@ -69,12 +69,12 @@ export interface FileChangeNodeUriParams {
 export function toFileChangeNodeUri(uri: Uri, hasComments: boolean) {
 	const params = {
 		hasComments: hasComments
-	}
+	};
 
 	return uri.with({
 		scheme: 'file',
 		query: JSON.stringify(params)
-	})
+	});
 }
 
 export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams {
