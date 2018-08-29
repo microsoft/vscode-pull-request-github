@@ -26,6 +26,7 @@ export class PullRequestOverviewPanel {
 	private _disposables: vscode.Disposable[] = [];
 	private _pullRequest: IPullRequestModel;
 	private _pullRequestManager: IPullRequestManager;
+	private _initialized: boolean;
 
 	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel) {
 		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
@@ -40,6 +41,12 @@ export class PullRequestOverviewPanel {
 		}
 
 		PullRequestOverviewPanel.currentPanel.update(pullRequestModel);
+	}
+
+	public static refresh():void {
+		if (this.currentPanel) {
+			this.currentPanel.refreshPanel();
+		}
 	}
 
 	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: IPullRequestManager) {
@@ -95,11 +102,19 @@ export class PullRequestOverviewPanel {
 		}, null, this._disposables);
 	}
 
-	public async update(pullRequestModel: IPullRequestModel) {
+	public async refreshPanel(): Promise<void> {
+		this._initialized = false;
+		if (this._panel && this._panel.visible) {
+			this.update(this._pullRequest);
+		}
+	}
+
+	public async update(pullRequestModel: IPullRequestModel): Promise<void> {
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
 
-		if (!pullRequestModel.equals(this._pullRequest)) {
+		if (!pullRequestModel.equals(this._pullRequest) || !this._initialized) {
 			this._pullRequest = pullRequestModel;
+			this._initialized = true;
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);

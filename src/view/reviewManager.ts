@@ -22,6 +22,7 @@ import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { IConfiguration } from '../authentication/configuration';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -80,6 +81,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			this.updateComments();
+			PullRequestOverviewPanel.refresh();
 			this.prFileChangesProvider.refresh();
 		}));
 
@@ -88,6 +90,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				this.updateComments();
 			}
 
+			PullRequestOverviewPanel.refresh();
 			this._prsTreeDataProvider.refresh(prNode);
 		}));
 
