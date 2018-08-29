@@ -37,6 +37,7 @@ interface PullRequest {
 	head: string;
 	commitsCount: number;
 	repositoryDefaultBranch: any;
+	pendingCommentText?: string;
 }
 
 let pullRequest: PullRequest;
@@ -145,11 +146,20 @@ function addEventListeners(pr: PullRequest): void {
 	});
 
 	// Enable 'Comment' and 'RequestChanges' button only when the user has entered text
+	let updateStateTimer: NodeJS.Timer;
 	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
-		const hasNoText = !(<any>e.target).value;
-		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = hasNoText;
-		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = hasNoText || pullRequest.state !== PullRequestStateEnum.Open;
+		const inputText = (<HTMLInputElement>e.target).value;
+		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = !inputText;
+		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = !inputText || pullRequest.state !== PullRequestStateEnum.Open;
 
+		if (updateStateTimer) {
+			clearTimeout(updateStateTimer);
+		}
+
+		updateStateTimer = setTimeout(() => {
+			pullRequest.pendingCommentText = inputText;
+			vscode.setState(pullRequest);
+		}, 500);
 	});
 
 	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
@@ -257,8 +267,9 @@ function setTextArea() {
 			<button class="reply-button" id="${ElementIds.Reply}" disabled="true">Comment</button>
 		</div>`;
 
-	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).placeholder = 'Leave a comment';
-	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).addEventListener('keydown', e => {
+	const textArea = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!);
+	textArea.placeholder = 'Leave a comment';
+	textArea.addEventListener('keydown', e => {
 		if (e.keyCode === 65 && e.metaKey) {
 			(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).select();
 			return;
@@ -269,4 +280,8 @@ function setTextArea() {
 			return;
 		}
 	});
+
+	if (pullRequest.pendingCommentText) {
+		textArea.value = pullRequest.pendingCommentText;
+	}
 }
