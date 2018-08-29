@@ -12,7 +12,7 @@ import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, SlimFileChange } from '../common/file';
 import { GitErrorCodes } from '../common/gitError';
-import { IPullRequestModel, IPullRequestManager } from '../github/interface';
+import { IPullRequestModel, IPullRequestManager, ITelemetry } from '../github/interface';
 import { Repository } from '../common/repository';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
@@ -48,7 +48,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		private _context: vscode.ExtensionContext,
 		private _configuration: IConfiguration,
 		private _repository: Repository,
-		private _prManager: IPullRequestManager
+		private _prManager: IPullRequestManager,
+		private _telemetry: ITelemetry
 	) {
 		this._documentCommentProvider = null;
 		this._workspaceCommentProvider = null;
@@ -91,7 +92,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._prsTreeDataProvider.refresh(prNode);
 		}));
 
-		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager);
+		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 		this.updateState();

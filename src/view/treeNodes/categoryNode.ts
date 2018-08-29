@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../../common/repository';
-import { IPullRequestManager, IPullRequestModel, PRType } from '../../github/interface';
+import { IPullRequestManager, IPullRequestModel, PRType, ITelemetry } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
 import { formatError } from '../../common/utils';
@@ -75,6 +75,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		private _prManager: IPullRequestManager,
+		private _telemetry: ITelemetry,
 		private _repository: Repository,
 		private _type: PRType
 	) {
@@ -109,6 +110,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (this._type === PRType.LocalPullRequest) {
 			try {
 				this.prs = await this._prManager.getLocalPullRequests();
+				this._telemetry.on('prListExpandLocalPullRequest');
 			} catch (e) {
 				vscode.window.showErrorMessage(`Fetching local pull requests failed: ${formatError(e)}`);
 				needLogin = e instanceof AuthenticationError;
@@ -119,13 +121,29 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: false });
 					this.prs = ret[0];
 					hasMorePages = ret[1];
+					switch (this._type) {
+						case PRType.All:
+							this._telemetry.on('prListExpandAll');
+							break;
+						case PRType.AssignedToMe:
+							this._telemetry.on('prListExpandAssignedToMe');
+							break;
+						case PRType.RequestReview:
+							this._telemetry.on('prListExpandRequestReview');
+							break;
+						case PRType.Mine:
+							this._telemetry.on('prListExpandMine');
+							break;
+					}
+
+
 				} catch (e) {
 					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);
 					needLogin = e instanceof AuthenticationError;
 				}
 			} else {
 				try {
-					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: true});
+					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: true });
 					this.prs = this.prs.concat(ret[0]);
 					hasMorePages = ret[1];
 				} catch (e) {

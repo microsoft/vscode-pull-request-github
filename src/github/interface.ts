@@ -138,7 +138,7 @@ export interface IPullRequestManager {
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
 	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;
-	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions):Promise<[IPullRequestModel[], boolean]>;
+	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]>;
@@ -176,4 +176,21 @@ export interface IPullRequestManager {
 	checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
 	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
 
+}
+
+export interface ITelemetry {
+	on(action: 'startup'): Promise<void>;
+	on(action: 'authSuccess'): Promise<void>;
+	on(action: 'commentsFromEditor'): Promise<void>;
+	on(action: 'commentsFromDescription'): Promise<void>;
+	on(action: 'prListExpandLocalPullRequest'): Promise<void>;
+	on(action: 'prListExpandRequestReview'): Promise<void>;
+	on(action: 'prListExpandAssignedToMe'): Promise<void>;
+	on(action: 'prListExpandMine'): Promise<void>;
+	on(action: 'prListExpandAll'): Promise<void>;
+	on(action: 'prCheckoutFromContext'): Promise<void>;
+	on(action: 'prCheckoutFromDescription'): Promise<void>;
+	on(action: string): Promise<void>;
+
+	shutdown(): Promise<void>;
 }

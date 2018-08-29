@@ -10,7 +10,7 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri } from './common/uri';
 import { GitFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
-import { IPullRequestManager, IPullRequestModel, IPullRequest } from './github/interface';
+import { IPullRequestManager, IPullRequestModel, IPullRequest, ITelemetry } from './github/interface';
 import { Comment } from './common/comment';
 import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
@@ -34,7 +34,8 @@ function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestMode
 	}
 }
 
-export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager, reviewManager: ReviewManager) {
+export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager,
+	reviewManager: ReviewManager, telemetry: ITelemetry) {
 	// initialize resources
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | IPullRequestModel) => {
 		if (!e) {
@@ -73,6 +74,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | IPullRequestModel) => {
 		let pullRequestModel;
+		const isFromContextMenu = pr instanceof PRNode;
 
 		if (pr instanceof PRNode) {
 			pullRequestModel = pr.pullRequestModel;
@@ -85,6 +87,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 			title: `Switching to Pull Request #${pullRequestModel.prNumber}`,
 		}, async (progress, token) => {
 			await reviewManager.switch(pullRequestModel);
+			if (isFromContextMenu) {
+				telemetry.on('prCheckoutFromContext');
+			} else {
+				telemetry.on('prCheckoutFromDescription');
+			}
 		});
 	}));
 
@@ -112,11 +119,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.approve',  async (pr: IPullRequestModel, message?: string) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.approve', async (pr: IPullRequestModel, message?: string) => {
 		return await prManager.approvePullRequest(pr, message);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges',  async (pr: IPullRequestModel, message?: string) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges', async (pr: IPullRequestModel, message?: string) => {
 		return await prManager.requestChanges(pr, message);
 	}));
 
