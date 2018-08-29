@@ -413,6 +413,7 @@ export class PRNode extends TreeNode {
 				}
 			}
 		}
+		Logger.appendLine(`PR> can not find content for document ${uri.toString()}`);
 		return '';
 	}
 
