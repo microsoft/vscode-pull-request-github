@@ -38,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
 		const configuration = new VSCodeConfiguration();
+		await configuration.loadConfiguration();
 		configuration.onDidChange(async _ => {
 			if (prManager) {
 				try {

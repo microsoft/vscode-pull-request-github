@@ -247,7 +247,7 @@ export function getGitChangeType(status: string): GitChangeType {
 		case 'modified':
 			return GitChangeType.MODIFY;
 		default:
-			return GitChangeType.UNKNOWN
+			return GitChangeType.UNKNOWN;
 	}
 }
 
@@ -268,7 +268,7 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 		let originalFileExist = await repository.checkFileExistence(parentCommit, review.filename);
 		let diffHunks = parsePatch(review.patch);
 		let isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
-		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.patch, diffHunks, isPartial, review.blob_url))
+		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.patch, diffHunks, isPartial, review.blob_url));
 	}
 
 	return fileChanges;

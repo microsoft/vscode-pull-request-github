@@ -23,7 +23,7 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 			dispose: () => {
 				this._prDocumentCommentProviders[pullRequestModel.prNumber] = null;
 			}
-		}
+		};
 
 	}
 

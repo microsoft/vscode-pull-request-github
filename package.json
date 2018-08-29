@@ -8,7 +8,7 @@
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
   },
   "enableProposedApi": true,
-  "version": "0.0.17",
+  "version": "0.0.18",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.27.0"
@@ -276,6 +276,7 @@
     "mocha": "^5.2.0",
     "style-loader": "^0.21.0",
     "ts-loader": "^4.0.1",
+    "tslint": "^5.11.0",
     "typescript": "^2.1.4",
     "webpack": "^4.1.0",
     "webpack-cli": "^2.0.10"
