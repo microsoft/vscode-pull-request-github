@@ -34,7 +34,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
-	private _updateCurrentBranch: boolean = false;
 	private _validateStatusInProgress: boolean = false;
 
 	private _onDidChangeDocumentCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
@@ -134,10 +133,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._validateStatusInProgress = true;
 			try {
 				await this.validateState();
-				this._updateCurrentBranch = false;
 				this._validateStatusInProgress = false;
 			} catch (e) {
-				this._updateCurrentBranch = false;
 				this._validateStatusInProgress = false;
 			}
 		}
@@ -160,7 +157,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		if (this._prNumber === matchingPullRequestMetadata.prNumber && !this._updateCurrentBranch) {
+		const hasPushedChanges = branch.commit !== this._lastCommitSha && branch.ahead === 0 && branch.behind === 0;
+		if (this._prNumber === matchingPullRequestMetadata.prNumber && !hasPushedChanges) {
 			return;
 		}
 
@@ -186,9 +184,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		this._prManager.activePullRequest = pr;
-		if (!this._lastCommitSha) {
-			this._lastCommitSha = pr.head.sha;
-		}
+		this._lastCommitSha = pr.head.sha;
 
 		await this.getPullRequestData(pr);
 		await this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, pr, this._localFileChanges, this._comments);
@@ -330,7 +326,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let result = await vscode.window.showInformationMessage('There are updates available for this branch.', {}, 'Pull');
 
 			if (result === 'Pull') {
-				this._updateCurrentBranch = true;
 				await vscode.commands.executeCommand('git.pull');
 				this._updateMessageShown = false;
 			}
