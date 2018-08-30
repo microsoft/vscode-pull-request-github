@@ -146,7 +146,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 				path: path,
 				ref: ref,
 				commit: previousCommit,
-				base: true
+				base: true,
+				outdated: true
 			})
 		});
 
