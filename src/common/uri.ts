@@ -13,6 +13,7 @@ export interface ReviewUriParams {
 	ref?: string;
 	commit?: string;
 	base: boolean;
+	isOutdated: boolean;
 }
 
 export function fromReviewUri(uri: Uri): ReviewUriParams {
@@ -39,12 +40,13 @@ export interface GitUriOptions {
 // As a mitigation for extensions like ESLint showing warnings and errors
 // for git URIs, let's change the file extension of these uris to .git,
 // when `replaceFileExtension` is true.
-export function toReviewUri(uri: Uri, filePath: string, ref: string, commit: string, options: GitUriOptions): Uri {
+export function toReviewUri(uri: Uri, filePath: string, ref: string, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
 	const params: ReviewUriParams = {
 		path: filePath ? filePath : uri.path,
 		ref,
 		commit: commit,
-		base: options.base
+		base: options.base,
+		isOutdated
 	};
 
 	let path = uri.path;
