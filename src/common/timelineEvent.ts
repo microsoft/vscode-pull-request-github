@@ -18,6 +18,9 @@ export interface Author {
 	name: string;
 	email: string;
 	date: Date;
+	login?: string;
+	avatar_url?: string;
+	html_url?: string;
 }
 
 export interface Committer {

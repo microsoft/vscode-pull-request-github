@@ -237,13 +237,17 @@ body .overview-title button {
 
 .commit .commit-message {
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	line-height: 18px;
 	overflow: hidden;
 	white-space: nowrap;
 }
 
-.commit .commit-message span {
+.commit .avatar-container .avatar {
+	width: 16px;
+}
+
+.commit .commit-message .message {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }

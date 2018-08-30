@@ -6,10 +6,10 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IPullRequest, IPullRequestManager, IPullRequestModel } from './interface';
+import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit } from './interface';
 import { onDidClosePR } from '../commands';
 import { exec } from '../common/git';
-import { TimelineEvent, EventType, ReviewEvent } from '../common/timelineEvent';
+import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/timelineEvent';
 import { Comment } from '../common/comment';
 import { groupBy, formatError } from '../common/utils';
 
@@ -118,27 +118,36 @@ export class PullRequestOverviewPanel {
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
-			const timelineEvents = await this._pullRequestManager.getTimelineEvents(pullRequestModel);
-			const reviewComments = await this._pullRequestManager.getPullRequestComments(pullRequestModel);
-			const defaultBranch = await this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel);
-			this.fixCommentThreads(timelineEvents, reviewComments);
-			this._panel.webview.postMessage({
-				command: 'pr.initialize',
-				pullrequest: {
-					number: pullRequestModel.prNumber,
-					title: pullRequestModel.title,
-					url: pullRequestModel.html_url,
-					createdAt: pullRequestModel.createdAt,
-					body: pullRequestModel.body,
-					author: pullRequestModel.author,
-					state: pullRequestModel.state,
-					events: timelineEvents,
-					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
-					head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
-					commitsCount: pullRequestModel.commitCount,
-					repositoryDefaultBranch: defaultBranch
-				}
+
+			Promise.all(
+				[
+					this._pullRequestManager.getPullRequestCommits(pullRequestModel),
+					this._pullRequestManager.getTimelineEvents(pullRequestModel),
+					this._pullRequestManager.getPullRequestComments(pullRequestModel),
+					this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)
+				]
+			).then(result => {
+				const [reviewCommits, timelineEvents, reviewComments, defaultBranch] = result;
+				this.fixCommentThreads(timelineEvents, reviewComments);
+				this.fixCommitAttribution(timelineEvents, reviewCommits);
+				this._panel.webview.postMessage({
+					command: 'pr.initialize',
+					pullrequest: {
+						number: pullRequestModel.prNumber,
+						title: pullRequestModel.title,
+						url: pullRequestModel.html_url,
+						createdAt: pullRequestModel.createdAt,
+						body: pullRequestModel.body,
+						author: pullRequestModel.author,
+						state: pullRequestModel.state,
+						events: timelineEvents,
+						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+						base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
+						head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
+						commitsCount: pullRequestModel.commitCount,
+						repositoryDefaultBranch: defaultBranch
+					}
+				});
 			});
 		}
 	}
@@ -171,6 +180,23 @@ export class PullRequestOverviewPanel {
 						matchingEvent.comments = matchingEvent.comments.concat(comments);
 					}
 				}
+			}
+		}
+	}
+
+	/**
+	 * Commit timeline events only list the bare user commit information, not the details of the associated GitHub user account. Add these details.
+	 * @param timelineEvents The timeline events
+	 * @param commits All review commits
+	 */
+	private fixCommitAttribution(timelineEvents: TimelineEvent[], commits: Commit[]): void {
+		const commitEvents: CommitEvent[] = (<CommitEvent[]>timelineEvents.filter(event => event.event === EventType.Committed));
+		for (let commitEvent of commitEvents) {
+			const matchingCommits = commits.filter(commit => commit.sha === commitEvent.sha);
+			if (matchingCommits.length === 1) {
+				commitEvent.author.avatar_url = matchingCommits[0].author.avatar_url;
+				commitEvent.author.login = matchingCommits[0].author.login;
+				commitEvent.author.html_url = matchingCommits[0].author.html_url;
 			}
 		}
 	}
