@@ -67,28 +67,31 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 
 		let repositories = [];
+		let resolveRemotePromises = [];
 		for (let remote of gitHubRemotes) {
 			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
 			if (!isRemoteForPR) {
 				const repository = new GitHubRepository(remote, this._credentialStore, this._telemetry);
-				await repository.resolveRemote();
+				resolveRemotePromises.push(repository.resolveRemote());
 				repositories.push(repository);
 			}
 		}
 
-		this._githubRepositories = repositories;
+		return Promise.all(resolveRemotePromises).then(_ => {
+			this._githubRepositories = repositories;
 
-		for (let repository of this._githubRepositories) {
-			const remoteId = repository.remote.url.toString();
-			if (!this._repositoryPageInformation.get(remoteId)) {
-				this._repositoryPageInformation.set(remoteId, {
-					pullRequestPage: 1,
-					hasMorePages: null
-				});
+			for (let repository of this._githubRepositories) {
+				const remoteId = repository.remote.url.toString();
+				if (!this._repositoryPageInformation.get(remoteId)) {
+					this._repositoryPageInformation.set(remoteId, {
+						pullRequestPage: 1,
+						hasMorePages: null
+					});
+				}
 			}
-		}
 
-		return Promise.resolve();
+			return Promise.resolve();
+		});
 	}
 
 	async authenticate(): Promise<boolean> {
@@ -208,7 +211,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 					pageInformation.hasMorePages = pullRequestData.hasMorePages;
 					hasMorePages = hasMorePages || pageInformation.hasMorePages;
-					pageInformation.pullRequestPage++;;
+					pageInformation.pullRequestPage++;
 				}
 			}
 		}

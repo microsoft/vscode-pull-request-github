@@ -22,6 +22,7 @@ import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { IConfiguration } from '../authentication/configuration';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -81,6 +82,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			this.updateComments();
+			PullRequestOverviewPanel.refresh();
 			this.prFileChangesProvider.refresh();
 		}));
 
@@ -89,6 +91,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				this.updateComments();
 			}
 
+			PullRequestOverviewPanel.refresh();
 			this._prsTreeDataProvider.refresh(prNode);
 		}));
 
@@ -205,7 +208,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 		const uri = document.uri;
 
 		let fileName: string;
-		if (uri.scheme === 'review' || uri.scheme === 'file') {
+		let isOutdated = false;
+		if  (uri.scheme === 'review') {
+			const query = fromReviewUri(uri);
+			isOutdated = query.isOutdated;
+			fileName = query.path;
+		}
+
+		if (uri.scheme === 'file') {
 			fileName = uri.path;
 		}
 
@@ -213,7 +223,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			fileName = fromPRUri(uri).fileName;
 		}
 
-		const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => {
+		const fileChangesToSearch = isOutdated ? this._obsoleteFileChanges : this._localFileChanges;
+		const matchedFiles = gitFileChangeNodeFilter(fileChangesToSearch).filter(fileChange => {
 			if (uri.scheme === 'review' || uri.scheme === 'pr') {
 				return fileChange.fileName === fileName;
 			} else {
@@ -430,13 +441,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 						change.blobUrl
 					);
 				}
+
+				const uri = vscode.Uri.parse(change.fileName);
 				let changedItem = new GitFileChangeNode(
 					pr,
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.head.sha, { base: false }),
-					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.base.sha, { base: true }),
+					toReviewUri(uri, null, null, change.status === GitChangeType.DELETE ? '' : pr.head.sha, false, { base: false }),
+					toReviewUri(uri, null, null, change.status === GitChangeType.ADD ? '' : pr.base.sha, false, { base: true }),
 					change.isPartial,
 					change.diffHunks,
 					activeComments.filter(comment => comment.path === change.fileName),
@@ -467,14 +480,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 						Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
 					}
 
-					let oldComments = commentsForFile[fileName];
-					let obsoleteFileChange = new GitFileChangeNode(
+					const oldComments = commentsForFile[fileName];
+					const uri = vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName));
+					const obsoleteFileChange = new GitFileChangeNode(
 						pr,
 						GitChangeType.MODIFY,
 						fileName,
 						null,
-						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: false }),
-						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: true }),
+						toReviewUri(uri, fileName, null, oldComments[0].original_commit_id, true, { base: false }),
+						toReviewUri(uri, fileName, null, oldComments[0].original_commit_id, true, { base: true }),
 						false,
 						diffHunks,
 						oldComments,
@@ -559,7 +573,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				arguments: [
 					fileChange
 				]
-			}
+			};
 		}
 
 		for (let i in sections) {
@@ -679,7 +693,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					if (matchedFile) {
 						let matchingComments = matchedFile.comments;
-						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase) });
+						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase); });
 
 						let diffHunks = matchedFile.diffHunks;
 
@@ -723,7 +737,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 							return null;
 						}
 					} else {
-						comments = matchedFile.comments
+						comments = matchedFile.comments;
 					}
 
 					let sections = groupBy(comments, comment => String(comment.original_position)); // comment.position is null in this case.

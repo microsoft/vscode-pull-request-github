@@ -40,7 +40,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					arguments: [
 						node
 					]
-				}
+				};
 				break;
 			case PRCategoryActionType.Login:
 				this.label = 'Sign in';
@@ -48,7 +48,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					title: 'Sign in',
 					command: 'pr.signinAndRefreshList',
 					arguments: []
-				}
+				};
 				break;
 			default:
 				break;

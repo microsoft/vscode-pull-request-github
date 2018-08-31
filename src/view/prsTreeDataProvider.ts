@@ -88,7 +88,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				bubble: false,
 				title: '◆',
 				letter: '◆'
-			}
+			};
 		}
 
 		return {};

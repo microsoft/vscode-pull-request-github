@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
-import { fromReviewUri } from './common/uri';
+import { fromReviewUri, ReviewUriParams } from './common/uri';
 import { GitFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { IPullRequestManager, IPullRequestModel, IPullRequest, ITelemetry } from './github/interface';
@@ -16,6 +16,7 @@ import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
+import { DescriptionNode } from './view/treeNodes/descriptionNode';
 
 const _onDidClosePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidClosePR: vscode.Event<IPullRequest> = _onDidClosePR.event;
@@ -72,11 +73,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | IPullRequestModel) => {
-		let pullRequestModel;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {
+		let pullRequestModel: IPullRequestModel;
 		const isFromContextMenu = pr instanceof PRNode;
 
-		if (pr instanceof PRNode) {
+		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
 			pullRequestModel = pr.pullRequestModel;
 		} else {
 			pullRequestModel = pr;
@@ -148,14 +149,14 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		// Show the file change in a diff view.
 		let { path, ref, commit } = fromReviewUri(fileChange.filePath);
 		let previousCommit = `${commit}^`;
-		let previousFileUri = fileChange.filePath.with({
-			query: JSON.stringify({
-				path: path,
-				ref: ref,
-				commit: previousCommit,
-				base: true
-			})
-		});
+		const query: ReviewUriParams = {
+			path: path,
+			ref: ref,
+			commit: previousCommit,
+			base: true,
+			isOutdated: true
+		};
+		const previousFileUri = fileChange.filePath.with({ query: JSON.stringify(query) });
 
 		const options: vscode.TextDocumentShowOptions = {
 			preserveFocus: true

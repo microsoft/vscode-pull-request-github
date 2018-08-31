@@ -38,7 +38,7 @@ export async function exec(args: any[], options: IGitExecutionOptions): Promise<
 	args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
 	let data: IGitResult;
 	try {
-		data = await run(gitInfo.path, args, encoding, runOpts);;
+		data = await run(gitInfo.path, args, encoding, runOpts);
 	} catch (ex) {
 	}
 

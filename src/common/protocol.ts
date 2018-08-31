@@ -96,6 +96,9 @@ export class Protocol {
 
 	getRepositoryName(path: string) {
 		let normalized = path.replace('\\', '/');
+		if (normalized.endsWith('/')) {
+			normalized = normalized.substr(0, normalized.length - 1);
+		}
 		let lastIndex = normalized.lastIndexOf('/');
 		let lastSegment = normalized.substr(lastIndex + 1);
 		if (lastSegment === '' || lastSegment === '/') {
@@ -107,6 +110,10 @@ export class Protocol {
 
 	getOwnerName(path: string) {
 		let normalized = path.replace('\\', '/');
+		if (normalized.endsWith('/')) {
+			normalized = normalized.substr(0, normalized.length - 1);
+		}
+
 		let fragments = normalized.split('/');
 		if (fragments.length > 1) {
 			return fragments[fragments.length - 2];

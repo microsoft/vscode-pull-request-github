@@ -86,7 +86,7 @@ export class CredentialStore {
 			try {
 				const login = await server.login();
 				if (login) {
-					octokit = this.createOctokit('token', login)
+					octokit = this.createOctokit('token', login);
 					await this._configuration.update(login.username, login.token, false);
 					vscode.window.showInformationMessage(`You are now signed in to ${normalizedUri.authority}`);
 				}
@@ -143,7 +143,7 @@ export class CredentialStore {
 		if (octokit) {
 			try {
 				const user = await octokit.users.get({});
-				text = `$(mark-github) Signed in as ${user.data.login}`;
+				text = `$(mark-github) ${user.data.login}`;
 			} catch (e) {
 				text = '$(mark-github) Signed in';
 			}
