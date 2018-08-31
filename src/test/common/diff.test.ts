@@ -77,6 +77,18 @@ describe('diff hunk parsing', () => {
 		assert.equal(diffHunk.diffLines.length, 1);
 	});
 
+	it('', () => {
+		let diffHunkReader = parseDiffHunk(`@@ -1 +1,5 @@
+# README
++
++This is my readme
++
++Another line"`);
+		let diffHunkIter = diffHunkReader.next();
+		let diffHunk = diffHunkIter.value;
+		assert.equal(diffHunk.diffLines.length, 5);
+	});
+
 	describe('mapCommentsToHead', () => {
 		it('should handle comments that are on a deleted diff line', () => {
 			const comments = [{

@@ -19,6 +19,9 @@ export async function getFileContent(rootDir: string, commitSha: string, sourceF
 	const error = result.stderr;
 
 	if (result.exitCode === 0) {
+		if (out.endsWith('\n')) {
+			return out.substr(0, out.length - 1);
+		}
 		return out;
 	} else {
 		throw error;
