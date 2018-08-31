@@ -257,9 +257,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			matchedFile.comments.push(comment);
 			this._comments.push(comment);
 
+			const workspaceThread = Object.assign({}, thread, { resource: vscode.Uri.file(thread.resource.fsPath) });
 			this._onDidChangeWorkspaceCommentThreads.fire({
 				added: [],
-				changed: [thread],
+				changed: [workspaceThread],
 				removed: []
 			});
 
@@ -304,8 +305,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			matchedFile.comments.push(rawComment);
 			this._comments.push(rawComment);
 
+			const workspaceThread = Object.assign({}, commentThread, { resource: vscode.Uri.file(commentThread.resource.fsPath) });
 			this._onDidChangeWorkspaceCommentThreads.fire({
-				added: [commentThread],
+				added: [workspaceThread],
 				changed: [],
 				removed: []
 			});
