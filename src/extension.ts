@@ -14,11 +14,16 @@ import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
 import { setGitPath } from './common/git';
 import { formatError } from './common/utils';
+import { Telemetry } from './common/telemetry';
+import { ITelemetry } from './github/interface';
+
+let telemetry: ITelemetry;
 
 export async function activate(context: vscode.ExtensionContext) {
 	// initialize resources
 	Resource.initialize(context);
 
+	telemetry = new Telemetry(context);
 	const rootPath = vscode.workspace.rootPath;
 	let gitExt = vscode.extensions.getExtension('vscode.git');
 	let importedGitApi = gitExt.exports;
@@ -54,8 +59,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		context.subscriptions.push(configuration.listenForVSCodeChanges());
 
 		repositoryInitialized = true;
-		prManager = new PullRequestManager(configuration, repository);
-		const reviewManager = new ReviewManager(context, configuration, repository, prManager);
-		registerCommands(context, prManager, reviewManager);
+		prManager = new PullRequestManager(configuration, repository, telemetry);
+		const reviewManager = new ReviewManager(context, configuration, repository, prManager, telemetry);
+		registerCommands(context, prManager, reviewManager, telemetry);
+		telemetry.on('startup');
 	});
+}
+
+export async function deactivate(context: vscode.ExtensionContext) {
+	if (telemetry) {
+		await telemetry.shutdown();
+	}
 }

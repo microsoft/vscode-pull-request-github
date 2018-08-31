@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from "../common/logger";
 import { Remote } from "../common/remote";
-import { PRType, IGitHubRepository } from "./interface";
+import { PRType, IGitHubRepository, ITelemetry } from "./interface";
 import { PullRequestModel } from "./pullRequestModel";
 import { CredentialStore } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -35,7 +35,8 @@ export class GitHubRepository implements IGitHubRepository {
 		return this._octokit;
 	}
 
-	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
+	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore,
+		private readonly _telemetry: ITelemetry) {
 	}
 
 	async resolveRemote(): Promise<void> {
@@ -63,6 +64,7 @@ export class GitHubRepository implements IGitHubRepository {
 
 			if (result === SIGNIN_COMMAND) {
 				this._octokit = await this._credentialStore.login(this.remote);
+				this._telemetry.on('authSuccess');
 			}
 		} else {
 			this._octokit = await this._credentialStore.getOctokit(this.remote);
@@ -75,6 +77,7 @@ export class GitHubRepository implements IGitHubRepository {
 		this._initialized = true;
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
 			this._octokit = await this._credentialStore.login(this.remote);
+			this._telemetry.on('authSuccess');
 		} else {
 			this._octokit = this._credentialStore.getOctokit(this.remote);
 		}
@@ -142,7 +145,7 @@ export class GitHubRepository implements IGitHubRepository {
 			const { octokit, remote } = await this.ensure();
 			const user = await octokit.users.get({});
 			// Search api will not try to resolve repo that redirects, so get full name first
-			const repo = await octokit.repos.get({owner: this.remote.owner, repo: this.remote.repositoryName});
+			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
 			const { data, headers } = await octokit.search.issues({
 				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, prType),
 				per_page: PULL_REQUEST_PAGE_SIZE,

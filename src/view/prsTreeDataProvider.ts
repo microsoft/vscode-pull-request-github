@@ -8,7 +8,7 @@ import { IConfiguration } from '../authentication/configuration';
 import { Repository } from '../common/repository';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
-import { IPullRequestManager, PRType } from '../github/interface';
+import { IPullRequestManager, PRType, ITelemetry } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { getPRDocumentCommentProvider } from './prDocumentCommentProvider';
@@ -24,7 +24,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	constructor(
 		private _configuration: IConfiguration,
 		private _repository: Repository,
-		private _prManager: IPullRequestManager
+		private _prManager: IPullRequestManager,
+		private _telemetry: ITelemetry
 	) {
 		this._disposables = [];
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', getInMemPRContentProvider()));
@@ -61,11 +62,11 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 
 			let result = [
-				new CategoryTreeNode(this._prManager, this._repository, PRType.LocalPullRequest),
-				new CategoryTreeNode(this._prManager, this._repository, PRType.RequestReview),
-				new CategoryTreeNode(this._prManager, this._repository, PRType.AssignedToMe),
-				new CategoryTreeNode(this._prManager, this._repository, PRType.Mine),
-				new CategoryTreeNode(this._prManager, this._repository, PRType.All)
+				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.LocalPullRequest),
+				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.RequestReview),
+				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.AssignedToMe),
+				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.Mine),
+				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.All)
 			];
 
 			this._childrenDisposables = result;
