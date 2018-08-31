@@ -64,7 +64,20 @@ export class PullRequestManager implements IPullRequestManager {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
 		} else {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
+			return;
 		}
+
+		let serverAuthPromises = [];
+		for (let server of uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().authority)) {
+			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
+				if (!authd) {
+					this._credentialStore.loginWithConfirmation(server);
+				}
+			}));
+		}
+		// Make sure authentication is set up for all the servers that the remotes are pointing to
+		// this will ask the user to sign in if there's no credentials for a server, once per server
+		await Promise.all(serverAuthPromises);
 
 		let repositories = [];
 		let resolveRemotePromises = [];

@@ -12,6 +12,7 @@ import { VSCodeConfiguration } from '../authentication/vsConfiguration';
 import Logger from '../common/logger';
 
 const TRY_AGAIN = 'Try again?';
+const SIGNIN_COMMAND = 'Sign in';
 
 export class CredentialStore {
 	private _octokits: Map<string, Octokit>;
@@ -58,9 +59,7 @@ export class CredentialStore {
 		if (octokit) {
 			this._octokits.set(host, octokit);
 		}
-
 		this.updateAuthenticationStatusBar(remote);
-
 		return this._octokits.has(host);
 	}
 
@@ -68,6 +67,20 @@ export class CredentialStore {
 		const normalizedUri = remote.gitProtocol.normalizeUri();
 		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
 		return this._octokits.get(host);
+	}
+
+	public async loginWithConfirmation(remote: Remote): Promise<Octokit> {
+		const normalizedUri = remote.gitProtocol.normalizeUri();
+		const result = await vscode.window.showInformationMessage(
+			`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
+			SIGNIN_COMMAND);
+
+		if (result === SIGNIN_COMMAND) {
+			return await this.login(remote);
+		} else {
+			// user cancelled sign in, remember that and don't ask again
+			this._octokits.set(`${normalizedUri.scheme}://${normalizedUri.authority}`, undefined);
+		}
 	}
 
 	public async login(remote: Remote): Promise<Octokit> {

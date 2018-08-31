@@ -14,7 +14,6 @@ import { AuthenticationError } from '../common/authentication';
 import { parseRemote } from '../common/repository';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
-const SIGNIN_COMMAND = 'Sign in';
 
 export interface PullRequestData {
 	pullRequests: PullRequestModel[];
@@ -57,13 +56,8 @@ export class GitHubRepository implements IGitHubRepository {
 		this._initialized = true;
 
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			const normalizedUri = this.remote.gitProtocol.normalizeUri();
-			const result = await vscode.window.showInformationMessage(
-				`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
-				SIGNIN_COMMAND);
-
-			if (result === SIGNIN_COMMAND) {
-				this._octokit = await this._credentialStore.login(this.remote);
+			this._octokit = await this._credentialStore.loginWithConfirmation(this.remote);
+			if (this._octokit) {
 				this._telemetry.on('authSuccess');
 			}
 		} else {
