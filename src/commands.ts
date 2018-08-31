@@ -16,6 +16,7 @@ import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
+import { DescriptionNode } from './view/treeNodes/descriptionNode';
 
 const _onDidClosePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidClosePR: vscode.Event<IPullRequest> = _onDidClosePR.event;
@@ -71,10 +72,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | IPullRequestModel) => {
-		let pullRequestModel;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {
+		let pullRequestModel: IPullRequestModel;
 
-		if (pr instanceof PRNode) {
+		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
 			pullRequestModel = pr.pullRequestModel;
 		} else {
 			pullRequestModel = pr;
