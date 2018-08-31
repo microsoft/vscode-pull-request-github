@@ -243,6 +243,10 @@ body .overview-title button {
 	white-space: nowrap;
 }
 
+.commit .commit-message .avatar-container {
+	margin-right: 5px;
+}
+
 .commit .avatar-container .avatar {
 	width: 16px;
 }

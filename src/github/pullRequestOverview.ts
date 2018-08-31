@@ -194,9 +194,13 @@ export class PullRequestOverviewPanel {
 		for (let commitEvent of commitEvents) {
 			const matchingCommits = commits.filter(commit => commit.sha === commitEvent.sha);
 			if (matchingCommits.length === 1) {
-				commitEvent.author.avatar_url = matchingCommits[0].author.avatar_url;
-				commitEvent.author.login = matchingCommits[0].author.login;
-				commitEvent.author.html_url = matchingCommits[0].author.html_url;
+				const author = matchingCommits[0].author;
+				// There is not necessarily a GitHub account associated with the commit.
+				if (author !== null) {
+					commitEvent.author.avatar_url = author.avatar_url;
+					commitEvent.author.login = author.login;
+					commitEvent.author.html_url = author.html_url;
+				}
 			}
 		}
 	}

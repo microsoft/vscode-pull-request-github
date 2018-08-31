@@ -258,7 +258,7 @@ export function renderCommit(timelineEvent: CommitEvent): string {
 		: '';
 	const login = timelineEvent.author.login
 		? `<a class="author" href="${timelineEvent.author.html_url}">${timelineEvent.author.login}</a>`
-		: `<div>${timelineEvent.author.name}</div>`;
+		: timelineEvent.author.name;
 
 	return `<div class="comment-container"  data-type="commit">
 
