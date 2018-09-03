@@ -173,7 +173,7 @@ class MementoDatabase implements IStatsDatabase {
 
 	private get metrics() {
 		try {
-			return (this._context.globalState.get<DBEntry[]>(TELEMETRY_KEY) || [])
+			return (this._context.globalState.get<DBEntry[]>(TELEMETRY_KEY) || []);
 		} catch { }
 		return [];
 	}
