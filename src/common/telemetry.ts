@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import Logger from './logger';
-import { StatsStore, AppName, ISettings, IStatsDatabase, ICounter } from 'telemetry-github';
+import { StatsStore, AppName, ISettings, IStatsDatabase, IMetrics } from 'telemetry-github';
 import { ITelemetry } from '../github/interface';
 
 const TELEMETRY_KEY = 'vscode-pull-request-github.telemetry';
@@ -10,10 +10,12 @@ export class Telemetry implements ITelemetry {
 	private _telemetry: StatsStore;
 	constructor(private readonly _context: vscode.ExtensionContext) {
 		this._version = vscode.extensions.getExtension('GitHub.vscode-pull-request-github').packageJSON.version;
+		const database = new MementoDatabase(this._context, () => this._telemetry.createReport());
 		this._telemetry = new StatsStore(AppName.VSCode, this._version,
 			() => '',
 			new VSSettings(this._context),
-			new MementoDatabase(this._context));
+			database
+		);
 	}
 
 	public on(action: string): Promise<void> {
@@ -65,47 +67,118 @@ class VSSettings implements ISettings {
 	}
 }
 
+
+const getYearMonthDay = (date: Date): number =>
+	parseInt(
+		`${("0" + date.getUTCFullYear()).slice(-4)}${("0" + date.getUTCMonth()).slice(-2)}${("0" + date.getUTCDate()).slice(
+			-2
+		)}`
+	);
+
+interface DBEntry {
+	date: number;
+	metrics: IMetrics;
+}
+
+const now = () => new Date(Date.now()).toISOString();
+
 /** This stores the telemetry data if the user has not opted out and until it is sent out */
 class MementoDatabase implements IStatsDatabase {
-	constructor(private readonly _context: vscode.ExtensionContext) { }
-	close(): Promise<void> {
+
+	constructor(private readonly _context: vscode.ExtensionContext, private readonly _createReport: () => IMetrics) { }
+
+	public close(): Promise<void> {
 		return Promise.resolve();
 	}
 
-	incrementCounter(counterName: string): Promise<void> {
-		const counters = new Map<string, ICounter>();
-		(this._context.globalState.get<ICounter[]>(TELEMETRY_KEY) || []).forEach(x => counters.set(x.name, x));
-		const counter = counters.get(counterName) || { name: counterName, count: 0 };
-		counter.count++;
-		counters.set(counterName, counter);
-		this._context.globalState.update(TELEMETRY_KEY, Array.from(counters.values()));
-		return Promise.resolve();
+	public async addCustomEvent(eventType: string, customEvent: any): Promise<void> {
+		let report = await this.getCurrentMetrics();
+		customEvent.date = now();
+		customEvent.eventType = eventType;
+		report.metrics.customEvents.push(customEvent);
+		await this.update(report);
 	}
 
-	async getCounters(): Promise<ICounter[]> {
-		return this._context.globalState.get<ICounter[]>(TELEMETRY_KEY);
+	public async incrementCounter(counterName: string): Promise<void> {
+		const report = await this.getCurrentMetrics();
+		if (!report.metrics.measures.hasOwnProperty(counterName)) {
+			report.metrics.measures[counterName] = 0;
+		}
+		report.metrics.measures[counterName]++;
+		await this.update(report);
 	}
 
-	clearData(): Promise<void> {
-		this._context.globalState.update(TELEMETRY_KEY, []);
-		return Promise.resolve();
+	public async addTiming(eventType: string, durationInMilliseconds: number, metadata = {}): Promise<void> {
+		const report = await this.getCurrentMetrics();
+		report.metrics.timings.push({ eventType, durationInMilliseconds, metadata, date: now() });
+		await this.update(report);
 	}
 
-	/** not being tracked right now */
-	addCustomEvent(eventType: string, customEvent: any): Promise<void> {
-		return Promise.resolve();
+	/** Clears all values that exist in the database.
+	   * returns nothing.
+	   */
+	public async clearData(date?: Date): Promise<void> {
+		if (!date) {
+			this.metrics = [];
+		} else {
+			const today = getYearMonthDay(date);
+			this.metrics = this.metrics.filter(x => x.date >= today);
+		}
 	}
 
-	/** not being tracked right now */
-	addTiming(eventType: string, durationInMilliseconds: number, metadata: object): Promise<void> {
-		return Promise.resolve();
+	public async getMetrics(beforeDate?: Date): Promise<IMetrics[]> {
+		if (beforeDate) {
+			const today = getYearMonthDay(beforeDate);
+			let metrics = this.metrics.filter(x => x.date < today).map(x => x.metrics);
+			return metrics;
+		} else {
+			return this.metrics.map(x => x.metrics);
+		}
 	}
 
-	async getCustomEvents(): Promise<object[]> {
-		return Promise.resolve([]);
+	async getMetricsForDate(date: Date): Promise<IMetrics | undefined> {
+		const today = getYearMonthDay(date);
+		let report = this.metrics.find(x => x.date === today);
+		if (report) {
+			return report.metrics;
+		}
+		return;
 	}
 
-	async getTimings(): Promise<object[]> {
-		return Promise.resolve([]);
+	private async getCurrentMetrics(): Promise<DBEntry> {
+		const now = new Date(Date.now());
+		const today = getYearMonthDay(now);
+		let report = this.metrics.find(x => x.date === today);
+
+		if (!report) {
+			let newReport = this._createReport();
+			report = { date: today, metrics: newReport };
+			let metrics = this.metrics;
+			metrics.push(report);
+			this.metrics = metrics;
+		}
+		return report!;
+	}
+
+	private update(report: DBEntry) {
+		let metrics = this.metrics;
+		for (let i = 0; i < metrics.length; i++) {
+			if (metrics[i].date === report.date) {
+				metrics[i] = report;
+				break;
+			}
+		}
+		this.metrics = metrics;
+	}
+
+	private get metrics() {
+		try {
+			return (this._context.globalState.get<DBEntry[]>(TELEMETRY_KEY) || [])
+		} catch { }
+		return [];
+	}
+
+	private set metrics(entries: DBEntry[]) {
+		this._context.globalState.update(TELEMETRY_KEY, entries);
 	}
 }
