@@ -232,14 +232,9 @@
           "group": "pullrequest@3"
         },
         {
-          "command": "pr.close",
-          "when": "view == pr && viewItem =~ /pullrequest|description/",
-          "group": "pullrequest@4"
-        },
-        {
           "command": "pr.deleteLocalBranch",
           "when": "view == pr && viewItem =~ /pullrequest:local:nonactive/",
-          "group": "pullrequest@5"
+          "group": "pullrequest@4"
         },
         {
           "command": "pr.openFileInGitHub",
