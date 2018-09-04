@@ -75,6 +75,9 @@ function handleMessage(event: any) {
 		case 'pr.enable-request-changes':
 			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
 			break;
+		case 'pr.enable-exit':
+			(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = false;
+			break;
 		default:
 			break;
 	}

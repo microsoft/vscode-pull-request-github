@@ -852,7 +852,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			if (localBranchInfo) {
 				Logger.appendLine(`Review> there is already one local branch ${localBranchInfo.remote.remoteName}/${localBranchInfo.branch} associated with Pull Request #${pr.prNumber}`);
-				await this._prManager.checkout(localBranchInfo.remote, localBranchInfo.branch, pr);
+				await this._prManager.fetchAndCheckout(localBranchInfo.remote, localBranchInfo.branch, pr);
 			} else {
 				Logger.appendLine(`Review> there is no local branch associated with Pull Request #${pr.prNumber}, we will create a new branch.`);
 				await this._prManager.createAndCheckout(pr);

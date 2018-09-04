@@ -12,6 +12,7 @@ import { exec } from '../common/git';
 import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/timelineEvent';
 import { Comment } from '../common/comment';
 import { groupBy, formatError } from '../common/utils';
+import { GitErrorCodes } from '../common/gitError';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -247,21 +248,37 @@ export class PullRequestOverviewPanel {
 	}
 
 	private async checkoutDefaultBranch(branch: string): Promise<void> {
-		// This should be updated for multi-root support and consume the git extension API if possible
-		const result = await exec(['rev-parse', '--symbolic-full-name', '@{-1}'], {
-			cwd: vscode.workspace.rootPath
-		});
+		try {
+			// This should be updated for multi-root support and consume the git extension API if possible
+			const result = await exec(['rev-parse', '--symbolic-full-name', '@{-1}'], {
+				cwd: vscode.workspace.rootPath
+			});
 
-		if (result) {
-			const branchFullName = result.stdout.trim();
+			if (result) {
+				const branchFullName = result.stdout.trim();
 
-			if (`refs/heads/${branch}` === branchFullName) {
-				await exec(['checkout', branch], {
-					cwd: vscode.workspace.rootPath
-				});
-			} else {
-				await vscode.commands.executeCommand('git.checkout');
+				if (`refs/heads/${branch}` === branchFullName) {
+					await this._pullRequestManager.checkout(branch);
+				} else {
+					await vscode.commands.executeCommand('git.checkout');
+				}
 			}
+		} catch (e) {
+			if (e.gitErrorCode) {
+				// for known git errors, we should provide actions for users to continue.
+				if (e.gitErrorCode === GitErrorCodes.LocalChangesOverwritten) {
+					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
+					this._panel.webview.postMessage({
+						command: 'pr.enable-exit'
+					});
+					return;
+				}
+			}
+
+			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
+			this._panel.webview.postMessage({
+				command: 'pr.enable-exit'
+			});
 		}
 	}
 

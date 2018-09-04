@@ -50,7 +50,7 @@ export class PullRequestGitHelper {
 		await repository.setConfig(prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 
-	static async checkout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
+	static async fetchAndCheckout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
 		let remoteName = remote.remoteName;
 		await repository.fetch(remoteName);
 		let branch = await repository.getBranch(branchName);

@@ -175,7 +175,8 @@ export interface IPullRequestManager {
 	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
 	getMatchingPullRequestMetadataForBranch();
 	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
-	checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
+	checkout(branchName: string): Promise<void>;
+	fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
 	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
 
 }
