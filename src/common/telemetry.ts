@@ -38,10 +38,8 @@ class VSSettings implements ISettings {
 	}
 	getItem(key: string): Promise<string> {
 		switch (key) {
-			case 'last-daily-stats-report': {
-				let ret = this._context.globalState.get<string>(`${TELEMETRY_KEY}.last`);
-				return Promise.resolve(ret);
-			}
+			case 'last-daily-stats-report':
+				return Promise.resolve(this._context.globalState.get<string>(`${TELEMETRY_KEY}.last`));
 			case 'stats-guid':
 				return Promise.resolve(this._context.globalState.get<string>(`${TELEMETRY_KEY}.guid`));
 			case 'has-sent-stats-opt-in-ping':
@@ -70,13 +68,13 @@ class VSSettings implements ISettings {
 
 const getYearMonthDay = (date: Date): number =>
 	parseInt(
-		`${("0" + date.getUTCFullYear()).slice(-4)}${("0" + date.getUTCMonth()).slice(-2)}${("0" + date.getUTCDate()).slice(
-			-2
-		)}`
+		`${("0" + date.getUTCFullYear()).slice(-4)}${("0" + date.getUTCMonth()).slice(-2)}${("0" + date.getUTCDate()).slice(-2)}`,
+		10
 	);
 
 interface DBEntry {
 	date: number;
+	instanceId: string;
 	metrics: IMetrics;
 }
 
@@ -91,16 +89,16 @@ class MementoDatabase implements IStatsDatabase {
 		return Promise.resolve();
 	}
 
-	public async addCustomEvent(eventType: string, customEvent: any): Promise<void> {
-		let report = await this.getCurrentMetrics();
+	public async addCustomEvent(instanceId: string, eventType: string, customEvent: any): Promise<void> {
+		const report = await this.getCurrentDBEntry(instanceId);
 		customEvent.date = now();
 		customEvent.eventType = eventType;
 		report.metrics.customEvents.push(customEvent);
 		await this.update(report);
 	}
 
-	public async incrementCounter(counterName: string): Promise<void> {
-		const report = await this.getCurrentMetrics();
+	public async incrementCounter(instanceId: string, counterName: string): Promise<void> {
+		const report = await this.getCurrentDBEntry(instanceId);
 		if (!report.metrics.measures.hasOwnProperty(counterName)) {
 			report.metrics.measures[counterName] = 0;
 		}
@@ -108,8 +106,8 @@ class MementoDatabase implements IStatsDatabase {
 		await this.update(report);
 	}
 
-	public async addTiming(eventType: string, durationInMilliseconds: number, metadata = {}): Promise<void> {
-		const report = await this.getCurrentMetrics();
+	public async addTiming(instanceId: string, eventType: string, durationInMilliseconds: number, metadata = {}): Promise<void> {
+		const report = await this.getCurrentDBEntry(instanceId);
 		report.metrics.timings.push({ eventType, durationInMilliseconds, metadata, date: now() });
 		await this.update(report);
 	}
@@ -136,34 +134,28 @@ class MementoDatabase implements IStatsDatabase {
 		}
 	}
 
-	async getMetricsForDate(date: Date): Promise<IMetrics | undefined> {
-		const today = getYearMonthDay(date);
-		let report = this.metrics.find(x => x.date === today);
-		if (report) {
-			return report.metrics;
-		}
-		return;
+	public getCurrentMetrics(instanceId: string): Promise<IMetrics> {
+		return this.getCurrentDBEntry(instanceId).then(x => x.metrics);
 	}
 
-	private async getCurrentMetrics(): Promise<DBEntry> {
-		const now = new Date(Date.now());
-		const today = getYearMonthDay(now);
-		let report = this.metrics.find(x => x.date === today);
+	private async getCurrentDBEntry(instanceId: string): Promise<DBEntry> {
+		let report = this.metrics.find(x => x.instanceId === instanceId);
 
 		if (!report) {
 			let newReport = this._createReport();
-			report = { date: today, metrics: newReport };
+			const today = getYearMonthDay(new Date(Date.now()));
+			report = { date: today, instanceId, metrics: newReport };
 			let metrics = this.metrics;
 			metrics.push(report);
 			this.metrics = metrics;
 		}
-		return report!;
+		return report;
 	}
 
 	private update(report: DBEntry) {
 		let metrics = this.metrics;
 		for (let i = 0; i < metrics.length; i++) {
-			if (metrics[i].date === report.date) {
+			if (metrics[i].instanceId === report.instanceId) {
 				metrics[i] = report;
 				break;
 			}
