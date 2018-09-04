@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from "../common/logger";
 import { Remote } from "../common/remote";
-import { PRType, IGitHubRepository, ITelemetry } from "./interface";
+import { PRType, IGitHubRepository } from "./interface";
 import { PullRequestModel } from "./pullRequestModel";
 import { CredentialStore } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -34,8 +34,7 @@ export class GitHubRepository implements IGitHubRepository {
 		return this._octokit;
 	}
 
-	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore,
-		private readonly _telemetry: ITelemetry) {
+	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
 	}
 
 	async resolveRemote(): Promise<void> {
