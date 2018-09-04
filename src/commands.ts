@@ -128,6 +128,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		const pullRequest = ensurePR(prManager, pr);
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest);
+		telemetry.on("pr.openDescription");
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {

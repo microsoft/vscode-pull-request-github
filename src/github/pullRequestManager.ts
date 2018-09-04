@@ -179,6 +179,7 @@ export class PullRequestManager implements IPullRequestManager {
 				}
 			}
 		}
+		this._telemetry.on("branch.delete");
 	}
 
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[IPullRequestModel[], boolean]> {
