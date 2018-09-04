@@ -57,9 +57,6 @@ export class GitHubRepository implements IGitHubRepository {
 
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
 			this._octokit = await this._credentialStore.loginWithConfirmation(this.remote);
-			if (this._octokit) {
-				this._telemetry.on('authSuccess');
-			}
 		} else {
 			this._octokit = await this._credentialStore.getOctokit(this.remote);
 		}
@@ -71,7 +68,6 @@ export class GitHubRepository implements IGitHubRepository {
 		this._initialized = true;
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
 			this._octokit = await this._credentialStore.login(this.remote);
-			this._telemetry.on('authSuccess');
 		} else {
 			this._octokit = this._credentialStore.getOctokit(this.remote);
 		}

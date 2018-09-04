@@ -10,6 +10,7 @@ import { GitHubServer } from '../authentication/githubServer';
 import { Remote } from '../common/remote';
 import { VSCodeConfiguration } from '../authentication/vsConfiguration';
 import Logger from '../common/logger';
+import { ITelemetry } from './interface';
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
@@ -19,7 +20,8 @@ export class CredentialStore {
 	private _configuration: VSCodeConfiguration;
 	private _authenticationStatusBarItems: Map<string, vscode.StatusBarItem>;
 
-	constructor(configuration: any) {
+	constructor(configuration: any,
+		private readonly _telemetry: ITelemetry) {
 		this._configuration = configuration;
 		this._octokits = new Map<string, Octokit>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
@@ -80,10 +82,13 @@ export class CredentialStore {
 		} else {
 			// user cancelled sign in, remember that and don't ask again
 			this._octokits.set(`${normalizedUri.scheme}://${normalizedUri.authority}`, undefined);
+			this._telemetry.on('auth.cancel');
 		}
 	}
 
 	public async login(remote: Remote): Promise<Octokit> {
+		this._telemetry.on('auth.start');
+
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
 		// so use a normalized http[s] url regardless of the original protocol
 		const normalizedUri = remote.gitProtocol.normalizeUri();
@@ -117,6 +122,9 @@ export class CredentialStore {
 
 		if (octokit) {
 			this._octokits.set(host, octokit);
+			this._telemetry.on('auth.success');
+		} else {
+			this._telemetry.on('auth.fail');
 		}
 
 		this.updateAuthenticationStatusBar(remote);

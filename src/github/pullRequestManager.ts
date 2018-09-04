@@ -37,7 +37,7 @@ export class PullRequestManager implements IPullRequestManager {
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry) {
 		this._githubRepositories = [];
-		this._credentialStore = new CredentialStore(this._configuration);
+		this._credentialStore = new CredentialStore(this._configuration, this._telemetry);
 		this._githubManager = new GitHubManager();
 	}
 
