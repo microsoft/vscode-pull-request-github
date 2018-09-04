@@ -380,17 +380,25 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
+	private async changePullRequestState(state: "open" | "closed", pullRequest: IPullRequestModel): Promise<any> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.update({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
-			state: 'closed'
+			state: state
 		});
 
 		return ret.data;
+	}
+
+	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
+		return this.changePullRequestState("closed", pullRequest)
+			.then(x => {
+				this._telemetry.on('pr.close');
+				return x;
+			});
 	}
 
 	private async createReview(pullRequest: IPullRequestModel, event: ReviewEvent, message?: string): Promise<any> {
