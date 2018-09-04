@@ -408,11 +408,19 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any> {
-		return this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
+		return this.createReview(pullRequest, ReviewEvent.RequestChanges, message)
+			.then(x => {
+				this._telemetry.on('pr.requestChanges');
+				return x;
+			});
 	}
 
 	async approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any> {
-		return this.createReview(pullRequest, ReviewEvent.Approve, message);
+		return this.createReview(pullRequest, ReviewEvent.Approve, message)
+			.then(x => {
+				this._telemetry.on('pr.approve');
+				return x;
+			});
 	}
 
 	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]> {
