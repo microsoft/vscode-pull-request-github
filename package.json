@@ -29,7 +29,8 @@
       "title": "GitHub Pull Requests",
       "properties": {
         "telemetry.optout": {
-          "type": "boolean"
+		  "type": "boolean",
+		  "description": "Disable usage data and errors to be sent to a GitHub online service"
         },
         "github.hosts": {
           "type": "array",
