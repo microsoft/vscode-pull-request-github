@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import Logger from './logger';
-import { StatsStore, AppName, ISettings, IStatsDatabase, IMetrics } from 'telemetry-github';
+import { StatsStore, AppName, ISettings, IStatsDatabase, IMetrics, getYearMonthDay } from 'telemetry-github';
 import { ITelemetry } from '../github/interface';
 
 const TELEMETRY_KEY = 'vscode-pull-request-github.telemetry';
@@ -64,13 +64,6 @@ class VSSettings implements ISettings {
 		return Promise.resolve(this._config.update(key, value));
 	}
 }
-
-
-const getYearMonthDay = (date: Date): number =>
-	parseInt(
-		`${("0" + date.getUTCFullYear()).slice(-4)}${("0" + date.getUTCMonth()).slice(-2)}${("0" + date.getUTCDate()).slice(-2)}`,
-		10
-	);
 
 interface DBEntry {
 	date: number;
