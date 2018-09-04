@@ -209,7 +209,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		let fileName: string;
 		let isOutdated = false;
-		if  (uri.scheme === 'review') {
+		if (uri.scheme === 'review') {
 			const query = fromReviewUri(uri);
 			isOutdated = query.isOutdated;
 			fileName = query.path;
@@ -834,7 +834,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	public async switch(pr: IPullRequestModel): Promise<void> {
-		Logger.appendLine(`Review> swtich to Pull Requet #${pr.prNumber}`);
+		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber}`);
 		await this._prManager.fullfillPullRequestMissingInfo(pr);
 
 		let isDirty = await this._repository.isDirty();
@@ -873,6 +873,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
+		this._telemetry.on('pr.checkout');
 		await this._repository.status();
 	}
 

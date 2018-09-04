@@ -75,12 +75,13 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {
 		let pullRequestModel: IPullRequestModel;
-		const isFromContextMenu = pr instanceof PRNode;
 
 		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
 			pullRequestModel = pr.pullRequestModel;
+			telemetry.on('pr.checkout.context');
 		} else {
 			pullRequestModel = pr;
+			telemetry.on('pr.checkout.description');
 		}
 
 		return vscode.window.withProgress({
@@ -88,11 +89,6 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 			title: `Switching to Pull Request #${pullRequestModel.prNumber}`,
 		}, async (progress, token) => {
 			await reviewManager.switch(pullRequestModel);
-			if (isFromContextMenu) {
-				telemetry.on('prCheckoutFromContext');
-			} else {
-				telemetry.on('prCheckoutFromDescription');
-			}
 		});
 	}));
 
