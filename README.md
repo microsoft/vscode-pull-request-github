@@ -25,9 +25,8 @@ This extension allows you to review and manage GitHub pull requests in Visual St
 # How to get started?
 It's easy to get started with GitHub Pull Requests for Visua Studio Code. Simply follow these steps to get started.
 
-1. Install latest VS Code Insiders from [https://code.visualstudio.com/insiders](https://code.visualstudio.com/insiders)
-1. Grab the latest VSIX from https://github.com/Microsoft/vscode-pull-request-github/releases/
-1. Install the VSIX by running `Extensions: Install from VSIX` from your command palette.
+1. Make sure you have VSCode version 1.27.0 or higher
+1. Install the extension from the marketplace
 1. Reload VS Code after the installation (click the reload button next to the extension)
 1. Open your desired repo
 1. Go to the SCM Viewlet, and you should see the `GitHub Pull Request` treeview.
