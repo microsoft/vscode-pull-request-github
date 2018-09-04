@@ -43,13 +43,13 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 			if (prManager.activePullRequest) {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
 			}
-			return;
 		}
-		if (e instanceof PRNode) {
+		else if (e instanceof PRNode) {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
 		} else {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
 		}
+		telemetry.on("pr.openInGitHub");
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: GitFileChangeNode) => {
