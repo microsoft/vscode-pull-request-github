@@ -110,7 +110,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (this._type === PRType.LocalPullRequest) {
 			try {
 				this.prs = await this._prManager.getLocalPullRequests();
-				this._telemetry.on('prListExpandLocalPullRequest');
+				this._telemetry.on('prList.expand.local');
 			} catch (e) {
 				vscode.window.showErrorMessage(`Fetching local pull requests failed: ${formatError(e)}`);
 				needLogin = e instanceof AuthenticationError;
@@ -123,16 +123,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					hasMorePages = ret[1];
 					switch (this._type) {
 						case PRType.All:
-							this._telemetry.on('prListExpandAll');
+							this._telemetry.on('prList.expand.all');
 							break;
 						case PRType.AssignedToMe:
-							this._telemetry.on('prListExpandAssignedToMe');
+							this._telemetry.on('prList.expand.assignedToMe');
 							break;
 						case PRType.RequestReview:
-							this._telemetry.on('prListExpandRequestReview');
+							this._telemetry.on('prList.expand.requestReview');
 							break;
 						case PRType.Mine:
-							this._telemetry.on('prListExpandMine');
+							this._telemetry.on('prList.expand.mine');
 							break;
 					}
 
