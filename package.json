@@ -7,8 +7,12 @@
     "type": "git",
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
   },
+  "bugs": {
+    "url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
+  },
   "enableProposedApi": true,
-  "version": "0.0.22",
+  "preview": true,
+  "version": "0.1.0",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.27.0"
@@ -29,8 +33,8 @@
       "title": "GitHub Pull Requests",
       "properties": {
         "telemetry.optout": {
-		  "type": "boolean",
-		  "description": "Disable usage data and errors to be sent to a GitHub online service"
+          "type": "boolean",
+          "description": "Disable usage data and errors to be sent to a GitHub online service"
         },
         "github.hosts": {
           "type": "array",
