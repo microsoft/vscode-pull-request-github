@@ -7,12 +7,6 @@
 
 <h4 align="center">Review and manage your GitHub pull requests directly in VS Code</h4>
 
-<p align="center">
-
-[![Build Status](https://vscode.visualstudio.com/_apis/public/build/definitions/9a4d7c24-3234-459a-a944-80bbe5a0824c/10/badge)](https://pull-requests-extension.visualstudio.com/VSCodePullRequestGitHub/_build/index?definitionId=1)
-
-</p>
-
 This extension allows you to review and manage GitHub pull requests in Visual Studio Code. The support includes:
 - Authenticate and connect VS Code to GitHub
 - List and browse PRs from within VS Code
