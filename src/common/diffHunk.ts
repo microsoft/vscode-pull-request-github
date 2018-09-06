@@ -119,9 +119,9 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 			const oriStartLine = oldLine = Number(matches[1]);
 			// http://www.gnu.org/software/diffutils/manual/diffutils.html#Detailed-Unified
 			// `count` is added when the changes have more than 1 line.
-			const oriLen = Number(matches[3]) | 1;
+			const oriLen = Number(matches[3]) || 1;
 			const newStartLine = newLine = Number(matches[5]);
-			const newLen = Number(matches[7]) | 1;
+			const newLen = Number(matches[7]) || 1;
 
 			diffHunk = new DiffHunk(oriStartLine, oriLen, newStartLine, newLen, positionInHunk);
 			// @rebornix todo, once we have enough tests, this should be removed.
