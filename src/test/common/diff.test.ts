@@ -140,7 +140,7 @@ describe('diff hunk parsing', () => {
 			`	}));`,
 			`}`
 		].join('\n');
-		
+
 		it('returns the original file when there is no patch', () => {
 			assert.equal(getModifiedContentFromDiffHunk(originalContent, ''), originalContent);
 		});
@@ -164,11 +164,11 @@ describe('diff hunk parsing', () => {
 				` 		const quickPick = window.createQuickPick();`,
 				` 		quickPick.items = Object.keys(options).map(label => ({ label }));`
 			].join('\n');
-			
+
 			const lines = originalContent.split('\n');
 			lines.splice(11, 0, `import { promptCommand } from './promptCommandWithHistory';`);
 			lines.splice(20, 0, `			promptCommand`);
-			
+
 			let expectedModifiedContent = lines.join('\n');
 
 			const modifiedContent = getModifiedContentFromDiffHunk(originalContent, patch);

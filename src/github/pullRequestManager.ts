@@ -156,9 +156,9 @@ export class PullRequestManager implements IPullRequestManager {
 			throw new Error('Unable to find remote for branch');
 		}
 
-		const result = await this._repository.run(['branch', '-D', pullRequest.localBranchName]);
-		if (result.stderr) {
-			throw new Error(result.stderr);
+		const deleteResult = await this._repository.run(['branch', '-D', pullRequest.localBranchName]);
+		if (deleteResult.stderr) {
+			throw new Error(deleteResult.stderr);
 		}
 
 		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
