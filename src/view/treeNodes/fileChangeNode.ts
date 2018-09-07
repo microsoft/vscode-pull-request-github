@@ -60,6 +60,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly pullRequest: IPullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
+		public readonly previousFileName: string | undefined,
 		public readonly blobUrl: string,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,

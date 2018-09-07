@@ -45,11 +45,12 @@ export class InMemFileChange {
 		public readonly baseCommit: string,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
+		public readonly previousFileName: string | undefined,
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
 
 		public readonly isPartial: boolean,
-		public blobUrl: string
+		public readonly blobUrl: string
 	) { }
 }
 
