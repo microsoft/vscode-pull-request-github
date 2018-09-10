@@ -17,6 +17,7 @@ import { parserCommentDiffHunk } from "../common/diffHunk";
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy } from '../common/utils';
+import Logger from '../common/logger';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -57,7 +58,12 @@ export class PullRequestManager implements IPullRequestManager {
 	async updateRepositories(): Promise<void> {
 		const potentialRemotes = this._repository.remotes.filter(remote => remote.host);
 		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
-			.then(results => potentialRemotes.filter((_, index, __) => results[index]));
+			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
+			.catch(e => {
+				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
+				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
+				return [];
+			});
 		gitHubRemotes = uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().toString());
 
 		if (gitHubRemotes.length) {
@@ -77,7 +83,9 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 		// Make sure authentication is set up for all the servers that the remotes are pointing to
 		// this will ask the user to sign in if there's no credentials for a server, once per server
-		await Promise.all(serverAuthPromises);
+		await Promise.all(serverAuthPromises).catch(e => {
+			Logger.appendLine(`serverAuthPromises failed: ${formatError(e)}`);
+		});
 
 		let repositories = [];
 		let resolveRemotePromises = [];

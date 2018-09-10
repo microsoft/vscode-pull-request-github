@@ -95,6 +95,10 @@ export class GitHubManager {
 	}
 
 	public async isGitHub(host: vscode.Uri): Promise<boolean> {
+		if (host === null) {
+			return false;
+		}
+
 		if (this.servers.has(host.authority)) {
 			return this.servers.get(host.authority);
 		}
