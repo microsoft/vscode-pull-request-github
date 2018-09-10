@@ -19,31 +19,29 @@ import { ITelemetry } from './github/interface';
 let telemetry: ITelemetry;
 
 async function init(context: vscode.ExtensionContext, repository: Repository): Promise<void> {
-	repository.state.onDidChange(async e => {
-		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
+	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
-		const configuration = new VSCodeConfiguration();
-		await configuration.loadConfiguration();
-		configuration.onDidChange(async _ => {
-			if (prManager) {
-				try {
-					await prManager.clearCredentialCache();
-					if (repository) {
-						repository.status();
-					}
-				} catch (e) {
-					vscode.window.showErrorMessage(formatError(e));
+	const configuration = new VSCodeConfiguration();
+	await configuration.loadConfiguration();
+	configuration.onDidChange(async _ => {
+		if (prManager) {
+			try {
+				await prManager.clearCredentialCache();
+				if (repository) {
+					repository.status();
 				}
+			} catch (e) {
+				vscode.window.showErrorMessage(formatError(e));
 			}
-		});
-
-		context.subscriptions.push(configuration.listenForVSCodeChanges());
-
-		const prManager = new PullRequestManager(configuration, repository, telemetry);
-		const reviewManager = new ReviewManager(context, configuration, repository, prManager, telemetry);
-		registerCommands(context, prManager, reviewManager, telemetry);
-		telemetry.on('startup');
+		}
 	});
+
+	context.subscriptions.push(configuration.listenForVSCodeChanges());
+
+	const prManager = new PullRequestManager(configuration, repository, telemetry);
+	const reviewManager = new ReviewManager(context, configuration, repository, prManager, telemetry);
+	registerCommands(context, prManager, reviewManager, telemetry);
+	telemetry.on('startup');
 }
 
 export async function activate(context: vscode.ExtensionContext) {
