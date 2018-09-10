@@ -5,10 +5,10 @@
 
 import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
-import Logger from "../common/logger";
-import { Remote } from "../common/remote";
-import { PRType, IGitHubRepository } from "./interface";
-import { PullRequestModel } from "./pullRequestModel";
+import Logger from '../common/logger';
+import { Remote } from '../common/remote';
+import { PRType, IGitHubRepository } from './interface';
+import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { parseRemote } from '../common/repository';
@@ -26,9 +26,9 @@ export class GitHubRepository implements IGitHubRepository {
 	public get octokit(): Octokit {
 		if (this._octokit === undefined) {
 			if (!this._initialized) {
-				throw new Error("Call ensure() before accessing this property.");
+				throw new Error('Call ensure() before accessing this property.');
 			} else {
-				throw new AuthenticationError("Not authenticated.");
+				throw new AuthenticationError('Not authenticated.');
 			}
 		}
 		return this._octokit;

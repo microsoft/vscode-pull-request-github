@@ -29,4 +29,3 @@ export interface Comment {
 	html_url: string;
 	absolutePosition?: number;
 }
-

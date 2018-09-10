@@ -43,13 +43,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 			if (prManager.activePullRequest) {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
 			}
-		}
-		else if (e instanceof PRNode) {
+		} else if (e instanceof PRNode) {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
 		} else {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
 		}
-		telemetry.on("pr.openInGitHub");
+		telemetry.on('pr.openInGitHub');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: GitFileChangeNode) => {
@@ -128,7 +127,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		const pullRequest = ensurePR(prManager, pr);
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest);
-		telemetry.on("pr.openDescription");
+		telemetry.on('pr.openDescription');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {

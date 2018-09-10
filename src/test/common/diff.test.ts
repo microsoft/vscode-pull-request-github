@@ -96,9 +96,9 @@ describe('diff hunk parsing', () => {
 			}];
 
 			const diffHunk = new DiffHunk(481, 16, 489, 10, 54);
-			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Delete, 489, -1, 66, "-		this.editorBlurTimeout.cancelAndSet(() => {"));
+			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Delete, 489, -1, 66, '-		this.editorBlurTimeout.cancelAndSet(() => {'));
 
-			const mappedComments = mapCommentsToHead([diffHunk], "", comments as any);
+			const mappedComments = mapCommentsToHead([diffHunk], '', comments as any);
 			assert(mappedComments.length === 1);
 			console.log(mappedComments[0].absolutePosition);
 			assert.equal(mappedComments[0].absolutePosition, 489);

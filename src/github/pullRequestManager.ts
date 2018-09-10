@@ -4,16 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CredentialStore } from "./credentials";
-import { Comment } from "../common/comment";
-import { Remote } from "../common/remote";
-import { Repository } from "../common/repository";
-import { TimelineEvent, EventType } from "../common/timelineEvent";
-import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from "./githubRepository";
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent, ITelemetry } from "./interface";
-import { PullRequestGitHelper } from "./pullRequestGitHelper";
-import { PullRequestModel } from "./pullRequestModel";
-import { parserCommentDiffHunk } from "../common/diffHunk";
+import { CredentialStore } from './credentials';
+import { Comment } from '../common/comment';
+import { Remote } from '../common/remote';
+import { Repository } from '../common/repository';
+import { TimelineEvent, EventType } from '../common/timelineEvent';
+import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent, ITelemetry } from './interface';
+import { PullRequestGitHelper } from './pullRequestGitHelper';
+import { PullRequestModel } from './pullRequestModel';
+import { parserCommentDiffHunk } from '../common/diffHunk';
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy } from '../common/utils';
@@ -179,7 +179,7 @@ export class PullRequestManager implements IPullRequestManager {
 				}
 			}
 		}
-		this._telemetry.on("branch.delete");
+		this._telemetry.on('branch.delete');
 	}
 
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[IPullRequestModel[], boolean]> {
@@ -381,7 +381,7 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	private async changePullRequestState(state: "open" | "closed", pullRequest: IPullRequestModel): Promise<any> {
+	private async changePullRequestState(state: 'open' | 'closed', pullRequest: IPullRequestModel): Promise<any> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.update({
@@ -395,7 +395,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
-		return this.changePullRequestState("closed", pullRequest)
+		return this.changePullRequestState('closed', pullRequest)
 			.then(x => {
 				this._telemetry.on('pr.close');
 				return x;
@@ -435,16 +435,15 @@ export class PullRequestManager implements IPullRequestManager {
 	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-
 		let response = await octokit.pullRequests.getFiles({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
-		let {data} = response;
+		let { data } = response;
 
-		while(response.headers.link && octokit.hasNextPage(response.headers)){
+		while (response.headers.link && octokit.hasNextPage(response.headers)) {
 			response = await octokit.getNextPage(response.headers);
 			data = data.concat(response.data);
 		}

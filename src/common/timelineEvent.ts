@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Comment } from "./comment";
+import { Comment } from './comment';
 
 export enum EventType {
 	Committed,

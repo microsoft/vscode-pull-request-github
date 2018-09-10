@@ -72,7 +72,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
-
 	constructor(
 		private _prManager: IPullRequestManager,
 		private _telemetry: ITelemetry,
@@ -135,7 +134,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 							this._telemetry.on('prList.expand.mine');
 							break;
 					}
-
 
 				} catch (e) {
 					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);

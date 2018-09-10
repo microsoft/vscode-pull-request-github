@@ -85,7 +85,6 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
-
 export function formatError(e: any): string {
 	if (!(e instanceof Error)) {
 		if (typeof e === 'string') {
@@ -102,7 +101,7 @@ export function formatError(e: any): string {
 			errorMessage = message.message;
 
 			const furtherInfo = message.errors && message.errors.map(error => {
-				if (typeof error === "string") {
+				if (typeof error === 'string') {
 					return error;
 				} else {
 					return error.message;

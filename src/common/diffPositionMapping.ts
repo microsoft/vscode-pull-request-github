@@ -72,7 +72,6 @@ export function getPositionInDiff(comment: Comment, fileDiffHunks: DiffHunk[], i
 	return commentAbsolutePosition;
 }
 
-
 export function getLastDiffLine(prPatch: string): DiffLine {
 	let lastDiffLine = null;
 	let prDiffReader = parseDiffHunk(prPatch);

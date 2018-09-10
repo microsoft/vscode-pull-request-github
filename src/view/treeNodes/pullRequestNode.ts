@@ -167,7 +167,6 @@ function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread
 	let added: vscode.CommentThread[] = [];
 	let changed: vscode.CommentThread[] = [];
 
-
 	function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vscode.Comment[]): boolean {
 		return oldComments.some(oldComment => {
 			const matchingComment = newComments.filter(newComment => newComment.commentId === oldComment.commentId);

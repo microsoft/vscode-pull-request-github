@@ -11,7 +11,6 @@ import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
 import { Repository } from './repository';
 import { Comment } from './comment';
 
-
 export enum DiffChangeType {
 	Context,
 	Add,

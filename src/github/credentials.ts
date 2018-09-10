@@ -144,8 +144,7 @@ export class CredentialStore {
 					type: 'token',
 					token: creds.token,
 				});
-			}
-			else {
+			} else {
 				octokit.authenticate({
 					type: 'basic',
 					username: creds.username,

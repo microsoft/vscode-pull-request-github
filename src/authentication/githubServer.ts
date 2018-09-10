@@ -76,14 +76,14 @@ export class GitHubManager {
 	private servers: Map<string, boolean>;
 
 	private static GitHubScopesTable: { [key: string] : string[] } = {
-		'repo': ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
+		repo: ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
 		'admin:org': ['write:org', 'read:org'],
 		'admin:public_key': ['write:public_key', 'read:public_key'],
 		'admin:org_hook': [],
-		'gist': [],
-		'notifications': [],
-		'user': ['read:user', 'user:email', 'user:follow'],
-		'delete_repo': [],
+		gist: [],
+		notifications: [],
+		user: ['read:user', 'user:email', 'user:follow'],
+		delete_repo: [],
 		'write:discussion': ['read:discussion'],
 		'admin:gpg_key': ['write:gpg_key', 'read:gpg_key']
 	};
@@ -143,8 +143,7 @@ export class GitHubManager {
 		return (this.AppScopes.every(x => tokenScopes.indexOf(x) >= 0 || tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0));
 	}
 
-	private static getScopeSuperset(scope: string): string
-	{
+	private static getScopeSuperset(scope: string): string {
 		for (let key in this.GitHubScopesTable) {
 			if (this.GitHubScopesTable[key].indexOf(scope) >= 0) {
 				return key;

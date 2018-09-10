@@ -6,7 +6,6 @@
 import { DiffHunk } from './diffHunk';
 import { exec } from './git';
 
-
 export async function getFileContent(rootDir: string, commitSha: string, sourceFilePath: string): Promise<string> {
 	const result = await exec([
 		'show',

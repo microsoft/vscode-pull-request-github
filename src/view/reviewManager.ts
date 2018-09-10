@@ -418,7 +418,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._onDidChangeDecorations.fire();
 		}
 
-
 		return Promise.resolve(null);
 	}
 
@@ -715,7 +714,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 							ranges.push(new vscode.Range(startingLine, 1, startingLine + length, 1));
 						}
 
-
 						return {
 							threads: this.fileCommentsToCommentThreads(matchedFile, matchingComments.filter(comment => comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded),
 							commentingRanges: ranges,
@@ -774,7 +772,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 							}),
 							collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
 						});
-
 
 						return {
 							threads: ret
