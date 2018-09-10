@@ -169,11 +169,10 @@ export class PullRequestGitHelper {
 	}
 
 	static async isRemoteCreatedForPullRequest(repository: Repository, remoteName: string) {
-		let isForPR = await repository.getConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
-
-		if (isForPR === 'true') {
-			return true;
-		} else {
+		try {
+			const isForPR = await repository.getConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
+			return isForPR === 'true';
+		} catch (_) {
 			return false;
 		}
 	}
