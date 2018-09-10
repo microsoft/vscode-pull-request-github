@@ -207,7 +207,7 @@ body .overview-title button {
 	box-sizing: border-box;
 	line-height: 18px;
 	background: var(--vscode-badge-background);
-	color: var(--vscode-foreground);
+	color: var(--vscode-badge-foreground);
 	border-radius: 4px;
 	padding: 2px 8px;
 	margin-right: 12px;
