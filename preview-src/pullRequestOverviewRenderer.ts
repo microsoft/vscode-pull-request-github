@@ -325,14 +325,31 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 		for (let path in groups) {
 			let comments = groups[path];
 			let diffView = '';
-			let diffLines = [];
+			let diffLines: string[] = [];
 			if (comments && comments.length) {
 				for (let i = 0; i < comments[0].diff_hunks.length; i++) {
-					diffLines.push(comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => `<div class="diffLine ${getDiffChangeClass(diffLine.type)}">
-						<span class="lineNumber old">${diffLine.oldLineNumber > 0 ? diffLine.oldLineNumber : ' '}</span>
-						<span class="lineNumber new">${diffLine.newLineNumber > 0 ? diffLine.newLineNumber : ' '}</span>
-						<span class="lineContent">${(diffLine as any)._raw}</span>
-						</div>`).join(''));
+					diffLines = comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => {
+						const diffLineElement = document.createElement('div');
+						diffLineElement.classList.add(...['diffLine',  getDiffChangeClass(diffLine.type)]);
+
+						const oldLineNumber = document.createElement('span');
+						oldLineNumber.textContent = diffLine.oldLineNumber > 0 ? diffLine.oldLineNumber.toString() : ' ';
+						oldLineNumber.classList.add('lineNumber');
+
+						const newLineNumber = document.createElement('span');
+						newLineNumber.textContent = diffLine.newLineNumber > 0 ? diffLine.newLineNumber.toString() : ' ';
+						newLineNumber.classList.add('lineNumber');
+
+						const lineContent = document.createElement('span');
+						lineContent.textContent = (diffLine as any)._raw;
+						lineContent.classList.add('lineContent');
+
+						diffLineElement.appendChild(oldLineNumber);
+						diffLineElement.appendChild(newLineNumber);
+						diffLineElement.appendChild(lineContent);
+
+						return diffLineElement.outerHTML;
+					});
 				}
 
 				diffView = `<div class="diff">
