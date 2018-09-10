@@ -440,11 +440,11 @@ export class PullRequestManager implements IPullRequestManager {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
-			per_page: 10
+			per_page: 100
 		});
 		let {data} = response;
 
-		while(octokit.hasNextPage(response.headers)){
+		while(response.headers.link && octokit.hasNextPage(response.headers)){
 			response = await octokit.getNextPage(response.headers);
 			data = data.concat(response.data);
 		}
