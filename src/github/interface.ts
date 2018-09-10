@@ -87,6 +87,8 @@ export interface FileChange {
 
 export interface Commit {
 	author: {
+		avatar_url: string;
+		html_url: string;
 		login: string;
 	};
 	commit: {
@@ -175,7 +177,25 @@ export interface IPullRequestManager {
 	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
 	getMatchingPullRequestMetadataForBranch();
 	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
-	checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
+	checkout(branchName: string): Promise<void>;
+	fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
 	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
 
+}
+
+export interface ITelemetry {
+	on(action: 'startup'): Promise<void>;
+	on(action: 'authSuccess'): Promise<void>;
+	on(action: 'commentsFromEditor'): Promise<void>;
+	on(action: 'commentsFromDescription'): Promise<void>;
+	on(action: 'prListExpandLocalPullRequest'): Promise<void>;
+	on(action: 'prListExpandRequestReview'): Promise<void>;
+	on(action: 'prListExpandAssignedToMe'): Promise<void>;
+	on(action: 'prListExpandMine'): Promise<void>;
+	on(action: 'prListExpandAll'): Promise<void>;
+	on(action: 'prCheckoutFromContext'): Promise<void>;
+	on(action: 'prCheckoutFromDescription'): Promise<void>;
+	on(action: string): Promise<void>;
+
+	shutdown(): Promise<void>;
 }

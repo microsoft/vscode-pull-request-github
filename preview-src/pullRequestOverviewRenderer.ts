@@ -5,7 +5,7 @@
 
 import * as moment from 'moment';
 import md from './mdRenderer';
-
+const emoji = require('node-emoji');
 
 export enum DiffChangeType {
 	Context,
@@ -88,6 +88,9 @@ export interface Author {
 	name: string;
 	email: string;
 	date: Date;
+	login?: string;
+	avatar_url?: string;
+	html_url?: string;
 }
 
 export interface Committer {
@@ -231,7 +234,7 @@ export function renderComment(comment: CommentEvent | Comment): string {
 	<div class="review-comment" role="treeitem">
 		<div class="review-comment-contents comment">
 			<div class="avatar-container">
-				<a href="${comment.user.html_url}"><img class="avatar" src="${comment.user.avatar_url}"></a>
+				<a class="avatar-link" href="${comment.user.html_url}"><img class="avatar" src="${comment.user.avatar_url}"></a>
 			</div>
 			<div class="review-comment-container">
 				<div class="review-comment-header">
@@ -239,7 +242,7 @@ export function renderComment(comment: CommentEvent | Comment): string {
 					<div class="timestamp">${moment(comment.created_at).fromNow()}</div>
 				</div>
 				<div class="comment-body">
-					${md.render(comment.body)}
+					${md.render(emoji.emojify(comment.body))}
 				</div>
 			</div>
 		</div>
@@ -249,7 +252,13 @@ export function renderComment(comment: CommentEvent | Comment): string {
 
 export function renderCommit(timelineEvent: CommitEvent): string {
 
-	let shaShort = timelineEvent.sha.substring(0, 7);
+	const shaShort = timelineEvent.sha.substring(0, 7);
+	const avatar = timelineEvent.author.avatar_url
+		? `<div class="avatar-container"><a class="avatar-link" href="${timelineEvent.author.html_url}"><img class="avatar" src="${timelineEvent.author.avatar_url}"></a></div>`
+		: '';
+	const login = timelineEvent.author.login
+		? `<a class="author" href="${timelineEvent.author.html_url}">${timelineEvent.author.login}</a>`
+		: timelineEvent.author.name;
 
 	return `<div class="comment-container"  data-type="commit">
 
@@ -260,7 +269,10 @@ export function renderCommit(timelineEvent: CommitEvent): string {
 					<svg class="octicon octicon-git-commit" width="14" height="16" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 						<path fill-rule="evenodd" clip-rule="evenodd" d="M10.86 3C10.41 1.28 8.86 0 7 0C5.14 0 3.59 1.28 3.14 3H0V5H3.14C3.59 6.72 5.14 8 7 8C8.86 8 10.41 6.72 10.86 5H14V3H10.86V3ZM7 6.2C5.78 6.2 4.8 5.22 4.8 4C4.8 2.78 5.78 1.8 7 1.8C8.22 1.8 9.2 2.78 9.2 4C9.2 5.22 8.22 6.2 7 6.2V6.2Z" transform="translate(0 4)"/>
 					</svg>
-					${timelineEvent.author.name}: ${timelineEvent.message}
+					${avatar}
+					<div class="message">
+						${login}: ${timelineEvent.message}
+					</div>
 				</div>
 				<a class="sha" href="${timelineEvent.html_url}">${shaShort}</a>
 			</div>
@@ -292,19 +304,19 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 	let reviewState = '';
 	switch (timelineEvent.state.toLowerCase()) {
 		case 'approved':
-			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> approved these changes</span>`
+			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> approved these changes</span>`;
 			break;
 		case 'commented':
-			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> reviewed</span>`
+			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> reviewed</span>`;
 			break;
 		case 'changes_requested':
-			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> requested changes</span>`
+			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> requested changes</span>`;
 			break;
 		default:
 			break;
 	}
 
-	let reviewBody = timelineEvent.body ? `${md.render(timelineEvent.body)}` : '';
+	let reviewBody = timelineEvent.body ? `${md.render(emoji.emojify(timelineEvent.body))}` : '';
 
 	let body = '';
 	if (timelineEvent.comments) {
@@ -342,7 +354,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 
 		<div class="review-comment-contents review">
 			<div class="avatar-container">
-				<a href="${timelineEvent.user.html_url}"><img class="avatar" src="${timelineEvent.user.avatar_url}"></a>
+				<a class="avatar-link" href="${timelineEvent.user.html_url}"><img class="avatar" src="${timelineEvent.user.avatar_url}"></a>
 			</div>
 			<div class="review-comment-container">
 				<div class="review-comment-header">

@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../../typings/git';
-import { IPullRequestManager, IPullRequestModel, PRType } from '../../github/interface';
+import { IPullRequestManager, IPullRequestModel, PRType, ITelemetry } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
 import { formatError } from '../../common/utils';
@@ -40,7 +40,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					arguments: [
 						node
 					]
-				}
+				};
 				break;
 			case PRCategoryActionType.Login:
 				this.label = 'Sign in';
@@ -48,7 +48,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					title: 'Sign in',
 					command: 'pr.signinAndRefreshList',
 					arguments: []
-				}
+				};
 				break;
 			default:
 				break;
@@ -75,6 +75,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		private _prManager: IPullRequestManager,
+		private _telemetry: ITelemetry,
 		private _repository: Repository,
 		private _type: PRType
 	) {
@@ -109,6 +110,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (this._type === PRType.LocalPullRequest) {
 			try {
 				this.prs = await this._prManager.getLocalPullRequests();
+				this._telemetry.on('prList.expand.local');
 			} catch (e) {
 				vscode.window.showErrorMessage(`Fetching local pull requests failed: ${formatError(e)}`);
 				needLogin = e instanceof AuthenticationError;
@@ -119,13 +121,29 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: false });
 					this.prs = ret[0];
 					hasMorePages = ret[1];
+					switch (this._type) {
+						case PRType.All:
+							this._telemetry.on('prList.expand.all');
+							break;
+						case PRType.AssignedToMe:
+							this._telemetry.on('prList.expand.assignedToMe');
+							break;
+						case PRType.RequestReview:
+							this._telemetry.on('prList.expand.requestReview');
+							break;
+						case PRType.Mine:
+							this._telemetry.on('prList.expand.mine');
+							break;
+					}
+
+
 				} catch (e) {
 					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);
 					needLogin = e instanceof AuthenticationError;
 				}
 			} else {
 				try {
-					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: true});
+					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: true });
 					this.prs = this.prs.concat(ret[0]);
 					hasMorePages = ret[1];
 				} catch (e) {

@@ -13,13 +13,17 @@ import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
 import { formatError, isDescendant, filterEvent, onceEvent } from './common/utils';
 import { GitExtension, Repository } from './typings/git';
+import { Telemetry } from './common/telemetry';
+import { ITelemetry } from './github/interface';
+
+let telemetry: ITelemetry;
 
 async function init(context: vscode.ExtensionContext, repository: Repository): Promise<void> {
 	repository.state.onDidChange(async e => {
 		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
 		const configuration = new VSCodeConfiguration();
-
+		await configuration.loadConfiguration();
 		configuration.onDidChange(async _ => {
 			if (prManager) {
 				try {
@@ -35,15 +39,18 @@ async function init(context: vscode.ExtensionContext, repository: Repository): P
 
 		context.subscriptions.push(configuration.listenForVSCodeChanges());
 
-		const prManager = new PullRequestManager(configuration, repository);
-		const reviewManager = new ReviewManager(context, configuration, repository, prManager);
-		registerCommands(context, prManager, reviewManager);
+		const prManager = new PullRequestManager(configuration, repository, telemetry);
+		const reviewManager = new ReviewManager(context, configuration, repository, prManager, telemetry);
+		registerCommands(context, prManager, reviewManager, telemetry);
+		telemetry.on('startup');
 	});
 }
 
 export async function activate(context: vscode.ExtensionContext) {
 	// initialize resources
 	Resource.initialize(context);
+
+	telemetry = new Telemetry(context);
 
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
 	const api = gitExtension.getAPI(1);
@@ -60,5 +67,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	} else {
 		const onDidOpenRelevantRepository = filterEvent(api.onDidOpenRepository, r => isDescendant(r.rootUri.fsPath, rootPath));
 		onceEvent(onDidOpenRelevantRepository)(repository => init(context, repository));
+	}
+}
+
+export async function deactivate() {
+	if (telemetry) {
+		await telemetry.shutdown();
 	}
 }

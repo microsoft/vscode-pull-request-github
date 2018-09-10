@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseDiffHunk, DiffHunk } from '../../common/diffHunk';
+import { parseDiffHunk, DiffHunk, getModifiedContentFromDiffHunk } from '../../common/diffHunk';
 import { DiffLine, DiffChangeType } from '../../common/diffHunk';
 import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition, mapCommentsToHead } from '../../common/diffPositionMapping';
 
@@ -71,10 +71,22 @@ describe('diff hunk parsing', () => {
 	});
 
 	it('#239. Diff hunk parsing fails when line count for added content is omitted', () => {
-		let diffHunkReader = parseDiffHunk('@ -0,0 +1 @');
+		let diffHunkReader = parseDiffHunk('@@ -0,0 +1 @@');
 		let diffHunkIter = diffHunkReader.next();
 		let diffHunk = diffHunkIter.value;
 		assert.equal(diffHunk.diffLines.length, 1);
+	});
+
+	it('', () => {
+		let diffHunkReader = parseDiffHunk(`@@ -1 +1,5 @@
+# README
++
++This is my readme
++
++Another line"`);
+		let diffHunkIter = diffHunkReader.next();
+		let diffHunk = diffHunkIter.value;
+		assert.equal(diffHunk.diffLines.length, 5);
 	});
 
 	describe('mapCommentsToHead', () => {
@@ -90,6 +102,77 @@ describe('diff hunk parsing', () => {
 			assert(mappedComments.length === 1);
 			console.log(mappedComments[0].absolutePosition);
 			assert.equal(mappedComments[0].absolutePosition, 489);
+		});
+	});
+
+	describe('getModifiedContentFromDiffHunk', () => {
+		const originalContent = [
+			`/*---------------------------------------------------------------------------------------------`,
+			`*  Copyright (c) Microsoft Corporation. All rights reserved.`,
+			`*  Licensed under the MIT License. See License.txt in the project root for license information.`,
+			`*--------------------------------------------------------------------------------------------*/`,
+			``,
+			`'use strict';`,
+			``,
+			`import { window, commands, ExtensionContext } from 'vscode';`,
+			`import { showQuickPick, showInputBox } from './basicInput';`,
+			`import { multiStepInput } from './multiStepInput';`,
+			`import { quickOpen } from './quickOpen';`,
+			``,
+			`export function activate(context: ExtensionContext) {`,
+			`	context.subscriptions.push(commands.registerCommand('samples.quickInput', async () => {`,
+			`		const options: { [key: string]: (context: ExtensionContext) => Promise<void> } = {`,
+			`			showQuickPick,`,
+			`			showInputBox,`,
+			`			multiStepInput,`,
+			`			quickOpen,`,
+			`		};`,
+			`		const quickPick = window.createQuickPick();`,
+			`		quickPick.items = Object.keys(options).map(label => ({ label }));`,
+			`		quickPick.onDidChangeSelection(selection => {`,
+			`			if (selection[0]) {`,
+			`				options[selection[0].label](context)`,
+			`					.catch(console.error);`,
+			`			}`,
+			`		});`,
+			`		quickPick.onDidHide(() => quickPick.dispose());`,
+			`		quickPick.show();`,
+			`	}));`,
+			`}`
+		].join('\n');
+		
+		it('returns the original file when there is no patch', () => {
+			assert.equal(getModifiedContentFromDiffHunk(originalContent, ''), originalContent);
+		});
+
+		it('returns modified content for patch with multiple additions', () => {
+			const patch = [
+				`"@@ -9,6 +9,7 @@ import { window, commands, ExtensionContext } from 'vscode';`,
+				` import { showQuickPick, showInputBox } from './basicInput';`,
+				` import { multiStepInput } from './multiStepInput';`,
+				` import { quickOpen } from './quickOpen';`,
+				`+import { promptCommand } from './promptCommandWithHistory';`,
+				` `,
+				` export function activate(context: ExtensionContext) {`,
+				` 	context.subscriptions.push(commands.registerCommand('samples.quickInput', async () => {`,
+				`@@ -17,6 +18,7 @@ export function activate(context: ExtensionContext) {`,
+				` 			showInputBox,`,
+				` 			multiStepInput,`,
+				` 			quickOpen,`,
+				`+			promptCommand`,
+				` 		};`,
+				` 		const quickPick = window.createQuickPick();`,
+				` 		quickPick.items = Object.keys(options).map(label => ({ label }));`
+			].join('\n');
+			
+			const lines = originalContent.split('\n');
+			lines.splice(11, 0, `import { promptCommand } from './promptCommandWithHistory';`);
+			lines.splice(20, 0, `			promptCommand`);
+			
+			let expectedModifiedContent = lines.join('\n');
+
+			const modifiedContent = getModifiedContentFromDiffHunk(originalContent, patch);
+			assert.equal(modifiedContent, expectedModifiedContent);
 		});
 	});
 });

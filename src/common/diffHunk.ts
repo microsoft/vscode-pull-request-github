@@ -116,9 +116,11 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 
 			const matches = DIFF_HUNK_HEADER.exec(line);
 			const oriStartLine = oldLine = Number(matches[1]);
-			const oriLen = Number(matches[3]) | 0;
+			// http://www.gnu.org/software/diffutils/manual/diffutils.html#Detailed-Unified
+			// `count` is added when the changes have more than 1 line.
+			const oriLen = Number(matches[3]) || 1;
 			const newStartLine = newLine = Number(matches[5]);
-			const newLen = Number(matches[7]) | 0;
+			const newLen = Number(matches[7]) || 1;
 
 			diffHunk = new DiffHunk(oriStartLine, oriLen, newStartLine, newLen, positionInHunk);
 			// @rebornix todo, once we have enough tests, this should be removed.
@@ -246,7 +248,7 @@ export function getGitChangeType(status: string): GitChangeType {
 		case 'modified':
 			return GitChangeType.MODIFY;
 		default:
-			return GitChangeType.UNKNOWN
+			return GitChangeType.UNKNOWN;
 	}
 }
 
@@ -264,18 +266,27 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 
 		const gitChangeType = getGitChangeType(review.status);
 
-		let originalFileExist: boolean;
+		let originalFileExist = false;
 
-		try {
-			await repository.getObjectDetails(parentCommit, review.filename);
-			originalFileExist = true;
-		} catch (err) {
-			originalFileExist = false;
+		switch (gitChangeType) {
+			case GitChangeType.DELETE:
+			case GitChangeType.MODIFY:
+				try {
+					await repository.getObjectDetails(parentCommit, review.filename);
+					originalFileExist = true;
+				} catch (err) { /* noop */ }
+				break;
+			case GitChangeType.RENAME:
+				try {
+					await repository.getObjectDetails(parentCommit, review.previous_filename);
+					originalFileExist = true;
+				} catch (err) { /* noop */ }
+				break;
 		}
 
 		let diffHunks = parsePatch(review.patch);
 		let isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
-		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.patch, diffHunks, isPartial, review.blob_url))
+		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.previous_filename, review.patch, diffHunks, isPartial, review.blob_url));
 	}
 
 	return fileChanges;

@@ -6,6 +6,7 @@ import './index.css';
 import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, TimelineEvent, EventType } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 import * as moment from 'moment';
+const emoji = require('node-emoji');
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -20,7 +21,7 @@ const ElementIds = {
 	Status: 'status',
 	CommentTextArea: 'comment-textarea',
 	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
-}
+};
 
 interface PullRequest {
 	number: number;
@@ -36,6 +37,7 @@ interface PullRequest {
 	head: string;
 	commitsCount: number;
 	repositoryDefaultBranch: any;
+	pendingCommentText?: string;
 }
 
 let pullRequest: PullRequest;
@@ -45,7 +47,7 @@ window.onload = () => {
 	if (pullRequest) {
 		renderPullRequest(pullRequest);
 	}
-}
+};
 
 function handleMessage(event: any) {
 	const message = event.data; // The json data that the extension sent
@@ -73,6 +75,9 @@ function handleMessage(event: any) {
 		case 'pr.enable-request-changes':
 			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
 			break;
+		case 'pr.enable-exit':
+			(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = false;
+			break;
 		default:
 			break;
 	}
@@ -85,6 +90,7 @@ function renderPullRequest(pullRequest: PullRequest): void {
 	setTitleHTML(pullRequest);
 	setTextArea();
 	updateCheckoutButton(pullRequest.isCurrentlyCheckedOut);
+	updatePullRequestState(pullRequest.state);
 
 	addEventListeners(pullRequest);
 }
@@ -101,6 +107,11 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 	const checkout = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
 	if (checkout) {
 		checkout.disabled = checkout.disabled || state !== PullRequestStateEnum.Open;
+	}
+
+	const approve = (<HTMLButtonElement>document.getElementById(ElementIds.Approve));
+	if (approve) {
+		approve.disabled = state !== PullRequestStateEnum.Open;
 	}
 
 	const status = document.getElementById(ElementIds.Status);
@@ -123,7 +134,7 @@ function setTitleHTML(pr: PullRequest): void {
 					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
 					<div class="created-at">${moment(pr.createdAt).fromNow()}</div>
 				</div>
-				<div class="comment-body">${md.render(pr.body)}</div>
+				<div class="comment-body">${md.render(emoji.emojify(pr.body))}</div>
 			</div>
 		`;
 }
@@ -138,11 +149,20 @@ function addEventListeners(pr: PullRequest): void {
 	});
 
 	// Enable 'Comment' and 'RequestChanges' button only when the user has entered text
+	let updateStateTimer: NodeJS.Timer;
 	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
-		const hasNoText = !(<any>e.target).value;
-		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = hasNoText;
-		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = hasNoText;
+		const inputText = (<HTMLInputElement>e.target).value;
+		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = !inputText;
+		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = !inputText || pullRequest.state !== PullRequestStateEnum.Open;
 
+		if (updateStateTimer) {
+			clearTimeout(updateStateTimer);
+		}
+
+		updateStateTimer = setTimeout(() => {
+			pullRequest.pendingCommentText = inputText;
+			vscode.setState(pullRequest);
+		}, 500);
 	});
 
 	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
@@ -229,7 +249,7 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 	checkoutButton.disabled = isCheckedOut;
 	checkoutMasterButton.disabled = false;
 	const activeIcon = '<svg class="octicon octicon-check" viewBox="0 0 12 16" version="1.1" width="12" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M12 5l-8 8-4-4 1.5-1.5L4 10l6.5-6.5L12 5z"></path></svg>';
-	checkoutButton.innerHTML = isCheckedOut ? `${activeIcon} Checked Out` : `Check out`;
+	checkoutButton.innerHTML = isCheckedOut ? `${activeIcon} Checked Out` : `Checkout`;
 
 	const backButton = (<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch));
 	if (isCheckedOut) {
@@ -250,8 +270,9 @@ function setTextArea() {
 			<button class="reply-button" id="${ElementIds.Reply}" disabled="true">Comment</button>
 		</div>`;
 
-	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).placeholder = 'Leave a comment';
-	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).addEventListener('keydown', e => {
+	const textArea = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!);
+	textArea.placeholder = 'Leave a comment';
+	textArea.addEventListener('keydown', e => {
 		if (e.keyCode === 65 && e.metaKey) {
 			(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).select();
 			return;
@@ -262,4 +283,8 @@ function setTextArea() {
 			return;
 		}
 	});
+
+	if (pullRequest.pendingCommentText) {
+		textArea.value = pullRequest.pendingCommentText;
+	}
 }

@@ -5,17 +5,11 @@
  GitHub Pull Requests
 </h1>
 
-<h4 align="center">Review and manage your GitHub Pull Requests directly in VS Code</h4>
+<h4 align="center">Review and manage your GitHub pull requests directly in VS Code</h4>
 
-<p align="center">
-
-[![Build Status](https://vscode.visualstudio.com/_apis/public/build/definitions/9a4d7c24-3234-459a-a944-80bbe5a0824c/10/badge)](https://pull-requests-extension.visualstudio.com/VSCodePullRequestGitHub/_build/index?definitionId=1)
-
-</p>
-
-This extension allows you to review and manage GitHub Pull Requests in Visual Studio Code. The support includes:
+This extension allows you to review and manage GitHub pull requests in Visual Studio Code. The support includes:
 - Authenticate and connect VS Code to GitHub
-- List and browse Pull Requests from within VS Code
+- List and browse PRs from within VS Code
 - Review PRs from within VS Code with in-editor commenting.
 - Validating PRs from within VS Code with easy checkouts.
 - Terminal integration that enables UI and CLIs to co-exist.
@@ -23,11 +17,10 @@ This extension allows you to review and manage GitHub Pull Requests in Visual St
 ![Demo](https://github.com/Microsoft/vscode-pull-request-github/blob/master/.readme/demo.gif?raw=true)
 
 # How to get started?
-It's easy to get started with Pull Requests for GitHub in VS Code. Simply follow these steps to get started.
+It's easy to get started with GitHub Pull Requests for Visua Studio Code. Simply follow these steps to get started.
 
-1. Install latest VS Code Insiders from [https://code.visualstudio.com/insiders](https://code.visualstudio.com/insiders)
-1. Grab the latest VSIX from https://github.com/Microsoft/vscode-pull-request-github/releases/
-1. Install the VSIX by running `Extensions: Install from VSIX` from your command palette.
+1. Make sure you have VSCode version 1.27.0 or higher
+1. Download the extension from [the marketplace](https://aka.ms/vscodepr-download)
 1. Reload VS Code after the installation (click the reload button next to the extension)
 1. Open your desired repo
 1. Go to the SCM Viewlet, and you should see the `GitHub Pull Request` treeview.
@@ -43,7 +36,7 @@ If you want explore the source code of this extension yourself, it's easy to get
 1. Clone the repository
 2. Run `yarn`
 3. Compile in the background
-    - Run `yarn run watch`
+    - Run `yarn watch`
     - Or you can directly start this task by Command Palette -> Run Build Task
 4. F5, launch the extension in latest VS Code Insiders.
 

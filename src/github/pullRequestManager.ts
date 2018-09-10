@@ -9,7 +9,7 @@ import { Comment } from "../common/comment";
 import { Remote, parseRepositoryRemotes } from "../common/remote";
 import { TimelineEvent, EventType } from "../common/timelineEvent";
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from "./githubRepository";
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent } from "./interface";
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent, ITelemetry } from "./interface";
 import { PullRequestGitHelper } from "./pullRequestGitHelper";
 import { PullRequestModel } from "./pullRequestModel";
 import { parserCommentDiffHunk } from "../common/diffHunk";
@@ -33,9 +33,13 @@ export class PullRequestManager implements IPullRequestManager {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
-	constructor(private _configuration: Configuration, readonly repository: Repository) {
+	constructor(
+		private _configuration: Configuration,
+		readonly repository: Repository,
+		private readonly _telemetry: ITelemetry
+	) {
 		this._githubRepositories = [];
-		this._credentialStore = new CredentialStore(this._configuration);
+		this._credentialStore = new CredentialStore(this._configuration, this._telemetry);
 		this._githubManager = new GitHubManager();
 	}
 
@@ -63,29 +67,47 @@ export class PullRequestManager implements IPullRequestManager {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
 		} else {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
+			return;
 		}
 
+		let serverAuthPromises = [];
+		for (let server of uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().authority)) {
+			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
+				if (!authd) {
+					this._credentialStore.loginWithConfirmation(server);
+				}
+			}));
+		}
+		// Make sure authentication is set up for all the servers that the remotes are pointing to
+		// this will ask the user to sign in if there's no credentials for a server, once per server
+		await Promise.all(serverAuthPromises);
+
 		let repositories = [];
+		let resolveRemotePromises = [];
 		for (let remote of gitHubRemotes) {
 			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote.remoteName);
 			if (!isRemoteForPR) {
-				repositories.push(new GitHubRepository(remote, this._credentialStore));
+				const repository = new GitHubRepository(remote, this._credentialStore);
+				resolveRemotePromises.push(repository.resolveRemote());
+				repositories.push(repository);
 			}
 		}
 
-		this._githubRepositories = repositories;
+		return Promise.all(resolveRemotePromises).then(_ => {
+			this._githubRepositories = repositories;
 
-		for (let repository of this._githubRepositories) {
-			const remoteId = repository.remote.url.toString();
-			if (!this._repositoryPageInformation.get(remoteId)) {
-				this._repositoryPageInformation.set(remoteId, {
-					pullRequestPage: 1,
-					hasMorePages: null
-				});
+			for (let repository of this._githubRepositories) {
+				const remoteId = repository.remote.url.toString();
+				if (!this._repositoryPageInformation.get(remoteId)) {
+					this._repositoryPageInformation.set(remoteId, {
+						pullRequestPage: 1,
+						hasMorePages: null
+					});
+				}
 			}
-		}
 
-		return Promise.resolve();
+			return Promise.resolve();
+		});
 	}
 
 	async authenticate(): Promise<boolean> {
@@ -152,6 +174,7 @@ export class PullRequestManager implements IPullRequestManager {
 				await this.repository.removeRemote(remoteName);
 			}
 		}
+		this._telemetry.on("branch.delete");
 	}
 
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[IPullRequestModel[], boolean]> {
@@ -197,7 +220,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 					pageInformation.hasMorePages = pullRequestData.hasMorePages;
 					hasMorePages = hasMorePages || pageInformation.hasMorePages;
-					pageInformation.pullRequestPage++;;
+					pageInformation.pullRequestPage++;
 				}
 			}
 		}
@@ -353,17 +376,25 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
+	private async changePullRequestState(state: "open" | "closed", pullRequest: IPullRequestModel): Promise<any> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.update({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
-			state: 'closed'
+			state: state
 		});
 
 		return ret.data;
+	}
+
+	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
+		return this.changePullRequestState("closed", pullRequest)
+			.then(x => {
+				this._telemetry.on('pr.close');
+				return x;
+			});
 	}
 
 	private async createReview(pullRequest: IPullRequestModel, event: ReviewEvent, message?: string): Promise<any> {
@@ -381,11 +412,19 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any> {
-		return this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
+		return this.createReview(pullRequest, ReviewEvent.RequestChanges, message)
+			.then(x => {
+				this._telemetry.on('pr.requestChanges');
+				return x;
+			});
 	}
 
 	async approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any> {
-		return this.createReview(pullRequest, ReviewEvent.Approve, message);
+		return this.createReview(pullRequest, ReviewEvent.Approve, message)
+			.then(x => {
+				this._telemetry.on('pr.approve');
+				return x;
+			});
 	}
 
 	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]> {
@@ -453,12 +492,16 @@ export class PullRequestManager implements IPullRequestManager {
 		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this.repository, this._githubRepositories, pullRequest);
 	}
 
-	async checkout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.checkout(this.repository, remote, branchName, pullRequest);
+	async fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
+		await PullRequestGitHelper.fetchAndCheckout(this.repository, remote, branchName, pullRequest);
 	}
 
 	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
 		await PullRequestGitHelper.createAndCheckout(this.repository, pullRequest);
+	}
+
+	async checkout(branchName: string): Promise<void> {
+		return this.repository.checkout(branchName);
 	}
 
 	//#endregion

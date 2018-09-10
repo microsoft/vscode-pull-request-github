@@ -11,9 +11,9 @@ import { PRType, IGitHubRepository } from "./interface";
 import { PullRequestModel } from "./pullRequestModel";
 import { CredentialStore } from './credentials';
 import { AuthenticationError } from '../common/authentication';
+import { parseRemote } from '../common/repository';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
-const SIGNIN_COMMAND = 'Sign in';
 
 export interface PullRequestData {
 	pullRequests: PullRequestModel[];
@@ -23,7 +23,6 @@ export interface PullRequestData {
 export class GitHubRepository implements IGitHubRepository {
 	private _octokit: Octokit;
 	private _initialized: boolean;
-	private _authenticationStatus: vscode.StatusBarItem;
 	public get octokit(): Octokit {
 		if (this._octokit === undefined) {
 			if (!this._initialized) {
@@ -35,48 +34,30 @@ export class GitHubRepository implements IGitHubRepository {
 		return this._octokit;
 	}
 
-	public set octokit(newOctokit: Octokit) {
-		if (newOctokit !== this._octokit) {
-			this._octokit = newOctokit;
+	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
+	}
 
-			// update status bar item
-			this.updateAuthenticationStatus();
+	async resolveRemote(): Promise<void> {
+		try {
+			const { octokit, remote } = await this.ensure();
+			const { data } = await octokit.repos.get({
+				owner: remote.owner,
+				repo: remote.repositoryName
+			});
+
+			this.remote = parseRemote(remote.remoteName, data.clone_url);
+		} catch (e) {
+			Logger.appendLine(`Unable to resolve remote: ${e}`);
 		}
-	}
-
-	constructor(public readonly remote: Remote, private readonly _credentialStore: CredentialStore) {
-		this._authenticationStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-		const normalizedUri = this.remote.gitProtocol.normalizeUri();
-		this._authenticationStatus.text = `${remote.owner}/${remote.repositoryName} ⟷ Sign in to ${normalizedUri.authority}`;
-		this._authenticationStatus.command = 'pr.signin';
-		this._authenticationStatus.show();
-	}
-
-	updateAuthenticationStatus() {
-		setTimeout(async () => {
-			if (this._octokit) {
-				const currentUser = await this._octokit.users.get({});
-				const userName = currentUser.data.login;
-				this._authenticationStatus.text = `${this.remote.owner}/${this.remote.repositoryName} ⟷ ${userName}`;
-				this._authenticationStatus.command = null;
-			}
-		}, 0);
 	}
 
 	async ensure(): Promise<GitHubRepository> {
 		this._initialized = true;
 
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			const normalizedUri = this.remote.gitProtocol.normalizeUri();
-			const result = await vscode.window.showInformationMessage(
-				`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
-				SIGNIN_COMMAND);
-
-			if (result === SIGNIN_COMMAND) {
-				this.octokit = await this._credentialStore.login(this.remote);
-			}
+			this._octokit = await this._credentialStore.loginWithConfirmation(this.remote);
 		} else {
-			this.octokit = await this._credentialStore.getOctokit(this.remote);
+			this._octokit = await this._credentialStore.getOctokit(this.remote);
 		}
 
 		return this;
@@ -85,9 +66,9 @@ export class GitHubRepository implements IGitHubRepository {
 	async authenticate(): Promise<boolean> {
 		this._initialized = true;
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			this.octokit = await this._credentialStore.login(this.remote);
+			this._octokit = await this._credentialStore.login(this.remote);
 		} else {
-			this.octokit = this._credentialStore.getOctokit(this.remote);
+			this._octokit = this._credentialStore.getOctokit(this.remote);
 		}
 		return this.octokit !== undefined;
 	}
@@ -134,7 +115,7 @@ export class GitHubRepository implements IGitHubRepository {
 			return {
 				pullRequests,
 				hasMorePages
-			}
+			};
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Fetching all pull requests failed: ${e}`);
 			if (e.code === 404) {
@@ -153,7 +134,7 @@ export class GitHubRepository implements IGitHubRepository {
 			const { octokit, remote } = await this.ensure();
 			const user = await octokit.users.get({});
 			// Search api will not try to resolve repo that redirects, so get full name first
-			const repo = await octokit.repos.get({owner: this.remote.owner, repo: this.remote.repositoryName});
+			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
 			const { data, headers } = await octokit.search.issues({
 				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, prType),
 				per_page: PULL_REQUEST_PAGE_SIZE,
@@ -185,7 +166,7 @@ export class GitHubRepository implements IGitHubRepository {
 			return {
 				pullRequests,
 				hasMorePages
-			}
+			};
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Fetching all pull requests failed: ${e}`);
 			if (e.code === 404) {

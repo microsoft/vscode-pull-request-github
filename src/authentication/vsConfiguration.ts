@@ -1,24 +1,27 @@
 import * as vscode from 'vscode';
 import { Configuration, IHostConfiguration } from './configuration';
+import { keychain } from '../common/keychain';
 
 const SETTINGS_NAMESPACE = 'github';
 const HOSTS_KEY = 'hosts';
+const CREDENTIAL_SERVICE = 'vscode-pull-request-github';
 
 export class VSCodeConfiguration extends Configuration {
-	private _hosts: Map<string, IHostConfiguration>;
+	private _hosts: Map<string, IHostConfiguration> = new Map<string, IHostConfiguration>();
+	private _hostTokensInKeychain: Set<string> = new Set<string>();
 
 	constructor() {
 		super(undefined);
-		this.loadConfiguration();
 	}
 
 	public listenForVSCodeChanges(): vscode.Disposable {
 		return vscode.workspace.onDidChangeConfiguration(() => {
-			this.loadConfiguration();
-			if (this.host) {
-				const config = this.getHost(this.host);
-				super.update(config.username, config.token, true);
-			}
+			this.loadConfiguration().then(_ => {
+				if (this.host) {
+					const config = this.getHost(this.host);
+					super.update(config.username, config.token, true);
+				}
+			});
 		});
 	}
 
@@ -32,17 +35,15 @@ export class VSCodeConfiguration extends Configuration {
 			return this;
 		}
 
-		if (host === undefined) {
-			this.host = host;
-			this.username = undefined;
-			this.token = undefined;
-			return this;
-		}
-
 		this.host = host;
 		this.username = undefined;
 		this.token = undefined;
-		if (this.host && !this._hosts.has(this.host)) {
+
+		if (!host) {
+			return this;
+		}
+
+		if (!this._hosts.has(this.host)) {
 			this._hosts.set(this.host, this);
 		} else {
 			const config = this.getHost(host);
@@ -63,16 +64,37 @@ export class VSCodeConfiguration extends Configuration {
 		this.saveConfiguration();
 	}
 
-	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): void {
-		super.update(username, token, raiseEvent);
-		this.saveConfiguration();
+	public async update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): Promise<boolean> {
+		const key = this.host;
+		try {
+			// this might fail. if it does, fallback to saving the token in the user settings file
+			await keychain.setPassword(CREDENTIAL_SERVICE, key, token);
+			if (!this._hostTokensInKeychain.has(key)) {
+				this._hostTokensInKeychain.add(key);
+			}
+		} catch (e) {
+			if (this._hostTokensInKeychain.has(key)) {
+				this._hostTokensInKeychain.delete(key);
+			}
+		}
+		return super.update(username, token, false).then(hasChanged => {
+			if (hasChanged) {
+				this.saveConfiguration();
+				// raise changed events only after the host list has been roundtripped to disk
+				if (raiseEvent) {
+					this.raiseChangedEvent();
+				}
+			}
+			return hasChanged;
+		});
 	}
 
 	private reset(): void {
-		this._hosts = new Map<string, IHostConfiguration>();
+		this._hosts.clear();
+		this._hostTokensInKeychain.clear();
 	}
 
-	private loadConfiguration(): void {
+	public async loadConfiguration(): Promise<void> {
 		this.reset();
 
 		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
@@ -80,15 +102,28 @@ export class VSCodeConfiguration extends Configuration {
 		let configHosts = config.get(HOSTS_KEY, defaultEntry);
 
 		configHosts.forEach(c => c.host = c.host.toLocaleLowerCase());
-		configHosts.map(c => this._hosts.set(c.host, c));
-
-		if (this.host && !this._hosts.has(this.host)) {
-			this._hosts.set(this.host, {
-				host: this.host,
-				username: this.username,
-				token: this.token,
-			});
-		}
+		return Promise.all(configHosts.map(async c => {
+			// if the token is not in the user settings file, load it from the system credential manager
+			if (c.token === 'system') {
+				try {
+					c.token = await keychain.getPassword(CREDENTIAL_SERVICE, c.host) || undefined;
+					if (c.token) {
+						this._hostTokensInKeychain.add(c.host);
+						this._hosts.set(c.host, c);
+					}
+				} catch { } // only load the host if we can read the token, otherwise there's no point
+			} else {
+				this._hosts.set(c.host, c);
+			}
+		})).then(_ => {
+			if (this.host && !this._hosts.has(this.host)) {
+				this._hosts.set(this.host, {
+					host: this.host,
+					username: this.username,
+					token: this.token,
+				});
+			}
+		});
 	}
 
 	private saveConfiguration(): void {
@@ -100,6 +135,10 @@ export class VSCodeConfiguration extends Configuration {
 			});
 		}
 		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
-		config.update(HOSTS_KEY, Array.from(this._hosts.values()), true);
+		// don't save the token to the user settings file if it's in the keychain
+		config.update(HOSTS_KEY, Array.from(this._hosts.values()).map(x => {
+			const token = this._hostTokensInKeychain.has(x.host) ? 'system' : x.token;
+			return { host: x.host, username: x.username, token };
+		}), true);
 	}
 }

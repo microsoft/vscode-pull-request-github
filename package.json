@@ -7,9 +7,13 @@
     "type": "git",
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
   },
+  "bugs": {
+    "url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
+  },
   "enableProposedApi": true,
-  "version": "0.0.14",
-  "publisher": "Microsoft",
+  "preview": true,
+  "version": "0.1.1",
+  "publisher": "GitHub",
   "engines": {
     "vscode": "^1.27.0"
   },
@@ -28,6 +32,10 @@
       "type": "object",
       "title": "GitHub Pull Requests",
       "properties": {
+        "telemetry.optout": {
+          "type": "boolean",
+          "description": "Disable usage data and errors to be sent to a GitHub online service"
+        },
         "github.hosts": {
           "type": "array",
           "default": [],
@@ -69,7 +77,7 @@
     "commands": [
       {
         "command": "pr.pick",
-        "title": "Check Out Pull Request",
+        "title": "Checkout Pull Request",
         "category": "GitHub Pull Requests"
       },
       {
@@ -176,6 +184,10 @@
           "when": "false"
         },
         {
+          "command": "pr.openDiffView",
+          "when": "false"
+        },
+        {
           "command": "pr.openDescription",
           "when": "config.git.enabled && github:inReviewMode"
         },
@@ -225,14 +237,9 @@
           "group": "pullrequest@3"
         },
         {
-          "command": "pr.close",
-          "when": "view == pr && viewItem =~ /pullrequest|description/",
-          "group": "pullrequest@4"
-        },
-        {
           "command": "pr.deleteLocalBranch",
           "when": "view == pr && viewItem =~ /pullrequest:local:nonactive/",
-          "group": "pullrequest@5"
+          "group": "pullrequest@4"
         },
         {
           "command": "pr.openFileInGitHub",
@@ -253,10 +260,11 @@
     "postinstall": "node ./node_modules/vscode/bin/install",
     "compile": "tsc -p ./",
     "watch": "webpack --watch --env.development",
-    "test": "node ./node_modules/mocha/bin/_mocha --timeout 1000 --colors ./out/test/**/*.js"
+    "test": "tsc -p ./ && node ./node_modules/mocha/bin/_mocha --timeout 1000 --colors ./out/test/**/*.js"
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
+    "@types/keytar": "^4.0.1",
     "@types/lodash": "^4.14.106",
     "@types/mocha": "^5.2.2",
     "@types/node": "*",
@@ -271,16 +279,20 @@
     "mocha": "^5.2.0",
     "style-loader": "^0.21.0",
     "ts-loader": "^4.0.1",
+    "tslint": "^5.11.0",
     "typescript": "^2.1.4",
     "webpack": "^4.1.0",
     "webpack-cli": "^2.0.10"
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
+    "node-emoji": "^1.8.1",
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",
+    "markdown-it-checkbox": "^1.1.0",
     "moment": "^2.22.1",
+    "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "tmp": "^0.0.31",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"

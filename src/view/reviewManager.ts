@@ -11,7 +11,7 @@ import { toReviewUri, fromReviewUri, fromPRUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, SlimFileChange } from '../common/file';
-import { IPullRequestModel, IPullRequestManager } from '../github/interface';
+import { IPullRequestModel, IPullRequestManager, ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes } from '../typings/git';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
@@ -21,6 +21,7 @@ import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { IConfiguration } from '../authentication/configuration';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -33,7 +34,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
-	private _updateCurrentBranch: boolean = false;
 	private _validateStatusInProgress: boolean = false;
 
 	private _onDidChangeDocumentCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
@@ -48,7 +48,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		private _context: vscode.ExtensionContext,
 		private _configuration: IConfiguration,
 		private _repository: Repository,
-		private _prManager: IPullRequestManager
+		private _prManager: IPullRequestManager,
+		private _telemetry: ITelemetry
 	) {
 		this._documentCommentProvider = null;
 		this._workspaceCommentProvider = null;
@@ -80,6 +81,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			this.updateComments();
+			PullRequestOverviewPanel.refresh();
 			this.prFileChangesProvider.refresh();
 		}));
 
@@ -88,10 +90,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 				this.updateComments();
 			}
 
+			PullRequestOverviewPanel.refresh();
 			this._prsTreeDataProvider.refresh(prNode);
 		}));
 
-		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager);
+		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 		this.updateState();
@@ -133,10 +136,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._validateStatusInProgress = true;
 			try {
 				await this.validateState();
-				this._updateCurrentBranch = false;
 				this._validateStatusInProgress = false;
 			} catch (e) {
-				this._updateCurrentBranch = false;
 				this._validateStatusInProgress = false;
 			}
 		}
@@ -159,7 +160,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		if (this._prNumber === matchingPullRequestMetadata.prNumber && !this._updateCurrentBranch) {
+		const hasPushedChanges = branch.commit !== this._lastCommitSha && branch.ahead === 0 && branch.behind === 0;
+		if (this._prNumber === matchingPullRequestMetadata.prNumber && !hasPushedChanges) {
 			return;
 		}
 
@@ -185,9 +187,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		this._prManager.activePullRequest = pr;
-		if (!this._lastCommitSha) {
-			this._lastCommitSha = pr.head.sha;
-		}
+		this._lastCommitSha = pr.head.sha;
 
 		await this.getPullRequestData(pr);
 		await this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, pr, this._localFileChanges, this._comments);
@@ -207,7 +207,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 		const uri = document.uri;
 
 		let fileName: string;
-		if (uri.scheme === 'review' || uri.scheme === 'file') {
+		let isOutdated = false;
+		if (uri.scheme === 'review') {
+			const query = fromReviewUri(uri);
+			isOutdated = query.isOutdated;
+			fileName = query.path;
+		}
+
+		if (uri.scheme === 'file') {
 			fileName = uri.path;
 		}
 
@@ -215,7 +222,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			fileName = fromPRUri(uri).fileName;
 		}
 
-		const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => {
+		const fileChangesToSearch = isOutdated ? this._obsoleteFileChanges : this._localFileChanges;
+		const matchedFiles = gitFileChangeNodeFilter(fileChangesToSearch).filter(fileChange => {
 			if (uri.scheme === 'review' || uri.scheme === 'pr') {
 				return fileChange.fileName === fileName;
 			} else {
@@ -248,9 +256,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			matchedFile.comments.push(comment);
 			this._comments.push(comment);
 
+			const workspaceThread = Object.assign({}, thread, { resource: vscode.Uri.file(thread.resource.fsPath) });
 			this._onDidChangeWorkspaceCommentThreads.fire({
 				added: [],
-				changed: [thread],
+				changed: [workspaceThread],
 				removed: []
 			});
 
@@ -295,8 +304,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			matchedFile.comments.push(rawComment);
 			this._comments.push(rawComment);
 
+			const workspaceThread = Object.assign({}, commentThread, { resource: vscode.Uri.file(commentThread.resource.fsPath) });
 			this._onDidChangeWorkspaceCommentThreads.fire({
-				added: [commentThread],
+				added: [workspaceThread],
 				changed: [],
 				removed: []
 			});
@@ -329,7 +339,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let result = await vscode.window.showInformationMessage('There are updates available for this branch.', {}, 'Pull');
 
 			if (result === 'Pull') {
-				this._updateCurrentBranch = true;
 				await vscode.commands.executeCommand('git.pull');
 				this._updateMessageShown = false;
 			}
@@ -433,13 +442,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 						change.blobUrl
 					);
 				}
+
+				const uri = vscode.Uri.parse(change.fileName);
 				let changedItem = new GitFileChangeNode(
 					pr,
 					change.status,
 					change.fileName,
 					change.blobUrl,
-					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.DELETE ? '' : pr.head.sha, { base: false }),
-					toReviewUri(vscode.Uri.parse(change.fileName), null, null, change.status === GitChangeType.ADD ? '' : pr.base.sha, { base: true }),
+					toReviewUri(uri, null, null, change.status === GitChangeType.DELETE ? '' : pr.head.sha, false, { base: false }),
+					toReviewUri(uri, null, null, change.status === GitChangeType.ADD ? '' : pr.base.sha, false, { base: true }),
 					change.isPartial,
 					change.diffHunks,
 					activeComments.filter(comment => comment.path === change.fileName),
@@ -464,14 +475,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 						Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
 					}
 
-					let oldComments = commentsForFile[fileName];
-					let obsoleteFileChange = new GitFileChangeNode(
+					const oldComments = commentsForFile[fileName];
+					const uri = vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName));
+					const obsoleteFileChange = new GitFileChangeNode(
 						pr,
 						GitChangeType.MODIFY,
 						fileName,
 						null,
-						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: false }),
-						toReviewUri(vscode.Uri.parse(path.join(`commit~${commit.substr(0, 8)}`, fileName)), fileName, null, oldComments[0].original_commit_id, { base: true }),
+						toReviewUri(uri, fileName, null, oldComments[0].original_commit_id, true, { base: false }),
+						toReviewUri(uri, fileName, null, oldComments[0].original_commit_id, true, { base: true }),
 						false,
 						diffHunks,
 						oldComments,
@@ -556,7 +568,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				arguments: [
 					fileChange
 				]
-			}
+			};
 		}
 
 		for (let i in sections) {
@@ -616,8 +628,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		if (matchingComments && matchingComments.length) {
 			return {
 				bubble: false,
-				title: '♪♪',
-				letter: '♪♪'
+				title: 'Commented',
+				letter: '◆'
 			};
 		}
 
@@ -688,7 +700,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					if (matchedFile) {
 						let matchingComments = matchedFile.comments;
-						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase) });
+						matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile.diffHunks, isBase); });
 
 						let diffHunks = matchedFile.diffHunks;
 
@@ -732,7 +744,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 							return null;
 						}
 					} else {
-						comments = matchedFile.comments
+						comments = matchedFile.comments;
 					}
 
 					let sections = groupBy(comments, comment => String(comment.original_position)); // comment.position is null in this case.
@@ -827,7 +839,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	public async switch(pr: IPullRequestModel): Promise<void> {
-		Logger.appendLine(`Review> swtich to Pull Requet #${pr.prNumber}`);
+		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber}`);
+		await this._prManager.fullfillPullRequestMissingInfo(pr);
+
 		if (this._repository.state.workingTreeChanges.length > 0) {
 			vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
 			throw new Error('Has local changes');
@@ -842,7 +856,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			if (localBranchInfo) {
 				Logger.appendLine(`Review> there is already one local branch ${localBranchInfo.remote.remoteName}/${localBranchInfo.branch} associated with Pull Request #${pr.prNumber}`);
-				await this._prManager.checkout(localBranchInfo.remote, localBranchInfo.branch, pr);
+				await this._prManager.fetchAndCheckout(localBranchInfo.remote, localBranchInfo.branch, pr);
 			} else {
 				Logger.appendLine(`Review> there is no local branch associated with Pull Request #${pr.prNumber}, we will create a new branch.`);
 				await this._prManager.createAndCheckout(pr);
@@ -863,6 +877,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
+		this._telemetry.on('pr.checkout');
 		await this._repository.status();
 	}
 

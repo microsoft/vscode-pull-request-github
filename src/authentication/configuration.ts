@@ -41,13 +41,19 @@ export class Configuration implements IConfiguration {
 		this.onDidChange = this._emitter.event;
 	}
 
-	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): void {
+	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): Promise<boolean> {
 		if (username !== this.username || token !== this.token) {
 			this.username = username;
 			this.token = token;
 			if (raiseEvent) {
 				this._emitter.fire(this);
 			}
+			return Promise.resolve(true);
 		}
+		return Promise.resolve(false);
+	}
+
+	protected raiseChangedEvent(): void {
+		this._emitter.fire(this);
 	}
 }
