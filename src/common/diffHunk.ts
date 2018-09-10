@@ -265,10 +265,23 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 			continue;
 		}
 
-		let originalFileExist = await repository.checkFileExistence(parentCommit, review.filename);
+		let originalFileExist;
+		switch (gitChangeType) {
+			case GitChangeType.DELETE:
+			case GitChangeType.MODIFY:
+				originalFileExist = await repository.checkFileExistence(parentCommit, review.filename);
+				break;
+			case GitChangeType.RENAME:
+				originalFileExist = await repository.checkFileExistence(parentCommit, review.previous_filename);
+				break;
+			default:
+				originalFileExist = false;
+				break;
+		}
+
 		let diffHunks = parsePatch(review.patch);
 		let isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
-		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.patch, diffHunks, isPartial, review.blob_url));
+		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.previous_filename, review.patch, diffHunks, isPartial, review.blob_url));
 	}
 
 	return fileChanges;

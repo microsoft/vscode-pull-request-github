@@ -435,12 +435,19 @@ export class PullRequestManager implements IPullRequestManager {
 	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-		const { data } = await octokit.pullRequests.getFiles({
+
+		let response = await octokit.pullRequests.getFiles({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber
+			number: pullRequest.prNumber,
+			per_page: 100
 		});
+		let {data} = response;
 
+		while(response.headers.link && octokit.hasNextPage(response.headers)){
+			response = await octokit.getNextPage(response.headers);
+			data = data.concat(response.data);
+		}
 		return data;
 	}
 

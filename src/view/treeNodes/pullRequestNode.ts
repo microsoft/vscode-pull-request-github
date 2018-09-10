@@ -249,13 +249,14 @@ export class PRNode extends TreeNode {
 					this.pullRequestModel,
 					change.status,
 					change.fileName,
+					change.previousFileName,
 					change.blobUrl,
 					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, false),
 					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, true),
 					change.isPartial,
 					change.patch,
 					change.diffHunks,
-					comments.filter(comment => comment.path === change.fileName && comment.position !== null)
+					comments.filter(comment => comment.path === change.fileName && comment.position !== null),
 				);
 
 				return changedItem;
@@ -403,13 +404,13 @@ export class PRNode extends TreeNode {
 				}
 			} else {
 				if (params.base) {
-					let originalContent = await getFileContent(this.repository.path, params.commit, fileChange.fileName);
-					return originalContent;
+					const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
+					return getFileContent(this.repository.path, params.commit, originalFileName);
 
 				} else {
-					let originalContent = await getFileContent(this.repository.path, params.commit, fileChange.fileName);
-					let modifiedContent = getModifiedContentFromDiffHunk(originalContent, fileChange.patch);
-					return modifiedContent;
+					const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
+					const originalContent = await getFileContent(this.repository.path, params.commit, originalFileName);
+					return getModifiedContentFromDiffHunk(originalContent, fileChange.patch);
 				}
 			}
 		}
