@@ -96,15 +96,19 @@ export class PullRequestGitHelper {
 				};
 			}).filter(c => c.branch && c.value === key);
 
-			if (branchInfos && branchInfos.length) {
-				let remoteName = await repository.getConfig(`branch.${branchInfos[0].branch}.remote`);
-				let headRemote = parseRepositoryRemotes(repository).filter(remote => remote.remoteName === remoteName);
-				if (headRemote && headRemote.length) {
-					return {
-						remote: headRemote[0],
-						branch: branchInfos[0].branch
-					};
+			try {
+				if (branchInfos && branchInfos.length) {
+					let remoteName = await repository.getConfig(`branch.${branchInfos[0].branch}.remote`);
+					let headRemote = parseRepositoryRemotes(repository).filter(remote => remote.remoteName === remoteName);
+					if (headRemote && headRemote.length) {
+						return {
+							remote: headRemote[0],
+							branch: branchInfos[0].branch
+						};
+					}
 				}
+			} catch (_) {
+				return null;
 			}
 
 			return null;
@@ -147,9 +151,13 @@ export class PullRequestGitHelper {
 	}
 
 	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata> {
-		let configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-		let configValue = await repository.getConfig(configKey);
-		return PullRequestGitHelper.parsePullRequestMetadata(configValue);
+		try {
+			let configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
+			let configValue = await repository.getConfig(configKey);
+			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
+		} catch (_) {
+			return null;
+		}
 	}
 
 	static async createRemote(repository: Repository, cloneUrl: Protocol) {
