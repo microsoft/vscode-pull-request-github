@@ -34,6 +34,10 @@ It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simpl
 # Extension
 This extension is still in development, so please refer to our [issue tracker for known issues](https://github.com/Microsoft/vscode-pull-request-github/issues), and please contribute with additional information if you encounter an issue yourself.
 
+## Guestions? Authentication? GitHub Enterprise?
+
+See our [wiki](https://github.com/Microsoft/vscode-pull-request-github/wiki) for our FAQ.
+
 ### How to run from source?
 If you want explore the source code of this extension yourself, it's easy to get started. Simply follow these steps:
 
