@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import Logger from './logger';
 
 export enum ProtocolType {
 	Local,
@@ -15,10 +16,10 @@ export enum ProtocolType {
 
 const gitProtocolRegex = [
 	new RegExp('^git@(.+):(.+)/(.+?)(?:/|.git)?$'),
-	new RegExp('^git:(?://)(.+)/(.+)/(.+?)(?:/|.git)?$')
+	new RegExp('^git://([^:]+)(?::[0-9]*)?/(.+)/(.+?)(?:/|.git)?$')
 ];
 const sshProtocolRegex = [
-	new RegExp('^ssh://git@(.+)/(.+)/(.+?)(?:/|.git)?$')
+	new RegExp('^ssh://git@([^:]+)(?::[0-9]*)?/(.+)/(.+?)(?:/|.git)?$')
 ];
 
 export class Protocol {
@@ -82,13 +83,17 @@ export class Protocol {
 				return;
 			}
 		} catch (e) { }
+
+		Logger.appendLine(`Failed to parse '${uriString}'`);
+		vscode.window.showWarningMessage(`Unable to parse remote '${uriString}'. Please check that it is correctly formatted.`);
 	}
 
 	getHostName(authority: string) {
-		let matches = /^(?:([^:]+)(?::([^@]+))?@)?([^\/]+)$/.exec(authority);
+		// <username>:<password>@<authority>:<port>
+		let matches = /^(?:.*:?@)?([^:]*)(?::[0-9]*)?$/.exec(authority);
 
-		if (matches && matches[3]) {
-			return matches[3];
+		if (matches && matches.length === 2) {
+			return matches[1];
 		}
 
 		return authority;
