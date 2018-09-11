@@ -27,7 +27,7 @@ export class VSCodeConfiguration extends Configuration {
 
 	public setHost(host: string): IHostConfiguration {
 		host = host.toLocaleLowerCase();
-		if (host && host.substr(host.length - 2, 1) === '/') {
+		if (host && host.endsWith('/')) {
 			host = host.slice(0, -1);
 		}
 
@@ -101,7 +101,15 @@ export class VSCodeConfiguration extends Configuration {
 		let defaultEntry: IHostConfiguration[] = [];
 		let configHosts = config.get(HOSTS_KEY, defaultEntry);
 
-		configHosts.forEach(c => c.host = c.host.toLocaleLowerCase());
+		configHosts.forEach(c => {
+			if (!c.host) {
+				c.host = '';
+			}
+			c.host = c.host.toLocaleLowerCase();
+			if (c.host.endsWith('/')) {
+				c.host = c.host.slice(0, -1);
+			}
+		});
 		return Promise.all(configHosts.map(async c => {
 			// if the token is not in the user settings file, load it from the system credential manager
 			if (c.token === 'system') {
@@ -109,12 +117,10 @@ export class VSCodeConfiguration extends Configuration {
 					c.token = await keychain.getPassword(CREDENTIAL_SERVICE, c.host) || undefined;
 					if (c.token) {
 						this._hostTokensInKeychain.add(c.host);
-						this._hosts.set(c.host, c);
 					}
-				} catch { } // only load the host if we can read the token, otherwise there's no point
-			} else {
-				this._hosts.set(c.host, c);
+				} catch { }
 			}
+			this._hosts.set(c.host, c);
 		})).then(_ => {
 			if (this.host && !this._hosts.has(this.host)) {
 				this._hosts.set(this.host, {
