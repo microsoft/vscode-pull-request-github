@@ -206,25 +206,34 @@ export class GitHubServer {
 		return new Promise<IHostConfiguration>((resolve, _) => {
 			const get = https.request(options, res => {
 				let hostConfig: IHostConfiguration | undefined;
-				try {
-					if (res.statusCode === 200) {
-						const scopes = res.headers['x-oauth-scopes'] as string;
-						if (GitHubManager.validateScopes(scopes)) {
-							this.hostConfiguration.username = username;
-							this.hostConfiguration.token = token;
-							hostConfig = this.hostConfiguration;
+
+				res.setEncoding('utf8');
+
+				let rawData = '';
+
+				res.on('data', (chunk) => { rawData += chunk; });
+				res.on('end', () => {
+					try {
+						const parsedData = JSON.parse(rawData);
+						if (res.statusCode === 200 || (res.statusCode === 404 && parsedData.message && parsedData.message === 'Rate limiting is not enabled.')) {
+							const scopes = res.headers['x-oauth-scopes'] as string;
+							if (GitHubManager.validateScopes(scopes)) {
+								this.hostConfiguration.username = username;
+								this.hostConfiguration.token = token;
+								hostConfig = this.hostConfiguration;
+							}
 						}
+					} catch (e) {
+						Logger.appendLine(`validate() error ${e}`);
 					}
-				} catch(e) {
-					Logger.appendLine(`validate() error ${e}`);
-				}
-				resolve(hostConfig);
+					resolve(hostConfig);
+				});
 			});
 
-			get.end();
 			get.on('error', err => {
 				resolve(undefined);
 			});
+			get.end();
 		});
 	}
 }
