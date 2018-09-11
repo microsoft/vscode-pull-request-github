@@ -68,8 +68,7 @@ class Client {
 				default:
 					return this.finish(resolve);
 			}
-		}
-		catch (reason) {
+		} catch (reason) {
 			reject(reason);
 		}
 	}
