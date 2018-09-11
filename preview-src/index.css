@@ -326,6 +326,7 @@ body .comment-form textarea {
 
 .reply-button {
 	margin-left: auto;
+	margin-right: 0 !important;
 }
 
 body .comment-form textarea:focus {
