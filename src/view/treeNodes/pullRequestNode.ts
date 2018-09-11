@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
@@ -404,7 +405,8 @@ export class PRNode extends TreeNode {
 				}
 			} else {
 				const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
-				const originalContent = await this.repository.show(params.commit, originalFileName);
+				const originalFilePath = path.join(this.repository.rootUri.fsPath, originalFileName);
+				const originalContent = await this.repository.show(params.commit, originalFilePath);
 
 				if (params.base) {
 					return originalContent;
