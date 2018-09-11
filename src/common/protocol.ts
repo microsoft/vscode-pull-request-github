@@ -15,7 +15,7 @@ export enum ProtocolType {
 
 const gitProtocolRegex = [
 	new RegExp('^git@(.+):(.+)/(.+?)(?:/|.git)?$'),
-	new RegExp('^git:(.+)/(.+)/(.+?)(?:/|.git)?$')
+	new RegExp('^git:(?://)(.+)/(.+)/(.+?)(?:/|.git)?$')
 ];
 const sshProtocolRegex = [
 	new RegExp('^ssh://git@(.+)/(.+)/(.+?)(?:/|.git)?$')
