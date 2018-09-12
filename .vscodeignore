@@ -9,3 +9,4 @@ tsconfig.json
 media/*.map
 .readme/**
 documentation/**
+.vscode-test/**
