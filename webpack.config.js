@@ -7,6 +7,7 @@
 
 const path = require('path');
 const webpack = require('webpack');
+const TSLintPlugin = require('tslint-webpack-plugin');
 
 function getWebviewConfig(env) {
 	/** @type webpack.Configuration */
@@ -38,7 +39,10 @@ function getWebviewConfig(env) {
 			path: path.resolve(__dirname, 'media')
 		},
 		plugins: [
-			new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/)
+			new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
+			new TSLintPlugin({
+				files: ['./src/**/*.ts']
+			})
 		]
 	};
 

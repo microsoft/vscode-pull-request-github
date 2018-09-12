@@ -68,8 +68,7 @@ class Client {
 				default:
 					return this.finish(resolve);
 			}
-		}
-		catch (reason) {
+		} catch (reason) {
 			reject(reason);
 		}
 	}
@@ -105,14 +104,14 @@ export class GitHubManager {
 	private servers: Map<string, boolean>;
 
 	private static GitHubScopesTable: { [key: string]: string[] } = {
-		'repo': ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
+		repo: ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
 		'admin:org': ['write:org', 'read:org'],
 		'admin:public_key': ['write:public_key', 'read:public_key'],
 		'admin:org_hook': [],
-		'gist': [],
-		'notifications': [],
-		'user': ['read:user', 'user:email', 'user:follow'],
-		'delete_repo': [],
+		gist: [],
+		notifications: [],
+		user: ['read:user', 'user:email', 'user:follow'],
+		delete_repo: [],
 		'write:discussion': ['read:discussion'],
 		'admin:gpg_key': ['write:gpg_key', 'read:gpg_key']
 	};

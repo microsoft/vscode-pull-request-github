@@ -414,7 +414,6 @@ export class Repository {
 		return result.exitCode === 0;
 	}
 
-
 	/**
 	 * Returns the diff between the document's current content and the document's content at lastCommitSha.
 	 */

@@ -45,7 +45,6 @@ export async function exec(args: any[], options: IGitExecutionOptions): Promise<
 	return data;
 }
 
-
 export function run(command: string, args: any[], encoding: string, options: IGitExecutionOptions = {}) {
 	const { stdin, stdinEncoding, ...opts } = { maxBuffer: 10 * 1024 * 1024, ...options } as IGitExecutionOptions;
 

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { GitHubRef } from "../common/githubRef";
-import { Comment } from "../common/comment";
-import { TimelineEvent } from "../common/timelineEvent";
-import { Remote } from "../common/remote";
+import { GitHubRef } from '../common/githubRef';
+import { Comment } from '../common/comment';
+import { TimelineEvent } from '../common/timelineEvent';
+import { Remote } from '../common/remote';
 
 export enum PRType {
 	RequestReview = 0,
@@ -14,9 +14,9 @@ export enum PRType {
 }
 
 export enum ReviewEvent {
-	Approve = "APPROVE",
-	RequestChanges = "REQUEST_CHANGES",
-	Comment = "COMMENT"
+	Approve = 'APPROVE',
+	RequestChanges = 'REQUEST_CHANGES',
+	Comment = 'COMMENT'
 }
 
 export enum PullRequestStateEnum {
