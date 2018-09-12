@@ -11,16 +11,19 @@ describe('Extension Tests', function () {
 		});
 
 		it('should handle additions', () => {
-			const diffHunk = parseDiffHunk(`@@ -5,6 +5,9 @@ if (!defined $initial_reply_to && $prompting) {
-}
-
-if (!$smtp_server) {
-+       $smtp_server = $repo->config('sendemail.smtpserver');
-+}
-+if (!$smtp_server) {
-	foreach (qw( /usr/sbin/sendmail /usr/lib/sendmail )) {
-	if (-x $_) {
-	$smtp_server = $_;`);
+			const patch = [
+				`@@ -5,6 +5,9 @@ if (!defined $initial_reply_to && $prompting) {`,
+				` }`,
+				` `,
+				` if (!$smtp_server) {`,
+				`+       $smtp_server = $repo->config('sendemail.smtpserver');`,
+				`+}`,
+				`+if (!$smtp_server) {`,
+				` 	foreach (qw( /usr/sbin/sendmail /usr/lib/sendmail )) {`,
+				` 	if (-x $_) {`,
+				` 	$smtp_server = $_;`,
+			].join('\n');
+			const diffHunk = parseDiffHunk(patch);
 
 			const itr = diffHunk.next();
 			assert.notEqual(itr.value, undefined);
@@ -29,20 +32,23 @@ if (!$smtp_server) {
 			assert.equal(itr.value.oldLength, 6);
 			assert.equal(itr.value.newLength, 9);
 			assert.equal(itr.value.positionInHunk, 0);
-			assert.equal(itr.value.diffLines.length, 7);
+			assert.equal(itr.value.diffLines.length, 10);
 		});
 
 		it('should handle deletions', () => {
-			const diffHunk = parseDiffHunk(`@@ -5,9 +5,6 @@ if (!defined $initial_reply_to && $prompting) {
-}
-
-if (!$smtp_server) {
--       $smtp_server = $repo->config('sendemail.smtpserver');
--}
--if (!$smtp_server) {
-	foreach (qw( /usr/sbin/sendmail /usr/lib/sendmail )) {
-	if (-x $_) {
-	$smtp_server = $_;`);
+			const patch = [
+				`@@ -5,9 +5,6 @@ if (!defined $initial_reply_to && $prompting) {`,
+				` }`,
+				` `,
+				` if (!$smtp_server) {`,
+				`-       $smtp_server = $repo->config('sendemail.smtpserver');`,
+				`-}`,
+				`-if (!$smtp_server) {`,
+				` 	foreach (qw( /usr/sbin/sendmail /usr/lib/sendmail )) {`,
+				` 	if (-x $_) {`,
+				` 	$smtp_server = $_;`,
+			].join('\n');
+			const diffHunk = parseDiffHunk(patch);
 
 			const itr = diffHunk.next();
 			assert.notEqual(itr.value, undefined);
@@ -51,21 +57,24 @@ if (!$smtp_server) {
 			assert.equal(itr.value.oldLength, 9);
 			assert.equal(itr.value.newLength, 6);
 			assert.equal(itr.value.positionInHunk, 0);
-			assert.equal(itr.value.diffLines.length, 7);
+			assert.equal(itr.value.diffLines.length, 10);
 		});
 
 		it('should handle replacements', () => {
-			const diffHunk = parseDiffHunk(`@@ -5,9 +5,7 @@ if (!defined $initial_reply_to && $prompting) {
-}
-
-if (!$smtp_server) {
--       $smtp_server = $repo->config('sendemail.smtpserver');
--}
--if (!$smtp_server) {
-+if (fpt_server) {
-	foreach (qw( /usr/sbin/sendmail /usr/lib/sendmail )) {
-	if (-x $_) {
-	$smtp_server = $_;`);
+			const patch = [
+				`@@ -5,9 +5,7 @@ if (!defined $initial_reply_to && $prompting) {`,
+				` }`,
+				` `,
+				` if (!$smtp_server) {`,
+				`-       $smtp_server = $repo->config('sendemail.smtpserver');`,
+				`-}`,
+				`-if (!$smtp_server) {`,
+				`+if (fpt_server) {`,
+				` 	foreach (qw( /usr/sbin/sendmail /usr/lib/sendmail )) {`,
+				` 	if (-x $_) {`,
+				` 	$smtp_server = $_;`,
+			].join('\n');
+			const diffHunk = parseDiffHunk(patch);
 
 			const itr = diffHunk.next();
 			assert.notEqual(itr.value, undefined);
@@ -74,7 +83,7 @@ if (!$smtp_server) {
 			assert.equal(itr.value.oldLength, 9);
 			assert.equal(itr.value.newLength, 7);
 			assert.equal(itr.value.positionInHunk, 0);
-			assert.equal(itr.value.diffLines.length, 8);
+			assert.equal(itr.value.diffLines.length, 11);
 		});
 	});
 });
