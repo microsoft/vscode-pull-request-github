@@ -99,8 +99,6 @@ export class CredentialStore {
 		const server = new GitHubServer(host);
 
 		while (retry) {
-			let error: string;
-
 			try {
 				const login = await server.login();
 				if (login) {
@@ -109,13 +107,15 @@ export class CredentialStore {
 					vscode.window.showInformationMessage(`You are now signed in to ${normalizedUri.authority}`);
 				}
 			} catch (e) {
-				error = e;
+				Logger.appendLine(`Error signing in to ${normalizedUri.authority}: ${e}`);
+				if (e instanceof Error) {
+					Logger.appendLine(e.stack);
+				}
 			}
 
 			if (octokit) {
 				retry = false;
 			} else if (retry) {
-				Logger.appendLine(`Error signing in to ${normalizedUri.authority}: ${error}`);
 				retry = (await vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}`, TRY_AGAIN)) === TRY_AGAIN;
 			}
 		}
@@ -144,8 +144,7 @@ export class CredentialStore {
 					type: 'token',
 					token: creds.token,
 				});
-			}
-			else {
+			} else {
 				octokit.authenticate({
 					type: 'basic',
 					username: creds.username,

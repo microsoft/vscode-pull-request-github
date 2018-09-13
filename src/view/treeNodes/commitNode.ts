@@ -34,7 +34,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	async getChildren(): Promise<TreeNode[]> {
 		const fileChanges = await this.pullRequestManager.getCommitChangedFiles(this.pullRequest, this.commit);
 
-
 		const fileChangeNodes = fileChanges.map(change => {
 			const matchingComments = this.comments.filter(comment => comment.path === change.filename && comment.original_commit_id === this.commit.sha);
 			const fileName = change.filename;
@@ -62,7 +61,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 			return fileChangeNode;
 		});
-
 
 		return Promise.resolve(fileChangeNodes);
 	}

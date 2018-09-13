@@ -72,7 +72,6 @@ export function getPositionInDiff(comment: Comment, fileDiffHunks: DiffHunk[], i
 	return commentAbsolutePosition;
 }
 
-
 export function getLastDiffLine(prPatch: string): DiffLine {
 	let lastDiffLine = null;
 	let prDiffReader = parseDiffHunk(prPatch);
@@ -91,9 +90,9 @@ export function getLastDiffLine(prPatch: string): DiffLine {
 export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: number): DiffLine {
 	for (let i = 0; i < diffHunks.length; i++) {
 		let diffHunk = diffHunks[i];
-		for (let i = 0; i < diffHunk.diffLines.length; i++) {
-			if (diffHunk.diffLines[i].positionInHunk === diffLineNumber) {
-				return diffHunk.diffLines[i];
+		for (let j = 0; j < diffHunk.diffLines.length; j++) {
+			if (diffHunk.diffLines[j].positionInHunk === diffLineNumber) {
+				return diffHunk.diffLines[j];
 			}
 		}
 	}

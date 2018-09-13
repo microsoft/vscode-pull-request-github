@@ -62,8 +62,6 @@ export function toReviewUri(uri: Uri, filePath: string, ref: string, commit: str
 	});
 }
 
-
-
 export interface FileChangeNodeUriParams {
 	hasComments?: boolean;
 }

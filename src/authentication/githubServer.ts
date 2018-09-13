@@ -24,66 +24,94 @@ interface IMessage {
 
 class Client {
 	private _guid?: string;
+	private _socket: ws | undefined;
+	private _token: string | undefined;
 
-	constructor(private host: string, private scopes: string) {}
+	constructor(private host: string, private scopes: string) { }
 
 	public start(): Promise<string> {
 		return new Promise((resolve, reject) => {
-			const socket = new ws(`${WS_PROTOCOL}://${HOST}`);
-			socket.on('message', data => {
-				const message: IMessage = JSON.parse(data.toString());
+			try {
+				this._socket = new ws(`${WS_PROTOCOL}://${HOST}`);
+			} catch (reason) {
+				reject(reason);
+				return;
+			}
 
-				switch (message.type) {
-					case MessageType.Host:
-						{
-							this._guid = message.guid;
-
-							socket.send(
-								JSON.stringify({
-									type: MessageType.Host,
-									guid: this._guid,
-									host: this.host,
-									scopes: this.scopes,
-								})
-							);
-							vscode.commands.executeCommand(
-								'vscode.open',
-								vscode.Uri.parse(`${HTTP_PROTOCOL}://${HOST}?state=action:login;guid:${this._guid}`)
-							);
-						}
-						break;
-					case MessageType.Token:
-						{
-							socket.close();
-							resolve(message.token);
-						}
-						break;
-					default: {
-						socket.close();
-					}
+			this._socket.on('error', reason => reject(reason));
+			this._socket.on('message', data => this.handleMessage(data, resolve, reject));
+			this._socket.on('close', (code, reason) => {
+				if (code !== 1000) {
+					reject(reason);
 				}
-				socket.on('close', (code, reason) => {
-					if (code !== 1000) {
-						reject(reason);
-					}
-				});
 			});
 		});
+	}
+
+	private handleMessage(data: ws.Data, resolve: (value?: string | PromiseLike<string>) => void, reject: (reason?: any) => void): void {
+		try {
+			const message: IMessage = JSON.parse(data.toString());
+			switch (message.type) {
+				case MessageType.Host:
+					{
+						this._guid = message.guid;
+						this.sendHost().then(() => {
+							vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(`${HTTP_PROTOCOL}://${HOST}?state=action:login;guid:${this._guid}`));
+						}).catch(reason => {
+							reject(reason);
+						});
+					}
+					break;
+				case MessageType.Token:
+					this.finish(resolve, message.token);
+					break;
+				default:
+					return this.finish(resolve);
+			}
+		} catch (reason) {
+			reject(reason);
+		}
+	}
+
+	private sendHost(): Promise<void> {
+		return new Promise((resolve, reject) => {
+			this._socket.send(
+				JSON.stringify({
+					type: MessageType.Host,
+					guid: this._guid,
+					host: this.host,
+					scopes: this.scopes,
+				}), reason => {
+					if (reason) {
+						reject(reason);
+					} else {
+						resolve();
+					}
+				});
+		});
+	}
+
+	private finish(resolve: (value?: string | PromiseLike<string>) => void, token?: string): void {
+		this._token = token;
+		try {
+			this._socket.close();
+		} catch { } // at this point we don't care if we can't close the socket
+		resolve(this._token);
 	}
 }
 
 export class GitHubManager {
 	private servers: Map<string, boolean>;
 
-	private static GitHubScopesTable: { [key: string] : string[] } = {
-		'repo': ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
+	private static GitHubScopesTable: { [key: string]: string[] } = {
+		repo: ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
 		'admin:org': ['write:org', 'read:org'],
 		'admin:public_key': ['write:public_key', 'read:public_key'],
 		'admin:org_hook': [],
-		'gist': [],
-		'notifications': [],
-		'user': ['read:user', 'user:email', 'user:follow'],
-		'delete_repo': [],
+		gist: [],
+		notifications: [],
+		user: ['read:user', 'user:email', 'user:follow'],
+		delete_repo: [],
 		'write:discussion': ['read:discussion'],
 		'admin:gpg_key': ['write:gpg_key', 'read:gpg_key']
 	};
@@ -103,7 +131,7 @@ export class GitHubManager {
 			return this.servers.get(host.authority);
 		}
 
-		const options = GitHubManager.getOptions(host, 'HEAD');
+		const options = GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
 		return new Promise<boolean>((resolve, _) => {
 			const get = https.request(options, res => {
 				const ret = res.headers['x-github-request-id'];
@@ -120,7 +148,7 @@ export class GitHubManager {
 		});
 	}
 
-	public static getOptions(hostUri: vscode.Uri, method: string = 'GET', token?: string) {
+	public static getOptions(hostUri: vscode.Uri, method: string = 'GET', path: string, token?: string) {
 		const headers: {
 			'user-agent': string;
 			authorization?: string;
@@ -134,7 +162,7 @@ export class GitHubManager {
 			host: HostHelper.getApiHost(hostUri).authority,
 			port: 443,
 			method,
-			path: HostHelper.getApiPath(hostUri, '/rate_limit'),
+			path: HostHelper.getApiPath(hostUri, path),
 			headers,
 		};
 	}
@@ -147,8 +175,7 @@ export class GitHubManager {
 		return (this.AppScopes.every(x => tokenScopes.indexOf(x) >= 0 || tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0));
 	}
 
-	private static getScopeSuperset(scope: string): string
-	{
+	private static getScopeSuperset(scope: string): string {
 		for (let key in this.GitHubScopesTable) {
 			if (this.GitHubScopesTable[key].indexOf(scope) >= 0) {
 				return key;
@@ -170,21 +197,16 @@ export class GitHubServer {
 	}
 
 	public async login(): Promise<IHostConfiguration> {
-		return new Promise<IHostConfiguration>((resolve, reject) => {
-			new Client(this.hostConfiguration.host, SCOPES)
-				.start()
-				.then(token => {
-					this.hostConfiguration.token = token;
-					resolve(this.hostConfiguration);
-				})
-				.catch(reason => {
-					resolve(undefined);
-				});
-		});
+		return new Client(this.hostConfiguration.host, SCOPES)
+			.start()
+			.then(token => {
+				this.hostConfiguration.token = token;
+				return this.hostConfiguration;
+			});
 	}
 
 	public async checkAnonymousAccess(): Promise<boolean> {
-		const options = GitHubManager.getOptions(this.hostUri);
+		const options = GitHubManager.getOptions(this.hostUri, 'GET', '/rate_limit');
 		return new Promise<boolean>((resolve, _) => {
 			const get = https.request(options, res => {
 				resolve(res.statusCode === 200);
@@ -205,7 +227,7 @@ export class GitHubServer {
 			token = this.hostConfiguration.token;
 		}
 
-		const options = GitHubManager.getOptions(this.hostUri, 'GET', token);
+		const options = GitHubManager.getOptions(this.hostUri, 'GET', '/user', token);
 
 		return new Promise<IHostConfiguration>((resolve, _) => {
 			const get = https.request(options, res => {
@@ -219,7 +241,7 @@ export class GitHubServer {
 							hostConfig = this.hostConfiguration;
 						}
 					}
-				} catch(e) {
+				} catch (e) {
 					Logger.appendLine(`validate() error ${e}`);
 				}
 				resolve(hostConfig);

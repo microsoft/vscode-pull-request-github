@@ -1,8 +1,13 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
-import { GitHubRef } from "../common/githubRef";
-import { Comment } from "../common/comment";
-import { TimelineEvent } from "../common/timelineEvent";
-import { Remote } from "../common/remote";
+import { GitHubRef } from '../common/githubRef';
+import { Comment } from '../common/comment';
+import { TimelineEvent } from '../common/timelineEvent';
+import { Remote } from '../common/remote';
 import { Repository } from '../typings/git';
 
 export enum PRType {
@@ -15,9 +20,9 @@ export enum PRType {
 }
 
 export enum ReviewEvent {
-	Approve = "APPROVE",
-	RequestChanges = "REQUEST_CHANGES",
-	Comment = "COMMENT"
+	Approve = 'APPROVE',
+	RequestChanges = 'REQUEST_CHANGES',
+	Comment = 'COMMENT'
 }
 
 export enum PullRequestStateEnum {

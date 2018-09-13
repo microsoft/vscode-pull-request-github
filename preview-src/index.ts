@@ -85,14 +85,14 @@ function handleMessage(event: any) {
 
 window.addEventListener('message', handleMessage);
 
-function renderPullRequest(pullRequest: PullRequest): void {
-	document.getElementById(ElementIds.TimelineEvents)!.innerHTML = pullRequest.events.map(renderTimelineEvent).join('');
-	setTitleHTML(pullRequest);
+function renderPullRequest(pr: PullRequest): void {
+	document.getElementById(ElementIds.TimelineEvents)!.innerHTML = pr.events.map(renderTimelineEvent).join('');
+	setTitleHTML(pr);
 	setTextArea();
-	updateCheckoutButton(pullRequest.isCurrentlyCheckedOut);
-	updatePullRequestState(pullRequest.state);
+	updateCheckoutButton(pr.isCurrentlyCheckedOut);
+	updatePullRequestState(pr.state);
 
-	addEventListeners(pullRequest);
+	addEventListeners(pr);
 }
 
 function updatePullRequestState(state: PullRequestStateEnum): void {

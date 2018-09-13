@@ -40,7 +40,7 @@ body .review-comment .avatar-container {
 }
 
 body .review-comment .avatar-container a {
-	display: inline-block;
+	display: flex;
 }
 
 body .review-comment .avatar-container img.avatar {
@@ -49,7 +49,7 @@ body .review-comment .avatar-container img.avatar {
 
 body img.avatar {
 	width: 24px;
-	height: auto;
+	height: 24px;
 	overflow: hidden;
 	line-height: 1;
 	vertical-align: middle;
@@ -244,11 +244,13 @@ body .overview-title button {
 }
 
 .commit .commit-message .avatar-container {
-	margin-right: 5px;
+	margin-right: 4px;
+	flex-shrink: 0;
 }
 
 .commit .avatar-container .avatar {
 	width: 16px;
+	height: 16px;
 }
 
 .commit .commit-message .message {

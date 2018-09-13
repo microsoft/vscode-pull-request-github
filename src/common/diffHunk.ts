@@ -257,14 +257,12 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 
 	for (let i = 0; i < reviews.length; i++) {
 		let review = reviews[i];
+		const gitChangeType = getGitChangeType(review.status);
 
 		if (!review.patch) {
-			const gitChangeType = getGitChangeType(review.status);
 			fileChanges.push(new SlimFileChange(review.blob_url, gitChangeType, review.filename));
 			continue;
 		}
-
-		const gitChangeType = getGitChangeType(review.status);
 
 		let originalFileExist = false;
 

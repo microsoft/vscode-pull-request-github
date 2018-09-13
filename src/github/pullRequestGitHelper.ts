@@ -99,10 +99,10 @@ export class PullRequestGitHelper {
 			try {
 				if (branchInfos && branchInfos.length) {
 					let remoteName = await repository.getConfig(`branch.${branchInfos[0].branch}.remote`);
-					let headRemote = parseRepositoryRemotes(repository).filter(remote => remote.remoteName === remoteName);
-					if (headRemote && headRemote.length) {
+					let headRemoteMatches = parseRepositoryRemotes(repository).filter(remote => remote.remoteName === remoteName);
+					if (headRemoteMatches && headRemoteMatches.length) {
 						return {
-							remote: headRemote[0],
+							remote: headRemoteMatches[0],
 							branch: branchInfos[0].branch
 						};
 					}

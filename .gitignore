@@ -333,6 +333,7 @@ ASALocalRun/
 out
 node_modules
 media
+.vscode-test
 .DS_Store
 *.vsix
 package-lock.json

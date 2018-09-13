@@ -9,7 +9,6 @@ import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
 import { IAccount, IPullRequest, IPullRequestModel, PullRequestStateEnum } from './interface';
 
-
 export class PullRequestModel implements IPullRequestModel {
 	public prNumber: number;
 	public title: string;

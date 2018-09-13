@@ -271,7 +271,7 @@ export function renderCommit(timelineEvent: CommitEvent): string {
 					</svg>
 					${avatar}
 					<div class="message">
-						${login}: ${timelineEvent.message}
+						${login} ${timelineEvent.message}
 					</div>
 				</div>
 				<a class="sha" href="${timelineEvent.html_url}">${shaShort}</a>

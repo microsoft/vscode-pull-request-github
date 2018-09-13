@@ -79,10 +79,10 @@ export function providePRDocumentComments(
 	for (let i in sections) {
 		let comments = sections[i];
 
-		const comment = comments[0];
+		const firstComment = comments[0];
 		let commentAbsolutePosition = fileChange.isPartial
-			? getPositionInDiff(comment, fileChange.diffHunks, isBase)
-			: getAbsolutePosition(comment, fileChange.diffHunks, isBase);
+			? getPositionInDiff(firstComment, fileChange.diffHunks, isBase)
+			: getAbsolutePosition(firstComment, fileChange.diffHunks, isBase);
 
 		if (commentAbsolutePosition < 0) {
 			continue;
@@ -92,7 +92,7 @@ export function providePRDocumentComments(
 		const range = new vscode.Range(pos, pos);
 
 		threads.push({
-			threadId: comment.id,
+			threadId: firstComment.id,
 			resource: document.uri,
 			range,
 			comments: comments.map(comment => {
@@ -118,12 +118,12 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 	let threads: vscode.CommentThread[] = [];
 
 	for (let i in sections) {
-		let comments = sections[i];
+		let commentGroup = sections[i];
 
-		const comment = comments[0];
+		const firstComment = commentGroup[0];
 		let commentAbsolutePosition = fileChange.isPartial
-			? getPositionInDiff(comment, fileChange.diffHunks, isBase)
-			: getAbsolutePosition(comment, fileChange.diffHunks, isBase);
+			? getPositionInDiff(firstComment, fileChange.diffHunks, isBase)
+			: getAbsolutePosition(firstComment, fileChange.diffHunks, isBase);
 
 		if (commentAbsolutePosition < 0) {
 			continue;
@@ -133,10 +133,10 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 		const range = new vscode.Range(pos, pos);
 
 		threads.push({
-			threadId: comment.id,
+			threadId: firstComment.id,
 			resource: isBase ? fileChange.parentFilePath : fileChange.filePath,
 			range,
-			comments: comments.map(comment => {
+			comments: commentGroup.map(comment => {
 				return {
 					commentId: comment.id,
 					body: new vscode.MarkdownString(comment.body),
@@ -167,7 +167,6 @@ function getRemovedCommentThreads(oldCommentThreads: vscode.CommentThread[], new
 function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread[], newCommentThreads: vscode.CommentThread[]) {
 	let added: vscode.CommentThread[] = [];
 	let changed: vscode.CommentThread[] = [];
-
 
 	function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vscode.Comment[]): boolean {
 		return oldComments.some(oldComment => {
