@@ -4,6 +4,10 @@ import * as ws from 'ws';
 import * as https from 'https';
 import Logger from '../common/logger';
 
+// needed for patching the request options in websocket connections
+import { ClientOptions } from 'ws';
+import * as http from 'http';
+
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const HOST: string = 'github-editor-auth.herokuapp.com';
 const HTTP_PROTOCOL: string = 'https';
@@ -32,7 +36,7 @@ class Client {
 	public start(): Promise<string> {
 		return new Promise((resolve, reject) => {
 			try {
-				this._socket = new ws(`${WS_PROTOCOL}://${HOST}`);
+				this._socket = new ws(`${WS_PROTOCOL}://${HOST}`, { protocol: `${HTTP_PROTOCOL}:` });
 			} catch (reason) {
 				reject(reason);
 				return;
@@ -120,6 +124,9 @@ export class GitHubManager {
 
 	constructor() {
 		this.servers = new Map().set('github.com', true);
+
+		// patch the options object of http requests due to bugs in other extension packages
+		this.hookupRequestPatch();
 	}
 
 	public async isGitHub(host: vscode.Uri): Promise<boolean> {
@@ -184,6 +191,30 @@ export class GitHubManager {
 		return scope;
 	}
 
+	/*
+		Patch the options object of http requests due to bugs in other extension packages
+		Old versions of the applicationinsights-nodejs package throw
+		if the protocol field isn't filled out in a request, and
+		ws has a bug that overwrites the protocol field to undefined.
+		Until those two are fixed upstream, make sure a protocol field is
+		filled out. sigh.
+		https://github.com/Microsoft/vscode-pull-request-github/issues/449
+	*/
+	private hookupRequestPatch(): void {
+		const originalRequest = http.request;
+		(http.request as any) = (options, ...requestArgs) => {
+			try {
+				if (this.isWebSocketOptions(options) && options.host === HOST && !options.protocol) {
+					options.protocol = `${HTTP_PROTOCOL}:`;
+				}
+			} catch {}
+			return originalRequest.call(http, options, ...requestArgs);
+		};
+	}
+
+	private isWebSocketOptions(arg: any): arg is ClientOptions {
+		return arg.perMessageDeflate !== undefined;
+	}
 }
 
 export class GitHubServer {
