@@ -254,7 +254,7 @@ export class PullRequestOverviewPanel {
 			if (branch === branchObj.name) {
 				await this._pullRequestManager.repository.checkout(branch);
 			} else {
-				await vscode.commands.executeCommand('git.checkout')
+				await vscode.commands.executeCommand('git.checkout');
 			}
 		} catch (e) {
 			if (e.gitErrorCode) {
