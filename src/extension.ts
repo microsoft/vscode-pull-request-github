@@ -56,15 +56,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	Logger.appendLine('Looking for git repository');
 
 	const rootPath = vscode.workspace.rootPath;
-	// const repository = new Repository(rootPath);
-
 	const repository = api.repositories.filter(r => isDescendant(r.rootUri.fsPath, rootPath))[0];
 
 	if (repository) {
 		await init(context, repository);
 	} else {
 		const onDidOpenRelevantRepository = filterEvent(api.onDidOpenRepository, r => isDescendant(r.rootUri.fsPath, rootPath));
-		onceEvent(onDidOpenRelevantRepository)(repository => init(context, repository));
+		onceEvent(onDidOpenRelevantRepository)(r => init(context, r));
 	}
 }
 
