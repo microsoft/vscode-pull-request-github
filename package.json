@@ -81,6 +81,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.merge",
+        "title": "Merge Pull Request",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.close",
         "title": "Close Pull Request",
         "category": "GitHub Pull Requests"
@@ -165,6 +170,10 @@
         },
         {
           "command": "pr.close",
+          "when": "config.git.enabled && github:inReviewMode"
+        },
+        {
+          "command": "pr.merge",
           "when": "config.git.enabled && github:inReviewMode"
         },
         {

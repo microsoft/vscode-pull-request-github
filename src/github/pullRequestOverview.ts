@@ -213,6 +213,8 @@ export class PullRequestOverviewPanel {
 				return;
 			case 'pr.checkout':
 				return this.checkoutPullRequest();
+			case 'pr.merge':
+				return this.mergePullRequest(message.text);
 			case 'pr.close':
 				return this.closePullRequest(message.text);
 			case 'pr.approve':
@@ -233,6 +235,17 @@ export class PullRequestOverviewPanel {
 				command: 'pr.update-checkout-status',
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut
 			});
+		});
+	}
+
+	private mergePullRequest(message?: string): void {
+		vscode.commands.executeCommand<IPullRequest>('pr.merge', this._pullRequest, message).then(comment => {
+			if (comment) {
+				this._panel.webview.postMessage({
+					command: 'pr.append-comment',
+					value: comment
+				});
+			}
 		});
 	}
 

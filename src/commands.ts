@@ -91,6 +91,30 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.merge', async (pr?: PRNode, message?: string) => {
+		const pullRequest = ensurePR(prManager, pr);
+		return vscode.window.showWarningMessage(`Are you sure you want to merge this pull request on GitHub?`, 'Yes', 'No').then(async value => {
+			if (value === 'Yes') {
+				try {
+					let newComment: Comment;
+					if (message) {
+						newComment = await prManager.createIssueComment(pullRequest, message);
+					}
+
+					let newPR = await prManager.mergePullRequest(pullRequest);
+					vscode.commands.executeCommand('pr.refreshList');
+					_onDidClosePR.fire(newPR);
+					return newComment;
+				} catch (e) {
+					vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+					_onDidClosePR.fire(null);
+				}
+			}
+
+			_onDidClosePR.fire(null);
+		});
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode, message?: string) => {
 		const pullRequest = ensurePR(prManager, pr);
 		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
