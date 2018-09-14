@@ -12,7 +12,7 @@ import { Protocol } from '../common/protocol';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { IPullRequestModel } from './interface';
 import { GitHubRepository } from './githubRepository';
-import { Repository } from '../typings/git';
+import { Repository, Branch } from '../typings/git';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -28,12 +28,12 @@ export class PullRequestGitHelper {
 	static async createAndCheckout(repository: Repository, pullRequest: IPullRequestModel) {
 		let localBranchName = await PullRequestGitHelper.getBranchNameForPullRequest(repository, pullRequest);
 
-		let existing = await repository.getBranch(localBranchName);
-		if (existing) {
+		try {
+			await repository.getBranch(localBranchName);
 			// already exist but the metadata is missing.
 			Logger.appendLine(`GitHelper> branch ${localBranchName} exists locally but metadata is missing.`);
 			await repository.checkout(localBranchName);
-		} else {
+		} catch (err) {
 			// the branch is from a fork
 			// create remote for this fork
 			Logger.appendLine(`GitHelper> branch ${localBranchName} is from a fork. Create a remote first.`);
@@ -53,9 +53,12 @@ export class PullRequestGitHelper {
 	static async fetchAndCheckout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
 		let remoteName = remote.remoteName;
 		await repository.fetch(remoteName);
-		let branch = await repository.getBranch(branchName);
 
-		if (!branch) {
+		let branch: Branch;
+
+		try {
+			branch = await repository.getBranch(branchName);
+		} catch (err) {
 			Logger.appendLine(`GitHelper> branch ${remoteName}/${branchName} doesn't exist on local disk yet.`);
 			await PullRequestGitHelper.fetchAndCreateBranch(repository, remote, branchName, pullRequest);
 			branch = await repository.getBranch(branchName);
@@ -119,13 +122,13 @@ export class PullRequestGitHelper {
 		let remoteName = remote.remoteName;
 		const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
 		Logger.appendLine(`GitHelper> fetch branch ${trackedBranchName}`);
-		const trackedBranch = await repository.getBranch(trackedBranchName);
 
-		if (trackedBranch) {
+		try {
+			const trackedBranch = await repository.getBranch(trackedBranchName);
 			// create branch
 			await repository.createBranch(branchName, false, trackedBranch.commit);
 			await repository.setBranchUpstream(branchName, trackedBranchName);
-		} else {
+		} catch (err) {
 			throw new Error(`Could not find branch '${trackedBranchName}'.`);
 		}
 	}
@@ -191,11 +194,10 @@ export class PullRequestGitHelper {
 		let number = 1;
 
 		while (true) {
-			let currentBranch = await repository.getBranch(result);
-
-			if (currentBranch) {
+			try {
+				await repository.getBranch(result);
 				result = branchName + '-' + number++;
-			} else {
+			} catch (err) {
 				break;
 			}
 		}
