@@ -13,7 +13,7 @@ import { Comment } from '../common/comment';
 import { GitChangeType, SlimFileChange } from '../common/file';
 import { GitErrorCodes } from '../common/gitError';
 import { IPullRequestModel, IPullRequestManager, ITelemetry } from '../github/interface';
-import { Repository } from '../common/repository';
+import { Repository, Branch } from '../common/repository';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
@@ -23,6 +23,7 @@ import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { IConfiguration } from '../authentication/configuration';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
+import { Remote } from '../common/remote';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -44,6 +45,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber: number;
+
+	private _previousRepositoryState: {
+		HEAD: Branch | undefined;
+		remotes: Remote[];
+	};
 
 	constructor(
 		private _context: vscode.ExtensionContext,
@@ -76,8 +82,30 @@ export class ReviewManager implements vscode.DecorationProvider {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(nodePath.resolve(this._repository.path, params.path)), opts);
 		}));
 		this._disposables.push(_repository.onDidRunGitStatus(e => {
-			// todo, validate state only when state changes.
-			this.updateState();
+			const oldHead = this._previousRepositoryState.HEAD;
+			const newHead = this._repository.HEAD;
+			const sameUpstream = !!oldHead.upstream
+				? newHead.upstream && oldHead.upstream.name === newHead.upstream.name && oldHead.upstream.remote === newHead.upstream.remote
+				: !!newHead.upstream;
+			const sameHead = oldHead.ahead === newHead.ahead
+				&& oldHead.behind === newHead.behind
+				&& oldHead.commit === newHead.commit
+				&& oldHead.name === newHead.name
+				&& oldHead.remote === newHead.remote
+				&& oldHead.type === newHead.type
+				&& sameUpstream;
+
+			const sameRemotes = this._previousRepositoryState.remotes.length === this._repository.remotes.length
+				&& this._previousRepositoryState.remotes.every(remote => this._repository.remotes.some(r => remote.equals(r)));
+
+			if (!sameHead || !sameRemotes) {
+				this._previousRepositoryState = {
+					HEAD: this._repository.HEAD,
+					remotes: this._repository.remotes
+				};
+
+				this.updateState();
+			}
 		}));
 
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
@@ -98,6 +126,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
+
+		this._previousRepositoryState = {
+			HEAD: _repository.HEAD,
+			remotes: _repository.remotes
+		};
 		this.updateState();
 		this.pollForStatusChange();
 	}
