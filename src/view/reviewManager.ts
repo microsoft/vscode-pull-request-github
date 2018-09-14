@@ -100,8 +100,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			if (!sameHead || !sameRemotes) {
 				this._previousRepositoryState = {
-					HEAD: Object.assign(this._repository.HEAD),
-					remotes: this._repository.remotes.slice(0)
+					HEAD: this._repository.HEAD,
+					remotes: this._repository.remotes
 				};
 
 				this.updateState();
