@@ -83,16 +83,29 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._disposables.push(_repository.state.onDidChange(e => {
 			const oldHead = this._previousRepositoryState.HEAD;
 			const newHead = this._repository.state.HEAD;
-			const sameUpstream = !!oldHead.upstream
+
+			if (!oldHead && !newHead) {
+				// both oldHead and newHead are undefined
+				return;
+			}
+
+			let sameUpstream;
+
+			if (!oldHead || !newHead) {
+				sameUpstream = false;
+			} else {
+				sameUpstream = !!oldHead.upstream
 				? newHead.upstream && oldHead.upstream.name === newHead.upstream.name && oldHead.upstream.remote === newHead.upstream.remote
-				: !!newHead.upstream;
-			const sameHead = oldHead.ahead === newHead.ahead
+				: !newHead.upstream;
+			}
+
+			const sameHead = sameUpstream // falsy if oldHead or newHead is undefined.
+				&& oldHead.ahead === newHead.ahead
 				&& oldHead.behind === newHead.behind
 				&& oldHead.commit === newHead.commit
 				&& oldHead.name === newHead.name
 				&& oldHead.remote === newHead.remote
-				&& oldHead.type === newHead.type
-				&& sameUpstream;
+				&& oldHead.type === newHead.type;
 
 			let remotes = parseRepositoryRemotes(this._repository);
 			const sameRemotes = this._previousRepositoryState.remotes.length === remotes.length
