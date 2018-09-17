@@ -6,8 +6,7 @@
 import * as vscode from 'vscode';
 import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
-import { Remote } from '../common/remote';
-import { Repository } from '../common/repository';
+import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
 import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent, ITelemetry } from './interface';
@@ -17,6 +16,7 @@ import { parserCommentDiffHunk } from '../common/diffHunk';
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy } from '../common/utils';
+import { Repository, RefType } from '../typings/git';
 import Logger from '../common/logger';
 
 interface PageInformation {
@@ -34,9 +34,11 @@ export class PullRequestManager implements IPullRequestManager {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
-	constructor(private _configuration: Configuration,
-		private _repository: Repository,
-		private readonly _telemetry: ITelemetry) {
+	constructor(
+		private _configuration: Configuration,
+		readonly repository: Repository,
+		private readonly _telemetry: ITelemetry
+	) {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._configuration, this._telemetry);
 		this._githubManager = new GitHubManager();
@@ -56,7 +58,8 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
-		const potentialRemotes = this._repository.remotes.filter(remote => remote.host);
+		const remotes = parseRepositoryRemotes(this.repository);
+		const potentialRemotes = remotes.filter(remote => remote.host);
 		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
@@ -90,7 +93,7 @@ export class PullRequestManager implements IPullRequestManager {
 		let repositories = [];
 		let resolveRemotePromises = [];
 		for (let remote of gitHubRemotes) {
-			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote.remoteName);
+			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote.remoteName);
 			if (!isRemoteForPR) {
 				const repository = new GitHubRepository(remote, this._credentialStore);
 				resolveRemotePromises.push(repository.resolveRemote());
@@ -131,10 +134,12 @@ export class PullRequestManager implements IPullRequestManager {
 			return [];
 		}
 
-		const localBranches = await this._repository.getLocalBranches();
+		const localBranches = this.repository.state.refs
+			.filter(r => r.type === RefType.Head && r.name)
+			.map(r => r.name);
 
 		const promises = localBranches.map(async localBranchName => {
-			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, localBranchName);
+			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, localBranchName);
 
 			if (matchingPRMetadata) {
 				const { owner, prNumber } = matchingPRMetadata;
@@ -159,32 +164,22 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async deleteLocalPullRequest(pullRequest: PullRequestModel): Promise<void> {
-		const remoteName = await this._repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
+		const remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
 		if (!remoteName) {
 			throw new Error('Unable to find remote for branch');
 		}
 
-		const deleteResult = await this._repository.run(['branch', '-D', pullRequest.localBranchName]);
-		if (deleteResult.stderr) {
-			throw new Error(deleteResult.stderr);
-		}
+		await this.repository.deleteBranch(pullRequest.localBranchName);
 
 		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
-		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remoteName);
+		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remoteName);
 		if (isPRRemote) {
-			const configKeyValues = await this._repository.run(['config', '--local', '-l']);
-			if (configKeyValues.stderr) {
-				throw new Error(configKeyValues.stderr);
-			}
-
-			const result = configKeyValues.stdout.trim();
-			const hasOtherAssociatedBranches = new RegExp(`^branch.*\.remote=${remoteName}$`, 'm').test(result);
+			const configs = await this.repository.getConfigs();
+			const hasOtherAssociatedBranches = configs
+				.some(({ key, value }) => /^branch.*\.remote$/.test(key) && value === remoteName);
 
 			if (!hasOtherAssociatedBranches) {
-				const remoteResult = await this._repository.run(['remote', 'remove', remoteName]);
-				if (remoteResult.stderr) {
-					throw new Error(remoteResult.stderr);
-				}
+				await this.repository.removeRemote(remoteName);
 			}
 		}
 		this._telemetry.on('branch.delete');
@@ -220,7 +215,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 			const githubRepository = githubRepositories[i];
 			const remote = githubRepository.remote.remoteName;
-			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this._repository, remote);
+			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
 			if (!isRemoteForPR) {
 				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
 				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
@@ -476,7 +471,7 @@ export class PullRequestManager implements IPullRequestManager {
 				pullRequest.update(data);
 			}
 
-			pullRequest.mergeBase = await PullRequestGitHelper.getPullRequestMergeBase(this._repository, remote, pullRequest);
+			pullRequest.mergeBase = await PullRequestGitHelper.getPullRequestMergeBase(this.repository, remote, pullRequest);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
@@ -498,28 +493,29 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
-		if (!this._repository || !this._repository.HEAD) {
+		if (!this.repository || !this.repository.state.HEAD) {
 			return null;
 		}
 
-		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._repository, this._repository.HEAD.name);
+		const HEAD = this.repository.state.HEAD;
+		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, HEAD.name);
 		return matchingPullRequestMetadata;
 	}
 
 	async getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel) {
-		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this._repository, this._githubRepositories, pullRequest);
+		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this.repository, this._githubRepositories, pullRequest);
 	}
 
 	async fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.fetchAndCheckout(this._repository, remote, branchName, pullRequest);
+		await PullRequestGitHelper.fetchAndCheckout(this.repository, remote, branchName, pullRequest);
 	}
 
 	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.createAndCheckout(this._repository, pullRequest);
+		await PullRequestGitHelper.createAndCheckout(this.repository, pullRequest);
 	}
 
 	async checkout(branchName: string): Promise<void> {
-		return this._repository.checkout(branchName);
+		return this.repository.checkout(branchName);
 	}
 
 	//#endregion

@@ -6,12 +6,11 @@
 import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from '../common/logger';
-import { Remote } from '../common/remote';
+import { Remote, parseRemote } from '../common/remote';
 import { PRType, IGitHubRepository } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore } from './credentials';
 import { AuthenticationError } from '../common/authentication';
-import { parseRemote } from '../common/repository';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 

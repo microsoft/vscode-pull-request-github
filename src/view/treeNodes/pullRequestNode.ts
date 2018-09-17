@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
-import { SlimFileChange, getFileContent, GitChangeType } from '../../common/file';
+import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
-import { Repository } from '../../common/repository';
+import { Repository } from '../../typings/git';
 import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
@@ -402,13 +403,13 @@ export class PRNode extends TreeNode {
 					return right.join('\n');
 				}
 			} else {
-				if (params.base) {
-					const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
-					return getFileContent(this.repository.path, params.commit, originalFileName);
+				const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
+				const originalFilePath = path.join(this.repository.rootUri.fsPath, originalFileName);
+				const originalContent = await this.repository.show(params.commit, originalFilePath);
 
+				if (params.base) {
+					return originalContent;
 				} else {
-					const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
-					const originalContent = await getFileContent(this.repository.path, params.commit, originalFileName);
 					return getModifiedContentFromDiffHunk(originalContent, fileChange.patch);
 				}
 			}
