@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit } from './interface';
-import { onDidClosePR } from '../commands';
+import { onDidUpdatePR } from '../commands';
 import { exec } from '../common/git';
 import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/timelineEvent';
 import { Comment } from '../common/comment';
@@ -91,7 +91,7 @@ export class PullRequestOverviewPanel {
 			}
 		}, null, this._disposables);
 
-		onDidClosePR(pr => {
+		onDidUpdatePR(pr => {
 			if (pr) {
 				this._pullRequest.update(pr);
 			}
