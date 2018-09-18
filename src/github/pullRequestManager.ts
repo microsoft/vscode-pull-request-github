@@ -73,6 +73,7 @@ export class PullRequestManager implements IPullRequestManager {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
 		} else {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
+			Logger.append('No GitHub remotes found');
 			return;
 		}
 
