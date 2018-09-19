@@ -7,6 +7,10 @@
 	--border-color: var(--vscode-notifications-border);
 }
 
+a:focus, input:focus, select:focus, textarea:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
  .title {
 	display: flex;
 	align-items: flex-start;
@@ -399,7 +403,6 @@ blockquote p:last-child {
 .comment-body input:focus,
 .comment-body select:focus,
 .comment-body textarea:focus {
-	outline: 1px solid -webkit-focus-ring-color;
 	outline-offset: -1px;
 }
 
