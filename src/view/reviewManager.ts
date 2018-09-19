@@ -35,7 +35,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
-	private _validateStatusInProgress: boolean = false;
+	private _validateStatusInProgress: Promise<void>;
 
 	private _onDidChangeDocumentCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 	private _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
@@ -80,6 +80,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, params.path)), opts);
 		}));
+
 		this._disposables.push(_repository.state.onDidChange(e => {
 			const oldHead = this._previousRepositoryState.HEAD;
 			const newHead = this._repository.state.HEAD;
@@ -144,7 +145,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			HEAD: _repository.state.HEAD,
 			remotes: parseRepositoryRemotes(this._repository)
 		};
-		this.updateState();
+
 		this.pollForStatusChange();
 	}
 
@@ -180,13 +181,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private async updateState() {
 		if (!this._validateStatusInProgress) {
-			this._validateStatusInProgress = true;
-			try {
-				await this.validateState();
-				this._validateStatusInProgress = false;
-			} catch (e) {
-				this._validateStatusInProgress = false;
-			}
+			this._validateStatusInProgress = this.validateState();
+		} else {
+			this._validateStatusInProgress.then(_ => this.validateState());
 		}
 	}
 
