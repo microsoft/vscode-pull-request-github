@@ -90,17 +90,12 @@ export class Protocol {
 		}
 	}
 
-	private stripLowLevelDomains(domain: string): string {
-		let match = domain.match(/([^@:.]+\.[^@:.]+)(:\d+)?$/);
-		return match ? match[1] : '';
-	}
-
 	getHostName(authority: string) {
 		// <username>:<password>@<authority>:<port>
 		let matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
 
 		if (matches && matches.length >= 2) {
-			return this.stripLowLevelDomains(matches[1]);
+			return matches[1];
 		}
 
 		return '';

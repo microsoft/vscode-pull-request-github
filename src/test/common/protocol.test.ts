@@ -9,23 +9,24 @@ import { Protocol } from '../../common/protocol';
 describe('Protocol', () => {
 	it('should handle HTTP and HTTPS remotes', () => {
 		[
-			'http://rmacfarlane@github.com/Microsoft/vscode',
-			'http://rmacfarlane:password@github.com/Microsoft/vscode',
-			'http://github.com/Microsoft/vscode',
-			'http://github.com/Microsoft/vscode.git',
-			'http://github.com:/Microsoft/vscode.git',
-			'http://github.com:433/Microsoft/vscode.git',
-			'https://rmacfarlane@github.com/Microsoft/vscode',
-			'https://rmacfarlane:password@github.com/Microsoft/vscode',
-			'https://github.com/Microsoft/vscode',
-			'https://github.com/Microsoft/vscode.git',
-			'https://github.com:/Microsoft/vscode.git',
-			'https://github.com:433/Microsoft/vscode.git'
-		].forEach(remoteUri => {
-			const protocol = new Protocol(remoteUri);
-			assert.equal(protocol.host, 'github.com');
-			assert.equal(protocol.owner, 'Microsoft');
-			assert.equal(protocol.repositoryName, 'vscode');
+			{ uri: 'http://rmacfarlane@github.com/Microsoft/vscode', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'http://rmacfarlane:password@github.com/Microsoft/vscode', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'http://github.com/Microsoft/vscode', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'http://github.com/Microsoft/vscode.git', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'http://github.com:/Microsoft/vscode.git', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'http://github.com:433/Microsoft/vscode.git', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'https://rmacfarlane@github.com/Microsoft/vscode', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'https://rmacfarlane:password@github.com/Microsoft/vscode', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'https://github.com/Microsoft/vscode', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'https://github.com/Microsoft/vscode.git', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'https://github.com:/Microsoft/vscode.git', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'https://github.com:433/Microsoft/vscode.git', expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'https://github.enterprise.corp/Microsoft/vscode.git', expectedHost: 'github.enterprise.corp', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' }
+		].forEach(remote => {
+			const protocol = new Protocol(remote.uri);
+			assert.equal(protocol.host, remote.expectedHost);
+			assert.equal(protocol.owner, remote.expectedOwner);
+			assert.equal(protocol.repositoryName, remote.expectedRepositoryName);
 		});
 	});
 
