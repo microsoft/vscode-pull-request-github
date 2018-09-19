@@ -146,6 +146,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			remotes: parseRepositoryRemotes(this._repository)
 		};
 
+		this.updateState();
 		this.pollForStatusChange();
 	}
 

@@ -18,9 +18,13 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 
 	public registerDocumentCommentProvider(pullRequestModel: IPullRequestModel, provider: vscode.DocumentCommentProvider) {
 		this._prDocumentCommentProviders[pullRequestModel.prNumber] = provider;
+		const changeListener = provider.onDidChangeCommentThreads(e => {
+			this._onDidChangeCommentThreads.fire(e);
+		});
 
 		return {
 			dispose: () => {
+				changeListener.dispose();
 				this._prDocumentCommentProviders[pullRequestModel.prNumber] = null;
 			}
 		};
