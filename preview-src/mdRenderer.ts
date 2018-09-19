@@ -3,10 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-const MarkdownIt = require('markdown-it');
+import * as  MarkdownIt from 'markdown-it';
 const Checkbox = require('markdown-it-checkbox');
 const md = MarkdownIt({
-	html: true
+	html: true,
+	linkify: true
 })
 .use(Checkbox, {
 	divWrap: true,
