@@ -9,7 +9,7 @@ import { ClientOptions } from 'ws';
 import * as http from 'http';
 
 const SCOPES: string = 'read:user user:email repo write:discussion';
-const HOST: string = 'github-editor-auth.herokuapp.com';
+const HOST: string = 'vscode-auth.github.com';
 const HTTP_PROTOCOL: string = 'https';
 const WS_PROTOCOL: string = 'wss';
 
