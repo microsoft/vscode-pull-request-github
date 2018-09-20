@@ -8,7 +8,7 @@
  */
 
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
-import { Repository } from '../typings/git';
+import { Repository } from './repository';
 import { Comment } from './comment';
 
 export enum DiffChangeType {
@@ -264,21 +264,17 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 			continue;
 		}
 
-		let originalFileExist = false;
-
+		let originalFileExist;
 		switch (gitChangeType) {
 			case GitChangeType.DELETE:
 			case GitChangeType.MODIFY:
-				try {
-					await repository.getObjectDetails(parentCommit, review.filename);
-					originalFileExist = true;
-				} catch (err) { /* noop */ }
+				originalFileExist = await repository.checkFileExistence(parentCommit, review.filename);
 				break;
 			case GitChangeType.RENAME:
-				try {
-					await repository.getObjectDetails(parentCommit, review.previous_filename);
-					originalFileExist = true;
-				} catch (err) { /* noop */ }
+				originalFileExist = await repository.checkFileExistence(parentCommit, review.previous_filename);
+				break;
+			default:
+				originalFileExist = false;
 				break;
 		}
 

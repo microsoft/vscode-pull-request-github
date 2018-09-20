@@ -5,68 +5,68 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { Repository } from './common/repository';
 import { VSCodeConfiguration } from './authentication/vsConfiguration';
 import { Resource } from './common/resources';
 import { ReviewManager } from './view/reviewManager';
 import { registerCommands } from './commands';
 import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
-import { formatError, isDescendant, filterEvent, onceEvent } from './common/utils';
-import { GitExtension, Repository } from './typings/git';
+import { setGitPath } from './common/git';
+import { formatError } from './common/utils';
 import { Telemetry } from './common/telemetry';
 import { ITelemetry } from './github/interface';
 
 let telemetry: ITelemetry;
-
-async function init(context: vscode.ExtensionContext, repository: Repository): Promise<void> {
-	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
-
-	const configuration = new VSCodeConfiguration();
-	await configuration.loadConfiguration();
-	configuration.onDidChange(async _ => {
-		if (prManager) {
-			try {
-				await prManager.clearCredentialCache();
-				if (repository) {
-					repository.status();
-				}
-			} catch (e) {
-				vscode.window.showErrorMessage(formatError(e));
-			}
-		}
-	});
-
-	context.subscriptions.push(configuration.listenForVSCodeChanges());
-
-	const prManager = new PullRequestManager(configuration, repository, telemetry);
-	const reviewManager = new ReviewManager(context, configuration, repository, prManager, telemetry);
-	registerCommands(context, prManager, reviewManager, telemetry);
-	telemetry.on('startup');
-}
 
 export async function activate(context: vscode.ExtensionContext) {
 	// initialize resources
 	Resource.initialize(context);
 
 	telemetry = new Telemetry(context);
-
-	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
-	const api = gitExtension.getAPI(1);
+	const rootPath = vscode.workspace.rootPath;
+	let gitExt = vscode.extensions.getExtension('vscode.git');
+	let importedGitApi = gitExt.exports;
+	let gitPath = await importedGitApi.getGitPath();
+	setGitPath(gitPath);
 
 	Logger.appendLine('Looking for git repository');
+	const repository = new Repository(rootPath);
+	let repositoryInitialized = false;
+	let prManager: PullRequestManager;
 
-	const rootPath = vscode.workspace.rootPath;
-	const repository = api.repositories.filter(r => isDescendant(r.rootUri.fsPath, rootPath))[0];
+	repository.onDidRunGitStatus(async e => {
+		if (repositoryInitialized) {
+			return;
+		}
 
-	if (repository) {
-		await init(context, repository);
-	} else {
-		const onDidOpenRelevantRepository = filterEvent(api.onDidOpenRepository, r => isDescendant(r.rootUri.fsPath, rootPath));
-		onceEvent(onDidOpenRelevantRepository)(r => init(context, r));
-	}
+		Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
+
+		const configuration = new VSCodeConfiguration();
+		await configuration.loadConfiguration();
+		configuration.onDidChange(async _ => {
+			if (prManager) {
+				try {
+					await prManager.clearCredentialCache();
+					if (repository) {
+						repository.status();
+					}
+				} catch (e) {
+					vscode.window.showErrorMessage(formatError(e));
+				}
+			}
+		});
+		context.subscriptions.push(configuration.listenForVSCodeChanges());
+
+		repositoryInitialized = true;
+		prManager = new PullRequestManager(configuration, repository, telemetry);
+		const reviewManager = new ReviewManager(context, configuration, repository, prManager, telemetry);
+		registerCommands(context, prManager, reviewManager, telemetry);
+		telemetry.on('startup');
+	});
 }
 
-export async function deactivate() {
+export async function deactivate(context: vscode.ExtensionContext) {
 	if (telemetry) {
 		await telemetry.shutdown();
 	}

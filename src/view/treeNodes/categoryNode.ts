@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Repository } from '../../typings/git';
+import { Repository } from '../../common/repository';
 import { IPullRequestManager, IPullRequestModel, PRType, ITelemetry } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
