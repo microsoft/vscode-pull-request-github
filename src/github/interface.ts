@@ -143,7 +143,7 @@ export interface IGitHubRepository {
 
 export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
-	readonly repository: Repository;
+	repository: Repository;
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
 	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;

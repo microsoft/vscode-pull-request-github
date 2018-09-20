@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { IConfiguration } from '../authentication/configuration';
-import { Repository } from '../typings/git';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType, ITelemetry } from '../github/interface';
@@ -23,7 +22,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	constructor(
 		private _configuration: IConfiguration,
-		private _repository: Repository,
 		private _prManager: IPullRequestManager,
 		private _telemetry: ITelemetry
 	) {
@@ -62,17 +60,17 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 
 			let result = [
-				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.LocalPullRequest),
-				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.RequestReview),
-				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.AssignedToMe),
-				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.Mine),
-				new CategoryTreeNode(this._prManager, this._telemetry, this._repository, PRType.All)
+				new CategoryTreeNode(this._prManager, this._telemetry, PRType.LocalPullRequest),
+				new CategoryTreeNode(this._prManager, this._telemetry, PRType.RequestReview),
+				new CategoryTreeNode(this._prManager, this._telemetry, PRType.AssignedToMe),
+				new CategoryTreeNode(this._prManager, this._telemetry, PRType.Mine),
+				new CategoryTreeNode(this._prManager, this._telemetry, PRType.All)
 			];
 
 			this._childrenDisposables = result;
 			return Promise.resolve(result);
 		}
-		if (this._repository.state.remotes.length === 0) {
+		if (this._prManager.repository.state.remotes.length === 0) {
 			return Promise.resolve([new PRCategoryActionNode(PRCategoryActionType.Empty)]);
 		}
 

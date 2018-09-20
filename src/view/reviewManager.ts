@@ -137,7 +137,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._prsTreeDataProvider.refresh(prNode);
 		}));
 
-		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _repository, _prManager, this._telemetry);
+		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 
@@ -169,6 +169,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		return this._statusBarItem;
+	}
+
+	set repository(repository: Repository) {
+		this._repository = repository;
+		this.updateState();
 	}
 
 	private pollForStatusChange() {

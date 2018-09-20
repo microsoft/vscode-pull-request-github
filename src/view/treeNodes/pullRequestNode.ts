@@ -9,7 +9,6 @@ import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../..
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
-import { Repository } from '../../typings/git';
 import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
@@ -214,7 +213,6 @@ export class PRNode extends TreeNode {
 
 	constructor(
 		private _prManager: IPullRequestManager,
-		private repository: Repository,
 		public pullRequestModel: IPullRequestModel,
 		private _isLocal: boolean
 	) {
@@ -234,7 +232,7 @@ export class PRNode extends TreeNode {
 			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
 			await this._prManager.fullfillPullRequestMissingInfo(this.pullRequestModel);
 			let mergeBase = this.pullRequestModel.mergeBase;
-			const rawChanges = await parseDiff(data, this.repository, mergeBase);
+			const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
 			let fileChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
 					return new RemoteFileChangeNode(
@@ -404,8 +402,8 @@ export class PRNode extends TreeNode {
 				}
 			} else {
 				const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
-				const originalFilePath = path.join(this.repository.rootUri.fsPath, originalFileName);
-				const originalContent = await this.repository.show(params.commit, originalFilePath);
+				const originalFilePath = path.join(this._prManager.repository.rootUri.fsPath, originalFileName);
+				const originalContent = await this._prManager.repository.show(params.commit, originalFilePath);
 
 				if (params.base) {
 					return originalContent;

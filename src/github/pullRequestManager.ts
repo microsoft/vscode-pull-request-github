@@ -36,7 +36,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	constructor(
 		private _configuration: Configuration,
-		readonly repository: Repository,
+		private _repository: Repository,
 		private readonly _telemetry: ITelemetry
 	) {
 		this._githubRepositories = [];
@@ -51,6 +51,14 @@ export class PullRequestManager implements IPullRequestManager {
 	set activePullRequest(pullRequest: IPullRequestModel) {
 		this._activePullRequest = pullRequest;
 		this._onDidChangeActivePullRequest.fire();
+	}
+
+	get repository(): Repository {
+		return this._repository;
+	}
+
+	set repository(repository: Repository) {
+		this._repository = repository;
 	}
 
 	async clearCredentialCache(): Promise<void> {
