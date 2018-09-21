@@ -14,13 +14,7 @@ export enum ProtocolType {
 	OTHER
 }
 
-const gitProtocolRegex = [
-	new RegExp('^git@(.+):(.+)/(.+?)(?:/|.git)?$'),
-	new RegExp('^git://([^:]+)(?::[0-9]*)?/(.+)/(.+?)(?:/|.git)?$')
-];
-const sshProtocolRegex = [
-	new RegExp('^ssh://git@([^:]+)(?::[0-9]*)?/(.+)/(.+?)(?:/|.git)?$')
-];
+const sshProtocolRegex = /^([^@:]+@)?([^:]+):(.+)$/;
 
 export class Protocol {
 	public type: ProtocolType = ProtocolType.OTHER;
@@ -38,65 +32,73 @@ export class Protocol {
 	constructor(
 		uriString: string
 	) {
+		if (uriString.indexOf('://') === -1) {
+			if (sshProtocolRegex.test(uriString)) {
+				this.parseSshProtocol(uriString);
+				return;
+			}
+		}
+
 		try {
 			this.url = vscode.Uri.parse(uriString);
+			this.type = this.getType(this.url.scheme);
 
-			if (this.url.scheme === 'file') {
-				this.type = ProtocolType.Local;
-				this.repositoryName = this.getRepositoryName(this.url.path);
-				return;
+			if (this.type === ProtocolType.SSH) {
+				const urlWithoutScheme = this.url.authority + this.url.path;
+				if (sshProtocolRegex.test(urlWithoutScheme)) {
+					this.parseSshProtocol(urlWithoutScheme);
+					return;
+				}
 			}
 
-			if (this.url.scheme === 'https' || this.url.scheme === 'http') {
-				this.type = ProtocolType.HTTP;
-				this.host = this.getHostName(this.url.authority);
+			this.host = this.getHostName(this.url.authority);
+			if (this.host) {
 				this.repositoryName = this.getRepositoryName(this.url.path);
 				this.owner = this.getOwnerName(this.url.path);
-				return;
 			}
-		} catch (e) { }
+		} catch (e) {
+			Logger.appendLine(`Failed to parse '${uriString}'`);
+			vscode.window.showWarningMessage(`Unable to parse remote '${uriString}'. Please check that it is correctly formatted.`);
+		}
+	}
 
-		try {
-			for (const regex of gitProtocolRegex) {
-				const result = uriString.match(regex);
-				if (!result) {
-					continue;
-				}
+	private getType(scheme: string): ProtocolType {
+		switch (scheme) {
+			case 'file':
+				return ProtocolType.Local;
+			case 'http':
+			case 'https':
+				return ProtocolType.HTTP;
+			case 'git':
+				return ProtocolType.GIT;
+			case 'ssh':
+				return ProtocolType.SSH;
+			default:
+				return ProtocolType.OTHER;
+		}
+	}
 
-				this.host = result[1];
-				this.owner = result[2];
-				this.repositoryName = result[3];
-				this.type = ProtocolType.GIT;
-				return;
-			}
-
-			for (const regex of sshProtocolRegex) {
-				const result = uriString.match(regex);
-				if (!result) {
-					continue;
-				}
-
-				this.host = result[1];
-				this.owner = result[2];
-				this.repositoryName = result[3];
-				this.type = ProtocolType.SSH;
-				return;
-			}
-		} catch (e) { }
-
-		Logger.appendLine(`Failed to parse '${uriString}'`);
-		vscode.window.showWarningMessage(`Unable to parse remote '${uriString}'. Please check that it is correctly formatted.`);
+	private parseSshProtocol(uriString: string): void {
+		const result = uriString.match(sshProtocolRegex);
+		if (result) {
+			this.host = result[2];
+			const path = result[3];
+			this.owner = this.getOwnerName(path);
+			this.repositoryName = this.getRepositoryName(path);
+			this.type = ProtocolType.SSH;
+			return;
+		}
 	}
 
 	getHostName(authority: string) {
 		// <username>:<password>@<authority>:<port>
-		let matches = /^(?:.*:?@)?([^:]*)(?::[0-9]*)?$/.exec(authority);
+		let matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
 
-		if (matches && matches.length === 2) {
+		if (matches && matches.length >= 2) {
 			return matches[1];
 		}
 
-		return authority;
+		return '';
 	}
 
 	getRepositoryName(path: string) {

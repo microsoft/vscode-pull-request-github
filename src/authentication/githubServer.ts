@@ -9,7 +9,8 @@ import { ClientOptions } from 'ws';
 import * as http from 'http';
 
 const SCOPES: string = 'read:user user:email repo write:discussion';
-const HOST: string = 'github-editor-auth.herokuapp.com';
+const GHE_OPTIONAL_SCOPES: string[] = ['write:discussion'];
+const HOST: string = 'vscode-auth.github.com';
 const HTTP_PROTOCOL: string = 'https';
 const WS_PROTOCOL: string = 'wss';
 
@@ -174,12 +175,17 @@ export class GitHubManager {
 		};
 	}
 
-	public static validateScopes(scopes: string): boolean {
+	public static validateScopes(host: vscode.Uri, scopes: string): boolean {
 		if (!scopes) {
 			return false;
 		}
 		const tokenScopes = scopes.split(', ');
-		return (this.AppScopes.every(x => tokenScopes.indexOf(x) >= 0 || tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0));
+		return this.AppScopes.every(x =>
+			tokenScopes.indexOf(x) >= 0 ||
+			tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0 ||
+			// some scopes don't exist on older versions of GHE, treat them as optional
+			(!this.isDotCom(host) && GHE_OPTIONAL_SCOPES.indexOf(x) >= 0)
+		);
 	}
 
 	private static getScopeSuperset(scope: string): string {
@@ -189,6 +195,10 @@ export class GitHubManager {
 			}
 		}
 		return scope;
+	}
+
+	private static isDotCom(host: vscode.Uri): boolean {
+		return host && host.authority.toLowerCase() === 'github.com';
 	}
 
 	/*
@@ -266,7 +276,7 @@ export class GitHubServer {
 				try {
 					if (res.statusCode === 200) {
 						const scopes = res.headers['x-oauth-scopes'] as string;
-						if (GitHubManager.validateScopes(scopes)) {
+						if (GitHubManager.validateScopes(this.hostUri, scopes)) {
 							this.hostConfiguration.username = username;
 							this.hostConfiguration.token = token;
 							hostConfig = this.hostConfiguration;

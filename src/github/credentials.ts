@@ -53,8 +53,6 @@ export class CredentialStore {
 		if (creds.token) {
 			if (await server.validate(creds.username, creds.token)) {
 				octokit = this.createOctokit('token', creds);
-			} else {
-				this._configuration.removeHost(creds.host);
 			}
 		}
 

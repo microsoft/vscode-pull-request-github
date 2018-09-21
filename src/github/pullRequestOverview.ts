@@ -8,11 +8,10 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit } from './interface';
 import { onDidUpdatePR } from '../commands';
-import { exec } from '../common/git';
 import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/timelineEvent';
 import { Comment } from '../common/comment';
 import { groupBy, formatError } from '../common/utils';
-import { GitErrorCodes } from '../common/gitError';
+import { GitErrorCodes } from '../typings/git';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -44,7 +43,7 @@ export class PullRequestOverviewPanel {
 		PullRequestOverviewPanel.currentPanel.update(pullRequestModel);
 	}
 
-	public static refresh():void {
+	public static refresh(): void {
 		if (this.currentPanel) {
 			this.currentPanel.refreshPanel();
 		}
@@ -229,7 +228,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private checkoutPullRequest(): void {
-		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {}, () => {
+		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => { }, () => {
 			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 			this._panel.webview.postMessage({
 				command: 'pr.update-checkout-status',
@@ -263,23 +262,17 @@ export class PullRequestOverviewPanel {
 	private async checkoutDefaultBranch(branch: string): Promise<void> {
 		try {
 			// This should be updated for multi-root support and consume the git extension API if possible
-			const result = await exec(['rev-parse', '--symbolic-full-name', '@{-1}'], {
-				cwd: vscode.workspace.rootPath
-			});
+			const branchObj = await this._pullRequestManager.repository.getBranch('@{-1}');
 
-			if (result) {
-				const branchFullName = result.stdout.trim();
-
-				if (`refs/heads/${branch}` === branchFullName) {
-					await this._pullRequestManager.checkout(branch);
-				} else {
-					await vscode.commands.executeCommand('git.checkout');
-				}
+			if (branch === branchObj.name) {
+				await this._pullRequestManager.repository.checkout(branch);
+			} else {
+				await vscode.commands.executeCommand('git.checkout');
 			}
 		} catch (e) {
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
-				if (e.gitErrorCode === GitErrorCodes.LocalChangesOverwritten) {
+				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
 					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
 					this._panel.webview.postMessage({
 						command: 'pr.enable-exit'

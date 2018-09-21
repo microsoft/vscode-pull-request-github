@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { IConfiguration } from '../authentication/configuration';
-import { Repository } from '../common/repository';
+import { Repository } from '../typings/git';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType, ITelemetry } from '../github/interface';
@@ -72,7 +72,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			this._childrenDisposables = result;
 			return Promise.resolve(result);
 		}
-		if (!this._repository.remotes || !this._repository.remotes.length) {
+		if (this._repository.state.remotes.length === 0) {
 			return Promise.resolve([new PRCategoryActionNode(PRCategoryActionType.Empty)]);
 		}
 
