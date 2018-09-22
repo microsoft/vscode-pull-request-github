@@ -91,20 +91,15 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.merge', async (pr?: PRNode, message?: string) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.merge', async (pr?: PRNode) => {
 		const pullRequest = ensurePR(prManager, pr);
-		return vscode.window.showWarningMessage(`Are you sure you want to merge this pull request on GitHub?`, 'Yes', 'No').then(async value => {
+		return vscode.window.showWarningMessage(`Are you sure you want to merge this pull request on GitHub?`, { modal: true }, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
-					let newComment: Comment;
-					if (message) {
-						newComment = await prManager.createIssueComment(pullRequest, message);
-					}
-
 					let newPR = await prManager.mergePullRequest(pullRequest);
 					vscode.commands.executeCommand('pr.refreshList');
 					_onDidUpdatePR.fire(newPR);
-					return newComment;
+					return newPR;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 					_onDidUpdatePR.fire(null);
