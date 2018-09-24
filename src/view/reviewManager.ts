@@ -677,7 +677,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			};
 		}
 
-		return {};
+		return undefined;
 	}
 
 	private registerCommentProvider() {

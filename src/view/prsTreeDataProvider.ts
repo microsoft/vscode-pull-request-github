@@ -91,7 +91,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			};
 		}
 
-		return {};
+		return undefined;
 	}
 
 	dispose() {
