@@ -36,7 +36,7 @@ This extension is still in development, so please refer to our [issue tracker fo
 
 See our [wiki](https://github.com/Microsoft/vscode-pull-request-github/wiki) for our FAQ.
 
-### How to run from source?
+### How to run from source, test and dogfood?
 If you want explore the source code of this extension yourself, it's easy to get started. Simply follow these steps:
 
 1. Clone the repository
@@ -46,6 +46,7 @@ If you want explore the source code of this extension yourself, it's easy to get
     - Or you can directly start this task by Command Palette -> Run Build Task
 4. F5, launch the extension in latest VS Code Insiders.
 
+For more information about testing the extension and dogfood, please read [Wiki/Contributing](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing)
 
 ### Contributing
 
