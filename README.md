@@ -36,28 +36,10 @@ This extension is still in development, so please refer to our [issue tracker fo
 
 See our [wiki](https://github.com/Microsoft/vscode-pull-request-github/wiki) for our FAQ.
 
-### How to run from source, test and dogfood?
-If you want explore the source code of this extension yourself, it's easy to get started. Simply follow these steps:
+## Contributing
 
-1. Clone the repository
-2. Run `yarn`
-3. Compile in the background
-    - Run `yarn watch`
-    - Or you can directly start this task by Command Palette -> Run Build Task
-4. F5, launch the extension in latest VS Code Insiders.
-
-For more information about testing the extension and dogfood, please read [Wiki/Contributing](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing)
-
-### Contributing
-
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.microsoft.com.
-
-When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+If you're interested in contributing, or want to explore the source code of this extension yourself, see our [contributing guide](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing), which includes:
+ - [How to Build and Run](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#build-and-run)
+ - [Architecture](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#architecture)
+ - [Making Pull Requests](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#pull-requests)
+ - [Code of Conduct](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#code-of-conduct)
