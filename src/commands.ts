@@ -99,7 +99,6 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 				try {
 					newPR = await prManager.mergePullRequest(pullRequest);
 					vscode.commands.executeCommand('pr.refreshList');
-					console.log(newPR);
 					return newPR;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
