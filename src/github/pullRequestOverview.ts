@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit } from './interface';
+import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit, MergePullRequest } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/timelineEvent';
 import { Comment } from '../common/comment';
@@ -213,7 +213,7 @@ export class PullRequestOverviewPanel {
 			case 'pr.checkout':
 				return this.checkoutPullRequest();
 			case 'pr.merge':
-				return this.mergePullRequest(message.text);
+				return this.mergePullRequest();
 			case 'pr.close':
 				return this.closePullRequest(message.text);
 			case 'pr.approve':
@@ -237,14 +237,8 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private mergePullRequest(message?: string): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.merge', this._pullRequest, message).then(comment => {
-			if (comment) {
-				this._panel.webview.postMessage({
-					command: 'pr.append-comment',
-					value: comment
-				});
-			}
+	private mergePullRequest(): void {
+		vscode.commands.executeCommand<MergePullRequest>('pr.merge', this._pullRequest).then(() => {
 		});
 	}
 

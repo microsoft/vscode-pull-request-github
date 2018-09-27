@@ -77,6 +77,13 @@ export interface IPullRequest {
 	user: any;
 }
 
+export interface MergePullRequest {
+	sha: string;
+	merged: boolean;
+	message: string;
+	documentation_url: string;
+}
+
 export interface FileChange {
 	additions: number;
 	blob_url: string;
