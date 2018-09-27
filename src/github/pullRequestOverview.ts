@@ -254,7 +254,12 @@ export class PullRequestOverviewPanel {
 			if (branch === branchObj.name) {
 				await this._pullRequestManager.repository.checkout(branch);
 			} else {
-				await vscode.commands.executeCommand('git.checkout');
+				const didCheckout = await vscode.commands.executeCommand('git.checkout');
+				if (!didCheckout) {
+					this._panel.webview.postMessage({
+						command: 'pr.enable-exit'
+					});
+				}
 			}
 		} catch (e) {
 			if (e.gitErrorCode) {
