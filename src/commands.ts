@@ -93,7 +93,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.merge', async (pr?: PRNode) => {
 		const pullRequest = ensurePR(prManager, pr);
-		return vscode.window.showWarningMessage(`Are you sure you want to merge this pull request on GitHub?`, { modal: true }, 'Yes', 'No').then(async value => {
+		return vscode.window.showWarningMessage(`Are you sure you want to merge this pull request on GitHub?`, { modal: true }, 'Yes').then(async value => {
 			let newPR;
 			if (value === 'Yes') {
 				try {

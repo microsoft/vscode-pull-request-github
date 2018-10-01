@@ -419,7 +419,7 @@ export class PullRequestManager implements IPullRequestManager {
 		})
 		.then(x => {
 				this._telemetry.on('pr.merge');
-				return x;
+				return x.data;
 			});
 	}
 
