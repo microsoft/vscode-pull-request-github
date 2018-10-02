@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Repository } from '../../typings/git';
 import { IPullRequestManager, IPullRequestModel, PRType, ITelemetry } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
@@ -75,7 +74,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	constructor(
 		private _prManager: IPullRequestManager,
 		private _telemetry: ITelemetry,
-		private _repository: Repository,
 		private _type: PRType
 	) {
 		super();
@@ -154,7 +152,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this._prManager, this._repository, prItem, this._type === PRType.LocalPullRequest));
+			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this._prManager, prItem, this._type === PRType.LocalPullRequest));
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(PRCategoryActionType.More, this));
 			}
