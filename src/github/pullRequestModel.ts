@@ -79,16 +79,10 @@ export class PullRequestModel implements IPullRequestModel {
 			htmlUrl: prItem.user.html_url
 		};
 
-		switch (prItem.state) {
-			case 'open':
-				this.state = PullRequestStateEnum.Open;
-				break;
-			case 'merged':
-				this.state = PullRequestStateEnum.Merged;
-				break;
-			case 'closed':
-				this.state = PullRequestStateEnum.Closed;
-				break;
+		if (prItem.state === 'open') {
+			this.state = PullRequestStateEnum.Open;
+		} else {
+			this.state = prItem.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Closed;
 		}
 
 		if (prItem.assignee) {
