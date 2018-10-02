@@ -16,7 +16,8 @@ export enum PRType {
 	Mine = 2,
 	Mention = 3,
 	All = 4,
-	LocalPullRequest = 5
+	LocalPullRequest = 5,
+	ReviewedByMe = 6
 }
 
 export enum ReviewEvent {
@@ -206,6 +207,7 @@ export interface ITelemetry {
 	on(action: 'prListExpandAssignedToMe'): Promise<void>;
 	on(action: 'prListExpandMine'): Promise<void>;
 	on(action: 'prListExpandAll'): Promise<void>;
+	on(action: 'prListExpandReviewedByMe'): Promise<void>;
 	on(action: 'prCheckoutFromContext'): Promise<void>;
 	on(action: 'prCheckoutFromDescription'): Promise<void>;
 	on(action: string): Promise<void>;

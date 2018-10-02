@@ -210,6 +210,9 @@ export class GitHubRepository implements IGitHubRepository {
 			case PRType.Mine:
 				filter = `author:${user}`;
 				break;
+			case PRType.ReviewedByMe:
+				filter = `-review:none -review:required reviewed-by:${user}`;
+				break;
 			default:
 				break;
 		}

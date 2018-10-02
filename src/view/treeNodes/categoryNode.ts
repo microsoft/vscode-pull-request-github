@@ -96,6 +96,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			case PRType.LocalPullRequest:
 				this.label = 'Local Pull Request Branches';
 				break;
+			case PRType.ReviewedByMe:
+				this.label = 'Reviewed By Me';
+				break;
 			default:
 				break;
 		}
@@ -127,6 +130,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 							break;
 						case PRType.RequestReview:
 							this._telemetry.on('prList.expand.requestReview');
+							break;
+						case PRType.ReviewedByMe:
+							this._telemetry.on('prList.expand.reviewedByMe');
 							break;
 						case PRType.Mine:
 							this._telemetry.on('prList.expand.mine');
