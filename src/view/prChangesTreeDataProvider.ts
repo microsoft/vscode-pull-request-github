@@ -61,7 +61,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	getChildren(element?: GitFileChangeNode): vscode.ProviderResult<TreeNode[]> {
 		if (!element) {
 			const descriptionNode = new DescriptionNode(this._pullrequest.title,
-								    this._pullrequest.userAvatarUri, this._pullrequest);
+														this._pullrequest.userAvatarUri, this._pullrequest);
 			const filesCategoryNode = new FilesCategoryNode(this._localFileChanges);
 			const commitsCategoryNode = new CommitsNode(this._pullRequestManager, this._pullrequest, this._comments);
 			return [ descriptionNode, filesCategoryNode, commitsCategoryNode ];
