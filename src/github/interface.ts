@@ -69,9 +69,10 @@ export interface IPullRequest {
 	maintainer_can_modify: boolean;
 	merge_commit_sha; boolean;
 	mergable: boolean;
+	merged: boolean;
 	number: number;
 	rebaseable: boolean;
-	state: string;
+	state: 'open' | 'closed';
 	title: string;
 	updated_at: string;
 	user: any;
