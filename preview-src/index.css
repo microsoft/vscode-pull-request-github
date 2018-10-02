@@ -327,7 +327,7 @@ body .comment-form textarea {
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
 	font-family: var(--vscode-editor-font-family);
-	resize: none;
+	resize: vertical;
 }
 
 .reply-button {
