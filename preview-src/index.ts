@@ -14,6 +14,7 @@ const vscode = acquireVsCodeApi();
 const ElementIds = {
 	Checkout: 'checkout',
 	CheckoutDefaultBranch: 'checkout-default-branch',
+	Merge: 'merge',
 	Close: 'close',
 	Reply: 'reply',
 	Approve: 'approve',
@@ -99,6 +100,11 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 	pullRequest.state = state;
 	vscode.setState(pullRequest);
 
+	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
+	if (merge) {
+		merge.disabled = state !== PullRequestStateEnum.Open;
+	}
+
 	const close = (<HTMLButtonElement>document.getElementById(ElementIds.Close));
 	if (close) {
 		close.disabled = state !== PullRequestStateEnum.Open;
@@ -167,6 +173,15 @@ function addEventListeners(pr: PullRequest): void {
 
 	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
 		submitComment();
+	});
+
+	document.getElementById(ElementIds.Merge)!.addEventListener('click', () => {
+		(<HTMLButtonElement>document.getElementById(ElementIds.Merge)).disabled = true;
+		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
+		vscode.postMessage({
+			command: 'pr.merge',
+			text: inputBox.value
+		});
 	});
 
 	document.getElementById(ElementIds.Close)!.addEventListener('click', () => {
@@ -264,6 +279,7 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 function setTextArea() {
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
+			<button id="${ElementIds.Merge}" class="secondary">Merge Pull Request</button>
 			<button id="${ElementIds.Close}" class="secondary">Close Pull Request</button>
 			<button id="${ElementIds.RequestChanges}" disabled="true" class="secondary">Request Changes</button>
 			<button id="${ElementIds.Approve}" class="secondary">Approve</button>

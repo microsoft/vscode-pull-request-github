@@ -6,8 +6,8 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit } from './interface';
-import { onDidClosePR } from '../commands';
+import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit, MergePullRequest, PullRequestStateEnum } from './interface';
+import { onDidUpdatePR } from '../commands';
 import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/timelineEvent';
 import { Comment } from '../common/comment';
 import { groupBy, formatError } from '../common/utils';
@@ -90,7 +90,7 @@ export class PullRequestOverviewPanel {
 			}
 		}, null, this._disposables);
 
-		onDidClosePR(pr => {
+		onDidUpdatePR(pr => {
 			if (pr) {
 				this._pullRequest.update(pr);
 			}
@@ -212,6 +212,8 @@ export class PullRequestOverviewPanel {
 				return;
 			case 'pr.checkout':
 				return this.checkoutPullRequest();
+			case 'pr.merge':
+				return this.mergePullRequest();
 			case 'pr.close':
 				return this.closePullRequest(message.text);
 			case 'pr.approve':
@@ -231,6 +233,32 @@ export class PullRequestOverviewPanel {
 			this._panel.webview.postMessage({
 				command: 'pr.update-checkout-status',
 				isCurrentlyCheckedOut: isCurrentlyCheckedOut
+			});
+		});
+	}
+
+	private mergePullRequest(): void {
+		vscode.commands.executeCommand<MergePullRequest>('pr.merge', this._pullRequest).then(result => {
+			if (!result) {
+				this._panel.webview.postMessage({
+					command: 'update-state',
+					state: PullRequestStateEnum.Open,
+				});
+				return;
+			}
+
+			if (!result.merged) {
+				vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
+			}
+
+			this._panel.webview.postMessage({
+				command: 'update-state',
+				state: result.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Open
+			});
+		}, (_) => {
+			this._panel.webview.postMessage({
+				command: 'update-state',
+				state: PullRequestStateEnum.Open,
 			});
 		});
 	}

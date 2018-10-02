@@ -407,6 +407,22 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 	}
 
+	async mergePullRequest(pullRequest: IPullRequestModel): Promise<any> {
+		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		return await octokit.pullRequests.merge({
+			commit_message: '',
+			commit_title: '',
+			merge_method: 'merge',
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+		})
+		.then(x => {
+				this._telemetry.on('pr.merge');
+				return x.data;
+			});
+	}
+
 	private async createReview(pullRequest: IPullRequestModel, event: ReviewEvent, message?: string): Promise<any> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 

@@ -77,6 +77,13 @@ export interface IPullRequest {
 	user: any;
 }
 
+export interface MergePullRequest {
+	sha: string;
+	merged: boolean;
+	message: string;
+	documentation_url: string;
+}
+
 export interface FileChange {
 	additions: number;
 	blob_url: string;
@@ -158,6 +165,7 @@ export interface IPullRequestManager {
 	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment>;
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
+	mergePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
