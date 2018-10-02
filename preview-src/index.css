@@ -139,6 +139,11 @@ body button {
 	user-select: none;
 }
 
+button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
 button:hover:enabled, button:focus:enabled {
 	background-color: var(--vscode-button-hoverBackground);
 	cursor: pointer;
@@ -573,7 +578,8 @@ code {
 }
 
 .vscode-high-contrast button {
-	background: none;
+	outline: none;
+	background: none !important;
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
