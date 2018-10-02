@@ -34,7 +34,7 @@ export class Telemetry implements ITelemetry {
 class VSSettings implements ISettings {
 	private _config: vscode.WorkspaceConfiguration;
 	constructor(private readonly _context: vscode.ExtensionContext) {
-		this._config = vscode.workspace.getConfiguration('telemetry');
+		this._config = vscode.workspace.getConfiguration('github.telemetry');
 	}
 	getItem(key: string): Promise<string> {
 		switch (key) {

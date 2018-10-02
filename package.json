@@ -32,7 +32,7 @@
       "type": "object",
       "title": "GitHub Pull Requests",
       "properties": {
-        "telemetry.optout": {
+        "github.telemetry.optout": {
           "type": "boolean",
           "description": "Disable usage data and errors to be sent to a GitHub online service"
         },
