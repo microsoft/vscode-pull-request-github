@@ -345,7 +345,6 @@ body .comment-form textarea:focus {
 }
 
 body .comment-form .form-actions {
-	overflow: auto;
 	padding-top: 20px;
 	margin-bottom: 10px;
 	display: flex;
