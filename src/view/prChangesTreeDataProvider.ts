@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Resource } from '../common/resources';
 import { IPullRequestModel, IPullRequestManager } from '../github/interface';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { DescriptionNode } from './treeNodes/descriptionNode';
@@ -61,11 +60,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	getChildren(element?: GitFileChangeNode): vscode.ProviderResult<TreeNode[]> {
 		if (!element) {
-			const descriptionNode = new DescriptionNode('Description',
-				{
-					light: Resource.icons.light.Description,
-					dark: Resource.icons.dark.Description
-				}, this._pullrequest);
+			const descriptionNode = new DescriptionNode(this._pullrequest.title,
+				this._pullrequest.userAvatarUri, this._pullrequest);
 			const filesCategoryNode = new FilesCategoryNode(this._localFileChanges);
 			const commitsCategoryNode = new CommitsNode(this._pullRequestManager, this._pullrequest, this._comments);
 			return [ descriptionNode, filesCategoryNode, commitsCategoryNode ];
