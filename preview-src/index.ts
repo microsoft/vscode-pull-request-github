@@ -3,10 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import './index.css';
-import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, EventType, ActionsBar } from './pullRequestOverviewRenderer';
-import md from './mdRenderer';
 import * as debounce from 'debounce';
 import * as moment from 'moment';
+import {  EventType } from '../src/common/timelineEvent';
+import { PullRequestStateEnum } from '../src/github/interface';
+import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar } from './pullRequestOverviewRenderer';
+import md from './mdRenderer';
 const emoji = require('node-emoji');
 import { getMessageHandler } from './message';
 import { getState, setState, PullRequest, updateState } from './cache';

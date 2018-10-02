@@ -15,10 +15,10 @@
   resolved "https://registry.yarnpkg.com/@nodelib/fs.stat/-/fs.stat-1.1.0.tgz#50c1e2260ac0ed9439a181de3725a0168d59c48a"
   integrity sha512-LAQ1d4OPfSJ/BMbI2DuizmYrrkD9JMaTdi2hQTlI53lQ4kRQPyZQRS4CYQ7O66bnBBnP/oYdRxbk++X0xuFU6A==
 
-"@octokit/rest@^15.9.5":
-  version "15.9.5"
-  resolved "https://registry.yarnpkg.com/@octokit/rest/-/rest-15.9.5.tgz#e356d202bd0b517e381f705ad77d98ccb84e0c65"
-  integrity sha512-vJEHSTnI4UAbCDTjVSQljPeX81zsQVNj2ruM5Oj5gxOttHD0TcfWeElcJYoITCMxQTgN6Y+bJFo6/+/0CqoacA==
+"@octokit/rest@^15.15.1":
+  version "15.15.1"
+  resolved "https://registry.yarnpkg.com/@octokit/rest/-/rest-15.15.1.tgz#7863f50f7c5753211ea3e29e10b84c93159e9e37"
+  integrity sha512-TnuzjE880qbknEFAVqEr3VeOcE0yXo0kJEW+EK8TASpzMbykKCydei6WUmDSV3bq7aI+llkMrBYes1kIjpU7fA==
   dependencies:
     before-after-hook "^1.1.0"
     btoa-lite "^1.0.0"
@@ -27,6 +27,7 @@
     https-proxy-agent "^2.2.0"
     lodash "^4.17.4"
     node-fetch "^2.1.1"
+    universal-user-agent "^2.0.0"
     url-template "^2.0.8"
 
 "@samverschueren/stream-to-observable@^0.3.0":
@@ -4711,6 +4712,11 @@ lru-cache@^4.0.1, lru-cache@^4.1.1:
     pseudomap "^1.0.2"
     yallist "^2.1.2"
 
+macos-release@^1.0.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/macos-release/-/macos-release-1.1.0.tgz#831945e29365b470aa8724b0ab36c8f8959d10fb"
+  integrity sha512-mmLbumEYMi5nXReB9js3WGsB8UE6cDBWyIO62Z4DNx6GbRhDxHNjA1MlzSpJ2S2KM1wyiPRA0d19uHWYYvMHjA==
+
 make-dir@^1.0.0, make-dir@^1.1.0:
   version "1.3.0"
   resolved "https://registry.yarnpkg.com/make-dir/-/make-dir-1.3.0.tgz#79c1033b80515bd6d24ec9933e860ca75ee27f0c"
@@ -5465,6 +5471,14 @@ os-locale@^2.0.0:
     execa "^0.7.0"
     lcid "^1.0.0"
     mem "^1.1.0"
+
+os-name@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/os-name/-/os-name-2.0.1.tgz#b9a386361c17ae3a21736ef0599405c9a8c5dc5e"
+  integrity sha1-uaOGNhwXrjohc27wWZQFyajF3F4=
+  dependencies:
+    macos-release "^1.0.0"
+    win-release "^1.0.0"
 
 os-tmpdir@^1.0.0, os-tmpdir@^1.0.1, os-tmpdir@~1.0.2:
   version "1.0.2"
@@ -7536,6 +7550,13 @@ unique-stream@^2.0.2:
     json-stable-stringify "^1.0.0"
     through2-filter "^2.0.0"
 
+universal-user-agent@^2.0.0:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/universal-user-agent/-/universal-user-agent-2.0.1.tgz#18e591ca52b1cb804f6b9cbc4c336cf8191f80e1"
+  integrity sha512-vz+heWVydO0iyYAa65VHD7WZkYzhl7BeNVy4i54p4TF8OMiLSXdbuQe4hm+fmWAsL+rVibaQHXfhvkw3c1Ws2w==
+  dependencies:
+    os-name "^2.0.1"
+
 unset-value@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/unset-value/-/unset-value-1.0.0.tgz#8376873f7d2335179ffb1e6fc3a8ed0dfc8ab559"
@@ -7954,6 +7975,13 @@ wide-align@^1.1.0:
   integrity sha512-ijDLlyQ7s6x1JgCLur53osjm/UXUYD9+0PbYKrBsYisYXzCxN+HC3mYDNy/dWdmf3AwqwU3CXwDCvsNgGK1S0w==
   dependencies:
     string-width "^1.0.2"
+
+win-release@^1.0.0:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/win-release/-/win-release-1.1.1.tgz#5fa55e02be7ca934edfc12665632e849b72e5209"
+  integrity sha1-X6VeAr58qTTt/BJmVjLoSbcuUgk=
+  dependencies:
+    semver "^5.0.1"
 
 worker-farm@^1.5.2:
   version "1.6.0"
