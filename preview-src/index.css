@@ -248,7 +248,6 @@ body .overview-title button {
 	display: flex;
 	align-items: center;
 	line-height: 18px;
-	overflow: hidden;
 	white-space: nowrap;
 }
 
