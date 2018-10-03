@@ -304,7 +304,6 @@
     "markdown-it-checkbox": "^1.1.0",
     "moment": "^2.22.1",
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
-    "tmp": "^0.0.31",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"
   },
