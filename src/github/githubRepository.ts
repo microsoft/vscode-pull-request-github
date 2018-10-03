@@ -204,14 +204,14 @@ export class GitHubRepository implements IGitHubRepository {
 			case PRType.RequestReview:
 				filter = `review-requested:${user}`;
 				break;
+			case PRType.ReviewedByMe:
+				filter = `-review:none -review:required reviewed-by:${user}`;
+				break;
 			case PRType.AssignedToMe:
 				filter = `assignee:${user}`;
 				break;
 			case PRType.Mine:
 				filter = `author:${user}`;
-				break;
-			case PRType.ReviewedByMe:
-				filter = `-review:none -review:required reviewed-by:${user}`;
 				break;
 			default:
 				break;
