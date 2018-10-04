@@ -279,7 +279,7 @@ body .overview-title button {
 .comment-container {
 	position: relative;
 	padding: 20px 0;
-    border-top: 1px solid var(--border-color);
+	border-top: 1px solid var(--border-color);
 }
 
 .comment-container:last-of-type {
