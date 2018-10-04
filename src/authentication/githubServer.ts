@@ -7,8 +7,6 @@ import axios from 'axios';
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
 
-// const AUTH_RELAY_SERVER = 'http://localhost:55555'
-// const AUTH_RELAY_SERVER = 'https://client-auth-staging-14a768b.herokuapp.com'
 const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com'
 const EXTENSION_ID = 'GitHub.vscode-pull-request-github'
 const CALLBACK_PATH = '/did-authenticate'
