@@ -4,6 +4,7 @@ import { StatsStore, AppName, ISettings, IStatsDatabase, IMetrics, getYearMonthD
 import { ITelemetry } from '../github/interface';
 
 const TELEMETRY_KEY = 'vscode-pull-request-github.telemetry';
+const CONFIG_SECTION = 'optout';
 
 export class Telemetry implements ITelemetry {
 	private _version; string;
@@ -34,7 +35,22 @@ export class Telemetry implements ITelemetry {
 class VSSettings implements ISettings {
 	private _config: vscode.WorkspaceConfiguration;
 	constructor(private readonly _context: vscode.ExtensionContext) {
-		this._config = vscode.workspace.getConfiguration('github.telemetry');
+		this._config = vscode.workspace.getConfiguration('githubPullRequests.telemetry');
+
+		const deprecated = vscode.workspace.getConfiguration('telemetry');
+		const { globalValue, workspaceFolderValue, workspaceValue } = deprecated.inspect(CONFIG_SECTION);
+		const values = [
+			{ target: vscode.ConfigurationTarget.Global, value: globalValue },
+			{ target: vscode.ConfigurationTarget.WorkspaceFolder, value: workspaceFolderValue },
+			{ target: vscode.ConfigurationTarget.Workspace, value: workspaceValue },
+		].filter(({ value }) => value !== undefined);
+
+		if (values.length > 0) {
+			values.forEach(({ target, value }) => {
+				this._config.update(CONFIG_SECTION, value, target);
+				deprecated.update(CONFIG_SECTION, undefined, target);
+			});
+		}
 	}
 	getItem(key: string): Promise<string> {
 		switch (key) {
@@ -45,7 +61,7 @@ class VSSettings implements ISettings {
 			case 'has-sent-stats-opt-in-ping':
 				return Promise.resolve(this._context.globalState.get<string>(`${TELEMETRY_KEY}.pinged`));
 			case 'stats-opt-out':
-				return Promise.resolve(this._config.get('optout'));
+				return Promise.resolve(this._config.get(CONFIG_SECTION));
 		}
 		return Promise.resolve(this._config.get(key));
 	}
@@ -59,7 +75,7 @@ class VSSettings implements ISettings {
 			case 'has-sent-stats-opt-in-ping':
 				return Promise.resolve(this._context.globalState.update(`${TELEMETRY_KEY}.pinged`, value));
 			case 'stats-opt-out':
-				return Promise.resolve(this._config.update('optout', value));
+				return Promise.resolve(this._config.update(CONFIG_SECTION, value));
 		}
 		return Promise.resolve(this._config.update(key, value));
 	}
