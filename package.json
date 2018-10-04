@@ -297,7 +297,11 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
+<<<<<<< HEAD
     "es6-promise": "^4.2.5",
+=======
+    "axios": "^0.18.0",
+>>>>>>> Receive GitHub auth tokens with a URI handler rather than a WebSocket backchannel.
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",
@@ -305,7 +309,10 @@
     "markdown-it-sanitizer": "github:rebornix/markdown-it-sanitizer#master",
     "moment": "^2.22.1",
     "node-emoji": "^1.8.1",
+<<<<<<< HEAD
     "node-fetch": "^2.1.1",
+=======
+>>>>>>> Receive GitHub auth tokens with a URI handler rather than a WebSocket backchannel.
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"

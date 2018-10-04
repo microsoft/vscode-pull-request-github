@@ -5,7 +5,7 @@
 
 'use strict';
 
-import { Uri } from 'vscode';
+import { Uri, UriHandler, EventEmitter } from 'vscode';
 import { IPullRequestModel } from '../github/interface';
 
 export interface ReviewUriParams {
@@ -101,3 +101,11 @@ export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, commit: s
 		query: JSON.stringify(params)
 	});
 }
+
+class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
+	public handleUri(uri: Uri) {
+		this.fire(uri)
+	}
+}
+
+export const handler = new UriEventHandler

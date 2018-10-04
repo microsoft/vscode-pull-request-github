@@ -1,112 +1,24 @@
 import * as vscode from 'vscode';
 import { IHostConfiguration, HostHelper } from './configuration';
-import * as ws from 'ws';
 import * as https from 'https';
 import Logger from '../common/logger';
-
-// needed for patching the request options in websocket connections
-import { ClientOptions } from 'ws';
-import * as http from 'http';
-
+import { handler as uriHandler } from '../common/uri';
+import axios from 'axios';
 const SCOPES: string = 'read:user user:email repo write:discussion';
-const GHE_OPTIONAL_SCOPES: string[] = ['write:discussion'];
-const HOST: string = 'vscode-auth.github.com';
-const HTTP_PROTOCOL: string = 'https';
-const WS_PROTOCOL: string = 'wss';
+const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
 
-enum MessageType {
-	Host = 0x2,
-	Token = 0x8,
-}
-
-interface IMessage {
-	type: MessageType;
-	guid: string;
-	host?: string;
-	token?: string;
-	scopes?: string;
-}
-
-class Client {
-	private _guid?: string;
-	private _socket: ws | undefined;
-	private _token: string | undefined;
-
-	constructor(private host: string, private scopes: string) { }
-
-	public start(): Promise<string> {
-		return new Promise((resolve, reject) => {
-			try {
-				this._socket = new ws(`${WS_PROTOCOL}://${HOST}`, { protocol: `${HTTP_PROTOCOL}:` });
-			} catch (reason) {
-				reject(reason);
-				return;
-			}
-
-			this._socket.on('error', reason => reject(reason));
-			this._socket.on('message', data => this.handleMessage(data, resolve, reject));
-			this._socket.on('close', (code, reason) => {
-				if (code !== 1000) {
-					reject(reason);
-				}
-			});
-		});
-	}
-
-	private handleMessage(data: ws.Data, resolve: (value?: string | PromiseLike<string>) => void, reject: (reason?: any) => void): void {
-		try {
-			const message: IMessage = JSON.parse(data.toString());
-			switch (message.type) {
-				case MessageType.Host:
-					{
-						this._guid = message.guid;
-						this.sendHost().then(() => {
-							vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(`${HTTP_PROTOCOL}://${HOST}?state=action:login;guid:${this._guid}`));
-						}).catch(reason => {
-							reject(reason);
-						});
-					}
-					break;
-				case MessageType.Token:
-					this.finish(resolve, message.token);
-					break;
-				default:
-					return this.finish(resolve);
-			}
-		} catch (reason) {
-			reject(reason);
-		}
-	}
-
-	private sendHost(): Promise<void> {
-		return new Promise((resolve, reject) => {
-			this._socket.send(
-				JSON.stringify({
-					type: MessageType.Host,
-					guid: this._guid,
-					host: this.host,
-					scopes: this.scopes,
-				}), reason => {
-					if (reason) {
-						reject(reason);
-					} else {
-						resolve();
-					}
-				});
-		});
-	}
-
-	private finish(resolve: (value?: string | PromiseLike<string>) => void, token?: string): void {
-		this._token = token;
-		try {
-			this._socket.close();
-		} catch { } // at this point we don't care if we can't close the socket
-		resolve(this._token);
-	}
-}
+// const AUTH_RELAY_SERVER = 'http://localhost:55555'
+// const AUTH_RELAY_SERVER = 'https://client-auth-staging-14a768b.herokuapp.com'
+const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com'
+const EXTENSION_ID = 'GitHub.vscode-pull-request-github'
+const CALLBACK_PATH = '/did-authenticate'
+const CALLBACK_URI = vscode.version.endsWith('-insider')
+	? `vscode-insiders://${EXTENSION_ID}${CALLBACK_PATH}`
+	: `vscode://${EXTENSION_ID}${CALLBACK_PATH}`
+const MAX_TOKEN_RESPONSE_AGE = 5 * (1000 * 60 /* minutes in ms */)
 
 export class GitHubManager {
-	private servers: Map<string, boolean>;
+	private _servers: Map<string, boolean> = new Map().set('github.com', true);
 
 	private static GitHubScopesTable: { [key: string]: string[] } = {
 		repo: ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
@@ -123,20 +35,13 @@ export class GitHubManager {
 
 	public static AppScopes: string[] = SCOPES.split(' ');
 
-	constructor() {
-		this.servers = new Map().set('github.com', true);
-
-		// patch the options object of http requests due to bugs in other extension packages
-		this.hookupRequestPatch();
-	}
-
 	public async isGitHub(host: vscode.Uri): Promise<boolean> {
 		if (host === null) {
 			return false;
 		}
 
-		if (this.servers.has(host.authority)) {
-			return this.servers.get(host.authority);
+		if (this._servers.has(host.authority)) {
+			return this._servers.get(host.authority);
 		}
 
 		const options = GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
@@ -151,7 +56,7 @@ export class GitHubManager {
 				resolve(false);
 			});
 		}).then(isGitHub => {
-			this.servers.set(host.authority, isGitHub);
+			this._servers.set(host.authority, isGitHub);
 			return isGitHub;
 		});
 	}
@@ -184,7 +89,7 @@ export class GitHubManager {
 			tokenScopes.indexOf(x) >= 0 ||
 			tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0 ||
 			// some scopes don't exist on older versions of GHE, treat them as optional
-			(!this.isDotCom(host) && GHE_OPTIONAL_SCOPES.indexOf(x) >= 0)
+			(this.isDotCom(host) || GHE_OPTIONAL_SCOPES[x])
 		);
 	}
 
@@ -200,31 +105,10 @@ export class GitHubManager {
 	private static isDotCom(host: vscode.Uri): boolean {
 		return host && host.authority.toLowerCase() === 'github.com';
 	}
+}
 
-	/*
-		Patch the options object of http requests due to bugs in other extension packages
-		Old versions of the applicationinsights-nodejs package throw
-		if the protocol field isn't filled out in a request, and
-		ws has a bug that overwrites the protocol field to undefined.
-		Until those two are fixed upstream, make sure a protocol field is
-		filled out. sigh.
-		https://github.com/Microsoft/vscode-pull-request-github/issues/449
-	*/
-	private hookupRequestPatch(): void {
-		const originalRequest = http.request;
-		(http.request as any) = (options, ...requestArgs) => {
-			try {
-				if (this.isWebSocketOptions(options) && options.host === HOST && !options.protocol) {
-					options.protocol = `${HTTP_PROTOCOL}:`;
-				}
-			} catch {}
-			return originalRequest.call(http, options, ...requestArgs);
-		};
-	}
-
-	private isWebSocketOptions(arg: any): arg is ClientOptions {
-		return arg.perMessageDeflate !== undefined;
-	}
+class ResponseExpired extends Error {
+	get message() { return 'Token response expired' }
 }
 
 export class GitHubServer {
@@ -237,27 +121,24 @@ export class GitHubServer {
 		this.hostUri = vscode.Uri.parse(host);
 	}
 
-	public async login(): Promise<IHostConfiguration> {
-		return new Client(this.hostConfiguration.host, SCOPES)
-			.start()
-			.then(token => {
-				this.hostConfiguration.token = token;
-				return this.hostConfiguration;
-			});
-	}
-
-	public async checkAnonymousAccess(): Promise<boolean> {
-		const options = GitHubManager.getOptions(this.hostUri, 'GET', '/rate_limit');
-		return new Promise<boolean>((resolve, _) => {
-			const get = https.request(options, res => {
-				resolve(res.statusCode === 200);
-			});
-
-			get.end();
-			get.on('error', err => {
-				resolve(false);
-			});
-		});
+	public login(): Promise<IHostConfiguration> {
+		const host = this.hostUri.toString()
+		const uri = vscode.Uri.parse(
+			`${AUTH_RELAY_SERVER}/authorize?authServer=${host}&callbackUri=${CALLBACK_URI}&scope=${SCOPES}`
+		);
+		vscode.commands.executeCommand('vscode.open', uri);
+		return new Promise<IHostConfiguration>((resolve, reject) => {
+			const subscription = uriHandler.event(async uri => {
+				if (uri.path !== CALLBACK_PATH) return
+				const rsp = await axios.get(`${AUTH_RELAY_SERVER}/verify?${uri.query}`)
+				if (rsp.status !== 200) return
+				const {ts, access_token: token} = rsp.data.token
+				if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE)
+					return reject(new ResponseExpired)
+				resolve({host, username: 'oauth', token})
+				subscription.dispose()
+			})
+		})
 	}
 
 	public async validate(username?: string, token?: string): Promise<IHostConfiguration> {
