@@ -11,7 +11,7 @@ import { ReviewManager } from './view/reviewManager';
 import { registerCommands } from './commands';
 import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
-import { formatError, filterEvent, onceEvent } from './common/utils';
+import { formatError, onceEvent } from './common/utils';
 import { GitExtension, API as GitAPI, Repository } from './typings/git';
 import { Telemetry } from './common/telemetry';
 import { ITelemetry } from './github/interface';
@@ -78,13 +78,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	const git = gitExtension.getAPI(1);
 
 	Logger.appendLine('Looking for git repository');
-	const firstSelectedRepository = git.repositories.filter(r => r.ui.selected)[0];
+	const firstRepository = git.repositories[0];
 
-	if (firstSelectedRepository) {
-		await init(context, git, firstSelectedRepository);
+	if (firstRepository) {
+		await init(context, git, firstRepository);
 	} else {
-		const onDidOpenRelevantRepository = filterEvent(git.onDidOpenRepository, r => r.ui.selected);
-		onceEvent(onDidOpenRelevantRepository)(r => init(context, git, r));
+		onceEvent(git.onDidOpenRepository)(r => init(context, git, r));
 	}
 }
 
