@@ -36,7 +36,7 @@ describe('utils', () => {
 		});
 	});
 
-	describe.only('EventEmitter[toPromise]', () => {
+	describe('EventEmitter[toPromise]', () => {
 		const hasListeners = (emitter: any) =>
 			!emitter._listeners!.isEmpty();
 
@@ -126,6 +126,24 @@ describe('utils', () => {
 				emitter.fire('sesame');
 				await tick();
 				assert.equal(hasResolved, true, 'should have resolved');
+				assert(!hasListeners(emitter), 'should have unsubscribed');
+			});
+
+			it('should stay subscribed until the adapter rejects', async () => {
+				const emitter = new EventEmitter<string>();
+				const promise = emitter[utils.toPromise](door);
+				let hasResolved = false, hasRejected = false;
+				promise.then(() => hasResolved = true, () => hasRejected = true);
+				emitter.fire('password');
+				emitter.fire('12345');
+				await tick();
+				assert.equal(hasResolved, false, 'shouldn\'t resolve');
+				assert.equal(hasRejected, false, 'shouldn\'t have rejected yet');
+				assert(hasListeners(emitter), 'should still be listening');
+				emitter.fire('mellon');
+				await tick();
+				assert.equal(hasResolved, false, 'shouldn\'t resolve');
+				assert.equal(hasRejected, true, 'should have rejected');
 				assert(!hasListeners(emitter), 'should have unsubscribed');
 			});
 		});
