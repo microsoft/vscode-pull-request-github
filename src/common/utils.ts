@@ -156,6 +156,7 @@ const passthrough = (value, resolve) => resolve(value);
  *
  * The default adapter is the passthrough function `(value, resolve) => resolve(value)`.
  *
+ * @param {EventEmitter<T>} emitter the event source
  * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
  * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
  */
