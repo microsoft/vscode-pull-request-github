@@ -83,6 +83,11 @@
     },
     "commands": [
       {
+        "command": "pr.create",
+        "title": "Create Pull Request",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.pick",
         "title": "Checkout Pull Request",
         "category": "GitHub Pull Requests"
@@ -178,6 +183,10 @@
         {
           "command": "pr.close",
           "when": "config.git.enabled && github:inReviewMode"
+        },
+        {
+          "command": "pr.create",
+          "when": "config.git.enabled && !github.inReviewMode"
         },
         {
           "command": "pr.merge",

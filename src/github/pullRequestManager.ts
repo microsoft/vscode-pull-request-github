@@ -394,6 +394,12 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
+	async createPullRequest(title: string, description: string = '', targetBranch: string = 'master'): Promise<boolean> {
+		Logger.appendLine(`will create PR with title=${title} description=${description} branch=${targetBranch}`);
+		// TODO: That ☝🏽
+		return false;
+	}
+
 	private async changePullRequestState(state: 'open' | 'closed', pullRequest: IPullRequestModel): Promise<any> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
