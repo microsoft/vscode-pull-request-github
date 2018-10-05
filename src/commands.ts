@@ -17,6 +17,7 @@ import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
+import Logger from './common/logger';
 
 const _onDidUpdatePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidUpdatePR: vscode.Event<IPullRequest> = _onDidUpdatePR.event;
@@ -70,6 +71,41 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		} catch (e) {
 			vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${e}`);
 		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async () => {
+		const repo = prManager.repository;
+		const {message} = await repo.getCommit(repo.state.HEAD.commit);
+		const idxLineBreak = message.indexOf('\n');
+		const headCommit = {
+			title: idxLineBreak === -1
+				? message
+				: message.substr(0, idxLineBreak),
+
+			description: idxLineBreak === -1
+				? ''
+				: message.slice(idxLineBreak + 1),
+		};
+
+		const title = await vscode.window.showInputBox({
+			prompt: 'Title',
+			value: headCommit.title,
+		});
+		if (!title) { return; }
+
+		const description = await vscode.window.showInputBox({
+			prompt: 'Description',
+			value: headCommit.description,
+		});
+		if (description === undefined) { return; }
+
+		const targetBranch = await vscode.window.showInputBox({
+			prompt: 'Target branch',
+			value: 'master',
+		});
+		if (!targetBranch) { return; }
+
+		prManager.createPullRequest(title, description, targetBranch);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {
