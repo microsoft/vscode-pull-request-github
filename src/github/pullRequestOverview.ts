@@ -110,7 +110,9 @@ export class PullRequestOverviewPanel {
 	}
 
 	public async update(pullRequestModel: IPullRequestModel): Promise<void> {
-		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
+		if (!pullRequestModel.equals(this._pullRequest)) {
+			this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
+		}
 
 		if (!pullRequestModel.equals(this._pullRequest) || !this._initialized) {
 			this._pullRequest = pullRequestModel;
