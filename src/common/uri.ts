@@ -104,8 +104,8 @@ export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, commit: s
 
 class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
 	public handleUri(uri: Uri) {
-		this.fire(uri)
+		this.fire(uri);
 	}
 }
 
-export const handler = new UriEventHandler
+export const handler = new UriEventHandler;

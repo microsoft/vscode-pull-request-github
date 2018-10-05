@@ -3,7 +3,7 @@ import { IHostConfiguration, HostHelper } from './configuration';
 import * as https from 'https';
 import Logger from '../common/logger';
 import { handler as uriHandler } from '../common/uri';
-import { toPromise, PromiseAdapter } from '../common/utils';
+import { PromiseAdapter, promiseFromEmitter } from '../common/utils';
 import axios from 'axios';
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
@@ -138,7 +138,7 @@ export class GitHubServer {
 			`${AUTH_RELAY_SERVER}/authorize?authServer=${host}&callbackUri=${CALLBACK_URI}&scope=${SCOPES}`
 		);
 		vscode.commands.executeCommand('vscode.open', uri);
-		return uriHandler[toPromise](verifyToken(host));
+		return promiseFromEmitter(uriHandler, verifyToken(host));
 	}
 
 	public async validate(username?: string, token?: string): Promise<IHostConfiguration> {

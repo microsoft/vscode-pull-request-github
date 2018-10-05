@@ -134,8 +134,6 @@ export function formatError(e: any): string {
 	}
 }
 
-export const toPromise = Symbol();
-
 export interface PromiseAdapter<T, U> {
 	(
 		value: T,
@@ -146,31 +144,27 @@ export interface PromiseAdapter<T, U> {
 	): any;
 }
 
-declare module 'vscode' {
-	interface EventEmitter<T> {
-		/**
-		 * Return a promise that resolves with the next emitted event, or with some future
-		 * event as decided by an adapter.
-		 *
-		 * If specified, the adapter is a function that will be called with
-		 * `(event, resolve, reject)`. It will be called once per event until it resolves or
-		 * rejects.
-		 *
-		 * The default adapter is the passthrough function `(value, resolve) => resolve(value)`.
-		 *
-		 * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
-		 * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
-		 */
-		[toPromise]<U>(adapter?: PromiseAdapter<T, U>): Promise<U>;
-	}
-}
-
 const passthrough = (value, resolve) => resolve(value);
 
-EventEmitter.prototype[toPromise] = async function<T, U>(adapter=passthrough as PromiseAdapter<T, U>) {
+/**
+ * Return a promise that resolves with the next emitted event, or with some future
+ * event as decided by an adapter.
+ *
+ * If specified, the adapter is a function that will be called with
+ * `(event, resolve, reject)`. It will be called once per event until it resolves or
+ * rejects.
+ *
+ * The default adapter is the passthrough function `(value, resolve) => resolve(value)`.
+ *
+ * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
+ * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
+ */
+export async function promiseFromEmitter<T, U>(
+	emitter: EventEmitter<T>,
+	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
 	let subscription;
 	return new Promise<U>((resolve, reject) =>
-		subscription = this.event((value: T) => {
+		subscription = emitter.event((value: T) => {
 			try {
 				adapter(value, resolve, reject);
 			} catch(error) {
@@ -187,4 +181,4 @@ EventEmitter.prototype[toPromise] = async function<T, U>(adapter=passthrough as 
 			throw error;
 		}
 	);
-};
+}
