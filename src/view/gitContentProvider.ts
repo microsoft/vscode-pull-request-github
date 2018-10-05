@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import * as pathLib from 'path';
 import { Repository } from '../typings/git';
 import { fromReviewUri } from '../common/uri';
 
@@ -23,7 +24,8 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 			return '';
 		}
 
-		let content = await this.repository.show(commit, path);
+		const absolutePath = pathLib.join(this.repository.rootUri.fsPath, path);
+		let content = await this.repository.show(commit, absolutePath);
 
 		if (!content) {
 			content = await this._fallback(uri);
