@@ -3,17 +3,18 @@ import { IHostConfiguration, HostHelper } from './configuration';
 import * as https from 'https';
 import Logger from '../common/logger';
 import { handler as uriHandler } from '../common/uri';
+import { toPromise, PromiseAdapter } from '../common/utils';
 import axios from 'axios';
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
 
-const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com'
-const EXTENSION_ID = 'GitHub.vscode-pull-request-github'
-const CALLBACK_PATH = '/did-authenticate'
+const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
+const EXTENSION_ID = 'GitHub.vscode-pull-request-github';
+const CALLBACK_PATH = '/did-authenticate';
 const CALLBACK_URI = vscode.version.endsWith('-insider')
 	? `vscode-insiders://${EXTENSION_ID}${CALLBACK_PATH}`
-	: `vscode://${EXTENSION_ID}${CALLBACK_PATH}`
-const MAX_TOKEN_RESPONSE_AGE = 5 * (1000 * 60 /* minutes in ms */)
+	: `vscode://${EXTENSION_ID}${CALLBACK_PATH}`;
+const MAX_TOKEN_RESPONSE_AGE = 5 * (1000 * 60 /* minutes in ms */);
 
 export class GitHubManager {
 	private _servers: Map<string, boolean> = new Map().set('github.com', true);
@@ -106,8 +107,20 @@ export class GitHubManager {
 }
 
 class ResponseExpired extends Error {
-	get message() { return 'Token response expired' }
+	get message() { return 'Token response expired'; }
 }
+
+const verifyToken: (host: string) => PromiseAdapter<vscode.Uri, IHostConfiguration> =
+	host => async (uri, resolve, reject) => {
+		if (uri.path !== CALLBACK_PATH) { return; }
+		const rsp = await axios.get(`${AUTH_RELAY_SERVER}/verify?${uri.query}`);
+		if (rsp.status !== 200) { return; }
+		const {ts, access_token: token} = rsp.data.token;
+		if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE) {
+			return reject(new ResponseExpired);
+		}
+		resolve({host, username: 'oauth', token});
+	};
 
 export class GitHubServer {
 	public hostConfiguration: IHostConfiguration;
@@ -120,23 +133,12 @@ export class GitHubServer {
 	}
 
 	public login(): Promise<IHostConfiguration> {
-		const host = this.hostUri.toString()
+		const host = this.hostUri.toString();
 		const uri = vscode.Uri.parse(
 			`${AUTH_RELAY_SERVER}/authorize?authServer=${host}&callbackUri=${CALLBACK_URI}&scope=${SCOPES}`
 		);
 		vscode.commands.executeCommand('vscode.open', uri);
-		return new Promise<IHostConfiguration>((resolve, reject) => {
-			const subscription = uriHandler.event(async uri => {
-				if (uri.path !== CALLBACK_PATH) return
-				const rsp = await axios.get(`${AUTH_RELAY_SERVER}/verify?${uri.query}`)
-				if (rsp.status !== 200) return
-				const {ts, access_token: token} = rsp.data.token
-				if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE)
-					return reject(new ResponseExpired)
-				resolve({host, username: 'oauth', token})
-				subscription.dispose()
-			})
-		})
+		return uriHandler[toPromise](verifyToken(host));
 	}
 
 	public async validate(username?: string, token?: string): Promise<IHostConfiguration> {

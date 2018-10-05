@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event } from 'vscode';
+import { Event, EventEmitter } from 'vscode';
 import { sep } from 'path';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
@@ -133,3 +133,39 @@ export function formatError(e: any): string {
 		return e.message;
 	}
 }
+
+export const toPromise = Symbol();
+
+export interface PromiseAdapter<T, U> {
+	(
+		value: T,
+		resolve:
+			(value?: U | PromiseLike<U>) => void,
+		reject:
+			(reason: any) => void
+	): any;
+}
+
+declare module 'vscode' {
+	interface EventEmitter<T> {
+		[toPromise]<U>(adapter?: PromiseAdapter<T, U>): Promise<U>;
+	}
+}
+
+const passthrough = (value, resolve, reject) => resolve(value);
+
+EventEmitter.prototype[toPromise] = async function<T, U>(adapter=passthrough as PromiseAdapter<T, U>) {
+	let subscription;
+	return new Promise<U>((resolve, reject) =>
+		subscription = this.event((value: T) => adapter(value, resolve, reject))
+	).then(
+		(result: U) => {
+			subscription.dispose();
+			return result;
+		},
+		error => {
+			subscription.dispose();
+			throw error;
+		}
+	);
+};
