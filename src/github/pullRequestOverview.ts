@@ -138,6 +138,7 @@ export class PullRequestOverviewPanel {
 						url: pullRequestModel.html_url,
 						createdAt: pullRequestModel.createdAt,
 						body: pullRequestModel.body,
+						labels: pullRequestModel.labels,
 						author: pullRequestModel.author,
 						state: pullRequestModel.state,
 						events: timelineEvents,

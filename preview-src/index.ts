@@ -36,6 +36,7 @@ interface PullRequest {
 	isCurrentlyCheckedOut: boolean;
 	base: string;
 	head: string;
+	labels: string[];
 	commitsCount: number;
 	repositoryDefaultBranch: any;
 	pendingCommentText?: string;
@@ -135,10 +136,19 @@ function setTitleHTML(pr: PullRequest): void {
 					</div>
 				</div>
 				<div class="subtitle">
-					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
-					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
-					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
-					<div class="created-at">${moment(pr.createdAt).fromNow()}</div>
+					<div class="line">
+						<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
+						<img class="avatar" src="${pr.author.avatarUrl}" alt="">
+						<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
+						<div class="created-at">${moment(pr.createdAt).fromNow()}</div>
+					</div>
+					${
+						pr.labels.length > 0
+							? `<div class="line">${pr.labels.map(
+									label => `<span class="label">${label}</span>`
+								)}</div>`
+							: ''
+					}
 				</div>
 				<div class="comment-body">${md.render(emoji.emojify(pr.body))}</div>
 			</div>
