@@ -402,16 +402,6 @@ export function renderTimelineEvent(timelineEvent: TimelineEvent): string {
 	return '';
 }
 
-export function getStatusBGCoor(state: PullRequestStateEnum) {
-	if (state === PullRequestStateEnum.Merged) {
-		return '#6f42c1';
-	} else if (state === PullRequestStateEnum.Open) {
-		return '#2cbe4e';
-	} else {
-		return '#cb2431';
-	}
-}
-
 export function getStatus(state: PullRequestStateEnum) {
 	if (state === PullRequestStateEnum.Merged) {
 		return 'Merged';
