@@ -22,6 +22,11 @@ a:focus, input:focus, select:focus, textarea:focus {
 	border: none;
 }
 
+#timeline-events {
+	padding: 8px 0;
+	border-bottom: 1px solid var(--border-color);
+}
+
 h2 {
 	margin: 0;
 }
@@ -282,12 +287,8 @@ body .overview-title button {
 	border-top: 1px solid var(--border-color);
 }
 
-.comment-container:last-of-type {
-	border-bottom: 1px solid var(--border-color);
-}
-
 .comment-container[data-type="commit"] {
-	padding: 8px 0;
+	padding: 5px 0;
 }
 
 .comment-container[data-type="commit"] + .comment-container[data-type="commit"],
