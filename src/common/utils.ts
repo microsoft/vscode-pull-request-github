@@ -101,6 +101,11 @@ export function formatError(e: any): string {
 		if (typeof e === 'string') {
 			return e;
 		}
+
+		if (e.gitErrorCode) {
+			// known git errors, we should display detailed git error messages.
+			return e.message + '. Please check git output for more details';
+		}
 		return 'Error';
 	}
 
