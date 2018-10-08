@@ -17,6 +17,11 @@ import { formatError } from './common/utils';
 import { Telemetry } from './common/telemetry';
 import { ITelemetry } from './github/interface';
 
+// fetch.promise polyfill
+const fetch = require('node-fetch');
+const PolyfillPromise = require('es6-promise').Promise;
+fetch.Promise = PolyfillPromise;
+
 let telemetry: ITelemetry;
 
 export async function activate(context: vscode.ExtensionContext) {
