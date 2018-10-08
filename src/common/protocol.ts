@@ -178,7 +178,7 @@ export class Protocol {
 		return null;
 	}
 
-	with(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string; }): Protocol {
+	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string; }): Protocol {
 		if (change.type) {
 			this.type = change.type;
 		}

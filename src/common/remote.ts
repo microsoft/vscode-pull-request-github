@@ -49,7 +49,7 @@ export class Remote {
 export function parseRemote(remoteName: string, url: string, originalProtocol?: Protocol): Remote | null {
 	let gitProtocol = new Protocol(url);
 	if (originalProtocol) {
-		gitProtocol.with({
+		gitProtocol.update({
 			type: originalProtocol.type
 		});
 	}

@@ -174,7 +174,7 @@ export class PullRequestGitHelper {
 		}
 
 		let remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
-		cloneUrl = cloneUrl.with({
+		cloneUrl.update({
 			type: baseRemote.gitProtocol.type
 		});
 		await repository.addRemote(remoteName, cloneUrl.toString());

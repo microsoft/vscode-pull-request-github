@@ -88,24 +88,24 @@ describe('Protocol', () => {
 		});
 	});
 
-	it('Protocol.with', () => {
+	it('Protocol.update', () => {
 		[
-			{ uri: 'http://rmacfarlane@github.com/Microsoft/vscode', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'http://rmacfarlane:password@github.com/Microsoft/vscode', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'http://github.com/Microsoft/vscode', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'http://github.com/Microsoft/vscode.git', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'http://github.com:/Microsoft/vscode.git', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'http://github.com:433/Microsoft/vscode.git', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'https://rmacfarlane@github.com/Microsoft/vscode', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'https://rmacfarlane:password@github.com/Microsoft/vscode', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'https://github.com/Microsoft/vscode', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'https://github.com/Microsoft/vscode.git', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'https://github.com:/Microsoft/vscode.git', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'https://github.com:433/Microsoft/vscode.git', with: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
-			{ uri: 'https://github.enterprise.corp/Microsoft/vscode.git', with: { type: ProtocolType.SSH }, expected: 'git@github.enterprise.corp:Microsoft/vscode' }
+			{ uri: 'http://rmacfarlane@github.com/Microsoft/vscode', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'http://rmacfarlane:password@github.com/Microsoft/vscode', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'http://github.com/Microsoft/vscode', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'http://github.com/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'http://github.com:/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'http://github.com:433/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'https://rmacfarlane@github.com/Microsoft/vscode', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'https://rmacfarlane:password@github.com/Microsoft/vscode', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'https://github.com/Microsoft/vscode', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'https://github.com/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'https://github.com:/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'https://github.com:433/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
+			{ uri: 'https://github.enterprise.corp/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.enterprise.corp:Microsoft/vscode' }
 		].forEach(remote => {
 			const protocol = new Protocol(remote.uri);
-			protocol.with(remote.with);
+			protocol.update(remote.change);
 			assert.equal(protocol.toString(), remote.expected);
 		});
 	});
