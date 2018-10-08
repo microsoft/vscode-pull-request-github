@@ -297,12 +297,14 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
-    "node-emoji": "^1.8.1",
+    "es6-promise": "^4.2.5",
+    "node-fetch": "^2.1.1",
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",
     "markdown-it-checkbox": "^1.1.0",
     "moment": "^2.22.1",
+    "node-emoji": "^1.8.1",
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"

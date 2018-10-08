@@ -16,6 +16,11 @@ import { GitExtension, API as GitAPI, Repository } from './typings/git';
 import { Telemetry } from './common/telemetry';
 import { ITelemetry } from './github/interface';
 
+// fetch.promise polyfill
+const fetch = require('node-fetch');
+const PolyfillPromise = require('es6-promise').Promise;
+fetch.Promise = PolyfillPromise;
+
 let telemetry: ITelemetry;
 
 async function init(context: vscode.ExtensionContext, git: GitAPI, repository: Repository): Promise<void> {
