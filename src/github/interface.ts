@@ -118,6 +118,7 @@ export interface Commit {
 }
 
 export interface IPullRequestModel {
+	remote: Remote;
 	prNumber: number;
 	title: string;
 	html_url: string;

@@ -44,7 +44,7 @@ export class GitHubRepository implements IGitHubRepository {
 				repo: remote.repositoryName
 			});
 
-			this.remote = parseRemote(remote.remoteName, data.clone_url);
+			this.remote = parseRemote(remote.remoteName, data.clone_url, remote.gitProtocol);
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
 		}
