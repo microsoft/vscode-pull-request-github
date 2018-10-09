@@ -74,7 +74,6 @@ export interface Comment {
 	absolutePosition?: number;
 }
 
-
 export enum EventType {
 	Committed,
 	Mentioned,
@@ -297,7 +296,7 @@ function getDiffChangeClass(type: DiffChangeType) {
 }
 
 export function renderReview(timelineEvent: ReviewEvent): string {
-	if (timelineEvent.state === "pending") {
+	if (timelineEvent.state === 'pending') {
 		return '';
 	}
 
