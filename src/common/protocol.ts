@@ -150,6 +150,54 @@ export class Protocol {
 		}
 	}
 
+	toString(): string {
+		// based on Uri scheme for SSH https://tools.ietf.org/id/draft-salowey-secsh-uri-00.html#anchor1 and heuristics of how GitHub handles ssh url
+		// sshUri        = `ssh:`
+		//    - omitted
+		// hier-part     =  "//" authority path-abempty
+		//    - // is omitted
+		// authority     = [ [ ssh-info ] "@" host ] [ ":" port]
+		//   - ssh-info: git
+		//   - host: ${this.host}
+		//   - port: omitted
+		// path-abempty  = <as specified in [RFC3986]>
+		//   - we use relative path here `${this.owner}/${this.repositoryName}`
+		if (this.type === ProtocolType.SSH) {
+			return `git@${this.host}:${this.owner}/${this.repositoryName}`;
+		}
+
+		if (this.type === ProtocolType.GIT) {
+			return `git://git@${this.host}:${this.owner}/${this.repositoryName}`;
+		}
+
+		let normalizedUri = this.normalizeUri();
+		if (normalizedUri) {
+			return normalizedUri.toString();
+		}
+
+		return null;
+	}
+
+	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string; }): Protocol {
+		if (change.type) {
+			this.type = change.type;
+		}
+
+		if (change.host) {
+			this.host = change.host;
+		}
+
+		if (change.owner) {
+			this.owner = change.owner;
+		}
+
+		if (change.repositoryName) {
+			this.repositoryName = change.repositoryName;
+		}
+
+		return this;
+	}
+
 	equals(other: Protocol) {
 		return this.normalizeUri().toString().toLocaleLowerCase() === other.normalizeUri().toString().toLocaleLowerCase();
 	}

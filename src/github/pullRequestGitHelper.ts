@@ -37,7 +37,7 @@ export class PullRequestGitHelper {
 			// the branch is from a fork
 			// create remote for this fork
 			Logger.appendLine(`GitHelper> branch ${localBranchName} is from a fork. Create a remote first.`);
-			let remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.head.repositoryCloneUrl);
+			let remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
 			// fetch the branch
 			let ref = `${pullRequest.head.ref}:${localBranchName}`;
 			await repository.fetch(remoteName, ref);
@@ -163,7 +163,7 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static async createRemote(repository: Repository, cloneUrl: Protocol) {
+	static async createRemote(repository: Repository, baseRemote: Remote, cloneUrl: Protocol) {
 		Logger.appendLine(`GitHelper> create remote for ${cloneUrl}.`);
 
 		let remotes = parseRepositoryRemotes(repository);
@@ -174,7 +174,10 @@ export class PullRequestGitHelper {
 		}
 
 		let remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
-		await repository.addRemote(remoteName, cloneUrl.normalizeUri().toString());
+		cloneUrl.update({
+			type: baseRemote.gitProtocol.type
+		});
+		await repository.addRemote(remoteName, cloneUrl.toString());
 		await repository.setConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`, 'true');
 		return remoteName;
 	}

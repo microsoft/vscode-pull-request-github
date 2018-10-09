@@ -46,8 +46,13 @@ export class Remote {
 	}
 }
 
-export function parseRemote(remoteName: string, url: string): Remote | null {
+export function parseRemote(remoteName: string, url: string, originalProtocol?: Protocol): Remote | null {
 	let gitProtocol = new Protocol(url);
+	if (originalProtocol) {
+		gitProtocol.update({
+			type: originalProtocol.type
+		});
+	}
 
 	if (gitProtocol.host) {
 		return new Remote(remoteName, url, gitProtocol);
