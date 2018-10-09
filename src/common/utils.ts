@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event } from 'vscode';
+import { Event, EventEmitter } from 'vscode';
 import { sep } from 'path';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
@@ -132,4 +132,54 @@ export function formatError(e: any): string {
 	} catch (_) {
 		return e.message;
 	}
+}
+
+export interface PromiseAdapter<T, U> {
+	(
+		value: T,
+		resolve:
+			(value?: U | PromiseLike<U>) => void,
+		reject:
+			(reason: any) => void
+	): any;
+}
+
+const passthrough = (value, resolve) => resolve(value);
+
+/**
+ * Return a promise that resolves with the next emitted event, or with some future
+ * event as decided by an adapter.
+ *
+ * If specified, the adapter is a function that will be called with
+ * `(event, resolve, reject)`. It will be called once per event until it resolves or
+ * rejects.
+ *
+ * The default adapter is the passthrough function `(value, resolve) => resolve(value)`.
+ *
+ * @param {EventEmitter<T>} emitter the event source
+ * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
+ * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
+ */
+export async function promiseFromEmitter<T, U>(
+	emitter: EventEmitter<T>,
+	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
+	let subscription;
+	return new Promise<U>((resolve, reject) =>
+		subscription = emitter.event((value: T) => {
+			try {
+				adapter(value, resolve, reject);
+			} catch(error) {
+				reject(error);
+			}
+		})
+	).then(
+		(result: U) => {
+			subscription.dispose();
+			return result;
+		},
+		error => {
+			subscription.dispose();
+			throw error;
+		}
+	);
 }
