@@ -4719,6 +4719,10 @@ markdown-it-checkbox@^1.1.0:
   dependencies:
     underscore "^1.8.2"
 
+"markdown-it-sanitizer@github:rebornix/markdown-it-sanitizer#master":
+  version "0.4.3"
+  resolved "https://codeload.github.com/rebornix/markdown-it-sanitizer/tar.gz/33388623a8475eb75e941d084736ca4bf88358d9"
+
 markdown-it@^8.4.0:
   version "8.4.1"
   resolved "https://registry.yarnpkg.com/markdown-it/-/markdown-it-8.4.1.tgz#206fe59b0e4e1b78a7c73250af9b34a4ad0aaf44"

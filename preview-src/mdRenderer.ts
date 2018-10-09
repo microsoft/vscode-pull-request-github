@@ -5,6 +5,8 @@
 
 import * as  MarkdownIt from 'markdown-it';
 const Checkbox = require('markdown-it-checkbox');
+const Sanitizer = require('markdown-it-sanitizer');
+
 const md = MarkdownIt({
 	html: true,
 	linkify: true
@@ -13,6 +15,11 @@ const md = MarkdownIt({
 	divWrap: true,
 	divClass: 'github-checkbox',
 
+})
+.use(Sanitizer, {
+	imageClass: '',
+	removeUnbalanced: false,
+	removeUnknown: false
 });
 
 export default md;
