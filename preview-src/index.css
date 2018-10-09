@@ -45,10 +45,7 @@ body .review-comment {
 
 body .review-comment .avatar-container {
 	margin-right: 12px;
-}
-
-body .review-comment .avatar-container a {
-	display: flex;
+	flex-shrink: 0;
 }
 
 body .review-comment .avatar-container img.avatar {
@@ -390,12 +387,6 @@ blockquote p:first-child {
 
 blockquote p:last-child {
 	margin-bottom: 0;
-}
-
-.comment-body img {
-	max-width: 100%;
-	max-height: 100%;
-	display: block;
 }
 
 .comment-body a {
