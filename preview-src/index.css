@@ -194,14 +194,11 @@ body button.checkedOut svg {
 }
 
 .subtitle {
-	padding-bottom: 16px;
-	border-bottom: 1px solid var(--border-color);
-}
-
-.subtitle .line {
 	display: flex;
 	align-items: center;
 	margin-top: 8px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--border-color);
 }
 
 .subtitle .avatar {
@@ -238,7 +235,12 @@ body .overview-title button {
 	box-shadow: inset 0 -1px 0 rgba(27,31,35,0.12);
 }
 
-.commit svg {
+.label + .label {
+	margin-left: 8px;
+}
+
+.commit svg,
+.comment-body .octicon {
 	width: 14px;
 	height: auto;
 	margin-right: 8px;
@@ -328,6 +330,12 @@ body .overview-title button {
 
 .comment-body div[data-type="review-comment"] .comment-container:last-child .comment {
 	padding-bottom: 0;
+}
+
+.comment-body .line {
+	align-items: center;
+	display: flex;
+	margin-bottom: 16px;
 }
 
 body .comment-form {

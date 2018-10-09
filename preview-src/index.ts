@@ -136,21 +136,24 @@ function setTitleHTML(pr: PullRequest): void {
 					</div>
 				</div>
 				<div class="subtitle">
-					<div class="line">
-						<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
-						<img class="avatar" src="${pr.author.avatarUrl}" alt="">
-						<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
-						<div class="created-at">${moment(pr.createdAt).fromNow()}</div>
-					</div>
+					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
+					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
+					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
+					<div class="created-at">${moment(pr.createdAt).fromNow()}</div>
+				</div>
+				<div class="comment-body">
 					${
 						pr.labels.length > 0
-							? `<div class="line">${pr.labels.map(
-									label => `<span class="label">${label}</span>`
-								)}</div>`
+							? `<div class="line">
+						<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
+							<path fill-rule="evenodd" d="M7.685 1.72a2.49 2.49 0 0 0-1.76-.726H3.48A2.5 2.5 0 0 0 .994 3.48v2.456c0 .656.269 1.292.726 1.76l6.024 6.024a.99.99 0 0 0 1.402 0l4.563-4.563a.99.99 0 0 0 0-1.402L7.685 1.72zM2.366 7.048a1.54 1.54 0 0 1-.467-1.123V3.48c0-.874.716-1.58 1.58-1.58h2.456c.418 0 .825.159 1.123.467l6.104 6.094-4.702 4.702-6.094-6.114zm.626-4.066h1.989v1.989H2.982V2.982h.01z" />
+						</svg>
+						${pr.labels.map(label => `<span class="label">${label}</span>`).join('')}
+						</div>`
 							: ''
 					}
+					<div>${md.render(emoji.emojify(pr.body))}</div>
 				</div>
-				<div class="comment-body">${md.render(emoji.emojify(pr.body))}</div>
 			</div>
 		`;
 }
