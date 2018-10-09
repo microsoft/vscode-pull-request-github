@@ -101,7 +101,8 @@ body .review-comment .review-comment-header {
 	color: var(--vscode-foreground);
 }
 
-body .review-comment .review-comment-header > span, a {
+body .review-comment .review-comment-header > span, a.avatar-link,
+body .review-comment .review-comment-header > span, a.author {
 	margin-right: 4px;
 }
 

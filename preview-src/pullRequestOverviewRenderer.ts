@@ -303,13 +303,13 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 	let reviewState = '';
 	switch (timelineEvent.state.toLowerCase()) {
 		case 'approved':
-			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> approved these changes</span>`;
+			reviewState = `<span><a class="author" href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> approved these changes</span>`;
 			break;
 		case 'commented':
-			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> reviewed</span>`;
+			reviewState = `<span><a class="author" href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> reviewed</span>`;
 			break;
 		case 'changes_requested':
-			reviewState = `<span><a href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> requested changes</span>`;
+			reviewState = `<span><a class="author" href="${timelineEvent.user.html_url}">${timelineEvent.user.login}</a> requested changes</span>`;
 			break;
 		default:
 			break;
