@@ -18,6 +18,10 @@ a:focus, input:focus, select:focus, textarea:focus {
 	border-bottom: 1px solid var(--border-color);
 }
 
+.comment-body li div {
+	display: inline;
+}
+
 #title:empty {
 	border: none;
 }
