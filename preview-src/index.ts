@@ -80,6 +80,9 @@ function handleMessage(event: any) {
 		case 'pr.enable-exit':
 			(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = false;
 			break;
+		case 'set-scroll':
+			window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
+			break;
 		default:
 			break;
 	}
@@ -231,6 +234,16 @@ function addEventListeners(pr: PullRequest): void {
 			branch: pr.repositoryDefaultBranch
 		});
 	});
+
+	window.onscroll = () => {
+		vscode.postMessage({
+			command: 'scroll',
+			scrollPosition: {
+				x: window.scrollX,
+				y: window.scrollY
+			}
+		})
+	}
 }
 
 function clearTextArea() {
