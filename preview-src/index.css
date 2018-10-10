@@ -224,7 +224,21 @@ body .overview-title button {
 	margin-right: 12px;
 }
 
-.commit svg {
+.label {
+	padding: 4px 6px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 15px;
+	border-radius: 2px;
+	margin-right: 8px;
+	margin-bottom: 8px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	box-shadow: inset 0 -1px 0 rgba(27,31,35,0.12);
+}
+
+.commit svg,
+.comment-body .octicon {
 	width: 14px;
 	height: auto;
 	margin-right: 8px;
@@ -314,6 +328,13 @@ body .overview-title button {
 
 .comment-body div[data-type="review-comment"] .comment-container:last-child .comment {
 	padding-bottom: 0;
+}
+
+.comment-body .line {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	margin-bottom: 8px;
 }
 
 body .comment-form {

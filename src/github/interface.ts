@@ -48,6 +48,15 @@ export interface IRepository {
 	sha: string;
 }
 
+interface ILabel {
+	id: number;
+	node_id: string;
+	url: string;
+	name: string;
+	color: string;
+	default: boolean;
+}
+
 // This interface is incomplete
 export interface IPullRequest {
 	additions: number;
@@ -64,7 +73,7 @@ export interface IPullRequest {
 	head: IRepository;
 	html_url: string;
 	id: number;
-	labels: any[];
+	labels: ILabel[];
 	locked: boolean;
 	maintainer_can_modify: boolean;
 	merge_commit_sha; boolean;
@@ -138,6 +147,7 @@ export interface IPullRequestModel {
 	userAvatar: string;
 	userAvatarUri: vscode.Uri;
 	body: string;
+	labels: string[];
 	update(prItem: IPullRequest): void;
 	equals(other: IPullRequestModel): boolean;
 }

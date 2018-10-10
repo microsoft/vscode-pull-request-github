@@ -21,6 +21,7 @@ export class PullRequestModel implements IPullRequestModel {
 	public createdAt: string;
 	public updatedAt: string;
 	public localBranchName?: string;
+	public labels: string[];
 
 	public get isOpen(): boolean {
 		return this.state === PullRequestStateEnum.Open;
@@ -78,6 +79,7 @@ export class PullRequestModel implements IPullRequestModel {
 			avatarUrl: prItem.user.avatar_url,
 			htmlUrl: prItem.user.html_url
 		};
+		this.labels = prItem.labels.map(label => label.name);
 
 		if (prItem.state === 'open') {
 			this.state = PullRequestStateEnum.Open;
