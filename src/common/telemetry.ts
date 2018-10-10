@@ -4,7 +4,8 @@ import { StatsStore, AppName, ISettings, IStatsDatabase, IMetrics, getYearMonthD
 import { ITelemetry } from '../github/interface';
 
 const TELEMETRY_KEY = 'vscode-pull-request-github.telemetry';
-const CONFIG_SECTION = 'optout';
+const DEPRECATED_CONFIG_SECTION = 'optout';
+const CONFIG_SECTION = 'enabled';
 
 export class Telemetry implements ITelemetry {
 	private _version; string;
@@ -38,7 +39,7 @@ class VSSettings implements ISettings {
 		this._config = vscode.workspace.getConfiguration('githubPullRequests.telemetry');
 
 		const deprecated = vscode.workspace.getConfiguration('telemetry');
-		const { globalValue, workspaceFolderValue, workspaceValue } = deprecated.inspect(CONFIG_SECTION);
+		const { globalValue, workspaceFolderValue, workspaceValue } = deprecated.inspect(DEPRECATED_CONFIG_SECTION);
 		const values = [
 			{ target: vscode.ConfigurationTarget.Global, value: globalValue },
 			{ target: vscode.ConfigurationTarget.WorkspaceFolder, value: workspaceFolderValue },
@@ -47,8 +48,8 @@ class VSSettings implements ISettings {
 
 		if (values.length > 0) {
 			values.forEach(({ target, value }) => {
-				this._config.update(CONFIG_SECTION, value, target);
-				deprecated.update(CONFIG_SECTION, undefined, target);
+				this._config.update(CONFIG_SECTION, !value, target);
+				deprecated.update(DEPRECATED_CONFIG_SECTION, undefined, target);
 			});
 		}
 	}

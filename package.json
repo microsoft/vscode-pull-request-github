@@ -32,13 +32,15 @@
       "type": "object",
       "title": "GitHub Pull Requests",
       "properties": {
-        "githubPullRequests.telemetry.optout": {
+        "githubPullRequests.telemetry.enabled": {
           "type": "boolean",
-          "description": "Disable usage data and errors to be sent to a GitHub online service"
+          "default": true,
+          "description": "Enable usage data and errors to be sent to a GitHub online service"
         },
         "telemetry.optout": {
           "type": "boolean",
-          "deprecationMessage": "The setting `telemetry.optout` has been deprecated in favor of `githubPullRequests.telemetry.optout`.",
+          "default": false,
+          "deprecationMessage": "The setting `telemetry.optout` has been deprecated in favor of `githubPullRequests.telemetry.enabled`.",
           "description": "Disable usage data and errors to be sent to a GitHub online service"
         },
         "github.hosts": {
