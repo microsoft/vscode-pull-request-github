@@ -251,6 +251,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
+		this._validateStatusInProgress = null;
 	}
 
 	private findMatchedFileByUri(document: vscode.TextDocument): GitFileChangeNode {
