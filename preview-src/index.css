@@ -205,8 +205,13 @@ body button.checkedOut svg {
 	margin-right: 8px;
 }
 
+.subtitle .author {
+	margin-right: 8px;
+}
+
 .subtitle .created-at {
 	margin-left: auto;
+	white-space: nowrap;
 }
 
 body .overview-title button {
