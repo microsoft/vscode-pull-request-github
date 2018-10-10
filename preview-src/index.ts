@@ -237,6 +237,10 @@ function clearTextArea() {
 	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
 	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
 	(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
+
+	if (pullRequest) {
+		pullRequest.pendingCommentText = undefined;
+	}
 }
 
 function submitComment() {
