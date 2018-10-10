@@ -23,4 +23,21 @@
 - FIx for [#507](https://github.com/Microsoft/vscode-pull-request-github/issues/507), loosen scope restrictions for older version of GitHub Enterprise
 
 0.1.7
+
 - Fix for native promise polyfill removal from VSCode extension host in Insiders 1.29
+
+0.2.0
+
+**Breaking Changes**
+
+- From 0.2.0, you at least need VSCode 1.28 to install and run the extension.
+
+**Fixes**
+
+- Fix [#565](https://github.com/Microsoft/vscode-pull-request-github/issues/565), inline links in description page.
+- Fix [#531](https://github.com/Microsoft/vscode-pull-request-github/issues/531) by [@wyze](https://github.com/wyze), state is incorrectly shown as Closed when it should be Merged
+- Fix [#273](https://github.com/Microsoft/vscode-pull-request-github/issues/273), support ssh remotes.
+- Fix [#537](https://github.com/Microsoft/vscode-pull-request-github/issues/537) by [@justinliew](https://github.com/justinliew), show pull request id in title.
+- Fix [#491](https://github.com/Microsoft/vscode-pull-request-github/issues#491) by [@shatgupt](https://github.com/shatgupt), allow vertical resizing of comment box.
+- Fix [#319](https://github.com/Microsoft/vscode-pull-request-github/issues#319), improve keyboard focus.
+- Fix [#352](https://github.com/Microsoft/vscode-pull-request-github/issues/352), support merging pull request
