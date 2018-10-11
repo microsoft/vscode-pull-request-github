@@ -10,7 +10,7 @@ import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineT
 import { toReviewUri, fromReviewUri, fromPRUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
-import { GitChangeType, SlimFileChange } from '../common/file';
+import { GitChangeType, InMemFileChange } from '../common/file';
 import { IPullRequestModel, IPullRequestManager, ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes, Branch } from '../typings/git';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
@@ -31,7 +31,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _disposables: vscode.Disposable[];
 
 	private _comments: Comment[] = [];
-	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
+	private _localFileChanges: (GitFileChangeNode)[] = [];
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
@@ -483,14 +483,22 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let mergeBase = pr.mergeBase;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase);
-			this._localFileChanges = contentChanges.map(change => {
-				if (change instanceof SlimFileChange) {
-					return new RemoteFileChangeNode(
-						pr,
-						change.status,
-						change.fileName,
-						change.blobUrl
-					);
+			this._localFileChanges = [];
+			for (let i = 0; i < contentChanges.length; i++) {
+				let change = contentChanges[i];
+				let isPartial = false;
+				let diffHunks = [];
+
+				if (change instanceof InMemFileChange) {
+					isPartial = change.isPartial;
+					diffHunks = change.diffHunks;
+				} else {
+					try {
+						const patch = await this._repository.diffBetween(pr.base.sha, pr.head.sha, change.fileName);
+						diffHunks = parsePatch(patch);
+					} catch (e) {
+						Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
+					}
 				}
 
 				const uri = vscode.Uri.parse(change.fileName);
@@ -501,13 +509,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.blobUrl,
 					toReviewUri(uri, null, null, change.status === GitChangeType.DELETE ? '' : pr.head.sha, false, { base: false }),
 					toReviewUri(uri, null, null, change.status === GitChangeType.ADD ? '' : pr.base.sha, false, { base: true }),
-					change.isPartial,
-					change.diffHunks,
+					isPartial,
+					diffHunks,
 					activeComments.filter(comment => comment.path === change.fileName),
 					headSha
 				);
-				return changedItem;
-			});
+				this._localFileChanges.push(changedItem);
+			}
 
 			let commitsGroup = groupBy(outdatedComments, comment => comment.original_commit_id);
 			this._obsoleteFileChanges = [];
