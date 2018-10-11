@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import { Configuration, IHostConfiguration } from './configuration';
 import { keychain } from '../common/keychain';
+import Logger from '../common/logger';
 
-const SETTINGS_NAMESPACE = 'github';
+const SETTINGS_NAMESPACE = 'githubPullRequests';
+const DEPRECATED_SETTINGS_NAMESPACE = 'github';
 const HOSTS_KEY = 'hosts';
 const CREDENTIAL_SERVICE = 'vscode-pull-request-github';
 
@@ -94,8 +96,30 @@ export class VSCodeConfiguration extends Configuration {
 		this._hostTokensInKeychain.clear();
 	}
 
+	private async migrateConfiguration(): Promise<void> {
+		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
+		const deprecated = vscode.workspace.getConfiguration(DEPRECATED_SETTINGS_NAMESPACE);
+		const { globalValue, workspaceFolderValue, workspaceValue } = deprecated.inspect(HOSTS_KEY);
+		const values = [
+			{ target: vscode.ConfigurationTarget.Global, value: globalValue },
+			{ target: vscode.ConfigurationTarget.WorkspaceFolder, value: workspaceFolderValue },
+			{ target: vscode.ConfigurationTarget.Workspace, value: workspaceValue },
+		].filter(({ value }) => value !== undefined);
+
+		if (values.length > 0) {
+			Logger.appendLine(`Migrating deprecated '${DEPRECATED_SETTINGS_NAMESPACE}.${HOSTS_KEY}' setting.`);
+
+			for (const { target, value } of values) {
+				await config.update(HOSTS_KEY, value, target);
+				await deprecated.update(HOSTS_KEY, undefined, target);
+			}
+		}
+	}
+
 	public async loadConfiguration(): Promise<void> {
 		this.reset();
+
+		await this.migrateConfiguration();
 
 		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
 		let defaultEntry: IHostConfiguration[] = [];
