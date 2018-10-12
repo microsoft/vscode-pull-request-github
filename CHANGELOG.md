@@ -43,3 +43,11 @@
 - Fix [#352](https://github.com/Microsoft/vscode-pull-request-github/issues/352) by [@Ikuyadeu](https://github.com/Ikuyadeu), support merging pull request
 - Fix [#464](https://github.com/Microsoft/vscode-pull-request-github/issues/464) by [@wyze](https://github.com/wyze), show labels on PR description
 - Fix [#562](https://github.com/Microsoft/vscode-pull-request-github/issues/562) by [@emtei](https://github.com/emtei), prevent PR creation date collision with subtitle
+
+0.2.1
+
+**Noteworthy**
+Telemetry opt-out setting is now named under namespace `github` to help differentiate itself from VSCode or other extension's telemetry opt setting. Now it's named as `githubPullRequests.telemetry.enabled`, we still support `telemetry.optout` but it will be deprecated in the future.
+
+**Fixes**
+- Fix [#497](https://github.com/Microsoft/vscode-pull-request-github/issues/497) by [@wyze](https://github.com/wyze), Telemetry setting isn't namespaced.
