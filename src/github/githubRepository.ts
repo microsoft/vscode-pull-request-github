@@ -22,6 +22,7 @@ export interface PullRequestData {
 export class GitHubRepository implements IGitHubRepository {
 	private _octokit: Octokit;
 	private _initialized: boolean;
+
 	public get octokit(): Octokit {
 		if (this._octokit === undefined) {
 			if (!this._initialized) {
@@ -36,15 +37,20 @@ export class GitHubRepository implements IGitHubRepository {
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
 	}
 
-	async resolveRemote(): Promise<void> {
-		try {
-			const { octokit, remote } = await this.ensure();
-			const { data } = await octokit.repos.get({
+	async getMetadata(): Promise<any> {
+		const { octokit, remote } = await this.ensure();
+		return (
+			await octokit.repos.get({
 				owner: remote.owner,
 				repo: remote.repositoryName
-			});
+			})
+		).data;
+	}
 
-			this.remote = parseRemote(remote.remoteName, data.clone_url, remote.gitProtocol);
+	async resolveRemote(): Promise<void> {
+		try {
+			const {clone_url} = await this.getMetadata();
+			this.remote = parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol);
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
 		}

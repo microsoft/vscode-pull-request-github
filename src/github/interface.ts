@@ -9,6 +9,7 @@ import { Comment } from '../common/comment';
 import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
 import { Repository } from '../typings/git';
+import { PullRequestsCreateParams } from '@octokit/rest';
 
 export enum PRType {
 	RequestReview = 0,
@@ -177,7 +178,8 @@ export interface IPullRequestManager {
 	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment>;
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
-	createPullRequest(title: string, description?: string, targetBranch?: string): Promise<boolean>;
+	getPullRequestDefaults(): Promise<PullRequestsCreateParams>;
+	createPullRequest(params: PullRequestsCreateParams): Promise<any>;
 	mergePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;

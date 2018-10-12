@@ -17,7 +17,7 @@ import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
-import Logger from './common/logger';
+import { capitalize } from 'lodash';
 
 const _onDidUpdatePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidUpdatePR: vscode.Event<IPullRequest> = _onDidUpdatePR.event;
@@ -74,38 +74,16 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async () => {
-		const repo = prManager.repository;
-		const {message} = await repo.getCommit(repo.state.HEAD.commit);
-		const idxLineBreak = message.indexOf('\n');
-		const headCommit = {
-			title: idxLineBreak === -1
-				? message
-				: message.substr(0, idxLineBreak),
+		const params = await prManager.getPullRequestDefaults();
 
-			description: idxLineBreak === -1
-				? ''
-				: message.slice(idxLineBreak + 1),
-		};
-
-		const title = await vscode.window.showInputBox({
-			prompt: 'Title',
-			value: headCommit.title,
-		});
-		if (!title) { return; }
-
-		const description = await vscode.window.showInputBox({
-			prompt: 'Description',
-			value: headCommit.description,
-		});
-		if (description === undefined) { return; }
-
-		const targetBranch = await vscode.window.showInputBox({
-			prompt: 'Target branch',
-			value: 'master',
-		});
-		if (!targetBranch) { return; }
-
-		prManager.createPullRequest(title, description, targetBranch);
+		for (const prop of Object.getOwnPropertyNames(params)) {
+			params[prop] = await vscode.window.showInputBox({
+				prompt: capitalize(prop),
+				value: params[prop],
+			});
+			if (!params[prop]) { return; }
+		}
+		return prManager.createPullRequest(params);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {
