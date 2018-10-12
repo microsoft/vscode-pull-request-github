@@ -503,8 +503,11 @@ export class PullRequestManager implements IPullRequestManager {
 		const {head} = params
 			, remoteBranchName = head.substring(head.indexOf(':') + 1, head.length);
 
-		// Push to head
-		await push(this.repository, remoteBranchName);
+		// Push head to remote
+		await push(this.repository,
+			repo.remote.remoteName,
+			this.repository.state.HEAD.name,
+			remoteBranchName);
 
 		// Create PR
 		return repo.octokit.pullRequests.create(params);
