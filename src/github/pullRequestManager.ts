@@ -15,13 +15,49 @@ import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
-import { formatError, uniqBy } from '../common/utils';
-import { Repository, RefType } from '../typings/git';
+import { formatError, uniqBy, Predicate } from '../common/utils';
+import { Repository, RefType, UpstreamRef } from '../typings/git';
+import { PullRequestsCreateParams } from '@octokit/rest';
 import Logger from '../common/logger';
+import { push } from '../common/git';
 
 interface PageInformation {
 	pullRequestPage: number;
 	hasMorePages: boolean;
+}
+
+export class NoGitHubReposError extends Error {
+	constructor(public repository: Repository) {
+		super();
+	}
+
+	get message() {
+		return `${this.repository.rootUri.toString()} has no GitHub remotes`;
+	}
+}
+
+export class DetachedHeadError extends Error {
+	constructor(public repository: Repository) {
+		super();
+	}
+
+	get message() {
+		return `${this.repository.rootUri.toString()} has a detached HEAD (create a branch first)`;
+	}
+}
+
+export class BadUpstreamError extends Error {
+	constructor(
+		public branchName: string,
+		public upstreamRef: UpstreamRef,
+		public problem: string) {
+		super();
+	}
+
+	get message() {
+		const {upstreamRef: {remote, name}, branchName, problem} = this;
+		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
+	}
 }
 
 export class PullRequestManager implements IPullRequestManager {
@@ -37,7 +73,7 @@ export class PullRequestManager implements IPullRequestManager {
 	constructor(
 		private _configuration: Configuration,
 		private _repository: Repository,
-		private readonly _telemetry: ITelemetry
+		private readonly _telemetry: ITelemetry,
 	) {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._configuration, this._telemetry);
@@ -394,10 +430,84 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async createPullRequest(title: string, description: string = '', targetBranch: string = 'master'): Promise<boolean> {
-		Logger.appendLine(`will create PR with title=${title} description=${description} branch=${targetBranch}`);
-		// TODO: That ☝🏽
-		return false;
+	async getPullRequestDefaults(): Promise<PullRequestsCreateParams> {
+		if (!this.repository.state.HEAD) {
+			throw new DetachedHeadError(this.repository);
+		}
+		const {origin} = this;
+		const meta = await origin.getMetadata();
+		const parent = meta.fork
+			? meta.parent
+			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
+		const branchName = this.repository.state.HEAD.name;
+		const {title, body} = titleAndBodyFrom(await this.getHeadCommitMessage());
+		return {
+			title, body,
+			owner: parent.owner.login,
+			repo: parent.name,
+			head: `${meta.owner.login}:${branchName}`,
+			base: parent.default_branch,
+		};
+	}
+
+	async getHeadCommitMessage(): Promise<string> {
+		const {repository} = this;
+		const {message} = await repository.getCommit(repository.state.HEAD.commit);
+		return message;
+	}
+
+	get origin(): GitHubRepository {
+		if (!this._githubRepositories.length) {
+			throw new NoGitHubReposError(this.repository);
+		}
+
+		const {upstreamRef} = this;
+		if (upstreamRef) {
+			// If our current branch has an upstream ref set, find its GitHubRepository.
+			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
+			if (!upstream) {
+				// No GitHubRepository? We currently won't try pushing elsewhere,
+				// so fail.
+				throw new BadUpstreamError(
+					this.repository.state.HEAD.name,
+					upstreamRef,
+					'is not a GitHub repo');
+			}
+			// Otherwise, we'll push upstream.
+			return upstream;
+		}
+
+		// If no upstream is set, let's go digging.
+		const [first, ...rest] = this._githubRepositories;
+		return !rest.length  // Is there only one GitHub remote?
+			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
+			:  // Otherwise, let's try...
+			this.findRepo(byRemoteName('origin')) || // by convention
+			this.findRepo(ownedByMe) ||              // bc maybe we can push there
+			first; // out of raw desperation
+	}
+
+	findRepo(where: Predicate<GitHubRepository>): GitHubRepository | undefined {
+		return this._githubRepositories.filter(where)[0];
+	}
+
+	get upstreamRef(): UpstreamRef | undefined {
+		const {HEAD} = this.repository.state;
+		return HEAD && HEAD.upstream;
+	}
+
+	async createPullRequest(params: PullRequestsCreateParams): Promise<any> {
+		const repo = this.findRepo(fromHead(params));
+
+		await repo.ensure();
+		const {head} = params
+			, remoteBranchName = head.substring(head.indexOf(':') + 1, head.length);
+
+		// Push to head
+		await push(this.repository, remoteBranchName);
+
+		// Create PR
+		return repo.octokit.pullRequests.create(params);
 	}
 
 	private async changePullRequestState(state: 'open' | 'closed', pullRequest: IPullRequestModel): Promise<any> {
@@ -585,3 +695,36 @@ export async function parseTimelineEvents(pullRequestManager: IPullRequestManage
 
 	return events;
 }
+
+const ownedByMe: Predicate<GitHubRepository> = repo => {
+	const { currentUser=null } = repo.octokit as any;
+	return repo.remote.owner === currentUser.login;
+};
+
+const byRemoteName = (name: string): Predicate<GitHubRepository> =>
+	({remote: {remoteName}}) => remoteName === name;
+
+const fromHead = (params: PullRequestsCreateParams): Predicate<GitHubRepository> => {
+	const {head, repo} = params;
+	const idxSep = head.indexOf(':');
+	const owner = idxSep !== -1
+		? head.substr(0, idxSep)
+		: params.owner;
+	return byOwnerAndName(owner, repo);
+};
+
+const byOwnerAndName = (byOwner: string, repo: string): Predicate<GitHubRepository> =>
+	({remote: {owner, repositoryName}}) => byOwner === owner && repo === repositoryName;
+
+const titleAndBodyFrom = (message: string): {title: string, body: string} => {
+	const idxLineBreak = message.indexOf('\n');
+	return {
+		title: idxLineBreak === -1
+			? message
+			: message.substr(0, idxLineBreak),
+
+		body: idxLineBreak === -1
+			? ''
+			: message.slice(idxLineBreak + 1),
+	};
+};
