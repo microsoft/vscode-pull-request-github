@@ -298,10 +298,29 @@ export class PRNode extends TreeNode {
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		let currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
+		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
+
+		const {
+			title,
+			prNumber,
+			author,
+			createdAt,
+		} = this.pullRequestModel;
+
+		const {
+			login,
+		} = author;
+
+		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
+		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
+		const titleAndPRNumber = `${title} (#${prNumber.toString()})`;
+		const createdAtFromNow = moment(createdAt).fromNow();
+		const label = `${labelPrefix}${titleAndPRNumber}`;
+		const tooltip = `${tooltipPrefix}${titleAndPRNumber}\nBy ${login} ${createdAtFromNow}`;
+
 		return {
-			label: (currentBranchIsForThisPR ? '✓ ' : '') + this.pullRequestModel.title + ' (#' + this.pullRequestModel.prNumber.toString() + ')',
-			tooltip: (currentBranchIsForThisPR ? 'Current Branch * ' : '') + this.pullRequestModel.title + ' (#' + this.pullRequestModel.prNumber.toString() + ')',
+			label,
+			tooltip,
 			collapsibleState: 1,
 			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
 			iconPath: this.pullRequestModel.userAvatarUri
