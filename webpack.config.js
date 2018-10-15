@@ -15,7 +15,8 @@ function getWebviewConfig(env) {
 		name: 'webiew',
 		mode: env.production ? 'production' : 'development',
 		entry: {
-			index: './preview-src/index.ts'
+			index: './preview-src/index.ts',
+			create: './preview-src/create.tsx',
 		},
 		module: {
 			rules: [

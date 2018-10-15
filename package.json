@@ -331,6 +331,7 @@
     "gulp-typescript": "^5.0.0-alpha.2",
     "gulp-util": "^3.0.8",
     "mocha": "^5.2.0",
+    "preact": "^8.3.1",
     "style-loader": "^0.21.0",
     "ts-loader": "^4.0.1",
     "tslint": "^5.11.0",
@@ -341,8 +342,8 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
-    "es6-promise": "^4.2.5",
     "axios": "^0.18.0",
+    "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",
