@@ -13,7 +13,11 @@
 		"typeRoots": [
 			"./node_modules/@types",
 			"./src/typings/"
-		]
+		],
+		"baseUrl": ".",
+		"paths": {
+			"~/*": ["./*"]
+		}
 	},
 	"include": [
 		"src/**/*"
@@ -21,5 +25,5 @@
 	"exclude": [
 		"node_modules",
 		".vscode-test"
-	]
+	],
 }
