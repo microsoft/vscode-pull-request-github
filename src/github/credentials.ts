@@ -194,13 +194,13 @@ export class CredentialStore {
 
 	private willStartLogin(authority: string): void {
 		const status = this._authenticationStatusBarItems.get(authority);
-		status.text = `Signing in to ${authority}...`;
+		status.text = `$(mark-github) Signing in to ${authority}...`;
 		status.command = AUTH_INPUT_TOKEN_CMD;
 	}
 
 	private didEndLogin(authority: string): void {
 		const status = this._authenticationStatusBarItems.get(authority);
-		status.text = `Signed in to ${authority}`;
+		status.text = `$(mark-github) Signed in to ${authority}`;
 		status.command = null;
 	}
 
