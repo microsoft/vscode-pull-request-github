@@ -15,7 +15,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
-import { formatError, uniqBy, Predicate } from '../common/utils';
+import { formatError, uniqBy, Predicate, titleAndBodyFrom } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../typings/git';
 import { PullRequestsCreateParams } from '@octokit/rest';
 import Logger from '../common/logger';
@@ -80,6 +80,12 @@ export class PullRequestManager implements IPullRequestManager {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
+	private _onDidChangeRepository = new vscode.EventEmitter<Repository>();
+	readonly onDidChangeRepository: vscode.Event<Repository> = this._onDidChangeRepository.event;
+
+	private _onDidUpdateGitHubRemotes = new vscode.EventEmitter<GitHubRepository[]>();
+	readonly onDidUpdateGitHubRemotes: vscode.Event<GitHubRepository[]> = this._onDidUpdateGitHubRemotes.event;
+
 	constructor(
 		private _configuration: Configuration,
 		private _repository: Repository,
@@ -105,6 +111,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	set repository(repository: Repository) {
 		this._repository = repository;
+		this._onDidChangeRepository.fire(repository);
 	}
 
 	async clearCredentialCache(): Promise<void> {
@@ -159,6 +166,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 		return Promise.all(resolveRemotePromises).then(_ => {
 			this._githubRepositories = repositories;
+			this._onDidUpdateGitHubRemotes.fire(repositories);
 
 			for (let repository of this._githubRepositories) {
 				const remoteId = repository.remote.url.toString();
@@ -452,6 +460,11 @@ export class PullRequestManager implements IPullRequestManager {
 		};
 	}
 
+	async getMetadata(remote: string): Promise<any> {
+		const repo = this.findRepo(byRemoteName(remote));
+		return repo && repo.getMetadata();
+	}
+
 	async getHeadCommitMessage(): Promise<string> {
 		const {repository} = this;
 		const {message} = await repository.getCommit(repository.state.HEAD.commit);
@@ -498,18 +511,28 @@ export class PullRequestManager implements IPullRequestManager {
 		return HEAD && HEAD.upstream;
 	}
 
-	async createPullRequest(params: PullRequestsCreateParams): Promise<any> {
+	public async getUpstream(branchName: string): Promise<{remote: string, branch: string}> {
+		const remote = await this.repository.getConfig(`branch.${branchName}.remote`);
+		const merge = await this.repository.getConfig(`branch.${branchName}.merge`);
+		Logger.appendLine(`remote=${remote} merge=${merge}`);
+		const REF_HEADS = 'refs/heads/';
+		const branch: string | null = merge.startsWith(REF_HEADS)
+			? merge.slice(REF_HEADS.length)
+			: null;
+		return {remote, branch};
+	}
+
+	async createPullRequest(localBranch: string, params: PullRequestsCreateParams): Promise<any> {
 		const repo = this.findRepo(fromHead(params));
 
 		await repo.ensure();
 		const {head} = params
-			, remoteBranchName = head.substring(head.indexOf(':') + 1, head.length);
+			, remoteBranch = head.substring(head.indexOf(':') + 1, head.length);
 
 		// Push head to remote
 		await push(this.repository,
 			repo.remote.remoteName,
-			this.repository.state.HEAD.name,
-			remoteBranchName);
+			localBranch, remoteBranch);
 
 		// Create PR
 		return repo.octokit.pullRequests.create(params);
@@ -723,12 +746,12 @@ export async function parseTimelineEvents(pullRequestManager: IPullRequestManage
 	return events;
 }
 
-const ownedByMe: Predicate<GitHubRepository> = repo => {
+export const ownedByMe: Predicate<GitHubRepository> = repo => {
 	const { currentUser=null } = repo.octokit as any;
 	return repo.remote.owner === currentUser.login;
 };
 
-const byRemoteName = (name: string): Predicate<GitHubRepository> =>
+export const byRemoteName = (name: string): Predicate<GitHubRepository> =>
 	({remote: {remoteName}}) => remoteName === name;
 
 const fromHead = (params: PullRequestsCreateParams): Predicate<GitHubRepository> => {
@@ -740,18 +763,5 @@ const fromHead = (params: PullRequestsCreateParams): Predicate<GitHubRepository>
 	return byOwnerAndName(owner, repo);
 };
 
-const byOwnerAndName = (byOwner: string, repo: string): Predicate<GitHubRepository> =>
+export const byOwnerAndName = (byOwner: string, repo: string): Predicate<GitHubRepository> =>
 	({remote: {owner, repositoryName}}) => byOwner === owner && repo === repositoryName;
-
-const titleAndBodyFrom = (message: string): {title: string, body: string} => {
-	const idxLineBreak = message.indexOf('\n');
-	return {
-		title: idxLineBreak === -1
-			? message
-			: message.substr(0, idxLineBreak),
-
-		body: idxLineBreak === -1
-			? ''
-			: message.slice(idxLineBreak + 1),
-	};
-};

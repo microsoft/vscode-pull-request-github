@@ -19,7 +19,7 @@ export async function push(
 	remoteBranch: string = localBranch): Promise<void> {
 	const {path: git} = (<any>repo)._repository.repository.git as any;
 	const args = ['push', '--porcelain', remote, `${localBranch}:${remoteBranch}`];
-	Logger.appendLine(`run> git ${args.join(' ')}`)
+	Logger.appendLine(`run> git ${args.join(' ')}`);
 	const {stdout, stderr} = await exec(git, args, {
 		cwd: repo.rootUri.fsPath,
 	});

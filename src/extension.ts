@@ -16,6 +16,7 @@ import { GitExtension, API as GitAPI, Repository } from './typings/git';
 import { Telemetry } from './common/telemetry';
 import { handler as uriHandler } from './common/uri';
 import { ITelemetry } from './github/interface';
+import { CreatePullRequestPanel } from './view/createPullRequestPanel';
 
 // fetch.promise polyfill
 const fetch = require('node-fetch');
@@ -72,6 +73,8 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 			}, 50);
 		});
 	});
+
+	CreatePullRequestPanel.init(context.extensionPath, prManager);
 
 	telemetry.on('startup');
 }

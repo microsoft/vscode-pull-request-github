@@ -8,7 +8,11 @@
 		"sourceMap": true,
 		"strict": true,
 		"noImplicitAny": true,
-		"noUnusedLocals": true
+		"noUnusedLocals": true,
+		"baseUrl": "..",
+		"paths": {
+			"~/*": ["./*"]
+		}
 	},
 	"include": [
 		"./**/*"

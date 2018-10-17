@@ -127,7 +127,7 @@ body .hidden {
 	display: none !important;
 }
 
-body button {
+body button, input[type=submit] {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	border-radius: 0px;
@@ -146,6 +146,8 @@ button:focus {
 	outline-offset: 2px;
 }
 
+input[type=submit]:hover:enabled,
+input[type=submit]:focus:enabled,
 button:hover:enabled, button:focus:enabled {
 	background-color: var(--vscode-button-hoverBackground);
 	cursor: pointer;
@@ -346,7 +348,7 @@ body .comment-form {
 	padding: 20px 0 10px;
 }
 
-body .comment-form textarea {
+textarea {
 	display: block;
 	box-sizing: border-box;
 	padding: 10px;
@@ -370,7 +372,7 @@ body .comment-form textarea:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-body .comment-form .form-actions {
+.form-actions {
 	padding-top: 20px;
 	margin-bottom: 10px;
 	display: flex;
@@ -380,7 +382,7 @@ body button:disabled {
 	opacity: 0.4;
 }
 
-body .comment-form .form-actions button {
+.form-actions button {
 	margin-right:10px;
 }
 
@@ -620,4 +622,24 @@ code {
 
 .vscode-high-contrast .diff .diffLine.delete {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
+}
+
+input.title {
+	display: block;
+	box-sizing: border-box;
+	padding: 10px;
+	width: 100%;
+	font-size: 16pt;
+	resize: vertical;
+	font-size: 16px;
+	font-weight: 600;
+	border: 0;
+	border-bottom: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-family: var(--vscode-editor-font-family);
+}
+
+.create-pr input[type=submit] {
+	margin-left: auto;
 }
