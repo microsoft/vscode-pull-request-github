@@ -122,9 +122,9 @@ class CreatePR extends Component<any, State> {
 				<input
 					type='submit' disabled={!this.ready} value='Create PR' />
 			</div>
-			<pre>{
+			{/* <pre>{
 				JSON.stringify(state, null, 2)
-			}</pre>
+			}</pre> */}
 		</form>;
 	}
 }

@@ -151,7 +151,7 @@ const createPRMiddleware = (manager: IPullRequestManager) => store => next => {
 		.then(titleAndBodyFrom)
 		.then(({title, body}) => {
 			next(setTitle(title));
-			next(setBody(body || 'Describe your PR here'));
+			next(setBody(body));
 		})
 		.catch(error => {
 			Logger.appendLine(error.message);
@@ -177,8 +177,14 @@ const createPRMiddleware = (manager: IPullRequestManager) => store => next => {
 			store.dispatch(pickBranch(repo.state.HEAD.name));
 			break;
 		case PICK_LOCAL_BRANCH:
-			const upstream = await manager.getUpstream(action.branch);
-			store.dispatch(setUpstream(upstream));
+			try {
+				store.dispatch(setUpstream(await manager.getUpstream(action.branch)));
+			} catch (noUpstream) {
+				ensureUpstream(store);
+			}
+			break;
+		case UPDATE_GITHUB_REMOTES:
+			ensureUpstream(store);
 			break;
 		case SET_UPSTREAM:
 			const md = await manager.getMetadata(action.upstream.remote);
@@ -187,6 +193,27 @@ const createPRMiddleware = (manager: IPullRequestManager) => store => next => {
 		}
 		return result;
 	};
+};
+
+const ensureUpstream = store => {
+	const {
+		selectedLocalBranch: {name: branch},
+		gitHubRemotes: remotes
+	}
+		= store.getState().spec;
+	if (!branch) { return; }
+	if (!remotes || !Object.keys(remotes).length) { return; }
+	if (remotes.origin) {
+		store.dispatch(setUpstream({
+			branch,
+			remote: 'origin'
+		}));
+		return;
+	}
+	store.dispatch(setUpstream({
+		branch,
+		remote: Object.keys(remotes)[0],
+	}));
 };
 
 const localBranches = (state=[], {type, repository}) =>
