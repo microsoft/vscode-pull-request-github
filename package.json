@@ -289,6 +289,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
+    "@types/dom-inputevent": "^1.0.3",
     "@types/keytar": "^4.0.1",
     "@types/lodash": "^4.14.106",
     "@types/markdown-it": "^0.0.5",
@@ -314,6 +315,7 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
+    "@types/redux": "^3.6.0",
     "axios": "^0.18.0",
     "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
@@ -324,6 +326,7 @@
     "moment": "^2.22.1",
     "node-emoji": "^1.8.1",
     "node-fetch": "^2.1.1",
+    "redux": "^4.0.1",
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"
