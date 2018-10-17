@@ -15,13 +15,49 @@ import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
-import { formatError, uniqBy } from '../common/utils';
-import { Repository, RefType } from '../typings/git';
+import { formatError, uniqBy, Predicate, titleAndBodyFrom } from '../common/utils';
+import { Repository, RefType, UpstreamRef } from '../typings/git';
+import { PullRequestsCreateParams } from '@octokit/rest';
 import Logger from '../common/logger';
+import { push } from '../common/git';
 
 interface PageInformation {
 	pullRequestPage: number;
 	hasMorePages: boolean;
+}
+
+export class NoGitHubReposError extends Error {
+	constructor(public repository: Repository) {
+		super();
+	}
+
+	get message() {
+		return `${this.repository.rootUri.toString()} has no GitHub remotes`;
+	}
+}
+
+export class DetachedHeadError extends Error {
+	constructor(public repository: Repository) {
+		super();
+	}
+
+	get message() {
+		return `${this.repository.rootUri.toString()} has a detached HEAD (create a branch first)`;
+	}
+}
+
+export class BadUpstreamError extends Error {
+	constructor(
+		public branchName: string,
+		public upstreamRef: UpstreamRef,
+		public problem: string) {
+		super();
+	}
+
+	get message() {
+		const {upstreamRef: {remote, name}, branchName, problem} = this;
+		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
+	}
 }
 
 export class PullRequestManager implements IPullRequestManager {
@@ -34,10 +70,16 @@ export class PullRequestManager implements IPullRequestManager {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
+	private _onDidChangeRepository = new vscode.EventEmitter<Repository>();
+	readonly onDidChangeRepository: vscode.Event<Repository> = this._onDidChangeRepository.event;
+
+	private _onDidUpdateGitHubRemotes = new vscode.EventEmitter<GitHubRepository[]>();
+	readonly onDidUpdateGitHubRemotes: vscode.Event<GitHubRepository[]> = this._onDidUpdateGitHubRemotes.event;
+
 	constructor(
 		private _configuration: Configuration,
 		private _repository: Repository,
-		private readonly _telemetry: ITelemetry
+		private readonly _telemetry: ITelemetry,
 	) {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._configuration, this._telemetry);
@@ -59,6 +101,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	set repository(repository: Repository) {
 		this._repository = repository;
+		this._onDidChangeRepository.fire(repository);
 	}
 
 	async clearCredentialCache(): Promise<void> {
@@ -113,6 +156,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 		return Promise.all(resolveRemotePromises).then(_ => {
 			this._githubRepositories = repositories;
+			this._onDidUpdateGitHubRemotes.fire(repositories);
 
 			for (let repository of this._githubRepositories) {
 				const remoteId = repository.remote.url.toString();
@@ -394,6 +438,104 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
+	async getPullRequestDefaults(): Promise<PullRequestsCreateParams> {
+		if (!this.repository.state.HEAD) {
+			throw new DetachedHeadError(this.repository);
+		}
+		const {origin} = this;
+		const meta = await origin.getMetadata();
+		const parent = meta.fork
+			? meta.parent
+			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
+		const branchName = this.repository.state.HEAD.name;
+		const {title, body} = titleAndBodyFrom(await this.getHeadCommitMessage());
+		return {
+			title, body,
+			owner: parent.owner.login,
+			repo: parent.name,
+			head: `${meta.owner.login}:${branchName}`,
+			base: parent.default_branch,
+		};
+	}
+
+	async getMetadata(remote: string): Promise<any> {
+		const repo = this.findRepo(byRemoteName(remote));
+		return repo && repo.getMetadata();
+	}
+
+	async getHeadCommitMessage(): Promise<string> {
+		const {repository} = this;
+		const {message} = await repository.getCommit(repository.state.HEAD.commit);
+		return message;
+	}
+
+	get origin(): GitHubRepository {
+		if (!this._githubRepositories.length) {
+			throw new NoGitHubReposError(this.repository);
+		}
+
+		const {upstreamRef} = this;
+		if (upstreamRef) {
+			// If our current branch has an upstream ref set, find its GitHubRepository.
+			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
+			if (!upstream) {
+				// No GitHubRepository? We currently won't try pushing elsewhere,
+				// so fail.
+				throw new BadUpstreamError(
+					this.repository.state.HEAD.name,
+					upstreamRef,
+					'is not a GitHub repo');
+			}
+			// Otherwise, we'll push upstream.
+			return upstream;
+		}
+
+		// If no upstream is set, let's go digging.
+		const [first, ...rest] = this._githubRepositories;
+		return !rest.length  // Is there only one GitHub remote?
+			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
+			:  // Otherwise, let's try...
+			this.findRepo(byRemoteName('origin')) || // by convention
+			this.findRepo(ownedByMe) ||              // bc maybe we can push there
+			first; // out of raw desperation
+	}
+
+	findRepo(where: Predicate<GitHubRepository>): GitHubRepository | undefined {
+		return this._githubRepositories.filter(where)[0];
+	}
+
+	get upstreamRef(): UpstreamRef | undefined {
+		const {HEAD} = this.repository.state;
+		return HEAD && HEAD.upstream;
+	}
+
+	public async getUpstream(branchName: string): Promise<{remote: string, branch: string}> {
+		const remote = await this.repository.getConfig(`branch.${branchName}.remote`);
+		const merge = await this.repository.getConfig(`branch.${branchName}.merge`);
+		Logger.appendLine(`remote=${remote} merge=${merge}`);
+		const REF_HEADS = 'refs/heads/';
+		const branch: string | null = merge.startsWith(REF_HEADS)
+			? merge.slice(REF_HEADS.length)
+			: null;
+		return {remote, branch};
+	}
+
+	async createPullRequest(localBranch: string, params: PullRequestsCreateParams): Promise<any> {
+		const repo = this.findRepo(fromHead(params));
+
+		await repo.ensure();
+		const {head} = params
+			, remoteBranch = head.substring(head.indexOf(':') + 1, head.length);
+
+		// Push head to remote
+		await push(this.repository,
+			repo.remote.remoteName,
+			localBranch, remoteBranch);
+
+		// Create PR
+		return repo.octokit.pullRequests.create(params);
+	}
+
 	private async changePullRequestState(state: 'open' | 'closed', pullRequest: IPullRequestModel): Promise<any> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
@@ -579,3 +721,23 @@ export async function parseTimelineEvents(pullRequestManager: IPullRequestManage
 
 	return events;
 }
+
+export const ownedByMe: Predicate<GitHubRepository> = repo => {
+	const { currentUser=null } = repo.octokit as any;
+	return repo.remote.owner === currentUser.login;
+};
+
+export const byRemoteName = (name: string): Predicate<GitHubRepository> =>
+	({remote: {remoteName}}) => remoteName === name;
+
+const fromHead = (params: PullRequestsCreateParams): Predicate<GitHubRepository> => {
+	const {head, repo} = params;
+	const idxSep = head.indexOf(':');
+	const owner = idxSep !== -1
+		? head.substr(0, idxSep)
+		: params.owner;
+	return byOwnerAndName(owner, repo);
+};
+
+export const byOwnerAndName = (byOwner: string, repo: string): Predicate<GitHubRepository> =>
+	({remote: {owner, repositoryName}}) => byOwner === owner && repo === repositoryName;

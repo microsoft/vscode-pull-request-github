@@ -183,3 +183,37 @@ export async function promiseFromEmitter<T, U>(
 		}
 	);
 }
+
+export interface Predicate<T> {
+	(input: T): boolean;
+}
+
+/**
+ * Return a random string
+ */
+export function getNonce(length = 32) {
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	while (length --> 0) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
+}
+
+/**
+ * Extract a title and body from a string.
+ *
+ * The title will be the first line; the body will be the rest of them.
+ */
+export const titleAndBodyFrom = (message: string): {title: string, body: string} => {
+	const idxLineBreak = message.indexOf('\n');
+	return {
+		title: idxLineBreak === -1
+			? message
+			: message.substr(0, idxLineBreak),
+
+		body: idxLineBreak === -1
+			? ''
+			: message.slice(idxLineBreak + 1),
+	};
+};

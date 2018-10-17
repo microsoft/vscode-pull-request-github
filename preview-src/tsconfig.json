@@ -4,10 +4,15 @@
 		"module": "commonjs",
 		"target": "es6",
 		"jsx": "react",
+		"jsxFactory": "h",
 		"sourceMap": true,
 		"strict": true,
 		"noImplicitAny": true,
-		"noUnusedLocals": true
+		"noUnusedLocals": true,
+		"baseUrl": "..",
+		"paths": {
+			"~/*": ["./*"]
+		}
 	},
 	"include": [
 		"./**/*"

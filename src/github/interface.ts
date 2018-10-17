@@ -9,6 +9,9 @@ import { Comment } from '../common/comment';
 import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
 import { Repository } from '../typings/git';
+import { PullRequestsCreateParams } from '@octokit/rest';
+import { GitHubRepository } from './githubRepository';
+import { Predicate } from '../common/utils';
 
 export enum PRType {
 	RequestReview = 0,
@@ -164,7 +167,13 @@ export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
 	repository: Repository;
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
+	readonly onDidChangeRepository: vscode.Event<Repository>;
+	readonly onDidUpdateGitHubRemotes: vscode.Event<GitHubRepository[]>;
+
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
+	getUpstream(branchName: string): Promise<{remote: string, branch: string}>;
+	getMetadata(remote: string): Promise<any>;
+	getHeadCommitMessage(): Promise<string>;
 	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
 	mayHaveMorePages(): boolean;
@@ -177,12 +186,15 @@ export interface IPullRequestManager {
 	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment>;
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
+	getPullRequestDefaults(): Promise<PullRequestsCreateParams>;
+	createPullRequest(localBranch: string, params: PullRequestsCreateParams): Promise<any>;
 	mergePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
+	findRepo(where: Predicate<GitHubRepository>): GitHubRepository | undefined;
 
 	/**
 	 * Fullfill information for a pull request which we can't fetch with one single api call.

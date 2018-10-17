@@ -15,7 +15,8 @@ function getWebviewConfig(env) {
 		name: 'webiew',
 		mode: env.production ? 'production' : 'development',
 		entry: {
-			index: './preview-src/index.ts'
+			index: './preview-src/index.ts',
+			create: './preview-src/create.tsx',
 		},
 		module: {
 			rules: [
@@ -31,7 +32,10 @@ function getWebviewConfig(env) {
 			]
 		},
 		resolve: {
-			extensions: ['.tsx', '.ts', '.js']
+			extensions: ['.tsx', '.ts', '.js'],
+			alias: {
+				"~": __dirname,
+			}
 		},
 		devtool: !env.production ? 'inline-source-map' : undefined,
 		output: {
@@ -76,6 +80,7 @@ function getExtensionConfig(env) {
 			extensions: ['.tsx', '.ts', '.js'],
 			alias: {
 				"node-fetch": path.resolve(__dirname, 'node_modules/node-fetch/lib/index.js'),
+				"~": __dirname,
 			}
 		},
 		devtool: !env.production ? 'source-map' : undefined,

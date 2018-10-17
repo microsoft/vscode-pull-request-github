@@ -17,6 +17,7 @@ import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
+import { CreatePullRequestPanel } from './view/createPullRequestPanel';
 
 const _onDidUpdatePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidUpdatePR: vscode.Event<IPullRequest> = _onDidUpdatePR.event;
@@ -70,6 +71,21 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		} catch (e) {
 			vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${e}`);
 		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async () => {
+		CreatePullRequestPanel.show();
+		return;
+		// const params = await prManager.getPullRequestDefaults();
+
+		// for (const prop of Object.getOwnPropertyNames(params)) {
+		// 	params[prop] = await vscode.window.showInputBox({
+		// 		prompt: capitalize(prop),
+		// 		value: params[prop],
+		// 	});
+		// 	if (!params[prop]) { return; }
+		// }
+		// return prManager.createPullRequest(params);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {
