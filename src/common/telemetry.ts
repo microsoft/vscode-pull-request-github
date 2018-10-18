@@ -47,6 +47,8 @@ class VSSettings implements ISettings {
 		].filter(({ value }) => value !== undefined);
 
 		if (values.length > 0) {
+			Logger.appendLine(`Migrating deprecated 'telemetry.${DEPRECATED_CONFIG_SECTION}' setting.`);
+
 			values.forEach(({ target, value }) => {
 				this._config.update(CONFIG_SECTION, !value, target);
 				deprecated.update(DEPRECATED_CONFIG_SECTION, undefined, target);
