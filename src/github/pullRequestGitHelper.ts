@@ -64,6 +64,13 @@ export class PullRequestGitHelper {
 			branch = await repository.getBranch(branchName);
 		}
 
+		if (branch.remote && branch.remote !== remote.remoteName) {
+			// the pull request branch is a branch with the same name in a fork
+			// we should check whehter the branch for this fork
+			await PullRequestGitHelper.createAndCheckout(repository, pullRequest);
+			return;
+		}
+
 		await repository.checkout(branchName);
 
 		if (!branch.upstream) {
