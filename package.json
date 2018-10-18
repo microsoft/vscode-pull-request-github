@@ -270,6 +270,16 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.openOriginalFile",
+        "title": "Open Original File",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.openModifiedFile",
+        "title": "Open Modified File",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.openDiffView",
         "title": "Open Diff View",
         "category": "GitHub Pull Requests",
@@ -473,6 +483,14 @@
           "when": "false"
         },
         {
+          "command": "pr.openOriginalFile",
+          "when": "false"
+        },
+        {
+          "command": "pr.openModifiedFile",
+          "when": "false"
+        },
+        {
           "command": "pr.refreshPullRequest",
           "when": "false"
         },
@@ -610,6 +628,14 @@
           "command": "pr.openDiffView",
           "group": "inline",
           "when": "!config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
+        },
+        {
+          "command": "pr.openOriginalFile",
+          "when": "view =~ /(pr|prStatus)/ && viewItem == filechange"
+        },
+        {
+          "command": "pr.openModifiedFile",
+          "when": "view =~ /(pr|prStatus)/ && viewItem == filechange"
         }
       ],
       "editor/title": [
