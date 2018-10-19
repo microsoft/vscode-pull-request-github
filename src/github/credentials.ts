@@ -148,11 +148,12 @@ export class CredentialStore {
 	}
 
 	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
-		const proxySettings = new URL(process.env.HTTPS_PROXY);
-		const agent = httpsOverHttp({proxy: {
+		const proxySettings = process.env.HTTPS_PROXY ?
+			new URL(process.env.HTTPS_PROXY) : null;
+		const agent = process.env.HTTPS_PROXY ? httpsOverHttp({proxy: {
 			host: proxySettings.hostname,
 			port: proxySettings.port,
-		}});
+		}}) : null;
 		const octokit = new Octokit({
 			agent,
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
