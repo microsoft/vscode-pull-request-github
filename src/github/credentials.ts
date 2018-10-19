@@ -101,7 +101,7 @@ export class CredentialStore {
 
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
 		// so use a normalized http[s] url regardless of the original protocol
-		const {scheme, authority} = remote.gitProtocol.normalizeUri();
+		const { scheme, authority } = remote.gitProtocol.normalizeUri();
 		const host = `${scheme}://${authority}`;
 
 		let retry: boolean = true;
