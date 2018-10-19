@@ -5,6 +5,7 @@
 import './index.css';
 import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, TimelineEvent, EventType } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
+import * as debounce from 'debounce';
 import * as moment from 'moment';
 const emoji = require('node-emoji');
 
@@ -235,15 +236,15 @@ function addEventListeners(pr: PullRequest): void {
 		});
 	});
 
-	window.onscroll = () => {
+	window.onscroll = debounce(() => {
 		vscode.postMessage({
 			command: 'scroll',
 			scrollPosition: {
 				x: window.scrollX,
 				y: window.scrollY
 			}
-		})
-	}
+		});
+	}, 200);
 }
 
 function clearTextArea() {

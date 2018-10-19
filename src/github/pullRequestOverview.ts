@@ -231,7 +231,7 @@ export class PullRequestOverviewPanel {
 			case 'pr.comment':
 				return this.createComment(message.text);
 			case 'scroll': {
-				this._scrollPosition = message.scrollPosition
+				this._scrollPosition = message.scrollPosition;
 				return;
 			}
 		}
