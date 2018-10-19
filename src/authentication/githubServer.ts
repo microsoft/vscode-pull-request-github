@@ -5,6 +5,9 @@ import Logger from '../common/logger';
 import { handler as uriHandler } from '../common/uri';
 import { PromiseAdapter, promiseFromEmitter } from '../common/utils';
 import axios from 'axios';
+import { httpsOverHttp } from 'tunnel';
+import { URL } from 'url';
+
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
 
@@ -70,12 +73,20 @@ export class GitHubManager {
 		if (token) {
 			headers.authorization = `token ${token}`;
 		}
+
+		const proxySettings = process.env.HTTPS_PROXY ?
+			new URL(process.env.HTTPS_PROXY) : null;
+		const agent = process.env.HTTPS_PROXY ? httpsOverHttp({proxy: {
+			host: proxySettings.hostname,
+			port: proxySettings.port,
+		}}) : null;
 		return {
 			host: HostHelper.getApiHost(hostUri).authority,
 			port: 443,
 			method,
 			path: HostHelper.getApiPath(hostUri, path),
 			headers,
+			agent,
 		};
 	}
 
