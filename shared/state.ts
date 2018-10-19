@@ -1,32 +1,54 @@
 export type State = {
-	spec: {
-		title: string,
-		body: string,
-		localBranches: string[],
-		selectedLocalBranch: {
-			name: string,
-			upstream: {
-				branch: string,
-				remote: string,
-			}
-		},
-		gitHubRemotes: {
-			[name: string]: {
-				host: string,
-				name: string,
-				owner: string,
-				metadata: any,
-			}
-		},
-		parentIsBase: boolean,
-	},
-	willCreatePR: {
-		remote: string,
-		params: PullRequestsCreateParams,
-	} | null
+	newPR: NewPRState;
+	gitHubRemotes: GitHubRemotesState;
+	localBranches: string[];
 };
 
-type PullRequestsCreateParams = {
+export type NewPRState = {
+	spec: NewPRSpecState;
+	errors?: { [location: string]: string };
+	request?: NewPRRequest;
+};
+
+export type NewPRRequest = {
+	user: string;
+	push: PushParams;
+	params: PullRequestCreateParams;
+};
+
+export type PushParams = {
+	localBranch: string;
+	remoteBranch: string;
+	remote: string;
+};
+
+export type NewPRSpecState = {
+	title: string;
+	body: string;
+	branch: {
+		name?: string;
+		upstream?: Upstream;
+	};
+	parentIsBase: boolean;
+};
+
+export type GitHubRemotesState = {
+	[remoteName: string]: GitHubRemote
+};
+
+export type Upstream = {
+	branch: string;
+	remote: string;
+};
+
+export type GitHubRemote = {
+	readonly host: string;
+	readonly owner: string;
+	readonly name: string;
+	readonly metadata?: any;
+};
+
+export type PullRequestCreateParams = {
 	base: string;
 	body?: string;
 	head: string;

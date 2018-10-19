@@ -12,8 +12,10 @@ const main = document.createElement('div');
 document.body.appendChild(main);
 
 const input = (createAction: (text: string) => any): JSX.EventHandler<Event> =>
-	(e: Event) => send(createAction((e.target as any).value));
-
+	(e: Event) => {
+		const action = createAction((e.target as any).value);
+		if (typeof action.type === 'string') { send(action); }
+	};
 class CreatePR extends Component<any, State> {
 	componentDidMount() {
 		addEventListener('message', this.onState);
@@ -23,12 +25,12 @@ class CreatePR extends Component<any, State> {
 		removeEventListener('message', this.onState);
 	}
 
-	onState = (e: MessageEvent) => this.setState(e.data as State);
+	onState = (e: MessageEvent) => this.setState(e.data);
 
 	setTitle = input(setTitle);
 	setBody = input(setBody);
 	setBranch = input(pickBranch);
-	setRemote = input(remote => setUpstream({
+	setRemote = input(remote => this.selectedBranch && setUpstream({
 		remote, branch: this.selectedBranch
 	}));
 	setBase = input(index => setBase(!!+index));
@@ -38,15 +40,15 @@ class CreatePR extends Component<any, State> {
 	}
 
 	get branches() {
-		return this.state.spec.localBranches;
+		return this.state.localBranches;
 	}
 
 	get remotes() {
-		return this.state.spec.gitHubRemotes;
+		return this.state.gitHubRemotes;
 	}
 
 	get selectedBranch() {
-		return this.state.spec.selectedLocalBranch.name;
+		return this.state.newPR.spec.branch.name;
 	}
 
 	get branchSelector() {
@@ -59,7 +61,7 @@ class CreatePR extends Component<any, State> {
 	}
 
 	get selectedRemote() {
-		const {upstream} = this.state.spec.selectedLocalBranch;
+		const {upstream} = this.state.newPR.spec.branch;
 		return upstream && upstream.remote;
 	}
 
@@ -85,7 +87,7 @@ class CreatePR extends Component<any, State> {
 	}
 
 	get selectedBase() {
-		return this.state.spec.parentIsBase ? 1 : 0;
+		return this.state.newPR.spec.parentIsBase ? 1 : 0;
 	}
 
 	get baseSelector() {
@@ -100,11 +102,12 @@ class CreatePR extends Component<any, State> {
 	}
 
 	get ready() {
-		return this.state.willCreatePR;
+		return this.state.newPR.request;
 	}
 
 	public render(_props: any, state: State) {
-		if (!state || !state.spec) { return null; }
+		if (!state || !state.newPR || !state.newPR.spec) { return null; }
+		const {spec} = state.newPR;
 		return <form class='create-pr' onSubmit={this.createPR}>
 			<h1>Create Pull Request</h1>
 			<label>Push branch {this.branchSelector}</label>
@@ -113,10 +116,10 @@ class CreatePR extends Component<any, State> {
 			<input class='title'
 				onInput={this.setTitle}
 				placeholder='Title'
-				value={state.spec.title}
+				value={spec.title}
 				/>
 			<textarea onInput={this.setBody}
-				value={state.spec.body}
+				value={spec.body}
 				placeholder='Description'/>
 			<div class='form-actions'>
 				<input
