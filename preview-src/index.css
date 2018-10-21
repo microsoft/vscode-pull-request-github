@@ -127,6 +127,7 @@ body .hidden {
 	display: none !important;
 }
 
+body select,
 body button {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
@@ -141,16 +142,19 @@ body button {
 	user-select: none;
 }
 
+select:focus,
 button:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
 }
 
+select:hover:enabled, select:focus:enabled,
 button:hover:enabled, button:focus:enabled {
 	background-color: var(--vscode-button-hoverBackground);
 	cursor: pointer;
 }
 
+body select.checkedOut,
 body button.checkedOut {
 	color: var(--vscode-foreground);
 	opacity: 1 !important;
@@ -158,6 +162,8 @@ body button.checkedOut {
 	background-color: transparent;
 }
 
+body select.secondary,
+body select.secondary:hover,
 body button.secondary,
 body button.secondary:hover {
 	-webkit-filter: grayscale(100%);
@@ -346,6 +352,19 @@ body .comment-form {
 	padding: 20px 0 10px;
 }
 
+body .comment-form input {
+	display: block;
+	box-sizing: border-box;
+	padding: 10px;
+	width: 100%;
+	resize: vertical;
+	font-size: 13px;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-family: var(--vscode-editor-font-family);
+}
+
 body .comment-form textarea {
 	display: block;
 	box-sizing: border-box;
@@ -380,8 +399,9 @@ body button:disabled {
 	opacity: 0.4;
 }
 
+body .comment-form .form-actions select,
 body .comment-form .form-actions button {
-	margin-right:10px;
+		margin-right:10px;
 }
 
 .details .comment-body {
@@ -596,16 +616,19 @@ code {
 	outline-color: var(--vscode-contrastActiveBorder);
 }
 
+.vscode-high-contrast select,
 .vscode-high-contrast button {
 	outline: none;
 	background: none !important;
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
+.vscode-high-contrast select:focus,
 .vscode-high-contrast button:focus{
 	border-color: var(--vscode-contrastActiveBorder);
 }
 
+.vscode-high-contrast select.secondary,
 .vscode-high-contrast button.secondary {
 	-webkit-filter: none;
 }

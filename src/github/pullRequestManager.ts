@@ -415,12 +415,12 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 	}
 
-	async mergePullRequest(pullRequest: IPullRequestModel): Promise<any> {
+	async mergePullRequest(pullRequest: IPullRequestModel, title?: string, desc?: string, method?: 'merge'|'squash'|'rebase'): Promise<any> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 		return await octokit.pullRequests.merge({
-			commit_message: '',
-			commit_title: '',
-			merge_method: 'merge',
+			commit_message: desc,
+			commit_title: title,
+			merge_method: method,
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,

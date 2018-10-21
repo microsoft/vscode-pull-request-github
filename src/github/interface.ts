@@ -177,7 +177,7 @@ export interface IPullRequestManager {
 	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment>;
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
-	mergePullRequest(pullRequest: IPullRequestModel): Promise<any>;
+	mergePullRequest(pullRequest: IPullRequestModel, title?: string, desc?: string, method?: string): Promise<any>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;

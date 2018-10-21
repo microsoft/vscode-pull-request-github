@@ -12,6 +12,7 @@ import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/ti
 import { Comment } from '../common/comment';
 import { groupBy, formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
+import Logger from '../common/logger';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -207,6 +208,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private async _onDidReceiveMessage(message) {
+		Logger.appendLine(message);
 		switch (message.command) {
 			case 'alert':
 				vscode.window.showErrorMessage(message.text);
@@ -214,7 +216,7 @@ export class PullRequestOverviewPanel {
 			case 'pr.checkout':
 				return this.checkoutPullRequest();
 			case 'pr.merge':
-				return this.mergePullRequest();
+				return this.mergePullRequest(message.title, message.desc, message.method);
 			case 'pr.close':
 				return this.closePullRequest(message.text);
 			case 'pr.approve':
@@ -238,8 +240,8 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private mergePullRequest(): void {
-		vscode.commands.executeCommand<MergePullRequest>('pr.merge', this._pullRequest).then(result => {
+	private mergePullRequest(title?: string, desc?: string, method?: string): void {
+		vscode.commands.executeCommand<MergePullRequest>('pr.merge', this._pullRequest, title, desc, method).then(result => {
 			if (!result) {
 				this._panel.webview.postMessage({
 					command: 'update-state',
