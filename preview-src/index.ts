@@ -231,6 +231,19 @@ function addEventListeners(pr: PullRequest): void {
 			branch: pr.repositoryDefaultBranch
 		});
 	});
+
+	let fileDiffButtons = document.getElementsByClassName("file-diff-btn")!;
+	console.log(`found ${fileDiffButtons.length} file diff buttons`);
+
+	for (let fileDiffButton of Array.from(fileDiffButtons)) {
+		console.log(`Adding click listener to ${fileDiffButton.outerHTML}`);
+		fileDiffButton.addEventListener('click', (e) => {
+			vscode.postMessage({
+				command: 'pr.file-diff',
+				path: (<HTMLElement>e.target).getAttribute('data-path'),
+			});
+		});
+	}
 }
 
 function clearTextArea() {

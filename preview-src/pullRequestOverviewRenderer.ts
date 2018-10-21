@@ -352,7 +352,7 @@ export function renderReview(timelineEvent: ReviewEvent): string {
 				}
 
 				diffView = `<div class="diff">
-					<div class="diffHeader">${comments[0].path}</div>
+					<div class="diffHeader">${comments[0].path} &nbsp; <a href="#" class="file-diff-btn" data-path="${comments[0].path}">Show Diff</a> </div>
 					${diffLines.join('')}
 				</div>`;
 			}

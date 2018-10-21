@@ -225,6 +225,12 @@ export class PullRequestOverviewPanel {
 				return this.checkoutDefaultBranch(message.branch);
 			case 'pr.comment':
 				return this.createComment(message.text);
+			case 'pr.file-diff':
+				const options: vscode.TextDocumentShowOptions = {
+					preserveFocus: true
+				};
+				vscode.commands.executeCommand('pr.openDiffView', [`pr:/${message.path}?`, `pr:/${message.path}?`, message.path, false, options]);
+				return true;
 		}
 	}
 
