@@ -24,6 +24,17 @@ interface PageInformation {
 	hasMorePages: boolean;
 }
 
+interface RestErrorResult {
+	errors: RestError[];
+	message: string;
+}
+
+interface RestError {
+	code: string;
+	field: string;
+	resource: string;
+}
+
 export class PullRequestManager implements IPullRequestManager {
 	private _activePullRequest?: IPullRequestModel;
 	private _credentialStore: CredentialStore;
@@ -362,11 +373,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 			return ret.data;
 		} catch (e) {
-			if (e.code && e.code === 422) {
-				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
-			} else {
-				throw e;
-			}
+			this.handleError(e);
 		}
 	}
 
@@ -386,11 +393,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 			return ret.data;
 		} catch (e) {
-			if (e.code && e.code === 422) {
-				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
-			} else {
-				throw e;
-			}
+			this.handleError(e);
 		}
 	}
 
@@ -425,7 +428,7 @@ export class PullRequestManager implements IPullRequestManager {
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
 		})
-		.then(x => {
+			.then(x => {
 				this._telemetry.on('pr.merge');
 				return x.data;
 			});
@@ -542,6 +545,28 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async checkout(branchName: string): Promise<void> {
 		return this.repository.checkout(branchName);
+	}
+
+	private handleError(e: any) {
+		if (e.code && e.code === 422) {
+			let errorObject: RestErrorResult;
+			try {
+				errorObject = e.message && JSON.parse(e.message);
+			} catch {
+				// If we failed to parse the JSON re-throw the original error
+				// since it will have a more useful stack
+				throw e;
+			}
+			const firstError = errorObject && errorObject.errors && errorObject.errors[0];
+			if (firstError && firstError.code === 'missing_field' && firstError.field === 'body') {
+				throw new Error('Body can\'t be blank');
+			} else {
+				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
+			}
+
+		} else {
+			throw e;
+		}
 	}
 
 	//#endregion
