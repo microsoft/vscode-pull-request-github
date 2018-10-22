@@ -549,12 +549,19 @@ export class PullRequestManager implements IPullRequestManager {
 
 	private handleError(e: any) {
 		if (e.code && e.code === 422) {
-			const errorObject: RestErrorResult = e.message && JSON.parse(e.message);
-			const firstError = errorObject && errorObject.errors && errorObject.errors[0];
-			if (firstError && firstError.code === 'missing_field' && firstError.field === 'body') {
-				throw new Error('Body can\'t be blank');
-			} else {
-				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
+			try {
+				let errorObject: RestErrorResult = e.message && JSON.parse(e.message);
+				const firstError = errorObject && errorObject.errors && errorObject.errors[0];
+				if (firstError && firstError.code === 'missing_field' && firstError.field === 'body') {
+					throw new Error('Body can\'t be blank');
+				} else {
+					throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
+				}
+			}
+			catch {
+				// If we failed to parse the JSON re-throw the original error
+				// since it will have a more useful stack
+				throw e;
 			}
 		} else {
 			throw e;
