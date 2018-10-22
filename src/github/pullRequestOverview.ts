@@ -12,7 +12,6 @@ import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/ti
 import { Comment } from '../common/comment';
 import { groupBy, formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
-import Logger from '../common/logger';
 
 export class PullRequestOverviewPanel {
 	/**
@@ -208,7 +207,6 @@ export class PullRequestOverviewPanel {
 	}
 
 	private async _onDidReceiveMessage(message) {
-		Logger.appendLine(message);
 		switch (message.command) {
 			case 'alert':
 				vscode.window.showErrorMessage(message.text);

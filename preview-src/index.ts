@@ -14,7 +14,6 @@ const vscode = acquireVsCodeApi();
 const ElementIds = {
 	Checkout: 'checkout',
 	CheckoutDefaultBranch: 'checkout-default-branch',
-	Merge: 'merge',
 	ConfirmMerge: 'confirm-merge',
 	CancelMerge: 'cancel-merge',
 	CommentDiv: 'comment-div',
@@ -27,7 +26,7 @@ const ElementIds = {
 	RequestChanges: 'request-changes',
 	Status: 'status',
 	CommentTextArea: 'comment-textarea',
-	TitleTextArea: 'title-textarea',
+	TitleInput: 'title-input',
 	DescreptionTextArea: 'descreption-textarea',
 	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
 };
@@ -60,32 +59,24 @@ window.onload = () => {
 };
 
 function handleMessage(event: any) {
-
 	const message = event.data; // The json data that the extension sent
-
 	switch (message.command) {
-
 		case 'pr.initialize':
 			pullRequest = message.pullrequest;
-
 			renderPullRequest(pullRequest);
 			vscode.setState(pullRequest);
 			break;
 		case 'update-state':
 			updatePullRequestState(message.state);
-
 			break;
 		case 'pr.update-checkout-status':
 			updateCheckoutButton(message.isCurrentlyCheckedOut);
-
 			break;
 		case 'pr.append-comment':
 			appendComment(message.value);
-
 			break;
 		case 'pr.append-review':
 			appendReview(message.value);
-
 			break;
 		case 'pr.enable-approve':
 			(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
@@ -179,7 +170,6 @@ function addEventListeners(pr: PullRequest): void {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Checkout)).disabled = true;
 		(<HTMLButtonElement>document.getElementById(ElementIds.Checkout)).innerHTML = 'Checking Out...';
 		vscode.postMessage({
-
 			command: 'pr.checkout'
 		});
 	});
@@ -214,23 +204,20 @@ function addEventListeners(pr: PullRequest): void {
 			(<HTMLDivElement>document.getElementById(ElementIds.MergeInputDiv)).classList.remove('hidden');
 		}
 		(<HTMLDivElement>document.getElementById(ElementIds.MergeDiv)).classList.remove('hidden');
-
 	});
 
 	document.getElementById(ElementIds.CancelMerge)!.addEventListener('click', () => {
 		(<HTMLDivElement>document.getElementById(ElementIds.MergeDiv)).classList.add('hidden');
 		(<HTMLSelectElement>document.getElementById(ElementIds.MergeSelect)).selectedIndex = 0;
-
 	});
 
 	document.getElementById(ElementIds.ConfirmMerge)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.MergeSelect)).disabled = true;
-		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.TitleTextArea));
+		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.TitleInput));
 		const descBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.DescreptionTextArea));
 		const method = getSelectedOption(<HTMLSelectElement>document.getElementById(ElementIds.MergeSelect));
 
 		vscode.postMessage({
-
 			command: 'pr.merge',
 			title: inputBox.value,
 			desc: descBox.value,
@@ -242,7 +229,6 @@ function addEventListeners(pr: PullRequest): void {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Close)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
 		vscode.postMessage({
-
 			command: 'pr.close',
 			text: inputBox.value
 		});
@@ -252,7 +238,6 @@ function addEventListeners(pr: PullRequest): void {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
 		vscode.postMessage({
-
 			command: 'pr.approve',
 			text: inputBox.value
 		});
@@ -262,7 +247,6 @@ function addEventListeners(pr: PullRequest): void {
 		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
 		vscode.postMessage({
-
 			command: 'pr.request-changes',
 			text: inputBox.value
 		});
@@ -271,7 +255,6 @@ function addEventListeners(pr: PullRequest): void {
 	document.getElementById(ElementIds.CheckoutDefaultBranch)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = true;
 		vscode.postMessage({
-
 			command: 'pr.checkout-default-branch',
 			branch: pr.repositoryDefaultBranch
 		});
@@ -291,7 +274,6 @@ function clearTextArea() {
 function submitComment() {
 	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
 	vscode.postMessage({
-
 		command: 'pr.comment',
 		text: (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value
 	});
@@ -356,7 +338,7 @@ function setTextArea() {
 		<div id="${ElementIds.MergeDiv}" class="hidden">
 			<div id="${ElementIds.MergeInputDiv}" >
 				<div>Title:</div>
-				<input type=text id="${ElementIds.TitleTextArea}"></textarea>
+				<input type=text id="${ElementIds.TitleInput}"></textarea>
 				<br>
 				<div>Desc:</div>
 				<textarea id="${ElementIds.DescreptionTextArea}"></textarea>
