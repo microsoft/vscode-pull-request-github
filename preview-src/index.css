@@ -402,7 +402,7 @@ body button:disabled {
 
 body .comment-form .form-actions select,
 body .comment-form .form-actions button {
-		margin-right:10px;
+	margin-right:10px;
 }
 
 .details .comment-body {
@@ -617,19 +617,19 @@ code {
 	outline-color: var(--vscode-contrastActiveBorder);
 }
 
-.vscode-high-contrast select,
+/* .vscode-high-contrast select, */
 .vscode-high-contrast button {
 	outline: none;
 	background: none !important;
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
-.vscode-high-contrast select:focus,
+/* .vscode-high-contrast select:focus, */
 .vscode-high-contrast button:focus{
 	border-color: var(--vscode-contrastActiveBorder);
 }
 
-.vscode-high-contrast select.secondary,
+/* .vscode-high-contrast select.secondary, */
 .vscode-high-contrast button.secondary {
 	-webkit-filter: none;
 }

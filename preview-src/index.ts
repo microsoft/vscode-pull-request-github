@@ -19,7 +19,7 @@ const ElementIds = {
 	CommentDiv: 'comment-div',
 	MergeSelect: 'merge-select',
 	MergeInputDiv: 'merge-input-div',
-	MergeDiv: 'merge-fiv',
+	MergeDiv: 'merge-div',
 	Close: 'close',
 	Reply: 'reply',
 	Approve: 'approve',
