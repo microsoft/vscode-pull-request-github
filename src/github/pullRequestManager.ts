@@ -552,8 +552,7 @@ export class PullRequestManager implements IPullRequestManager {
 			let errorObject: RestErrorResult;
 			try {
 				errorObject = e.message && JSON.parse(e.message);
-			}
-			catch {
+			} catch {
 				// If we failed to parse the JSON re-throw the original error
 				// since it will have a more useful stack
 				throw e;
