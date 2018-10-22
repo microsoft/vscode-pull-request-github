@@ -553,12 +553,10 @@ export class PullRequestManager implements IPullRequestManager {
 			const firstError = errorObject && errorObject.errors && errorObject.errors[0];
 			if (firstError && firstError.code === 'missing_field' && firstError.field === 'body') {
 				throw new Error('Body can\'t be blank');
-			}
-			else {
+			} else {
 				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
 			}
-		}
-		else {
+		} else {
 			throw e;
 		}
 	}
