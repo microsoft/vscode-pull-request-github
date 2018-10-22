@@ -99,7 +99,9 @@ export function providePRDocumentComments(
 					commentId: comment.id,
 					body: new vscode.MarkdownString(comment.body),
 					userName: comment.user.login,
-					gravatar: comment.user.avatar_url
+					gravatar: comment.user.avatar_url,
+					canEdit: comment.canEdit,
+					canDelete: comment.canDelete
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -140,7 +142,9 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 					commentId: comment.id,
 					body: new vscode.MarkdownString(comment.body),
 					userName: comment.user.login,
-					gravatar: comment.user.avatar_url
+					gravatar: comment.user.avatar_url,
+					canEdit: comment.canEdit,
+					canDelete: comment.canDelete
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -278,7 +282,9 @@ export class PRNode extends TreeNode {
 						onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
 						provideDocumentComments: this.provideDocumentComments.bind(this),
 						createNewCommentThread: this.createNewCommentThread.bind(this),
-						replyToCommentThread: this.replyToCommentThread.bind(this)
+						replyToCommentThread: this.replyToCommentThread.bind(this),
+						editComment: this.editComment.bind(this),
+						deleteComment: this.deleteComment.bind(this)
 					});
 				}
 			} else {
@@ -434,6 +440,21 @@ export class PRNode extends TreeNode {
 		return '';
 	}
 
+	private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {
+		const params = fromPRUri(uri);
+		const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
+
+		if (!fileChange) {
+			throw new Error('No matching file found');
+		}
+
+		if (fileChange instanceof RemoteFileChangeNode) {
+			throw new Error('Comments not supported on remote file changes');
+		}
+
+		return fileChange;
+	}
+
 	private async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string) {
 		try {
 			let uri = document.uri;
@@ -443,15 +464,7 @@ export class PRNode extends TreeNode {
 				return null;
 			}
 
-			let fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
-
-			if (!fileChange) {
-				throw new Error('No matching file found');
-			}
-
-			if (fileChange instanceof RemoteFileChangeNode) {
-				throw new Error('Cannot add comment to this file');
-			}
+			const fileChange = this.findMatchingFileNode(uri);
 
 			let isBase = params && params.isBase;
 			let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
@@ -466,7 +479,9 @@ export class PRNode extends TreeNode {
 				commentId: rawComment.id,
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
-				gravatar: rawComment.user.avatar_url
+				gravatar: rawComment.user.avatar_url,
+				canEdit: rawComment.canEdit,
+				canDelete: rawComment.canDelete
 			};
 
 			fileChange.comments.push(rawComment);
@@ -484,26 +499,38 @@ export class PRNode extends TreeNode {
 		}
 	}
 
+	private async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string): Promise<void> {
+		const fileChange = this.findMatchingFileNode(document.uri);
+		const rawComment = await this._prManager.editComment(this.pullRequestModel, comment.commentId, text);
+
+		const index = fileChange.comments.findIndex(c => c.id === comment.commentId);
+		if (index > -1) {
+			fileChange.comments.splice(index, 1, rawComment);
+		}
+	}
+
+	private async deleteComment(document: vscode.TextDocument, comment: vscode.Comment): Promise<void> {
+		const fileChange = this.findMatchingFileNode(document.uri);
+
+		await this._prManager.deleteComment(this.pullRequestModel, comment.commentId);
+		const index = fileChange.comments.findIndex(c => c.id === comment.commentId);
+		if (index > -1) {
+			fileChange.comments.splice(index, 1);
+		}
+	}
+
 	private async replyToCommentThread(document: vscode.TextDocument, _range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
-			const uri = document.uri;
-			const params = fromPRUri(uri);
-			const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
-
-			if (!fileChange) {
-				throw new Error('No matching file found');
-			}
-
-			if (fileChange instanceof RemoteFileChangeNode) {
-				throw new Error('Cannot add comment to this file');
-			}
+			const fileChange = this.findMatchingFileNode(document.uri);
 
 			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, text, thread.threadId);
 			thread.comments.push({
 				commentId: rawComment.id,
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
-				gravatar: rawComment.user.avatar_url
+				gravatar: rawComment.user.avatar_url,
+				canEdit: rawComment.canEdit,
+				canDelete: rawComment.canDelete
 			});
 
 			fileChange.comments.push(rawComment);
