@@ -117,7 +117,7 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 	pullRequest.state = state;
 	vscode.setState(pullRequest);
 
-	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
+	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.MergeSelect));
 	if (merge) {
 		merge.disabled = state !== PullRequestStateEnum.Open;
 	}
@@ -219,14 +219,15 @@ function addEventListeners(pr: PullRequest): void {
 
 	document.getElementById(ElementIds.CancelMerge)!.addEventListener('click', () => {
 		(<HTMLDivElement>document.getElementById(ElementIds.MergeDiv)).classList.add('hidden');
+		(<HTMLSelectElement>document.getElementById(ElementIds.MergeSelect)).selectedIndex = 0;
 
 	});
 
 	document.getElementById(ElementIds.ConfirmMerge)!.addEventListener('click', () => {
-		(<HTMLButtonElement>document.getElementById(ElementIds.Merge)).disabled = true;
+		(<HTMLButtonElement>document.getElementById(ElementIds.MergeSelect)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.TitleTextArea));
 		const descBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.DescreptionTextArea));
-		const method = getSelectedOption(<HTMLSelectElement>document.querySelector(ElementIds.MergeSelect));
+		const method = getSelectedOption(<HTMLSelectElement>document.getElementById(ElementIds.MergeSelect));
 
 		vscode.postMessage({
 

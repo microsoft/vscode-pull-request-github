@@ -395,6 +395,7 @@ body .comment-form .form-actions {
 	display: flex;
 }
 
+body select:disabled,
 body button:disabled {
 	opacity: 0.4;
 }
