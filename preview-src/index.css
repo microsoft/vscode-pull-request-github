@@ -617,19 +617,16 @@ code {
 	outline-color: var(--vscode-contrastActiveBorder);
 }
 
-/* .vscode-high-contrast select, */
 .vscode-high-contrast button {
 	outline: none;
 	background: none !important;
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
-/* .vscode-high-contrast select:focus, */
 .vscode-high-contrast button:focus{
 	border-color: var(--vscode-contrastActiveBorder);
 }
 
-/* .vscode-high-contrast select.secondary, */
 .vscode-high-contrast button.secondary {
 	-webkit-filter: none;
 }
