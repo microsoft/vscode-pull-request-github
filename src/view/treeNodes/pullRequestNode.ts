@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as moment from 'moment';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
@@ -304,7 +303,6 @@ export class PRNode extends TreeNode {
 			title,
 			prNumber,
 			author,
-			createdAt,
 		} = this.pullRequestModel;
 
 		const {
@@ -313,10 +311,9 @@ export class PRNode extends TreeNode {
 
 		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
 		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
-		const titleAndPRNumber = `${title} (#${prNumber.toString()})`;
-		const createdAtFromNow = moment(createdAt).fromNow();
-		const label = `${labelPrefix}${titleAndPRNumber}`;
-		const tooltip = `${tooltipPrefix}${titleAndPRNumber}\nBy ${login} ${createdAtFromNow}`;
+		const formattedPRNumber = prNumber.toString();
+		const label = `${labelPrefix}${title} (#${formattedPRNumber})`;
+		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber} by ${login})`;
 
 		return {
 			label,
