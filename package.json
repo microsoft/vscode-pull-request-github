@@ -308,6 +308,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
+    "@types/debounce": "^3.0.0",
     "@types/keytar": "^4.0.1",
     "@types/lodash": "^4.14.106",
     "@types/markdown-it": "^0.0.5",
@@ -332,8 +333,9 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
-    "es6-promise": "^4.2.5",
     "axios": "^0.18.0",
+    "debounce": "^1.2.0",
+    "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",

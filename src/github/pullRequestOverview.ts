@@ -27,6 +27,7 @@ export class PullRequestOverviewPanel {
 	private _pullRequest: IPullRequestModel;
 	private _pullRequestManager: IPullRequestManager;
 	private _initialized: boolean;
+	private _scrollPosition = { x: 0, y: 0 };
 
 	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel) {
 		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
@@ -110,9 +111,13 @@ export class PullRequestOverviewPanel {
 	}
 
 	public async update(pullRequestModel: IPullRequestModel): Promise<void> {
-		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
+		this._panel.webview.postMessage({
+			command: 'set-scroll',
+			scrollPosition: this._scrollPosition,
+		});
 
 		if (!pullRequestModel.equals(this._pullRequest) || !this._initialized) {
+			this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
 			this._pullRequest = pullRequestModel;
 			this._initialized = true;
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
@@ -225,6 +230,10 @@ export class PullRequestOverviewPanel {
 				return this.checkoutDefaultBranch(message.branch);
 			case 'pr.comment':
 				return this.createComment(message.text);
+			case 'scroll': {
+				this._scrollPosition = message.scrollPosition;
+				return;
+			}
 		}
 	}
 
