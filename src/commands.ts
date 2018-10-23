@@ -17,7 +17,7 @@ import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
-import { CreatePullRequestPanel } from './view/createPullRequestPanel';
+import { NewPRPanel } from './view/newPRPanel';
 
 const _onDidUpdatePR = new vscode.EventEmitter<IPullRequest>();
 export const onDidUpdatePR: vscode.Event<IPullRequest> = _onDidUpdatePR.event;
@@ -74,7 +74,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async () =>
-		CreatePullRequestPanel.show()
+		NewPRPanel.show()
 	));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {

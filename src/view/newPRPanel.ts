@@ -9,13 +9,13 @@ import * as vscode from 'vscode';
 import { getNonce } from '../common/utils';
 import { Store } from '../store';
 
-export class CreatePullRequestPanel {
+export class NewPRPanel {
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
-	public static current: CreatePullRequestPanel | undefined;
+	public static current: NewPRPanel | undefined;
 
-	private static readonly _viewType = 'CreatePullRequest';
+	private static readonly _viewType = 'NewPR';
 
 	private readonly _panel: vscode.WebviewPanel;
 	private _disposables: vscode.Disposable[] = [];
@@ -35,20 +35,20 @@ export class CreatePullRequestPanel {
 			return this.current._panel.reveal(column, true);
 		}
 
-		this.current = new CreatePullRequestPanel(column || vscode.ViewColumn.One);
+		this.current = new NewPRPanel(column || vscode.ViewColumn.One);
 	}
 
 	private constructor(column: vscode.ViewColumn) {
 		// Create and show a new webview panel
 		this._panel = vscode.window.createWebviewPanel(
-			CreatePullRequestPanel._viewType,
+			NewPRPanel._viewType,
 			'Create Pull Request', column, {
 				// Enable javascript in the webview
 				enableScripts: true,
 
 				// And restric the webview to only loading content from our extension's `media` directory.
 				localResourceRoots: [
-					vscode.Uri.file(path.join(CreatePullRequestPanel._extensionPath, 'media'))
+					vscode.Uri.file(path.join(NewPRPanel._extensionPath, 'media'))
 				]
 			}
 		);
@@ -66,7 +66,7 @@ export class CreatePullRequestPanel {
 	}
 
 	public dispose() {
-		CreatePullRequestPanel.current = undefined;
+		NewPRPanel.current = undefined;
 
 		// Clean up our resources
 		this._panel.dispose();
@@ -83,7 +83,7 @@ export class CreatePullRequestPanel {
 		this._panel.webview.postMessage(state)
 
 	private getHtml() {
-		const scriptPathOnDisk = vscode.Uri.file(path.join(CreatePullRequestPanel._extensionPath, 'media', 'create.js'));
+		const scriptPathOnDisk = vscode.Uri.file(path.join(NewPRPanel._extensionPath, 'media', 'create.js'));
 		const scriptUri = scriptPathOnDisk.with({ scheme: 'vscode-resource' });
 		const nonce = getNonce();
 

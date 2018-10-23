@@ -16,7 +16,7 @@ import { GitExtension, API as GitAPI, Repository } from './typings/git';
 import { Telemetry } from './common/telemetry';
 import { handler as uriHandler } from './common/uri';
 import { ITelemetry } from './github/interface';
-import { CreatePullRequestPanel } from './view/createPullRequestPanel';
+import { NewPRPanel } from './view/newPRPanel';
 import { Store } from './store';
 
 // fetch.promise polyfill
@@ -76,7 +76,7 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 	});
 
 	Store.init(prManager, vscode, context.subscriptions);
-	CreatePullRequestPanel.init(context.extensionPath);
+	NewPRPanel.init(context.extensionPath);
 
 	telemetry.on('startup');
 }
