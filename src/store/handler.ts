@@ -25,13 +25,13 @@ const Handler: <S=any>(initial: S) => HandlerChain<S> =
 			const handler = handlers[action.type];
 			return handler ? handler(state, action, context) : state;
 		};
-		handleAction.on =
+		(handleAction as any).on =
 			<B extends A>(type: string, reducer: Reducer<S, C, B>):
 			HandlerChain<S, C, Action & B> => {
 			handlers[type] = reducer;
 			return handleAction as HandlerChain<S, C, A & B>;
 		};
-		return handleAction;
+		return handleAction as HandlerChain<S, C, A>;
 	};
 
 export default Handler;
@@ -55,7 +55,7 @@ export const combineReducers:
 			let hasCopied = false;
 			let k = keys.length; while (k --> 0) {
 				const key = keys[k];
-				const stateForKey = state[key];
+				const stateForKey = (state || {})[key];
 				const reducerForKey = reducers[key];
 				const nextStateForKey = reducerForKey(stateForKey, action, state);
 				if (nextStateForKey !== stateForKey) {

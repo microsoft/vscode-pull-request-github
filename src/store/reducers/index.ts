@@ -1,4 +1,4 @@
-import { State, GitHubRemote } from '~/shared/state';
+import { State } from '~/shared/state';
 import { combineReducers } from '../handler';
 
 import localBranches from './localBranches';

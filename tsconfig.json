@@ -8,7 +8,7 @@
 			"es6"
 		],
 		"sourceMap": true,
-		"rootDir": "./src",
+		"rootDir": ".",
 		"jsx": "react",
 		"typeRoots": [
 			"./node_modules/@types",

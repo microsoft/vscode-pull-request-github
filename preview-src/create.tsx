@@ -1,8 +1,8 @@
-import {h, render, Component} from 'preact';
+import { h, render, Component } from 'preact';
 import './index.css';
 
-import {setTitle, setBody, pickBranch, setUpstream, setBase, CREATE} from '~/shared/actions';
-import {State} from '~/shared/state';
+import { setTitle, setBody, pickBranch, setUpstream, setBase, CREATE, getState } from '~/shared/actions';
+import { State } from '~/shared/state';
 
 declare var acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -16,9 +16,11 @@ const input = (createAction: (text: string) => any): JSX.EventHandler<Event> =>
 		const action = createAction((e.target as any).value);
 		if (typeof action.type === 'string') { send(action); }
 	};
+
 class CreatePR extends Component<any, State> {
 	componentDidMount() {
 		addEventListener('message', this.onState);
+		send(getState);
 	}
 
 	componentWillUnmount() {

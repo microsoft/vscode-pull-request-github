@@ -535,7 +535,17 @@ export class PullRequestManager implements IPullRequestManager {
 			localBranch, remoteBranch);
 
 		// Create PR
-		return repo.octokit.pullRequests.create(params);
+		return repo.octokit.pullRequests.create(params)
+			.catch(e => {
+				let parsed;
+				try {
+					parsed = JSON.parse(e.message);
+				} catch (jsonParsingError) {
+					throw e;
+				}
+				const details = parsed.errors.map(error => error.message).join(', ');
+				throw new Error(`${parsed.message} - ${details}`);
+			});
 	}
 
 	private async changePullRequestState(state: 'open' | 'closed', pullRequest: IPullRequestModel): Promise<any> {

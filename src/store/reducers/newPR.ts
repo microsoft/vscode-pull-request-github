@@ -6,7 +6,6 @@ import {
 	SET_BODY,
 	SET_BASE } from '~/shared/actions';
 import { combineReducers } from 'redux';
-import { PullRequestsCreateParams } from '@octokit/rest';
 import { NewPRState, NewPRSpecState, GitHubRemotesState, Upstream, State, NewPRRequest } from '~/shared/state';
 
 const initialState: NewPRState = {
@@ -18,10 +17,11 @@ const initialState: NewPRState = {
 	},
 };
 
-export default (state = initialState, action, {gitHubRemotes}: State) => {
+export default (state = initialState, action, context: State) => {
 	const spec = specification(state.spec, action);
+	const gitHubRemotes = context && context.gitHubRemotes;
 	const errors = check(spec, gitHubRemotes);
-	const request = !errors ? generateRequest(spec, gitHubRemotes) : null;
+	const request = context && !errors ? generateRequest(spec, gitHubRemotes) : null;
 	return {spec, errors, request};
 };
 

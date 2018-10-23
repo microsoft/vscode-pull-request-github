@@ -10,6 +10,9 @@ export const RECV_REMOTE_METADATA = 'pr/RECV_REMOTE_METADATA';
 export const SET_BASE = 'pr/SET_BASE';
 export const CREATE = 'pr/CREATE';
 
+export const GET_STATE = 'store/GET_STATE';
+export const getState = Object.freeze({ type: GET_STATE });
+
 export const setTitle = (title: string) => ({ type: SET_TITLE, title });
 export const setBody = (body: string) => ({ type: SET_BODY, body });
 export const setRepository = (repository: any) => ({ type: SET_REPOSITORY, repository });

@@ -378,7 +378,7 @@ body .comment-form textarea:focus {
 	display: flex;
 }
 
-body button:disabled {
+body button:disabled, input:disabled {
 	opacity: 0.4;
 }
 

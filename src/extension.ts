@@ -17,6 +17,7 @@ import { Telemetry } from './common/telemetry';
 import { handler as uriHandler } from './common/uri';
 import { ITelemetry } from './github/interface';
 import { CreatePullRequestPanel } from './view/createPullRequestPanel';
+import { Store } from './store';
 
 // fetch.promise polyfill
 const fetch = require('node-fetch');
@@ -74,7 +75,8 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 		});
 	});
 
-	CreatePullRequestPanel.init(context.extensionPath, prManager);
+	Store.init(prManager, vscode, context.subscriptions);
+	CreatePullRequestPanel.init(context.extensionPath);
 
 	telemetry.on('startup');
 }

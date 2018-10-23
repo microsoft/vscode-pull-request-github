@@ -26,37 +26,3 @@ export async function push(
 	Logger.appendLine(stdout);
 	Logger.appendLine(stderr);
 }
-
-// async pull(rebase?: boolean, remote?: string, branch?: string): Promise<void> {
-// 	const args = ['pull', '--tags'];
-
-// 	if (rebase) {
-// 		args.push('-r');
-// 	}
-
-// 	if (remote && branch) {
-// 		args.push(remote);
-// 		args.push(branch);
-// 	}
-
-// 	try {
-// 		await this.run(args);
-// 	} catch (err) {
-// 		if (/^CONFLICT \([^)]+\): \b/m.test(err.stdout || '')) {
-// 			err.gitErrorCode = GitErrorCodes.Conflict;
-// 		} else if (/Please tell me who you are\./.test(err.stderr || '')) {
-// 			err.gitErrorCode = GitErrorCodes.NoUserNameConfigured;
-// 		} else if (/Could not read from remote repository/.test(err.stderr || '')) {
-// 			err.gitErrorCode = GitErrorCodes.RemoteConnectionError;
-// 		} else if (/Pull is not possible because you have unmerged files|Cannot pull with rebase: You have unstaged changes|Your local changes to the following files would be overwritten|Please, commit your changes before you can merge/i.test(err.stderr)) {
-// 			err.stderr = err.stderr.replace(/Cannot pull with rebase: You have unstaged changes/i, 'Cannot pull with rebase, you have unstaged changes');
-// 			err.gitErrorCode = GitErrorCodes.DirtyWorkTree;
-// 		} else if (/cannot lock ref|unable to update local ref/i.test(err.stderr || '')) {
-// 			err.gitErrorCode = GitErrorCodes.CantLockRef;
-// 		} else if (/cannot rebase onto multiple branches/i.test(err.stderr || '')) {
-// 			err.gitErrorCode = GitErrorCodes.CantRebaseMultipleBranches;
-// 		}
-
-// 		throw err;
-// 	}
-// }
