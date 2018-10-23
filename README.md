@@ -9,7 +9,7 @@ This extension allows you to review and manage GitHub pull requests in Visual St
 
 ![Demo](https://github.com/Microsoft/vscode-pull-request-github/blob/master/.readme/demo.gif?raw=true)
 
-# How to get started?
+# Getting Started
 It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simply follow these steps to get started.
 
 1. Make sure you have VSCode version 1.27.0 or higher.
@@ -20,7 +20,7 @@ It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simpl
 1. A notification should appear asking you to sign in to GitHub; follow the directions to authenticate.
 1. You should be good to go!
 
-# Extension
+# Issues
 This extension is still in development, so please refer to our [issue tracker for known issues](https://github.com/Microsoft/vscode-pull-request-github/issues), and please contribute with additional information if you encounter an issue yourself.
 
 ## Questions? Authentication? GitHub Enterprise?
