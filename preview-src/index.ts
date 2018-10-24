@@ -92,13 +92,22 @@ function handleMessage(event: any) {
 window.addEventListener('message', handleMessage);
 
 function renderPullRequest(pr: PullRequest): void {
-	document.getElementById(ElementIds.TimelineEvents)!.innerHTML = pr.events.map(renderTimelineEvent).join('');
+	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
 	addEventListeners(pr);
+}
+
+function renderTimelineEvents(pr: PullRequest): void {
+	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
+	timelineElement.innerHTML = '';
+	pullRequest.events
+		.map(event => renderTimelineEvent(event))
+		.filter(event => event !== undefined)
+		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
 
 function updatePullRequestState(state: PullRequestStateEnum): void {
@@ -172,7 +181,7 @@ function addEventListeners(pr: PullRequest): void {
 	});
 
 	// Enable 'Comment' and 'RequestChanges' button only when the user has entered text
-	let updateStateTimer: NodeJS.Timer;
+	let updateStateTimer: number;
 	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
 		const inputText = (<HTMLInputElement>e.target).value;
 		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = !inputText;
@@ -182,7 +191,7 @@ function addEventListeners(pr: PullRequest): void {
 			clearTimeout(updateStateTimer);
 		}
 
-		updateStateTimer = setTimeout(() => {
+		updateStateTimer = window.setTimeout(() => {
 			pullRequest.pendingCommentText = inputText;
 			vscode.setState(pullRequest);
 		}, 500);
@@ -272,7 +281,9 @@ function appendReview(review: any): void {
 	vscode.setState(pullRequest);
 
 	const newReview = renderReview(review);
-	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newReview);
+	if (newReview) {
+		document.getElementById(ElementIds.TimelineEvents)!.appendChild(newReview);
+	}
 	clearTextArea();
 }
 
@@ -281,8 +292,8 @@ function appendComment(comment: any) {
 	pullRequest.events.push(comment);
 	vscode.setState(pullRequest);
 
-	let newComment = renderComment(comment);
-	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newComment);
+	const newComment = renderComment(comment);
+	document.getElementById(ElementIds.TimelineEvents)!.appendChild(newComment);
 	clearTextArea();
 }
 
