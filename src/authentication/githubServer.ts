@@ -74,19 +74,27 @@ export class GitHubManager {
 			headers.authorization = `token ${token}`;
 		}
 
-		const proxySettings = process.env.HTTPS_PROXY ?
-			new URL(process.env.HTTPS_PROXY) : null;
-		const agent = process.env.HTTPS_PROXY ? httpsOverHttp({proxy: {
-			host: proxySettings.hostname,
-			port: proxySettings.port,
-		}}) : null;
+		let proxy: object | undefined;
+		try {
+			const proxyURL = new URL(process.env.HTTPS_PROXY);
+			proxy = {
+				host: proxyURL.hostname,
+				port: proxyURL.port,
+				proxyAuth: (proxyURL.username && proxyURL.password) ?
+					`${proxyURL.username}:${proxyURL.password}` : null,
+			};
+		} catch(e) {
+			vscode.window.showErrorMessage('Given `HTTPS_PROXY` is not valid URL.');
+			Logger.appendLine(e.toString());
+		}
+
 		return {
 			host: HostHelper.getApiHost(hostUri).authority,
 			port: 443,
 			method,
 			path: HostHelper.getApiPath(hostUri, path),
 			headers,
-			agent,
+			agent: proxy ? httpsOverHttp({proxy}) : null,
 		};
 	}
 
