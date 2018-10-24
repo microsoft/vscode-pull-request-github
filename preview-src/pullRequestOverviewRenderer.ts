@@ -5,6 +5,7 @@
 
 import * as moment from 'moment';
 import md from './mdRenderer';
+const commitIconSvg = require('../resources/icons/commit_icon.svg');
 const emoji = require('node-emoji');
 
 export enum DiffChangeType {
@@ -228,16 +229,16 @@ function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[] } {
 }
 
 function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
-	const iconContainer = document.createElement('div');
+	const iconContainer: HTMLDivElement = document.createElement('div');
 	iconContainer.className = 'avatar-container';
 
-	const avatarLink = document.createElement('a');
+	const avatarLink: HTMLAnchorElement = document.createElement('a');
 	avatarLink.className = 'avatar-link';
-	(<HTMLAnchorElement>avatarLink).href = iconLink;
+	avatarLink.href = iconLink;
 
-	const avatar = document.createElement('img');
+	const avatar: HTMLImageElement = document.createElement('img');
 	avatar.className = 'avatar';
-	(<HTMLImageElement>avatar).src = iconSrc;
+	avatar.src = iconSrc;
 
 	iconContainer.appendChild(avatarLink).appendChild(avatar);
 
@@ -245,7 +246,7 @@ function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
 }
 
 export function renderComment(comment: CommentEvent | Comment, additionalClass?: string): HTMLElement {
-	const commentContainer = document.createElement('div');
+	const commentContainer: HTMLDivElement = document.createElement('div');
 	commentContainer.id = `comment${comment.id.toString()}`;
 	commentContainer.classList.add('comment-container', 'comment');
 
@@ -254,23 +255,23 @@ export function renderComment(comment: CommentEvent | Comment, additionalClass?:
 	}
 
 	const userIcon = renderUserIcon(comment.user.html_url, comment.user.avatar_url);
-	const reviewCommentContainer = document.createElement('div');
+	const reviewCommentContainer: HTMLDivElement = document.createElement('div');
 	reviewCommentContainer.className = 'review-comment-container';
 	commentContainer.appendChild(userIcon);
 	commentContainer.appendChild(reviewCommentContainer);
 
-	const commentHeader = document.createElement('div');
+	const commentHeader: HTMLDivElement = document.createElement('div');
 	commentHeader.className = 'review-comment-header';
-	const authorLink = document.createElement('a');
+	const authorLink: HTMLAnchorElement = document.createElement('a');
 	authorLink.className = 'author';
-	(<HTMLAnchorElement>authorLink).href = comment.user.html_url;
+	authorLink.href = comment.user.html_url;
 	authorLink.textContent = comment.user.login;
 
-	const timestamp = document.createElement('div');
+	const timestamp: HTMLDivElement = document.createElement('div');
 	timestamp.className = 'timestamp';
 	timestamp.textContent = moment(comment.created_at).fromNow();
 
-	const commentBody = document.createElement('div');
+	const commentBody: HTMLDivElement = document.createElement('div');
 	commentBody.className = 'comment-body';
 	commentBody.innerHTML  = md.render(emoji.emojify(comment.body));
 
@@ -286,27 +287,22 @@ export function renderComment(comment: CommentEvent | Comment, additionalClass?:
 export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
 	const shaShort = timelineEvent.sha.substring(0, 7);
 
-	const commentContainer = document.createElement('div');
+	const commentContainer: HTMLDivElement = document.createElement('div');
 	commentContainer.classList.add('comment-container', 'commit');
-	const commitMessage = document.createElement('div');
+	const commitMessage: HTMLDivElement = document.createElement('div');
 	commitMessage.className = 'commit-message';
 
-	const commitIcon = document.createElement('span');
-	commitIcon.innerHTML = `<svg class="octicon octicon-git-commit" width="14" height="16" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-		<path fill-rule="evenodd" clip-rule="evenodd" d="M10.86 3C10.41 1.28 8.86 0 7 0C5.14 0 3.59 1.28 3.14 3H0V5H3.14C3.59 6.72 5.14 8 7 8C8.86 8 10.41 6.72 10.86 5H14V3H10.86V3ZM7 6.2C5.78 6.2 4.8 5.22 4.8 4C4.8 2.78 5.78 1.8 7 1.8C8.22 1.8 9.2 2.78 9.2 4C9.2 5.22 8.22 6.2 7 6.2V6.2Z" transform="translate(0 4)"/>
-	</svg>`;
+	commitMessage.insertAdjacentHTML('beforeend', commitIconSvg);
 
-	commitMessage.appendChild(commitIcon);
-
-	const message = document.createElement('div');
+	const message: HTMLDivElement = document.createElement('div');
 	message.className = 'message';
 	if (timelineEvent.author.html_url && timelineEvent.author.avatar_url) {
 		const userIcon = renderUserIcon(timelineEvent.author.html_url, timelineEvent.author.avatar_url);
 		commitMessage.appendChild(userIcon);
 
-		const login = document.createElement('a');
+		const login: HTMLAnchorElement = document.createElement('a');
 		login.className = 'author';
-		(<HTMLAnchorElement>login).href = timelineEvent.author.html_url;
+		login.href = timelineEvent.author.html_url;
 		login.textContent = timelineEvent.author.login!;
 		commitMessage.appendChild(login);
 		message.textContent = timelineEvent.message;
@@ -316,9 +312,9 @@ export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
 
 	commitMessage.appendChild(message);
 
-	const sha = document.createElement('a');
+	const sha: HTMLAnchorElement = document.createElement('a');
 	sha.className = 'sha';
-	(<HTMLAnchorElement>sha).href = timelineEvent.html_url;
+	sha.href = timelineEvent.html_url;
 	sha.textContent = shaShort;
 
 	commentContainer.appendChild(commitMessage);
@@ -347,19 +343,19 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 		return undefined;
 	}
 
-	const commentContainer = document.createElement('div');
+	const commentContainer: HTMLDivElement = document.createElement('div');
 	commentContainer.classList.add('comment-container', 'comment');
 	const userIcon = renderUserIcon(timelineEvent.user.html_url, timelineEvent.user.avatar_url);
-	const reviewCommentContainer = document.createElement('div');
+	const reviewCommentContainer: HTMLDivElement = document.createElement('div');
 	reviewCommentContainer.className = 'review-comment-container';
 	commentContainer.appendChild(userIcon);
 	commentContainer.appendChild(reviewCommentContainer);
 
-	const commentHeader = document.createElement('div');
+	const commentHeader: HTMLDivElement = document.createElement('div');
 	commentHeader.className = 'review-comment-header';
 
-	const userLogin = document.createElement('a');
-	(<HTMLAnchorElement>userLogin).href = timelineEvent.user.html_url;
+	const userLogin: HTMLAnchorElement = document.createElement('a');
+	userLogin.href = timelineEvent.user.html_url;
 	userLogin.textContent = timelineEvent.user.login;
 
 	const reviewState = document.createElement('span');
@@ -377,7 +373,7 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 			break;
 	}
 
-	const timestamp = document.createElement('div');
+	const timestamp: HTMLDivElement = document.createElement('div');
 	timestamp.className = 'timestamp';
 	timestamp.textContent = moment(timelineEvent.submitted_at).fromNow();
 
@@ -385,7 +381,7 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 	commentHeader.appendChild(reviewState);
 	commentHeader.appendChild(timestamp);
 
-	const reviewBody = document.createElement('div');
+	const reviewBody: HTMLDivElement = document.createElement('div');
 	reviewBody.className = 'review-body';
 	if (timelineEvent.body) {
 		reviewBody.innerHTML = md.render(emoji.emojify(timelineEvent.body));
@@ -395,7 +391,7 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 	reviewCommentContainer.appendChild(reviewBody);
 
 	if (timelineEvent.comments) {
-		const commentBody = document.createElement('div');
+		const commentBody: HTMLDivElement = document.createElement('div');
 		commentBody.className = 'comment-body';
 		let groups = groupBy(timelineEvent.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
 
@@ -430,9 +426,9 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 					});
 				}
 
-				const diffView = document.createElement('div');
+				const diffView: HTMLDivElement = document.createElement('div');
 				diffView.className = 'diff';
-				const diffHeader = document.createElement('div');
+				const diffHeader: HTMLDivElement = document.createElement('div');
 				diffHeader.className = 'diffHeader';
 				diffHeader.textContent = comments[0].path;
 
