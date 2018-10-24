@@ -38,17 +38,16 @@ body hr {
 	margin: 0 !important;
 	padding: 0;
 }
-body .review-comment {
-	display: flex;
 
-}
-
-body .review-comment .avatar-container {
+body .comment-container .avatar-container {
 	margin-right: 12px;
-	flex-shrink: 0;
 }
 
-body .review-comment .avatar-container img.avatar {
+body .comment-container .avatar-container a {
+	display: flex;
+}
+
+body .comment-container .avatar-container img.avatar {
 	margin-right: 0;
 }
 
@@ -66,21 +65,11 @@ body a.avatar-link:focus {
 	outline-offset: 2px;
 }
 
-body .review-comment .review-comment-contents {
-	width: 100%;
-	display: flex;
-	margin: 0;
-}
-
-body .review-comment .review-comment-contents.comment,
-body .review-comment .review-comment-contents.review {
+body .comment-container.comment,
+body .comment-container.review {
 	background-color: var(--vscode-editor-background);
 }
 
-body .comment-container:last-child .comment {
-	padding-bottom: 12px;
-	border-bottom: none;
-}
 
 .review-comment-container {
 	width: 100%;
@@ -88,7 +77,7 @@ body .comment-container:last-child .comment {
 	flex-direction: column;
 }
 
-body .review-comment .review-comment-header {
+body .comment-container .review-comment-header {
 	display: flex;
 	align-items: center;
 	width: 100%;
@@ -98,20 +87,32 @@ body .review-comment .review-comment-header {
 	color: var(--vscode-foreground);
 }
 
-body .review-comment .review-comment-header > span, a.avatar-link,
-body .review-comment .review-comment-header > span, a.author {
+.review-comment-header .comment-actions {
+	margin-left: auto;
+}
+
+.comment-actions button {
+	background-color: transparent;
+	padding: 2px 6px 3px;
+}
+
+.comment-actions button svg {
+	margin-right: 0;
+}
+
+body .comment-container .review-comment-header > span, a {
 	margin-right: 4px;
 }
 
-body .review-comment .review-comment-contents .comment-body {
+body .comment-container .comment-body {
 	padding: 4px 0 0;
 }
 
-body .review-comment .review-comment-contents .comment-body > p {
+body .comment-container .comment-body > p {
 	margin-top: 0;
 }
 
-body .review-comment .review-comment-contents .comment-body > p:last-child {
+body .comment-container  .comment-body > p:last-child {
 	margin-bottom: 0;
 }
 
@@ -127,7 +128,7 @@ body .hidden {
 	display: none !important;
 }
 
-body button {
+button {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	border-radius: 0px;
@@ -252,6 +253,10 @@ body .overview-title button {
 	fill: var(--vscode-foreground);
 }
 
+.comment-container.commit {
+	padding: 8px 0;
+}
+
 .commit, .review {
 	display: flex;
 	width: 100%;
@@ -260,7 +265,7 @@ body .overview-title button {
 	color: var(--vscode-foreground);
 }
 
-.review-comment-contents.review {
+.review {
 	margin: 0px 8px;
 	padding: 4px 0;
 }
@@ -301,6 +306,9 @@ body .overview-title button {
 	position: relative;
 	padding: 20px 0;
 	border-top: 1px solid var(--border-color);
+	width: 100%;
+	display: flex;
+	margin: 0;
 }
 
 .comment-container:last-of-type {
@@ -316,23 +324,13 @@ body .overview-title button {
 	border-top: none;
 }
 
-.comment-body div[data-type="review-comment"] {
-	padding: 0 20px;
+.comment-body .review-comment {
+	padding: 12px;
+	box-sizing: border-box;
+	border-top: none;
 	border-right: 1px solid var(--vscode-notifications-background);
 	border-left: 1px solid var(--vscode-notifications-background);
 	border-bottom: 1px solid var(--vscode-notifications-background);
-}
-
-.comment-body div[data-type="review-comment"] .comment-container {
-	padding: 12px 0;
-}
-
-.comment-body div[data-type="review-comment"] .comment-container:last-child {
-	border-bottom: none;
-}
-
-.comment-body div[data-type="review-comment"] .comment-container:last-child .comment {
-	padding-bottom: 0;
 }
 
 .comment-body .line {
@@ -346,7 +344,7 @@ body .comment-form {
 	padding: 20px 0 10px;
 }
 
-body .comment-form textarea {
+textarea {
 	display: block;
 	box-sizing: border-box;
 	padding: 10px;
@@ -361,13 +359,12 @@ body .comment-form textarea {
 	font-family: var(--vscode-editor-font-family);
 }
 
+textarea:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
 .reply-button {
 	margin-left: auto;
 	margin-right: 0 !important;
-}
-
-body .comment-form textarea:focus {
-	outline: 1px solid var(--vscode-focusBorder);
 }
 
 body .comment-form .form-actions {
