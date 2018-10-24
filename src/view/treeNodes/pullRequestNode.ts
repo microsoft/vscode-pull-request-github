@@ -313,7 +313,7 @@ export class PRNode extends TreeNode {
 		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
 		const formattedPRNumber = prNumber.toString();
 		const label = `${labelPrefix}${title} (#${formattedPRNumber})`;
-		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber} by ${login})`;
+		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by ${login}`;
 
 		return {
 			label,
