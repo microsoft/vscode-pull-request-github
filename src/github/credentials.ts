@@ -148,14 +148,21 @@ export class CredentialStore {
 	}
 
 	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
-		const proxySettings = process.env.HTTPS_PROXY ?
-			new URL(process.env.HTTPS_PROXY) : null;
-		const agent = process.env.HTTPS_PROXY ? httpsOverHttp({proxy: {
-			host: proxySettings.hostname,
-			port: proxySettings.port,
-		}}) : null;
+		let proxy: object | undefined;
+		try {
+			const proxyURL = new URL(process.env.HTTPS_PROXY);
+			proxy = {
+				host: proxyURL.hostname,
+				port: proxyURL.port,
+				proxyAuth: (proxyURL.username && proxyURL.password) ?
+					`${proxyURL.username}:${proxyURL.password}` : null,
+			};
+		} catch(e) {
+			vscode.window.showErrorMessage('Given `HTTPS_PROXY` is not valid URL.');
+			Logger.appendLine(e.toString());
+		}
 		const octokit = new Octokit({
-			agent,
+			agent: proxy ? httpsOverHttp({proxy}) : null,
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
 			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
 		});
