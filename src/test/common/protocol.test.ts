@@ -7,26 +7,29 @@ import * as assert from 'assert';
 import * as ssh from '../../common/ssh';
 import { Protocol, ProtocolType } from '../../common/protocol';
 
-const SSH_CONFIG_WITH_HOST_ALIAS = `
+const SSH_CONFIG_WITH_HOST_ALIASES = `
 Host gh
   User git
   HostName github.com
 `;
 
-const testRemote = remote => describe(`with ${remote.uri}`, () => {
-	const protocol = new Protocol(remote.uri);
+const str = x => JSON.stringify(x);
+
+const testRemote = remote => describe(`new Protocol(${str(remote.uri)})`, () => {
+	let protocol;
+	before(() => protocol = new Protocol(remote.uri));
 
 	it(`type should be ${ProtocolType[remote.expectedType]}`, () =>
 		assert.equal(protocol.type, remote.expectedType));
-	it(`host should be ${remote.expectedHost}`, () =>
+	it(`host should be ${str(remote.expectedHost)}`, () =>
 		assert.equal(protocol.host, remote.expectedHost));
-	it(`owner should be ${remote.expectedOwner}`, () =>
+	it(`owner should be ${str(remote.expectedOwner)}`, () =>
 		assert.equal(protocol.owner, remote.expectedOwner));
-	it(`repositoryName should be ${remote.expectedRepositoryName}`, () =>
+	it(`repositoryName should be ${str(remote.expectedRepositoryName)}`, () =>
 		assert.equal(protocol.repositoryName, remote.expectedRepositoryName));
 });
 
-describe('Protocol', () => {
+describe.only('Protocol', () => {
 	describe('with HTTP and HTTPS remotes', () =>
 		[
 			{ uri: 'http://rmacfarlane@github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
@@ -108,15 +111,15 @@ describe('Protocol', () => {
 	);
 
 	describe('with a ~/.ssh/config', () => {
-		before(() => ssh._test_setSSHConfig(SSH_CONFIG_WITH_HOST_ALIAS));
+		before(() => ssh._test_setSSHConfig(SSH_CONFIG_WITH_HOST_ALIASES));
 		after(() => ssh._test_setSSHConfig());
 
-		it('resolves aliased hosts', () => {
-			const protocol = new Protocol('gh:queerviolet/vscode');
-			assert.equal(protocol.type, ProtocolType.SSH);
-			assert.equal(protocol.host, 'github.com');
-			assert.equal(protocol.owner, 'queerviolet');
-			assert.equal(protocol.repositoryName, 'vscode');
+		testRemote({
+			uri: 'gh:queerviolet/vscode',
+			expectedType: ProtocolType.SSH,
+			expectedHost: 'github.com',
+			expectedOwner: 'queerviolet',
+			expectedRepositoryName: 'vscode'
 		});
 	});
 });
