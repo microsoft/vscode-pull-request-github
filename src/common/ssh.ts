@@ -10,7 +10,7 @@ const URL_SCHEME_RE = /^([a-z-]+):\/\//;
 /**
  * SSH Config interface
  *
- * Note that this interface atypically-capitalized field names. This is for consistency
+ * Note that this interface atypically capitalizes field names. This is for consistency
  * with SSH config files.
  */
 export interface Config {
