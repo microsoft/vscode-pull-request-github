@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import Logger from './logger';
 
+import { resolve } from './ssh';
+
 export enum ProtocolType {
 	Local,
 	HTTP,
@@ -30,7 +32,7 @@ export class Protocol {
 
 	public readonly url: vscode.Uri;
 	constructor(
-		uriString: string
+		uriString: string,
 	) {
 		if (uriString.indexOf('://') === -1) {
 			if (sshProtocolRegex.test(uriString)) {
@@ -45,10 +47,8 @@ export class Protocol {
 
 			if (this.type === ProtocolType.SSH) {
 				const urlWithoutScheme = this.url.authority + this.url.path;
-				if (sshProtocolRegex.test(urlWithoutScheme)) {
-					this.parseSshProtocol(urlWithoutScheme);
-					return;
-				}
+				this.parseSshProtocol(urlWithoutScheme);
+				return;
 			}
 
 			this.host = this.getHostName(this.url.authority);
@@ -79,15 +79,12 @@ export class Protocol {
 	}
 
 	private parseSshProtocol(uriString: string): void {
-		const result = uriString.match(sshProtocolRegex);
-		if (result) {
-			this.host = result[2];
-			const path = result[3];
-			this.owner = this.getOwnerName(path);
-			this.repositoryName = this.getRepositoryName(path);
-			this.type = ProtocolType.SSH;
-			return;
-		}
+		const sshConfig = resolve(uriString);
+		const { HostName, path } = sshConfig;
+		this.host = HostName;
+		this.owner = this.getOwnerName(path);
+		this.repositoryName = this.getRepositoryName(path);
+		this.type = ProtocolType.SSH;
 	}
 
 	getHostName(authority: string) {

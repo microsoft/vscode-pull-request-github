@@ -4,10 +4,30 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as ssh from '../../common/ssh';
 import { Protocol, ProtocolType } from '../../common/protocol';
 
-describe('Protocol', () => {
-	it('should handle HTTP and HTTPS remotes', () => {
+const SSH_CONFIG_WITH_HOST_ALIAS = `
+Host gh
+  User git
+  HostName github.com
+`;
+
+const testRemote = remote => describe(`with ${remote.uri}`, () => {
+	const protocol = new Protocol(remote.uri);
+
+	it(`type should be ${ProtocolType[remote.expectedType]}`, () =>
+		assert.equal(protocol.type, remote.expectedType));
+	it(`host should be ${remote.expectedHost}`, () =>
+		assert.equal(protocol.host, remote.expectedHost));
+	it(`owner should be ${remote.expectedOwner}`, () =>
+		assert.equal(protocol.owner, remote.expectedOwner));
+	it(`repositoryName should be ${remote.expectedRepositoryName}`, () =>
+		assert.equal(protocol.repositoryName, remote.expectedRepositoryName));
+});
+
+describe.only('Protocol', () => {
+	describe('with HTTP and HTTPS remotes', () =>
 		[
 			{ uri: 'http://rmacfarlane@github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'http://rmacfarlane:password@github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
@@ -22,73 +42,48 @@ describe('Protocol', () => {
 			{ uri: 'https://github.com:/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'https://github.com:433/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'https://github.enterprise.corp/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.enterprise.corp', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' }
-		].forEach(remote => {
-			const protocol = new Protocol(remote.uri);
-			assert.equal(protocol.type, remote.expectedType);
-			assert.equal(protocol.host, remote.expectedHost);
-			assert.equal(protocol.owner, remote.expectedOwner);
-			assert.equal(protocol.repositoryName, remote.expectedRepositoryName);
-		});
-	});
+		].forEach(testRemote)
+	);
 
-	it('should handle SSH remotes', () => {
+	it('should handle SSH remotes', () =>
 		[
 			{ uri: 'ssh://git@github.com/Microsoft/vscode', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'ssh://github.com:Microsoft/vscode.git', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'ssh://git@github.com:433/Microsoft/vscode', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'ssh://user@git.server.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server.org', expectedOwner: null, expectedRepositoryName: 'project' }
 
-		].forEach(remote => {
-			const protocol = new Protocol(remote.uri);
-			assert.equal(protocol.type, remote.expectedType);
-			assert.equal(protocol.host, remote.expectedHost);
-			assert.equal(protocol.owner, remote.expectedOwner);
-			assert.equal(protocol.repositoryName, remote.expectedRepositoryName);
-		});
-	});
+		].forEach(testRemote)
+	);
 
-	it('should handle SCP-like remotes', () => {
+	it('should handle SCP-like remotes', () =>
 		[
 			{ uri: 'git@github.com:Microsoft/vscode', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'git@github.com:Microsoft/vscode.git', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'github.com:Microsoft/vscode.git', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'user@git.server.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server.org', expectedOwner: null, expectedRepositoryName: 'project' },
 			{ uri: 'git.server2.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server2.org', expectedOwner: null, expectedRepositoryName: 'project' }
-		].forEach(remote => {
-			const protocol = new Protocol(remote.uri);
-			assert.equal(protocol.type, remote.expectedType);
-			assert.equal(protocol.host, remote.expectedHost);
-			assert.equal(protocol.owner, remote.expectedOwner);
-			assert.equal(protocol.repositoryName, remote.expectedRepositoryName);
-		});
-	});
+		].forEach(testRemote)
+	);
 
-	it('should handle local remotes', () => {
+	it('should handle local remotes', () =>
 		[
 			{ uri: '/opt/git/project.git', expectedType: ProtocolType.OTHER, expectedHost: '', expectedOwner: '', expectedRepositoryName: '' },
 			{ uri: 'file:///opt/git/project.git', expectedType: ProtocolType.Local, expectedHost: '', expectedOwner: '', expectedRepositoryName: '' }
-		].forEach(remote => {
-			const protocol = new Protocol(remote.uri);
-			assert.equal(protocol.type, remote.expectedType);
-			assert.equal(protocol.host, remote.expectedHost);
-			assert.equal(protocol.owner, remote.expectedOwner);
-			assert.equal(protocol.repositoryName, remote.expectedRepositoryName);
-		});
-	});
+		].forEach(testRemote)
+	);
 
-	it('toString generate github remotes', () => {
+	describe('toString when generating github remotes', () =>
 		[
 			{ uri: 'ssh://git@github.com/Microsoft/vscode', expected: 'git@github.com:Microsoft/vscode' },
 			{ uri: 'ssh://github.com:Microsoft/vscode.git', expected: 'git@github.com:Microsoft/vscode' },
 			{ uri: 'ssh://git@github.com:433/Microsoft/vscode', expected: 'git@github.com:Microsoft/vscode' },
+		].forEach(remote =>
+			it(`should generate "${remote.expected}" from "${remote.uri}`, () =>
+				assert.equal(new Protocol(remote.uri).toString(), remote.expected))
+		)
+	);
 
-		].forEach(remote => {
-			const protocol = new Protocol(remote.uri);
-			assert.equal(protocol.toString(), remote.expected);
-		});
-	});
-
-	it('Protocol.update', () => {
+	describe('Protocol.update when changing protocol type to SSH', () =>
 		[
 			{ uri: 'http://rmacfarlane@github.com/Microsoft/vscode', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
 			{ uri: 'http://rmacfarlane:password@github.com/Microsoft/vscode', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
@@ -103,10 +98,25 @@ describe('Protocol', () => {
 			{ uri: 'https://github.com:/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
 			{ uri: 'https://github.com:433/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.com:Microsoft/vscode' },
 			{ uri: 'https://github.enterprise.corp/Microsoft/vscode.git', change: { type: ProtocolType.SSH }, expected: 'git@github.enterprise.corp:Microsoft/vscode' }
-		].forEach(remote => {
-			const protocol = new Protocol(remote.uri);
-			protocol.update(remote.change);
-			assert.equal(protocol.toString(), remote.expected);
+		].forEach(remote =>
+			it(`should change "${remote.uri}" to "${remote.expected}"`, () => {
+				const protocol = new Protocol(remote.uri);
+				protocol.update(remote.change);
+				assert.equal(protocol.toString(), remote.expected);
+			})
+		)
+	);
+
+	describe('with a ~/.ssh/config', () => {
+		before(() => ssh._test_setSSHConfig(SSH_CONFIG_WITH_HOST_ALIAS));
+		after(() => ssh._test_setSSHConfig());
+
+		it('resolves aliased hosts', () => {
+			const protocol = new Protocol('gh:queerviolet/vscode');
+			assert.equal(protocol.type, ProtocolType.SSH);
+			assert.equal(protocol.host, 'github.com');
+			assert.equal(protocol.owner, 'queerviolet');
+			assert.equal(protocol.repositoryName, 'vscode');
 		});
 	});
 });
