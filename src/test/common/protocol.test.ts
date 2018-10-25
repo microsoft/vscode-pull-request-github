@@ -26,7 +26,7 @@ const testRemote = remote => describe(`with ${remote.uri}`, () => {
 		assert.equal(protocol.repositoryName, remote.expectedRepositoryName));
 });
 
-describe.only('Protocol', () => {
+describe('Protocol', () => {
 	describe('with HTTP and HTTPS remotes', () =>
 		[
 			{ uri: 'http://rmacfarlane@github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
