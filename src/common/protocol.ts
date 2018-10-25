@@ -16,8 +16,6 @@ export enum ProtocolType {
 	OTHER
 }
 
-const sshProtocolRegex = /^([^@:]+@)?([^:]+):(.+)$/;
-
 export class Protocol {
 	public type: ProtocolType = ProtocolType.OTHER;
 	public host: string = '';
@@ -34,22 +32,13 @@ export class Protocol {
 	constructor(
 		uriString: string,
 	) {
-		if (uriString.indexOf('://') === -1) {
-			if (sshProtocolRegex.test(uriString)) {
-				this.parseSshProtocol(uriString);
-				return;
-			}
+		if (this.parseSshProtocol(uriString)) {
+			return;
 		}
 
 		try {
 			this.url = vscode.Uri.parse(uriString);
 			this.type = this.getType(this.url.scheme);
-
-			if (this.type === ProtocolType.SSH) {
-				const urlWithoutScheme = this.url.authority + this.url.path;
-				this.parseSshProtocol(urlWithoutScheme);
-				return;
-			}
 
 			this.host = this.getHostName(this.url.authority);
 			if (this.host) {
@@ -78,13 +67,15 @@ export class Protocol {
 		}
 	}
 
-	private parseSshProtocol(uriString: string): void {
+	private parseSshProtocol(uriString: string): boolean {
 		const sshConfig = resolve(uriString);
+		if (!sshConfig) { return false; }
 		const { HostName, path } = sshConfig;
 		this.host = HostName;
 		this.owner = this.getOwnerName(path);
 		this.repositoryName = this.getRepositoryName(path);
 		this.type = ProtocolType.SSH;
+		return true;
 	}
 
 	getHostName(authority: string) {
