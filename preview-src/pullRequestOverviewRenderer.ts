@@ -15,24 +15,12 @@ export enum DiffChangeType {
 	Control
 }
 
-export class DiffLine {
-	public get raw(): string {
-		return this._raw;
-	}
-
-	public get text(): string {
-		return this._raw.substr(1);
-	}
-
-	public endwithLineBreak: boolean = true;
-
-	constructor(
-		public type: DiffChangeType,
-		public oldLineNumber: number, /* 1 based */
-		public newLineNumber: number, /* 1 based */
-		public positionInHunk: number,
-		private _raw: string
-	) { }
+interface DiffLine {
+	_raw: string;
+	type: DiffChangeType;
+	oldLineNumber: number;
+	newLineNumber: number;
+	positionInHunk: number;
 }
 
 export function getDiffChangeType(text: string) {
@@ -415,7 +403,7 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 						newLineNumber.classList.add('lineNumber');
 
 						const lineContent = document.createElement('span');
-						lineContent.textContent = diffLine.raw;
+						lineContent.textContent = diffLine._raw;
 						lineContent.classList.add('lineContent');
 
 						diffLineElement.appendChild(oldLineNumber);
