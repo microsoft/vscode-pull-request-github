@@ -168,6 +168,8 @@ export interface IPullRequestManager {
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
 	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
+	getMetadata(remote: string): Promise<any>;
+	getGitHubRemotes(): Remote[];
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]>;
@@ -179,7 +181,7 @@ export interface IPullRequestManager {
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
 	getPullRequestDefaults(): Promise<PullRequestsCreateParams>;
-	createPullRequest(params: PullRequestsCreateParams): Promise<any>;
+	createPullRequest(params: PullRequestsCreateParams): Promise<IPullRequestModel>;
 	mergePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;

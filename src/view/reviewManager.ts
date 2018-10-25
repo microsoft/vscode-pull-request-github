@@ -23,6 +23,8 @@ import { IConfiguration } from '../authentication/configuration';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
+import { RemoteQuickPickItem } from './quickpick';
+import { PullRequestsCreateParams } from '@octokit/rest';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -188,8 +190,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private async updateState() {
 		if (!this._validateStatusInProgress) {
 			this._validateStatusInProgress = this.validateState();
+			return this._validateStatusInProgress;
 		} else {
-			this._validateStatusInProgress.then(_ => this._validateStatusInProgress = this.validateState());
+			return this._validateStatusInProgress.then(_ => this._validateStatusInProgress = this.validateState());
 		}
 	}
 
@@ -935,6 +938,39 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._telemetry.on('pr.checkout');
 		await this._repository.status();
+	}
+
+	public async createPullRequest(): Promise<void> {
+		const branchName = this._repository.state.HEAD.name;
+		let potentialTargetRemotes = this._prManager.getGitHubRemotes();
+		let picks: vscode.QuickPickItem[] = potentialTargetRemotes.map(remote => new RemoteQuickPickItem(remote));
+		vscode.window.showQuickPick(picks, {
+			ignoreFocusOut: true,
+			placeHolder: 'Choose a remote which you want to send pull request to'
+		}).then(async (selected: RemoteQuickPickItem) => {
+			if (!selected) {
+				return;
+			}
+			let selectedRemote = selected.remote;
+			const base: any = await this._prManager.getMetadata(selectedRemote.remoteName);
+			let targets = `${base.owner.login}:${base.default_branch}`;
+			vscode.window.showQuickPick([targets]).then(target => {
+				let params: PullRequestsCreateParams = {
+					base: base.default_branch,
+					title: '',
+					body: '',
+					head: branchName,
+					maintainer_can_modify: true,
+					owner: selectedRemote.owner,
+					repo: selectedRemote.repositoryName
+				};
+				return this._prManager.createPullRequest(params);
+			}).then(pullRequestModel => {
+				this.updateState().then(() => {
+					vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
+				});
+			});
+		});
 	}
 
 	private clear(quitReviewMode: boolean) {

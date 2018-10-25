@@ -39,12 +39,12 @@ export class GitHubRepository implements IGitHubRepository {
 
 	async getMetadata(): Promise<any> {
 		const { octokit, remote } = await this.ensure();
-		return (
+		return Object.assign((
 			await octokit.repos.get({
 				owner: remote.owner,
 				repo: remote.repositoryName
 			})
-		).data;
+		).data, { currentUser: (octokit as any).currentUser });
 	}
 
 	async resolveRemote(): Promise<void> {

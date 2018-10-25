@@ -19,7 +19,6 @@ import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../typings/git';
 import { PullRequestsCreateParams } from '@octokit/rest';
 import Logger from '../common/logger';
-import { push } from '../common/git';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -172,6 +171,16 @@ export class PullRequestManager implements IPullRequestManager {
 
 			return Promise.resolve();
 		});
+	}
+
+	getGitHubRemotes(): Remote[] {
+		const githubRepositories = this._githubRepositories;
+
+		if (!githubRepositories || !githubRepositories.length) {
+			return [];
+		}
+
+		return githubRepositories.map(repository => repository.remote);
 	}
 
 	async authenticate(): Promise<boolean> {
@@ -452,6 +461,11 @@ export class PullRequestManager implements IPullRequestManager {
 		};
 	}
 
+	async getMetadata(remote: string): Promise<any> {
+		const repo = this.findRepo(byRemoteName(remote));
+		return repo && repo.getMetadata();
+	}
+
 	async getHeadCommitMessage(): Promise<string> {
 		const {repository} = this;
 		const {message} = await repository.getCommit(repository.state.HEAD.commit);
@@ -498,21 +512,25 @@ export class PullRequestManager implements IPullRequestManager {
 		return HEAD && HEAD.upstream;
 	}
 
-	async createPullRequest(params: PullRequestsCreateParams): Promise<any> {
+	async createPullRequest(params: PullRequestsCreateParams): Promise<IPullRequestModel> {
 		const repo = this.findRepo(fromHead(params));
-
 		await repo.ensure();
-		const {head} = params
-			, remoteBranchName = head.substring(head.indexOf(':') + 1, head.length);
 
-		// Push head to remote
-		await push(this.repository,
-			repo.remote.remoteName,
-			this.repository.state.HEAD.name,
-			remoteBranchName);
+		const {title, body} = titleAndBodyFrom(await this.getHeadCommitMessage());
+		if (!params.title) {
+			params.title = title;
+		}
+
+		if (!params.body) {
+			params.body = body;
+		}
 
 		// Create PR
-		return repo.octokit.pullRequests.create(params);
+		let { data } = await repo.octokit.pullRequests.create(params);
+		let pullRequestModel = await repo.getPullRequest(data.number);
+		// pullRequestModel.update(data);
+		await PullRequestGitHelper.fetchAndCheckout(this._repository, pullRequestModel.remote, params.head, pullRequestModel);
+		return pullRequestModel;
 	}
 
 	private async changePullRequestState(state: 'open' | 'closed', pullRequest: IPullRequestModel): Promise<any> {
