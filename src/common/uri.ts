@@ -23,7 +23,7 @@ export function fromReviewUri(uri: Uri): ReviewUriParams {
 export interface PRUriParams {
 	baseCommit: string;
 	headCommit: string;
-	base: boolean;
+	isBase: boolean;
 	fileName: string;
 	prNumber: number;
 }
@@ -90,7 +90,7 @@ export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, baseCommi
 	const params: PRUriParams = {
 		baseCommit: baseCommit,
 		headCommit: headCommit,
-		base: base,
+		isBase: base,
 		fileName: fileName,
 		prNumber: pullRequestModel.prNumber
 	};

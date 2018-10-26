@@ -30,7 +30,7 @@ export function providePRDocumentComments(
 		return null;
 	}
 
-	const isBase = params.base;
+	const isBase = params.isBase;
 	const fileChange = fileChanges.find(change => change.fileName === params.fileName);
 	if (!fileChange) {
 		return null;
@@ -363,7 +363,7 @@ export class PRNode extends TreeNode {
 			let readContentFromDiffHunk = fileChange.isPartial || fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
 
 			if (readContentFromDiffHunk) {
-				if (params.base) {
+				if (params.isBase) {
 					// left
 					let left = [];
 					for (let i = 0; i < fileChange.diffHunks.length; i++) {
@@ -406,7 +406,7 @@ export class PRNode extends TreeNode {
 				const originalFilePath = path.join(this._prManager.repository.rootUri.fsPath, originalFileName);
 				const originalContent = await this._prManager.repository.show(params.baseCommit, originalFilePath);
 
-				if (params.base) {
+				if (params.isBase) {
 					return originalContent;
 				} else {
 					return getModifiedContentFromDiffHunk(originalContent, fileChange.patch);
@@ -436,7 +436,7 @@ export class PRNode extends TreeNode {
 				throw new Error('Cannot add comment to this file');
 			}
 
-			let isBase = params && params.base;
+			let isBase = params && params.isBase;
 			let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
 
 			if (position < 0) {
