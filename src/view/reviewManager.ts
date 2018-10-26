@@ -938,6 +938,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._telemetry.on('pr.checkout');
 		await this._repository.status();
+		await this.validateState();
 	}
 
 	public async createPullRequest(): Promise<void> {
