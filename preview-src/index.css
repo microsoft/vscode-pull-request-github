@@ -39,6 +39,14 @@ body hr {
 	padding: 0;
 }
 
+body a {
+	text-decoration: none;
+}
+
+body a:hover {
+	text-decoration: underline;
+}
+
 body .comment-container .avatar-container {
 	margin-right: 12px;
 }
@@ -410,14 +418,6 @@ blockquote p:first-child {
 
 blockquote p:last-child {
 	margin-bottom: 0;
-}
-
-.comment-body a {
-	text-decoration: none;
-}
-
-.comment-body a:hover {
-	text-decoration: underline;
 }
 
 .comment-body a:focus,
