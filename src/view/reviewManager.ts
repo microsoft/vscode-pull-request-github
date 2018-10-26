@@ -98,8 +98,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 				sameUpstream = false;
 			} else {
 				sameUpstream = !!oldHead.upstream
-				? newHead.upstream && oldHead.upstream.name === newHead.upstream.name && oldHead.upstream.remote === newHead.upstream.remote
-				: !newHead.upstream;
+					? newHead.upstream && oldHead.upstream.name === newHead.upstream.name && oldHead.upstream.remote === newHead.upstream.remote
+					: !newHead.upstream;
 			}
 
 			const sameHead = sameUpstream // falsy if oldHead or newHead is undefined.
@@ -955,19 +955,27 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const base: any = await this._prManager.getMetadata(selectedRemote.remoteName);
 			let targets = `${base.owner.login}:${base.default_branch}`;
 			vscode.window.showQuickPick([targets]).then(target => {
-				let params: PullRequestsCreateParams = {
-					base: base.default_branch,
-					title: '',
-					body: '',
-					head: branchName,
-					maintainer_can_modify: true,
-					owner: selectedRemote.owner,
-					repo: selectedRemote.repositoryName
-				};
-				return this._prManager.createPullRequest(params);
-			}).then(pullRequestModel => {
-				this.updateState().then(() => {
-					vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
+				vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: 'Creating Pull Request',
+					cancellable: false
+				}, async (progress) => {
+					progress.report({ increment: 10 });
+					let params: PullRequestsCreateParams = {
+						base: base.default_branch,
+						title: '',
+						body: '',
+						head: branchName,
+						maintainer_can_modify: true,
+						owner: selectedRemote.owner,
+						repo: selectedRemote.repositoryName
+					};
+					let pullRequestModel = await this._prManager.createPullRequest(params);
+					progress.report({ increment: 60, message: `Pull Request #${pullRequestModel.prNumber} Created`});
+					await this.updateState();
+					await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
+					progress.report({ increment: 30 });
+					// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
 				});
 			});
 		});
