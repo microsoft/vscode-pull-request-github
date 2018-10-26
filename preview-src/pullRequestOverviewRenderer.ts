@@ -255,8 +255,9 @@ export function renderComment(comment: CommentEvent | Comment, additionalClass?:
 	authorLink.href = comment.user.html_url;
 	authorLink.textContent = comment.user.login;
 
-	const timestamp: HTMLDivElement = document.createElement('div');
+	const timestamp: HTMLAnchorElement = document.createElement('a');
 	timestamp.className = 'timestamp';
+	timestamp.href = comment.html_url;
 	timestamp.textContent = moment(comment.created_at).fromNow();
 
 	const commentBody: HTMLDivElement = document.createElement('div');
@@ -361,9 +362,10 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 			break;
 	}
 
-	const timestamp: HTMLDivElement = document.createElement('div');
+	const timestamp: HTMLAnchorElement = document.createElement('a');
 	timestamp.className = 'timestamp';
 	timestamp.textContent = moment(timelineEvent.submitted_at).fromNow();
+	timestamp.href = timelineEvent.html_url;
 
 	commentHeader.appendChild(userLogin);
 	commentHeader.appendChild(reviewState);
