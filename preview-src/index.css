@@ -494,6 +494,11 @@ code {
 	overflow: auto;
 }
 
+.timestamp,
+.timestamp:hover {
+	color: inherit;
+}
+
 /** Theming */
 
 .comment-body pre code {

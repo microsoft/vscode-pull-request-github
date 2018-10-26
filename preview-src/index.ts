@@ -135,7 +135,7 @@ function setTitleHTML(pr: PullRequest): void {
 					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
 					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
 					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
-					<a href=${pr.url} class="created-at">${moment(pr.createdAt).fromNow()}</a>
+					<a href=${pr.url} class="created-at timestamp">${moment(pr.createdAt).fromNow()}</a>
 				</div>
 				<div class="comment-body">
 					${
