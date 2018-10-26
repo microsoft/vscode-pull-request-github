@@ -259,11 +259,15 @@ export function renderComment(comment: CommentEvent | Comment, additionalClass?:
 	timestamp.className = 'timestamp';
 	timestamp.textContent = moment(comment.created_at).fromNow();
 
+	const commentState = document.createElement('span');
+	commentState.textContent = 'commented';
+
 	const commentBody: HTMLDivElement = document.createElement('div');
 	commentBody.className = 'comment-body';
 	commentBody.innerHTML  = md.render(emoji.emojify(comment.body));
 
 	commentHeader.appendChild(authorLink);
+	commentHeader.appendChild(commentState);
 	commentHeader.appendChild(timestamp);
 
 	reviewCommentContainer.appendChild(commentHeader);
