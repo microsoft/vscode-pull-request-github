@@ -21,7 +21,8 @@ export function fromReviewUri(uri: Uri): ReviewUriParams {
 }
 
 export interface PRUriParams {
-	commit?: string;
+	baseCommit: string;
+	headCommit: string;
 	base: boolean;
 	fileName: string;
 	prNumber: number;
@@ -85,9 +86,10 @@ export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams {
 	}
 }
 
-export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, commit: string, fileName: string, base: boolean): Uri {
+export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean): Uri {
 	const params: PRUriParams = {
-		commit: commit,
+		baseCommit: baseCommit,
+		headCommit: headCommit,
 		base: base,
 		fileName: fileName,
 		prNumber: pullRequestModel.prNumber

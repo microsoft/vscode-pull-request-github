@@ -64,7 +64,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
 		this._disposables.push(vscode.commands.registerCommand('review.openFile', (uri: vscode.Uri) => {
-			let params = JSON.parse(uri.query);
+			let params = fromReviewUri(uri);
 
 			const activeTextEditor = vscode.window.activeTextEditor;
 			const opts: vscode.TextDocumentShowOptions = {
@@ -324,7 +324,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		try {
 			const uri = document.uri;
 			const matchedFile = this.findMatchedFileByUri(document);
-			const query = uri.query === '' ? undefined : JSON.parse(uri.query);
+			const query = uri.query === '' ? undefined : fromReviewUri(uri);
 			const isBase = query && query.base;
 
 			// git diff sha -- fileName
@@ -791,7 +791,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						// The file may be a change from a specific commit, check the comments themselves to see if they match it, as obsolete file changs
 						// may not contain it
 						try {
-							query = JSON.parse(document.uri.query);
+							query = fromReviewUri(document.uri);
 							comments = this._comments.filter(comment => comment.path === query.path && `${comment.original_commit_id}^` === query.commit);
 						} catch (_) {
 							// Do nothing
@@ -863,7 +863,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private findMatchedFileChange(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode {
-		let query = JSON.parse(uri.query);
+		let query = fromReviewUri(uri);
 		let matchedFiles = fileChanges.filter(fileChange => {
 			if (fileChange instanceof RemoteFileChangeNode) {
 				return false;

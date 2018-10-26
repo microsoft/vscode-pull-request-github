@@ -243,14 +243,15 @@ export class PRNode extends TreeNode {
 					);
 				}
 
+				const headCommit = this.pullRequestModel.head.sha;
 				let changedItem = new InMemFileChangeNode(
 					this.pullRequestModel,
 					change.status,
 					change.fileName,
 					change.previousFileName,
 					change.blobUrl,
-					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, false),
-					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, true),
+					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false),
+					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true),
 					change.isPartial,
 					change.patch,
 					change.diffHunks,
@@ -403,7 +404,7 @@ export class PRNode extends TreeNode {
 			} else {
 				const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
 				const originalFilePath = path.join(this._prManager.repository.rootUri.fsPath, originalFileName);
-				const originalContent = await this._prManager.repository.show(params.commit, originalFilePath);
+				const originalContent = await this._prManager.repository.show(params.baseCommit, originalFilePath);
 
 				if (params.base) {
 					return originalContent;
@@ -469,7 +470,7 @@ export class PRNode extends TreeNode {
 	private async replyToCommentThread(document: vscode.TextDocument, _range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
 			const uri = document.uri;
-			const params = JSON.parse(uri.query);
+			const params = fromPRUri(uri);
 			const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
 
 			if (!fileChange) {
