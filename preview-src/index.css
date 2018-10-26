@@ -39,6 +39,14 @@ body hr {
 	padding: 0;
 }
 
+body a {
+	text-decoration: none;
+}
+
+body a:hover {
+	text-decoration: underline;
+}
+
 body .comment-container .avatar-container {
 	margin-right: 12px;
 }
@@ -412,14 +420,6 @@ blockquote p:last-child {
 	margin-bottom: 0;
 }
 
-.comment-body a {
-	text-decoration: none;
-}
-
-.comment-body a:hover {
-	text-decoration: underline;
-}
-
 .comment-body a:focus,
 .comment-body input:focus,
 .comment-body select:focus,
@@ -492,6 +492,11 @@ code {
 	padding: 16px;
 	border-radius: 3px;
 	overflow: auto;
+}
+
+.timestamp,
+.timestamp:hover {
+	color: inherit;
 }
 
 /** Theming */
