@@ -398,26 +398,34 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async editComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment> {
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		try {
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-		const ret = await octokit.pullRequests.editComment({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			body: text,
-			comment_id: commentId
-		});
+			const ret = await octokit.pullRequests.editComment({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				body: text,
+				comment_id: commentId
+			});
 
-		return this.addCommentPermissions(ret.data, remote);
+			return this.addCommentPermissions(ret.data, remote);
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
 	}
 
 	async deleteComment(pullRequest: IPullRequestModel, commentId: string): Promise<void> {
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		try {
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-		await octokit.pullRequests.deleteComment({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			comment_id: commentId
-		});
+			await octokit.pullRequests.deleteComment({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				comment_id: commentId
+			});
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
 	}
 
 	private addCommentPermissions(rawComment: Comment, remote: Remote): Comment {
