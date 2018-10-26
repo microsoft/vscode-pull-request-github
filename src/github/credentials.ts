@@ -71,7 +71,7 @@ export class CredentialStore {
 		if (octokit) {
 			this._octokits.set(host, octokit);
 		}
-		this.updateAuthenticationStatusBar(remote);
+		await this.updateAuthenticationStatusBar(remote);
 		return this._octokits.has(host);
 	}
 
@@ -145,6 +145,11 @@ export class CredentialStore {
 		return octokit;
 	}
 
+	public isCurrentUser(username: string, remote: Remote): boolean {
+		const octokit = this.getOctokit(remote);
+		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
+	}
+
 	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
 		const octokit = new Octokit({
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
@@ -176,6 +181,7 @@ export class CredentialStore {
 		if (octokit) {
 			try {
 				const user = await octokit.users.get({});
+				(octokit as any).currentUser = user.data;
 				text = `$(mark-github) ${user.data.login}`;
 			} catch (e) {
 				text = '$(mark-github) Signed in';

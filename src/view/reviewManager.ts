@@ -301,7 +301,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 				commentId: comment.id,
 				body: new vscode.MarkdownString(comment.body),
 				userName: comment.user.login,
-				gravatar: comment.user.avatar_url
+				gravatar: comment.user.avatar_url,
+				canEdit: comment.canEdit,
+				canDelete: comment.canDelete
 			});
 
 			matchedFile.comments.push(comment);
@@ -342,7 +344,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 				commentId: rawComment.id,
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
-				gravatar: rawComment.user.avatar_url
+				gravatar: rawComment.user.avatar_url,
+				canEdit: rawComment.canEdit,
+				canDelete: rawComment.canDelete
 			};
 
 			let commentThread: vscode.CommentThread = {
@@ -363,6 +367,82 @@ export class ReviewManager implements vscode.DecorationProvider {
 			});
 
 			return commentThread;
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
+	private async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string): Promise<void> {
+		try {
+			const matchedFile = this.findMatchedFileByUri(document);
+			if (!matchedFile) {
+				throw new Error('Unable to find matching file');
+			}
+
+			const editedComment = await this._prManager.editComment(this._prManager.activePullRequest, comment.commentId, text);
+
+			// Update the cached comments of the file
+			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id === comment.commentId);
+			if (matchingCommentIndex > -1) {
+				matchedFile.comments.splice(matchingCommentIndex, 1, editedComment);
+				const changedThreads = this.fileCommentsToCommentThreads(matchedFile, matchedFile.comments.filter(c => c.position === editedComment.position), vscode.CommentThreadCollapsibleState.Expanded);
+
+				this._onDidChangeWorkspaceCommentThreads.fire({
+					added: [],
+					changed: changedThreads,
+					removed: []
+				});
+			}
+
+			// Also update this._comments
+			const indexInAllComments = this._comments.findIndex(c => c.id === comment.commentId);
+			if (indexInAllComments > -1) {
+				this._comments.splice(indexInAllComments, 1, editedComment);
+			}
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
+	private async deleteComment(document: vscode.TextDocument, comment: vscode.Comment): Promise<void> {
+		try {
+			const matchedFile = this.findMatchedFileByUri(document);
+			if (!matchedFile) {
+				throw new Error('Unable to find matching file');
+			}
+
+			await this._prManager.deleteComment(this._prManager.activePullRequest, comment.commentId);
+			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id === comment.commentId);
+			if (matchingCommentIndex > -1) {
+				const [ deletedComment ] = matchedFile.comments.splice(matchingCommentIndex, 1);
+				const updatedThreadComments = matchedFile.comments.filter(c => c.position === deletedComment.position);
+
+				// If the deleted comment was the last in its thread, remove the thread
+				if (updatedThreadComments.length) {
+					const changedThreads = this.fileCommentsToCommentThreads(matchedFile, updatedThreadComments, vscode.CommentThreadCollapsibleState.Expanded);
+					this._onDidChangeWorkspaceCommentThreads.fire({
+						added: [],
+						changed: changedThreads,
+						removed: []
+					});
+				} else {
+					this._onDidChangeWorkspaceCommentThreads.fire({
+						added: [],
+						changed: [],
+						removed: [{
+							threadId: deletedComment.id,
+							resource: vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, deletedComment.path)),
+							comments: [],
+							range: null
+						}]
+					});
+				}
+			}
+
+			const indexInAllComments = this._comments.findIndex(c => c.id === comment.commentId);
+			if (indexInAllComments > -1) {
+				this._comments.splice(indexInAllComments, 1);
+			}
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -596,7 +676,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 							arguments: [
 								fileChange
 							]
-						}
+						},
+						canEdit: comment.canEdit,
+						canDelete: comment.canDelete
 					};
 				}),
 				collapsibleState: collapsibleState
@@ -646,7 +728,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 						body: new vscode.MarkdownString(comment.body),
 						userName: comment.user.login,
 						gravatar: comment.user.avatar_url,
-						command: command
+						command: command,
+						canEdit: comment.canEdit,
+						canDelete: comment.canDelete
 					};
 				}),
 				collapsibleState: collapsibleState
@@ -831,7 +915,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 									commentId: comment.id,
 									body: new vscode.MarkdownString(comment.body),
 									userName: comment.user.login,
-									gravatar: comment.user.avatar_url
+									gravatar: comment.user.avatar_url,
+									canEdit: comment.canEdit,
+									canDelete: comment.canDelete
 								};
 							}),
 							collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
@@ -844,7 +930,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 			},
 			createNewCommentThread: this.createNewCommentThread.bind(this),
-			replyToCommentThread: this.replyToCommentThread.bind(this)
+			replyToCommentThread: this.replyToCommentThread.bind(this),
+			editComment: this.editComment.bind(this),
+			deleteComment: this.deleteComment.bind(this)
 		});
 
 		this._workspaceCommentProvider = vscode.workspace.registerWorkspaceCommentProvider({
@@ -857,8 +945,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					return this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
 				});
 				return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
-			},
-			createNewCommentThread: this.createNewCommentThread.bind(this), replyToCommentThread: this.replyToCommentThread.bind(this)
+			}
 		});
 	}
 
