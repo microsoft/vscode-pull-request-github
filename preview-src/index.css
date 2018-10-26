@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-:root {
+ :root {
 	--border-color: var(--vscode-notifications-border);
 }
 
@@ -293,7 +293,7 @@ body .overview-title button {
 	display: flex;
 	align-items: center;
 	line-height: 18px;
-	white-space: nowrap;
+	overflow: hidden;
 }
 
 .commit .commit-message .avatar-container {
@@ -307,8 +307,9 @@ body .overview-title button {
 }
 
 .commit .commit-message .message {
-	overflow: hidden;
+	overflow: inherit;
 	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .commit .sha {
