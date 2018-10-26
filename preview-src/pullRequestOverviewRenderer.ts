@@ -364,8 +364,8 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 
 	const timestamp: HTMLAnchorElement = document.createElement('a');
 	timestamp.className = 'timestamp';
-	timestamp.textContent = moment(timelineEvent.submitted_at).fromNow();
 	timestamp.href = timelineEvent.html_url;
+	timestamp.textContent = moment(timelineEvent.submitted_at).fromNow();
 
 	commentHeader.appendChild(userLogin);
 	commentHeader.appendChild(reviewState);
