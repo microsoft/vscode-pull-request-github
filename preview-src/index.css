@@ -108,7 +108,9 @@ body .comment-container .review-comment-header {
 	margin-right: 0;
 }
 
-body .comment-container .review-comment-header > span, a {
+body .comment-container .review-comment-header > span,
+body .comment-container .review-comment-header > a,
+body .commit .commit-message > a {
 	margin-right: 4px;
 }
 
@@ -120,7 +122,7 @@ body .comment-container .comment-body > p {
 	margin-top: 0;
 }
 
-body .comment-container  .comment-body > p:last-child {
+body .comment-container .comment-body > p:last-child {
 	margin-bottom: 0;
 }
 
