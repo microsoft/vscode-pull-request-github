@@ -68,7 +68,6 @@ const messageHandler = getMessageHandler(message => {
 			break;
 		case 'set-scroll':
 			window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
-			break;
 		default:
 			break;
 	}
@@ -88,7 +87,7 @@ function renderTimelineEvents(pr: PullRequest): void {
 	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
 	timelineElement.innerHTML = '';
 	pullRequest.events
-		.map(event => renderTimelineEvent(event))
+		.map(event => renderTimelineEvent(event, messageHandler))
 		.filter(event => event !== undefined)
 		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
@@ -271,7 +270,7 @@ function appendReview(review: any): void {
 	pullRequest.events.push(review);
 	vscode.setState(pullRequest);
 
-	const newReview = renderReview(review);
+	const newReview = renderReview(review, messageHandler);
 	if (newReview) {
 		document.getElementById(ElementIds.TimelineEvents)!.appendChild(newReview);
 	}
@@ -283,7 +282,7 @@ function appendComment(comment: any) {
 	pullRequest.events.push(comment);
 	vscode.setState(pullRequest);
 
-	const newComment = renderComment(comment);
+	const newComment = renderComment(comment, messageHandler);
 	document.getElementById(ElementIds.TimelineEvents)!.appendChild(newComment);
 	clearTextArea();
 }

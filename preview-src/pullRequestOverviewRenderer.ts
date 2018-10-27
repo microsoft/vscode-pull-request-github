@@ -5,7 +5,12 @@
 
 import * as moment from 'moment';
 import md from './mdRenderer';
+import { MessageHandler } from './message';
+
 const commitIconSvg = require('../resources/icons/commit_icon.svg');
+const editIcon = require('../resources/icons/edit.svg');
+const deleteIcon = require('../resources/icons/delete.svg');
+
 const emoji = require('node-emoji');
 
 export enum DiffChangeType {
@@ -44,7 +49,7 @@ export class DiffHunk {
 		public positionInHunk: number
 	) { }
 }
-export interface Comment {
+interface Comment {
 	url: string;
 	id: string;
 	path: string;
@@ -61,6 +66,8 @@ export interface Comment {
 	updated_at: string;
 	html_url: string;
 	absolutePosition?: number;
+	canEdit: boolean;
+	canDelete: boolean;
 }
 
 export enum EventType {
@@ -170,6 +177,8 @@ export interface CommentEvent {
 	actor: User;
 	author_association: string;
 	body: string;
+	canDelete: boolean;
+	canEdit: boolean;
 }
 
 export interface ReviewEvent {
@@ -233,48 +242,186 @@ function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
 	return iconContainer;
 }
 
-export function renderComment(comment: CommentEvent | Comment, additionalClass?: string): HTMLElement {
-	const commentContainer: HTMLDivElement = document.createElement('div');
-	commentContainer.id = `comment${comment.id.toString()}`;
-	commentContainer.classList.add('comment-container', 'comment');
+class CommentNode {
+	private _commentContainer: HTMLDivElement = document.createElement('div');
+	private _commentBody: HTMLDivElement = document.createElement('div');
+	private _actionsBar: HTMLElement | undefined;
 
-	if (additionalClass) {
-		commentContainer.classList.add(additionalClass);
+	private _editButton: HTMLButtonElement | undefined;
+	private _editingContainer: HTMLDivElement | undefined;
+	private _editingArea: HTMLTextAreaElement | undefined;
+
+	constructor(private _comment: Comment | CommentEvent,
+		private _messageHandler: MessageHandler,
+		private _review?: ReviewNode) { }
+
+	render(): HTMLElement {
+		this._commentContainer.classList.add('comment-container', 'comment');
+
+		if (this._review) {
+			this._commentContainer.classList.add('review-comment');
+		}
+
+		const userIcon = renderUserIcon(this._comment.user.html_url, this._comment.user.avatar_url);
+		const reviewCommentContainer: HTMLDivElement = document.createElement('div');
+		reviewCommentContainer.className = 'review-comment-container';
+		this._commentContainer.appendChild(userIcon);
+		this._commentContainer.appendChild(reviewCommentContainer);
+
+		const commentHeader: HTMLDivElement = document.createElement('div');
+		commentHeader.className = 'review-comment-header';
+		const authorLink: HTMLAnchorElement = document.createElement('a');
+		authorLink.className = 'author';
+		authorLink.href = this._comment.user.html_url;
+		authorLink.textContent = this._comment.user.login;
+
+		const timestamp: HTMLAnchorElement = document.createElement('a');
+		timestamp.className = 'timestamp';
+		timestamp.href = this._comment.html_url;
+		timestamp.textContent = moment(this._comment.created_at).fromNow();
+
+		const commentState = document.createElement('span');
+		commentState.textContent = 'commented';
+
+		this._commentBody.className = 'comment-body';
+		this._commentBody.innerHTML  = md.render(emoji.emojify(this._comment.body));
+
+		commentHeader.appendChild(authorLink);
+		commentHeader.appendChild(commentState);
+		commentHeader.appendChild(timestamp);
+
+		this._actionsBar = this.renderActions();
+		if (this._actionsBar) {
+			this.registerActionBarListeners();
+			commentHeader.appendChild(this._actionsBar);
+		}
+
+		reviewCommentContainer.appendChild(commentHeader);
+		reviewCommentContainer.appendChild(this._commentBody);
+
+		return this._commentContainer;
 	}
 
-	const userIcon = renderUserIcon(comment.user.html_url, comment.user.avatar_url);
-	const reviewCommentContainer: HTMLDivElement = document.createElement('div');
-	reviewCommentContainer.className = 'review-comment-container';
-	commentContainer.appendChild(userIcon);
-	commentContainer.appendChild(reviewCommentContainer);
+	private registerActionBarListeners(): void {
+		this._commentContainer.addEventListener('mouseenter', () => {
+			this._actionsBar!.classList.remove('hidden');
+		});
 
-	const commentHeader: HTMLDivElement = document.createElement('div');
-	commentHeader.className = 'review-comment-header';
-	const authorLink: HTMLAnchorElement = document.createElement('a');
-	authorLink.className = 'author';
-	authorLink.href = comment.user.html_url;
-	authorLink.textContent = comment.user.login;
+		this._commentContainer.addEventListener('focusin', () => {
+			this._actionsBar!.classList.remove('hidden');
+		});
 
-	const timestamp: HTMLAnchorElement = document.createElement('a');
-	timestamp.className = 'timestamp';
-	timestamp.href = comment.html_url;
-	timestamp.textContent = moment(comment.created_at).fromNow();
+		this._commentContainer.addEventListener('mouseleave', () => {
+			if (!this._commentContainer.contains(document.activeElement)) {
+				this._actionsBar!.classList.add('hidden');
+			}
+		});
 
-	const commentState = document.createElement('span');
-	commentState.textContent = 'commented';
+		this._commentContainer.addEventListener('focusout', (e) => {
+			if (!this._commentContainer.contains((<any>e).target)) {
+				this._actionsBar!.classList.add('hidden');
+			}
+		});
+	}
 
-	const commentBody: HTMLDivElement = document.createElement('div');
-	commentBody.className = 'comment-body';
-	commentBody.innerHTML  = md.render(emoji.emojify(comment.body));
+	private renderActions(): HTMLElement | undefined {
+		if (!this._comment.canEdit && !this._comment.canDelete) {
+			return undefined;
+		}
 
-	commentHeader.appendChild(authorLink);
-	commentHeader.appendChild(commentState);
-	commentHeader.appendChild(timestamp);
+		this._actionsBar = document.createElement('div');
+		this._actionsBar.classList.add('comment-actions', 'hidden');
 
-	reviewCommentContainer.appendChild(commentHeader);
-	reviewCommentContainer.appendChild(commentBody);
+		if (this._comment.canEdit) {
+			this._editButton = document.createElement('button');
+			this._editButton.innerHTML = editIcon;
+			this._editButton.addEventListener('click', () => this.startEdit());
+			this._actionsBar.appendChild(this._editButton);
+		}
 
-	return commentContainer;
+		if (this._comment.canDelete) {
+			const deleteButton = document.createElement('button');
+			deleteButton.innerHTML = deleteIcon;
+			deleteButton.addEventListener('click', () => this.delete());
+			this._actionsBar.appendChild(deleteButton);
+		}
+
+		return this._actionsBar;
+	}
+
+	private startEdit(): void {
+		this._editButton!.disabled = true;
+		this._editingContainer = document.createElement('div');
+		this._editingContainer.className = 'editing-form';
+		this._editingArea = document.createElement('textarea');
+		this._editingArea.value = this._comment.body;
+
+		this._commentBody.classList.add('hidden');
+
+		const cancelButton = document.createElement('button');
+		cancelButton.textContent = 'Cancel';
+		cancelButton.onclick = () => { this.finishEdit(); };
+
+		const updateButton = document.createElement('button');
+		updateButton.textContent = 'Update comment';
+		updateButton.onclick = () => {
+			this._messageHandler.postMessage({
+				command: 'pr.edit-comment',
+				args: {
+					text: this._editingArea!.value,
+					comment: this._comment
+				}
+			}).then(result => {
+				this.finishEdit(result.text);
+			}).catch(e => {
+				this.finishEdit();
+			});
+
+			updateButton.textContent = 'Updating comment...';
+			this._editingArea!.disabled = true;
+			updateButton.disabled = true;
+			this._editButton!.disabled = false;
+		};
+
+		const buttons = document.createElement('div');
+		buttons.className = 'form-actions';
+		buttons.appendChild(cancelButton);
+		buttons.appendChild(updateButton);
+
+		this._editingContainer.appendChild(this._editingArea);
+		this._editingContainer.appendChild(buttons);
+
+		this._commentBody.parentElement!.appendChild(this._editingContainer);
+		this._editingArea.focus();
+	}
+
+	private finishEdit(text?: string): void {
+		this._editingContainer!.remove();
+		this._commentBody.classList.remove('hidden');
+		this._editButton!.disabled = false;
+
+		if (text) {
+			this._comment.body = text;
+			this._commentBody.innerHTML = md.render(emoji.emojify(text));
+		}
+	}
+
+	private delete(): void {
+		this._messageHandler.postMessage({
+			command: 'pr.delete-comment',
+			args: this._comment
+		}).then(_ => {
+			this._commentContainer.remove();
+			if (this._review) {
+				this._review.deleteCommentFromReview(this._comment as Comment);
+			}
+		});
+	}
+}
+
+export function renderComment(comment: Comment | CommentEvent, messageHandler: MessageHandler, review?: ReviewNode): HTMLElement {
+	const node = new CommentNode(comment, messageHandler, review);
+	return node.render();
 }
 
 export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
@@ -331,127 +478,166 @@ function getDiffChangeClass(type: DiffChangeType) {
 	}
 }
 
-export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefined {
-	if (timelineEvent.state === 'pending') {
-		return undefined;
-	}
-
-	const commentContainer: HTMLDivElement = document.createElement('div');
-	commentContainer.classList.add('comment-container', 'comment');
-	const userIcon = renderUserIcon(timelineEvent.user.html_url, timelineEvent.user.avatar_url);
-	const reviewCommentContainer: HTMLDivElement = document.createElement('div');
-	reviewCommentContainer.className = 'review-comment-container';
-	commentContainer.appendChild(userIcon);
-	commentContainer.appendChild(reviewCommentContainer);
-
-	const commentHeader: HTMLDivElement = document.createElement('div');
-	commentHeader.className = 'review-comment-header';
-
-	const userLogin: HTMLAnchorElement = document.createElement('a');
-	userLogin.href = timelineEvent.user.html_url;
-	userLogin.textContent = timelineEvent.user.login;
-
-	const reviewState = document.createElement('span');
-	switch (timelineEvent.state.toLowerCase()) {
-		case 'approved':
-			reviewState.textContent = ` approved these changes`;
-			break;
-		case 'commented':
-			reviewState.textContent = ` reviewed`;
-			break;
-		case 'changes_requested':
-			reviewState.textContent = ` requested changes`;
-			break;
-		default:
-			break;
-	}
-
-	const timestamp: HTMLAnchorElement = document.createElement('a');
-	timestamp.className = 'timestamp';
-	timestamp.href = timelineEvent.html_url;
-	timestamp.textContent = moment(timelineEvent.submitted_at).fromNow();
-
-	commentHeader.appendChild(userLogin);
-	commentHeader.appendChild(reviewState);
-	commentHeader.appendChild(timestamp);
-
-	const reviewBody: HTMLDivElement = document.createElement('div');
-	reviewBody.className = 'review-body';
-	if (timelineEvent.body) {
-		reviewBody.innerHTML = md.render(emoji.emojify(timelineEvent.body));
-	}
-
-	reviewCommentContainer.appendChild(commentHeader);
-	reviewCommentContainer.appendChild(reviewBody);
-
-	if (timelineEvent.comments) {
-		const commentBody: HTMLDivElement = document.createElement('div');
-		commentBody.className = 'comment-body';
-		let groups = groupBy(timelineEvent.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
-
-		for (let path in groups) {
-			let comments = groups[path];
-
-			if (comments && comments.length) {
-				let diffLines: HTMLElement[] = [];
-
-				for (let i = 0; i < comments[0].diff_hunks.length; i++) {
-					diffLines = comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => {
-						const diffLineElement = document.createElement('div');
-						diffLineElement.classList.add('diffLine',  getDiffChangeClass(diffLine.type));
-
-						const oldLineNumber = document.createElement('span');
-						oldLineNumber.textContent = diffLine.oldLineNumber > 0 ? diffLine.oldLineNumber.toString() : ' ';
-						oldLineNumber.classList.add('lineNumber');
-
-						const newLineNumber = document.createElement('span');
-						newLineNumber.textContent = diffLine.newLineNumber > 0 ? diffLine.newLineNumber.toString() : ' ';
-						newLineNumber.classList.add('lineNumber');
-
-						const lineContent = document.createElement('span');
-						lineContent.textContent = diffLine._raw;
-						lineContent.classList.add('lineContent');
-
-						diffLineElement.appendChild(oldLineNumber);
-						diffLineElement.appendChild(newLineNumber);
-						diffLineElement.appendChild(lineContent);
-
-						return diffLineElement;
-					});
-				}
-
-				const diffView: HTMLDivElement = document.createElement('div');
-				diffView.className = 'diff';
-				const diffHeader: HTMLDivElement = document.createElement('div');
-				diffHeader.className = 'diffHeader';
-				diffHeader.textContent = comments[0].path;
-
-				diffView.appendChild(diffHeader);
-				diffLines.forEach(line => diffView.appendChild(line));
-
-				commentBody.appendChild(diffView);
-			}
-
-			comments.map(comment => commentBody.appendChild(renderComment(comment, 'review-comment')));
-		}
-
-		reviewCommentContainer.appendChild(commentBody);
-	}
-
-	commentContainer.appendChild(userIcon);
-	commentContainer.appendChild(reviewCommentContainer);
-
-	return commentContainer;
+export function renderReview(review: ReviewEvent, messageHandler: MessageHandler): HTMLElement | undefined {
+	const reviewNode = new ReviewNode(review, messageHandler);
+	return reviewNode.render();
 }
 
-export function renderTimelineEvent(timelineEvent: TimelineEvent): HTMLElement | undefined {
+class ReviewNode {
+	private _commentContainer: HTMLDivElement | undefined;
+
+	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler) { }
+
+	deleteCommentFromReview(comment: Comment): void {
+		const deletedCommentIndex = this._review.comments.findIndex(c => c.id.toString() === comment.id.toString());
+		this._review.comments.splice(deletedCommentIndex, 1);
+
+		if (!this._review.comments.length && !this._review.body) {
+			if (this._commentContainer) {
+				this._commentContainer.remove();
+				this._commentContainer = undefined;
+			}
+			return;
+		}
+
+		const commentsOnSameThread = this._review.comments.filter(c => c.path === comment.path && c.position === comment.position && c.original_position === comment.original_position);
+		if (!commentsOnSameThread.length) {
+			const path = comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`);
+			const threadContainer = document.getElementById(path);
+			if (threadContainer) {
+				threadContainer.remove();
+			}
+		}
+
+	}
+
+	render(): HTMLElement | undefined {
+		// Ignore pending or empty reviews
+		const isEmpty = !this._review.body && !(this._review.comments && this._review.comments.length);
+		if (this._review.state === 'pending' || isEmpty) {
+			return undefined;
+		}
+
+		this._commentContainer = document.createElement('div');
+		this._commentContainer.classList.add('comment-container', 'comment');
+		const userIcon = renderUserIcon(this._review.user.html_url, this._review.user.avatar_url);
+		const reviewCommentContainer = document.createElement('div');
+		reviewCommentContainer.className = 'review-comment-container';
+		this._commentContainer.appendChild(userIcon);
+		this._commentContainer.appendChild(reviewCommentContainer);
+
+		const commentHeader: HTMLDivElement = document.createElement('div');
+		commentHeader.className = 'review-comment-header';
+
+		const userLogin: HTMLAnchorElement = document.createElement('a');
+		userLogin.href = this._review.user.html_url;
+		userLogin.textContent = this._review.user.login;
+
+		const reviewState = document.createElement('span');
+		switch (this._review.state.toLowerCase()) {
+			case 'approved':
+				reviewState.textContent = ` approved these changes`;
+				break;
+			case 'commented':
+				reviewState.textContent = ` reviewed`;
+				break;
+			case 'changes_requested':
+				reviewState.textContent = ` requested changes`;
+				break;
+			default:
+				break;
+		}
+
+		const timestamp: HTMLAnchorElement = document.createElement('a');
+		timestamp.className = 'timestamp';
+		timestamp.href = this._review.html_url;
+		timestamp.textContent = moment(this._review.submitted_at).fromNow();
+
+		commentHeader.appendChild(userLogin);
+		commentHeader.appendChild(reviewState);
+		commentHeader.appendChild(timestamp);
+
+		const reviewBody: HTMLDivElement = document.createElement('div');
+		reviewBody.className = 'review-body';
+		if (this._review.body) {
+			reviewBody.innerHTML = md.render(emoji.emojify(this._review.body));
+		}
+
+		reviewCommentContainer.appendChild(commentHeader);
+		reviewCommentContainer.appendChild(reviewBody);
+
+		if (this._review.comments) {
+			const commentBody: HTMLDivElement = document.createElement('div');
+			commentBody.className = 'comment-body';
+			let groups = groupBy(this._review.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
+
+			for (let path in groups) {
+				let comments = groups[path];
+				const threadContainer: HTMLSpanElement = document.createElement('span');
+				threadContainer.id = path;
+
+				if (comments && comments.length) {
+					let diffLines: HTMLElement[] = [];
+
+					for (let i = 0; i < comments[0].diff_hunks.length; i++) {
+						diffLines = comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => {
+							const diffLineElement = document.createElement('div');
+							diffLineElement.classList.add('diffLine',  getDiffChangeClass(diffLine.type));
+
+							const oldLineNumber = document.createElement('span');
+							oldLineNumber.textContent = diffLine.oldLineNumber > 0 ? diffLine.oldLineNumber.toString() : ' ';
+							oldLineNumber.classList.add('lineNumber');
+
+							const newLineNumber = document.createElement('span');
+							newLineNumber.textContent = diffLine.newLineNumber > 0 ? diffLine.newLineNumber.toString() : ' ';
+							newLineNumber.classList.add('lineNumber');
+
+							const lineContent = document.createElement('span');
+							lineContent.textContent = diffLine._raw;
+							lineContent.classList.add('lineContent');
+
+							diffLineElement.appendChild(oldLineNumber);
+							diffLineElement.appendChild(newLineNumber);
+							diffLineElement.appendChild(lineContent);
+
+							return diffLineElement;
+						});
+					}
+
+					const diffView: HTMLDivElement = document.createElement('div');
+					diffView.className = 'diff';
+					const diffHeader: HTMLDivElement = document.createElement('div');
+					diffHeader.className = 'diffHeader';
+					diffHeader.textContent = comments[0].path;
+
+					diffView.appendChild(diffHeader);
+					diffLines.forEach(line => diffView.appendChild(line));
+
+					threadContainer.appendChild(diffView);
+				}
+
+				comments.map(comment => threadContainer.appendChild(renderComment(comment, this._messageHandler, this)));
+				commentBody.appendChild(threadContainer);
+			}
+
+			reviewCommentContainer.appendChild(commentBody);
+		}
+
+		this._commentContainer.appendChild(userIcon);
+		this._commentContainer.appendChild(reviewCommentContainer);
+
+		return this._commentContainer;
+	}
+}
+
+export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler): HTMLElement | undefined {
 	switch (timelineEvent.event) {
 		case EventType.Committed:
 			return renderCommit((<CommitEvent>timelineEvent));
 		case EventType.Commented:
-			return renderComment((<CommentEvent>timelineEvent));
+			return renderComment((<CommentEvent>timelineEvent), messageHandler);
 		case EventType.Reviewed:
-			return renderReview((<ReviewEvent>timelineEvent));
+			return renderReview(<ReviewEvent>timelineEvent, messageHandler);
 		default:
 			return undefined;
 	}

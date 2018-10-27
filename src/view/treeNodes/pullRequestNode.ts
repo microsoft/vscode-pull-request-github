@@ -501,7 +501,7 @@ export class PRNode extends TreeNode {
 
 	private async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string): Promise<void> {
 		const fileChange = this.findMatchingFileNode(document.uri);
-		const rawComment = await this._prManager.editComment(this.pullRequestModel, comment.commentId, text);
+		const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, comment.commentId, text);
 
 		const index = fileChange.comments.findIndex(c => c.id === comment.commentId);
 		if (index > -1) {
@@ -512,7 +512,7 @@ export class PRNode extends TreeNode {
 	private async deleteComment(document: vscode.TextDocument, comment: vscode.Comment): Promise<void> {
 		const fileChange = this.findMatchingFileNode(document.uri);
 
-		await this._prManager.deleteComment(this.pullRequestModel, comment.commentId);
+		await this._prManager.deleteReviewComment(this.pullRequestModel, comment.commentId);
 		const index = fileChange.comments.findIndex(c => c.id === comment.commentId);
 		if (index > -1) {
 			fileChange.comments.splice(index, 1);
