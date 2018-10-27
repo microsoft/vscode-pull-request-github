@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as moment from 'moment';
 import md from './mdRenderer';
+import { dateFromNow } from '../src/common/utils';
 const commitIconSvg = require('../resources/icons/commit_icon.svg');
 const emoji = require('node-emoji');
 
@@ -258,7 +258,7 @@ export function renderComment(comment: CommentEvent | Comment, additionalClass?:
 	const timestamp: HTMLAnchorElement = document.createElement('a');
 	timestamp.className = 'timestamp';
 	timestamp.href = comment.html_url;
-	timestamp.textContent = moment(comment.created_at).fromNow();
+	timestamp.textContent = dateFromNow(comment.created_at);
 
 	const commentState = document.createElement('span');
 	commentState.textContent = 'commented';
@@ -369,7 +369,7 @@ export function renderReview(timelineEvent: ReviewEvent): HTMLElement | undefine
 	const timestamp: HTMLAnchorElement = document.createElement('a');
 	timestamp.className = 'timestamp';
 	timestamp.href = timelineEvent.html_url;
-	timestamp.textContent = moment(timelineEvent.submitted_at).fromNow();
+	timestamp.textContent = dateFromNow(timelineEvent.submitted_at);
 
 	commentHeader.appendChild(userLogin);
 	commentHeader.appendChild(reviewState);
