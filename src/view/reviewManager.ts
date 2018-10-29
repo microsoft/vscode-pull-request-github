@@ -379,7 +379,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				throw new Error('Unable to find matching file');
 			}
 
-			const editedComment = await this._prManager.editComment(this._prManager.activePullRequest, comment.commentId, text);
+			const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, comment.commentId, text);
 
 			// Update the cached comments of the file
 			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id === comment.commentId);
@@ -411,7 +411,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				throw new Error('Unable to find matching file');
 			}
 
-			await this._prManager.deleteComment(this._prManager.activePullRequest, comment.commentId);
+			await this._prManager.deleteReviewComment(this._prManager.activePullRequest, comment.commentId);
 			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id === comment.commentId);
 			if (matchingCommentIndex > -1) {
 				const [ deletedComment ] = matchedFile.comments.splice(matchingCommentIndex, 1);

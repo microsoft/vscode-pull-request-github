@@ -3,12 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import './index.css';
-import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, TimelineEvent, EventType } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, EventType, ActionsBar } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 import * as debounce from 'debounce';
 import * as moment from 'moment';
 const emoji = require('node-emoji');
-import { getMessageHandler, vscode } from './message';
+import { getMessageHandler } from './message';
+import { getState, setState, PullRequest, updateState } from './cache';
 
 const ElementIds = {
 	Checkout: 'checkout',
@@ -20,32 +21,12 @@ const ElementIds = {
 	RequestChanges: 'request-changes',
 	Status: 'status',
 	CommentTextArea: 'comment-textarea',
-	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
+	TimelineEvents: 'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
 };
 
-interface PullRequest {
-	number: number;
-	title: string;
-	url: string;
-	createdAt: Date;
-	body: string;
-	author: any;
-	state: PullRequestStateEnum;
-	events: TimelineEvent[];
-	isCurrentlyCheckedOut: boolean;
-	base: string;
-	head: string;
-	labels: string[];
-	commitsCount: number;
-	repositoryDefaultBranch: any;
-	pendingCommentText?: string;
-}
-
-let pullRequest: PullRequest;
-
 window.onload = () => {
-	pullRequest = vscode.getState();
-	if (pullRequest) {
+	const pullRequest = getState();
+	if (pullRequest && Object.keys(pullRequest).length) {
 		renderPullRequest(pullRequest);
 	}
 };
@@ -53,9 +34,9 @@ window.onload = () => {
 const messageHandler = getMessageHandler(message => {
 	switch (message.command) {
 		case 'pr.initialize':
-			pullRequest = message.pullrequest;
+			const pullRequest = message.pullrequest;
+			setState(pullRequest);
 			renderPullRequest(pullRequest);
-			vscode.setState(pullRequest);
 			break;
 		case 'update-state':
 			updatePullRequestState(message.state);
@@ -68,7 +49,6 @@ const messageHandler = getMessageHandler(message => {
 			break;
 		case 'set-scroll':
 			window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
-			break;
 		default:
 			break;
 	}
@@ -87,15 +67,14 @@ function renderPullRequest(pr: PullRequest): void {
 function renderTimelineEvents(pr: PullRequest): void {
 	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
 	timelineElement.innerHTML = '';
-	pullRequest.events
-		.map(event => renderTimelineEvent(event))
+	pr.events
+		.map(event => renderTimelineEvent(event, messageHandler))
 		.filter(event => event !== undefined)
 		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
 
 function updatePullRequestState(state: PullRequestStateEnum): void {
-	pullRequest.state = state;
-	vscode.setState(pullRequest);
+	updateState({ state: state });
 
 	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
 	if (merge) {
@@ -123,7 +102,7 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 
 function setTitleHTML(pr: PullRequest): void {
 	document.getElementById('title')!.innerHTML = `
-			<div class="details">
+			<div id="details" class="details">
 				<div class="overview-title">
 					<h2>${pr.title} (<a href=${pr.url}>#${pr.number}</a>) </h2>
 					<div class="button-group">
@@ -137,21 +116,54 @@ function setTitleHTML(pr: PullRequest): void {
 					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
 					<a href=${pr.url} class="created-at timestamp">${moment(pr.createdAt).fromNow()}</a>
 				</div>
-				<div class="comment-body">
-					${
-						pr.labels.length > 0
-							? `<div class="line">
-						<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
-							<path fill-rule="evenodd" d="M7.685 1.72a2.49 2.49 0 0 0-1.76-.726H3.48A2.5 2.5 0 0 0 .994 3.48v2.456c0 .656.269 1.292.726 1.76l6.024 6.024a.99.99 0 0 0 1.402 0l4.563-4.563a.99.99 0 0 0 0-1.402L7.685 1.72zM2.366 7.048a1.54 1.54 0 0 1-.467-1.123V3.48c0-.874.716-1.58 1.58-1.58h2.456c.418 0 .825.159 1.123.467l6.104 6.094-4.702 4.702-6.094-6.114zm.626-4.066h1.989v1.989H2.982V2.982h.01z" />
-						</svg>
-						${pr.labels.map(label => `<span class="label">${label}</span>`).join('')}
-						</div>`
-							: ''
-					}
-					<div>${md.render(emoji.emojify(pr.body))}</div>
-				</div>
 			</div>
 		`;
+
+	const description = renderDescription(pr);
+	document.getElementById('details')!.appendChild(description);
+}
+
+function renderDescription(pr: PullRequest): HTMLElement {
+	const commentContainer = document.createElement('div');
+
+	const commentHeader = document.createElement('div');
+	commentHeader.classList.add('description-header');
+
+	const commentBody = document.createElement('div');
+	commentBody.innerHTML = md.render(emoji.emojify(pr.body));
+
+	if (pr.labels.length) {
+		const line = document.createElement('div');
+		line.classList.add('line');
+
+		line.innerHTML = `<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
+			<path fill-rule="evenodd" d="M7.685 1.72a2.49 2.49 0 0 0-1.76-.726H3.48A2.5 2.5 0 0 0 .994 3.48v2.456c0 .656.269 1.292.726 1.76l6.024 6.024a.99.99 0 0 0 1.402 0l4.563-4.563a.99.99 0 0 0 0-1.402L7.685 1.72zM2.366 7.048a1.54 1.54 0 0 1-.467-1.123V3.48c0-.874.716-1.58 1.58-1.58h2.456c.418 0 .825.159 1.123.467l6.104 6.094-4.702 4.702-6.094-6.114zm.626-4.066h1.989v1.989H2.982V2.982h.01z" />
+			</svg>
+			${pr.labels.map(label => `<span class="label">${label}</span>`).join('')}`;
+
+		commentContainer.appendChild(line);
+	}
+
+	commentContainer.appendChild(commentHeader);
+	commentContainer.appendChild(commentBody);
+
+	if (pr.canEdit) {
+		function updateDescription(text: string) {
+			pr.body = text;
+			updateState({ body: text });
+		}
+
+		const actionsBar = new ActionsBar(commentContainer, { body: pr.body, id: pr.number.toString() }, commentBody, messageHandler, updateDescription, 'pr.edit-description');
+		const renderedActionsBar = actionsBar.render();
+		actionsBar.registerActionBarListeners();
+		commentHeader.appendChild(renderedActionsBar);
+
+		if (pr.pendingCommentDrafts && pr.pendingCommentDrafts[pr.number]) {
+			actionsBar.startEdit(pr.pendingCommentDrafts[pr.number]);
+		}
+	}
+
+	return commentContainer;
 }
 
 function addEventListeners(pr: PullRequest): void {
@@ -166,16 +178,16 @@ function addEventListeners(pr: PullRequest): void {
 	let updateStateTimer: number;
 	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
 		const inputText = (<HTMLInputElement>e.target).value;
+		const { state } = getState();
 		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = !inputText;
-		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = !inputText || pullRequest.state !== PullRequestStateEnum.Open;
+		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = !inputText || state !== PullRequestStateEnum.Open;
 
 		if (updateStateTimer) {
 			clearTimeout(updateStateTimer);
 		}
 
 		updateStateTimer = window.setTimeout(() => {
-			pullRequest.pendingCommentText = inputText;
-			vscode.setState(pullRequest);
+			updateState({ pendingCommentText: inputText });
 		}, 500);
 	});
 
@@ -251,9 +263,7 @@ function clearTextArea() {
 	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
 	(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
 
-	if (pullRequest) {
-		pullRequest.pendingCommentText = undefined;
-	}
+	updateState({ pendingCommentText: undefined });
 }
 
 async function submitComment() {
@@ -268,10 +278,12 @@ async function submitComment() {
 
 function appendReview(review: any): void {
 	review.event = EventType.Reviewed;
-	pullRequest.events.push(review);
-	vscode.setState(pullRequest);
+	const pullRequest = getState();
+	let events = pullRequest.events;
+	events.push(review);
+	updateState({ events: events });
 
-	const newReview = renderReview(review);
+	const newReview = renderReview(review, messageHandler);
 	if (newReview) {
 		document.getElementById(ElementIds.TimelineEvents)!.appendChild(newReview);
 	}
@@ -280,17 +292,19 @@ function appendReview(review: any): void {
 
 function appendComment(comment: any) {
 	comment.event = EventType.Commented;
-	pullRequest.events.push(comment);
-	vscode.setState(pullRequest);
 
-	const newComment = renderComment(comment);
+	const pullRequest = getState();
+	let events = pullRequest.events;
+	events.push(comment);
+	updateState({ events: events });
+
+	const newComment = renderComment(comment, messageHandler);
 	document.getElementById(ElementIds.TimelineEvents)!.appendChild(newComment);
 	clearTextArea();
 }
 
 function updateCheckoutButton(isCheckedOut: boolean) {
-	pullRequest.isCurrentlyCheckedOut = isCheckedOut;
-	vscode.setState(pullRequest);
+	updateState({ isCurrentlyCheckedOut: isCheckedOut });
 
 	const checkoutButton = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
 	const checkoutMasterButton = (<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch));
@@ -333,7 +347,9 @@ function setTextArea() {
 		}
 	});
 
-	if (pullRequest.pendingCommentText) {
-		textArea.value = pullRequest.pendingCommentText;
+	let pullRequestCache = getState();
+
+	if (pullRequestCache.pendingCommentText) {
+		textArea.value = pullRequestCache.pendingCommentText;
 	}
 }
