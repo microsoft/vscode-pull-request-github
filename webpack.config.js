@@ -27,11 +27,15 @@ function getWebviewConfig(env) {
 				{
 					test: /\.css/,
 					use: ['style-loader', 'css-loader']
+				},
+				{
+					test: /\.svg/,
+					use: ['svg-inline-loader']
 				}
 			]
 		},
 		resolve: {
-			extensions: ['.tsx', '.ts', '.js']
+			extensions: ['.tsx', '.ts', '.js', '.svg']
 		},
 		devtool: !env.production ? 'inline-source-map' : undefined,
 		output: {

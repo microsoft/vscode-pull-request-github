@@ -8,9 +8,7 @@ import md from './mdRenderer';
 import * as debounce from 'debounce';
 import * as moment from 'moment';
 const emoji = require('node-emoji');
-
-declare var acquireVsCodeApi: any;
-const vscode = acquireVsCodeApi();
+import { getMessageHandler, vscode } from './message';
 
 const ElementIds = {
 	Checkout: 'checkout',
@@ -52,8 +50,7 @@ window.onload = () => {
 	}
 };
 
-function handleMessage(event: any) {
-	const message = event.data; // The json data that the extension sent
+const messageHandler = getMessageHandler(message => {
 	switch (message.command) {
 		case 'pr.initialize':
 			pullRequest = message.pullrequest;
@@ -66,18 +63,6 @@ function handleMessage(event: any) {
 		case 'pr.update-checkout-status':
 			updateCheckoutButton(message.isCurrentlyCheckedOut);
 			break;
-		case 'pr.append-comment':
-			appendComment(message.value);
-			break;
-		case 'pr.append-review':
-			appendReview(message.value);
-			break;
-		case 'pr.enable-approve':
-			(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
-			break;
-		case 'pr.enable-request-changes':
-			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
-			break;
 		case 'pr.enable-exit':
 			(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = false;
 			break;
@@ -87,18 +72,25 @@ function handleMessage(event: any) {
 		default:
 			break;
 	}
-}
-
-window.addEventListener('message', handleMessage);
+});
 
 function renderPullRequest(pr: PullRequest): void {
-	document.getElementById(ElementIds.TimelineEvents)!.innerHTML = pr.events.map(renderTimelineEvent).join('');
+	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
 	addEventListeners(pr);
+}
+
+function renderTimelineEvents(pr: PullRequest): void {
+	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
+	timelineElement.innerHTML = '';
+	pullRequest.events
+		.map(event => renderTimelineEvent(event))
+		.filter(event => event !== undefined)
+		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
 
 function updatePullRequestState(state: PullRequestStateEnum): void {
@@ -163,16 +155,15 @@ function setTitleHTML(pr: PullRequest): void {
 }
 
 function addEventListeners(pr: PullRequest): void {
-	document.getElementById(ElementIds.Checkout)!.addEventListener('click', () => {
+	document.getElementById(ElementIds.Checkout)!.addEventListener('click', async () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Checkout)).disabled = true;
 		(<HTMLButtonElement>document.getElementById(ElementIds.Checkout)).innerHTML = 'Checking Out...';
-		vscode.postMessage({
-			command: 'pr.checkout'
-		});
+		let result = await messageHandler.postMessage({ command: 'pr.checkout' });
+		updateCheckoutButton(result.isCurrentlyCheckedOut);
 	});
 
 	// Enable 'Comment' and 'RequestChanges' button only when the user has entered text
-	let updateStateTimer: NodeJS.Timer;
+	let updateStateTimer: number;
 	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
 		const inputText = (<HTMLInputElement>e.target).value;
 		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = !inputText;
@@ -182,7 +173,7 @@ function addEventListeners(pr: PullRequest): void {
 			clearTimeout(updateStateTimer);
 		}
 
-		updateStateTimer = setTimeout(() => {
+		updateStateTimer = window.setTimeout(() => {
 			pullRequest.pendingCommentText = inputText;
 			vscode.setState(pullRequest);
 		}, 500);
@@ -195,51 +186,59 @@ function addEventListeners(pr: PullRequest): void {
 	document.getElementById(ElementIds.Merge)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Merge)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		vscode.postMessage({
+		messageHandler.postMessage({
 			command: 'pr.merge',
-			text: inputBox.value
+			args: inputBox.value
 		});
 	});
 
-	document.getElementById(ElementIds.Close)!.addEventListener('click', () => {
+	document.getElementById(ElementIds.Close)!.addEventListener('click', async () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Close)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		vscode.postMessage({
-			command: 'pr.close',
-			text: inputBox.value
-		});
+		let result = await messageHandler.postMessage({ command: 'pr.close', args: inputBox.value });
+		appendComment(result.value);
 	});
 
-	document.getElementById(ElementIds.Approve)!.addEventListener('click', () => {
+	document.getElementById(ElementIds.Approve)!.addEventListener('click', async () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		vscode.postMessage({
+		messageHandler.postMessage({
 			command: 'pr.approve',
-			text: inputBox.value
+			args: inputBox.value
+		}).then(message => {
+			// succeed
+			appendReview(message.value);
+		}, err => {
+			// enable approve button
+			(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
 		});
 	});
 
 	document.getElementById(ElementIds.RequestChanges)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		vscode.postMessage({
+		messageHandler.postMessage({
 			command: 'pr.request-changes',
-			text: inputBox.value
+			args: inputBox.value
+		}).then(message => {
+			appendReview(message.value);
+		}, err => {
+			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
 		});
 	});
 
 	document.getElementById(ElementIds.CheckoutDefaultBranch)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = true;
-		vscode.postMessage({
+		messageHandler.postMessage({
 			command: 'pr.checkout-default-branch',
-			branch: pr.repositoryDefaultBranch
+			args: pr.repositoryDefaultBranch
 		});
 	});
 
 	window.onscroll = debounce(() => {
-		vscode.postMessage({
+		messageHandler.postMessage({
 			command: 'scroll',
-			scrollPosition: {
+			args: {
 				x: window.scrollX,
 				y: window.scrollY
 			}
@@ -257,13 +256,14 @@ function clearTextArea() {
 	}
 }
 
-function submitComment() {
+async function submitComment() {
 	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
-	vscode.postMessage({
+	const result = await messageHandler.postMessage({
 		command: 'pr.comment',
-		text: (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value
+		args: (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value
 	});
 
+	appendComment(result.value);
 }
 
 function appendReview(review: any): void {
@@ -272,7 +272,9 @@ function appendReview(review: any): void {
 	vscode.setState(pullRequest);
 
 	const newReview = renderReview(review);
-	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newReview);
+	if (newReview) {
+		document.getElementById(ElementIds.TimelineEvents)!.appendChild(newReview);
+	}
 	clearTextArea();
 }
 
@@ -281,8 +283,8 @@ function appendComment(comment: any) {
 	pullRequest.events.push(comment);
 	vscode.setState(pullRequest);
 
-	let newComment = renderComment(comment);
-	document.getElementById(ElementIds.TimelineEvents)!.insertAdjacentHTML('beforeend', newComment);
+	const newComment = renderComment(comment);
+	document.getElementById(ElementIds.TimelineEvents)!.appendChild(newComment);
 	clearTextArea();
 }
 
