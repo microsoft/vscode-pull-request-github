@@ -6,6 +6,7 @@
 import * as moment from 'moment';
 import md from './mdRenderer';
 import { MessageHandler } from './message';
+import { getState, updateState } from './cache';
 
 const commitIconSvg = require('../resources/icons/commit_icon.svg');
 const editIcon = require('../resources/icons/edit.svg');
@@ -242,15 +243,22 @@ function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
 	return iconContainer;
 }
 
+export interface ActionData {
+	body: string;
+	id: string;
+}
+
 export class ActionsBar {
 	private _actionsBar: HTMLDivElement | undefined;
 	private _editingContainer: HTMLDivElement | undefined;
 	private _editingArea: HTMLTextAreaElement | undefined;
+	private _updateStateTimer: number = -1;
 
 	constructor(private _container: HTMLElement,
-		private _comment: Comment,
+		private _data: ActionData,
 		private _renderedComment: HTMLElement,
 		private _messageHandler: MessageHandler,
+		private _updateHandler: (value: any) => void,
 		private _editCommand?: string,
 		private _deleteCommand?: string,
 		private _review?: ReviewNode) {
@@ -304,12 +312,12 @@ export class ActionsBar {
 		});
 	}
 
-	private startEdit(): void {
+	startEdit(text?: string): void {
 		this._actionsBar!.classList.add('hidden');
 		this._editingContainer = document.createElement('div');
 		this._editingContainer.className = 'editing-form';
 		this._editingArea = document.createElement('textarea');
-		this._editingArea.value = this._comment.body;
+		this._editingArea.value = text || this._data.body;
 
 		this._renderedComment.classList.add('hidden');
 
@@ -324,7 +332,7 @@ export class ActionsBar {
 				command: this._editCommand,
 				args: {
 					text: this._editingArea!.value,
-					comment: this._comment
+					comment: this._data
 				}
 			}).then(result => {
 				this.finishEdit(result.text);
@@ -347,6 +355,21 @@ export class ActionsBar {
 
 		this._renderedComment.parentElement!.appendChild(this._editingContainer);
 		this._editingArea.focus();
+
+		this._editingArea.addEventListener('input', (e) => {
+			const inputText = (<HTMLInputElement>e.target).value;
+
+			if (this._updateStateTimer) {
+				clearTimeout(this._updateStateTimer);
+			}
+
+			this._updateStateTimer = window.setTimeout(() => {
+				let pullRequest = getState();
+				const pendingCommentDrafts = pullRequest.pendingCommentDrafts || Object.create(null);
+				pendingCommentDrafts[this._data.id] = inputText;
+				updateState({ pendingCommentDrafts: pendingCommentDrafts });
+			}, 500);
+		});
 	}
 
 	private finishEdit(text?: string): void {
@@ -358,19 +381,29 @@ export class ActionsBar {
 		this._actionsBar!.classList.remove('hidden');
 
 		if (text) {
-			this._comment.body = text;
+			this._data.body = text;
 			this._renderedComment.innerHTML = md.render(emoji.emojify(text));
+			this._updateHandler(text);
+		}
+
+		clearTimeout(this._updateStateTimer);
+
+		let pullRequest = getState();
+		const pendingCommentDrafts = pullRequest.pendingCommentDrafts;
+		if (pendingCommentDrafts) {
+			delete pendingCommentDrafts[this._data.id];
+			updateState({ pendingCommentDrafts: pendingCommentDrafts });
 		}
 	}
 
 	private delete(): void {
 		this._messageHandler.postMessage({
 			command: this._deleteCommand,
-			args: this._comment
+			args: this._data
 		}).then(_ => {
 			this._container.remove();
 			if (this._review) {
-				this._review.deleteCommentFromReview(this._comment as Comment);
+				this._review.deleteCommentFromReview(this._data as Comment);
 			}
 		});
 	}
@@ -414,6 +447,7 @@ class CommentNode {
 		commentState.textContent = 'commented';
 
 		this._commentBody.className = 'comment-body';
+
 		this._commentBody.innerHTML  = md.render(emoji.emojify(this._comment.body));
 
 		commentHeader.appendChild(authorLink);
@@ -421,7 +455,7 @@ class CommentNode {
 		commentHeader.appendChild(timestamp);
 
 		if (this._comment.canEdit || this._comment.canDelete) {
-			this._actionsBar = new ActionsBar(this._commentContainer, this._comment as Comment, this._commentBody, this._messageHandler, 'pr.edit-comment', 'pr.delete-comment', this._review);
+			this._actionsBar = new ActionsBar(this._commentContainer, this._comment as Comment, this._commentBody, this._messageHandler, (e) => { }, 'pr.edit-comment', 'pr.delete-comment', this._review);
 			const actionBarElement = this._actionsBar.render();
 			this._actionsBar.registerActionBarListeners();
 			commentHeader.appendChild(actionBarElement);
@@ -432,11 +466,27 @@ class CommentNode {
 
 		return this._commentContainer;
 	}
+
+	startEdit(text?: string): void {
+		if (this._actionsBar) {
+			this._actionsBar.startEdit(text);
+		}
+	}
 }
 
 export function renderComment(comment: Comment | CommentEvent, messageHandler: MessageHandler, review?: ReviewNode): HTMLElement {
 	const node = new CommentNode(comment, messageHandler, review);
-	return node.render();
+	const { pendingCommentDrafts } = getState();
+	const rendered = node.render();
+
+	if (pendingCommentDrafts) {
+		let text = pendingCommentDrafts[comment.id];
+		if (pendingCommentDrafts[comment.id]) {
+			node.startEdit(text);
+		}
+	}
+
+	return rendered;
 }
 
 export function renderCommit(timelineEvent: CommitEvent): HTMLElement {

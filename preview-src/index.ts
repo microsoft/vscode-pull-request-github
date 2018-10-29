@@ -3,13 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import './index.css';
-import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, TimelineEvent, EventType, ActionsBar } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, EventType, ActionsBar } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 import * as debounce from 'debounce';
 import * as moment from 'moment';
 const emoji = require('node-emoji');
-import { getMessageHandler, vscode } from './message';
-
+import { getMessageHandler } from './message';
+import { getState, setState, PullRequest, updateState } from './cache';
 
 const ElementIds = {
 	Checkout: 'checkout',
@@ -21,33 +21,12 @@ const ElementIds = {
 	RequestChanges: 'request-changes',
 	Status: 'status',
 	CommentTextArea: 'comment-textarea',
-	TimelineEvents:'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
+	TimelineEvents: 'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
 };
 
-interface PullRequest {
-	number: number;
-	title: string;
-	url: string;
-	createdAt: Date;
-	body: string;
-	author: any;
-	state: PullRequestStateEnum;
-	events: TimelineEvent[];
-	isCurrentlyCheckedOut: boolean;
-	base: string;
-	head: string;
-	labels: string[];
-	commitsCount: number;
-	repositoryDefaultBranch: any;
-	canEdit: boolean;
-	pendingCommentText?: string;
-}
-
-let pullRequest: PullRequest;
-
 window.onload = () => {
-	pullRequest = vscode.getState();
-	if (pullRequest) {
+	const pullRequest = getState();
+	if (pullRequest && Object.keys(pullRequest).length) {
 		renderPullRequest(pullRequest);
 	}
 };
@@ -55,9 +34,9 @@ window.onload = () => {
 const messageHandler = getMessageHandler(message => {
 	switch (message.command) {
 		case 'pr.initialize':
-			pullRequest = message.pullrequest;
+			const pullRequest = message.pullrequest;
+			setState(pullRequest);
 			renderPullRequest(pullRequest);
-			vscode.setState(pullRequest);
 			break;
 		case 'update-state':
 			updatePullRequestState(message.state);
@@ -88,15 +67,14 @@ function renderPullRequest(pr: PullRequest): void {
 function renderTimelineEvents(pr: PullRequest): void {
 	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
 	timelineElement.innerHTML = '';
-	pullRequest.events
+	pr.events
 		.map(event => renderTimelineEvent(event, messageHandler))
 		.filter(event => event !== undefined)
 		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
 
 function updatePullRequestState(state: PullRequestStateEnum): void {
-	pullRequest.state = state;
-	vscode.setState(pullRequest);
+	updateState({ state: state });
 
 	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
 	if (merge) {
@@ -166,15 +144,25 @@ function renderDescription(pr: PullRequest): HTMLElement {
 		commentContainer.appendChild(line);
 	}
 
+	commentContainer.appendChild(commentHeader);
+	commentContainer.appendChild(commentBody);
+
 	if (pr.canEdit) {
-		const actionsBar = new ActionsBar(commentContainer, pr as any, commentBody, messageHandler, 'pr.edit-description');
+		function updateDescription(text: string) {
+			pr.body = text;
+			updateState({ body: text });
+		}
+
+		const actionsBar = new ActionsBar(commentContainer, { body: pr.body, id: pr.number.toString() }, commentBody, messageHandler, updateDescription, 'pr.edit-description');
 		const renderedActionsBar = actionsBar.render();
 		actionsBar.registerActionBarListeners();
 		commentHeader.appendChild(renderedActionsBar);
+
+		if (pr.pendingCommentDrafts && pr.pendingCommentDrafts[pr.number]) {
+			actionsBar.startEdit(pr.pendingCommentDrafts[pr.number]);
+		}
 	}
 
-	commentContainer.appendChild(commentHeader);
-	commentContainer.appendChild(commentBody);
 	return commentContainer;
 }
 
@@ -190,16 +178,16 @@ function addEventListeners(pr: PullRequest): void {
 	let updateStateTimer: number;
 	document.getElementById(ElementIds.CommentTextArea)!.addEventListener('input', (e) => {
 		const inputText = (<HTMLInputElement>e.target).value;
+		const { state } = getState();
 		(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = !inputText;
-		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = !inputText || pullRequest.state !== PullRequestStateEnum.Open;
+		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = !inputText || state !== PullRequestStateEnum.Open;
 
 		if (updateStateTimer) {
 			clearTimeout(updateStateTimer);
 		}
 
 		updateStateTimer = window.setTimeout(() => {
-			pullRequest.pendingCommentText = inputText;
-			vscode.setState(pullRequest);
+			updateState({ pendingCommentText: inputText });
 		}, 500);
 	});
 
@@ -275,9 +263,7 @@ function clearTextArea() {
 	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
 	(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
 
-	if (pullRequest) {
-		pullRequest.pendingCommentText = undefined;
-	}
+	updateState({ pendingCommentText: undefined });
 }
 
 async function submitComment() {
@@ -292,8 +278,10 @@ async function submitComment() {
 
 function appendReview(review: any): void {
 	review.event = EventType.Reviewed;
-	pullRequest.events.push(review);
-	vscode.setState(pullRequest);
+	const pullRequest = getState();
+	let events = pullRequest.events;
+	events.push(review);
+	updateState({ events: events });
 
 	const newReview = renderReview(review, messageHandler);
 	if (newReview) {
@@ -304,8 +292,11 @@ function appendReview(review: any): void {
 
 function appendComment(comment: any) {
 	comment.event = EventType.Commented;
-	pullRequest.events.push(comment);
-	vscode.setState(pullRequest);
+
+	const pullRequest = getState();
+	let events = pullRequest.events;
+	events.push(comment);
+	updateState({ events: events });
 
 	const newComment = renderComment(comment, messageHandler);
 	document.getElementById(ElementIds.TimelineEvents)!.appendChild(newComment);
@@ -313,8 +304,7 @@ function appendComment(comment: any) {
 }
 
 function updateCheckoutButton(isCheckedOut: boolean) {
-	pullRequest.isCurrentlyCheckedOut = isCheckedOut;
-	vscode.setState(pullRequest);
+	updateState({ isCurrentlyCheckedOut: isCheckedOut });
 
 	const checkoutButton = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
 	const checkoutMasterButton = (<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch));
@@ -357,7 +347,9 @@ function setTextArea() {
 		}
 	});
 
-	if (pullRequest.pendingCommentText) {
-		textArea.value = pullRequest.pendingCommentText;
+	let pullRequestCache = getState();
+
+	if (pullRequestCache.pendingCommentText) {
+		textArea.value = pullRequestCache.pendingCommentText;
 	}
 }
