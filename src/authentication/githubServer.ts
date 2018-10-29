@@ -7,7 +7,6 @@ import { handler as uriHandler } from '../common/uri';
 import { PromiseAdapter, promiseFromEmitter } from '../common/utils';
 import { agent } from '../common/net';
 
-
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
 
