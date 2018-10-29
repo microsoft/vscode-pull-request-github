@@ -9,7 +9,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent, ITelemetry } from './interface';
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent, ITelemetry, IPullRequest } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
@@ -459,6 +459,11 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
+	canEditPullRequest(pullRequest: IPullRequestModel): boolean {
+		const username = pullRequest.author && pullRequest.author.login;
+		return this._credentialStore.isCurrentUser(username, pullRequest.remote);
+	}
+
 	private addCommentPermissions(rawComment: Comment, remote: Remote): Comment {
 		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user.login, remote);
 		const notOutdated = rawComment.position !== null;
@@ -479,6 +484,21 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 
 		return ret.data;
+	}
+
+	async editPullRequest(pullRequest: IPullRequestModel, newBody: string): Promise<IPullRequest> {
+		try {
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { data } = await octokit.pullRequests.update({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				number: pullRequest.prNumber,
+				body: newBody
+			});
+			return data;
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
 	}
 
 	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {

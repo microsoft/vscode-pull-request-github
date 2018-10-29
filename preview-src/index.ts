@@ -3,12 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import './index.css';
-import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, TimelineEvent, EventType } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, PullRequestStateEnum, renderReview, TimelineEvent, EventType, ActionsBar } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 import * as debounce from 'debounce';
 import * as moment from 'moment';
 const emoji = require('node-emoji');
 import { getMessageHandler, vscode } from './message';
+
 
 const ElementIds = {
 	Checkout: 'checkout',
@@ -38,6 +39,7 @@ interface PullRequest {
 	labels: string[];
 	commitsCount: number;
 	repositoryDefaultBranch: any;
+	canEdit: boolean;
 	pendingCommentText?: string;
 }
 
@@ -122,7 +124,7 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 
 function setTitleHTML(pr: PullRequest): void {
 	document.getElementById('title')!.innerHTML = `
-			<div class="details">
+			<div id="details" class="details">
 				<div class="overview-title">
 					<h2>${pr.title} (<a href=${pr.url}>#${pr.number}</a>) </h2>
 					<div class="button-group">
@@ -136,21 +138,44 @@ function setTitleHTML(pr: PullRequest): void {
 					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
 					<a href=${pr.url} class="created-at timestamp">${moment(pr.createdAt).fromNow()}</a>
 				</div>
-				<div class="comment-body">
-					${
-						pr.labels.length > 0
-							? `<div class="line">
-						<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
-							<path fill-rule="evenodd" d="M7.685 1.72a2.49 2.49 0 0 0-1.76-.726H3.48A2.5 2.5 0 0 0 .994 3.48v2.456c0 .656.269 1.292.726 1.76l6.024 6.024a.99.99 0 0 0 1.402 0l4.563-4.563a.99.99 0 0 0 0-1.402L7.685 1.72zM2.366 7.048a1.54 1.54 0 0 1-.467-1.123V3.48c0-.874.716-1.58 1.58-1.58h2.456c.418 0 .825.159 1.123.467l6.104 6.094-4.702 4.702-6.094-6.114zm.626-4.066h1.989v1.989H2.982V2.982h.01z" />
-						</svg>
-						${pr.labels.map(label => `<span class="label">${label}</span>`).join('')}
-						</div>`
-							: ''
-					}
-					<div>${md.render(emoji.emojify(pr.body))}</div>
-				</div>
 			</div>
 		`;
+
+	const description = renderDescription(pr);
+	document.getElementById('details')!.appendChild(description);
+}
+
+function renderDescription(pr: PullRequest): HTMLElement {
+	const commentContainer = document.createElement('div');
+
+	const commentHeader = document.createElement('div');
+	commentHeader.classList.add('description-header');
+
+	const commentBody = document.createElement('div');
+	commentBody.innerHTML = md.render(emoji.emojify(pr.body));
+
+	if (pr.labels.length) {
+		const line = document.createElement('div');
+		line.classList.add('line');
+
+		line.innerHTML = `<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
+			<path fill-rule="evenodd" d="M7.685 1.72a2.49 2.49 0 0 0-1.76-.726H3.48A2.5 2.5 0 0 0 .994 3.48v2.456c0 .656.269 1.292.726 1.76l6.024 6.024a.99.99 0 0 0 1.402 0l4.563-4.563a.99.99 0 0 0 0-1.402L7.685 1.72zM2.366 7.048a1.54 1.54 0 0 1-.467-1.123V3.48c0-.874.716-1.58 1.58-1.58h2.456c.418 0 .825.159 1.123.467l6.104 6.094-4.702 4.702-6.094-6.114zm.626-4.066h1.989v1.989H2.982V2.982h.01z" />
+			</svg>
+			${pr.labels.map(label => `<span class="label">${label}</span>`).join('')}`;
+
+		commentContainer.appendChild(line);
+	}
+
+	if (pr.canEdit) {
+		const actionsBar = new ActionsBar(commentContainer, pr as any, commentBody, messageHandler, 'pr.edit-description');
+		const renderedActionsBar = actionsBar.render();
+		actionsBar.registerActionBarListeners();
+		commentHeader.appendChild(renderedActionsBar);
+	}
+
+	commentContainer.appendChild(commentHeader);
+	commentContainer.appendChild(commentBody);
+	return commentContainer;
 }
 
 function addEventListeners(pr: PullRequest): void {

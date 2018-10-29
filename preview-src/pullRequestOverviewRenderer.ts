@@ -242,14 +242,144 @@ function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
 	return iconContainer;
 }
 
+export class ActionsBar {
+	private _actionsBar: HTMLDivElement | undefined;
+	private _editingContainer: HTMLDivElement | undefined;
+	private _editingArea: HTMLTextAreaElement | undefined;
+
+	constructor(private _container: HTMLElement,
+		private _comment: Comment,
+		private _renderedComment: HTMLElement,
+		private _messageHandler: MessageHandler,
+		private _editCommand?: string,
+		private _deleteCommand?: string,
+		private _review?: ReviewNode) {
+
+	}
+
+	render(): HTMLElement {
+		this._actionsBar = document.createElement('div');
+		this._actionsBar.classList.add('comment-actions', 'hidden');
+
+		if (this._editCommand) {
+			const editButton = document.createElement('button');
+			editButton.innerHTML = editIcon;
+			editButton.addEventListener('click', () => this.startEdit());
+			this._actionsBar.appendChild(editButton);
+		}
+
+		if (this._deleteCommand) {
+			const deleteButton = document.createElement('button');
+			deleteButton.innerHTML = deleteIcon;
+			deleteButton.addEventListener('click', () => this.delete());
+			this._actionsBar.appendChild(deleteButton);
+		}
+
+		return this._actionsBar;
+	}
+
+	registerActionBarListeners(): void {
+		this._container.addEventListener('mouseenter', () => {
+			if (!this._editingContainer) {
+				this._actionsBar!.classList.remove('hidden');
+			}
+		});
+
+		this._container.addEventListener('focusin', () => {
+			if (!this._editingContainer) {
+				this._actionsBar!.classList.remove('hidden');
+			}
+		});
+
+		this._container.addEventListener('mouseleave', () => {
+			if (!this._container.contains(document.activeElement)) {
+				this._actionsBar!.classList.add('hidden');
+			}
+		});
+
+		this._container.addEventListener('focusout', (e) => {
+			if (!this._container.contains((<any>e).target)) {
+				this._actionsBar!.classList.add('hidden');
+			}
+		});
+	}
+
+	private startEdit(): void {
+		this._actionsBar!.classList.add('hidden');
+		this._editingContainer = document.createElement('div');
+		this._editingContainer.className = 'editing-form';
+		this._editingArea = document.createElement('textarea');
+		this._editingArea.value = this._comment.body;
+
+		this._renderedComment.classList.add('hidden');
+
+		const cancelButton = document.createElement('button');
+		cancelButton.textContent = 'Cancel';
+		cancelButton.onclick = () => { this.finishEdit(); };
+
+		const updateButton = document.createElement('button');
+		updateButton.textContent = 'Update';
+		updateButton.onclick = () => {
+			this._messageHandler.postMessage({
+				command: this._editCommand,
+				args: {
+					text: this._editingArea!.value,
+					comment: this._comment
+				}
+			}).then(result => {
+				this.finishEdit(result.text);
+			}).catch(e => {
+				this.finishEdit();
+			});
+
+			updateButton.textContent = 'Updating...';
+			this._editingArea!.disabled = true;
+			updateButton.disabled = true;
+		};
+
+		const buttons = document.createElement('div');
+		buttons.className = 'form-actions';
+		buttons.appendChild(cancelButton);
+		buttons.appendChild(updateButton);
+
+		this._editingContainer.appendChild(this._editingArea);
+		this._editingContainer.appendChild(buttons);
+
+		this._renderedComment.parentElement!.appendChild(this._editingContainer);
+		this._editingArea.focus();
+	}
+
+	private finishEdit(text?: string): void {
+		this._editingContainer!.remove();
+		this._editingContainer = undefined;
+		this._editingArea = undefined;
+
+		this._renderedComment.classList.remove('hidden');
+		this._actionsBar!.classList.remove('hidden');
+
+		if (text) {
+			this._comment.body = text;
+			this._renderedComment.innerHTML = md.render(emoji.emojify(text));
+		}
+	}
+
+	private delete(): void {
+		this._messageHandler.postMessage({
+			command: this._deleteCommand,
+			args: this._comment
+		}).then(_ => {
+			this._container.remove();
+			if (this._review) {
+				this._review.deleteCommentFromReview(this._comment as Comment);
+			}
+		});
+	}
+}
+
 class CommentNode {
 	private _commentContainer: HTMLDivElement = document.createElement('div');
 	private _commentBody: HTMLDivElement = document.createElement('div');
-	private _actionsBar: HTMLElement | undefined;
-
-	private _editButton: HTMLButtonElement | undefined;
-	private _editingContainer: HTMLDivElement | undefined;
-	private _editingArea: HTMLTextAreaElement | undefined;
+	private _actionsBar: ActionsBar | undefined;
 
 	constructor(private _comment: Comment | CommentEvent,
 		private _messageHandler: MessageHandler,
@@ -290,132 +420,17 @@ class CommentNode {
 		commentHeader.appendChild(commentState);
 		commentHeader.appendChild(timestamp);
 
-		this._actionsBar = this.renderActions();
-		if (this._actionsBar) {
-			this.registerActionBarListeners();
-			commentHeader.appendChild(this._actionsBar);
+		if (this._comment.canEdit || this._comment.canDelete) {
+			this._actionsBar = new ActionsBar(this._commentContainer, this._comment as Comment, this._commentBody, this._messageHandler, 'pr.edit-comment', 'pr.delete-comment', this._review);
+			const actionBarElement = this._actionsBar.render();
+			this._actionsBar.registerActionBarListeners();
+			commentHeader.appendChild(actionBarElement);
 		}
 
 		reviewCommentContainer.appendChild(commentHeader);
 		reviewCommentContainer.appendChild(this._commentBody);
 
 		return this._commentContainer;
-	}
-
-	private registerActionBarListeners(): void {
-		this._commentContainer.addEventListener('mouseenter', () => {
-			this._actionsBar!.classList.remove('hidden');
-		});
-
-		this._commentContainer.addEventListener('focusin', () => {
-			this._actionsBar!.classList.remove('hidden');
-		});
-
-		this._commentContainer.addEventListener('mouseleave', () => {
-			if (!this._commentContainer.contains(document.activeElement)) {
-				this._actionsBar!.classList.add('hidden');
-			}
-		});
-
-		this._commentContainer.addEventListener('focusout', (e) => {
-			if (!this._commentContainer.contains((<any>e).target)) {
-				this._actionsBar!.classList.add('hidden');
-			}
-		});
-	}
-
-	private renderActions(): HTMLElement | undefined {
-		if (!this._comment.canEdit && !this._comment.canDelete) {
-			return undefined;
-		}
-
-		this._actionsBar = document.createElement('div');
-		this._actionsBar.classList.add('comment-actions', 'hidden');
-
-		if (this._comment.canEdit) {
-			this._editButton = document.createElement('button');
-			this._editButton.innerHTML = editIcon;
-			this._editButton.addEventListener('click', () => this.startEdit());
-			this._actionsBar.appendChild(this._editButton);
-		}
-
-		if (this._comment.canDelete) {
-			const deleteButton = document.createElement('button');
-			deleteButton.innerHTML = deleteIcon;
-			deleteButton.addEventListener('click', () => this.delete());
-			this._actionsBar.appendChild(deleteButton);
-		}
-
-		return this._actionsBar;
-	}
-
-	private startEdit(): void {
-		this._editButton!.disabled = true;
-		this._editingContainer = document.createElement('div');
-		this._editingContainer.className = 'editing-form';
-		this._editingArea = document.createElement('textarea');
-		this._editingArea.value = this._comment.body;
-
-		this._commentBody.classList.add('hidden');
-
-		const cancelButton = document.createElement('button');
-		cancelButton.textContent = 'Cancel';
-		cancelButton.onclick = () => { this.finishEdit(); };
-
-		const updateButton = document.createElement('button');
-		updateButton.textContent = 'Update comment';
-		updateButton.onclick = () => {
-			this._messageHandler.postMessage({
-				command: 'pr.edit-comment',
-				args: {
-					text: this._editingArea!.value,
-					comment: this._comment
-				}
-			}).then(result => {
-				this.finishEdit(result.text);
-			}).catch(e => {
-				this.finishEdit();
-			});
-
-			updateButton.textContent = 'Updating comment...';
-			this._editingArea!.disabled = true;
-			updateButton.disabled = true;
-			this._editButton!.disabled = false;
-		};
-
-		const buttons = document.createElement('div');
-		buttons.className = 'form-actions';
-		buttons.appendChild(cancelButton);
-		buttons.appendChild(updateButton);
-
-		this._editingContainer.appendChild(this._editingArea);
-		this._editingContainer.appendChild(buttons);
-
-		this._commentBody.parentElement!.appendChild(this._editingContainer);
-		this._editingArea.focus();
-	}
-
-	private finishEdit(text?: string): void {
-		this._editingContainer!.remove();
-		this._commentBody.classList.remove('hidden');
-		this._editButton!.disabled = false;
-
-		if (text) {
-			this._comment.body = text;
-			this._commentBody.innerHTML = md.render(emoji.emojify(text));
-		}
-	}
-
-	private delete(): void {
-		this._messageHandler.postMessage({
-			command: 'pr.delete-comment',
-			args: this._comment
-		}).then(_ => {
-			this._commentContainer.remove();
-			if (this._review) {
-				this._review.deleteCommentFromReview(this._comment as Comment);
-			}
-		});
 	}
 }
 

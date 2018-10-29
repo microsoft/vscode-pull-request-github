@@ -134,6 +134,7 @@ export class PullRequestOverviewPanel {
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
+			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
 
 			Promise.all(
 				[
@@ -158,7 +159,8 @@ export class PullRequestOverviewPanel {
 						base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
 						head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
 						commitsCount: pullRequestModel.commitCount,
-						repositoryDefaultBranch: defaultBranch
+						repositoryDefaultBranch: defaultBranch,
+						canEdit: canEdit
 					}
 				});
 			});
@@ -213,7 +215,18 @@ export class PullRequestOverviewPanel {
 				return this.editComment(message);
 			case 'pr.delete-comment':
 				return this.deleteComment(message);
+			case 'pr.edit-description':
+				return this.editDescription(message);
 		}
+	}
+
+	private editDescription(message: IRequestMessage<{ text: string }>) {
+		this._pullRequestManager.editPullRequest(this._pullRequest, message.args.text).then(result => {
+			this._replyMessage(message, { text: result.body });
+		}).catch(e => {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(formatError(e));
+		});
 	}
 
 	private editComment(message: IRequestMessage<{ comment: Comment, text: string }>) {

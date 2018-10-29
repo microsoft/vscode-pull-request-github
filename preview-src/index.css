@@ -99,6 +99,10 @@ body .comment-container .review-comment-header a {
 	height: 16px;
 }
 
+.description-header {
+	float: right;
+}
+
 .review-comment-header .comment-actions {
 	margin-left: auto;
 }
