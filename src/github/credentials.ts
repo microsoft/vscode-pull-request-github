@@ -147,19 +147,6 @@ export class CredentialStore {
 	}
 
 	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
-		let proxy: object | undefined;
-		try {
-			const proxyURL = new URL(process.env.HTTPS_PROXY);
-			proxy = {
-				host: proxyURL.hostname,
-				port: proxyURL.port,
-				proxyAuth: (proxyURL.username && proxyURL.password) ?
-					`${proxyURL.username}:${proxyURL.password}` : null,
-			};
-		} catch(e) {
-			vscode.window.showErrorMessage('Given `HTTPS_PROXY` is not valid URL.');
-			Logger.appendLine(e.toString());
-		}
 		const octokit = new Octokit({
 			agent,
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
