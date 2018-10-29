@@ -405,6 +405,11 @@ export class ActionsBar {
 			if (this._review) {
 				this._review.deleteCommentFromReview(this._data as Comment);
 			}
+
+			const pullRequest = getState();
+			const index = pullRequest.events.findIndex(event => event.event === EventType.Commented && (<CommentEvent>event).id.toString() === this._data.id.toString());
+			pullRequest.events.splice(index, 1);
+			updateState({ events: pullRequest.events });
 		});
 	}
 }
