@@ -351,5 +351,11 @@ function setTextArea() {
 
 	if (pullRequestCache.pendingCommentText) {
 		textArea.value = pullRequestCache.pendingCommentText;
+
+		const replyButton = <HTMLButtonElement>document.getElementById(ElementIds.Reply)!;
+		replyButton.disabled = false;
+
+		const requestChangesButton = <HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)!;
+		requestChangesButton.disabled = false;
 	}
 }
