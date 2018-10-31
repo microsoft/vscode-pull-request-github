@@ -60,6 +60,15 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 		});
 	});
 
+	git.onDidOpenRepository(repo => {
+		repo.ui.onDidChange(() => {
+			if (repo.ui.selected) {
+				prManager.repository = repo;
+				reviewManager.repository = repo;
+			}
+		});
+	});
+
 	telemetry.on('startup');
 }
 
