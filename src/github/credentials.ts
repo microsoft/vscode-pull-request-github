@@ -5,6 +5,7 @@
 
 import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
+import { agent } from '../common/net';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
 import { GitHubServer } from '../authentication/githubServer';
 import { Remote } from '../common/remote';
@@ -152,6 +153,7 @@ export class CredentialStore {
 
 	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
 		const octokit = new Octokit({
+			agent,
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
 			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
 		});
