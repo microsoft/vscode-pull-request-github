@@ -111,8 +111,10 @@ describe('Protocol', () => {
 	);
 
 	describe('with a ~/.ssh/config', () => {
-		before(() => ssh._test_setSSHConfig(SSH_CONFIG_WITH_HOST_ALIASES));
-		after(() => ssh._test_setSSHConfig());
+		before(() =>
+			ssh.Resolvers.current = ssh.Resolvers.fromConfig(SSH_CONFIG_WITH_HOST_ALIASES));
+		after(() =>
+			ssh.Resolvers.current = ssh.Resolvers.default);
 
 		testRemote({
 			uri: 'gh:queerviolet/vscode',
