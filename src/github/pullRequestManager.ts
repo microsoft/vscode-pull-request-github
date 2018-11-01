@@ -578,7 +578,7 @@ export class PullRequestManager implements IPullRequestManager {
 		return branch;
 	}
 
-	async fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void> {
+	async fulfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void> {
 		try {
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 

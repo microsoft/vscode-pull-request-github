@@ -234,7 +234,7 @@ export class PRNode extends TreeNode {
 
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
-			await this._prManager.fullfillPullRequestMissingInfo(this.pullRequestModel);
+			await this._prManager.fulfillPullRequestMissingInfo(this.pullRequestModel);
 			let mergeBase = this.pullRequestModel.mergeBase;
 			const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
 			let fileChanges = rawChanges.map(change => {

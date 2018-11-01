@@ -558,7 +558,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let outdatedComments = this._comments.filter(comment => !comment.position);
 
 			const data = await this._prManager.getPullRequestChangedFiles(pr);
-			await this._prManager.fullfillPullRequestMissingInfo(pr);
+			await this._prManager.fulfillPullRequestMissingInfo(pr);
 			let headSha = pr.head.sha;
 			let mergeBase = pr.mergeBase;
 
@@ -983,7 +983,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	public async switch(pr: IPullRequestModel): Promise<void> {
 		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber}`);
-		await this._prManager.fullfillPullRequestMissingInfo(pr);
+		await this._prManager.fulfillPullRequestMissingInfo(pr);
 
 		if (this._repository.state.workingTreeChanges.length > 0) {
 			vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');

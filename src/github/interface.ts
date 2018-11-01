@@ -191,13 +191,13 @@ export interface IPullRequestManager {
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
 
 	/**
-	 * Fullfill information for a pull request which we can't fetch with one single api call.
+	 * Fulfill information for a pull request which we can't fetch with one single api call.
 	 * 1. base. This property might not exist in search results
 	 * 2. head. This property might not exist in search results
 	 * 3. merge base. This is necessary as base might not be the commit that files in Pull Request are being compared to.
 	 * @param pullRequest
 	 */
-	fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void>;
+	fulfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void>;
 	updateRepositories(): Promise<void>;
 	authenticate(): Promise<boolean>;
 
