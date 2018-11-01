@@ -9,19 +9,30 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent, ITelemetry } from './interface';
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, Commit, FileChange, ReviewEvent, ITelemetry, IPullRequest } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
-import { formatError, uniqBy } from '../common/utils';
-import { Repository, RefType } from '../typings/git';
+import { formatError, uniqBy, groupBy } from '../common/utils';
 import Logger from '../common/logger';
+import { RefType, Repository } from '../typings/git';
 
 interface PageInformation {
 	pullRequestPage: number;
 	hasMorePages: boolean;
+}
+
+interface RestErrorResult {
+	errors: RestError[];
+	message: string;
+}
+
+interface RestError {
+	code: string;
+	field: string;
+	resource: string;
 }
 
 export class PullRequestManager implements IPullRequestManager {
@@ -259,7 +270,7 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
-		const rawComments = reviewData.data;
+		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(comment, remote));
 		return parserCommentDiffHunk(rawComments);
 	}
 
@@ -305,7 +316,7 @@ export class PullRequestManager implements IPullRequestManager {
 			review_id: reviewId
 		});
 
-		const rawComments = reviewData.data;
+		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(comment, remote));
 		return parserCommentDiffHunk(rawComments);
 	}
 
@@ -319,7 +330,7 @@ export class PullRequestManager implements IPullRequestManager {
 			per_page: 100
 		});
 
-		return await parseTimelineEvents(this, pullRequest, ret.data);
+		return await this.parseTimelineEvents(pullRequest, remote, ret.data);
 	}
 
 	async getIssueComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
@@ -345,7 +356,7 @@ export class PullRequestManager implements IPullRequestManager {
 			repo: remote.repositoryName
 		});
 
-		return promise.data;
+		return this.addCommentPermissions(promise.data, remote);
 	}
 
 	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment> {
@@ -360,13 +371,9 @@ export class PullRequestManager implements IPullRequestManager {
 				in_reply_to: Number(reply_to)
 			});
 
-			return ret.data;
+			return this.addCommentPermissions(ret.data, remote);
 		} catch (e) {
-			if (e.code && e.code === 422) {
-				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
-			} else {
-				throw e;
-			}
+			this.handleError(e);
 		}
 	}
 
@@ -384,14 +391,86 @@ export class PullRequestManager implements IPullRequestManager {
 				position: position
 			});
 
-			return ret.data;
+			return this.addCommentPermissions(ret.data, remote);
 		} catch (e) {
-			if (e.code && e.code === 422) {
-				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
-			} else {
-				throw e;
-			}
+			this.handleError(e);
 		}
+	}
+
+	async editIssueComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment> {
+		try {
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+
+			const ret = await octokit.issues.editComment({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				body: text,
+				comment_id: commentId
+			});
+
+			return this.addCommentPermissions(ret.data, remote);
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
+	async editReviewComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment> {
+		try {
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+
+			const ret = await octokit.pullRequests.editComment({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				body: text,
+				comment_id: commentId
+			});
+
+			return this.addCommentPermissions(ret.data, remote);
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
+	async deleteIssueComment(pullRequest: IPullRequestModel, commentId: string): Promise<void> {
+		try {
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+
+			await octokit.issues.deleteComment({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				comment_id: commentId
+			});
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
+	async deleteReviewComment(pullRequest: IPullRequestModel, commentId: string): Promise<void> {
+		try {
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+
+			await octokit.pullRequests.deleteComment({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				comment_id: commentId
+			});
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
+	canEditPullRequest(pullRequest: IPullRequestModel): boolean {
+		const username = pullRequest.author && pullRequest.author.login;
+		return this._credentialStore.isCurrentUser(username, pullRequest.remote);
+	}
+
+	private addCommentPermissions(rawComment: Comment, remote: Remote): Comment {
+		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user.login, remote);
+		const notOutdated = rawComment.position !== null;
+		rawComment.canEdit = isCurrentUser && notOutdated;
+		rawComment.canDelete = isCurrentUser && notOutdated;
+
+		return rawComment;
 	}
 
 	private async changePullRequestState(state: 'open' | 'closed', pullRequest: IPullRequestModel): Promise<any> {
@@ -405,6 +484,21 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 
 		return ret.data;
+	}
+
+	async editPullRequest(pullRequest: IPullRequestModel, newBody: string): Promise<IPullRequest> {
+		try {
+			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { data } = await octokit.pullRequests.update({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				number: pullRequest.prNumber,
+				body: newBody
+			});
+			return data;
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
 	}
 
 	async closePullRequest(pullRequest: IPullRequestModel): Promise<any> {
@@ -425,7 +519,7 @@ export class PullRequestManager implements IPullRequestManager {
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
 		})
-		.then(x => {
+			.then(x => {
 				this._telemetry.on('pr.merge');
 				return x.data;
 			});
@@ -544,7 +638,94 @@ export class PullRequestManager implements IPullRequestManager {
 		return this.repository.checkout(branchName);
 	}
 
-	//#endregion
+	private handleError(e: any) {
+		if (e.code && e.code === 422) {
+			let errorObject: RestErrorResult;
+			try {
+				errorObject = e.message && JSON.parse(e.message);
+			} catch {
+				// If we failed to parse the JSON re-throw the original error
+				// since it will have a more useful stack
+				throw e;
+			}
+			const firstError = errorObject && errorObject.errors && errorObject.errors[0];
+			if (firstError && firstError.code === 'missing_field' && firstError.field === 'body') {
+				throw new Error('Body can\'t be blank');
+			} else {
+				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
+			}
+
+		} else {
+			throw e;
+		}
+	}
+
+	private async addReviewTimelineEventComments(pullRequest: IPullRequestModel, events: any[]): Promise<void> {
+		const reviewEvents = events.filter(event => event.event === EventType.Reviewed);
+		const reviewComments = await this.getPullRequestComments(pullRequest);
+
+		// Group comments by file and position
+		const commentsByFile = groupBy(reviewComments, comment => comment.path);
+		for (let file in commentsByFile) {
+			const fileComments = commentsByFile[file];
+			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.original_position : comment.position));
+
+			// Loop through threads, for each thread, see if there is a matching review, push all comments to it
+			for (let i in commentThreads) {
+				const comments = commentThreads[i];
+				const reviewId = comments[0].pull_request_review_id;
+
+				if (reviewId) {
+					const matchingEvent = reviewEvents.find(review => review.id === reviewId);
+					if (matchingEvent) {
+						if (matchingEvent.comments) {
+							matchingEvent.comments = matchingEvent.comments.concat(comments);
+						} else {
+							matchingEvent.comments = comments;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private async fixCommitAttribution(pullRequest: IPullRequestModel, events: any[]): Promise<void> {
+		const commits = await this.getPullRequestCommits(pullRequest);
+		const commitEvents = events.filter(event => event.event === EventType.Committed);
+		for (let commitEvent of commitEvents) {
+			const matchingCommits = commits.filter(commit => commit.sha === commitEvent.sha);
+			if (matchingCommits.length === 1) {
+				const author = matchingCommits[0].author;
+				// There is not necessarily a GitHub account associated with the commit.
+				if (author !== null) {
+					commitEvent.author.avatar_url = author.avatar_url;
+					commitEvent.author.login = author.login;
+					commitEvent.author.html_url = author.html_url;
+				}
+			}
+		}
+	}
+
+	private async parseTimelineEvents(pullRequest: IPullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
+		events.forEach(event => {
+			let type = getEventType(event.event);
+			event.event = type;
+			return event;
+		});
+
+		events.forEach(event => {
+			if (event.event === EventType.Commented) {
+				this.addCommentPermissions(event, remote);
+			}
+		});
+
+		return Promise.all([
+			this.addReviewTimelineEventComments(pullRequest, events),
+			this.fixCommitAttribution(pullRequest, events)
+		]).then(_ => {
+			return events;
+		});
+	}
 }
 
 export function getEventType(text: string) {
@@ -562,20 +743,4 @@ export function getEventType(text: string) {
 		default:
 			return EventType.Other;
 	}
-}
-
-export async function parseTimelineEvents(pullRequestManager: IPullRequestManager, pullRequest: IPullRequestModel, events: any[]): Promise<TimelineEvent[]> {
-	events.forEach(event => {
-		let type = getEventType(event.event);
-		event.event = type;
-		return event;
-	});
-
-	await Promise.all(
-		events.filter(event => event.event === EventType.Reviewed)
-			.map(event => pullRequestManager.getReviewComments(pullRequest, event.id).then(result => {
-				event.comments = result;
-			})));
-
-	return events;
 }

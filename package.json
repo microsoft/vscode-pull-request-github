@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.28.0"
@@ -37,6 +37,28 @@
           "default": true,
           "description": "Enable usage data and errors to be sent to a GitHub online service"
         },
+        "githubPullRequests.hosts": {
+          "type": "array",
+          "default": [],
+          "description": "List of host credentials. For example, \"github.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "string",
+                "description": "The host name of the GitHub server (for eg., 'https://github.com')"
+              },
+              "username": {
+                "type": "string",
+                "description": "The username to access GitHub (optional)"
+              },
+              "token": {
+                "type": "string",
+                "description": "GitHub access token with the following scopes: read:user, user:email, repo, write:discussion"
+              }
+            }
+          }
+        },
         "telemetry.optout": {
           "type": "boolean",
           "default": false,
@@ -46,6 +68,7 @@
         "github.hosts": {
           "type": "array",
           "default": [],
+          "deprecationMessage": "The setting `github.hosts` has been deprecated in favor of `githubPullRequests.hosts`.",
           "description": "List of host credentials. For example, \"github.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
           "items": {
             "type": "object",
@@ -82,6 +105,11 @@
       ]
     },
     "commands": [
+      {
+        "command": "auth.inputTokenCallback",
+        "title": "Manually Provide Authentication Response",
+        "category": "GitHub Pull Requests"
+      },
       {
         "command": "pr.pick",
         "title": "Checkout Pull Request",
@@ -280,6 +308,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
+    "@types/debounce": "^3.0.0",
     "@types/keytar": "^4.0.1",
     "@types/lodash": "^4.14.106",
     "@types/markdown-it": "^0.0.5",
@@ -295,6 +324,7 @@
     "gulp-util": "^3.0.8",
     "mocha": "^5.2.0",
     "style-loader": "^0.21.0",
+    "svg-inline-loader": "^0.8.0",
     "ts-loader": "^4.0.1",
     "tslint": "^5.11.0",
     "tslint-webpack-plugin": "^1.2.2",
@@ -304,17 +334,19 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.9.5",
-    "es6-promise": "^4.2.5",
     "axios": "^0.18.0",
+    "debounce": "^1.2.0",
+    "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
     "iconv-lite": "0.4.23",
     "markdown-it": "^8.4.0",
     "markdown-it-checkbox": "^1.1.0",
-    "markdown-it-sanitizer": "github:rebornix/markdown-it-sanitizer#master",
+    "markdown-it-sanitizer": "github:rebornix/markdown-it-sanitizer#10d930d08236ef4609ad10a6087745461d91cc7c",
     "moment": "^2.22.1",
     "node-emoji": "^1.8.1",
     "node-fetch": "^2.1.1",
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
+    "tunnel": "0.0.6",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"
   },

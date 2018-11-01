@@ -5,15 +5,19 @@
 
 import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
+import { agent } from '../common/net';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
 import { GitHubServer } from '../authentication/githubServer';
 import { Remote } from '../common/remote';
 import { VSCodeConfiguration } from '../authentication/vsConfiguration';
 import Logger from '../common/logger';
 import { ITelemetry } from './interface';
+import { handler as uriHandler } from '../common/uri';
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
+
+const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
 export class CredentialStore {
 	private _octokits: Map<string, Octokit>;
@@ -25,6 +29,15 @@ export class CredentialStore {
 		this._configuration = configuration;
 		this._octokits = new Map<string, Octokit>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
+		vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
+			const uriStr = await vscode.window.showInputBox({ prompt: 'Token' });
+			if (!uriStr) { return; }
+			const uri = vscode.Uri.parse(uriStr);
+			if (!uri.scheme) {
+				return vscode.window.showErrorMessage('Invalid token');
+			}
+			uriHandler.handleUri(uri);
+		});
 	}
 
 	public reset() {
@@ -59,7 +72,7 @@ export class CredentialStore {
 		if (octokit) {
 			this._octokits.set(host, octokit);
 		}
-		this.updateAuthenticationStatusBar(remote);
+		await this.updateAuthenticationStatusBar(remote);
 		return this._octokits.has(host);
 	}
 
@@ -89,8 +102,8 @@ export class CredentialStore {
 
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
 		// so use a normalized http[s] url regardless of the original protocol
-		const normalizedUri = remote.gitProtocol.normalizeUri();
-		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
+		const { scheme, authority } = remote.gitProtocol.normalizeUri();
+		const host = `${scheme}://${authority}`;
 
 		let retry: boolean = true;
 		let octokit: Octokit;
@@ -98,23 +111,26 @@ export class CredentialStore {
 
 		while (retry) {
 			try {
+				this.willStartLogin(authority);
 				const login = await server.login();
 				if (login) {
 					octokit = this.createOctokit('token', login);
 					await this._configuration.update(login.username, login.token, false);
-					vscode.window.showInformationMessage(`You are now signed in to ${normalizedUri.authority}`);
+					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
 				}
 			} catch (e) {
-				Logger.appendLine(`Error signing in to ${normalizedUri.authority}: ${e}`);
+				Logger.appendLine(`Error signing in to ${authority}: ${e}`);
 				if (e instanceof Error) {
 					Logger.appendLine(e.stack);
 				}
+			} finally {
+				this.didEndLogin(authority);
 			}
 
 			if (octokit) {
 				retry = false;
 			} else if (retry) {
-				retry = (await vscode.window.showErrorMessage(`Error signing in to ${normalizedUri.authority}`, TRY_AGAIN)) === TRY_AGAIN;
+				retry = (await vscode.window.showErrorMessage(`Error signing in to ${authority}`, TRY_AGAIN)) === TRY_AGAIN;
 			}
 		}
 
@@ -130,8 +146,14 @@ export class CredentialStore {
 		return octokit;
 	}
 
+	public isCurrentUser(username: string, remote: Remote): boolean {
+		const octokit = this.getOctokit(remote);
+		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
+	}
+
 	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
 		const octokit = new Octokit({
+			agent,
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
 			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
 		});
@@ -161,6 +183,7 @@ export class CredentialStore {
 		if (octokit) {
 			try {
 				const user = await octokit.users.get({});
+				(octokit as any).currentUser = user.data;
 				text = `$(mark-github) ${user.data.login}`;
 			} catch (e) {
 				text = '$(mark-github) Signed in';
@@ -175,6 +198,18 @@ export class CredentialStore {
 
 		statusBarItem.text = text;
 		statusBarItem.command = command;
+	}
+
+	private willStartLogin(authority: string): void {
+		const status = this._authenticationStatusBarItems.get(authority);
+		status.text = `$(mark-github) Signing in to ${authority}...`;
+		status.command = AUTH_INPUT_TOKEN_CMD;
+	}
+
+	private didEndLogin(authority: string): void {
+		const status = this._authenticationStatusBarItems.get(authority);
+		status.text = `$(mark-github) Signed in to ${authority}`;
+		status.command = null;
 	}
 
 	private async updateAuthenticationStatusBar(remote: Remote): Promise<void> {

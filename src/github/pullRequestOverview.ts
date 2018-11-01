@@ -6,12 +6,23 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit, MergePullRequest, PullRequestStateEnum } from './interface';
+import { IPullRequest, IPullRequestManager, IPullRequestModel, MergePullRequest, PullRequestStateEnum } from './interface';
 import { onDidUpdatePR } from '../commands';
-import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/timelineEvent';
-import { Comment } from '../common/comment';
-import { groupBy, formatError } from '../common/utils';
+import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
+import { Comment } from '../common/comment';
+
+interface IRequestMessage<T> {
+	req: string;
+	command: string;
+	args: T;
+}
+
+interface IReplyMessage {
+	seq?: string;
+	err?: any;
+	res?: any;
+}
 
 export class PullRequestOverviewPanel {
 	/**
@@ -27,6 +38,7 @@ export class PullRequestOverviewPanel {
 	private _pullRequest: IPullRequestModel;
 	private _pullRequestManager: IPullRequestManager;
 	private _initialized: boolean;
+	private _scrollPosition = { x: 0, y: 0 };
 
 	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel) {
 		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
@@ -83,7 +95,7 @@ export class PullRequestOverviewPanel {
 		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
 			if (this._pullRequestManager && this._pullRequest) {
 				const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
-				this._panel.webview.postMessage({
+				this._postMessage({
 					command: 'pr.update-checkout-status',
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
 				});
@@ -95,7 +107,7 @@ export class PullRequestOverviewPanel {
 				this._pullRequest.update(pr);
 			}
 
-			this._panel.webview.postMessage({
+			this._postMessage({
 				command: 'update-state',
 				state: this._pullRequest.state,
 			});
@@ -110,27 +122,28 @@ export class PullRequestOverviewPanel {
 	}
 
 	public async update(pullRequestModel: IPullRequestModel): Promise<void> {
-		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
+		this._postMessage({
+			command: 'set-scroll',
+			scrollPosition: this._scrollPosition,
+		});
 
 		if (!pullRequestModel.equals(this._pullRequest) || !this._initialized) {
+			this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
 			this._pullRequest = pullRequestModel;
 			this._initialized = true;
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
+			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
 
 			Promise.all(
 				[
-					this._pullRequestManager.getPullRequestCommits(pullRequestModel),
 					this._pullRequestManager.getTimelineEvents(pullRequestModel),
-					this._pullRequestManager.getPullRequestComments(pullRequestModel),
 					this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)
 				]
 			).then(result => {
-				const [reviewCommits, timelineEvents, reviewComments, defaultBranch] = result;
-				this.fixCommentThreads(timelineEvents, reviewComments);
-				this.fixCommitAttribution(timelineEvents, reviewCommits);
-				this._panel.webview.postMessage({
+				const [timelineEvents, defaultBranch] = result;
+				this._postMessage({
 					command: 'pr.initialize',
 					pullrequest: {
 						number: pullRequestModel.prNumber,
@@ -146,102 +159,124 @@ export class PullRequestOverviewPanel {
 						base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
 						head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
 						commitsCount: pullRequestModel.commitCount,
-						repositoryDefaultBranch: defaultBranch
+						repositoryDefaultBranch: defaultBranch,
+						canEdit: canEdit
 					}
 				});
 			});
 		}
 	}
 
-	/**
-	 * For review timeline events, the comments on the event are only those in that review. Any reponses to those comments
-	 * belong to separate reviews. This modifies review timeline event comments to contain both their comments and responses to them.
-	 * @param timelineEvents The timeline events
-	 * @param reviewComments All review comments
-	 */
-	private fixCommentThreads(timelineEvents: TimelineEvent[], reviewComments: Comment[]): void {
-		const reviewEvents: ReviewEvent[] = (<ReviewEvent[]>timelineEvents.filter(event => event.event === EventType.Reviewed));
-
-		reviewEvents.forEach(review => review.comments = []);
-
-		// Group comments by file and position
-		const commentsByFile = groupBy(reviewComments, comment => comment.path);
-		for (let file in commentsByFile) {
-			const fileComments = commentsByFile[file];
-			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.original_position : comment.position));
-
-			// Loop through threads, for each thread, see if there is a matching review, push all comments to it
-			for (let i in commentThreads) {
-				const comments = commentThreads[i];
-				const reviewId = comments[0].pull_request_review_id;
-
-				if (reviewId) {
-					const matchingEvent = reviewEvents.find(review => review.id === reviewId);
-					if (matchingEvent) {
-						matchingEvent.comments = matchingEvent.comments.concat(comments);
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * Commit timeline events only list the bare user commit information, not the details of the associated GitHub user account. Add these details.
-	 * @param timelineEvents The timeline events
-	 * @param commits All review commits
-	 */
-	private fixCommitAttribution(timelineEvents: TimelineEvent[], commits: Commit[]): void {
-		const commitEvents: CommitEvent[] = (<CommitEvent[]>timelineEvents.filter(event => event.event === EventType.Committed));
-		for (let commitEvent of commitEvents) {
-			const matchingCommits = commits.filter(commit => commit.sha === commitEvent.sha);
-			if (matchingCommits.length === 1) {
-				const author = matchingCommits[0].author;
-				// There is not necessarily a GitHub account associated with the commit.
-				if (author !== null) {
-					commitEvent.author.avatar_url = author.avatar_url;
-					commitEvent.author.login = author.login;
-					commitEvent.author.html_url = author.html_url;
-				}
-			}
-		}
-	}
-
-	private async _onDidReceiveMessage(message) {
-		switch (message.command) {
-			case 'alert':
-				vscode.window.showErrorMessage(message.text);
-				return;
-			case 'pr.checkout':
-				return this.checkoutPullRequest();
-			case 'pr.merge':
-				return this.mergePullRequest();
-			case 'pr.close':
-				return this.closePullRequest(message.text);
-			case 'pr.approve':
-				return this.approvePullRequest(message.text);
-			case 'pr.request-changes':
-				return this.requestChanges(message.text);
-			case 'pr.checkout-default-branch':
-				return this.checkoutDefaultBranch(message.branch);
-			case 'pr.comment':
-				return this.createComment(message.text);
-		}
-	}
-
-	private checkoutPullRequest(): void {
-		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => { }, () => {
-			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
-			this._panel.webview.postMessage({
-				command: 'pr.update-checkout-status',
-				isCurrentlyCheckedOut: isCurrentlyCheckedOut
-			});
+	private async _postMessage(message: any) {
+		this._panel.webview.postMessage({
+			res: message
 		});
 	}
 
-	private mergePullRequest(): void {
-		vscode.commands.executeCommand<MergePullRequest>('pr.merge', this._pullRequest).then(result => {
+	private async _replyMessage(originalMessage: IRequestMessage<any>, message: any) {
+		const reply: IReplyMessage = {
+			seq: originalMessage.req,
+			res: message
+		};
+		this._panel.webview.postMessage(reply);
+	}
+
+	private async _throwError(originalMessage: IRequestMessage<any>, error: any) {
+		const reply: IReplyMessage = {
+			seq: originalMessage.req,
+			err: error
+		};
+		this._panel.webview.postMessage(reply);
+	}
+
+	private async _onDidReceiveMessage(message: IRequestMessage<any>) {
+		switch (message.command) {
+			case 'alert':
+				vscode.window.showErrorMessage(message.args);
+				return;
+			case 'pr.checkout':
+				return this.checkoutPullRequest(message);
+			case 'pr.merge':
+				return this.mergePullRequest(message);
+			case 'pr.close':
+				return this.closePullRequest(message);
+			case 'pr.approve':
+				return this.approvePullRequest(message);
+			case 'pr.request-changes':
+				return this.requestChanges(message);
+			case 'pr.checkout-default-branch':
+				return this.checkoutDefaultBranch(message.args);
+			case 'pr.comment':
+				return this.createComment(message);
+			case 'scroll':
+				this._scrollPosition = message.args;
+				return;
+			case 'pr.edit-comment':
+				return this.editComment(message);
+			case 'pr.delete-comment':
+				return this.deleteComment(message);
+			case 'pr.edit-description':
+				return this.editDescription(message);
+		}
+	}
+
+	private editDescription(message: IRequestMessage<{ text: string }>) {
+		this._pullRequestManager.editPullRequest(this._pullRequest, message.args.text).then(result => {
+			this._replyMessage(message, { text: result.body });
+		}).catch(e => {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(formatError(e));
+		});
+	}
+
+	private editComment(message: IRequestMessage<{ comment: Comment, text: string }>) {
+		const { comment, text } = message.args;
+		const editCommentPromise = comment.pull_request_review_id !== undefined
+			? this._pullRequestManager.editReviewComment(this._pullRequest, comment.id, text)
+			: this._pullRequestManager.editIssueComment(this._pullRequest, comment.id, text);
+
+		editCommentPromise.then(result => {
+			this._replyMessage(message, {
+				text: result.body
+			});
+		}).catch(e => {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(formatError(e));
+		});
+	}
+
+	private deleteComment(message: IRequestMessage<Comment>) {
+		const comment = message.args;
+		vscode.window.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete').then(value => {
+			if (value === 'Delete') {
+				const deleteCommentPromise = comment.pull_request_review_id !== undefined
+					? this._pullRequestManager.deleteReviewComment(this._pullRequest, comment.id)
+					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id);
+
+				deleteCommentPromise.then(result => {
+					this._replyMessage(message, { });
+				}).catch(e => {
+					this._throwError(message, e);
+					vscode.window.showErrorMessage(formatError(e));
+				});
+			}
+		});
+	}
+
+	private checkoutPullRequest(message): void {
+		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {
+			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
+		}, () => {
+			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
+		});
+	}
+
+	private mergePullRequest(message: IRequestMessage<string>): void {
+		vscode.commands.executeCommand<MergePullRequest>('pr.merge', this._pullRequest, message.args).then(result => {
 			if (!result) {
-				this._panel.webview.postMessage({
+				this._postMessage({
 					command: 'update-state',
 					state: PullRequestStateEnum.Open,
 				});
@@ -252,23 +287,22 @@ export class PullRequestOverviewPanel {
 				vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
 			}
 
-			this._panel.webview.postMessage({
+			this._postMessage({
 				command: 'update-state',
 				state: result.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Open
 			});
 		}, (_) => {
-			this._panel.webview.postMessage({
+			this._postMessage({
 				command: 'update-state',
 				state: PullRequestStateEnum.Open,
 			});
 		});
 	}
 
-	private closePullRequest(message?: string): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest, message).then(comment => {
+	private closePullRequest(message: IRequestMessage<string>): void {
+		vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest, message.args).then(comment => {
 			if (comment) {
-				this._panel.webview.postMessage({
-					command: 'pr.append-comment',
+				this._replyMessage(message, {
 					value: comment
 				});
 			}
@@ -285,7 +319,7 @@ export class PullRequestOverviewPanel {
 			} else {
 				const didCheckout = await vscode.commands.executeCommand('git.checkout');
 				if (!didCheckout) {
-					this._panel.webview.postMessage({
+					this._postMessage({
 						command: 'pr.enable-exit'
 					});
 				}
@@ -295,7 +329,7 @@ export class PullRequestOverviewPanel {
 				// for known git errors, we should provide actions for users to continue.
 				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
 					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
-					this._panel.webview.postMessage({
+					this._postMessage({
 						command: 'pr.enable-exit'
 					});
 					return;
@@ -303,56 +337,46 @@ export class PullRequestOverviewPanel {
 			}
 
 			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
-			this._panel.webview.postMessage({
+			this._postMessage({
 				command: 'pr.enable-exit'
 			});
 		}
 	}
 
-	private createComment(text: string) {
-		this._pullRequestManager.createIssueComment(this._pullRequest, text).then(comment => {
-			this._panel.webview.postMessage({
-				command: 'pr.append-comment',
+	private createComment(message: IRequestMessage<string>) {
+		this._pullRequestManager.createIssueComment(this._pullRequest, message.args).then(comment => {
+			this._replyMessage(message, {
 				value: comment
 			});
 		});
 	}
 
-	private approvePullRequest(message?: string): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.approve', this._pullRequest, message).then(review => {
+	private approvePullRequest(message: IRequestMessage<string>): void {
+		vscode.commands.executeCommand<IPullRequest>('pr.approve', this._pullRequest, message.args).then(review => {
 			if (review) {
-				this._panel.webview.postMessage({
-					command: 'pr.append-review',
+				this._replyMessage(message, {
 					value: review
 				});
 			}
 
-			this._panel.webview.postMessage({
-				command: 'pr.enable-approve'
-			});
+			this._throwError(message, {});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
-			this._panel.webview.postMessage({
-				command: 'pr.enable-approve'
-			});
+			this._throwError(message, `${formatError(e)}`);
 		});
 	}
 
-	private requestChanges(message?: string): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.requestChanges', this._pullRequest, message).then(review => {
+	private requestChanges(message: IRequestMessage<string>): void {
+		vscode.commands.executeCommand<IPullRequest>('pr.requestChanges', this._pullRequest, message.args).then(review => {
 			if (review) {
-				this._panel.webview.postMessage({
-					command: 'pr.append-review',
+				this._replyMessage(message, {
 					value: review
 				});
 			}
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
-
-			this._panel.webview.postMessage({
-				command: 'pr.enable-request-changes'
-			});
+			this._throwError(message, `${formatError(e)}`);
 		});
 	}
 

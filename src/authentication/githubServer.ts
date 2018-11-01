@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import { IHostConfiguration, HostHelper } from './configuration';
 import * as https from 'https';
+import axios from 'axios';
 import Logger from '../common/logger';
 import { handler as uriHandler } from '../common/uri';
 import { PromiseAdapter, promiseFromEmitter } from '../common/utils';
-import axios from 'axios';
+import { agent } from '../common/net';
+
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
 
@@ -70,12 +72,14 @@ export class GitHubManager {
 		if (token) {
 			headers.authorization = `token ${token}`;
 		}
+
 		return {
 			host: HostHelper.getApiHost(hostUri).authority,
 			port: 443,
 			method,
 			path: HostHelper.getApiPath(hostUri, path),
 			headers,
+			agent,
 		};
 	}
 

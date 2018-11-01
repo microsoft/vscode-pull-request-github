@@ -30,7 +30,7 @@ export function providePRDocumentComments(
 		return null;
 	}
 
-	const isBase = params.base;
+	const isBase = params.isBase;
 	const fileChange = fileChanges.find(change => change.fileName === params.fileName);
 	if (!fileChange) {
 		return null;
@@ -99,7 +99,9 @@ export function providePRDocumentComments(
 					commentId: comment.id,
 					body: new vscode.MarkdownString(comment.body),
 					userName: comment.user.login,
-					gravatar: comment.user.avatar_url
+					gravatar: comment.user.avatar_url,
+					canEdit: comment.canEdit,
+					canDelete: comment.canDelete
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -140,7 +142,9 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 					commentId: comment.id,
 					body: new vscode.MarkdownString(comment.body),
 					userName: comment.user.login,
-					gravatar: comment.user.avatar_url
+					gravatar: comment.user.avatar_url,
+					canEdit: comment.canEdit,
+					canDelete: comment.canDelete
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -243,14 +247,15 @@ export class PRNode extends TreeNode {
 					);
 				}
 
+				const headCommit = this.pullRequestModel.head.sha;
 				let changedItem = new InMemFileChangeNode(
 					this.pullRequestModel,
 					change.status,
 					change.fileName,
 					change.previousFileName,
 					change.blobUrl,
-					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, false),
-					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, change.fileName, true),
+					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false),
+					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true),
 					change.isPartial,
 					change.patch,
 					change.diffHunks,
@@ -277,7 +282,9 @@ export class PRNode extends TreeNode {
 						onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
 						provideDocumentComments: this.provideDocumentComments.bind(this),
 						createNewCommentThread: this.createNewCommentThread.bind(this),
-						replyToCommentThread: this.replyToCommentThread.bind(this)
+						replyToCommentThread: this.replyToCommentThread.bind(this),
+						editComment: this.editComment.bind(this),
+						deleteComment: this.deleteComment.bind(this)
 					});
 				}
 			} else {
@@ -297,10 +304,27 @@ export class PRNode extends TreeNode {
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		let currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
+		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
+
+		const {
+			title,
+			prNumber,
+			author,
+		} = this.pullRequestModel;
+
+		const {
+			login,
+		} = author;
+
+		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
+		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
+		const formattedPRNumber = prNumber.toString();
+		const label = `${labelPrefix}${title} (#${formattedPRNumber})`;
+		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by ${login}`;
+
 		return {
-			label: (currentBranchIsForThisPR ? '✓ ' : '') + this.pullRequestModel.title + ' (#' + this.pullRequestModel.prNumber.toString() + ')',
-			tooltip: (currentBranchIsForThisPR ? 'Current Branch * ' : '') + this.pullRequestModel.title + ' (#' + this.pullRequestModel.prNumber.toString() + ')',
+			label,
+			tooltip,
 			collapsibleState: 1,
 			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
 			iconPath: this.pullRequestModel.userAvatarUri
@@ -362,7 +386,7 @@ export class PRNode extends TreeNode {
 			let readContentFromDiffHunk = fileChange.isPartial || fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
 
 			if (readContentFromDiffHunk) {
-				if (params.base) {
+				if (params.isBase) {
 					// left
 					let left = [];
 					for (let i = 0; i < fileChange.diffHunks.length; i++) {
@@ -403,9 +427,9 @@ export class PRNode extends TreeNode {
 			} else {
 				const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
 				const originalFilePath = path.join(this._prManager.repository.rootUri.fsPath, originalFileName);
-				const originalContent = await this._prManager.repository.show(params.commit, originalFilePath);
+				const originalContent = await this._prManager.repository.show(params.baseCommit, originalFilePath);
 
-				if (params.base) {
+				if (params.isBase) {
 					return originalContent;
 				} else {
 					return getModifiedContentFromDiffHunk(originalContent, fileChange.patch);
@@ -414,6 +438,21 @@ export class PRNode extends TreeNode {
 		}
 		Logger.appendLine(`PR> can not find content for document ${uri.toString()}`);
 		return '';
+	}
+
+	private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {
+		const params = fromPRUri(uri);
+		const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
+
+		if (!fileChange) {
+			throw new Error('No matching file found');
+		}
+
+		if (fileChange instanceof RemoteFileChangeNode) {
+			throw new Error('Comments not supported on remote file changes');
+		}
+
+		return fileChange;
 	}
 
 	private async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string) {
@@ -425,17 +464,9 @@ export class PRNode extends TreeNode {
 				return null;
 			}
 
-			let fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
+			const fileChange = this.findMatchingFileNode(uri);
 
-			if (!fileChange) {
-				throw new Error('No matching file found');
-			}
-
-			if (fileChange instanceof RemoteFileChangeNode) {
-				throw new Error('Cannot add comment to this file');
-			}
-
-			let isBase = params && params.base;
+			let isBase = params && params.isBase;
 			let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
 
 			if (position < 0) {
@@ -448,7 +479,9 @@ export class PRNode extends TreeNode {
 				commentId: rawComment.id,
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
-				gravatar: rawComment.user.avatar_url
+				gravatar: rawComment.user.avatar_url,
+				canEdit: rawComment.canEdit,
+				canDelete: rawComment.canDelete
 			};
 
 			fileChange.comments.push(rawComment);
@@ -466,26 +499,38 @@ export class PRNode extends TreeNode {
 		}
 	}
 
+	private async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string): Promise<void> {
+		const fileChange = this.findMatchingFileNode(document.uri);
+		const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, comment.commentId, text);
+
+		const index = fileChange.comments.findIndex(c => c.id === comment.commentId);
+		if (index > -1) {
+			fileChange.comments.splice(index, 1, rawComment);
+		}
+	}
+
+	private async deleteComment(document: vscode.TextDocument, comment: vscode.Comment): Promise<void> {
+		const fileChange = this.findMatchingFileNode(document.uri);
+
+		await this._prManager.deleteReviewComment(this.pullRequestModel, comment.commentId);
+		const index = fileChange.comments.findIndex(c => c.id === comment.commentId);
+		if (index > -1) {
+			fileChange.comments.splice(index, 1);
+		}
+	}
+
 	private async replyToCommentThread(document: vscode.TextDocument, _range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
-			const uri = document.uri;
-			const params = JSON.parse(uri.query);
-			const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
-
-			if (!fileChange) {
-				throw new Error('No matching file found');
-			}
-
-			if (fileChange instanceof RemoteFileChangeNode) {
-				throw new Error('Cannot add comment to this file');
-			}
+			const fileChange = this.findMatchingFileNode(document.uri);
 
 			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, text, thread.threadId);
 			thread.comments.push({
 				commentId: rawComment.id,
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
-				gravatar: rawComment.user.avatar_url
+				gravatar: rawComment.user.avatar_url,
+				canEdit: rawComment.canEdit,
+				canDelete: rawComment.canDelete
 			});
 
 			fileChange.comments.push(rawComment);
