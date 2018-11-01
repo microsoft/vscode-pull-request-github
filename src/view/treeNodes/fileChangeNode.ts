@@ -28,7 +28,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly blobUrl: string
 	) {
 		super();
-		this.label = fileName;
+		this.label = fileName.replace(this.getDirectoryPath(), '');
 		this.iconPath = Resource.getFileStatusUri(this);
 
 		this.command = {
@@ -42,6 +42,15 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	getTreeItem(): vscode.TreeItem {
 		return this;
+	}
+
+	getDirectoryPath(): string {
+		const fileName = this.fileName;
+		const lastDirectorySeparatorIndex = fileName.lastIndexOf('/');
+
+		if (lastDirectorySeparatorIndex !== -1) {
+			return fileName.substring(0, lastDirectorySeparatorIndex + 1);
+		}
 	}
 }
 
@@ -73,7 +82,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		this.contextValue = 'filechange';
-		this.label = fileName;
+		this.label = fileName.replace(this.getDirectoryPath(), '');
 		this.iconPath = Resource.getFileStatusUri(this);
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
 
@@ -113,6 +122,15 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	getTreeItem(): vscode.TreeItem {
 		return this;
+	}
+
+	getDirectoryPath(): string {
+		const fileName = this.fileName;
+		const lastDirectorySeparatorIndex = fileName.lastIndexOf('/');
+
+		if (lastDirectorySeparatorIndex !== -1) {
+			return fileName.substring(0, lastDirectorySeparatorIndex + 1);
+		}
 	}
 }
 
@@ -181,6 +199,47 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	getTreeItem(): vscode.TreeItem {
 		return this;
+	}
+
+	getDirectoryPath(): string {
+		const fileName = this.fileName;
+		const lastDirectorySeparatorIndex = fileName.lastIndexOf('/');
+
+		if (lastDirectorySeparatorIndex !== -1) {
+			return fileName.substring(0, lastDirectorySeparatorIndex + 1);
+		}
+	}
+}
+
+/**
+ * Directory node for containing child file change nodes.
+ */
+export class FileChangeDirectoryNode extends TreeNode implements vscode.TreeItem {
+	public label: string;
+	public collapsibleState: vscode.TreeItemCollapsibleState;
+	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[] = [];
+
+	constructor(
+		public readonly pullRequest: IPullRequestModel,
+		public readonly directoryPath: string,
+	) {
+		super();
+
+		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+		this.label = directoryPath;
+	}
+
+	async getChildren(): Promise<TreeNode[]> {
+		this.childrenDisposables = this._fileChanges;
+		return this._fileChanges;
+	}
+
+	getTreeItem(): vscode.TreeItem {
+		return this;
+	}
+
+	addFileChange(fileChange: (RemoteFileChangeNode | InMemFileChangeNode)) {
+		this._fileChanges.push(fileChange);
 	}
 }
 

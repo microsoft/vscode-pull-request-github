@@ -14,7 +14,7 @@ import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
-import { RemoteFileChangeNode, InMemFileChangeNode } from './fileChangeNode';
+import { RemoteFileChangeNode, InMemFileChangeNode, FileChangeDirectoryNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
@@ -226,6 +226,44 @@ export class PRNode extends TreeNode {
 		this._onDidChangeCommentThreads = null;
 	}
 
+	getFileChangesAsTree(): (RemoteFileChangeNode | InMemFileChangeNode | FileChangeDirectoryNode)[] {
+		const orderedFileNames: (string)[] = [];
+		const tree: (RemoteFileChangeNode | InMemFileChangeNode | FileChangeDirectoryNode)[] = [];
+		const treeMap: {[key: string]: FileChangeDirectoryNode} = {};
+		const fileMap: {[key: string]: (RemoteFileChangeNode | InMemFileChangeNode)} = {};
+
+		this._fileChanges.forEach((fileChange) => {
+			const {
+				fileName,
+			} = fileChange;
+
+			const directoryPath = fileChange.getDirectoryPath() || '/';
+			let directoryTreeNode: FileChangeDirectoryNode;
+
+			if (!treeMap[directoryPath]) {
+				directoryTreeNode = new FileChangeDirectoryNode(
+					this.pullRequestModel,
+					directoryPath,
+				);
+
+				treeMap[directoryPath] = directoryTreeNode;
+				orderedFileNames.push(directoryPath);
+			}
+
+			fileMap[fileName] = fileChange;
+			directoryTreeNode = treeMap[directoryPath];
+			directoryTreeNode.addFileChange(fileChange);
+		});
+
+		orderedFileNames.forEach((fileName) => {
+			const treeBranch = treeMap[fileName];
+
+			tree.push(treeBranch || fileMap[fileName]);
+		});
+
+		return tree;
+	}
+
 	async getChildren(): Promise<TreeNode[]> {
 		try {
 			if (this.childrenDisposables && this.childrenDisposables.length) {
@@ -291,10 +329,15 @@ export class PRNode extends TreeNode {
 				this._fileChanges = fileChanges;
 			}
 
-			let result = [new DescriptionNode('Description', {
-				light: Resource.icons.light.Description,
-				dark: Resource.icons.dark.Description
-			}, this.pullRequestModel), ...this._fileChanges];
+			const fileChangesTree = this.getFileChangesAsTree();
+
+			let result = [
+				new DescriptionNode('Description', {
+					light: Resource.icons.light.Description,
+					dark: Resource.icons.dark.Description
+				}, this.pullRequestModel),
+				...fileChangesTree,
+			];
 
 			this.childrenDisposables = result;
 			return result;
