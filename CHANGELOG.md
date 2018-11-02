@@ -1,3 +1,9 @@
+0.2.3
+- Fix [#607], read `~/.ssh/config` to resolve hosts
+- Fix [#572], by [@yoh1496], add support for GitHub Enterprise behind a proxy
+- Fix [#658], ensure correct button enablement when reloading pending comment from cache
+- Fix [#649], make sure selecting a different folder is responsive after adding it to the workspace
+
 0.2.2
 
 - Add support for editing and deleting comments [#107](https://github.com/Microsoft/vscode-pull-request-github/issues/107)
