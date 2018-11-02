@@ -125,7 +125,7 @@ describe('keychain', () => {
 				assert.equal(await getToken('github.com', { storage, keychain }), void 0);
 			});
 
-			it('removes tokens from the keychain', async () => {
+			it('removes tokens from storage', async () => {
 				await deleteToken('github.com', { storage, keychain });
 				assert.equal(storage.get(keyFor('github.com')), void 0);
 			});
