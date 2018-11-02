@@ -5,21 +5,21 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import * as Github from '@octokit/rest';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri, ReviewUriParams } from './common/uri';
 import { GitFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
-import { IPullRequestManager, IPullRequestModel, IPullRequest, ITelemetry } from './github/interface';
-import { Comment } from './common/comment';
+import { IPullRequestManager, IPullRequestModel, ITelemetry } from './github/interface';
 import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
 
-const _onDidUpdatePR = new vscode.EventEmitter<IPullRequest>();
-export const onDidUpdatePR: vscode.Event<IPullRequest> = _onDidUpdatePR.event;
+const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
+export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;
 
 function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestModel): IPullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
@@ -114,7 +114,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
-					let newComment: Comment;
+					let newComment: Github.IssuesCreateCommentResponse;
 					if (message) {
 						newComment = await prManager.createIssueComment(pullRequest, message);
 					}

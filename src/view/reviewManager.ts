@@ -298,7 +298,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			const comment = await this._prManager.createCommentReply(this._prManager.activePullRequest, text, thread.threadId);
 			thread.comments.push({
-				commentId: comment.id,
+				commentId: comment.id.toString(),
 				body: new vscode.MarkdownString(comment.body),
 				userName: comment.user.login,
 				gravatar: comment.user.avatar_url,
@@ -341,7 +341,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let rawComment = await this._prManager.createComment(this._prManager.activePullRequest, text, matchedFile.fileName, position);
 
 			let comment = {
-				commentId: rawComment.id,
+				commentId: rawComment.id.toString(),
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
@@ -350,7 +350,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			};
 
 			let commentThread: vscode.CommentThread = {
-				threadId: comment.commentId,
+				threadId: comment.commentId.toString(),
 				resource: vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, rawComment.path)),
 				range: range,
 				comments: [comment]
@@ -382,7 +382,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, comment.commentId, text);
 
 			// Update the cached comments of the file
-			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id === comment.commentId);
+			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
 			if (matchingCommentIndex > -1) {
 				matchedFile.comments.splice(matchingCommentIndex, 1, editedComment);
 				const changedThreads = this.fileCommentsToCommentThreads(matchedFile, matchedFile.comments.filter(c => c.position === editedComment.position), vscode.CommentThreadCollapsibleState.Expanded);
@@ -395,7 +395,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 
 			// Also update this._comments
-			const indexInAllComments = this._comments.findIndex(c => c.id === comment.commentId);
+			const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);
 			if (indexInAllComments > -1) {
 				this._comments.splice(indexInAllComments, 1, editedComment);
 			}
@@ -412,7 +412,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 
 			await this._prManager.deleteReviewComment(this._prManager.activePullRequest, comment.commentId);
-			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id === comment.commentId);
+			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
 			if (matchingCommentIndex > -1) {
 				const [ deletedComment ] = matchedFile.comments.splice(matchingCommentIndex, 1);
 				const updatedThreadComments = matchedFile.comments.filter(c => c.position === deletedComment.position);
@@ -430,7 +430,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						added: [],
 						changed: [],
 						removed: [{
-							threadId: deletedComment.id,
+							threadId: deletedComment.id.toString(),
 							resource: vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, deletedComment.path)),
 							comments: [],
 							range: null
@@ -439,7 +439,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 			}
 
-			const indexInAllComments = this._comments.findIndex(c => c.id === comment.commentId);
+			const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);
 			if (indexInAllComments > -1) {
 				this._comments.splice(indexInAllComments, 1);
 			}
@@ -661,12 +661,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const range = new vscode.Range(pos, pos);
 
 			ret.push({
-				threadId: firstComment.id,
+				threadId: firstComment.id.toString(),
 				resource: fileChange.filePath,
 				range,
 				comments: comments.map(comment => {
 					return {
-						commentId: comment.id,
+						commentId: comment.id.toString(),
 						body: new vscode.MarkdownString(comment.body),
 						userName: comment.user.login,
 						gravatar: comment.user.avatar_url,
@@ -719,12 +719,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const range = new vscode.Range(pos, pos);
 
 			ret.push({
-				threadId: firstComment.id,
+				threadId: firstComment.id.toString(),
 				resource: vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, firstComment.path)),
 				range,
 				comments: comments.map(comment => {
 					return {
-						commentId: comment.id,
+						commentId: comment.id.toString(),
 						body: new vscode.MarkdownString(comment.body),
 						userName: comment.user.login,
 						gravatar: comment.user.avatar_url,

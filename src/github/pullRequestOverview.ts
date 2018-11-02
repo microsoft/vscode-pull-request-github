@@ -6,7 +6,8 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IPullRequest, IPullRequestManager, IPullRequestModel, MergePullRequest, PullRequestStateEnum } from './interface';
+import * as Github from '@octokit/rest';
+import { IPullRequestManager, IPullRequestModel, MergePullRequest, PullRequestStateEnum } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
@@ -232,8 +233,8 @@ export class PullRequestOverviewPanel {
 	private editComment(message: IRequestMessage<{ comment: Comment, text: string }>) {
 		const { comment, text } = message.args;
 		const editCommentPromise = comment.pull_request_review_id !== undefined
-			? this._pullRequestManager.editReviewComment(this._pullRequest, comment.id, text)
-			: this._pullRequestManager.editIssueComment(this._pullRequest, comment.id, text);
+			? this._pullRequestManager.editReviewComment(this._pullRequest, comment.id.toString(), text)
+			: this._pullRequestManager.editIssueComment(this._pullRequest, comment.id.toString(), text);
 
 		editCommentPromise.then(result => {
 			this._replyMessage(message, {
@@ -250,8 +251,8 @@ export class PullRequestOverviewPanel {
 		vscode.window.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete').then(value => {
 			if (value === 'Delete') {
 				const deleteCommentPromise = comment.pull_request_review_id !== undefined
-					? this._pullRequestManager.deleteReviewComment(this._pullRequest, comment.id)
-					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id);
+					? this._pullRequestManager.deleteReviewComment(this._pullRequest, comment.id.toString())
+					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id.toString());
 
 				deleteCommentPromise.then(result => {
 					this._replyMessage(message, { });
@@ -300,7 +301,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private closePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest, message.args).then(comment => {
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.close', this._pullRequest, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -352,7 +353,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.approve', this._pullRequest, message.args).then(review => {
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.approve', this._pullRequest, message.args).then(review => {
 			if (review) {
 				this._replyMessage(message, {
 					value: review
@@ -368,7 +369,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.requestChanges', this._pullRequest, message.args).then(review => {
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.requestChanges', this._pullRequest, message.args).then(review => {
 			if (review) {
 				this._replyMessage(message, {
 					value: review

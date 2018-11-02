@@ -4,9 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as moment from 'moment';
+import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, EventType, isCommentEvent } from '../src/common/timelineEvent';
+import { PullRequestStateEnum } from '../src/github/interface';
 import md from './mdRenderer';
 import { MessageHandler } from './message';
 import { getState, updateState } from './cache';
+import { Comment } from '../src/common/comment';
 
 const commitIconSvg = require('../resources/icons/commit_icon.svg');
 const editIcon = require('../resources/icons/edit.svg');
@@ -21,14 +24,6 @@ export enum DiffChangeType {
 	Control
 }
 
-interface DiffLine {
-	_raw: string;
-	type: DiffChangeType;
-	oldLineNumber: number;
-	newLineNumber: number;
-	positionInHunk: number;
-}
-
 export function getDiffChangeType(text: string) {
 	let c = text[0];
 	switch (c) {
@@ -38,185 +33,6 @@ export function getDiffChangeType(text: string) {
 		default: return DiffChangeType.Control;
 	}
 }
-
-export class DiffHunk {
-	public diffLines: DiffLine[] = [];
-
-	constructor(
-		public oldLineNumber: number,
-		public oldLength: number,
-		public newLineNumber: number,
-		public newLength: number,
-		public positionInHunk: number
-	) { }
-}
-interface Comment {
-	url: string;
-	id: string;
-	path: string;
-	pull_request_review_id: string;
-	diff_hunk: string;
-	diff_hunks: DiffHunk[];
-	position: number;
-	original_position: number;
-	commit_id: string;
-	original_commit_id: string;
-	user: User;
-	body: string;
-	created_at: string;
-	updated_at: string;
-	html_url: string;
-	absolutePosition?: number;
-	canEdit: boolean;
-	canDelete: boolean;
-}
-
-export enum EventType {
-	Committed,
-	Mentioned,
-	Subscribed,
-	Commented,
-	Reviewed,
-	Other
-}
-
-export interface Author {
-	name: string;
-	email: string;
-	date: Date;
-	login?: string;
-	avatar_url?: string;
-	html_url?: string;
-}
-
-export interface Committer {
-	name: string;
-	email: string;
-	date: Date;
-}
-
-export interface Tree {
-	sha: string;
-	url: string;
-}
-
-export interface Parent {
-	sha: string;
-	url: string;
-	html_url: string;
-}
-
-export interface Verification {
-	verified: boolean;
-	reason: string;
-	signature?: any;
-	payload?: any;
-}
-
-export interface User {
-	login: string;
-	id: number;
-	avatar_url: string;
-	gravatar_id: string;
-	url: string;
-	html_url: string;
-	followers_url: string;
-	following_url: string;
-	gists_url: string;
-	starred_url: string;
-	subscriptions_url: string;
-	organizations_url: string;
-	repos_url: string;
-	events_url: string;
-	received_events_url: string;
-	type: string;
-	site_admin: boolean;
-}
-
-export interface Html {
-	href: string;
-}
-
-export interface PullRequest {
-	href: string;
-}
-
-export interface Links {
-	html: Html;
-	pull_request: PullRequest;
-}
-
-export interface MentionEvent {
-	id: number;
-	url: string;
-	actor: User;
-	event: EventType;
-	commit_id: string;
-	commit_url: string;
-	created_at: Date;
-}
-
-export interface SubscribeEvent {
-	id: number;
-	url: string;
-	actor: User;
-	event: EventType;
-	commit_id: string;
-	commit_url: string;
-	created_at: Date;
-}
-
-export interface CommentEvent {
-	url: string;
-	html_url: string;
-	author: Author;
-	user: User;
-	created_at: Date;
-	updated_at: Date;
-	id: number;
-	event: EventType;
-	actor: User;
-	author_association: string;
-	body: string;
-	canDelete: boolean;
-	canEdit: boolean;
-}
-
-export interface ReviewEvent {
-	id: number;
-	user: User;
-	body: string;
-	commit_id: string;
-	submitted_at: Date;
-	state: string;
-	html_url: string;
-	pull_request_url: string;
-	author_association: string;
-	_links: Links;
-	event: EventType;
-	comments: Comment[];
-}
-
-export interface CommitEvent {
-	sha: string;
-	url: string;
-	html_url: string;
-	author: Author;
-	committer: Committer;
-	tree: Tree;
-	message: string;
-	parents: Parent[];
-	verification: Verification;
-	event: EventType;
-}
-
-export enum PullRequestStateEnum {
-	Open,
-	Merged,
-	Closed,
-}
-
-export type TimelineEvent = CommitEvent | ReviewEvent | SubscribeEvent | CommentEvent | MentionEvent;
 
 function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[] } {
 	return arr.reduce((result, el) => {
@@ -255,7 +71,7 @@ export class ActionsBar {
 	private _updateStateTimer: number = -1;
 
 	constructor(private _container: HTMLElement,
-		private _data: ActionData,
+		private _data: ActionData | Comment,
 		private _renderedComment: HTMLElement,
 		private _messageHandler: MessageHandler,
 		private _updateHandler: (value: any) => void,
@@ -407,7 +223,7 @@ export class ActionsBar {
 			}
 
 			const pullRequest = getState();
-			const index = pullRequest.events.findIndex(event => event.event === EventType.Commented && (<CommentEvent>event).id.toString() === this._data.id.toString());
+			const index = pullRequest.events.findIndex(event => isCommentEvent(event) && event.id.toString() === this._data.id.toString());
 			pullRequest.events.splice(index, 1);
 			updateState({ events: pullRequest.events });
 		});
@@ -663,7 +479,7 @@ class ReviewNode {
 							newLineNumber.classList.add('lineNumber');
 
 							const lineContent = document.createElement('span');
-							lineContent.textContent = diffLine._raw;
+							lineContent.textContent = (diffLine as any)._raw; // the getter function has been stripped, directly access property
 							lineContent.classList.add('lineContent');
 
 							diffLineElement.appendChild(oldLineNumber);

@@ -333,7 +333,7 @@
     "webpack-cli": "^2.0.10"
   },
   "dependencies": {
-    "@octokit/rest": "^15.9.5",
+    "@octokit/rest": "^15.15.1",
     "axios": "^0.18.0",
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",

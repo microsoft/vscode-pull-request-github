@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { GitHubRef } from '../common/githubRef';
+import * as Github from '@octokit/rest';
 import { Comment } from '../common/comment';
+import { GitHubRef } from '../common/githubRef';
 import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
 import { Repository } from '../typings/git';
@@ -41,52 +42,6 @@ export interface IAccount {
 	privateRepositoryInPlanCount?: number;
 }
 
-export interface IRepository {
-	label: string;
-	ref: string;
-	repo: any;
-	sha: string;
-}
-
-interface ILabel {
-	id: number;
-	node_id: string;
-	url: string;
-	name: string;
-	color: string;
-	default: boolean;
-}
-
-// This interface is incomplete
-export interface IPullRequest {
-	additions: number;
-	assignee: any;
-	assignees: any[];
-	author_association: string;
-	base: IRepository;
-	body: string;
-	changed_files: number;
-	closed_at: string;
-	comments: number;
-	commits: number;
-	created_at: string;
-	head: IRepository;
-	html_url: string;
-	id: number;
-	labels: ILabel[];
-	locked: boolean;
-	maintainer_can_modify: boolean;
-	merge_commit_sha; boolean;
-	mergable: boolean;
-	merged: boolean;
-	number: number;
-	rebaseable: boolean;
-	state: 'open' | 'closed';
-	title: string;
-	updated_at: string;
-	user: any;
-}
-
 export interface MergePullRequest {
 	sha: string;
 	merged: boolean;
@@ -94,38 +49,24 @@ export interface MergePullRequest {
 	documentation_url: string;
 }
 
-export interface FileChange {
-	additions: number;
-	blob_url: string;
-	changes: number;
-	contents_url: string;
-	deletions: number;
-	filename: string;
-	patch?: string;
-	raw_url: string;
-	sha: string;
-	status: string;
-}
-
-export interface Commit {
-	author: {
-		avatar_url: string;
-		html_url: string;
-		login: string;
-	};
-	commit: {
-		author: {
-			name: string;
-			date: string;
-			email: string;
-		};
-		message: string;
-	};
-	html_url: string;
-	sha: string;
-	parents: any;
-}
-
+export type PullRequest = Pick<
+	Github.PullRequestsGetResponse,
+	| 'number'
+	| 'body'
+	| 'labels'
+	| 'title'
+	| 'html_url'
+	| 'user'
+	| 'state'
+	| 'merged'
+	| 'assignee'
+	| 'created_at'
+	| 'updated_at'
+	| 'comments'
+	| 'commits'
+	| 'head'
+	| 'base'
+>;
 export interface IPullRequestModel {
 	remote: Remote;
 	prNumber: number;
@@ -148,7 +89,7 @@ export interface IPullRequestModel {
 	userAvatarUri: vscode.Uri;
 	body: string;
 	labels: string[];
-	update(prItem: IPullRequest): void;
+	update(prItem: Github.PullRequestsGetResponse): void;
 	equals(other: IPullRequestModel): boolean;
 }
 
@@ -169,12 +110,12 @@ export interface IPullRequestManager {
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
-	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Commit[]>;
-	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Commit): Promise<FileChange[]>;
-	getReviewComments(pullRequest: IPullRequestModel, reviewId: string): Promise<Comment[]>;
+	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]>;
+	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]>;
+	getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Github.PullRequestsCreateCommentResponse[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
-	getIssueComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
-	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment>;
+	getIssueComments(pullRequest: IPullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]>;
+	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Github.IssuesCreateCommentResponse>;
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
 	mergePullRequest(pullRequest: IPullRequestModel): Promise<any>;
@@ -183,11 +124,11 @@ export interface IPullRequestManager {
 	deleteIssueComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
 	deleteReviewComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
 	canEditPullRequest(pullRequest: IPullRequestModel): boolean;
-	editPullRequest(pullRequest: IPullRequestModel, newBody: string): Promise<IPullRequest>;
+	editPullRequest(pullRequest: IPullRequestModel, newBody: string): Promise<Github.PullRequestsUpdateResponse>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
-	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<FileChange[]>;
+	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetFilesResponseItem[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
 
 	/**

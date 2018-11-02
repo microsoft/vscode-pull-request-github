@@ -3,6 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as Github from '@octokit/rest';
+import { Comment } from './comment';
+
+type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+
 export enum EventType {
 	Committed,
 	Mentioned,
@@ -12,132 +17,46 @@ export enum EventType {
 	Other
 }
 
-export interface Author {
-	name: string;
-	email: string;
-	date: Date;
-	login?: string;
-	avatar_url?: string;
-	html_url?: string;
-}
-
-export interface Committer {
-	name: string;
-	email: string;
-	date: Date;
-}
-
-export interface Tree {
-	sha: string;
-	url: string;
-}
-
-export interface Parent {
-	sha: string;
-	url: string;
+export interface CommentEvent extends Omit<Github.IssuesGetEventsTimelineResponseItem, 'commit_id' | 'commit_url' | 'event'> {
 	html_url: string;
-}
-
-export interface Verification {
-	verified: boolean;
-	reason: string;
-	signature?: any;
-	payload?: any;
-}
-
-export interface User {
-	login: string;
-	id: number;
-	avatar_url: string;
-	gravatar_id: string;
-	url: string;
-	html_url: string;
-	followers_url: string;
-	following_url: string;
-	gists_url: string;
-	starred_url: string;
-	subscriptions_url: string;
-	organizations_url: string;
-	repos_url: string;
-	events_url: string;
-	received_events_url: string;
-	type: string;
-	site_admin: boolean;
-}
-
-export interface Html {
-	href: string;
-}
-
-export interface PullRequest {
-	href: string;
-}
-
-export interface Links {
-	html: Html;
-	pull_request: PullRequest;
-}
-
-export interface MentionEvent {
-	id: number;
-	url: string;
-	actor: User;
-	event: EventType;
-	commit_id: string;
-	commit_url: string;
-	created_at: Date;
-}
-
-export interface SubscribeEvent {
-	id: number;
-	url: string;
-	actor: User;
-	event: EventType;
-	commit_id: string;
-	commit_url: string;
-	created_at: Date;
-}
-
-export interface CommentEvent {
-	url: string;
-	html_url: string;
-	author: Author;
-	user: User;
-	created_at: Date;
-	updated_at: Date;
-	id: number;
-	event: EventType;
-	actor: User;
-	author_association: string;
+	issue_url: string;
 	body: string;
-}
-
-export interface ReviewEvent {
-	id: number;
-	user: User;
-	body: string;
-	comments: CommentEvent[];
-	commit_id: string;
-	submitted_at: Date;
-	state: string;
-	html_url: string;
-	pull_request_url: string;
 	author_association: string;
-	_links: Links;
+	updated_at: string;
+	user: Github.IssuesGetEventsTimelineResponseItem['actor'];
 	event: EventType;
+	canEdit?: boolean;
+	canDelete?: boolean;
+	eventType: EventType;
 }
 
-export interface CommitEvent {
-	sha: string;
-	url: string;
-	html_url: string;
-	author: Author;
-	committer: Committer;
-	tree: Tree;
-	message: string;
-	parents: Parent[];
-	verification: Verification;
-	event: EventType;
+export interface ReviewEvent extends Github.PullRequestsCreateReviewResponse {
+	author_association: string;
+	event: string;
+	eventType: EventType;
+	comments: Comment[];
+	submitted_at: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | SubscribeEvent | CommentEvent | MentionEvent;
+export interface CommitEvent extends Github.ReposCreateFileResponseCommit {
+	author: Github.ReposCreateFileResponseCommit['author'] & {
+		login: string;
+		avatar_url: string;
+		html_url: string;
+	};
+	event: string;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent;
+
+export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
+	return Number(event.event) === EventType.Reviewed;
+}
+
+export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
+	return Number(event.event) === EventType.Committed;
+}
+
+export function isCommentEvent(event: TimelineEvent): event is CommentEvent {
+	return Number(event.event) === EventType.Committed;
+}

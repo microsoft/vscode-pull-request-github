@@ -7,6 +7,7 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
+import * as Github from '@octokit/rest';
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
 import { Repository } from '../typings/git';
 import { Comment } from './comment';
@@ -290,10 +291,10 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 	return fileChanges;
 }
 
-export function parserCommentDiffHunk(comments: any[]): Comment[] {
-	for (let i = 0; i < comments.length; i++) {
+export function parserCommentDiffHunk(comments: Github.PullRequestsCreateCommentResponse[]): Comment[] {
+	return comments.map(comment => {
 		let diffHunks = [];
-		let diffHunkReader = parseDiffHunk(comments[i].diff_hunk);
+		let diffHunkReader = parseDiffHunk(comment.diff_hunk);
 		let diffHunkIter = diffHunkReader.next();
 
 		while (!diffHunkIter.done) {
@@ -302,8 +303,6 @@ export function parserCommentDiffHunk(comments: any[]): Comment[] {
 			diffHunkIter = diffHunkReader.next();
 		}
 
-		comments[i].diff_hunks = diffHunks;
-	}
-
-	return comments;
+		return { ...comment, diff_hunks: diffHunks };
+	});
 }
