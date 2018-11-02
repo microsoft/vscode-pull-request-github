@@ -8,8 +8,8 @@ import * as vscode from 'vscode';
 import { agent } from '../common/net';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
 import { GitHubServer } from '../authentication/githubServer';
+import { getToken, setToken } from '../authentication/keychain';
 import { Remote } from '../common/remote';
-import { VSCodeConfiguration } from '../authentication/vsConfiguration';
 import Logger from '../common/logger';
 import { ITelemetry } from './interface';
 import { handler as uriHandler } from '../common/uri';
@@ -21,12 +21,9 @@ const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
 export class CredentialStore {
 	private _octokits: Map<string, Octokit>;
-	private _configuration: VSCodeConfiguration;
 	private _authenticationStatusBarItems: Map<string, vscode.StatusBarItem>;
 
-	constructor(configuration: any,
-		private readonly _telemetry: ITelemetry) {
-		this._configuration = configuration;
+	constructor(private readonly _telemetry: ITelemetry) {
 		this._octokits = new Map<string, Octokit>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 		vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
@@ -57,16 +54,12 @@ export class CredentialStore {
 			return true;
 		}
 
-		this._configuration.setHost(host);
-
-		const creds: IHostConfiguration = this._configuration;
 		const server = new GitHubServer(host);
+		const token = await getToken(host);
 		let octokit: Octokit;
 
-		if (creds.token) {
-			if (await server.validate(creds.username, creds.token)) {
-				octokit = this.createOctokit('token', creds);
-			}
+		if (token && await server.validate(token)) {
+			octokit = this.createOctokit({host, token});
 		}
 
 		if (octokit) {
@@ -114,8 +107,8 @@ export class CredentialStore {
 				this.willStartLogin(authority);
 				const login = await server.login();
 				if (login) {
-					octokit = this.createOctokit('token', login);
-					await this._configuration.update(login.username, login.token, false);
+					octokit = this.createOctokit(login);
+					await setToken(login.host, login.token, {emit: false});
 					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
 				}
 			} catch (e) {
@@ -151,27 +144,17 @@ export class CredentialStore {
 		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
 	}
 
-	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
+	private createOctokit(creds: IHostConfiguration): Octokit {
 		const octokit = new Octokit({
 			agent,
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
 			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
 		});
 
-		if (creds.token) {
-			if (type === 'token') {
-				octokit.authenticate({
-					type: 'token',
-					token: creds.token,
-				});
-			} else {
-				octokit.authenticate({
-					type: 'basic',
-					username: creds.username,
-					password: creds.token,
-				});
-			}
-		}
+		octokit.authenticate({
+			type: 'token',
+			token: creds.token,
+		});
 		return octokit;
 	}
 

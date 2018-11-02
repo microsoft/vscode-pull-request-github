@@ -1,39 +1,60 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { VSCodeConfiguration } from '../../authentication/vsConfiguration';
+import { migrateConfiguration } from '../../authentication/vsConfiguration';
+import { promiseFromEvent } from '../../common/utils';
 
 describe('VSCodeConfiguration', () => {
 	it('should migrate deprecated hosts setting', async () => {
-		const key = 'hosts';
-		const deprecated = vscode.workspace.getConfiguration('github');
-		const migrated = vscode.workspace.getConfiguration('githubPullRequests');
-		const target = vscode.ConfigurationTarget.Global;
-		const hosts = [
+		const HOSTS = 'hosts';
+		const GLOBAL = vscode.ConfigurationTarget.Global;
+		const old = vscode.workspace.getConfiguration('githubPullRequests');
+		const older = vscode.workspace.getConfiguration('github');
+		const oldHosts = [
 			{
 				host: 'https://github.local',
 				username: 'octocat',
-				token: 'abcd1234'
+				token: 'winning-token'
 			}
 		];
 
-		// Reset the workspace
-		await deprecated.update(key, undefined, target);
-		await migrated.update(key, undefined, target);
+		const olderHosts = [
+			{
+				host: 'https://github.local',
+				username: 'octocat',
+				token: 'losing-token'
+			},
+			{
+				host: 'https://ghe.local',
+				username: 'octocat',
+				token: 'ghe-token',
+			}
+		];
+
+		const reset = async () => {
+			// Reset the workspace
+			await old.update(HOSTS, undefined, GLOBAL);
+			await older.update(HOSTS, undefined, GLOBAL);
+		};
+		await reset();
 
 		// Change setting to force migration to run
-		await deprecated.update(key, hosts, target);
+		await old.update(HOSTS, oldHosts, GLOBAL);
+		await older.update(HOSTS, olderHosts, GLOBAL);
 
-		vscode.workspace.onDidChangeConfiguration(async () => {
-			assert.equal(deprecated.get(key), undefined);
-			assert.equal(migrated.get(key), hosts);
+		const configDidChange = promiseFromEvent(vscode.workspace.onDidChangeConfiguration);
 
-			// Clean up the workspace
-			await deprecated.update(key, undefined, target);
-			await migrated.update(key, undefined, target);
-		});
+		const keychain = [], setMockKeychain = (...args) => keychain.push(args);
+		await migrateConfiguration(setMockKeychain as any);
+		await configDidChange;
 
-		const configuration = new VSCodeConfiguration();
+		assert.equal(keychain.length, 3);
+		assert.deepStrictEqual(keychain[0], ['https://github.local', 'losing-token']);
+		assert.deepStrictEqual(keychain[1], ['https://ghe.local', 'ghe-token']);
+		assert.deepStrictEqual(keychain[2], ['https://github.local', 'winning-token']);
 
-		await configuration.loadConfiguration();
+		assert.equal(old.get(HOSTS), undefined);
+		assert.equal(older.get(HOSTS), undefined);
+
+		await reset();
 	});
 });

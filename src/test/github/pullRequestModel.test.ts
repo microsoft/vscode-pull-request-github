@@ -10,7 +10,7 @@ const telemetry = {
 	on: (action) => Promise.resolve(),
 	shutdown: () => Promise.resolve()
 };
-const credentials = new CredentialStore(null, telemetry);
+const credentials = new CredentialStore(telemetry);
 const protocol = new Protocol('');
 const remote = new Remote('test', 'github/test', protocol);
 const repo = new GitHubRepository(remote, credentials);

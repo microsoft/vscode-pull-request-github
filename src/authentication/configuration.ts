@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 
 export interface IHostConfiguration {
 	host: string;
-	username: string | undefined;
 	token: string | undefined;
 }
 
@@ -27,7 +26,7 @@ export const HostHelper = class {
 };
 
 export interface IConfiguration extends IHostConfiguration {
-	onDidChange: vscode.Event<IConfiguration>;
+	// onDidChange: vscode.Event<IConfiguration>;
 }
 
 export class Configuration implements IConfiguration {
