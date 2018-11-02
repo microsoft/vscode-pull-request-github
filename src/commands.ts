@@ -17,6 +17,7 @@ import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
+import { listHosts, deleteToken } from './authentication/keychain';
 
 const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
 export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;
@@ -37,7 +38,12 @@ function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestMode
 
 export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager,
 	reviewManager: ReviewManager, telemetry: ITelemetry) {
-	// initialize resources
+	context.subscriptions.push(vscode.commands.registerCommand('auth.logout', async () => {
+		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true });
+		if (!selection) { return; }
+		await Promise.all(selection.map(host => deleteToken(host)));
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | IPullRequestModel) => {
 		if (!e) {
 			if (prManager.activePullRequest) {

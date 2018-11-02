@@ -52,8 +52,8 @@ describe('VSCodeConfiguration', () => {
 		assert.deepStrictEqual(keychain[1], ['https://ghe.local', 'ghe-token']);
 		assert.deepStrictEqual(keychain[2], ['https://github.local', 'winning-token']);
 
-		assert.equal(old.get(HOSTS), undefined);
-		assert.equal(older.get(HOSTS), undefined);
+		assert.deepStrictEqual(old.get(HOSTS), []);
+		assert.deepStrictEqual(older.get(HOSTS), []);
 
 		await reset();
 	});

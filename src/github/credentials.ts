@@ -27,13 +27,18 @@ export class CredentialStore {
 		this._octokits = new Map<string, Octokit>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 		vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
-			const uriStr = await vscode.window.showInputBox({ prompt: 'Token' });
-			if (!uriStr) { return; }
-			const uri = vscode.Uri.parse(uriStr);
-			if (!uri.scheme) {
-				return vscode.window.showErrorMessage('Invalid token');
+			const uriOrToken = await vscode.window.showInputBox({ prompt: 'Token' });
+			if (!uriOrToken) { return; }
+			try {
+				const uri = vscode.Uri.parse(uriOrToken);
+				if (!uri.scheme) { throw new Error; }
+				uriHandler.handleUri(uri);
+			} catch (error) {
+				// If it doesn't look like a URI, treat it as a token.
+				const host = await vscode.window.showInputBox({ prompt: 'Server', placeHolder: 'github.com' });
+				if (!host) { return; }
+				setToken(host, uriOrToken);
 			}
-			uriHandler.handleUri(uri);
 		});
 	}
 

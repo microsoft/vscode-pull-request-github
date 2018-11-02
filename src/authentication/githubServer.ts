@@ -6,6 +6,7 @@ import Logger from '../common/logger';
 import { handler as uriHandler } from '../common/uri';
 import { PromiseAdapter, promiseFromEvent } from '../common/utils';
 import { agent } from '../common/net';
+import { onDidChange as onKeychainDidChange, toCanonical } from './keychain';
 
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
@@ -123,8 +124,12 @@ const verifyToken: (host: string) => PromiseAdapter<vscode.Uri, IHostConfigurati
 		if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE) {
 			return reject(new ResponseExpired);
 		}
-		resolve({host, token});
+		resolve({ host, token });
 	};
+
+const manuallyEnteredToken: (host: string) => PromiseAdapter<IHostConfiguration, IHostConfiguration> =
+	host => (config: IHostConfiguration, resolve) =>
+		config.host === toCanonical(host) && resolve(config);
 
 export class GitHubServer {
 	public hostConfiguration: IHostConfiguration;
@@ -142,7 +147,10 @@ export class GitHubServer {
 			`${AUTH_RELAY_SERVER}/authorize?authServer=${host}&callbackUri=${CALLBACK_URI}&scope=${SCOPES}`
 		);
 		vscode.commands.executeCommand('vscode.open', uri);
-		return promiseFromEvent(uriHandler.event, verifyToken(host));
+		return Promise.race([
+			promiseFromEvent(uriHandler.event, verifyToken(host)),
+			promiseFromEvent(onKeychainDidChange, manuallyEnteredToken(host))
+		]);
 	}
 
 	public async validate(token?: string): Promise<IHostConfiguration> {
