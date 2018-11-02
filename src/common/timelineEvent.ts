@@ -17,21 +17,14 @@ export enum EventType {
 	Other
 }
 
-export interface MentionEvent extends Github.IssuesGetEventsTimelineResponseItem {
-	eventType: EventType;
-}
-
-export interface SubscribeEvent extends Github.IssuesGetEventsTimelineResponseItem {
-	eventType: EventType;
-}
-
-export interface CommentEvent extends Omit<Github.IssuesGetEventsTimelineResponseItem, 'commit_id' | 'commit_url'> {
+export interface CommentEvent extends Omit<Github.IssuesGetEventsTimelineResponseItem, 'commit_id' | 'commit_url' | 'event'> {
 	html_url: string;
 	issue_url: string;
 	body: string;
 	author_association: string;
 	updated_at: string;
 	user: Github.IssuesGetEventsTimelineResponseItem['actor'];
+	event: EventType;
 	canEdit?: boolean;
 	canDelete?: boolean;
 	eventType: EventType;
@@ -52,7 +45,18 @@ export interface CommitEvent extends Github.ReposCreateFileResponseCommit {
 		html_url: string;
 	};
 	event: string;
-	eventType: EventType;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | SubscribeEvent | CommentEvent | MentionEvent;
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent;
+
+export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
+	return Number(event.event) === EventType.Reviewed;
+}
+
+export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
+	return Number(event.event) === EventType.Committed;
+}
+
+export function isCommentEvent(event: TimelineEvent): event is CommentEvent {
+	return Number(event.event) === EventType.Committed;
+}

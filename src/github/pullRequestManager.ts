@@ -8,7 +8,7 @@ import * as Github from '@octokit/rest';
 import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType } from '../common/timelineEvent';
+import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
 import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
@@ -664,8 +664,8 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	private async addReviewTimelineEventComments(pullRequest: IPullRequestModel, events: any[]): Promise<void> {
-		const reviewEvents = events.filter(event => event.event === EventType.Reviewed);
+	private async addReviewTimelineEventComments(pullRequest: IPullRequestModel, events: TimelineEvent[]): Promise<void> {
+		const reviewEvents = events.filter(isReviewEvent);
 		const reviewComments = await this.getPullRequestComments(pullRequest);
 
 		// Group comments by file and position
@@ -693,9 +693,9 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	private async fixCommitAttribution(pullRequest: IPullRequestModel, events: any[]): Promise<void> {
+	private async fixCommitAttribution(pullRequest: IPullRequestModel, events: TimelineEvent[]): Promise<void> {
 		const commits = await this.getPullRequestCommits(pullRequest);
-		const commitEvents = events.filter(event => event.event === EventType.Committed);
+		const commitEvents = events.filter(isCommitEvent);
 		for (let commitEvent of commitEvents) {
 			const matchingCommits = commits.filter(commit => commit.sha === commitEvent.sha);
 			if (matchingCommits.length === 1) {

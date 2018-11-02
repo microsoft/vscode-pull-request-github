@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { PullRequestStateEnum, TimelineEvent } from './pullRequestOverviewRenderer';
+import { PullRequestStateEnum } from '../src/github/interface';
+import { TimelineEvent } from '../src/common/timelineEvent';
 
 export interface PullRequest {
 	number: number;

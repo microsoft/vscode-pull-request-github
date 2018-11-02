@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as moment from 'moment';
-import * as Github from '@octokit/rest';
-import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, EventType } from '../src/common/timelineEvent';
+import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, EventType, isCommentEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
 import md from './mdRenderer';
 import { MessageHandler } from './message';
@@ -72,7 +71,7 @@ export class ActionsBar {
 	private _updateStateTimer: number = -1;
 
 	constructor(private _container: HTMLElement,
-		private _data: ActionData,
+		private _data: ActionData | Comment,
 		private _renderedComment: HTMLElement,
 		private _messageHandler: MessageHandler,
 		private _updateHandler: (value: any) => void,
@@ -224,7 +223,7 @@ export class ActionsBar {
 			}
 
 			const pullRequest = getState();
-			const index = pullRequest.events.findIndex(event => event.event === EventType.Commented && (<CommentEvent>event).id.toString() === this._data.id.toString());
+			const index = pullRequest.events.findIndex(event => isCommentEvent(event) && event.id.toString() === this._data.id.toString());
 			pullRequest.events.splice(index, 1);
 			updateState({ events: pullRequest.events });
 		});
@@ -480,7 +479,7 @@ class ReviewNode {
 							newLineNumber.classList.add('lineNumber');
 
 							const lineContent = document.createElement('span');
-							lineContent.textContent = diffLine._raw;
+							lineContent.textContent = (diffLine as any)._raw; // the getter function has been stripped, directly access property
 							lineContent.classList.add('lineContent');
 
 							diffLineElement.appendChild(oldLineNumber);
@@ -518,7 +517,7 @@ class ReviewNode {
 }
 
 export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler): HTMLElement | undefined {
-	switch (timelineEvent.eventType) {
+	switch (timelineEvent.event) {
 		case EventType.Committed:
 			return renderCommit((<CommitEvent>timelineEvent));
 		case EventType.Commented:
