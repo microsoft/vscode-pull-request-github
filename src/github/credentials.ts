@@ -64,7 +64,7 @@ export class CredentialStore {
 		let octokit: Octokit;
 
 		if (token && await server.validate(token)) {
-			octokit = this.createOctokit({host, token});
+			octokit = this.createOctokit({ host, token });
 		}
 
 		if (octokit) {
@@ -113,7 +113,7 @@ export class CredentialStore {
 				const login = await server.login();
 				if (login) {
 					octokit = this.createOctokit(login);
-					await setToken(login.host, login.token, {emit: false});
+					await setToken(login.host, login.token, { emit: false });
 					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
 				}
 			} catch (e) {
