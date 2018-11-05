@@ -149,7 +149,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
-		if (fileChange.status === GitChangeType.DELETE) {
+		if (fileChange.status === GitChangeType.DELETE || fileChange.status === GitChangeType.ADD) {
 			// create an empty `review` uri without any path/commit info.
 			const emptyFileUri = fileChange.parentFilePath.with({
 				query: JSON.stringify({
@@ -157,7 +157,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 					commit: null,
 				})
 			});
-			return vscode.commands.executeCommand('vscode.diff', fileChange.parentFilePath, emptyFileUri, `${fileChange.fileName}`, { preserveFocus: true });
+
+			return fileChange.status === GitChangeType.DELETE
+				? vscode.commands.executeCommand('vscode.diff', fileChange.parentFilePath, emptyFileUri, `${fileChange.fileName}`, { preserveFocus: true })
+				: vscode.commands.executeCommand('vscode.diff',  emptyFileUri, fileChange.parentFilePath, `${fileChange.fileName}`, { preserveFocus: true });
 		}
 
 		// Show the file change in a diff view.
