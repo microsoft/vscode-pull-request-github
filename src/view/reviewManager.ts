@@ -1043,6 +1043,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const base: any = await this._prManager.getMetadata(selectedRemote.remoteName);
 			let targets = `${base.owner.login}:${base.default_branch}`;
 			vscode.window.showQuickPick([targets]).then(target => {
+				if (!target) {
+					return;
+				}
+
 				vscode.window.withProgress({
 					location: vscode.ProgressLocation.Notification,
 					title: 'Creating Pull Request',
