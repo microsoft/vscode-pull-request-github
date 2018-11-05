@@ -13,10 +13,11 @@ export async function migrateConfiguration(migrateToKeychain = migrateToken): Pr
 
 async function migrate(namespace: string, migrateToKeychain: typeof migrateToken) {
 	const config = vscode.workspace.getConfiguration(namespace);
+	if (!config) { return; }
 
 	// With tokens stored in local storage, we don't really have per-workspace
 	// authentication settings anymore. Only port global settings.
-	const hosts = config.inspect(HOSTS_KEY).globalValue;
+	const hosts = (config.inspect(HOSTS_KEY) || { globalValue: null }).globalValue;
 	if (!Array.isArray(hosts)) { return; }
 	for (const { host, token } of hosts) {
 		Logger.appendLine(`Migrating ${host} from ${namespace}.${HOSTS_KEY} to keychain`);
