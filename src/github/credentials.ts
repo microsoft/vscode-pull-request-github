@@ -5,6 +5,7 @@
 
 import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
+import { agent } from '../common/net';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
 import { GitHubServer } from '../authentication/githubServer';
 import { Remote } from '../common/remote';
@@ -71,7 +72,7 @@ export class CredentialStore {
 		if (octokit) {
 			this._octokits.set(host, octokit);
 		}
-		this.updateAuthenticationStatusBar(remote);
+		await this.updateAuthenticationStatusBar(remote);
 		return this._octokits.has(host);
 	}
 
@@ -145,8 +146,14 @@ export class CredentialStore {
 		return octokit;
 	}
 
+	public isCurrentUser(username: string, remote: Remote): boolean {
+		const octokit = this.getOctokit(remote);
+		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
+	}
+
 	private createOctokit(type: string, creds: IHostConfiguration): Octokit {
 		const octokit = new Octokit({
+			agent,
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
 			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
 		});

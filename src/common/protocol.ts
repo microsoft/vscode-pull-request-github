@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import Logger from './logger';
 
+import { resolve } from './ssh';
+
 export enum ProtocolType {
 	Local,
 	HTTP,
@@ -13,8 +15,6 @@ export enum ProtocolType {
 	GIT,
 	OTHER
 }
-
-const sshProtocolRegex = /^([^@:]+@)?([^:]+):(.+)$/;
 
 export class Protocol {
 	public type: ProtocolType = ProtocolType.OTHER;
@@ -30,26 +30,15 @@ export class Protocol {
 
 	public readonly url: vscode.Uri;
 	constructor(
-		uriString: string
+		uriString: string,
 	) {
-		if (uriString.indexOf('://') === -1) {
-			if (sshProtocolRegex.test(uriString)) {
-				this.parseSshProtocol(uriString);
-				return;
-			}
+		if (this.parseSshProtocol(uriString)) {
+			return;
 		}
 
 		try {
 			this.url = vscode.Uri.parse(uriString);
 			this.type = this.getType(this.url.scheme);
-
-			if (this.type === ProtocolType.SSH) {
-				const urlWithoutScheme = this.url.authority + this.url.path;
-				if (sshProtocolRegex.test(urlWithoutScheme)) {
-					this.parseSshProtocol(urlWithoutScheme);
-					return;
-				}
-			}
 
 			this.host = this.getHostName(this.url.authority);
 			if (this.host) {
@@ -78,16 +67,15 @@ export class Protocol {
 		}
 	}
 
-	private parseSshProtocol(uriString: string): void {
-		const result = uriString.match(sshProtocolRegex);
-		if (result) {
-			this.host = result[2];
-			const path = result[3];
-			this.owner = this.getOwnerName(path);
-			this.repositoryName = this.getRepositoryName(path);
-			this.type = ProtocolType.SSH;
-			return;
-		}
+	private parseSshProtocol(uriString: string): boolean {
+		const sshConfig = resolve(uriString);
+		if (!sshConfig) { return false; }
+		const { HostName, path } = sshConfig;
+		this.host = HostName;
+		this.owner = this.getOwnerName(path);
+		this.repositoryName = this.getRepositoryName(path);
+		this.type = ProtocolType.SSH;
+		return true;
 	}
 
 	getHostName(authority: string) {

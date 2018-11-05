@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { IAccount, IPullRequest, IPullRequestModel, PullRequestStateEnum } from './interface';
+import { IAccount, IPullRequestModel, PullRequest, PullRequestStateEnum } from './interface';
 
 export class PullRequestModel implements IPullRequestModel {
 	public prNumber: number;
@@ -64,11 +64,11 @@ export class PullRequestModel implements IPullRequestModel {
 	public head: GitHubRef;
 	public base: GitHubRef;
 
-	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: IPullRequest) {
+	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest) {
 		this.update(prItem);
 	}
 
-	update(prItem: IPullRequest): void {
+	update(prItem: PullRequest): void {
 		this.prNumber = prItem.number;
 		this.title = prItem.title;
 		this.html_url = prItem.html_url;

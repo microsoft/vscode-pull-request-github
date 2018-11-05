@@ -50,26 +50,22 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 	const reviewManager = new ReviewManager(context, configuration, repository, prManager, telemetry);
 	registerCommands(context, prManager, reviewManager, telemetry);
 
-	/**
-	 * Since selection changes are per repository, selecting a different repo will trigger two
-	 * selection change events, one for the repository losing selection and one for the repository gaining selection.
-	 * Try to debounce these so that only one update is done.
-	 */
-	let updateRepositoryTimer;
 	git.repositories.forEach(repo => {
-		(<any>repo).ui.onDidChange(_ => {
-			if (updateRepositoryTimer) {
-				clearTimeout(updateRepositoryTimer);
+		repo.ui.onDidChange(() => {
+			// No multi-select support, always show last selected repo
+			if (repo.ui.selected) {
+				prManager.repository = repo;
+				reviewManager.repository = repo;
 			}
+		});
+	});
 
-			updateRepositoryTimer = setTimeout(() => {
-				// no multi select support yet, always show PRs of first selected repository
-				const firstSelectedRepository = git.repositories.filter(r => r.ui.selected)[0];
-				if (firstSelectedRepository) {
-					prManager.repository = firstSelectedRepository;
-					reviewManager.repository = firstSelectedRepository;
-				}
-			}, 50);
+	git.onDidOpenRepository(repo => {
+		repo.ui.onDidChange(() => {
+			if (repo.ui.selected) {
+				prManager.repository = repo;
+				reviewManager.repository = repo;
+			}
 		});
 	});
 

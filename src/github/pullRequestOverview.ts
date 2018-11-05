@@ -6,12 +6,12 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IPullRequest, IPullRequestManager, IPullRequestModel, Commit, MergePullRequest, PullRequestStateEnum } from './interface';
+import * as Github from '@octokit/rest';
+import { IPullRequestManager, IPullRequestModel, MergePullRequest, PullRequestStateEnum } from './interface';
 import { onDidUpdatePR } from '../commands';
-import { TimelineEvent, EventType, ReviewEvent, CommitEvent } from '../common/timelineEvent';
-import { Comment } from '../common/comment';
-import { groupBy, formatError } from '../common/utils';
+import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
+import { Comment } from '../common/comment';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -135,18 +135,15 @@ export class PullRequestOverviewPanel {
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
+			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
 
 			Promise.all(
 				[
-					this._pullRequestManager.getPullRequestCommits(pullRequestModel),
 					this._pullRequestManager.getTimelineEvents(pullRequestModel),
-					this._pullRequestManager.getPullRequestComments(pullRequestModel),
 					this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)
 				]
 			).then(result => {
-				const [reviewCommits, timelineEvents, reviewComments, defaultBranch] = result;
-				this.fixCommentThreads(timelineEvents, reviewComments);
-				this.fixCommitAttribution(timelineEvents, reviewCommits);
+				const [timelineEvents, defaultBranch] = result;
 				this._postMessage({
 					command: 'pr.initialize',
 					pullrequest: {
@@ -163,63 +160,11 @@ export class PullRequestOverviewPanel {
 						base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
 						head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
 						commitsCount: pullRequestModel.commitCount,
-						repositoryDefaultBranch: defaultBranch
+						repositoryDefaultBranch: defaultBranch,
+						canEdit: canEdit
 					}
 				});
 			});
-		}
-	}
-
-	/**
-	 * For review timeline events, the comments on the event are only those in that review. Any reponses to those comments
-	 * belong to separate reviews. This modifies review timeline event comments to contain both their comments and responses to them.
-	 * @param timelineEvents The timeline events
-	 * @param reviewComments All review comments
-	 */
-	private fixCommentThreads(timelineEvents: TimelineEvent[], reviewComments: Comment[]): void {
-		const reviewEvents: ReviewEvent[] = (<ReviewEvent[]>timelineEvents.filter(event => event.event === EventType.Reviewed));
-
-		reviewEvents.forEach(review => review.comments = []);
-
-		// Group comments by file and position
-		const commentsByFile = groupBy(reviewComments, comment => comment.path);
-		for (let file in commentsByFile) {
-			const fileComments = commentsByFile[file];
-			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.original_position : comment.position));
-
-			// Loop through threads, for each thread, see if there is a matching review, push all comments to it
-			for (let i in commentThreads) {
-				const comments = commentThreads[i];
-				const reviewId = comments[0].pull_request_review_id;
-
-				if (reviewId) {
-					const matchingEvent = reviewEvents.find(review => review.id === reviewId);
-					if (matchingEvent) {
-						matchingEvent.comments = matchingEvent.comments.concat(comments);
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * Commit timeline events only list the bare user commit information, not the details of the associated GitHub user account. Add these details.
-	 * @param timelineEvents The timeline events
-	 * @param commits All review commits
-	 */
-	private fixCommitAttribution(timelineEvents: TimelineEvent[], commits: Commit[]): void {
-		const commitEvents: CommitEvent[] = (<CommitEvent[]>timelineEvents.filter(event => event.event === EventType.Committed));
-		for (let commitEvent of commitEvents) {
-			const matchingCommits = commits.filter(commit => commit.sha === commitEvent.sha);
-			if (matchingCommits.length === 1) {
-				const author = matchingCommits[0].author;
-				// There is not necessarily a GitHub account associated with the commit.
-				if (author !== null) {
-					commitEvent.author.avatar_url = author.avatar_url;
-					commitEvent.author.login = author.login;
-					commitEvent.author.html_url = author.html_url;
-				}
-			}
 		}
 	}
 
@@ -264,14 +209,62 @@ export class PullRequestOverviewPanel {
 				return this.checkoutDefaultBranch(message.args);
 			case 'pr.comment':
 				return this.createComment(message);
-			case 'scroll': {
+			case 'scroll':
 				this._scrollPosition = message.args;
 				return;
-			}
+			case 'pr.edit-comment':
+				return this.editComment(message);
+			case 'pr.delete-comment':
+				return this.deleteComment(message);
+			case 'pr.edit-description':
+				return this.editDescription(message);
 		}
 	}
 
-	private checkoutPullRequest(message: IRequestMessage<any>): void {
+	private editDescription(message: IRequestMessage<{ text: string }>) {
+		this._pullRequestManager.editPullRequest(this._pullRequest, message.args.text).then(result => {
+			this._replyMessage(message, { text: result.body });
+		}).catch(e => {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(formatError(e));
+		});
+	}
+
+	private editComment(message: IRequestMessage<{ comment: Comment, text: string }>) {
+		const { comment, text } = message.args;
+		const editCommentPromise = comment.pull_request_review_id !== undefined
+			? this._pullRequestManager.editReviewComment(this._pullRequest, comment.id.toString(), text)
+			: this._pullRequestManager.editIssueComment(this._pullRequest, comment.id.toString(), text);
+
+		editCommentPromise.then(result => {
+			this._replyMessage(message, {
+				text: result.body
+			});
+		}).catch(e => {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(formatError(e));
+		});
+	}
+
+	private deleteComment(message: IRequestMessage<Comment>) {
+		const comment = message.args;
+		vscode.window.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete').then(value => {
+			if (value === 'Delete') {
+				const deleteCommentPromise = comment.pull_request_review_id !== undefined
+					? this._pullRequestManager.deleteReviewComment(this._pullRequest, comment.id.toString())
+					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id.toString());
+
+				deleteCommentPromise.then(result => {
+					this._replyMessage(message, { });
+				}).catch(e => {
+					this._throwError(message, e);
+					vscode.window.showErrorMessage(formatError(e));
+				});
+			}
+		});
+	}
+
+	private checkoutPullRequest(message): void {
 		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {
 			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
@@ -308,7 +301,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private closePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.close', this._pullRequest, message.args).then(comment => {
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.close', this._pullRequest, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -360,7 +353,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.approve', this._pullRequest, message.args).then(review => {
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.approve', this._pullRequest, message.args).then(review => {
 			if (review) {
 				this._replyMessage(message, {
 					value: review
@@ -376,7 +369,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<IPullRequest>('pr.requestChanges', this._pullRequest, message.args).then(review => {
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.requestChanges', this._pullRequest, message.args).then(review => {
 			if (review) {
 				this._replyMessage(message, {
 					value: review

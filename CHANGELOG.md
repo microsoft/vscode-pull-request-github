@@ -1,4 +1,19 @@
-0.2.0
+0.2.3
+- Fix [#607], read `~/.ssh/config` to resolve hosts
+- Fix [#572], by [@yoh1496], add support for GitHub Enterprise behind a proxy
+- Fix [#658], ensure correct button enablement when reloading pending comment from cache
+- Fix [#649], make sure selecting a different folder is responsive after adding it to the workspace
+
+0.2.2
+
+- Add support for editing and deleting comments [#107](https://github.com/Microsoft/vscode-pull-request-github/issues/107)
+- Fix [#110](https://github.com/Microsoft/vscode-pull-request-github/issues/110), by [@JeffreyCA], add hyperlinks to timestamps
+- Fix [#624](https://github.com/Microsoft/vscode-pull-request-github/issues/624), by [@JeffreyCA], improve comment header wording
+- Fix [#568](https://github.com/Microsoft/vscode-pull-request-github/issues/568), by [@jerrymajewski], show author information in PR tooltip
+- Fix [#543](https://github.com/Microsoft/vscode-pull-request-github/issues/543), by [@malwilley], preserve description page scroll position when focus changes
+- Fix [#587](https://github.com/Microsoft/vscode-pull-request-github/issues/587), by [@mmanela], show correct error message for empty comment case
+- Migrate hosts setting to `githubPullRequests` namespace, by [@wyze]
+- Fix [#573](https://github.com/Microsoft/vscode-pull-request-github/issues/573), provide auth fallback when protocol handler fails
 
 **Breaking Changes**
 

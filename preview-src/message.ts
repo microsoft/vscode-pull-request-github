@@ -13,7 +13,7 @@ interface IReplyMessage {
 declare var acquireVsCodeApi: any;
 export const vscode = acquireVsCodeApi();
 
-class MessageHandler {
+export class MessageHandler {
 	private _commandHandler: ((message: any) => void) | null;
 	private lastSentReq: number;
 	private pendingReplies: any;
@@ -24,11 +24,11 @@ class MessageHandler {
 		window.addEventListener('message', this.handleMessage.bind(this));
 	}
 
-	registerCommandHandler(commandHandler: (message: any) => void) {
+	public registerCommandHandler(commandHandler: (message: any) => void) {
 		this._commandHandler = commandHandler;
 	}
 
-	async postMessage(message: any): Promise<any> {
+	public async postMessage(message: any): Promise<any> {
 		let req = String(++this.lastSentReq);
 		return new Promise<any>((resolve, reject) => {
 			this.pendingReplies[req] = {
