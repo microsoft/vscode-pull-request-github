@@ -526,11 +526,22 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 
 		// Create PR
-		let { data } = await repo.octokit.pullRequests.create(params);
-		let pullRequestModel = await repo.getPullRequest(data.number);
-		// pullRequestModel.update(data);
-		await PullRequestGitHelper.fetchAndCheckout(this._repository, pullRequestModel.remote, params.head, pullRequestModel);
-		return pullRequestModel;
+		let pullRequestModel;
+		try {
+			let { data } = await repo.octokit.pullRequests.create(params);
+			pullRequestModel = await repo.getPullRequest(data.number);
+		} catch (e) {
+			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
+			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
+			return null;
+		}
+
+		if (pullRequestModel) {
+			await PullRequestGitHelper.fetchAndCheckout(this._repository, pullRequestModel.remote, params.head, pullRequestModel);
+			return pullRequestModel;
+		}
+
+		return null;
 	}
 
 	async editIssueComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment> {

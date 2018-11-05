@@ -1059,11 +1059,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 						repo: selectedRemote.repositoryName
 					};
 					let pullRequestModel = await this._prManager.createPullRequest(params);
-					progress.report({ increment: 60, message: `Pull Request #${pullRequestModel.prNumber} Created`});
-					await this.updateState();
-					await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
-					progress.report({ increment: 30 });
-					// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
+					if (pullRequestModel) {
+						progress.report({ increment: 60, message: `Pull Request #${pullRequestModel.prNumber} Created`});
+						await this.updateState();
+						await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
+						progress.report({ increment: 30 });
+					} else {
+						// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
+						progress.report({ increment: 90, message: `Failed to create pull request for ${params.head}`});
+					}
 				});
 			});
 		});
