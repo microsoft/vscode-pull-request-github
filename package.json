@@ -111,8 +111,8 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "auth.logout",
-        "title": "Log out of GitHub",
+        "command": "auth.signout",
+        "title": "Sign out of GitHub",
         "category": "GitHub Pull Requests"
       },
       {
