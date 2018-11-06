@@ -897,7 +897,7 @@ export function getEventType(text: string) {
 
 const ownedByMe: Predicate<GitHubRepository> = repo => {
 	const { currentUser=null } = repo.octokit as any;
-	return repo.remote.owner === currentUser.login;
+	return currentUser && repo.remote.owner === currentUser.login;
 };
 
 const byRemoteName = (name: string): Predicate<GitHubRepository> =>
