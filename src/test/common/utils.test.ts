@@ -36,14 +36,14 @@ describe('utils', () => {
 		});
 	});
 
-	describe('promiseFromEmitter', () => {
+	describe('promiseFromEvent', () => {
 		const hasListeners = (emitter: any) =>
 			!emitter._listeners!.isEmpty();
 
 		describe('without arguments', () => {
 			it('should return a promise for the next event', async () => {
 				const emitter = new EventEmitter<string>();
-				const promise = utils.promiseFromEmitter(emitter);
+				const promise = utils.promiseFromEvent(emitter.event);
 				emitter.fire('hello');
 				emitter.fire('world');
 				const value = await promise;
@@ -52,7 +52,7 @@ describe('utils', () => {
 
 			it('should unsubscribe after the promise resolves', async () => {
 				const emitter = new EventEmitter<string>();
-				const promise = utils.promiseFromEmitter(emitter);
+				const promise = utils.promiseFromEvent(emitter.event);
 				assert(hasListeners(emitter), 'should subscribe');
 				emitter.fire('hello');
 				await promise;
@@ -69,7 +69,7 @@ describe('utils', () => {
 
 			it('should return a promise that uses the adapter\'s value', async () => {
 				const emitter = new EventEmitter<string>();
-				const promise = utils.promiseFromEmitter(emitter, count);
+				const promise = utils.promiseFromEvent(emitter.event, count);
 				assert(hasListeners(emitter), 'should subscribe');
 				emitter.fire('hell');
 				const value = await promise;
@@ -79,7 +79,7 @@ describe('utils', () => {
 
 			it('should return a promise that rejects if the adapter does', async () => {
 				const emitter = new EventEmitter<string>();
-				const promise = utils.promiseFromEmitter(emitter, count);
+				const promise = utils.promiseFromEvent(emitter.event, count);
 				assert(hasListeners(emitter), 'should subscribe');
 				emitter.fire('hello');
 				await promise
@@ -92,8 +92,8 @@ describe('utils', () => {
 
 			it('should return a promise that rejects if the adapter throws', async () => {
 				const emitter = new EventEmitter<string>();
-				const promise = utils.promiseFromEmitter(
-					emitter,
+				const promise = utils.promiseFromEvent(
+					emitter.event,
 					() => { throw new Error('kaboom'); }
 				);
 				assert(hasListeners(emitter), 'should subscribe');
@@ -119,7 +119,7 @@ describe('utils', () => {
 			const tick = () => new Promise(resolve => setImmediate(resolve));
 			it('should stay subscribed until the adapter resolves', async () => {
 				const emitter = new EventEmitter<string>();
-				const promise = utils.promiseFromEmitter(emitter, door);
+				const promise = utils.promiseFromEvent(emitter.event, door);
 				let hasResolved = false; promise.then(() => hasResolved = true);
 				emitter.fire('password');
 				emitter.fire('12345');
@@ -134,7 +134,7 @@ describe('utils', () => {
 
 			it('should stay subscribed until the adapter rejects', async () => {
 				const emitter = new EventEmitter<string>();
-				const promise = utils.promiseFromEmitter(emitter, door);
+				const promise = utils.promiseFromEvent(emitter.event, door);
 				let hasResolved = false, hasRejected = false;
 				promise.then(() => hasResolved = true, () => hasRejected = true);
 				emitter.fire('password');

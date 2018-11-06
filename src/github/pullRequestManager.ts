@@ -14,7 +14,6 @@ import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRT
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
-import { Configuration } from '../authentication/configuration';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../typings/git';
@@ -80,12 +79,11 @@ export class PullRequestManager implements IPullRequestManager {
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
 	constructor(
-		private _configuration: Configuration,
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
 	) {
 		this._githubRepositories = [];
-		this._credentialStore = new CredentialStore(this._configuration, this._telemetry);
+		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
 	}
 

@@ -17,6 +17,7 @@ import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
+import { listHosts, deleteToken } from './authentication/keychain';
 
 const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
 export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;
@@ -37,7 +38,12 @@ function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestMode
 
 export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager,
 	reviewManager: ReviewManager, telemetry: ITelemetry) {
-	// initialize resources
+	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
+		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true });
+		if (!selection) { return; }
+		await Promise.all(selection.map(host => deleteToken(host)));
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | IPullRequestModel) => {
 		if (!e) {
 			if (prManager.activePullRequest) {
@@ -153,7 +159,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
-		if (fileChange.status === GitChangeType.DELETE) {
+		if (fileChange.status === GitChangeType.DELETE || fileChange.status === GitChangeType.ADD) {
 			// create an empty `review` uri without any path/commit info.
 			const emptyFileUri = fileChange.parentFilePath.with({
 				query: JSON.stringify({
@@ -161,7 +167,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 					commit: null,
 				})
 			});
-			return vscode.commands.executeCommand('vscode.diff', fileChange.parentFilePath, emptyFileUri, `${fileChange.fileName}`, { preserveFocus: true });
+
+			return fileChange.status === GitChangeType.DELETE
+				? vscode.commands.executeCommand('vscode.diff', fileChange.parentFilePath, emptyFileUri, `${fileChange.fileName}`, { preserveFocus: true })
+				: vscode.commands.executeCommand('vscode.diff',  emptyFileUri, fileChange.parentFilePath, `${fileChange.fileName}`, { preserveFocus: true });
 		}
 
 		// Show the file change in a diff view.

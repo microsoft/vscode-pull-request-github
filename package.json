@@ -116,6 +116,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "auth.signout",
+        "title": "Sign out of GitHub",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.pick",
         "title": "Checkout Pull Request",
         "category": "GitHub Pull Requests"
