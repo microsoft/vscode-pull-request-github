@@ -1029,7 +1029,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	public async createPullRequest(): Promise<void> {
-		const branchName = this._repository.state.HEAD.name;
+		const HEAD = this._repository.state.HEAD;
+		if (!HEAD.upstream) {
+			vscode.window.showWarningMessage(`The current branch ${HEAD.name} has no upstream branch, please make sure it's pushed to a remote repository.`);
+			return;
+		}
+		const branchName = HEAD.name;
 		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
 		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
