@@ -1030,50 +1030,55 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	public async createPullRequest(): Promise<void> {
 		const branchName = this._repository.state.HEAD.name;
-		let potentialTargetRemotes = this._prManager.getGitHubRemotes();
-		let picks: vscode.QuickPickItem[] = potentialTargetRemotes.map(remote => new RemoteQuickPickItem(remote));
-		vscode.window.showQuickPick(picks, {
+		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
+		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
+		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
+			const remoteQuickPick = new RemoteQuickPickItem(remote);
+			remoteQuickPick.picked = pullRequestDefaults.owner === remote.owner && pullRequestDefaults.repo === remote.repositoryName;
+			return remoteQuickPick;
+		});
+		const selected: RemoteQuickPickItem = await vscode.window.showQuickPick<RemoteQuickPickItem>(picks, {
 			ignoreFocusOut: true,
-			placeHolder: 'Choose a remote which you want to send pull request to'
-		}).then(async (selected: RemoteQuickPickItem) => {
-			if (!selected) {
-				return;
-			}
-			let selectedRemote = selected.remote;
-			const base: any = await this._prManager.getMetadata(selectedRemote.remoteName);
-			let targets = `${base.owner.login}:${base.default_branch}`;
-			vscode.window.showQuickPick([targets]).then(target => {
-				if (!target) {
-					return;
-				}
+			placeHolder: 'Choose a remote which you want to send a pull request to'
+		});
 
-				vscode.window.withProgress({
-					location: vscode.ProgressLocation.Notification,
-					title: 'Creating Pull Request',
-					cancellable: false
-				}, async (progress) => {
-					progress.report({ increment: 10 });
-					let params: PullRequestsCreateParams = {
-						base: base.default_branch,
-						title: '',
-						body: '',
-						head: branchName,
-						maintainer_can_modify: true,
-						owner: selectedRemote.owner,
-						repo: selectedRemote.repositoryName
-					};
-					let pullRequestModel = await this._prManager.createPullRequest(params);
-					if (pullRequestModel) {
-						progress.report({ increment: 60, message: `Pull Request #${pullRequestModel.prNumber} Created`});
-						await this.updateState();
-						await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
-						progress.report({ increment: 30 });
-					} else {
-						// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
-						progress.report({ increment: 90, message: `Failed to create pull request for ${params.head}`});
-					}
-				});
-			});
+		if (!selected) {
+			return;
+		}
+
+		const selectedRemote = selected.remote;
+		const base: any = await this._prManager.getMetadata(selectedRemote.remoteName);
+		const targets = [`${base.owner.login}:${base.default_branch}`];
+		const target = await vscode.window.showQuickPick(targets, {
+			ignoreFocusOut: true,
+			placeHolder: 'Choose a base branch'
+		});
+
+		if (!target) {
+			return;
+		}
+
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Creating Pull Request',
+			cancellable: false
+		}, async (progress) => {
+			progress.report({ increment: 10 });
+			pullRequestDefaults.base = base.default_branch;
+			pullRequestDefaults.head = branchName;
+			pullRequestDefaults.owner = selectedRemote.owner;
+			pullRequestDefaults.repo = selectedRemote.repositoryName;
+			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);
+
+			if (pullRequestModel) {
+				progress.report({ increment: 60, message: `Pull Request #${pullRequestModel.prNumber} Created`});
+				await this.updateState();
+				await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
+				progress.report({ increment: 30 });
+			} else {
+				// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
+				progress.report({ increment: 90, message: `Failed to create pull request for ${pullRequestDefaults.head}`});
+			}
 		});
 	}
 
