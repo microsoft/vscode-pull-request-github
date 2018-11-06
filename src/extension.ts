@@ -25,6 +25,7 @@ fetch.Promise = PolyfillPromise;
 let telemetry: ITelemetry;
 
 async function init(context: vscode.ExtensionContext, git: GitAPI, repository: Repository): Promise<void> {
+	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
 	const configuration = new VSCodeConfiguration();
