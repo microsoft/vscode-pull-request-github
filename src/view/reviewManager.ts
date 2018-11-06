@@ -19,7 +19,6 @@ import { DiffChangeType } from '../common/diffHunk';
 import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { IConfiguration } from '../authentication/configuration';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
@@ -52,7 +51,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	constructor(
 		private _context: vscode.ExtensionContext,
-		private _configuration: IConfiguration,
+		onShouldReload: vscode.Event<any>,
 		private _repository: Repository,
 		private _prManager: IPullRequestManager,
 		private _telemetry: ITelemetry
@@ -137,7 +136,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._prsTreeDataProvider.refresh(prNode);
 		}));
 
-		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _prManager, this._telemetry);
+		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(onShouldReload, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 
