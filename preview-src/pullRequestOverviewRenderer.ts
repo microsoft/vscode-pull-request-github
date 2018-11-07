@@ -197,7 +197,7 @@ export class ActionsBar {
 		this._renderedComment.classList.remove('hidden');
 		this._actionsBar!.classList.remove('hidden');
 
-		if (text) {
+		if (text !== undefined) {
 			this._data.body = text;
 			this._renderedComment.innerHTML = md.render(emoji.emojify(text));
 			this._updateHandler(text);
