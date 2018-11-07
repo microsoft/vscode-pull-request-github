@@ -87,12 +87,20 @@ body .comment-container.review {
 
 body .comment-container .review-comment-header {
 	display: flex;
-	align-items: center;
 	width: 100%;
+	height: 32px;
 	box-sizing: border-box;
 	padding: 2px 0;
 	font-size: 12px;
 	color: var(--vscode-foreground);
+}
+
+body .comment-container .review-comment-header a {
+	height: 16px;
+}
+
+.description-header {
+	float: right;
 }
 
 .review-comment-header .comment-actions {
@@ -106,9 +114,12 @@ body .comment-container .review-comment-header {
 
 .comment-actions button svg {
 	margin-right: 0;
+	height: 14px;
 }
 
-body .comment-container .review-comment-header > span, a {
+body .comment-container .review-comment-header > span,
+body .comment-container .review-comment-header > a,
+body .commit .commit-message > a {
 	margin-right: 4px;
 }
 
@@ -120,7 +131,7 @@ body .comment-container .comment-body > p {
 	margin-top: 0;
 }
 
-body .comment-container  .comment-body > p:last-child {
+body .comment-container .comment-body > p:last-child {
 	margin-bottom: 0;
 }
 
@@ -158,6 +169,10 @@ button:focus {
 button:hover:enabled, button:focus:enabled {
 	background-color: var(--vscode-button-hoverBackground);
 	cursor: pointer;
+}
+
+.comment-actions button:hover:enabled, .comment-actions button:focus:enabled {
+	background-color: transparent;
 }
 
 body button.checkedOut {
@@ -251,12 +266,10 @@ body .overview-title button {
 	box-shadow: inset 0 -1px 0 rgba(27,31,35,0.12);
 }
 
-.commit svg,
-.comment-body .octicon {
+.commit svg {
 	width: 14px;
 	height: auto;
 	margin-right: 8px;
-	opacity: .3;
 	flex-shrink: 0;
 	fill: var(--vscode-foreground);
 }
@@ -282,7 +295,7 @@ body .overview-title button {
 	display: flex;
 	align-items: center;
 	line-height: 18px;
-	white-space: nowrap;
+	overflow: hidden;
 }
 
 .commit .commit-message .avatar-container {
@@ -296,8 +309,9 @@ body .overview-title button {
 }
 
 .commit .commit-message .message {
-	overflow: hidden;
+	overflow: inherit;
 	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .commit .sha {
@@ -370,6 +384,22 @@ textarea {
 textarea:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
+
+.editing-form {
+	padding: 5px 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.editing-form .form-actions {
+	margin-left: auto;
+	padding: 5px 0;
+}
+
+.editing-form .form-actions button {
+	margin-left: 5px;
+}
+
 .reply-button {
 	margin-left: auto;
 	margin-right: 0 !important;
@@ -509,6 +539,14 @@ code {
 .vscode-light .comment-body pre:not(.hljs),
 .vscode-light .comment-body code > div {
 	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-light .comment-actions svg {
+	fill: #424242;
+}
+
+.vscode-dark .comment-actions svg {
+	fill: #C5C5C5;
 }
 
 .vscode-dark .comment-body pre:not(.hljs),

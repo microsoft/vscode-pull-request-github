@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
 import { IHostConfiguration, HostHelper } from './configuration';
 import * as https from 'https';
+import axios from 'axios';
 import Logger from '../common/logger';
 import { handler as uriHandler } from '../common/uri';
-import { PromiseAdapter, promiseFromEmitter } from '../common/utils';
-import axios from 'axios';
+import { PromiseAdapter, promiseFromEvent } from '../common/utils';
+import { agent } from '../common/net';
+import { onDidChange as onKeychainDidChange, toCanonical } from './keychain';
+
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
 
@@ -70,12 +73,14 @@ export class GitHubManager {
 		if (token) {
 			headers.authorization = `token ${token}`;
 		}
+
 		return {
 			host: HostHelper.getApiHost(hostUri).authority,
 			port: 443,
 			method,
 			path: HostHelper.getApiPath(hostUri, path),
 			headers,
+			agent,
 		};
 	}
 
@@ -119,8 +124,12 @@ const verifyToken: (host: string) => PromiseAdapter<vscode.Uri, IHostConfigurati
 		if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE) {
 			return reject(new ResponseExpired);
 		}
-		resolve({host, username: 'oauth', token});
+		resolve({ host, token });
 	};
+
+const manuallyEnteredToken: (host: string) => PromiseAdapter<IHostConfiguration, IHostConfiguration> =
+	host => (config: IHostConfiguration, resolve) =>
+		config.host === toCanonical(host) && resolve(config);
 
 export class GitHubServer {
 	public hostConfiguration: IHostConfiguration;
@@ -128,7 +137,7 @@ export class GitHubServer {
 
 	public constructor(host: string) {
 		host = host.toLocaleLowerCase();
-		this.hostConfiguration = { host, username: 'oauth', token: undefined };
+		this.hostConfiguration = { host, token: undefined };
 		this.hostUri = vscode.Uri.parse(host);
 	}
 
@@ -138,13 +147,13 @@ export class GitHubServer {
 			`${AUTH_RELAY_SERVER}/authorize?authServer=${host}&callbackUri=${CALLBACK_URI}&scope=${SCOPES}`
 		);
 		vscode.commands.executeCommand('vscode.open', uri);
-		return promiseFromEmitter(uriHandler, verifyToken(host));
+		return Promise.race([
+			promiseFromEvent(uriHandler.event, verifyToken(host)),
+			promiseFromEvent(onKeychainDidChange, manuallyEnteredToken(host))
+		]);
 	}
 
-	public async validate(username?: string, token?: string): Promise<IHostConfiguration> {
-		if (!username) {
-			username = this.hostConfiguration.username;
-		}
+	public async validate(token?: string): Promise<IHostConfiguration> {
 		if (!token) {
 			token = this.hostConfiguration.token;
 		}
@@ -158,7 +167,6 @@ export class GitHubServer {
 					if (res.statusCode === 200) {
 						const scopes = res.headers['x-oauth-scopes'] as string;
 						if (GitHubManager.validateScopes(this.hostUri, scopes)) {
-							this.hostConfiguration.username = username;
 							this.hostConfiguration.token = token;
 							hostConfig = this.hostConfiguration;
 						}

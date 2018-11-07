@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IPullRequestModel, Commit, IPullRequestManager } from '../../github/interface';
+import { IPullRequestModel, IPullRequestManager } from '../../github/interface';
+import { PullRequestsGetCommitsResponseItem } from '@octokit/rest';
 import { TreeNode } from './treeNode';
 import { GitFileChangeNode } from './fileChangeNode';
 import { toReviewUri } from '../../common/uri';
@@ -19,7 +20,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	constructor(
 		private readonly pullRequestManager: IPullRequestManager,
 		private readonly pullRequest: IPullRequestModel,
-		private readonly commit: Commit,
+		private readonly commit: PullRequestsGetCommitsResponseItem,
 		private readonly comments: Comment[]
 	) {
 		super();

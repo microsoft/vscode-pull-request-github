@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as Octokit from '@octokit/rest';
+import * as Github from '@octokit/rest';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { PRType, IGitHubRepository } from './interface';
+import { PRType, IGitHubRepository, PullRequest } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -20,9 +20,9 @@ export interface PullRequestData {
 }
 
 export class GitHubRepository implements IGitHubRepository {
-	private _octokit: Octokit;
+	private _octokit: Github;
 	private _initialized: boolean;
-	public get octokit(): Octokit {
+	public get octokit(): Github {
 		if (this._octokit === undefined) {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
@@ -36,15 +36,20 @@ export class GitHubRepository implements IGitHubRepository {
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
 	}
 
-	async resolveRemote(): Promise<void> {
-		try {
-			const { octokit, remote } = await this.ensure();
-			const { data } = await octokit.repos.get({
+	async getMetadata(): Promise<any> {
+		const { octokit, remote } = await this.ensure();
+		return Object.assign((
+			await octokit.repos.get({
 				owner: remote.owner,
 				repo: remote.repositoryName
-			});
+			})
+		).data, { currentUser: (octokit as any).currentUser });
+	}
 
-			this.remote = parseRemote(remote.remoteName, data.clone_url, remote.gitProtocol);
+	async resolveRemote(): Promise<void> {
+		try {
+			const {clone_url} = await this.getMetadata();
+			this.remote = parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol);
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
 		}
@@ -103,13 +108,50 @@ export class GitHubRepository implements IGitHubRepository {
 			});
 
 			const hasMorePages = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
-			const pullRequests = result.data.map(item => {
-				if (!item.head.repo) {
-					Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
-					return null;
-				}
-				return new PullRequestModel(this, this.remote, item);
-			}).filter(item => item !== null);
+			const pullRequests = result.data
+				.map(
+					({
+						number,
+						body,
+						title,
+						html_url,
+						user,
+						state,
+						assignee,
+						created_at,
+						updated_at,
+						head,
+						base
+					}) => {
+						if (!head.repo) {
+							Logger.appendLine(
+								'GitHubRepository> The remote branch for this PR was already deleted.'
+							);
+							return null;
+						}
+
+						const item: PullRequest = {
+							number,
+							body,
+							title,
+							html_url,
+							user,
+							labels: [],
+							state,
+							merged: false,
+							assignee,
+							created_at,
+							updated_at,
+							comments: 0,
+							commits: 0,
+							head,
+							base
+						};
+
+						return new PullRequestModel(this, this.remote, item);
+					}
+				)
+				.filter(item => item !== null);
 
 			return {
 				pullRequests,

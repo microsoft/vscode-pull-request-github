@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.2.1",
+  "version": "0.2.3",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.28.0"
@@ -58,6 +58,16 @@
               }
             }
           }
+        },
+        "githubPullRequests.logLevel": {
+          "type": "string",
+          "enum": [
+            "info",
+            "debug",
+            "off"
+          ],
+          "default": "info",
+          "description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request."
         },
         "telemetry.optout": {
           "type": "boolean",
@@ -108,6 +118,16 @@
       {
         "command": "auth.inputTokenCallback",
         "title": "Manually Provide Authentication Response",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.create",
+        "title": "Create Pull Request",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "auth.signout",
+        "title": "Sign out of GitHub",
         "category": "GitHub Pull Requests"
       },
       {
@@ -206,6 +226,10 @@
         {
           "command": "pr.close",
           "when": "config.git.enabled && github:inReviewMode"
+        },
+        {
+          "command": "pr.create",
+          "when": "config.git.enabled && !github.inReviewMode"
         },
         {
           "command": "pr.merge",
@@ -333,7 +357,7 @@
     "webpack-cli": "^2.0.10"
   },
   "dependencies": {
-    "@octokit/rest": "^15.9.5",
+    "@octokit/rest": "^15.15.1",
     "axios": "^0.18.0",
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",
@@ -345,7 +369,9 @@
     "moment": "^2.22.1",
     "node-emoji": "^1.8.1",
     "node-fetch": "^2.1.1",
+    "ssh-config": "^1.1.3",
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
+    "tunnel": "0.0.6",
     "vscode": "^1.1.18",
     "ws": "^6.0.0"
   },

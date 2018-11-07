@@ -91,12 +91,12 @@ export function providePRDocumentComments(
 		const range = new vscode.Range(pos, pos);
 
 		threads.push({
-			threadId: firstComment.id,
+			threadId: firstComment.id.toString(),
 			resource: document.uri,
 			range,
 			comments: comments.map(comment => {
 				return {
-					commentId: comment.id,
+					commentId: comment.id.toString(),
 					body: new vscode.MarkdownString(comment.body),
 					userName: comment.user.login,
 					gravatar: comment.user.avatar_url,
@@ -115,7 +115,7 @@ export function providePRDocumentComments(
 }
 
 function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Comment[], isBase: boolean) {
-	let sections = groupBy(comments, comment => String(comment.position));
+	let sections = groupBy(comments, comment => comment.position.toString());
 	let threads: vscode.CommentThread[] = [];
 
 	for (let i in sections) {
@@ -134,12 +134,12 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 		const range = new vscode.Range(pos, pos);
 
 		threads.push({
-			threadId: firstComment.id,
+			threadId: firstComment.id.toString(),
 			resource: isBase ? fileChange.parentFilePath : fileChange.filePath,
 			range,
 			comments: commentGroup.map(comment => {
 				return {
-					commentId: comment.id,
+					commentId: comment.id.toString(),
 					body: new vscode.MarkdownString(comment.body),
 					userName: comment.user.login,
 					gravatar: comment.user.avatar_url,
@@ -476,7 +476,7 @@ export class PRNode extends TreeNode {
 			// there is no thread Id, which means it's a new thread
 			let rawComment = await this._prManager.createComment(this.pullRequestModel, text, params.fileName, position);
 			let comment: vscode.Comment = {
-				commentId: rawComment.id,
+				commentId: rawComment.id.toString(),
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
@@ -501,9 +501,9 @@ export class PRNode extends TreeNode {
 
 	private async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string): Promise<void> {
 		const fileChange = this.findMatchingFileNode(document.uri);
-		const rawComment = await this._prManager.editComment(this.pullRequestModel, comment.commentId, text);
+		const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, comment.commentId, text);
 
-		const index = fileChange.comments.findIndex(c => c.id === comment.commentId);
+		const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 		if (index > -1) {
 			fileChange.comments.splice(index, 1, rawComment);
 		}
@@ -512,8 +512,8 @@ export class PRNode extends TreeNode {
 	private async deleteComment(document: vscode.TextDocument, comment: vscode.Comment): Promise<void> {
 		const fileChange = this.findMatchingFileNode(document.uri);
 
-		await this._prManager.deleteComment(this.pullRequestModel, comment.commentId);
-		const index = fileChange.comments.findIndex(c => c.id === comment.commentId);
+		await this._prManager.deleteReviewComment(this.pullRequestModel, comment.commentId);
+		const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 		if (index > -1) {
 			fileChange.comments.splice(index, 1);
 		}
@@ -525,7 +525,7 @@ export class PRNode extends TreeNode {
 
 			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, text, thread.threadId);
 			thread.comments.push({
-				commentId: rawComment.id,
+				commentId: rawComment.id.toString(),
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
