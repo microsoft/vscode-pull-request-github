@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import './index.css';
 import * as debounce from 'debounce';
-import * as moment from 'moment';
+import { dateFromNow } from '../src/common/utils';
 import {  EventType } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar } from './pullRequestOverviewRenderer';
@@ -116,7 +116,7 @@ function setTitleHTML(pr: PullRequest): void {
 					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
 					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
 					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
-					<a href=${pr.url} class="created-at timestamp">${moment(pr.createdAt).fromNow()}</a>
+					<span class="created-at">Created <a href=${pr.url} class="timestamp">${dateFromNow(pr.createdAt)}</a></span>
 				</div>
 			</div>
 		`;
