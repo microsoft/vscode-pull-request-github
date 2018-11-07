@@ -59,6 +59,16 @@
             }
           }
         },
+        "githubPullRequests.logLevel": {
+          "type": "string",
+          "enum": [
+            "info",
+            "debug",
+            "off"
+          ],
+          "default": "info",
+          "description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request."
+        },
         "telemetry.optout": {
           "type": "boolean",
           "default": false,
