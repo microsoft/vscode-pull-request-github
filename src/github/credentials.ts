@@ -63,8 +63,14 @@ export class CredentialStore {
 		const token = await getToken(host);
 		let octokit: Octokit;
 
-		if (token && await server.validate(token)) {
-			octokit = this.createOctokit({ host, token });
+		if (token) {
+			if (await server.validate(token)) {
+				octokit = this.createOctokit({ host, token });
+			} else {
+				Logger.debug(`Token is no longer valid for host ${host}.`, 'Authentication');
+			}
+		} else {
+			Logger.debug(`No token found for host ${host}.`, 'Authentication');
 		}
 
 		if (octokit) {
