@@ -183,3 +183,7 @@ export async function promiseFromEvent<T, U>(
 		}
 	);
 }
+
+export interface Predicate<T> {
+	(input: T): boolean;
+}

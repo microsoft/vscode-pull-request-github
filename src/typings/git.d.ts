@@ -56,6 +56,11 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
+export enum ForcePushMode {
+	Force,
+	ForceWithLease
+}
+
 export interface Change {
 	// TODO
 }
@@ -118,6 +123,7 @@ export interface Repository {
 
 	fetch(remote?: string, ref?: string): Promise<void>;
 	pull(): Promise<void>;
+	push(remote?: string, name?: string, setUpstream?: boolean, tags?: boolean, forcePushMode?: ForcePushMode): Promise<void>;
 }
 
 export interface API {
