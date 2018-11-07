@@ -23,7 +23,6 @@ import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
-import { PullRequestsCreateParams } from '@octokit/rest';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
