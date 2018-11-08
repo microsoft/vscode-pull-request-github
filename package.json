@@ -322,6 +322,7 @@
     "gulp-mocha": "^6.0.0",
     "gulp-typescript": "^5.0.0-alpha.2",
     "gulp-util": "^3.0.8",
+    "minimist": "^1.2.0",
     "mocha": "^5.2.0",
     "style-loader": "^0.21.0",
     "svg-inline-loader": "^0.8.0",

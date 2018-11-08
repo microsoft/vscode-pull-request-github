@@ -337,3 +337,4 @@ media
 .DS_Store
 *.vsix
 package-lock.json
+package.insiders.json
