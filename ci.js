@@ -32,3 +32,16 @@ const insiderPackageJson = Object.assign(json, {
 });
 
 fs.writeFileSync('./package.insiders.json', JSON.stringify(insiderPackageJson));
+
+const readme = fs.readFileSync('./README.md');
+const previewReadme = `
+# GitHub Pull Request Nightly Build
+
+This is the nightly build of [GitHub Pull Request extension](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) for early feedback and testing.
+
+The extension can be installed side-by-side with the current GitHub Pull Request extension, use the Extensions Viewlet to disable this version of the extension you do not want to use.
+
+${readme}
+`;
+
+fs.writeFileSync('./README.insiders.md', previewReadme);

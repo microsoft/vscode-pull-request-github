@@ -338,3 +338,4 @@ media
 *.vsix
 package-lock.json
 package.insiders.json
+README.insiders.md
