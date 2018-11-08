@@ -6,7 +6,7 @@ const json = JSON.parse(fs.readFileSync('./package.json').toString());
 // update name, publisher and description
 // calculate version
 let version = argv['v'];
-if (!version) {
+if (typeof(version) !== 'string') {
 	const date = new Date();
 	const major = date.getFullYear() - 2018;
 	const yearStart = new Date(date.getFullYear(), 0, 0);
