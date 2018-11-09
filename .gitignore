@@ -337,5 +337,8 @@ media
 .DS_Store
 *.vsix
 package-lock.json
+
+# CI
 package.insiders.json
 README.insiders.md
+src/constants.insiders.ts

@@ -45,3 +45,7 @@ ${readme}
 `;
 
 fs.writeFileSync('./README.insiders.md', previewReadme);
+
+const constants = fs.readFileSync('./src/constants.ts').toString();
+const insiderConstants = constants.replace(`export const EXTENSION_ID = 'GitHub.vscode-pull-request-github';`, `export const EXTENSION_ID = 'GitHub.vscode-pull-request-github-insiders';`);
+fs.writeFileSync('./src/constants.insiders.ts', insiderConstants);
