@@ -105,8 +105,7 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 function setTitleHTML(pr: PullRequest): void {
 	document.getElementById('title')!.innerHTML = `
 			<div id="details" class="details">
-				<div class="overview-title">
-					<h2>${pr.title} (<a href=${pr.url}>#${pr.number}</a>) </h2>
+				<div id="overview-title" class="overview-title">
 					<div class="button-group">
 						<button id="${ElementIds.Checkout}" aria-live="polite"></button>
 						<button id="${ElementIds.CheckoutDefaultBranch}" aria-live="polite">Exit Review Mode</button>
@@ -121,8 +120,44 @@ function setTitleHTML(pr: PullRequest): void {
 			</div>
 		`;
 
+	const title = renderTitle(pr);
+	(document.getElementById('overview-title')! as any).prepend(title);
+
 	const description = renderDescription(pr);
 	document.getElementById('details')!.appendChild(description);
+}
+
+function renderTitle(pr: PullRequest): HTMLElement {
+	const titleContainer = document.createElement('h2');
+	titleContainer.classList.add('title-container');
+
+	const titleHeader = document.createElement('div');
+	titleHeader.classList.add('description-header');
+
+	const titleBody = document.createElement('div');
+	titleBody.innerHTML = `${pr.title} (<a href=${pr.url}>#${pr.number}</a>)`;
+
+	if (pr.canEdit) {
+		function updateTitle(text: string) {
+			pr.title = text;
+			updateState({ title: text });
+			titleBody.innerHTML = `${pr.title} (<a href=${pr.url}>#${pr.number}</a>)`;
+		}
+
+		const actionsBar = new ActionsBar(titleContainer, { body: pr.title, id: pr.number.toString() }, titleBody, messageHandler, updateTitle, 'pr.edit-title');
+		const renderedActionsBar = actionsBar.render();
+		actionsBar.registerActionBarListeners();
+		titleHeader.appendChild(renderedActionsBar);
+
+		if (pr.pendingCommentDrafts && pr.pendingCommentDrafts[pr.number]) {
+			actionsBar.startEdit(pr.pendingCommentDrafts[pr.number]);
+		}
+	}
+
+	titleContainer.appendChild(titleHeader);
+	titleContainer.appendChild(titleBody);
+
+	return titleContainer;
 }
 
 function renderDescription(pr: PullRequest): HTMLElement {

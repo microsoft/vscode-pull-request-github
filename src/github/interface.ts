@@ -102,6 +102,11 @@ export interface IGitHubRepository {
 	authenticate(): Promise<boolean>;
 }
 
+export interface IPullRequestEditData {
+	body?: string;
+	title?: string;
+}
+
 export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
 	repository: Repository;
@@ -129,7 +134,7 @@ export interface IPullRequestManager {
 	deleteIssueComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
 	deleteReviewComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
 	canEditPullRequest(pullRequest: IPullRequestModel): boolean;
-	editPullRequest(pullRequest: IPullRequestModel, newBody: string): Promise<Github.PullRequestsUpdateResponse>;
+	editPullRequest(pullRequest: IPullRequestModel, toEdit: IPullRequestEditData): Promise<Github.PullRequestsUpdateResponse>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;

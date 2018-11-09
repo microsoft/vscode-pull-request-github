@@ -101,6 +101,7 @@ body .comment-container .review-comment-header a {
 
 .description-header {
 	float: right;
+	height: 32px;
 }
 
 .review-comment-header .comment-actions {
@@ -211,10 +212,18 @@ body button.checkedOut svg {
 	font-size: 24px;
 }
 
+.overview-title textarea {
+	min-height: 50px;
+}
+
 .overview-title .button-group {
-	align-self: center;
+	padding-top: 5px;
 	margin-left: auto;
 	display: flex;
+}
+
+.title-container {
+	width: 100%;
 }
 
 .subtitle {
@@ -238,7 +247,7 @@ body button.checkedOut svg {
 	white-space: nowrap;
 }
 
-body .overview-title button {
+body .overview-title .button-group button {
 	margin-left: 10px;
 	display: flex;
 }

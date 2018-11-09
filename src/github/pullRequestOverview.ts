@@ -218,15 +218,26 @@ export class PullRequestOverviewPanel {
 				return this.deleteComment(message);
 			case 'pr.edit-description':
 				return this.editDescription(message);
+			case 'pr.edit-title':
+				return this.editTitle(message);
 		}
 	}
 
 	private editDescription(message: IRequestMessage<{ text: string }>) {
-		this._pullRequestManager.editPullRequest(this._pullRequest, message.args.text).then(result => {
+		this._pullRequestManager.editPullRequest(this._pullRequest, { body: message.args.text }).then(result => {
 			this._replyMessage(message, { text: result.body });
 		}).catch(e => {
 			this._throwError(message, e);
-			vscode.window.showErrorMessage(formatError(e));
+			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
+		});
+	}
+
+	private editTitle(message: IRequestMessage<{ text: string }>) {
+		this._pullRequestManager.editPullRequest(this._pullRequest, { title: message.args.text }).then(result => {
+			this._replyMessage(message, { text: result.title });
+		}).catch(e => {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(`Editing title failed: ${formatError(e)}`);
 		});
 	}
 
