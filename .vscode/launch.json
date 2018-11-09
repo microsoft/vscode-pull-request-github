@@ -7,7 +7,8 @@
 			"name": "Launch Extension",
 			"runtimeExecutable": "${execPath}",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
 			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
 			"smartStep": true,
