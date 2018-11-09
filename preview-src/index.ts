@@ -132,7 +132,9 @@ function renderDescription(pr: PullRequest): HTMLElement {
 	commentHeader.classList.add('description-header');
 
 	const commentBody = document.createElement('div');
-	commentBody.innerHTML = md.render(emoji.emojify(pr.body));
+	commentBody.innerHTML = pr.body
+		? md.render(emoji.emojify(pr.body))
+		: '<p><i>No description provided.</i></p>';
 
 	if (pr.labels.length) {
 		const line = document.createElement('div');
@@ -153,6 +155,10 @@ function renderDescription(pr: PullRequest): HTMLElement {
 		function updateDescription(text: string) {
 			pr.body = text;
 			updateState({ body: text });
+
+			if (!text) {
+				commentBody.innerHTML = `<p><i>No description provided.</i></p>`;
+			}
 		}
 
 		const actionsBar = new ActionsBar(commentContainer, { body: pr.body, id: pr.number.toString() }, commentBody, messageHandler, updateDescription, 'pr.edit-description');
