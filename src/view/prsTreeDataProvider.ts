@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IConfiguration } from '../authentication/configuration';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { IPullRequestManager, PRType, ITelemetry } from '../github/interface';
@@ -21,7 +20,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _childrenDisposables: vscode.Disposable[];
 
 	constructor(
-		private _configuration: IConfiguration,
+		onShouldReload: vscode.Event<any>,
 		private _prManager: IPullRequestManager,
 		private _telemetry: ITelemetry
 	) {
@@ -39,7 +38,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}));
 
 		this._disposables.push(vscode.window.registerTreeDataProvider<TreeNode>('pr', this));
-		this._disposables.push(this._configuration.onDidChange(e => {
+		this._disposables.push(onShouldReload(e => {
 			this._onDidChangeTreeData.fire();
 		}));
 		this._childrenDisposables = [];

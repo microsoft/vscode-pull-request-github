@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as moment from 'moment';
+
+import { dateFromNow } from '../src/common/utils';
 import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, EventType, isCommentEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
 import md from './mdRenderer';
@@ -262,7 +263,7 @@ class CommentNode {
 		const timestamp: HTMLAnchorElement = document.createElement('a');
 		timestamp.className = 'timestamp';
 		timestamp.href = this._comment.html_url;
-		timestamp.textContent = moment(this._comment.created_at).fromNow();
+		timestamp.textContent = dateFromNow(this._comment.created_at);
 
 		const commentState = document.createElement('span');
 		commentState.textContent = 'commented';
@@ -437,7 +438,7 @@ class ReviewNode {
 		const timestamp: HTMLAnchorElement = document.createElement('a');
 		timestamp.className = 'timestamp';
 		timestamp.href = this._review.html_url;
-		timestamp.textContent = moment(this._review.submitted_at).fromNow();
+		timestamp.textContent = dateFromNow(this._review.submitted_at);
 
 		commentHeader.appendChild(userLogin);
 		commentHeader.appendChild(reviewState);

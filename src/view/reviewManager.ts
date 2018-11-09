@@ -19,10 +19,10 @@ import { DiffChangeType } from '../common/diffHunk';
 import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { IConfiguration } from '../authentication/configuration';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
+import { RemoteQuickPickItem } from './quickpick';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -52,7 +52,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	constructor(
 		private _context: vscode.ExtensionContext,
-		private _configuration: IConfiguration,
+		onShouldReload: vscode.Event<any>,
 		private _repository: Repository,
 		private _prManager: IPullRequestManager,
 		private _telemetry: ITelemetry
@@ -96,8 +96,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 				sameUpstream = false;
 			} else {
 				sameUpstream = !!oldHead.upstream
-				? newHead.upstream && oldHead.upstream.name === newHead.upstream.name && oldHead.upstream.remote === newHead.upstream.remote
-				: !newHead.upstream;
+					? newHead.upstream && oldHead.upstream.name === newHead.upstream.name && oldHead.upstream.remote === newHead.upstream.remote
+					: !newHead.upstream;
 			}
 
 			const sameHead = sameUpstream // falsy if oldHead or newHead is undefined.
@@ -137,7 +137,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._prsTreeDataProvider.refresh(prNode);
 		}));
 
-		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._configuration, _prManager, this._telemetry);
+		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(onShouldReload, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 
@@ -188,8 +188,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private async updateState() {
 		if (!this._validateStatusInProgress) {
 			this._validateStatusInProgress = this.validateState();
+			return this._validateStatusInProgress;
 		} else {
-			this._validateStatusInProgress.then(_ => this._validateStatusInProgress = this.validateState());
+			return this._validateStatusInProgress.then(_ => this._validateStatusInProgress = this.validateState());
 		}
 	}
 
@@ -1023,6 +1024,65 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._telemetry.on('pr.checkout');
 		await this._repository.status();
 		await this.validateState();
+	}
+
+	public async createPullRequest(): Promise<void> {
+		const HEAD = this._repository.state.HEAD;
+		if (!HEAD.upstream) {
+			vscode.window.showWarningMessage(`The current branch ${HEAD.name} has no upstream branch, please make sure it's pushed to a remote repository.`);
+			return;
+		}
+		const branchName = HEAD.name;
+		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
+		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
+		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
+			const remoteQuickPick = new RemoteQuickPickItem(remote);
+			remoteQuickPick.picked = pullRequestDefaults.owner === remote.owner && pullRequestDefaults.repo === remote.repositoryName;
+			return remoteQuickPick;
+		});
+		const selected: RemoteQuickPickItem = await vscode.window.showQuickPick<RemoteQuickPickItem>(picks, {
+			ignoreFocusOut: true,
+			placeHolder: 'Choose a remote which you want to send a pull request to'
+		});
+
+		if (!selected) {
+			return;
+		}
+
+		const selectedRemote = selected.remote;
+		const base: any = await this._prManager.getMetadata(selectedRemote.remoteName);
+		const targets = [`${base.owner.login}:${base.default_branch}`];
+		const target = await vscode.window.showQuickPick(targets, {
+			ignoreFocusOut: true,
+			placeHolder: 'Choose a base branch'
+		});
+
+		if (!target) {
+			return;
+		}
+
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Creating Pull Request',
+			cancellable: false
+		}, async (progress) => {
+			progress.report({ increment: 10 });
+			pullRequestDefaults.base = base.default_branch;
+			pullRequestDefaults.head = branchName;
+			pullRequestDefaults.owner = selectedRemote.owner;
+			pullRequestDefaults.repo = selectedRemote.repositoryName;
+			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);
+
+			if (pullRequestModel) {
+				progress.report({ increment: 60, message: `Pull Request #${pullRequestModel.prNumber} Created`});
+				await this.updateState();
+				await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
+				progress.report({ increment: 30 });
+			} else {
+				// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
+				progress.report({ increment: 90, message: `Failed to create pull request for ${pullRequestDefaults.head}`});
+			}
+		});
 	}
 
 	private clear(quitReviewMode: boolean) {

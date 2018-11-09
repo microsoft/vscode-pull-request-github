@@ -5,7 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { VSCodeConfiguration } from './authentication/vsConfiguration';
+import { migrateConfiguration } from './authentication/vsConfiguration';
 import { Resource } from './common/resources';
 import { ReviewManager } from './view/reviewManager';
 import { registerCommands } from './commands';
@@ -16,6 +16,7 @@ import { GitExtension, API as GitAPI, Repository } from './typings/git';
 import { Telemetry } from './common/telemetry';
 import { handler as uriHandler } from './common/uri';
 import { ITelemetry } from './github/interface';
+import * as Keychain from './authentication/keychain';
 
 // fetch.promise polyfill
 const fetch = require('node-fetch');
@@ -25,11 +26,12 @@ fetch.Promise = PolyfillPromise;
 let telemetry: ITelemetry;
 
 async function init(context: vscode.ExtensionContext, git: GitAPI, repository: Repository): Promise<void> {
+	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
-	const configuration = new VSCodeConfiguration();
-	await configuration.loadConfiguration();
-	configuration.onDidChange(async _ => {
+	Keychain.init(context);
+	await migrateConfiguration();
+	context.subscriptions.push(Keychain.onDidChange(async _ => {
 		if (prManager) {
 			try {
 				await prManager.clearCredentialCache();
@@ -40,14 +42,12 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 				vscode.window.showErrorMessage(formatError(e));
 			}
 		}
-	});
-
-	context.subscriptions.push(configuration.listenForVSCodeChanges());
+	}));
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 
-	const prManager = new PullRequestManager(configuration, repository, telemetry);
-	const reviewManager = new ReviewManager(context, configuration, repository, prManager, telemetry);
+	const prManager = new PullRequestManager(repository, telemetry);
+	const reviewManager = new ReviewManager(context, Keychain.onDidChange, repository, prManager, telemetry);
 	registerCommands(context, prManager, reviewManager, telemetry);
 
 	git.repositories.forEach(repo => {

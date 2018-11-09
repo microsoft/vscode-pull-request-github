@@ -10,6 +10,7 @@ import { GitHubRef } from '../common/githubRef';
 import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
 import { Repository } from '../typings/git';
+import { PullRequestsCreateParams } from '@octokit/rest';
 
 export enum PRType {
 	RequestReview = 0,
@@ -108,6 +109,8 @@ export interface IPullRequestManager {
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
 	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
+	getMetadata(remote: string): Promise<any>;
+	getGitHubRemotes(): Remote[];
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]>;
@@ -118,6 +121,8 @@ export interface IPullRequestManager {
 	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Github.IssuesCreateCommentResponse>;
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
+	getPullRequestDefaults(): Promise<PullRequestsCreateParams>;
+	createPullRequest(params: PullRequestsCreateParams): Promise<IPullRequestModel>;
 	mergePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	editReviewComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment>;
 	editIssueComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment>;

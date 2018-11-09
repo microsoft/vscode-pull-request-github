@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event, EventEmitter } from 'vscode';
+import { Event } from 'vscode';
 import { sep } from 'path';
+import * as moment from 'moment';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -156,16 +157,16 @@ const passthrough = (value, resolve) => resolve(value);
  *
  * The default adapter is the passthrough function `(value, resolve) => resolve(value)`.
  *
- * @param {EventEmitter<T>} emitter the event source
+ * @param {Event<T>} event the event
  * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
  * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
  */
-export async function promiseFromEmitter<T, U>(
-	emitter: EventEmitter<T>,
+export async function promiseFromEvent<T, U>(
+	event: Event<T>,
 	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
 	let subscription;
 	return new Promise<U>((resolve, reject) =>
-		subscription = emitter.event((value: T) => {
+		subscription = event((value: T) => {
 			try {
 				adapter(value, resolve, reject);
 			} catch(error) {
@@ -182,4 +183,19 @@ export async function promiseFromEmitter<T, U>(
 			throw error;
 		}
 	);
+}
+
+export function dateFromNow(date: Date | string): string {
+	const duration = moment.duration(moment().diff(date));
+
+	if (duration.asMonths() < 1) {
+		return moment(date).fromNow();
+	} else if (duration.asYears() < 1) {
+		return 'on ' + moment(date).format('MMM d');
+	} else {
+		return 'on ' + moment(date).format('MMM d, YYYY');
+	}
+}
+export interface Predicate<T> {
+	(input: T): boolean;
 }

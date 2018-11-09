@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 
 export interface IHostConfiguration {
 	host: string;
-	username: string | undefined;
 	token: string | undefined;
 }
 
@@ -25,35 +24,3 @@ export const HostHelper = class {
 		}
 	}
 };
-
-export interface IConfiguration extends IHostConfiguration {
-	onDidChange: vscode.Event<IConfiguration>;
-}
-
-export class Configuration implements IConfiguration {
-	public username: string | undefined;
-	public token: string | undefined;
-	public onDidChange: vscode.Event<IConfiguration>;
-	private _emitter: vscode.EventEmitter<IConfiguration>;
-
-	constructor(public host: string) {
-		this._emitter = new vscode.EventEmitter<IConfiguration>();
-		this.onDidChange = this._emitter.event;
-	}
-
-	public update(username: string | undefined, token: string | undefined, raiseEvent: boolean = true): Promise<boolean> {
-		if (username !== this.username || token !== this.token) {
-			this.username = username;
-			this.token = token;
-			if (raiseEvent) {
-				this._emitter.fire(this);
-			}
-			return Promise.resolve(true);
-		}
-		return Promise.resolve(false);
-	}
-
-	protected raiseChangedEvent(): void {
-		this._emitter.fire(this);
-	}
-}
