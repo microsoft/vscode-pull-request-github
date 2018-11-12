@@ -112,7 +112,7 @@ export interface IPullRequestManager {
 	repository: Repository;
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
-	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;
+	deleteLocalPullRequest(pullRequest: IPullRequestModel, force?: boolean): Promise<void>;
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
 	getMetadata(remote: string): Promise<any>;
 	getGitHubRemotes(): Remote[];
