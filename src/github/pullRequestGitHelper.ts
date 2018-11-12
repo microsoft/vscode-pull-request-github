@@ -41,6 +41,7 @@ export class PullRequestGitHelper {
 			let remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
 			// fetch the branch
 			let ref = `${pullRequest.head.ref}:${localBranchName}`;
+			Logger.debug(`Fetch remote ${remoteName}`, PullRequestGitHelper.ID);
 			await repository.fetch(remoteName, ref);
 			await repository.checkout(localBranchName);
 			// set remote tracking branch for the local branch
@@ -53,6 +54,7 @@ export class PullRequestGitHelper {
 
 	static async fetchAndCheckout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
 		let remoteName = remote.remoteName;
+		Logger.debug(`Fetch remote ${remoteName}`, PullRequestGitHelper.ID);
 		await repository.fetch(remoteName);
 
 		let branch: Branch;
@@ -72,6 +74,7 @@ export class PullRequestGitHelper {
 			return;
 		}
 
+		Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
 		await repository.checkout(branchName);
 
 		if (!branch.upstream) {
@@ -81,6 +84,7 @@ export class PullRequestGitHelper {
 		}
 
 		if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+			Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 			await repository.pull();
 		}
 
