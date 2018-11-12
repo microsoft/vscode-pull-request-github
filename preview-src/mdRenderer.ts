@@ -8,13 +8,13 @@ const Checkbox = require('markdown-it-checkbox');
 const Sanitizer = require('markdown-it-sanitizer');
 
 const md = MarkdownIt({
+	breaks: true,
 	html: true,
 	linkify: true
 })
 .use(Checkbox, {
 	divWrap: true,
-	divClass: 'github-checkbox',
-
+	divClass: 'github-checkbox'
 })
 .use(Sanitizer, {
 	imageClass: '',
