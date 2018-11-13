@@ -191,9 +191,9 @@ export function dateFromNow(date: Date | string): string {
 	if (duration.asMonths() < 1) {
 		return moment(date).fromNow();
 	} else if (duration.asYears() < 1) {
-		return 'on ' + moment(date).format('MMM d');
+		return 'on ' + moment(date).format('MMM D');
 	} else {
-		return 'on ' + moment(date).format('MMM d, YYYY');
+		return 'on ' + moment(date).format('MMM D, YYYY');
 	}
 }
 export interface Predicate<T> {
