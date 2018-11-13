@@ -178,7 +178,7 @@ export class GitHubRepository implements IGitHubRepository {
 
 	private async getPullRequestsForCategory(prType: PRType, page: number): Promise<PullRequestData> {
 		try {
-			Logger.debug(`Fetch pull request catogory ${prType.toString()} - enter`, GitHubRepository.ID);
+			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			const user = await octokit.users.get({});
 			// Search api will not try to resolve repo that redirects, so get full name first
@@ -210,7 +210,7 @@ export class GitHubRepository implements IGitHubRepository {
 					return new PullRequestModel(this, this.remote, item.data);
 				}).filter(item => item !== null);
 			});
-			Logger.debug(`Fetch pull request catogory ${prType.toString()} - done`, GitHubRepository.ID);
+			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - done`, GitHubRepository.ID);
 
 			return {
 				pullRequests,
