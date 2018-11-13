@@ -20,6 +20,7 @@ export interface PullRequestData {
 }
 
 export class GitHubRepository implements IGitHubRepository {
+	static ID = 'GitHubRepository';
 	private _octokit: Github;
 	private _initialized: boolean;
 	public get octokit(): Github {
@@ -37,13 +38,14 @@ export class GitHubRepository implements IGitHubRepository {
 	}
 
 	async getMetadata(): Promise<any> {
+		Logger.debug(`Fetch metadata - enter`, GitHubRepository.ID);
 		const { octokit, remote } = await this.ensure();
-		return Object.assign((
-			await octokit.repos.get({
+		const result = await octokit.repos.get({
 				owner: remote.owner,
 				repo: remote.repositoryName
-			})
-		).data, { currentUser: (octokit as any).currentUser });
+		});
+		Logger.debug(`Fetch metadata - done`, GitHubRepository.ID);
+		return Object.assign(result.data, { currentUser: (octokit as any).currentUser });
 	}
 
 	async resolveRemote(): Promise<void> {
@@ -79,11 +81,13 @@ export class GitHubRepository implements IGitHubRepository {
 
 	async getDefaultBranch(): Promise<string> {
 		try {
+			Logger.debug(`Fetch default branch - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			const { data } = await octokit.repos.get({
 				owner: remote.owner,
 				repo: remote.repositoryName
 			});
+			Logger.debug(`Fetch default branch - done`, GitHubRepository.ID);
 
 			return data.default_branch;
 		} catch (e) {
@@ -99,6 +103,7 @@ export class GitHubRepository implements IGitHubRepository {
 
 	private async getAllPullRequests(page?: number): Promise<PullRequestData> {
 		try {
+			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			const result = await octokit.pullRequests.getAll({
 				owner: remote.owner,
@@ -153,12 +158,13 @@ export class GitHubRepository implements IGitHubRepository {
 				)
 				.filter(item => item !== null);
 
+			Logger.debug(`Fetch all pull requests - done`, GitHubRepository.ID);
 			return {
 				pullRequests,
 				hasMorePages
 			};
 		} catch (e) {
-			Logger.appendLine(`GitHubRepository> Fetching all pull requests failed: ${e}`);
+			Logger.appendLine(`Fetching all pull requests failed: ${e}`, GitHubRepository.ID);
 			if (e.code === 404) {
 				// not found
 				vscode.window.showWarningMessage(`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`);
@@ -172,6 +178,7 @@ export class GitHubRepository implements IGitHubRepository {
 
 	private async getPullRequestsForCategory(prType: PRType, page: number): Promise<PullRequestData> {
 		try {
+			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			const user = await octokit.users.get({});
 			// Search api will not try to resolve repo that redirects, so get full name first
@@ -203,6 +210,7 @@ export class GitHubRepository implements IGitHubRepository {
 					return new PullRequestModel(this, this.remote, item.data);
 				}).filter(item => item !== null);
 			});
+			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - done`, GitHubRepository.ID);
 
 			return {
 				pullRequests,
@@ -221,15 +229,17 @@ export class GitHubRepository implements IGitHubRepository {
 
 	async getPullRequest(id: number): Promise<PullRequestModel> {
 		try {
+			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			let { data } = await octokit.pullRequests.get({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				number: id
 			});
+			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
 			if (!data.head.repo) {
-				Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
+				Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
 				return null;
 			}
 

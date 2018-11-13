@@ -69,6 +69,7 @@ export class BadUpstreamError extends Error {
 }
 
 export class PullRequestManager implements IPullRequestManager {
+	static ID = 'PullRequestManager';
 	private _activePullRequest?: IPullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
@@ -304,6 +305,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
+		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const reviewData = await octokit.pullRequests.getComments({
@@ -312,18 +314,21 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
+		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(comment, remote));
 		return parserCommentDiffHunk(rawComments);
 	}
 
 	async getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]> {
 		try {
+			Logger.debug(`Fetch commits of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const commitData = await octokit.pullRequests.getCommits({
 				number: pullRequest.prNumber,
 				owner: remote.owner,
 				repo: remote.repositoryName
 			});
+			Logger.debug(`Fetch commits of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
 			return commitData.data;
 		} catch (e) {
@@ -334,12 +339,14 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]> {
 		try {
+		Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				sha: commit.sha
 			});
+			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
 			return fullCommit.data.files.filter(file => !!file.patch);
 		} catch (e) {
@@ -349,6 +356,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Comment[]> {
+		Logger.debug(`Fetch comments of review #${reviewId} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const reviewData = await octokit.pullRequests.getReviewComments({
@@ -358,11 +366,13 @@ export class PullRequestManager implements IPullRequestManager {
 			review_id: reviewId
 		});
 
+		Logger.debug(`Fetch comments of review #${reviewId} in PR #${pullRequest.prNumber} - `, PullRequestManager.ID);
 		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(comment, remote));
 		return parserCommentDiffHunk(rawComments);
 	}
 
 	async getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.issues.getEventsTimeline({
@@ -371,11 +381,13 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
+		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
 		return await this.parseTimelineEvents(pullRequest, remote, ret.data);
 	}
 
 	async getIssueComments(pullRequest: IPullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]> {
+		Logger.debug(`Fetch issue comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const promise = await octokit.issues.getComments({
@@ -384,6 +396,7 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
+		Logger.debug(`Fetch issue comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
 		return promise.data;
 	}
@@ -705,6 +718,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetFilesResponseItem[]> {
+		Logger.debug(`Fetch changed files of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let response = await octokit.pullRequests.getFiles({
@@ -719,6 +733,7 @@ export class PullRequestManager implements IPullRequestManager {
 			response = await octokit.getNextPage(response.headers);
 			data = data.concat(response.data);
 		}
+		Logger.debug(`Fetch changed files of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 		return data;
 	}
 
