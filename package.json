@@ -15,7 +15,7 @@
   "version": "0.2.3",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.28.0"
+    "vscode": "^1.30.0"
   },
   "categories": [
     "Other"
