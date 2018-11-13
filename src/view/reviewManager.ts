@@ -1026,13 +1026,83 @@ export class ReviewManager implements vscode.DecorationProvider {
 		await this.validateState();
 	}
 
-	public async createPullRequest(): Promise<void> {
+	public async publishBranch(): Promise<Branch> {
 		const HEAD = this._repository.state.HEAD;
-		if (!HEAD.upstream) {
-			vscode.window.showWarningMessage(`The current branch ${HEAD.name} has no upstream branch, please make sure it's pushed to a remote repository.`);
+		const githubRemotes = this._prManager.getGitHubRemotes();
+		const picks: RemoteQuickPickItem[] = githubRemotes.map(remote => new RemoteQuickPickItem(remote));
+		const selected: RemoteQuickPickItem = await vscode.window.showQuickPick<RemoteQuickPickItem>(picks, {
+			ignoreFocusOut: true,
+			placeHolder: `Pick a remote to publish the branch ${HEAD.name} to:`
+		});
+
+		if (!selected) {
 			return;
 		}
-		const branchName = HEAD.name;
+
+		let upstreamBranchName = await vscode.window.showInputBox({
+			ignoreFocusOut: true,
+			prompt: 'Pick a name for the upstream branch',
+			value: HEAD.name,
+		});
+
+		if (!upstreamBranchName) {
+			return;
+		}
+
+		try {
+			// since we are probably pushing a remote branch with a different name, we use the complete synatx
+			// git push -u origin local_branch:remote_branch
+			await this._repository.push(selected.remote.remoteName, `${HEAD.name}:${upstreamBranchName}`, true);
+		} catch (err) {
+			if (err.gitErrorCode === GitErrorCodes.PushRejected) {
+				let choice = await vscode.window.showWarningMessage(`Can't push refs to remote, try run 'git pull' first to integrate with your change, or choose another remote or branch name.`, {
+					modal: true
+				}, 'Retry');
+
+				if (choice === 'Retry') {
+					return this.publishBranch();
+				}
+
+				return;
+			}
+
+			// we can't handle the error
+			throw err;
+		}
+
+		// we don't want to wait for repository status update
+		let latestBranch = await this._repository.getBranch(HEAD.name);
+		if (!latestBranch || !latestBranch.upstream) {
+			return;
+		}
+
+		return latestBranch;
+	}
+
+	public async createPullRequest(): Promise<void> {
+		const HEAD = this._repository.state.HEAD;
+		let branchName;
+		if (!HEAD.upstream) {
+			let action = await vscode.window.showWarningMessage(
+				`The branch ${HEAD.name} has no upstream branch. Would you like to publish this branch?`,
+				{ modal: true },
+				'Ok'
+			);
+
+			if (action !== 'Ok') {
+				return;
+			}
+
+			let latestBranch = await this.publishBranch();
+			if (latestBranch) {
+				branchName = latestBranch.name;
+			} else {
+				return;
+			}
+		} else {
+			branchName = HEAD.name;
+		}
+
 		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
 		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
