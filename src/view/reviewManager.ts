@@ -22,7 +22,7 @@ import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { RemoteQuickPickItem } from './quickpick';
+import { RemoteQuickPickItem, BranchQuickPickItem } from './quickpick';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -1026,32 +1026,126 @@ export class ReviewManager implements vscode.DecorationProvider {
 		await this.validateState();
 	}
 
-	public async createPullRequest(): Promise<void> {
-		const HEAD = this._repository.state.HEAD;
-		if (!HEAD.upstream) {
-			vscode.window.showWarningMessage(`The current branch ${HEAD.name} has no upstream branch, please make sure it's pushed to a remote repository.`);
+	public async publishBranch(branch: Branch): Promise<Branch> {
+		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
+		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch ${branch.name} to:`)).remote;
+
+		if (!selectedRemote) {
 			return;
 		}
-		const branchName = HEAD.name;
-		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
-		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
+
+		return new Promise<Branch>(async (resolve) => {
+			let inputBox = vscode.window.createInputBox();
+			inputBox.value = branch.name;
+			inputBox.ignoreFocusOut = true;
+			inputBox.prompt = 'Pick a name for the upstream branch';
+			let validate = async function (value) {
+				try {
+					inputBox.busy = true;
+					let remoteBranch = await this._prManager.getBranch(selectedRemote, value);
+					if (remoteBranch) {
+						inputBox.validationMessage = `Branch ${value} already exists in ${selectedRemote.owner}/${selectedRemote.repositoryName}`;
+					}
+				} catch (e) { }
+
+				inputBox.busy = false;
+			};
+			await validate(branch.name);
+			inputBox.onDidChangeValue(validate.bind(this));
+			inputBox.onDidAccept(async () => {
+				inputBox.validationMessage = null;
+				inputBox.hide();
+				try {
+					// since we are probably pushing a remote branch with a different name, we use the complete synatx
+					// git push -u origin local_branch:remote_branch
+					await this._repository.push(selectedRemote.remoteName, `${branch.name}:${inputBox.value}`, true);
+				} catch (err) {
+					if (err.gitErrorCode === GitErrorCodes.PushRejected) {
+						vscode.window.showWarningMessage(`Can't push refs to remote, try running 'git pull' first to integrate with your change`, {
+							modal: true
+						});
+
+						resolve(null);
+					}
+
+					// we can't handle the error
+					throw err;
+				}
+
+				// we don't want to wait for repository status update
+				let latestBranch = await this._repository.getBranch(branch.name);
+				if (!latestBranch || !latestBranch.upstream) {
+					resolve(null);
+				}
+
+				resolve(latestBranch);
+			});
+
+			inputBox.show();
+		});
+	}
+
+	private async getRemote(potentialTargetRemotes: Remote[], placeHolder: string, defaultUpstream?: RemoteQuickPickItem): Promise<RemoteQuickPickItem> {
+		if (!potentialTargetRemotes.length) {
+			vscode.window.showWarningMessage(`No GitHub remotes found. Add a remote and try again.`);
+			return null;
+		}
+
+		if (potentialTargetRemotes.length === 1 && !defaultUpstream) {
+			return RemoteQuickPickItem.fromRemote(potentialTargetRemotes[0]);
+		}
+
+		if (potentialTargetRemotes.length === 1
+			&& defaultUpstream
+			&& defaultUpstream.owner === potentialTargetRemotes[0].owner
+			&& defaultUpstream.name === potentialTargetRemotes[0].repositoryName) {
+				return defaultUpstream;
+		}
+
+		let defaultUpstreamWasARemote = false;
 		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
-			const remoteQuickPick = new RemoteQuickPickItem(remote);
-			remoteQuickPick.picked = pullRequestDefaults.owner === remote.owner && pullRequestDefaults.repo === remote.repositoryName;
+			const remoteQuickPick = RemoteQuickPickItem.fromRemote(remote);
+			if (defaultUpstream) {
+				const {owner, name} = defaultUpstream;
+				remoteQuickPick.picked = remoteQuickPick.owner === owner && remoteQuickPick.name === name;
+				if (remoteQuickPick.picked) {
+					defaultUpstreamWasARemote = true;
+				}
+			}
 			return remoteQuickPick;
 		});
+		if (!defaultUpstreamWasARemote) {
+			picks.unshift(defaultUpstream);
+		}
+
 		const selected: RemoteQuickPickItem = await vscode.window.showQuickPick<RemoteQuickPickItem>(picks, {
 			ignoreFocusOut: true,
-			placeHolder: 'Choose a remote which you want to send a pull request to'
+			placeHolder: placeHolder
 		});
 
 		if (!selected) {
+			return null;
+		}
+
+		return selected;
+	}
+
+	public async createPullRequest(): Promise<void> {
+		const HEAD = this._repository.state.HEAD;
+		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
+		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
+		let targetRemote = await this.getRemote(potentialTargetRemotes, 'Choose a remote which you want to send a pull request to',
+			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Fork')
+		);
+
+		if (!targetRemote) {
 			return;
 		}
 
-		const selectedRemote = selected.remote;
-		const base: any = await this._prManager.getMetadata(selectedRemote.remoteName);
-		const targets = [`${base.owner.login}:${base.default_branch}`];
+		const base: string = targetRemote.remote
+			? (await this._prManager.getMetadata(targetRemote.remote.remoteName)).default_branch
+			: pullRequestDefaults.base;
+		const targets = [new BranchQuickPickItem(targetRemote.owner, targetRemote.name, base)];
 		const target = await vscode.window.showQuickPick(targets, {
 			ignoreFocusOut: true,
 			placeHolder: 'Choose a base branch'
@@ -1067,14 +1161,33 @@ export class ReviewManager implements vscode.DecorationProvider {
 			cancellable: false
 		}, async (progress) => {
 			progress.report({ increment: 10 });
-			pullRequestDefaults.base = base.default_branch;
+			let branchName = HEAD.name;
+			if (!HEAD.upstream) {
+				let action = await vscode.window.showWarningMessage(
+					`The branch ${HEAD.name} has no upstream branch. Would you like to publish this branch?`,
+					{ modal: true },
+					'Ok'
+				);
+
+				if (action !== 'Ok') {
+					return;
+				}
+
+				let latestBranch = await this.publishBranch(HEAD);
+				if (!latestBranch) {
+					return;
+				}
+			}
+			progress.report({ increment: 30, message: `Branch ${branchName} published`});
+
+			pullRequestDefaults.base = base;
 			pullRequestDefaults.head = branchName;
-			pullRequestDefaults.owner = selectedRemote.owner;
-			pullRequestDefaults.repo = selectedRemote.repositoryName;
+			pullRequestDefaults.owner = targetRemote.owner;
+			pullRequestDefaults.repo = targetRemote.name;
 			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);
 
 			if (pullRequestModel) {
-				progress.report({ increment: 60, message: `Pull Request #${pullRequestModel.prNumber} Created`});
+				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.prNumber} Created`});
 				await this.updateState();
 				await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
 				progress.report({ increment: 30 });

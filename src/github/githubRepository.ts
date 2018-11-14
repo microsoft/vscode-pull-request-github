@@ -97,6 +97,23 @@ export class GitHubRepository implements IGitHubRepository {
 		return 'master';
 	}
 
+	async getBranch(branchName: string): Promise<Github.ReposGetBranchResponse> {
+		try {
+			Logger.debug(`Fetch branch ${branchName} - enter`, GitHubRepository.ID);
+			const { octokit, remote } = await this.ensure();
+			const { data } = await octokit.repos.getBranch({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				branch: branchName
+			});
+			Logger.debug(`Fetch branch ${branchName} - done`, GitHubRepository.ID);
+
+			return data;
+		} catch (e) {
+			Logger.appendLine(`Fetching branch ${branchName} failed`, GitHubRepository.ID);
+		}
+	}
+
 	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData> {
 		return prType === PRType.All ? this.getAllPullRequests(page) : this.getPullRequestsForCategory(prType, page);
 	}

@@ -16,7 +16,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
-import { Repository, RefType, UpstreamRef } from '../typings/git';
+import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
 
 interface PageInformation {
@@ -68,6 +68,14 @@ export class BadUpstreamError extends Error {
 	}
 }
 
+const SETTINGS_NAMESPACE = 'githubPullRequests';
+const LOG_LEVEL_SETTING = 'includeRemotes';
+
+const enum IncludeRemote {
+	Default,
+	All
+}
+
 export class PullRequestManager implements IPullRequestManager {
 	static ID = 'PullRequestManager';
 	private _activePullRequest?: IPullRequestModel;
@@ -75,6 +83,7 @@ export class PullRequestManager implements IPullRequestManager {
 	private _githubRepositories: GitHubRepository[];
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
+	private _includeRemotes: IncludeRemote;
 
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
@@ -86,6 +95,28 @@ export class PullRequestManager implements IPullRequestManager {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
+		this._includeRemotes = IncludeRemote.Default;
+		vscode.workspace.onDidChangeConfiguration(() => {
+			let oldIncludeRemote = this._includeRemotes;
+			this.getIncludeRemoteConfig();
+			if (this._includeRemotes !== oldIncludeRemote) {
+				this.updateRepositories();
+			}
+		});
+		this.getIncludeRemoteConfig();
+	}
+
+	private getIncludeRemoteConfig() {
+		let includeRemotes = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
+		switch (includeRemotes) {
+			case 'default':
+				this._includeRemotes = IncludeRemote.Default;
+				break;
+			case 'all':
+				this._includeRemotes = IncludeRemote.All;
+			default:
+				break;
+		}
 	}
 
 	get activePullRequest() {
@@ -147,8 +178,8 @@ export class PullRequestManager implements IPullRequestManager {
 		let repositories = [];
 		let resolveRemotePromises = [];
 		for (let remote of gitHubRemotes) {
-			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote.remoteName);
-			if (!isRemoteForPR) {
+			const shouldLoad = this._includeRemotes === IncludeRemote.All || !(await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote.remoteName));
+			if (shouldLoad) {
 				const repository = new GitHubRepository(remote, this._credentialStore);
 				resolveRemotePromises.push(repository.resolveRemote());
 				repositories.push(repository);
@@ -279,8 +310,8 @@ export class PullRequestManager implements IPullRequestManager {
 
 			const githubRepository = githubRepositories[i];
 			const remote = githubRepository.remote.remoteName;
-			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
-			if (!isRemoteForPR) {
+			const shouldLoad = this._includeRemotes === IncludeRemote.All || !(await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote));
+			if (shouldLoad) {
 				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
 				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
 					const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
@@ -796,6 +827,22 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
 		await PullRequestGitHelper.createAndCheckout(this.repository, pullRequest);
+	}
+
+	async getBranch(remote: Remote, branchName: string): Promise<Branch> {
+		let githubRepository = this.findRepo(byRemoteName(remote.remoteName));
+		if (githubRepository) {
+			let githubBranch = await githubRepository.getBranch(branchName);
+
+			if (githubBranch) {
+				return {
+					name: githubBranch.name,
+					type: RefType.RemoteHead
+				};
+			}
+		}
+
+		return null;
 	}
 
 	async checkout(branchName: string): Promise<void> {
