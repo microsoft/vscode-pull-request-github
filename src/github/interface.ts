@@ -9,7 +9,7 @@ import { Comment } from '../common/comment';
 import { GitHubRef } from '../common/githubRef';
 import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
-import { Repository } from '../typings/git';
+import { Repository, Branch } from '../typings/git';
 import { PullRequestsCreateParams } from '@octokit/rest';
 
 export enum PRType {
@@ -159,6 +159,7 @@ export interface IPullRequestManager {
 	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
 	getMatchingPullRequestMetadataForBranch();
 	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
+	getBranch(remote: Remote, branchName: string): Promise<Branch>;
 	checkout(branchName: string): Promise<void>;
 	fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
 	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;

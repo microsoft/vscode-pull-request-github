@@ -19,3 +19,18 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 		this.description = remote.url;
 	}
 }
+
+export class BranchQuickPickItem implements vscode.QuickPickItem {
+	label: string;
+	description?: string;
+	detail?: string;
+	picked?: boolean;
+
+	constructor(
+		public remote: Remote,
+		public defaultBranch: string
+	) {
+		this.label = defaultBranch;
+		this.description = `${remote.owner}/${remote.repositoryName}`;
+	}
+}

@@ -16,7 +16,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
-import { Repository, RefType, UpstreamRef } from '../typings/git';
+import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
 
 interface PageInformation {
@@ -796,6 +796,22 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
 		await PullRequestGitHelper.createAndCheckout(this.repository, pullRequest);
+	}
+
+	async getBranch(remote: Remote, branchName: string): Promise<Branch> {
+		let githubRepository = this.findRepo(byRemoteName(remote.remoteName));
+		if (githubRepository) {
+			let githubBranch = await githubRepository.getBranch(branchName);
+
+			if (githubBranch) {
+				return {
+					name: githubBranch.name,
+					type: RefType.RemoteHead
+				};
+			}
+		}
+
+		return null;
 	}
 
 	async checkout(branchName: string): Promise<void> {
