@@ -1091,8 +1091,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return null;
 		}
 
-		if (potentialTargetRemotes.length === 1) {
+		if (potentialTargetRemotes.length === 1 && !defaultUpstream) {
 			return RemoteQuickPickItem.fromRemote(potentialTargetRemotes[0]);
+		}
+
+		if (potentialTargetRemotes.length === 1
+			&& defaultUpstream
+			&& defaultUpstream.owner === potentialTargetRemotes[0].owner
+			&& defaultUpstream.name === potentialTargetRemotes[0].repositoryName) {
+				return defaultUpstream;
 		}
 
 		let defaultUpstreamWasARemote = false;
@@ -1101,7 +1108,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			if (defaultUpstream) {
 				const {owner, name} = defaultUpstream;
 				remoteQuickPick.picked = remoteQuickPick.owner === owner && remoteQuickPick.name === name;
-				defaultUpstreamWasARemote = true;
+				if (remoteQuickPick.picked) {
+					defaultUpstreamWasARemote = true;
+				}
 			}
 			return remoteQuickPick;
 		});
@@ -1134,9 +1143,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		const base: any = targetRemote.remote
-			? await this._prManager.getMetadata(targetRemote.remote.remoteName)
+			? (await this._prManager.getMetadata(targetRemote.remote.remoteName)).default_branch
 			: pullRequestDefaults.base;
-		const targets = [new BranchQuickPickItem(targetRemote.owner, targetRemote.name, base.default_branch)];
+		const targets = [new BranchQuickPickItem(targetRemote.owner, targetRemote.name, base)];
 		const target = await vscode.window.showQuickPick(targets, {
 			ignoreFocusOut: true,
 			placeHolder: 'Choose a base branch'
