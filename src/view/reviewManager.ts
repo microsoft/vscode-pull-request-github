@@ -1114,7 +1114,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 			return remoteQuickPick;
 		});
-		if (!defaultUpstreamWasARemote) {
+		if (!defaultUpstreamWasARemote && defaultUpstream) {
 			picks.unshift(defaultUpstream);
 		}
 
