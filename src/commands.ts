@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import * as pathLib from 'path';
 import * as Github from '@octokit/rest';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
@@ -18,6 +19,8 @@ import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMappin
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import { listHosts, deleteToken } from './authentication/keychain';
+import { writeFile, unlink } from 'fs';
+import Logger from './common/logger';
 
 const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
 export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;
@@ -55,6 +58,42 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
 		}
 		telemetry.on('pr.openInGitHub');
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
+		try {
+			const diff = await prManager.repository.diff(true);
+			const suggestEditMessage = e.inputBox.value ? `${e.inputBox.value}\n` : '';
+			const suggestEditText = `${suggestEditMessage}\`\`\`diff\n${diff}\n\`\`\``;
+			await prManager.createIssueComment(prManager.activePullRequest, suggestEditText);
+			e.inputBox.value = '';
+
+			// Reset HEAD and then apply reverse diff
+			await vscode.commands.executeCommand('git.unstageAll');
+
+			const tempFilePath = pathLib.resolve(vscode.workspace.rootPath, '.git', `${prManager.activePullRequest.prNumber}.diff`);
+			writeFile(tempFilePath, diff, {}, async (writeError) => {
+				if (writeError) {
+					throw writeError;
+				}
+
+				try {
+					await prManager.repository.apply(tempFilePath, true);
+
+					unlink(tempFilePath, (err) => {
+						if (err) {
+							throw err;
+						}
+					});
+				} catch (err) {
+					Logger.appendLine(`Applying patch failed: ${err}`);
+					vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
+				}
+			});
+		} catch (err) {
+			Logger.appendLine(`Applying patch failed: ${err}`);
+			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
+		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: GitFileChangeNode) => {

@@ -286,6 +286,21 @@ class CommentNode {
 		reviewCommentContainer.appendChild(commentHeader);
 		reviewCommentContainer.appendChild(this._commentBody);
 
+		if (this._comment.body.indexOf('```diff') > -1) {
+			const replyButton = document.createElement('button');
+			replyButton.textContent = 'Apply Patch';
+			replyButton.onclick = _ => {
+				this._messageHandler.postMessage({
+					command: 'pr.apply-patch',
+					args: {
+						comment: this._comment
+					}
+				});
+			}
+
+			this._commentBody.appendChild(replyButton);
+		}
+
 		return this._commentContainer;
 	}
 
