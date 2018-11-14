@@ -1142,7 +1142,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		const base: any = targetRemote.remote
+		const base: string = targetRemote.remote
 			? (await this._prManager.getMetadata(targetRemote.remote.remoteName)).default_branch
 			: pullRequestDefaults.base;
 		const targets = [new BranchQuickPickItem(targetRemote.owner, targetRemote.name, base)];
@@ -1180,7 +1180,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 			progress.report({ increment: 30, message: `Branch ${branchName} published`});
 
-			pullRequestDefaults.base = base.default_branch;
+			pullRequestDefaults.base = base;
 			pullRequestDefaults.head = branchName;
 			pullRequestDefaults.owner = targetRemote.owner;
 			pullRequestDefaults.repo = targetRemote.name;
