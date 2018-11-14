@@ -11,7 +11,6 @@ import { PRType, IGitHubRepository, PullRequest } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore } from './credentials';
 import { AuthenticationError } from '../common/authentication';
-import { Branch, RefType } from '../typings/git';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 

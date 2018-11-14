@@ -7,17 +7,20 @@ import * as vscode from 'vscode';
 import { Remote } from '../common/remote';
 
 export class RemoteQuickPickItem implements vscode.QuickPickItem {
-	label: string;
-	description?: string;
 	detail?: string;
 	picked?: boolean;
 
-	constructor(
-		public remote: Remote
-	) {
-		this.label = remote.remoteName;
-		this.description = remote.url;
+	static fromRemote(remote: Remote) {
+		return new this(remote.owner, remote.repositoryName, remote.url, remote);
 	}
+
+	constructor(
+		public owner: string,
+		public name: string,
+		public description,
+		public remote?: Remote,
+		public label = `${owner}:${name}`,
+	) {}
 }
 
 export class BranchQuickPickItem implements vscode.QuickPickItem {
@@ -27,10 +30,11 @@ export class BranchQuickPickItem implements vscode.QuickPickItem {
 	picked?: boolean;
 
 	constructor(
-		public remote: Remote,
+		public owner: string,
+		public repo: string,
 		public defaultBranch: string
 	) {
 		this.label = defaultBranch;
-		this.description = `${remote.owner}/${remote.repositoryName}`;
+		this.description = `${owner}/${repo}`;
 	}
 }

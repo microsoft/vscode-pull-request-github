@@ -23,7 +23,6 @@ import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem, BranchQuickPickItem } from './quickpick';
-import { PullRequestsCreateParams } from '@octokit/rest';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -1028,13 +1027,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	public async publishBranch(branch: Branch): Promise<Branch> {
-		const selectedRemote = await this.getRemote(`Pick a remote to publish the branch ${branch.name} to:`, remote => {
-			if (remote.remoteName === 'origin') {
-				return true;
-			}
-
-			return false;
-		});
+		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
+		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch ${branch.name} to:`)).remote;
 
 		if (!selectedRemote) {
 			return;
@@ -1083,22 +1077,30 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return latestBranch;
 	}
 
-	private async getRemote(placeHolder: string, isDefault: (remote: Remote) => boolean): Promise<Remote> {
-		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
+	private async getRemote(potentialTargetRemotes: Remote[], placeHolder: string, defaultUpstream?: RemoteQuickPickItem): Promise<RemoteQuickPickItem> {
 		if (!potentialTargetRemotes.length) {
 			vscode.window.showWarningMessage(`No GitHub remotes found. Add a remote and try again.`);
 			return null;
 		}
 
 		if (potentialTargetRemotes.length === 1) {
-			return potentialTargetRemotes[0];
+			return RemoteQuickPickItem.fromRemote(potentialTargetRemotes[0]);
 		}
 
+		let defaultUpstreamWasARemote = false;
 		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
-		const remoteQuickPick = new RemoteQuickPickItem(remote);
-			remoteQuickPick.picked = isDefault(remote);
+			const remoteQuickPick = RemoteQuickPickItem.fromRemote(remote);
+			if (defaultUpstream) {
+				const {owner, name} = defaultUpstream;
+				remoteQuickPick.picked = remoteQuickPick.owner === owner && remoteQuickPick.name === name;
+				defaultUpstreamWasARemote = true;
+			}
 			return remoteQuickPick;
 		});
+		if (!defaultUpstreamWasARemote) {
+			picks.unshift(defaultUpstream);
+		}
+
 		const selected: RemoteQuickPickItem = await vscode.window.showQuickPick<RemoteQuickPickItem>(picks, {
 			ignoreFocusOut: true,
 			placeHolder: placeHolder
@@ -1108,22 +1110,25 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return null;
 		}
 
-		return selected.remote;
+		return selected;
 	}
 
 	public async createPullRequest(): Promise<void> {
 		const HEAD = this._repository.state.HEAD;
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
-		let targetRemote = await this.getRemote('Choose a remote which you want to send a pull request to', remote => {
-			return pullRequestDefaults.owner === remote.owner && pullRequestDefaults.repo === remote.repositoryName;
-		});
+		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
+		let targetRemote = await this.getRemote(potentialTargetRemotes, 'Choose a remote which you want to send a pull request to',
+			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Fork')
+		);
 
 		if (!targetRemote) {
 			return;
 		}
 
-		const base: any = await this._prManager.getMetadata(targetRemote.remoteName);
-		const targets = [new BranchQuickPickItem(targetRemote, base.default_branch)];
+		const base: any = targetRemote.remote
+			? await this._prManager.getMetadata(targetRemote.remote.remoteName)
+			: pullRequestDefaults.base;
+		const targets = [new BranchQuickPickItem(targetRemote.owner, targetRemote.name, base.default_branch)];
 		const target = await vscode.window.showQuickPick(targets, {
 			ignoreFocusOut: true,
 			placeHolder: 'Choose a base branch'
@@ -1161,7 +1166,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			pullRequestDefaults.base = base.default_branch;
 			pullRequestDefaults.head = branchName;
 			pullRequestDefaults.owner = targetRemote.owner;
-			pullRequestDefaults.repo = targetRemote.repositoryName;
+			pullRequestDefaults.repo = targetRemote.name;
 			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);
 
 			if (pullRequestModel) {
