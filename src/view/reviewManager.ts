@@ -1034,47 +1034,55 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		let upstreamBranchName = await vscode.window.showInputBox({
-			ignoreFocusOut: true,
-			prompt: 'Pick a name for the upstream branch',
-			value: branch.name,
-			validateInput: async (value: string) => {
-				let remoteBranch = await this._prManager.getBranch(selectedRemote, value);
-				if (remoteBranch) {
-					return `Branch ${value} already exists in ${selectedRemote.owner}/${selectedRemote.repositoryName}`;
+		return new Promise<Branch>(async (resolve) => {
+			let inputBox = vscode.window.createInputBox();
+			inputBox.value = branch.name;
+			inputBox.ignoreFocusOut = true;
+			inputBox.prompt = 'Pick a name for the upstream branch';
+			let validate = async function (value) {
+				try {
+					inputBox.busy = true;
+					let remoteBranch = await this._prManager.getBranch(selectedRemote, value);
+					if (remoteBranch) {
+						inputBox.validationMessage = `Branch ${value} already exists in ${selectedRemote.owner}/${selectedRemote.repositoryName}`;
+					}
+				} catch (e) { }
+
+				inputBox.busy = false;
+			};
+			await validate(branch.name);
+			inputBox.onDidChangeValue(validate.bind(this));
+			inputBox.onDidAccept(async () => {
+				inputBox.validationMessage = null;
+				inputBox.hide();
+				try {
+					// since we are probably pushing a remote branch with a different name, we use the complete synatx
+					// git push -u origin local_branch:remote_branch
+					await this._repository.push(selectedRemote.remoteName, `${branch.name}:${inputBox.value}`, true);
+				} catch (err) {
+					if (err.gitErrorCode === GitErrorCodes.PushRejected) {
+						vscode.window.showWarningMessage(`Can't push refs to remote, try running 'git pull' first to integrate with your change`, {
+							modal: true
+						});
+
+						resolve(null);
+					}
+
+					// we can't handle the error
+					throw err;
 				}
-				return null;
-			}
+
+				// we don't want to wait for repository status update
+				let latestBranch = await this._repository.getBranch(branch.name);
+				if (!latestBranch || !latestBranch.upstream) {
+					resolve(null);
+				}
+
+				resolve(latestBranch);
+			});
+
+			inputBox.show();
 		});
-
-		if (!upstreamBranchName) {
-			return;
-		}
-
-		try {
-			// since we are probably pushing a remote branch with a different name, we use the complete synatx
-			// git push -u origin local_branch:remote_branch
-			await this._repository.push(selectedRemote.remoteName, `${branch.name}:${upstreamBranchName}`, true);
-		} catch (err) {
-			if (err.gitErrorCode === GitErrorCodes.PushRejected) {
-				vscode.window.showWarningMessage(`Can't push refs to remote, try running 'git pull' first to integrate with your change`, {
-					modal: true
-				});
-
-				return;
-			}
-
-			// we can't handle the error
-			throw err;
-		}
-
-		// we don't want to wait for repository status update
-		let latestBranch = await this._repository.getBranch(branch.name);
-		if (!latestBranch || !latestBranch.upstream) {
-			return;
-		}
-
-		return latestBranch;
 	}
 
 	private async getRemote(potentialTargetRemotes: Remote[], placeHolder: string, defaultUpstream?: RemoteQuickPickItem): Promise<RemoteQuickPickItem> {
