@@ -22,7 +22,7 @@ import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { RemoteQuickPickItem, BranchQuickPickItem } from './quickpick';
+import { RemoteQuickPickItem } from './quickpick';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -1145,10 +1145,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 		const base: string = targetRemote.remote
 			? (await this._prManager.getMetadata(targetRemote.remote.remoteName)).default_branch
 			: pullRequestDefaults.base;
-		const targets = [new BranchQuickPickItem(targetRemote.owner, targetRemote.name, base)];
-		const target = await vscode.window.showQuickPick(targets, {
+		const target = await vscode.window.showInputBox({
+			value: base,
 			ignoreFocusOut: true,
-			placeHolder: 'Choose a base branch'
+			prompt: `Choose target branch for ${targetRemote.owner}/${targetRemote.name}`,
 		});
 
 		if (!target) {
@@ -1180,7 +1180,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 			progress.report({ increment: 30, message: `Branch ${branchName} published`});
 
-			pullRequestDefaults.base = base;
+			pullRequestDefaults.base = target;
 			pullRequestDefaults.head = branchName;
 			pullRequestDefaults.owner = targetRemote.owner;
 			pullRequestDefaults.repo = targetRemote.name;

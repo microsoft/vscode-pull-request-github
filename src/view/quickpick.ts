@@ -22,19 +22,3 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 		public label = `${owner}:${name}`,
 	) {}
 }
-
-export class BranchQuickPickItem implements vscode.QuickPickItem {
-	label: string;
-	description?: string;
-	detail?: string;
-	picked?: boolean;
-
-	constructor(
-		public owner: string,
-		public repo: string,
-		public defaultBranch: string
-	) {
-		this.label = defaultBranch;
-		this.description = `${owner}/${repo}`;
-	}
-}
