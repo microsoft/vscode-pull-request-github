@@ -1028,7 +1028,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	public async publishBranch(branch: Branch): Promise<Branch> {
 		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
-		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch ${branch.name} to:`)).remote;
+		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch '${branch.name}' to:`)).remote;
 
 		if (!selectedRemote) {
 			return;
@@ -1038,7 +1038,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let inputBox = vscode.window.createInputBox();
 			inputBox.value = branch.name;
 			inputBox.ignoreFocusOut = true;
-			inputBox.prompt = 'Pick a name for the upstream branch';
+			inputBox.prompt = potentialTargetRemotes.length === 1 ? `The branch '${branch.name}' is not published yet, pick a name for the upstream branch` : 'Pick a name for the upstream branch';
 			let validate = async function (value) {
 				try {
 					inputBox.busy = true;
@@ -1167,22 +1167,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 			progress.report({ increment: 10 });
 			let branchName = HEAD.name;
 			if (!HEAD.upstream) {
-				let action = await vscode.window.showWarningMessage(
-					`The branch ${HEAD.name} has no upstream branch. Would you like to publish this branch?`,
-					{ modal: true },
-					'Ok'
-				);
-
-				if (action !== 'Ok') {
-					return;
-				}
-
+				progress.report({ increment: 10, message: `Start publishing branch ${branchName}`});
 				let latestBranch = await this.publishBranch(HEAD);
 				if (!latestBranch) {
 					return;
 				}
+				progress.report({ increment: 20, message: `Branch ${branchName} published`});
+			} else {
+				progress.report({ increment: 30, message: `Start creating pull request.`});
+
 			}
-			progress.report({ increment: 30, message: `Branch ${branchName} published`});
 
 			pullRequestDefaults.base = target;
 			pullRequestDefaults.head = branchName;
