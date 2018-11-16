@@ -1045,8 +1045,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 					let remoteBranch = await this._prManager.getBranch(selectedRemote, value);
 					if (remoteBranch) {
 						inputBox.validationMessage = `Branch ${value} already exists in ${selectedRemote.owner}/${selectedRemote.repositoryName}`;
+					} else {
+						inputBox.validationMessage = null;
 					}
-				} catch (e) { }
+				} catch (e) {
+					inputBox.validationMessage = null;
+				}
 
 				inputBox.busy = false;
 			};
