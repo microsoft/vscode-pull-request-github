@@ -259,12 +259,16 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async deleteLocalPullRequest(pullRequest: PullRequestModel, force?: boolean): Promise<void> {
-		const remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
-		if (!remoteName) {
-			throw new Error('Unable to find remote for branch');
-		}
-
 		await this.repository.deleteBranch(pullRequest.localBranchName, force);
+
+		let remoteName: string = null;
+		try {
+			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
+		} catch (e) {}
+
+		if (!remoteName) {
+			return;
+		}
 
 		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
 		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remoteName);
