@@ -23,6 +23,7 @@ export class GitHubRepository implements IGitHubRepository {
 	static ID = 'GitHubRepository';
 	private _octokit: Github;
 	private _initialized: boolean;
+	private _metadata: any;
 	public get octokit(): Github {
 		if (this._octokit === undefined) {
 			if (!this._initialized) {
@@ -39,13 +40,18 @@ export class GitHubRepository implements IGitHubRepository {
 
 	async getMetadata(): Promise<any> {
 		Logger.debug(`Fetch metadata - enter`, GitHubRepository.ID);
+		if (this._metadata) {
+			Logger.debug(`Fetch metadata ${this._metadata.owner.login}/${this._metadata.name} - done`, GitHubRepository.ID);
+			return this._metadata;
+		}
 		const { octokit, remote } = await this.ensure();
 		const result = await octokit.repos.get({
 				owner: remote.owner,
 				repo: remote.repositoryName
 		});
-		Logger.debug(`Fetch metadata - done`, GitHubRepository.ID);
-		return Object.assign(result.data, { currentUser: (octokit as any).currentUser });
+		Logger.debug(`Fetch metadata ${remote.owner}/${remote.repositoryName} - done`, GitHubRepository.ID);
+		this._metadata = Object.assign(result.data, { currentUser: (octokit as any).currentUser });
+		return this._metadata;
 	}
 
 	async resolveRemote(): Promise<void> {

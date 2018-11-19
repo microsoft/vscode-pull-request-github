@@ -141,6 +141,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
+		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))

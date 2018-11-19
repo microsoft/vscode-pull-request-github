@@ -90,6 +90,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 				return;
 			}
 
+			if (newHead && !newHead.upstream) {
+				// if newhead has no upstream, we won't get any meaningful pull request info from that.
+				return;
+			}
+
 			let sameUpstream;
 
 			if (!oldHead || !newHead) {
@@ -117,6 +122,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 					HEAD: this._repository.state.HEAD,
 					remotes: remotes
 				};
+
+				if (sameHead && !sameRemotes) {
+					let oldHeadRemote = this._previousRepositoryState.remotes.find(remote => remote.remoteName === oldHead.remote);
+					let newHeadRemote = remotes.find(remote => remote.remoteName === oldHead.remote);
+					if ((!oldHeadRemote && !newHeadRemote) || (oldHeadRemote && newHeadRemote && oldHeadRemote.equals(newHeadRemote))
+					) {
+						return;
+					}
+				}
 
 				this.updateState();
 			}
@@ -1023,7 +1037,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._telemetry.on('pr.checkout');
 		await this._repository.status();
-		await this.validateState();
 	}
 
 	public async publishBranch(branch: Branch): Promise<Branch> {
@@ -1103,14 +1116,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 			&& defaultUpstream
 			&& defaultUpstream.owner === potentialTargetRemotes[0].owner
 			&& defaultUpstream.name === potentialTargetRemotes[0].repositoryName) {
-				return defaultUpstream;
+			return defaultUpstream;
 		}
 
 		let defaultUpstreamWasARemote = false;
 		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
 			const remoteQuickPick = RemoteQuickPickItem.fromRemote(remote);
 			if (defaultUpstream) {
-				const {owner, name} = defaultUpstream;
+				const { owner, name } = defaultUpstream;
 				remoteQuickPick.picked = remoteQuickPick.owner === owner && remoteQuickPick.name === name;
 				if (remoteQuickPick.picked) {
 					defaultUpstreamWasARemote = true;
@@ -1167,14 +1180,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 			progress.report({ increment: 10 });
 			let branchName = HEAD.name;
 			if (!HEAD.upstream) {
-				progress.report({ increment: 10, message: `Start publishing branch ${branchName}`});
+				progress.report({ increment: 10, message: `Start publishing branch ${branchName}` });
 				let latestBranch = await this.publishBranch(HEAD);
 				if (!latestBranch) {
 					return;
 				}
-				progress.report({ increment: 20, message: `Branch ${branchName} published`});
+				progress.report({ increment: 20, message: `Branch ${branchName} published` });
 			} else {
-				progress.report({ increment: 30, message: `Start creating pull request.`});
+				progress.report({ increment: 30, message: `Start creating pull request.` });
 
 			}
 
@@ -1185,13 +1198,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);
 
 			if (pullRequestModel) {
-				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.prNumber} Created`});
+				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.prNumber} Created` });
 				await this.updateState();
 				await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
 				progress.report({ increment: 30 });
 			} else {
 				// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
-				progress.report({ increment: 90, message: `Failed to create pull request for ${pullRequestDefaults.head}`});
+				progress.report({ increment: 90, message: `Failed to create pull request for ${pullRequestDefaults.head}` });
 			}
 		});
 	}
