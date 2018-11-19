@@ -779,6 +779,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void> {
 		try {
+			Logger.debug(`Fullfill pull request missing info - start`, PullRequestManager.ID);
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 			if (!pullRequest.base) {
@@ -794,6 +795,7 @@ export class PullRequestManager implements IPullRequestManager {
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
+		Logger.debug(`Fullfill pull request missing info - done`, PullRequestManager.ID);
 	}
 
 	//#region Git related APIs
