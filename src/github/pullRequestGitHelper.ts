@@ -194,9 +194,35 @@ export class PullRequestGitHelper {
 		return remoteName;
 	}
 
+	static async getUserCreatedRemotes(repository: Repository, remotes: Remote[]): Promise<Remote[]> {
+		try {
+			Logger.debug(`Get user created remotes - start`, PullRequestGitHelper.ID);
+			const allConfigs = await repository.getConfigs();
+			let remotesForPullRequest = [];
+			for (let i = 0; i < allConfigs.length; i++) {
+				let key = allConfigs[i].key;
+				let matches = /^remote\.(.*)\.github-pr-remote$/.exec(key);
+				if (matches && matches.length === 2 && allConfigs[i].value) {
+					// this remote is created for pull requests
+					remotesForPullRequest.push(matches[1]);
+				}
+			}
+
+			let ret = remotes.filter(function (e) {
+				return remotesForPullRequest.indexOf(e.remoteName) < 0;
+			});
+			Logger.debug(`Get user created remotes - end`, PullRequestGitHelper.ID);
+			return ret;
+		} catch (_) {
+			return [];
+		}
+	}
+
 	static async isRemoteCreatedForPullRequest(repository: Repository, remoteName: string) {
 		try {
+			Logger.debug(`Check if remote '${remoteName}' is created for pull request - start`, PullRequestGitHelper.ID);
 			const isForPR = await repository.getConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
+			Logger.debug(`Check if remote '${remoteName}' is created for pull request - end`, PullRequestGitHelper.ID);
 			return isForPR === 'true';
 		} catch (_) {
 			return false;

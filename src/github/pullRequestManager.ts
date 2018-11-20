@@ -141,6 +141,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
+		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
@@ -177,14 +178,13 @@ export class PullRequestManager implements IPullRequestManager {
 
 		let repositories = [];
 		let resolveRemotePromises = [];
-		for (let remote of gitHubRemotes) {
-			const shouldLoad = this._includeRemotes === IncludeRemote.All || !(await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote.remoteName));
-			if (shouldLoad) {
-				const repository = new GitHubRepository(remote, this._credentialStore);
-				resolveRemotePromises.push(repository.resolveRemote());
-				repositories.push(repository);
-			}
-		}
+		let userCreatedRemoteNames = this._includeRemotes === IncludeRemote.All ? (gitHubRemotes as Remote[]) : await PullRequestGitHelper.getUserCreatedRemotes(this.repository, (gitHubRemotes as Remote[]));
+
+		userCreatedRemoteNames.forEach(remote => {
+			const repository = new GitHubRepository(remote, this._credentialStore);
+			resolveRemotePromises.push(repository.resolveRemote());
+			repositories.push(repository);
+		});
 
 		return Promise.all(resolveRemotePromises).then(_ => {
 			this._githubRepositories = repositories;
