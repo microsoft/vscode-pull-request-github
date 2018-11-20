@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.2.3",
+  "version": "0.3.0",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.30.0"
@@ -70,13 +70,13 @@
           "description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request."
         },
         "githubPullRequests.includeRemotes": {
-            "type": "string",
-            "enum": [
-                "default",
-                "all"
-            ],
-            "default": "default",
-            "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
+          "type": "string",
+          "enum": [
+            "default",
+            "all"
+          ],
+          "default": "default",
+          "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
         },
         "telemetry.optout": {
           "type": "boolean",
