@@ -128,6 +128,8 @@ export interface Repository {
 
 	clean(paths: string[]): Promise<void>;
 
+	clean(paths: string[]): Promise<void>;
+
 	apply(patch: string, reverse?: boolean): Promise<void>;
 	diff(cached?: boolean): Promise<string>;
 	diffWithHEAD(path: string): Promise<string>;

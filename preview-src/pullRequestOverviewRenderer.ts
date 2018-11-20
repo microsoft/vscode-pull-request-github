@@ -197,7 +197,7 @@ export class ActionsBar {
 		this._renderedComment.classList.remove('hidden');
 		this._actionsBar!.classList.remove('hidden');
 
-		if (text) {
+		if (text !== undefined) {
 			this._data.body = text;
 			this._renderedComment.innerHTML = md.render(emoji.emojify(text));
 			this._updateHandler(text);
@@ -416,17 +416,13 @@ class ReviewNode {
 	render(): HTMLElement | undefined {
 		// Ignore pending or empty reviews
 		const isEmpty = !this._review.body && !(this._review.comments && this._review.comments.length);
-		if (this._review.state === 'pending' || isEmpty) {
+		if (this._review.state === 'pending') {
 			return undefined;
 		}
 
 		this._commentContainer = document.createElement('div');
 		this._commentContainer.classList.add('comment-container', 'comment');
 		const userIcon = renderUserIcon(this._review.user.html_url, this._review.user.avatar_url);
-		const reviewCommentContainer = document.createElement('div');
-		reviewCommentContainer.className = 'review-comment-container';
-		this._commentContainer.appendChild(userIcon);
-		this._commentContainer.appendChild(reviewCommentContainer);
 
 		const commentHeader: HTMLDivElement = document.createElement('div');
 		commentHeader.className = 'review-comment-header';
@@ -458,6 +454,14 @@ class ReviewNode {
 		commentHeader.appendChild(userLogin);
 		commentHeader.appendChild(reviewState);
 		commentHeader.appendChild(timestamp);
+		this._commentContainer.appendChild(userIcon);
+		const reviewCommentContainer = document.createElement('div');
+		this._commentContainer.appendChild(reviewCommentContainer);
+		reviewCommentContainer.appendChild(commentHeader);
+
+		if (isEmpty) {
+			return this._commentContainer;
+		}
 
 		const reviewBody: HTMLDivElement = document.createElement('div');
 		reviewBody.className = 'review-body';
@@ -465,7 +469,7 @@ class ReviewNode {
 			reviewBody.innerHTML = md.render(emoji.emojify(this._review.body));
 		}
 
-		reviewCommentContainer.appendChild(commentHeader);
+		reviewCommentContainer.className = 'review-comment-container';
 		reviewCommentContainer.appendChild(reviewBody);
 
 		if (this._review.comments) {
@@ -524,9 +528,6 @@ class ReviewNode {
 
 			reviewCommentContainer.appendChild(commentBody);
 		}
-
-		this._commentContainer.appendChild(userIcon);
-		this._commentContainer.appendChild(reviewCommentContainer);
 
 		return this._commentContainer;
 	}

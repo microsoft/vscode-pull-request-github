@@ -1,3 +1,16 @@
+0.3.0
+
+**Breaking Changes**
+
+- From 0.3.0, you at least need VSCode 1.30 (including Insiders) to install and run the extension.
+
+**Thank You**
+
+* [Jeffrey (@JeffreyCA)](https://github.com/JeffreyCA)
+  * Correct timestamp format [PR #686](https://github.com/Microsoft/vscode-pull-request-github/pull/686)
+  * Render Markdown line breaks as <br> [PR #679](https://github.com/Microsoft/vscode-pull-request-github/pull/679)
+  * Support absolute and relative timestamps [PR #644](https://github.com/Microsoft/vscode-pull-request-github/pull/644)
+
 0.2.3
 - Fix [#607], read `~/.ssh/config` to resolve hosts
 - Fix [#572], by [@yoh1496], add support for GitHub Enterprise behind a proxy

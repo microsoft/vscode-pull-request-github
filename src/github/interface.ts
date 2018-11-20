@@ -9,7 +9,7 @@ import { Comment } from '../common/comment';
 import { GitHubRef } from '../common/githubRef';
 import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
-import { Repository } from '../typings/git';
+import { Repository, Branch } from '../typings/git';
 import { PullRequestsCreateParams } from '@octokit/rest';
 
 export enum PRType {
@@ -102,12 +102,17 @@ export interface IGitHubRepository {
 	authenticate(): Promise<boolean>;
 }
 
+export interface IPullRequestEditData {
+	body?: string;
+	title?: string;
+}
+
 export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
 	repository: Repository;
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
-	deleteLocalPullRequest(pullRequest: IPullRequestModel): Promise<void>;
+	deleteLocalPullRequest(pullRequest: IPullRequestModel, force?: boolean): Promise<void>;
 	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
 	getMetadata(remote: string): Promise<any>;
 	getGitHubRemotes(): Remote[];
@@ -129,7 +134,7 @@ export interface IPullRequestManager {
 	deleteIssueComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
 	deleteReviewComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
 	canEditPullRequest(pullRequest: IPullRequestModel): boolean;
-	editPullRequest(pullRequest: IPullRequestModel, newBody: string): Promise<Github.PullRequestsUpdateResponse>;
+	editPullRequest(pullRequest: IPullRequestModel, toEdit: IPullRequestEditData): Promise<Github.PullRequestsUpdateResponse>;
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
@@ -154,6 +159,7 @@ export interface IPullRequestManager {
 	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
 	getMatchingPullRequestMetadataForBranch();
 	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
+	getBranch(remote: Remote, branchName: string): Promise<Branch>;
 	checkout(branchName: string): Promise<void>;
 	fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
 	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;

@@ -21,6 +21,7 @@ import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
+import { GitErrorCodes } from './typings/git';
 
 const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
 export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;
@@ -109,11 +110,34 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
 		const pullRequestModel = ensurePR(prManager, e);
+		const DELETE_BRANCH_FORCE = 'delete branch (even if not merged)';
+		let error = null;
+
 		try {
 			await prManager.deleteLocalPullRequest(pullRequestModel);
-			vscode.commands.executeCommand('pr.refreshList');
 		} catch (e) {
-			vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${e}`);
+			if (e.gitErrorCode === GitErrorCodes.BranchNotFullyMerged) {
+				let action = await vscode.window.showErrorMessage(`The branch '${pullRequestModel.localBranchName}' is not fully merged, are you sure you want to delete it? `, DELETE_BRANCH_FORCE);
+
+				if (action !== DELETE_BRANCH_FORCE) {
+					return;
+				}
+
+				try {
+					await prManager.deleteLocalPullRequest(pullRequestModel, true);
+				} catch (e) {
+					error = e;
+				}
+			} else {
+				error = e;
+			}
+		}
+
+		if (error) {
+			await vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${error}`);
+		} else {
+			// fire and forget
+			vscode.commands.executeCommand('pr.refreshList');
 		}
 	}));
 

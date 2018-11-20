@@ -10,13 +10,13 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry } from './interface';
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
-import { Repository, RefType, UpstreamRef } from '../typings/git';
+import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
 
 interface PageInformation {
@@ -68,12 +68,22 @@ export class BadUpstreamError extends Error {
 	}
 }
 
+const SETTINGS_NAMESPACE = 'githubPullRequests';
+const LOG_LEVEL_SETTING = 'includeRemotes';
+
+const enum IncludeRemote {
+	Default,
+	All
+}
+
 export class PullRequestManager implements IPullRequestManager {
+	static ID = 'PullRequestManager';
 	private _activePullRequest?: IPullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
+	private _includeRemotes: IncludeRemote;
 
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
@@ -85,6 +95,28 @@ export class PullRequestManager implements IPullRequestManager {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
+		this._includeRemotes = IncludeRemote.Default;
+		vscode.workspace.onDidChangeConfiguration(() => {
+			let oldIncludeRemote = this._includeRemotes;
+			this.getIncludeRemoteConfig();
+			if (this._includeRemotes !== oldIncludeRemote) {
+				this.updateRepositories();
+			}
+		});
+		this.getIncludeRemoteConfig();
+	}
+
+	private getIncludeRemoteConfig() {
+		let includeRemotes = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
+		switch (includeRemotes) {
+			case 'default':
+				this._includeRemotes = IncludeRemote.Default;
+				break;
+			case 'all':
+				this._includeRemotes = IncludeRemote.All;
+			default:
+				break;
+		}
 	}
 
 	get activePullRequest() {
@@ -109,6 +141,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async updateRepositories(): Promise<void> {
+		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
@@ -145,14 +178,13 @@ export class PullRequestManager implements IPullRequestManager {
 
 		let repositories = [];
 		let resolveRemotePromises = [];
-		for (let remote of gitHubRemotes) {
-			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote.remoteName);
-			if (!isRemoteForPR) {
-				const repository = new GitHubRepository(remote, this._credentialStore);
-				resolveRemotePromises.push(repository.resolveRemote());
-				repositories.push(repository);
-			}
-		}
+		let userCreatedRemoteNames = this._includeRemotes === IncludeRemote.All ? (gitHubRemotes as Remote[]) : await PullRequestGitHelper.getUserCreatedRemotes(this.repository, (gitHubRemotes as Remote[]));
+
+		userCreatedRemoteNames.forEach(remote => {
+			const repository = new GitHubRepository(remote, this._credentialStore);
+			resolveRemotePromises.push(repository.resolveRemote());
+			repositories.push(repository);
+		});
 
 		return Promise.all(resolveRemotePromises).then(_ => {
 			this._githubRepositories = repositories;
@@ -226,13 +258,17 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 	}
 
-	async deleteLocalPullRequest(pullRequest: PullRequestModel): Promise<void> {
-		const remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
-		if (!remoteName) {
-			throw new Error('Unable to find remote for branch');
-		}
+	async deleteLocalPullRequest(pullRequest: PullRequestModel, force?: boolean): Promise<void> {
+		await this.repository.deleteBranch(pullRequest.localBranchName, force);
 
-		await this.repository.deleteBranch(pullRequest.localBranchName);
+		let remoteName: string = null;
+		try {
+			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
+		} catch (e) {}
+
+		if (!remoteName) {
+			return;
+		}
 
 		// If the extension created a remote for the branch, remove it if there are no other branches associated with it
 		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remoteName);
@@ -278,8 +314,8 @@ export class PullRequestManager implements IPullRequestManager {
 
 			const githubRepository = githubRepositories[i];
 			const remote = githubRepository.remote.remoteName;
-			const isRemoteForPR = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote);
-			if (!isRemoteForPR) {
+			const shouldLoad = this._includeRemotes === IncludeRemote.All || !(await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote));
+			if (shouldLoad) {
 				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
 				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
 					const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
@@ -304,6 +340,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
+		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const reviewData = await octokit.pullRequests.getComments({
@@ -312,18 +349,21 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
+		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(comment, remote));
 		return parserCommentDiffHunk(rawComments);
 	}
 
 	async getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]> {
 		try {
+			Logger.debug(`Fetch commits of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const commitData = await octokit.pullRequests.getCommits({
 				number: pullRequest.prNumber,
 				owner: remote.owner,
 				repo: remote.repositoryName
 			});
+			Logger.debug(`Fetch commits of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
 			return commitData.data;
 		} catch (e) {
@@ -334,12 +374,14 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]> {
 		try {
+		Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				sha: commit.sha
 			});
+			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
 			return fullCommit.data.files.filter(file => !!file.patch);
 		} catch (e) {
@@ -349,6 +391,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Comment[]> {
+		Logger.debug(`Fetch comments of review #${reviewId} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const reviewData = await octokit.pullRequests.getReviewComments({
@@ -358,11 +401,13 @@ export class PullRequestManager implements IPullRequestManager {
 			review_id: reviewId
 		});
 
+		Logger.debug(`Fetch comments of review #${reviewId} in PR #${pullRequest.prNumber} - `, PullRequestManager.ID);
 		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(comment, remote));
 		return parserCommentDiffHunk(rawComments);
 	}
 
 	async getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let ret = await octokit.issues.getEventsTimeline({
@@ -371,11 +416,13 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
+		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
 		return await this.parseTimelineEvents(pullRequest, remote, ret.data);
 	}
 
 	async getIssueComments(pullRequest: IPullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]> {
+		Logger.debug(`Fetch issue comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		const promise = await octokit.issues.getComments({
@@ -384,6 +431,7 @@ export class PullRequestManager implements IPullRequestManager {
 			number: pullRequest.prNumber,
 			per_page: 100
 		});
+		Logger.debug(`Fetch issue comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
 		return promise.data;
 	}
@@ -634,14 +682,15 @@ export class PullRequestManager implements IPullRequestManager {
 		return ret.data;
 	}
 
-	async editPullRequest(pullRequest: IPullRequestModel, newBody: string): Promise<Github.PullRequestsUpdateResponse> {
+	async editPullRequest(pullRequest: IPullRequestModel, toEdit: IPullRequestEditData): Promise<Github.PullRequestsUpdateResponse> {
 		try {
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const { data } = await octokit.pullRequests.update({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				number: pullRequest.prNumber,
-				body: newBody
+				body: toEdit.body,
+				title: toEdit.title
 			});
 			return data;
 		} catch (e) {
@@ -704,6 +753,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetFilesResponseItem[]> {
+		Logger.debug(`Fetch changed files of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		let response = await octokit.pullRequests.getFiles({
@@ -718,6 +768,7 @@ export class PullRequestManager implements IPullRequestManager {
 			response = await octokit.getNextPage(response.headers);
 			data = data.concat(response.data);
 		}
+		Logger.debug(`Fetch changed files of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 		return data;
 	}
 
@@ -728,6 +779,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void> {
 		try {
+			Logger.debug(`Fullfill pull request missing info - start`, PullRequestManager.ID);
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 			if (!pullRequest.base) {
@@ -743,6 +795,7 @@ export class PullRequestManager implements IPullRequestManager {
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
+		Logger.debug(`Fullfill pull request missing info - done`, PullRequestManager.ID);
 	}
 
 	//#region Git related APIs
@@ -780,6 +833,22 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
 		await PullRequestGitHelper.createAndCheckout(this.repository, pullRequest);
+	}
+
+	async getBranch(remote: Remote, branchName: string): Promise<Branch> {
+		let githubRepository = this.findRepo(byRemoteName(remote.remoteName));
+		if (githubRepository) {
+			let githubBranch = await githubRepository.getBranch(branchName);
+
+			if (githubBranch) {
+				return {
+					name: githubBranch.name,
+					type: RefType.RemoteHead
+				};
+			}
+		}
+
+		return null;
 	}
 
 	async checkout(branchName: string): Promise<void> {
