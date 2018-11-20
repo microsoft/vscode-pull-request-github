@@ -12,6 +12,8 @@ import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
 import { Comment } from '../common/comment';
+import { writeFile, unlink } from 'fs';
+import Logger from '../common/logger';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -218,8 +220,43 @@ export class PullRequestOverviewPanel {
 				return this.deleteComment(message);
 			case 'pr.edit-description':
 				return this.editDescription(message);
+			case 'pr.apply-patch':
+				return this.applyPatch(message);
 			case 'pr.edit-title':
 				return this.editTitle(message);
+		}
+	}
+
+	private applyPatch(message: IRequestMessage<{ comment: Comment }>): void {
+		try {
+			const comment = message.args.comment;
+			const regex = /```diff\n([\s\S]*)\n```/g;
+			const matches = regex.exec(comment.body);
+			const tempFilePath = path.resolve(vscode.workspace.rootPath, '.git', `${comment.id}.diff`);
+			writeFile(tempFilePath, matches[1], {}, async (writeError) => {
+				if (writeError) {
+					throw writeError;
+				}
+
+				try {
+					await this._pullRequestManager.repository.apply(tempFilePath);
+
+					// Need to mark conversation as resolved
+					unlink(tempFilePath, (err) => {
+						if (err) {
+							throw err;
+						}
+
+						this._replyMessage(message, { });
+					});
+				} catch (e) {
+					Logger.appendLine(`Applying patch failed: ${e}`);
+					vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);
+				}
+			});
+		} catch (e) {
+			Logger.appendLine(`Applying patch failed: ${e}`);
+			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);
 		}
 	}
 

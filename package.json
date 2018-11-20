@@ -189,6 +189,10 @@
         }
       },
       {
+        "command": "review.suggestDiff",
+        "title": "Suggest Edit"
+      },
+      {
         "command": "pr.refreshList",
         "title": "Refresh Pull Requests List",
         "icon": {
@@ -328,6 +332,13 @@
           "command": "review.openFile",
           "group": "navigation",
           "when": "resourceScheme =~ /^review$/"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "review.suggestDiff",
+          "when": "scmProvider == git && github:inReviewMode",
+          "group": "inline"
         }
       ]
     }
