@@ -64,6 +64,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
 		try {
 			const diff = await prManager.repository.diff(true);
+			if (!diff) {
+				vscode.window.showWarningMessage('There are no staged changes for suggestions.');
+				return;
+			}
 			const suggestEditMessage = e.inputBox.value ? `${e.inputBox.value}\n` : '';
 			const suggestEditText = `${suggestEditMessage}\`\`\`diff\n${diff}\n\`\`\``;
 			await prManager.createIssueComment(prManager.activePullRequest, suggestEditText);
