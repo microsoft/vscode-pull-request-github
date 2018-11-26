@@ -19,7 +19,7 @@ const md = MarkdownIt({
 .use(Sanitizer, {
 	imageClass: '',
 	removeUnbalanced: false,
-	removeUnknown: false
+	removeUnknown: true
 });
 
 export default md;
