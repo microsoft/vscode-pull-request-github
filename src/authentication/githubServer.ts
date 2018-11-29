@@ -7,7 +7,7 @@ import { handler as uriHandler } from '../common/uri';
 import { PromiseAdapter, promiseFromEvent } from '../common/utils';
 import { agent } from '../common/net';
 import { EXTENSION_ID } from '../constants';
-import { onDidChange as onKeychainDidChange, toCanonical } from './keychain';
+import { onDidChange as onKeychainDidChange, toCanonical, listHosts } from './keychain';
 
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
@@ -44,6 +44,11 @@ export class GitHubManager {
 
 		if (this._servers.has(host.authority)) {
 			return this._servers.get(host.authority);
+		}
+
+		const keychainHosts = await listHosts();
+		if (keychainHosts.indexOf(toCanonical(host.authority)) !== -1) {
+			return true;
 		}
 
 		const options = GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
