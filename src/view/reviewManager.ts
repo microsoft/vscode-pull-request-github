@@ -1000,11 +1000,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber}`);
 		await this._prManager.fullfillPullRequestMissingInfo(pr);
 
-		if (this._repository.state.workingTreeChanges.length > 0) {
-			vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
-			throw new Error('Has local changes');
-		}
-
 		this.statusBarItem.text = '$(sync~spin) Switching to Review Mode';
 		this.statusBarItem.command = null;
 		this.statusBarItem.show();
@@ -1024,7 +1019,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
-				if (e.gitErrorCode === GitErrorCodes.LocalChangesOverwritten) {
+				if (e.gitErrorCode === GitErrorCodes.LocalChangesOverwritten || e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
 					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
 					return;
 				}
