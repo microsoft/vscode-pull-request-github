@@ -132,6 +132,10 @@
       {
         "command": "pr.create",
         "title": "Create Pull Request",
+        "icon": {
+            "light": "resources/icons/light/stage.svg",
+            "dark": "resources/icons/dark/stage.svg"
+        },
         "category": "GitHub Pull Requests"
       },
       {
@@ -290,6 +294,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "pr.create",
+          "when": "view == pr",
+          "group": "navigation"
+        },
         {
           "command": "pr.refreshList",
           "when": "view == pr",
