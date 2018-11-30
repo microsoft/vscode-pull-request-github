@@ -120,11 +120,17 @@ class ResponseExpired extends Error {
 	get message() { return 'Token response expired'; }
 }
 
+class TokenVerificationFailure extends Error {
+	constructor(public readonly server: string) {
+		super(`${server} could not verify token`);
+	}
+}
+
 const verifyToken: (host: string) => PromiseAdapter<vscode.Uri, IHostConfiguration> =
 	host => async (uri, resolve, reject) => {
 		if (uri.path !== CALLBACK_PATH) { return; }
 		const rsp = await axios.get(`${AUTH_RELAY_SERVER}/verify?${uri.query}`);
-		if (rsp.status !== 200) { return; }
+		if (rsp.status !== 200) { return reject(new TokenVerificationFailure(AUTH_RELAY_SERVER)); }
 		const {ts, access_token: token} = rsp.data.token;
 		if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE) {
 			return reject(new ResponseExpired);
