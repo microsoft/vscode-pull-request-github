@@ -168,7 +168,8 @@ export async function promiseFromEvent<T, U>(
 	return new Promise<U>((resolve, reject) =>
 		subscription = event((value: T) => {
 			try {
-				adapter(value, resolve, reject);
+				Promise.resolve(adapter(value, resolve, reject))
+					.catch(reject);
 			} catch(error) {
 				reject(error);
 			}

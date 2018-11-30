@@ -106,6 +106,22 @@ describe('utils', () => {
 				assert(!hasListeners(emitter), 'should unsubscribe');
 			});
 
+			it('should return a promise that rejects if the adapter returns a rejecting Promise', async () => {
+				const emitter = new EventEmitter<string>();
+				const promise = utils.promiseFromEvent(
+					emitter.event,
+					async () => { throw new Error('kaboom'); }
+				);
+				assert(hasListeners(emitter), 'should subscribe');
+				emitter.fire('hello');
+				await promise
+					.then(
+						() => { throw new Error('promise should have rejected'); },
+						e => assert.equal(e.message, 'kaboom')
+					);
+				assert(!hasListeners(emitter), 'should unsubscribe');
+			});
+
 			const door: utils.PromiseAdapter<string, boolean> =
 				(password, resolve, reject) =>
 					password === 'sesame'
