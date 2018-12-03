@@ -7,7 +7,7 @@ import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
 import {  EventType } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
-import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 const emoji = require('node-emoji');
 import { getMessageHandler } from './message';
@@ -60,6 +60,7 @@ function renderPullRequest(pr: PullRequest): void {
 	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
+	renderStatusChecks(pr.status);
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 

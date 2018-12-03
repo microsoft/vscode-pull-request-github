@@ -6,6 +6,7 @@
 import { vscode } from './message';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { TimelineEvent } from '../src/common/timelineEvent';
+import { ReposGetCombinedStatusForRefResponse } from '@octokit/rest';
 
 export interface PullRequest {
 	number: number;
@@ -25,6 +26,7 @@ export interface PullRequest {
 	canEdit: boolean;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string; };
+	status: ReposGetCombinedStatusForRefResponse;
 }
 
 export function getState(): PullRequest {

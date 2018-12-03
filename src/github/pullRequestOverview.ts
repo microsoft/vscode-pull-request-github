@@ -142,10 +142,11 @@ export class PullRequestOverviewPanel {
 			Promise.all(
 				[
 					this._pullRequestManager.getTimelineEvents(pullRequestModel),
-					this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)
+					this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
+					this._pullRequestManager.getStatusChecks(pullRequestModel)
 				]
 			).then(result => {
-				const [timelineEvents, defaultBranch] = result;
+				const [timelineEvents, defaultBranch, status] = result;
 				this._postMessage({
 					command: 'pr.initialize',
 					pullrequest: {
@@ -163,9 +164,12 @@ export class PullRequestOverviewPanel {
 						head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
 						commitsCount: pullRequestModel.commitCount,
 						repositoryDefaultBranch: defaultBranch,
-						canEdit: canEdit
+						canEdit: canEdit,
+						status: status
 					}
 				});
+			}).catch(e => {
+				vscode.window.showErrorMessage(formatError(e));
 			});
 		}
 	}
@@ -461,6 +465,7 @@ export class PullRequestOverviewPanel {
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 				<div id="title" class="title"></div>
 				<div id="timeline-events" class="discussion" aria-live="polite"></div>
+				<details id="status-checks"></details>
 				<div id="comment-form" class="comment-form"></div>
 			</body>
 			</html>`;

@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import { dateFromNow } from '../src/common/utils';
 import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, EventType, isCommentEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
@@ -15,6 +14,8 @@ import { Comment } from '../src/common/comment';
 const commitIconSvg = require('../resources/icons/commit_icon.svg');
 const editIcon = require('../resources/icons/edit.svg');
 const deleteIcon = require('../resources/icons/delete.svg');
+const checkIcon = require('../resources/icons/check.svg');
+const dotIcon = require('../resources/icons/dot.svg');
 
 const emoji = require('node-emoji');
 
@@ -41,6 +42,84 @@ function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[] } {
 		result[key] = [...(result[key] || []), el];
 		return result;
 	}, Object.create(null));
+}
+
+function getSummaryLabel(statuses: any[]) {
+	const statusTypes = groupBy(statuses, (status: any) => status.state);
+	let statusPhrases = [];
+	for (let statusType of Object.keys(statusTypes)) {
+		const numOfType = statusTypes[statusType].length;
+		let statusAdjective = '';
+
+		switch (statusType) {
+			case 'success':
+				statusAdjective = 'successful';
+				break;
+			case 'failure':
+				statusAdjective = 'failed';
+				break;
+			default:
+				statusAdjective = 'pending';
+		}
+
+		const status = numOfType > 1
+			? `${numOfType} ${statusAdjective} checks`
+			: `${numOfType} ${statusAdjective} check`;
+
+		statusPhrases.push(status);
+	}
+
+	return statusPhrases.join(' and ');
+}
+
+function getStateIcon(state: string) {
+	if (state === 'success') {
+		return checkIcon;
+	} else if (state === 'failure') {
+		return deleteIcon;
+	} else {
+		return dotIcon;
+	}
+}
+
+export function renderStatusChecks(statusInfo: any) {
+	const statusContainer: HTMLDetailsElement = document.getElementById('status-checks') as HTMLDetailsElement;
+	statusContainer.innerHTML = '';
+
+	if (!statusInfo.statuses.length) {
+		statusContainer.classList.add('hidden');
+		return;
+	}
+
+	statusContainer.open = statusInfo.state !== 'success';
+
+	const statusSummary = document.createElement('summary');
+	const statusSummaryIcon = document.createElement('span');
+	const statusSummaryText = document.createElement('span');
+	statusSummaryIcon.innerHTML = getStateIcon(statusInfo.state);
+	statusSummary.appendChild(statusSummaryIcon);
+	statusSummaryText.textContent = getSummaryLabel(statusInfo.statuses);
+	statusSummary.appendChild(statusSummaryText);
+	statusContainer.appendChild(statusSummary);
+
+	statusInfo.statuses.forEach(status => {
+		const statusElement: HTMLDivElement = document.createElement('div');
+		statusElement.className = 'status-check';
+
+		const state: HTMLSpanElement = document.createElement('span');
+		state.innerHTML = getStateIcon(status.state);
+
+		statusElement.appendChild(state);
+
+		const statusIcon = renderUserIcon(status.url, status.avatar_url);
+		statusElement.appendChild(statusIcon);
+
+		const statusDescription = document.createElement('span');
+		statusDescription.textContent = `${status.context} - ${status.description}`;
+		statusElement.appendChild(statusDescription);
+
+		statusContainer.appendChild(statusElement);
+	});
 }
 
 function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
@@ -296,7 +375,7 @@ class CommentNode {
 						comment: this._comment
 					}
 				});
-			}
+			};
 
 			this._commentBody.appendChild(replyButton);
 		}

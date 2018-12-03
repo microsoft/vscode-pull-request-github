@@ -339,6 +339,18 @@ export class PullRequestManager implements IPullRequestManager {
 		return this._githubRepositories.some(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
 	}
 
+	async getStatusChecks(pullRequest: IPullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse> {
+		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+
+		const result = await octokit.repos.getCombinedStatusForRef({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			ref: pullRequest.head.sha
+		});
+
+		return result.data;
+	}
+
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
