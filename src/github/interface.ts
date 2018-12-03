@@ -140,6 +140,7 @@ export interface IPullRequestManager {
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetFilesResponseItem[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
+	getStatusChecks(pullRequest: IPullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse>;
 
 	/**
 	 * Fullfill information for a pull request which we can't fetch with one single api call.

@@ -118,6 +118,28 @@ body .comment-container .review-comment-header a {
 	height: 14px;
 }
 
+.status-check {
+	display: flex;
+	align-items: center;
+	margin-top: 5px;
+	margin-left: 15px;
+}
+
+#status-checks {
+	margin-top: 5px;
+}
+
+#status-checks summary {
+	display: flex;
+	align-items: center;
+}
+
+#status-checks svg {
+	fill: var(--vscode-foreground);
+	margin-right: 6px;
+	width: 12px;
+}
+
 body .comment-container .review-comment-header > span,
 body .comment-container .review-comment-header > a,
 body .commit .commit-message > a {
