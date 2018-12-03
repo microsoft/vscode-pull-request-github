@@ -169,7 +169,7 @@ export class PullRequestOverviewPanel {
 					}
 				});
 			}).catch(e => {
-				vscode.window.showErrorMessage(e);
+				vscode.window.showErrorMessage(formatError(e));
 			});
 		}
 	}

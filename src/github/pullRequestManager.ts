@@ -340,19 +340,15 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getStatusChecks(pullRequest: IPullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse> {
-		try {
-			const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-			const result = await octokit.repos.getCombinedStatusForRef({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				ref: pullRequest.head.sha
-			});
+		const result = await octokit.repos.getCombinedStatusForRef({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			ref: pullRequest.head.sha
+		});
 
-			return result.data;
-		} catch (e) {
-			throw new Error(formatError(e));
-		}
+		return result.data;
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
