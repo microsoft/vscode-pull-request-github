@@ -8,7 +8,7 @@
 
 0.3.0
 
-**Breaking Changes**ß
+**Breaking Changes**
 
 - From 0.3.0, you at least need VSCode 1.30 (including Insiders) to install and run the extension.
 
