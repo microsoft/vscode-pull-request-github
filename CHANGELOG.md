@@ -1,6 +1,14 @@
+0.3.1
+- Add status check information on PR description page [#713](https://github.com/Microsoft/vscode-pull-request-github/pull/713)
+- Add button for creating a pull request on PR tree view [#709](https://github.com/Microsoft/vscode-pull-request-github/pull/709)
+- Add "Suggest Edit" command [#688](https://github.com/Microsoft/vscode-pull-request-github/pull/688)
+- Fix [#689](https://github.com/Microsoft/vscode-pull-request-github/issues/689), by [@JefferyCA], do not render markdown block comments
+- Fix [#553](https://github.com/Microsoft/vscode-pull-request-github/issues/553), don't prevent checkout when there are unrelated working tree changes
+- Fix [#576](https://github.com/Microsoft/vscode-pull-request-github/issues/576), handle GitHub enterprise behind a SSO wall
+
 0.3.0
 
-**Breaking Changes**
+**Breaking Changes**ß
 
 - From 0.3.0, you at least need VSCode 1.30 (including Insiders) to install and run the extension.
 
