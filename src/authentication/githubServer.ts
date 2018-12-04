@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { IHostConfiguration, HostHelper } from './configuration';
 import * as https from 'https';
-import axios from 'axios';
+import { Base64 } from 'js-base64';
+import { parse } from 'query-string';
 import Logger from '../common/logger';
 import { handler as uriHandler } from '../common/uri';
 import { PromiseAdapter, promiseFromEvent } from '../common/utils';
@@ -120,18 +121,30 @@ class ResponseExpired extends Error {
 	get message() { return 'Token response expired'; }
 }
 
-class TokenVerificationFailure extends Error {
-	constructor(public readonly server: string) {
-		super(`${server} could not verify token`);
-	}
-}
+const SEPARATOR = '/', SEPARATOR_LEN = SEPARATOR.length
+
+/**
+ * Hydrate and verify the signature of a message produced with `encode`
+ *
+ * Returns an object
+ *
+ * @param {string} signedMessage signed message produced by encode
+ * @returns {any} decoded JSON data
+ * @throws {SyntaxError} if the message was null or could not be parsed as JSON
+ */
+export const decode = (signedMessage?: string): any => {
+	if (!signedMessage) { throw new SyntaxError('Invalid encoding'); }
+	const separatorIndex = signedMessage.indexOf(SEPARATOR);
+	const message = signedMessage.substr(separatorIndex + SEPARATOR_LEN);
+	return JSON.parse(Base64.decode(message));
+};
 
 const verifyToken: (host: string) => PromiseAdapter<vscode.Uri, IHostConfiguration> =
 	host => async (uri, resolve, reject) => {
 		if (uri.path !== CALLBACK_PATH) { return; }
-		const rsp = await axios.get(`${AUTH_RELAY_SERVER}/verify?${uri.query}`);
-		if (rsp.status !== 200) { return reject(new TokenVerificationFailure(AUTH_RELAY_SERVER)); }
-		const {ts, access_token: token} = rsp.data.token;
+		const query = parse(uri.query);
+		const state = decode(query.state as string);
+		const { ts, access_token: token } = state.token;
 		if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE) {
 			return reject(new ResponseExpired);
 		}
