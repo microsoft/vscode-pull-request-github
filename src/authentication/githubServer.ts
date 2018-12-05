@@ -132,7 +132,7 @@ const SEPARATOR = '/', SEPARATOR_LEN = SEPARATOR.length
  * @returns {any} decoded JSON data
  * @throws {SyntaxError} if the message was null or could not be parsed as JSON
  */
-export const decode = (signedMessage?: string): any => {
+const decode = (signedMessage?: string): any => {
 	if (!signedMessage) { throw new SyntaxError('Invalid encoding'); }
 	const separatorIndex = signedMessage.indexOf(SEPARATOR);
 	const message = signedMessage.substr(separatorIndex + SEPARATOR_LEN);
