@@ -68,10 +68,15 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 				vscode.window.showWarningMessage('There are no staged changes for suggestions.');
 				return;
 			}
-			const suggestEditMessage = e.inputBox.value ? `${e.inputBox.value}\n` : '';
+
+			let suggestEditMessage = '';
+			if (e && e.inputBox && e.inputBox.value) {
+				suggestEditMessage = `${e.inputBox.value}\n`;
+				e.inputBox.value = '';
+			}
+
 			const suggestEditText = `${suggestEditMessage}\`\`\`diff\n${diff}\n\`\`\``;
 			await prManager.createIssueComment(prManager.activePullRequest, suggestEditText);
-			e.inputBox.value = '';
 
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
