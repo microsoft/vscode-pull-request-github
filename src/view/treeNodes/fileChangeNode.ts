@@ -31,7 +31,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		this.label = path.basename(fileName);
-		this.description = path.dirname(fileName);
+		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = Resource.getFileStatusUri(this);
 
 		this.command = {
@@ -78,7 +78,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		super();
 		this.contextValue = 'filechange';
 		this.label = path.basename(fileName);
-		this.description = path.dirname(fileName);
+		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = Resource.getFileStatusUri(this);
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
 
@@ -148,7 +148,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		super();
 		this.contextValue = 'filechange';
 		this.label = path.basename(fileName);
-		this.description = path.dirname(fileName);
+		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = Resource.getFileStatusUri(this);
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
 
