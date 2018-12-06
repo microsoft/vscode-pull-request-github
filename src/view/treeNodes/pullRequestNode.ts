@@ -319,12 +319,14 @@ export class PRNode extends TreeNode {
 		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
 		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
 		const formattedPRNumber = prNumber.toString();
-		const label = `${labelPrefix}${title} (#${formattedPRNumber})`;
-		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by ${login}`;
+		const label = `${labelPrefix}${title}`;
+		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by @${login}`;
+		const description = `#${formattedPRNumber} by @${login}`;
 
 		return {
 			label,
 			tooltip,
+			description,
 			collapsibleState: 1,
 			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
 			iconPath: this.pullRequestModel.userAvatarUri

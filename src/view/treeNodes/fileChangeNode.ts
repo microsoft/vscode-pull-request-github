@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
 import { Resource } from '../../common/resources';
@@ -18,6 +19,7 @@ import { toFileChangeNodeUri } from '../../common/uri';
  */
 export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
+	public description: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
 	public command: vscode.Command;
 
@@ -28,7 +30,8 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly blobUrl: string
 	) {
 		super();
-		this.label = fileName;
+		this.label = path.basename(fileName);
+		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = Resource.getFileStatusUri(this);
 
 		this.command = {
@@ -50,6 +53,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
  */
 export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
+	public description: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
 	public resourceUri: vscode.Uri;
 	public parentSha: string;
@@ -73,7 +77,8 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		this.contextValue = 'filechange';
-		this.label = fileName;
+		this.label = path.basename(fileName);
+		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = Resource.getFileStatusUri(this);
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
 
@@ -121,6 +126,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
  */
 export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
+	public description: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
 	public resourceUri: vscode.Uri;
 	public parentSha: string;
@@ -141,7 +147,8 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		this.contextValue = 'filechange';
-		this.label = fileName;
+		this.label = path.basename(fileName);
+		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = Resource.getFileStatusUri(this);
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
 
