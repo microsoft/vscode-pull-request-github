@@ -18,6 +18,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
 	private _disposables: vscode.Disposable[];
 	private _childrenDisposables: vscode.Disposable[];
+	private _view: vscode.TreeView<any>;
 
 	constructor(
 		onShouldReload: vscode.Event<any>,
@@ -37,7 +38,12 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			this._onDidChangeTreeData.fire(node);
 		}));
 
-		this._disposables.push(vscode.window.registerTreeDataProvider<TreeNode>('pr', this));
+		this._view = vscode.window.createTreeView('pr', {
+			treeDataProvider: this,
+			showCollapseAll: true
+		});
+
+		this._disposables.push(this._view);
 		this._disposables.push(onShouldReload(e => {
 			this._onDidChangeTreeData.fire();
 		}));

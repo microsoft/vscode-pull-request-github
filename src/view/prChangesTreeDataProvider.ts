@@ -24,7 +24,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	constructor(private context: vscode.ExtensionContext) {
 		super(() => this.dispose());
-		this.context.subscriptions.push(vscode.window.registerTreeDataProvider<TreeNode>('prStatus', this));
+		this.context.subscriptions.push(vscode.window.createTreeView('prStatus', {
+			treeDataProvider: this,
+			showCollapseAll: true
+		}));
 	}
 
 	refresh() {
