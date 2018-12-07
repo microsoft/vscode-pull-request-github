@@ -10,7 +10,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData } from './interface';
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
@@ -590,7 +590,32 @@ export class PullRequestManager implements IPullRequestManager {
 
 			// Create PR
 			let { data } = await repo.octokit.pullRequests.create(params);
-			return await repo.getPullRequest(data.number);
+
+			const item: PullRequest = {
+				number: data.number,
+				body: data.body,
+				title: data.title,
+				html_url: data.html_url,
+				user: data.user,
+				labels: [],
+				state: data.state,
+				merged: false,
+				assignee: data.assignee,
+				created_at: data.created_at,
+				updated_at: data.updated_at,
+				comments: 0,
+				commits: 0,
+				head: data.head,
+				base: data.base
+			};
+
+			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
+
+			const branchNameSeparatorIndex = params.head.indexOf(':');
+			const branchName = params.head.slice(branchNameSeparatorIndex + 1);
+			await PullRequestGitHelper.associateBranchWithPullRequest(this._repository, pullRequestModel, branchName);
+
+			return pullRequestModel;
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
 			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
