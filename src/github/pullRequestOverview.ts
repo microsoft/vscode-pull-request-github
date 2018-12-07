@@ -130,48 +130,52 @@ export class PullRequestOverviewPanel {
 			scrollPosition: this._scrollPosition,
 		});
 
-		if (!pullRequestModel.equals(this._pullRequest) || !this._initialized) {
-			this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
-			this._pullRequest = pullRequestModel;
-			this._initialized = true;
+		if (this._initialized && pullRequestModel.equals(this._pullRequest)) { return; }
+
+		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
+		this._initialized = true;
+
+		Promise.all([
+			this._pullRequestManager.resolvePullRequest(
+				pullRequestModel.remote.owner,
+				pullRequestModel.remote.repositoryName,
+				pullRequestModel.prNumber
+			),
+			this._pullRequestManager.getTimelineEvents(pullRequestModel),
+			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
+			this._pullRequestManager.getStatusChecks(pullRequestModel)
+		]).then(result => {
+			const [pullRequest, timelineEvents, defaultBranch, status] = result;
+			this._pullRequest = pullRequest;
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
 
-			Promise.all(
-				[
-					this._pullRequestManager.getTimelineEvents(pullRequestModel),
-					this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-					this._pullRequestManager.getStatusChecks(pullRequestModel)
-				]
-			).then(result => {
-				const [timelineEvents, defaultBranch, status] = result;
-				this._postMessage({
-					command: 'pr.initialize',
-					pullrequest: {
-						number: pullRequestModel.prNumber,
-						title: pullRequestModel.title,
-						url: pullRequestModel.html_url,
-						createdAt: pullRequestModel.createdAt,
-						body: pullRequestModel.body,
-						labels: pullRequestModel.labels,
-						author: pullRequestModel.author,
-						state: pullRequestModel.state,
-						events: timelineEvents,
-						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-						base: pullRequestModel.base && pullRequestModel.base.label || 'UNKNOWN',
-						head: pullRequestModel.head && pullRequestModel.head.label || 'UNKNOWN',
-						commitsCount: pullRequestModel.commitCount,
-						repositoryDefaultBranch: defaultBranch,
-						canEdit: canEdit,
-						status: status
-					}
-				});
-			}).catch(e => {
-				vscode.window.showErrorMessage(formatError(e));
+			this._postMessage({
+				command: 'pr.initialize',
+				pullrequest: {
+					number: this._pullRequest.prNumber,
+					title: this._pullRequest.title,
+					url: this._pullRequest.html_url,
+					createdAt: this._pullRequest.createdAt,
+					body: this._pullRequest.body,
+					labels: this._pullRequest.labels,
+					author: this._pullRequest.author,
+					state: this._pullRequest.state,
+					events: timelineEvents,
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+					base: this._pullRequest.base && this._pullRequest.base.label || 'UNKNOWN',
+					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
+					commitsCount: this._pullRequest.commitCount,
+					repositoryDefaultBranch: defaultBranch,
+					canEdit: canEdit,
+					status: status
+				}
 			});
-		}
+		}).catch(e => {
+			vscode.window.showErrorMessage(formatError(e));
+		});
 	}
 
 	private async _postMessage(message: any) {
@@ -465,7 +469,7 @@ export class PullRequestOverviewPanel {
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 				<div id="title" class="title"></div>
 				<div id="timeline-events" class="discussion" aria-live="polite"></div>
-				<details id="status-checks"></details>
+				<details id="status-checks" class="hidden"></details>
 				<div id="comment-form" class="comment-form"></div>
 			</body>
 			</html>`;
