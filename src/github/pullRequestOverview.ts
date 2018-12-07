@@ -130,50 +130,52 @@ export class PullRequestOverviewPanel {
 			scrollPosition: this._scrollPosition,
 		});
 
-		if (!pullRequestModel.equals(this._pullRequest) || !this._initialized) {
-			this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
-			this._initialized = true;
+		if (this._initialized && pullRequestModel.equals(this._pullRequest)) { return; }
 
-			Promise.all(
-				[
-					this._pullRequestManager.resolvePullRequest(pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName, pullRequestModel.prNumber),
-					this._pullRequestManager.getTimelineEvents(pullRequestModel),
-					this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-					this._pullRequestManager.getStatusChecks(pullRequestModel)
-				]
-			).then(result => {
-				const [pullRequest, timelineEvents, defaultBranch, status] = result;
-				this._pullRequest = pullRequest;
-				this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
+		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
+		this._initialized = true;
 
-				const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
-				const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
+		Promise.all([
+			this._pullRequestManager.resolvePullRequest(
+				pullRequestModel.remote.owner,
+				pullRequestModel.remote.repositoryName,
+				pullRequestModel.prNumber
+			),
+			this._pullRequestManager.getTimelineEvents(pullRequestModel),
+			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
+			this._pullRequestManager.getStatusChecks(pullRequestModel)
+		]).then(result => {
+			const [pullRequest, timelineEvents, defaultBranch, status] = result;
+			this._pullRequest = pullRequest;
+			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
-				this._postMessage({
-					command: 'pr.initialize',
-					pullrequest: {
-						number: this._pullRequest.prNumber,
-						title: this._pullRequest.title,
-						url: this._pullRequest.html_url,
-						createdAt: this._pullRequest.createdAt,
-						body: this._pullRequest.body,
-						labels: this._pullRequest.labels,
-						author: this._pullRequest.author,
-						state: this._pullRequest.state,
-						events: timelineEvents,
-						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-						base: this._pullRequest.base && this._pullRequest.base.label || 'UNKNOWN',
-						head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
-						commitsCount: this._pullRequest.commitCount,
-						repositoryDefaultBranch: defaultBranch,
-						canEdit: canEdit,
-						status: status
-					}
-				});
-			}).catch(e => {
-				vscode.window.showErrorMessage(formatError(e));
+			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
+			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
+
+			this._postMessage({
+				command: 'pr.initialize',
+				pullrequest: {
+					number: this._pullRequest.prNumber,
+					title: this._pullRequest.title,
+					url: this._pullRequest.html_url,
+					createdAt: this._pullRequest.createdAt,
+					body: this._pullRequest.body,
+					labels: this._pullRequest.labels,
+					author: this._pullRequest.author,
+					state: this._pullRequest.state,
+					events: timelineEvents,
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+					base: this._pullRequest.base && this._pullRequest.base.label || 'UNKNOWN',
+					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
+					commitsCount: this._pullRequest.commitCount,
+					repositoryDefaultBranch: defaultBranch,
+					canEdit: canEdit,
+					status: status
+				}
 			});
-		}
+		}).catch(e => {
+			vscode.window.showErrorMessage(formatError(e));
+		});
 	}
 
 	private async _postMessage(message: any) {
