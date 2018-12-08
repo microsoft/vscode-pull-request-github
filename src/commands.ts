@@ -63,11 +63,23 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
 		try {
-			const diff = await prManager.repository.diff(true);
-			if (!diff) {
-				vscode.window.showWarningMessage('There are no staged changes for suggestions.');
-				return;
+			const { indexChanges, workingTreeChanges } = prManager.repository.state;
+
+			if (!indexChanges.length) {
+				if (workingTreeChanges.length) {
+					const stageAll = await vscode.window.showWarningMessage('There are no staged changes to suggest.\n\nWould you like to automatically stage all your of changes and suggest them?', { modal: true }, 'Yes');
+					if (stageAll === 'Yes') {
+						await vscode.commands.executeCommand('git.stageAll');
+					} else {
+						return;
+					}
+				} else {
+					vscode.window.showInformationMessage('There are no changes to suggest.');
+					return;
+				}
 			}
+
+			const diff = await prManager.repository.diff(true);
 
 			let suggestEditMessage = '';
 			if (e && e.inputBox && e.inputBox.value) {
