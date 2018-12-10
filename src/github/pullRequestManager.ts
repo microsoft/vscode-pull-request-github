@@ -9,8 +9,8 @@ import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
-import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData } from './interface';
+import { GitHubRepository } from './githubRepository';
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequestsResponseResult } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
@@ -284,11 +284,15 @@ export class PullRequestManager implements IPullRequestManager {
 		this._telemetry.on('branch.delete');
 	}
 
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[IPullRequestModel[], boolean]> {
+	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<PullRequestsResponseResult> {
 		let githubRepositories = this._githubRepositories;
 
 		if (!githubRepositories || !githubRepositories.length) {
-			return [[], false];
+			return {
+				pullRequests: [],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false
+			};
 		}
 
 		if (!options.fetchNextPage) {
@@ -302,37 +306,49 @@ export class PullRequestManager implements IPullRequestManager {
 
 		githubRepositories = githubRepositories.filter(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
 
-		let pullRequests: PullRequestModel[] = [];
-		let numPullRequests = 0;
-		let hasMorePages = false;
+		if (githubRepositories.length > 1) {
+			try {
+				// Try to be intelligent about what remote to start fetching from
+				const likelyRemote = this.findRepo(byRemoteName('upstream')) || this.origin;
+				const indexOfLikelyRemote = githubRepositories.findIndex(remote => remote.remote === likelyRemote.remote);
 
-		for (let i = 0; i < githubRepositories.length; i++) {
-			if (numPullRequests >= PULL_REQUEST_PAGE_SIZE) {
-				hasMorePages = true;
-				break;
+				if (indexOfLikelyRemote !== 0) {
+					const currentStart = githubRepositories[0];
+					githubRepositories[0] = likelyRemote;
+					githubRepositories[indexOfLikelyRemote] = currentStart;
+				}
+			} catch (e) {
+				// Ignore and just use current ordering
 			}
 
+		}
+
+		for (let i = 0; i < githubRepositories.length; i++) {
 			const githubRepository = githubRepositories[i];
 			const remote = githubRepository.remote.remoteName;
 			const shouldLoad = this._includeRemotes === IncludeRemote.All || !(await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote));
 			if (shouldLoad) {
 				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
-				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
-					const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
-					if (!pullRequestData) {
-						break;
-					}
-					numPullRequests += pullRequestData.pullRequests.length;
-					pullRequests = pullRequests.concat(...pullRequestData.pullRequests);
+				const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
 
-					pageInformation.hasMorePages = pullRequestData.hasMorePages;
-					hasMorePages = hasMorePages || pageInformation.hasMorePages;
-					pageInformation.pullRequestPage++;
+				pageInformation.hasMorePages = !!pullRequestData && pullRequestData.hasMorePages;
+				pageInformation.pullRequestPage++;
+
+				if (pullRequestData && pullRequestData.pullRequests.length) {
+					return {
+						pullRequests: pullRequestData.pullRequests,
+						hasMorePages: pageInformation.hasMorePages,
+						hasUnsearchedRepositories: i < githubRepositories.length
+					};
 				}
 			}
 		}
 
-		return [pullRequests, hasMorePages];
+		return {
+			pullRequests: [],
+			hasMorePages: false,
+			hasUnsearchedRepositories: false
+		};
 	}
 
 	public mayHaveMorePages(): boolean {

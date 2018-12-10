@@ -11,6 +11,7 @@ import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
 import { Repository, Branch } from '../typings/git';
 import { PullRequestsCreateParams } from '@octokit/rest';
+import { PullRequestModel } from './pullRequestModel';
 
 export enum PRType {
 	RequestReview = 0,
@@ -107,13 +108,19 @@ export interface IPullRequestEditData {
 	title?: string;
 }
 
+export interface PullRequestsResponseResult {
+	pullRequests: PullRequestModel[];
+	hasMorePages: boolean;
+	hasUnsearchedRepositories: boolean;
+}
+
 export interface IPullRequestManager {
 	activePullRequest?: IPullRequestModel;
 	repository: Repository;
 	readonly onDidChangeActivePullRequest: vscode.Event<void>;
 	getLocalPullRequests(): Promise<IPullRequestModel[]>;
 	deleteLocalPullRequest(pullRequest: IPullRequestModel, force?: boolean): Promise<void>;
-	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
+	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<PullRequestsResponseResult>;
 	getMetadata(remote: string): Promise<any>;
 	getGitHubRemotes(): Remote[];
 	mayHaveMorePages(): boolean;
