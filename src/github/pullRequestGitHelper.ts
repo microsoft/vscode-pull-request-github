@@ -54,38 +54,43 @@ export class PullRequestGitHelper {
 
 	static async fetchAndCheckout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
 		let remoteName = remote.remoteName;
-		Logger.debug(`Fetch remote ${remoteName}`, PullRequestGitHelper.ID);
-		await repository.fetch(remoteName);
-
 		let branch: Branch;
 
 		try {
 			branch = await repository.getBranch(branchName);
+
+			if (branch.remote && branch.remote !== remote.remoteName) {
+				// the pull request branch is a branch with the same name in a fork
+				// we should check whehter the branch for this fork
+				// if `repository.getBranch(branchName)` fails, it means there is no branch with the same name locally
+				// we can just create the branch and checkout
+				await PullRequestGitHelper.createAndCheckout(repository, pullRequest);
+				return;
+			}
+
+			Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
+			await repository.checkout(branchName);
+
+			if (!branch.upstream) {
+				// this branch is not associated with upstream yet
+				const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
+				await repository.setBranchUpstream(branchName, trackedBranchName);
+			}
+
+			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
+				await repository.pull();
+			}
 		} catch (err) {
+			// there is no local branch with the same name, so we are good to fetch, create and checkout the remote branch.
 			Logger.appendLine(`Branch ${remoteName}/${branchName} doesn't exist on local disk yet.`, PullRequestGitHelper.ID);
-			await PullRequestGitHelper.fetchAndCreateBranch(repository, remote, branchName, pullRequest);
-			branch = await repository.getBranch(branchName);
-		}
-
-		if (branch.remote && branch.remote !== remote.remoteName) {
-			// the pull request branch is a branch with the same name in a fork
-			// we should check whehter the branch for this fork
-			await PullRequestGitHelper.createAndCheckout(repository, pullRequest);
-			return;
-		}
-
-		Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
-		await repository.checkout(branchName);
-
-		if (!branch.upstream) {
-			// this branch is not associated with upstream yet
 			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
+			Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
+			await repository.fetch(remoteName, trackedBranchName);
+			const trackedBranch = await repository.getBranch(trackedBranchName);
+			// create branch
+			await repository.createBranch(branchName, true, trackedBranch.commit);
 			await repository.setBranchUpstream(branchName, trackedBranchName);
-		}
-
-		if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
-			Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
-			await repository.pull();
 		}
 
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
@@ -127,21 +132,6 @@ export class PullRequestGitHelper {
 			}
 
 			return null;
-		}
-	}
-
-	static async fetchAndCreateBranch(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel) {
-		let remoteName = remote.remoteName;
-		const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
-		Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
-
-		try {
-			const trackedBranch = await repository.getBranch(trackedBranchName);
-			// create branch
-			await repository.createBranch(branchName, false, trackedBranch.commit);
-			await repository.setBranchUpstream(branchName, trackedBranchName);
-		} catch (err) {
-			throw new Error(`Could not find branch '${trackedBranchName}'.`);
 		}
 	}
 
