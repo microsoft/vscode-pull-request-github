@@ -21,6 +21,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public description: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public command: vscode.Command;
+	public resourceUri: vscode.Uri;
 
 	constructor(
 		public readonly pullRequest: IPullRequestModel,
@@ -32,6 +33,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
+		this.resourceUri = toFileChangeNodeUri(vscode.Uri.parse(this.blobUrl), false, status);
 
 		this.command = {
 			title: 'show remote file',
