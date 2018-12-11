@@ -16,8 +16,9 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	private _pr: IPullRequestModel;
 	private _comments: Comment[];
 
-	constructor(prManager: IPullRequestManager, pr: IPullRequestModel, comments: Comment[]) {
+	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, prManager: IPullRequestManager, pr: IPullRequestModel, comments: Comment[]) {
 		super();
+		this.parent = parent;
 		this._pr = pr;
 		this._prManager = prManager;
 		this._comments = comments;
@@ -31,7 +32,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	async getChildren(): Promise<TreeNode[]> {
 		try {
 			const commits = await this._prManager.getPullRequestCommits(this._pr);
-			const commitNodes = commits.map(commit => new CommitNode(this._prManager, this._pr, commit, this._comments));
+			const commitNodes = commits.map(commit => new CommitNode(this, this._prManager, this._pr, commit, this._comments));
 			return Promise.resolve(commitNodes);
 		} catch (e) {
 			Promise.resolve([]);

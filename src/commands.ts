@@ -223,10 +223,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		return await prManager.requestChanges(pr, message);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: IPullRequestModel) => {
-		const pullRequest = ensurePR(prManager, pr);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
+		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode);
 		telemetry.on('pr.openDescription');
 	}));
 

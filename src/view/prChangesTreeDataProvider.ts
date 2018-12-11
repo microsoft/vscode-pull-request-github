@@ -20,14 +20,16 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: Comment[] = [];
 	private _pullrequest: IPullRequestModel = null;
+	private _view: vscode.TreeView<TreeNode>;
 	private _pullRequestManager: IPullRequestManager;
 
-	constructor(private context: vscode.ExtensionContext) {
+	constructor(private _context: vscode.ExtensionContext) {
 		super(() => this.dispose());
-		this.context.subscriptions.push(vscode.window.createTreeView('prStatus', {
+		this._view = vscode.window.createTreeView('prStatus', {
 			treeDataProvider: this,
 			showCollapseAll: true
-		}));
+		});
+		this._context.subscriptions.push(this._view);
 	}
 
 	refresh() {
@@ -63,10 +65,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	getChildren(element?: GitFileChangeNode): vscode.ProviderResult<TreeNode[]> {
 		if (!element) {
-			const descriptionNode = new DescriptionNode(this._pullrequest.title,
+			const descriptionNode = new DescriptionNode(this._view, this._pullrequest.title,
 				this._pullrequest.userAvatarUri, this._pullrequest);
-			const filesCategoryNode = new FilesCategoryNode(this._localFileChanges);
-			const commitsCategoryNode = new CommitsNode(this._pullRequestManager, this._pullrequest, this._comments);
+			const filesCategoryNode = new FilesCategoryNode(this._view, this._localFileChanges);
+			const commitsCategoryNode = new CommitsNode(this._view, this._pullRequestManager, this._pullrequest, this._comments);
 			return [ descriptionNode, filesCategoryNode, commitsCategoryNode ];
 		} else {
 			return element.getChildren();

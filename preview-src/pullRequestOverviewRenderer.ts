@@ -596,6 +596,7 @@ class ReviewNode {
 					const diffHeader: HTMLDivElement = document.createElement('div');
 					diffHeader.className = 'diffHeader';
 					diffHeader.textContent = comments[0].path;
+					diffHeader.addEventListener('click', () => this.openDiff(comments[0]));
 
 					diffView.appendChild(diffHeader);
 					diffLines.forEach(line => diffView.appendChild(line));
@@ -611,6 +612,15 @@ class ReviewNode {
 		}
 
 		return this._commentContainer;
+	}
+
+	openDiff(comment: Comment) {
+		this._messageHandler.postMessage({
+			command: 'pr.open-diff',
+			args: {
+				comment: comment
+			}
+		});
 	}
 }
 

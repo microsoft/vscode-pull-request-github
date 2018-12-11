@@ -23,8 +23,9 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 	public type: PRCategoryActionType;
 	public command?: vscode.Command;
 
-	constructor(type: PRCategoryActionType, node?: CategoryTreeNode) {
+	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, type: PRCategoryActionType, node?: CategoryTreeNode) {
 		super();
+		this.parent = parent;
 		this.type = type;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
 		switch (type) {
@@ -72,6 +73,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
 	constructor(
+		public parent: TreeNode | vscode.TreeView<TreeNode>,
 		private _prManager: IPullRequestManager,
 		private _telemetry: ITelemetry,
 		private _type: PRType
@@ -152,16 +154,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this._prManager, prItem, this._type === PRType.LocalPullRequest));
+			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this, this._prManager, prItem, this._type === PRType.LocalPullRequest));
 			if (hasMorePages) {
-				nodes.push(new PRCategoryActionNode(PRCategoryActionType.More, this));
+				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
 			}
 
 			this.childrenDisposables = nodes;
 			return nodes;
 		} else {
 			let category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
-			let result = [new PRCategoryActionNode(category)];
+			let result = [new PRCategoryActionNode(this, category)];
 
 			this.childrenDisposables = result;
 			return result;
