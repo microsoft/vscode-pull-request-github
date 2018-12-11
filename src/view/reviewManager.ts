@@ -794,7 +794,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return {
 				bubble: false,
 				title: 'Commented',
-				letter: '◆'
+				letter: '◆',
+				priority: 2
 			};
 		}
 

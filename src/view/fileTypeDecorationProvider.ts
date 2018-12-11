@@ -24,7 +24,7 @@ export class FileTypeDecorationProvider implements vscode.DecorationProvider {
 			return {
 				bubble: false,
 				letter: this.letter(fileChangeUriParams.status),
-				priority: this.priority(fileChangeUriParams.status)
+				priority: 1
 			};
 		}
 
@@ -34,7 +34,7 @@ export class FileTypeDecorationProvider implements vscode.DecorationProvider {
 			return {
 				bubble: false,
 				letter: this.letter(prParams.status),
-				priority: this.priority(prParams.status)
+				priority: 1
 			};
 		}
 
@@ -58,20 +58,6 @@ export class FileTypeDecorationProvider implements vscode.DecorationProvider {
 		}
 
 		return '';
-	}
-
-	priority(status: GitChangeType): number {
-		switch (status) {
-			case GitChangeType.MODIFY:
-			case GitChangeType.RENAME:
-				return 2;
-			case GitChangeType.UNKNOWN:
-				return 3;
-			case GitChangeType.UNMERGED:
-				return 4;
-			default:
-				return 1;
-		}
 	}
 
 	dispose() {
