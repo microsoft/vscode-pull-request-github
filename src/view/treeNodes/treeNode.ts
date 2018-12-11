@@ -6,9 +6,14 @@
 import * as vscode from 'vscode';
 import { Comment } from '../../common/comment';
 
+export interface Revealable<T> {
+	reveal(element: T, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Thenable<void>;
+	revealComment?(comment: Comment): Thenable<void>;
+}
+
 export abstract class TreeNode implements vscode.Disposable {
 	childrenDisposables: vscode.Disposable[];
-	parent: TreeNode | vscode.TreeView<TreeNode>;
+	parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>;
 
 	constructor() { }
 	abstract getTreeItem(): vscode.TreeItem;

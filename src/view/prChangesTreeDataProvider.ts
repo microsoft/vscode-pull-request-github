@@ -63,9 +63,43 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		return element.getTreeItem();
 	}
 
+	getParent(element: TreeNode) {
+		return element.getParent();
+	}
+
+	async reveal(element: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Promise<void> {
+		this._view.reveal(element, options);
+	}
+
+	async revealComment(comment: Comment) {
+		let fileChange = this._localFileChanges.find(fc => {
+			if (fc.fileName !== comment.path) {
+				return false;
+			}
+
+			if (fc.pullRequest.head.sha !== comment.commit_id) {
+				return false;
+			}
+
+			return true;
+		});
+
+		if (fileChange) {
+			await this.reveal(fileChange, { focus: true, expand: 2 });
+			if (fileChange instanceof GitFileChangeNode) {
+				let lineNumber = fileChange.getCommentPosition(comment);
+				let [ parentFilePath, filePath, fileName, isPartial, opts ] = fileChange.command.arguments;
+				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
+				await vscode.commands.executeCommand(fileChange.command.command, parentFilePath, filePath, fileName, isPartial, opts);
+			} else {
+				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments);
+			}
+		}
+	}
+
 	getChildren(element?: GitFileChangeNode): vscode.ProviderResult<TreeNode[]> {
 		if (!element) {
-			const descriptionNode = new DescriptionNode(this._view, this._pullrequest.title,
+			const descriptionNode = new DescriptionNode(this, this._pullrequest.title,
 				this._pullrequest.userAvatarUri, this._pullrequest);
 			const filesCategoryNode = new FilesCategoryNode(this._view, this._localFileChanges);
 			const commitsCategoryNode = new CommitsNode(this._view, this._pullRequestManager, this._pullrequest, this._comments);

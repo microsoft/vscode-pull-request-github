@@ -15,6 +15,7 @@ import { Comment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
+import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -277,9 +278,10 @@ export class PullRequestOverviewPanel {
 	private openDiff(message: IRequestMessage<{ comment: Comment }>): void {
 		try {
 			const comment = message.args.comment;
-			const prContainer = this._descriptionNode.getParent();
-			if (prContainer.revealComment) {
-				prContainer.revealComment(comment);
+			const prContainer = this._descriptionNode.parent;
+
+			if ((prContainer as TreeNode | Revealable<TreeNode>).revealComment) {
+				(prContainer as TreeNode | Revealable<TreeNode>).revealComment(comment);
 			}
 		} catch (e) {
 		}
