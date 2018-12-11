@@ -1147,10 +1147,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	public async createPullRequest(): Promise<void> {
-		const HEAD = this._repository.state.HEAD;
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
-		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
-		let targetRemote = await this.getRemote(potentialTargetRemotes, 'Choose a remote which you want to send a pull request to',
+		const githubRemotes = this._prManager.getGitHubRemotes();
+		let targetRemote = await this.getRemote(githubRemotes, 'Choose a remote which you want to send a pull request to',
 			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Fork')
 		);
 
@@ -1177,11 +1176,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 			cancellable: false
 		}, async (progress) => {
 			progress.report({ increment: 10 });
-			let branchName = HEAD.name;
+			let HEAD = this._repository.state.HEAD;
+			const branchName = HEAD.name;
+
 			if (!HEAD.upstream) {
 				progress.report({ increment: 10, message: `Start publishing branch ${branchName}` });
-				let latestBranch = await this.publishBranch(HEAD);
-				if (!latestBranch) {
+				HEAD = await this.publishBranch(HEAD);
+				if (!HEAD) {
 					return;
 				}
 				progress.report({ increment: 20, message: `Branch ${branchName} published` });
@@ -1190,8 +1191,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			}
 
+			const headRemote = githubRemotes.find(remote => remote.remoteName === HEAD.upstream.remote);
+			if (!headRemote) {
+				return;
+			}
+
 			pullRequestDefaults.base = target;
-			pullRequestDefaults.head = branchName;
+			// For cross-repository pull requests, the owner must be listed. Always list to be safe. See https://developer.github.com/v3/pulls/#create-a-pull-request.
+			pullRequestDefaults.head = `${headRemote.owner}:${branchName}`;
 			pullRequestDefaults.owner = targetRemote.owner;
 			pullRequestDefaults.repo = targetRemote.name;
 			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);

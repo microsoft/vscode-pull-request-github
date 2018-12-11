@@ -10,7 +10,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData } from './interface';
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
@@ -571,35 +571,56 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createPullRequest(params: Github.PullRequestsCreateParams): Promise<IPullRequestModel> {
-		const repo = this.findRepo(fromHead(params));
-		await repo.ensure();
-
-		const {title, body} = titleAndBodyFrom(await this.getHeadCommitMessage());
-		if (!params.title) {
-			params.title = title;
-		}
-
-		if (!params.body) {
-			params.body = body;
-		}
-
-		// Create PR
-		let pullRequestModel;
 		try {
+			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
+			if (!repo) {
+				throw new Error(`No matching repository ${params.repo} found for ${params.owner}`);
+			}
+
+			await repo.ensure();
+
+			const { title, body } = titleAndBodyFrom(await this.getHeadCommitMessage());
+			if (!params.title) {
+				params.title = title;
+			}
+
+			if (!params.body) {
+				params.body = body;
+			}
+
+			// Create PR
 			let { data } = await repo.octokit.pullRequests.create(params);
-			pullRequestModel = await repo.getPullRequest(data.number);
+
+			const item: PullRequest = {
+				number: data.number,
+				body: data.body,
+				title: data.title,
+				html_url: data.html_url,
+				user: data.user,
+				labels: [],
+				state: data.state,
+				merged: false,
+				assignee: data.assignee,
+				created_at: data.created_at,
+				updated_at: data.updated_at,
+				comments: 0,
+				commits: 0,
+				head: data.head,
+				base: data.base
+			};
+
+			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
+
+			const branchNameSeparatorIndex = params.head.indexOf(':');
+			const branchName = params.head.slice(branchNameSeparatorIndex + 1);
+			await PullRequestGitHelper.associateBranchWithPullRequest(this._repository, pullRequestModel, branchName);
+
+			return pullRequestModel;
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
 			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
 			return null;
 		}
-
-		if (pullRequestModel) {
-			await PullRequestGitHelper.fetchAndCheckout(this._repository, pullRequestModel.remote, params.head, pullRequestModel);
-			return pullRequestModel;
-		}
-
-		return null;
 	}
 
 	async editIssueComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment> {
@@ -981,18 +1002,6 @@ const ownedByMe: Predicate<GitHubRepository> = repo => {
 
 const byRemoteName = (name: string): Predicate<GitHubRepository> =>
 	({remote: {remoteName}}) => remoteName === name;
-
-const fromHead = (params: Github.PullRequestsCreateParams): Predicate<GitHubRepository> => {
-	const {head, repo} = params;
-	const idxSep = head.indexOf(':');
-	const owner = idxSep !== -1
-		? head.substr(0, idxSep)
-		: params.owner;
-	return byOwnerAndName(owner, repo);
-};
-
-const byOwnerAndName = (byOwner: string, repo: string): Predicate<GitHubRepository> =>
-	({remote: {owner, repositoryName}}) => byOwner === owner && repo === repositoryName;
 
 const titleAndBodyFrom = (message: string): {title: string, body: string} => {
 	const idxLineBreak = message.indexOf('\n');
