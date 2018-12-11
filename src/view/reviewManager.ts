@@ -98,11 +98,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 				return;
 			}
 
-			if (newHead && !newHead.upstream) {
-				// if newhead has no upstream, we won't get any meaningful pull request info from that.
-				return;
-			}
-
 			let sameUpstream;
 
 			if (!oldHead || !newHead) {
