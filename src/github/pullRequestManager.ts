@@ -309,7 +309,7 @@ export class PullRequestManager implements IPullRequestManager {
 		if (githubRepositories.length > 1) {
 			try {
 				// Try to be intelligent about what remote to start fetching from
-				const likelyRemote = this.findRepo(byRemoteName('upstream')) || this.origin;
+				const likelyRemote = this.findRepo(byRemoteName('upstream')) || this.findRepo(byRemoteName('origin'));
 				const indexOfLikelyRemote = githubRepositories.findIndex(remote => remote.remote === likelyRemote.remote);
 
 				if (indexOfLikelyRemote !== 0) {
