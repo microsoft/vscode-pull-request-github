@@ -17,6 +17,7 @@ import { Telemetry } from './common/telemetry';
 import { handler as uriHandler } from './common/uri';
 import { ITelemetry } from './github/interface';
 import * as Keychain from './authentication/keychain';
+import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 
 // fetch.promise polyfill
 const fetch = require('node-fetch');
@@ -45,7 +46,7 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 	}));
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
-
+	context.subscriptions.push(new FileTypeDecorationProvider());
 	const prManager = new PullRequestManager(repository, telemetry);
 	const reviewManager = new ReviewManager(context, Keychain.onDidChange, repository, prManager, telemetry);
 	registerCommands(context, prManager, reviewManager, telemetry);

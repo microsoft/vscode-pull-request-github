@@ -7,7 +7,7 @@ import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
-import { toReviewUri, fromReviewUri, fromPRUri } from '../common/uri';
+import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange } from '../common/file';
@@ -63,8 +63,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 		let gitContentProvider = new GitContentProvider(_repository);
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
-		this._disposables.push(vscode.commands.registerCommand('review.openFile', (uri: vscode.Uri) => {
-			let params = fromReviewUri(uri);
+		this._disposables.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
+			let params: ReviewUriParams;
+			let filePath: string;
+			if (value instanceof GitFileChangeNode) {
+				params = fromReviewUri(value.filePath);
+				filePath = value.filePath.path;
+			} else {
+				params = fromReviewUri(value);
+				filePath = value.path;
+			}
 
 			const activeTextEditor = vscode.window.activeTextEditor;
 			const opts: vscode.TextDocumentShowOptions = {
@@ -74,7 +82,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			// Check if active text editor has same path as other editor. we cannot compare via
 			// URI.toString() here because the schemas can be different. Instead we just go by path.
-			if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
+			if (activeTextEditor && activeTextEditor.document.uri.path === filePath) {
 				opts.selection = activeTextEditor.selection;
 			}
 
@@ -786,7 +794,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return {
 				bubble: false,
 				title: 'Commented',
-				letter: '◆'
+				letter: '◆',
+				priority: 2
 			};
 		}
 

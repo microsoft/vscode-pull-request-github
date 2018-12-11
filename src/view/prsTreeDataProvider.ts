@@ -90,7 +90,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			return {
 				bubble: false,
 				title: 'Commented',
-				letter: '◆'
+				letter: '◆',
+				priority: 2
 			};
 		}
 

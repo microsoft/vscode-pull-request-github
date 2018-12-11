@@ -333,7 +333,12 @@
         },
         {
           "command": "pr.openFileInGitHub",
-          "when": "view =~ /(pr|prStatus)/ && viewItem == filechange"
+          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
+        },
+        {
+          "command": "review.openFile",
+          "group": "inline",
+          "when": "view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
         }
       ],
       "editor/title": [

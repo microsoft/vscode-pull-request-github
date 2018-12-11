@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
-import { Resource } from '../../common/resources';
 import { IPullRequestModel } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { Comment } from '../../common/comment';
@@ -20,8 +19,9 @@ import { toFileChangeNodeUri } from '../../common/uri';
 export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public command: vscode.Command;
+	public resourceUri: vscode.Uri;
 
 	constructor(
 		public readonly pullRequest: IPullRequestModel,
@@ -32,7 +32,8 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		super();
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
-		this.iconPath = Resource.getFileStatusUri(this);
+		this.iconPath = vscode.ThemeIcon.File;
+		this.resourceUri = toFileChangeNodeUri(vscode.Uri.parse(this.blobUrl), false, status);
 
 		this.command = {
 			title: 'show remote file',
@@ -54,7 +55,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public resourceUri: vscode.Uri;
 	public parentSha: string;
 	public contextValue: string;
@@ -79,8 +80,8 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.contextValue = 'filechange';
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
-		this.iconPath = Resource.getFileStatusUri(this);
-		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
+		this.iconPath = this.iconPath = vscode.ThemeIcon.File;
+		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, status);
 
 		let opts: vscode.TextDocumentShowOptions = {
 			preserveFocus: true
@@ -127,7 +128,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public resourceUri: vscode.Uri;
 	public parentSha: string;
 	public contextValue: string;
@@ -146,11 +147,11 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string,
 	) {
 		super();
-		this.contextValue = 'filechange';
+		this.contextValue = `filechange:${GitChangeType[status]}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
-		this.iconPath = Resource.getFileStatusUri(this);
-		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
+		this.iconPath = vscode.ThemeIcon.File;
+		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, status);
 
 		let opts: vscode.TextDocumentShowOptions = {
 			preserveFocus: true

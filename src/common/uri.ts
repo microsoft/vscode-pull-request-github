@@ -7,6 +7,7 @@
 
 import { Uri, UriHandler, EventEmitter } from 'vscode';
 import { IPullRequestModel } from '../github/interface';
+import { GitChangeType } from './file';
 
 export interface ReviewUriParams {
 	path: string;
@@ -26,6 +27,7 @@ export interface PRUriParams {
 	isBase: boolean;
 	fileName: string;
 	prNumber: number;
+	status: GitChangeType;
 }
 
 export function fromPRUri(uri: Uri): PRUriParams {
@@ -65,11 +67,13 @@ export function toReviewUri(uri: Uri, filePath: string, ref: string, commit: str
 
 export interface FileChangeNodeUriParams {
 	hasComments?: boolean;
+	status?: GitChangeType;
 }
 
-export function toFileChangeNodeUri(uri: Uri, hasComments: boolean) {
+export function toFileChangeNodeUri(uri: Uri, hasComments: boolean, status: GitChangeType) {
 	const params = {
-		hasComments: hasComments
+		hasComments: hasComments,
+		status: status
 	};
 
 	return uri.with({
@@ -86,13 +90,14 @@ export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams {
 	}
 }
 
-export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean): Uri {
+export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean, status: GitChangeType): Uri {
 	const params: PRUriParams = {
 		baseCommit: baseCommit,
 		headCommit: headCommit,
 		isBase: base,
 		fileName: fileName,
-		prNumber: pullRequestModel.prNumber
+		prNumber: pullRequestModel.prNumber,
+		status: status
 	};
 
 	let path = uri.path;
