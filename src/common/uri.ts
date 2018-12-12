@@ -31,7 +31,11 @@ export interface PRUriParams {
 }
 
 export function fromPRUri(uri: Uri): PRUriParams {
-	return JSON.parse(uri.query);
+	try {
+		return JSON.parse(uri.query) as PRUriParams;
+	} catch (e) {
+		return null;
+	}
 }
 
 export interface GitUriOptions {
