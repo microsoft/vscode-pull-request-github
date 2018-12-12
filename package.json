@@ -429,6 +429,7 @@
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "tunnel": "0.0.6",
     "vscode": "^1.1.18",
+    "vsls": "^0.3.967",
     "ws": "^6.0.0"
   },
   "optionalDependencies": {

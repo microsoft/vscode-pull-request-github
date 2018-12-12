@@ -7898,6 +7898,11 @@ vscode@^1.1.18:
     url-parse "^1.4.3"
     vinyl-source-stream "^1.1.0"
 
+vsls@^0.3.967:
+  version "0.3.967"
+  resolved "https://registry.yarnpkg.com/vsls/-/vsls-0.3.967.tgz#d762f1b10287c2a4ca8a54edb2f6b0f074a52583"
+  integrity sha512-FFaRZz4RBo/QmUHvQophkzMzrTrsV8g169jUPEaL7UWak3FdwGdGvm2DlSZIZl36MzLNb/43BPq6WDzoKDwR4g==
+
 watchpack@^1.5.0:
   version "1.6.0"
   resolved "https://registry.yarnpkg.com/watchpack/-/watchpack-1.6.0.tgz#4bc12c2ebe8aa277a71f1d3f14d685c7b446cd00"

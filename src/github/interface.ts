@@ -9,7 +9,7 @@ import { Comment } from '../common/comment';
 import { GitHubRef } from '../common/githubRef';
 import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
-import { Repository, Branch } from '../typings/git';
+import { Repository, Branch } from '../git/api';
 import { PullRequestsCreateParams } from '@octokit/rest';
 
 export enum PRType {

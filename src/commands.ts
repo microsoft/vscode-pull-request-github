@@ -21,7 +21,7 @@ import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
-import { GitErrorCodes } from './typings/git';
+import { GitErrorCodes } from './git/api';
 
 const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
 export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;

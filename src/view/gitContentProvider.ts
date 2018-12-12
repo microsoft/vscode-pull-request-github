@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import * as pathLib from 'path';
-import { Repository } from '../typings/git';
+import { Repository } from '../git/api';
 import { fromReviewUri } from '../common/uri';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {

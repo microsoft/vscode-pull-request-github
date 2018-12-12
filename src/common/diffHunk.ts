@@ -9,7 +9,7 @@
 
 import * as Github from '@octokit/rest';
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
-import { Repository } from '../typings/git';
+import { Repository } from '../git/api';
 import { Comment } from './comment';
 
 export enum DiffChangeType {

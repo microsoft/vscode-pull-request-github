@@ -16,7 +16,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
-import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
+import { Repository, RefType, UpstreamRef, Branch } from '../git/api';
 import Logger from '../common/logger';
 
 interface PageInformation {

@@ -91,6 +91,7 @@ function getExtensionConfig(env) {
 		},
 		externals: {
 			'vscode': 'commonjs vscode',
+			'vsls/vscode': 'vsls',
 			'utf-8-validate': 'utf-8-validate',
 			'bufferutil': 'bufferutil',
 			'encoding': 'encoding'
