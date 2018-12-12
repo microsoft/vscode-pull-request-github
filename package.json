@@ -176,6 +176,15 @@
       {
         "command": "pr.openDiffView",
         "title": "Open Diff View",
+        "category": "GitHub Pull Requests",
+        "icon": {
+          "light": "resources/icons/light/open-change.svg",
+          "dark": "resources/icons/dark/open-change.svg"
+        }
+      },
+      {
+        "command": "pr.openChangedFile",
+        "title": "Open Changed File in PR",
         "category": "GitHub Pull Requests"
       },
       {
@@ -238,6 +247,10 @@
         },
         {
           "command": "review.openFile",
+          "when": "false"
+        },
+        {
+          "command": "pr.openChangedFile",
           "when": "false"
         },
         {
@@ -338,7 +351,12 @@
         {
           "command": "review.openFile",
           "group": "inline",
-          "when": "view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "config.git.openDiffOnClick && view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
+        },
+        {
+          "command": "pr.openDiffView",
+          "group": "inline",
+          "when": "!config.git.openDiffOnClick && view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
         }
       ],
       "editor/title": [
