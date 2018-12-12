@@ -606,7 +606,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 				const uri = vscode.Uri.parse(change.fileName);
 				let changedItem = new GitFileChangeNode(
-					this._prsTreeDataProvider.view,
+					this.prFileChangesProvider.view,
 					pr,
 					change.status,
 					change.fileName,
@@ -640,7 +640,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					const oldComments = commentsForFile[fileName];
 					const uri = vscode.Uri.parse(nodePath.join(`commit~${commit.substr(0, 8)}`, fileName));
 					const obsoleteFileChange = new GitFileChangeNode(
-						this._prsTreeDataProvider.view,
+						this.prFileChangesProvider.view,
 						pr,
 						GitChangeType.MODIFY,
 						fileName,

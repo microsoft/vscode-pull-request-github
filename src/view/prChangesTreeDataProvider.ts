@@ -20,8 +20,16 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: Comment[] = [];
 	private _pullrequest: IPullRequestModel = null;
-	private _view: vscode.TreeView<TreeNode>;
 	private _pullRequestManager: IPullRequestManager;
+	private _view: vscode.TreeView<TreeNode>;
+
+	public get view(): vscode.TreeView<TreeNode> {
+		return this._view;
+	}
+
+	private _descriptionNode: DescriptionNode;
+	private _filesCategoryNode: FilesCategoryNode;
+	private _commitsCategoryNode: CommitsNode;
 
 	constructor(private _context: vscode.ExtensionContext) {
 		super(() => this.dispose());
@@ -29,10 +37,16 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			treeDataProvider: this,
 			showCollapseAll: true
 		});
+		this._descriptionNode = null;
+		this._filesCategoryNode = null;
+		this._commitsCategoryNode = null;
 		this._context.subscriptions.push(this._view);
 	}
 
 	refresh() {
+		this._descriptionNode = null;
+		this._filesCategoryNode = null;
+		this._commitsCategoryNode = null;
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -48,6 +62,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		);
 
 		this._localFileChanges = fileChanges;
+		this._descriptionNode = null;
+		this._filesCategoryNode = null;
+		this._commitsCategoryNode = null;
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -99,11 +116,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	getChildren(element?: GitFileChangeNode): vscode.ProviderResult<TreeNode[]> {
 		if (!element) {
-			const descriptionNode = new DescriptionNode(this, this._pullrequest.title,
-				this._pullrequest.userAvatarUri, this._pullrequest);
-			const filesCategoryNode = new FilesCategoryNode(this._view, this._localFileChanges);
-			const commitsCategoryNode = new CommitsNode(this._view, this._pullRequestManager, this._pullrequest, this._comments);
-			return [ descriptionNode, filesCategoryNode, commitsCategoryNode ];
+			if (!this._descriptionNode || !this._filesCategoryNode || !this._commitsCategoryNode) {
+				this._descriptionNode = new DescriptionNode(this, this._pullrequest.title,
+					this._pullrequest.userAvatarUri, this._pullrequest);
+				this._filesCategoryNode = new FilesCategoryNode(this._view, this._localFileChanges);
+				this._commitsCategoryNode = new CommitsNode(this._view, this._pullRequestManager, this._pullrequest, this._comments);
+			}
+			return [ this._descriptionNode, this._filesCategoryNode, this._commitsCategoryNode ];
 		} else {
 			return element.getChildren();
 		}
