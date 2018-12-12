@@ -70,6 +70,7 @@ export class BadUpstreamError extends Error {
 
 const SETTINGS_NAMESPACE = 'githubPullRequests';
 const LOG_LEVEL_SETTING = 'includeRemotes';
+const REMOTES_SETTING = 'remotes';
 
 const enum IncludeRemote {
 	Default,
@@ -96,11 +97,15 @@ export class PullRequestManager implements IPullRequestManager {
 		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
 		this._includeRemotes = IncludeRemote.Default;
-		vscode.workspace.onDidChangeConfiguration(() => {
+		vscode.workspace.onDidChangeConfiguration(e => {
 			let oldIncludeRemote = this._includeRemotes;
 			this.getIncludeRemoteConfig();
 			if (this._includeRemotes !== oldIncludeRemote) {
 				this.updateRepositories();
+			}
+
+			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
+				vscode.commands.executeCommand('pr.refreshList');
 			}
 		});
 		this.getIncludeRemoteConfig();
@@ -117,6 +122,47 @@ export class PullRequestManager implements IPullRequestManager {
 			default:
 				break;
 		}
+	}
+
+	private validateRemotesSetting() {
+		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+
+		if (remotesSetting) {
+			return remotesSetting.forEach(remote => {
+				if (!this._githubRepositories.some(repo => repo.remote.remoteName === remote)) {
+					vscode.window.showWarningMessage(`No remote with name '${remote}' found. Please update your 'githubPullRequests.remotes' setting.`);
+				}
+			});
+		}
+	}
+
+	private getDisplayedGitHubRemotes(): GitHubRepository[] {
+		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+
+		if (remotesSetting) {
+			this.validateRemotesSetting();
+
+			Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, PullRequestManager.ID);
+
+			return remotesSetting
+				.map(remote =>  this._githubRepositories.find(repo => repo.remote.remoteName === remote))
+				.filter(repo => !!repo);
+		}
+
+		const upstream = this._githubRepositories.find(repo => repo.remote.remoteName === 'upstream');
+		if (upstream) {
+			Logger.debug(`Displaying upstream remote`, PullRequestManager.ID);
+			return [upstream];
+		}
+
+		const origin = this._githubRepositories.find(repo => repo.remote.remoteName === 'origin');
+		if (origin) {
+			Logger.debug(`Displaying origin remote`, PullRequestManager.ID);
+			return [origin];
+		}
+
+		Logger.debug(`Displaying all github remotes`, PullRequestManager.ID);
+		return this._githubRepositories;
 	}
 
 	get activePullRequest() {
@@ -285,7 +331,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<PullRequestsResponseResult> {
-		let githubRepositories = this._githubRepositories;
+		let githubRepositories = this.getDisplayedGitHubRemotes();
 
 		if (!githubRepositories || !githubRepositories.length) {
 			return {
@@ -306,23 +352,6 @@ export class PullRequestManager implements IPullRequestManager {
 
 		githubRepositories = githubRepositories.filter(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
 
-		if (githubRepositories.length > 1) {
-			try {
-				// Try to be intelligent about what remote to start fetching from
-				const likelyRemote = this.findRepo(byRemoteName('upstream')) || this.findRepo(byRemoteName('origin'));
-				const indexOfLikelyRemote = githubRepositories.findIndex(remote => remote.remote === likelyRemote.remote);
-
-				if (indexOfLikelyRemote !== 0) {
-					const currentStart = githubRepositories[0];
-					githubRepositories[0] = likelyRemote;
-					githubRepositories[indexOfLikelyRemote] = currentStart;
-				}
-			} catch (e) {
-				// Ignore and just use current ordering
-			}
-
-		}
-
 		for (let i = 0; i < githubRepositories.length; i++) {
 			const githubRepository = githubRepositories[i];
 			const remote = githubRepository.remote.remoteName;
@@ -338,7 +367,7 @@ export class PullRequestManager implements IPullRequestManager {
 					return {
 						pullRequests: pullRequestData.pullRequests,
 						hasMorePages: pageInformation.hasMorePages,
-						hasUnsearchedRepositories: i < githubRepositories.length
+						hasUnsearchedRepositories: i < githubRepositories.length - 1
 					};
 				}
 			}

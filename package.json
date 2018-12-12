@@ -69,6 +69,14 @@
           "default": "info",
           "description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request."
         },
+        "githubPullRequests.remotes": {
+          "type": "array",
+          "default": null,
+          "items": {
+            "type": "string"
+          },
+          "description": "List of remotes to fetch pull requests from. If no remotes are specified, will default to `upstream` or `origin` if these remotes are present, or allvalid GitHub remotes."
+        },
         "githubPullRequests.includeRemotes": {
           "type": "string",
           "enum": [
