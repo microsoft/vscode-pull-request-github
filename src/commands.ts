@@ -122,7 +122,13 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (parentFilePath: string, filePath: string, fileName: string, isPartial: boolean, opts: any) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (gitFileChangeNode: GitFileChangeNode) => {
+		const parentFilePath = gitFileChangeNode.parentFilePath;
+		const filePath = gitFileChangeNode.filePath;
+		const fileName = gitFileChangeNode.fileName;
+		const isPartial = gitFileChangeNode.isPartial;
+		const opts = gitFileChangeNode.opts;
+
 		if (isPartial) {
 			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
 		}

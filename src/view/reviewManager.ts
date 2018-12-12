@@ -88,6 +88,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, params.path)), opts);
 		}));
+		this._disposables.push(vscode.commands.registerCommand('pr.openChangedFile', (value: GitFileChangeNode) => {
+			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
+			if (openDiff) {
+				return vscode.commands.executeCommand('pr.openDiffView', value);
+			} else {
+				return vscode.commands.executeCommand('review.openFile', value);
+			}
+		}));
 
 		this._disposables.push(_repository.state.onDidChange(e => {
 			const oldHead = this._previousRepositoryState.HEAD;
