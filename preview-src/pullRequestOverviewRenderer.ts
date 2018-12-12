@@ -596,9 +596,19 @@ class ReviewNode {
 					const diffView: HTMLDivElement = document.createElement('div');
 					diffView.className = 'diff';
 					const diffHeader: HTMLDivElement = document.createElement('div');
-					diffHeader.className = outdated ? 'diffHeader outdated' : 'diffHeader';
-					diffHeader.textContent = comments[0].path;
-					diffHeader.addEventListener('click', () => this.openDiff(comments[0]));
+					diffHeader.className = 'diffHeader';
+					const diffPath: HTMLSpanElement = document.createElement('span');
+					diffPath.className =  outdated ? 'diffPath outdated' : 'diffPath';
+					diffPath.textContent = comments[0].path;
+					diffPath.addEventListener('click', () => this.openDiff(comments[0]));
+					diffHeader.appendChild(diffPath);
+
+					if (outdated) {
+						const outdatedLabel: HTMLSpanElement = document.createElement('span');
+						outdatedLabel.className = 'outdatedLabel';
+						outdatedLabel.textContent = 'Outdated';
+						diffHeader.appendChild(outdatedLabel);
+					}
 
 					diffView.appendChild(diffHeader);
 					diffLines.forEach(line => diffView.appendChild(line));
