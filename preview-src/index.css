@@ -636,6 +636,12 @@ code {
 	cursor: pointer;
 }
 
+.diff .diffHeader.outdated:hover {
+	text-decoration: none;
+	color: var(--vscode-foreground);
+	cursor: default;
+}
+
 .diff .diffLine.add {
 	background-color: var(--vscode-diffEditor-insertedTextBackground);
 }

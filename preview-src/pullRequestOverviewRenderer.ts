@@ -591,10 +591,12 @@ class ReviewNode {
 						});
 					}
 
+					let outdated = comments[0].position !== comments[0].original_position;
+
 					const diffView: HTMLDivElement = document.createElement('div');
 					diffView.className = 'diff';
 					const diffHeader: HTMLDivElement = document.createElement('div');
-					diffHeader.className = 'diffHeader';
+					diffHeader.className = outdated ? 'diffHeader outdated' : 'diffHeader';
 					diffHeader.textContent = comments[0].path;
 					diffHeader.addEventListener('click', () => this.openDiff(comments[0]));
 
