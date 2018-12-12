@@ -54,6 +54,11 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return node ? this._onDidChangeTreeData.fire(node) : this._onDidChangeTreeData.fire();
 	}
 
+	reveal(): void {
+		// Expand the tree view
+		this._view.reveal(this.getChildren()[0]);
+	}
+
 	getTreeItem(element: TreeNode): vscode.TreeItem {
 		return element.getTreeItem();
 	}

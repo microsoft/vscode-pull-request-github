@@ -47,6 +47,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 		this._localFileChanges = fileChanges;
 		this._onDidChangeTreeData.fire();
+
+		// Workaround to expand the tree view
+		this._view.reveal(this.getChildren()[0]);
 	}
 
 	async hide() {
