@@ -113,7 +113,8 @@ export class CommonGitAPI implements API, vscode.Disposable {
 				return {
 					HEAD: localRepository.state.HEAD,
 					remotes: localRepository.state.remotes,
-					refs: localRepository.state.refs
+					refs: localRepository.state.refs,
+					rootUri: localRepository.rootUri.toString()
 				};
 			}
 			if (localRepository[type]) {
@@ -180,6 +181,7 @@ export class LiveShareRepository implements Repository {
 	async initialize() {
 		let state = await this._proxy.request('git', ['state', this.workspaceFolder.uri.toString()]);
 		this.state = new LiveShareRepositoryState(state);
+		this.rootUri = vscode.Uri.parse(state.rootUri);
 	}
 
 	getConfigs(): Promise<{ key: string; value: string; }[]> {
