@@ -5,9 +5,9 @@
 
 import * as vscode from 'vscode';
 export { API, Repository, InputBox, RepositoryState, RepositoryUIState, Commit, Branch, Git, RefType, UpstreamRef, GitErrorCodes } from '../typings/git';
-import { API, Repository, InputBox, RepositoryState, RepositoryUIState, Commit, Branch, Git } from '../typings/git';
+import { API, Repository, InputBox, RepositoryState, RepositoryUIState, Commit, Branch, Git, Ref, Remote, Submodule, Change } from '../typings/git';
 import { getAPI as getLocalAPI } from './local';
-import { LiveShare, SessionChangeEvent, SharedService, SharedServiceProxy } from 'vsls/vscode.js';
+import { LiveShare, SharedService, SharedServiceProxy } from 'vsls/vscode.js';
 import { EXTENSION_ID } from '../constants';
 
 async function getApi() {
@@ -22,7 +22,7 @@ async function getApi() {
 		// The extensibility API is not enabled.
 		return null;
 	}
-	const liveShareApiVersion = '0.3.967';
+	const liveShareApiVersion = '0.3.1013';
 	// Support deprecated function name to preserve compatibility with older versions of VSLS.
 	if (!extensionApi.getApi) {
 		return extensionApi.getApiAsync(liveShareApiVersion);
@@ -77,22 +77,25 @@ export class CommonGitAPI implements API, vscode.Disposable {
 			this._api = await getApi();
 		}
 
-		this._api.onDidChangeSession(e => this._onDidChangeSession, this);
+		this._api.onDidChangeSession(e => this._onDidChangeSession(e.session), this);
+		if (this._api.session) {
+			this._onDidChangeSession(this._api.session);
+		}
 	}
 
-	async _onDidChangeSession(e: SessionChangeEvent) {
-		this._currentRole = e.session.role;
-		if (e.session.role === 1 /* Role.Host */) {
+	async _onDidChangeSession(session) {
+		this._currentRole = session.role;
+		if (session.role === 1 /* Role.Host */) {
 			this._sharedService = await this._api.shareService(EXTENSION_ID);
 			this._sharedService.onRequest('git', this._gitHandler);
 			return;
 		}
 
-		if (e.session.role === 2 /* Role.Guest */) {
+		if (session.role === 2 /* Role.Guest */) {
 			this._sharedServiceProxy = await this._api.getSharedService(EXTENSION_ID);
-			vscode.workspace.workspaceFolders.forEach(folder => {
+			vscode.workspace.workspaceFolders.forEach(async folder => {
 				if (folder.uri.scheme === 'vsls') {
-					this.openVSLSRepository(folder);
+					await this.openVSLSRepository(folder);
 				}
 			});
 		}
@@ -106,6 +109,9 @@ export class CommonGitAPI implements API, vscode.Disposable {
 
 		if (localRepository) {
 			let commandArgs = args.slice(2);
+			if (type === 'state') {
+				return localRepository.state;
+			}
 			if (localRepository[type]) {
 				return localRepository[type](...commandArgs);
 			}
@@ -114,12 +120,13 @@ export class CommonGitAPI implements API, vscode.Disposable {
 		}
 	}
 
-	openVSLSRepository(folder: vscode.WorkspaceFolder) {
+	async openVSLSRepository(folder: vscode.WorkspaceFolder) {
 		if (this.getRepository(folder)) {
 			return;
 		}
 
 		const repository = new LiveShareRepository(folder, this._sharedServiceProxy);
+		await repository.initialize();
 		this._openRepositories.push(repository);
 		this._onDidOpenRepository.fire(repository);
 	}
@@ -137,6 +144,21 @@ export class CommonGitAPI implements API, vscode.Disposable {
 	}
 }
 
+export class LiveShareRepositoryState implements RepositoryState {
+	HEAD: Branch;
+	refs: Ref[];
+	remotes: Remote[];
+	submodules: Submodule[];
+	rebaseCommit: Commit;
+	mergeChanges: Change[];
+	indexChanges: Change[];
+	workingTreeChanges: Change[];
+	_onDidChange = new vscode.EventEmitter<void>();
+	onDidChange = this._onDidChange.event;
+
+	constructor() {
+	}
+}
 export class LiveShareRepository implements Repository {
 	rootUri: vscode.Uri;
 	inputBox: InputBox;
@@ -147,6 +169,11 @@ export class LiveShareRepository implements Repository {
 		public workspaceFolder: vscode.WorkspaceFolder,
 		private _proxy: SharedServiceProxy
 	) { }
+
+	async initialize() {
+		let state = await this._proxy.request('git', ['state', this.workspaceFolder]);
+		this.state = state;
+	}
 
 	getConfigs(): Promise<{ key: string; value: string; }[]> {
 		return this._proxy.request('git', ['getConfigs', this.workspaceFolder]);
