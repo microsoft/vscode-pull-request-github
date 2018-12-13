@@ -7,8 +7,28 @@ import * as vscode from 'vscode';
 export { API, Repository, InputBox, RepositoryState, RepositoryUIState, Commit, Branch, Git, RefType, UpstreamRef, GitErrorCodes } from '../typings/git';
 import { API, Repository, InputBox, RepositoryState, RepositoryUIState, Commit, Branch, Git } from '../typings/git';
 import { getAPI as getLocalAPI } from './local';
-import { getApi, LiveShare, SessionChangeEvent, Role, SharedService, SharedServiceProxy } from 'vsls/vscode';
+import { LiveShare, SessionChangeEvent, SharedService, SharedServiceProxy } from 'vsls/vscode.js';
 import { EXTENSION_ID } from '../constants';
+
+async function getApi() {
+	const liveshareExtension = vscode.extensions.getExtension('ms-vsliveshare.vsliveshare');
+	if (!liveshareExtension) {
+		// The extension is not installed.
+		return null;
+	}
+	const extensionApi = liveshareExtension.isActive ?
+		liveshareExtension.exports : await liveshareExtension.activate();
+	if (!extensionApi) {
+		// The extensibility API is not enabled.
+		return null;
+	}
+	const liveShareApiVersion = '0.3.967';
+	// Support deprecated function name to preserve compatibility with older versions of VSLS.
+	if (!extensionApi.getApi) {
+		return extensionApi.getApiAsync(liveShareApiVersion);
+	}
+	return extensionApi.getApi(liveShareApiVersion);
+}
 
 export class CommonGitAPI implements API, vscode.Disposable {
 	git: Git;
@@ -19,7 +39,7 @@ export class CommonGitAPI implements API, vscode.Disposable {
 	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
 	private _api: LiveShare;
 	private _openRepositories: LiveShareRepository[] = [];
-	private _currentRole: Role;
+	private _currentRole: number; //Role;
 	private _sharedService: SharedService;
 	private _sharedServiceProxy: SharedServiceProxy;
 	private _gitApi: API;
@@ -62,13 +82,13 @@ export class CommonGitAPI implements API, vscode.Disposable {
 
 	async _onDidChangeSession(e: SessionChangeEvent) {
 		this._currentRole = e.session.role;
-		if (e.session.role === Role.Host) {
+		if (e.session.role === 1 /* Role.Host */) {
 			this._sharedService = await this._api.shareService(EXTENSION_ID);
 			this._sharedService.onRequest('git', this._gitHandler);
 			return;
 		}
 
-		if (e.session.role === Role.Guest) {
+		if (e.session.role === 2 /* Role.Guest */) {
 			this._sharedServiceProxy = await this._api.getSharedService(EXTENSION_ID);
 			vscode.workspace.workspaceFolders.forEach(folder => {
 				if (folder.uri.scheme === 'vsls') {
