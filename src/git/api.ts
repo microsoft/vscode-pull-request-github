@@ -109,7 +109,14 @@ export class CommonGitAPI implements API, vscode.Disposable {
 
 		if (localRepository) {
 			let commandArgs = args.slice(2);
-			if (type === 'state') {
+			if (type === 'initialize') {
+				localRepository.state.onDidChange(e => {
+					this._sharedService.notify('statechange', {
+						HEAD: localRepository.state.HEAD,
+						remotes: localRepository.state.remotes,
+						refs: localRepository.state.refs
+					});
+				});
 				return {
 					HEAD: localRepository.state.HEAD,
 					remotes: localRepository.state.remotes,
@@ -166,11 +173,19 @@ export class LiveShareRepositoryState implements RepositoryState {
 		this.remotes = state.remotes;
 		this.refs = state.refs;
 	}
+
+	update(state: RepositoryState) {
+		this.HEAD = state.HEAD;
+		this.remotes = state.remotes;
+		this.refs = state.refs;
+
+		this._onDidChange.fire();
+	}
 }
 export class LiveShareRepository implements Repository {
 	rootUri: vscode.Uri;
 	inputBox: InputBox;
-	state: RepositoryState;
+	state: LiveShareRepositoryState;
 	ui: RepositoryUIState;
 
 	constructor(
@@ -179,9 +194,14 @@ export class LiveShareRepository implements Repository {
 	) { }
 
 	async initialize() {
-		let state = await this._proxy.request('git', ['state', this.workspaceFolder.uri.toString()]);
+		let state = await this._proxy.request('git', ['initialize', this.workspaceFolder.uri.toString()]);
 		this.state = new LiveShareRepositoryState(state);
 		this.rootUri = vscode.Uri.parse(state.rootUri);
+		this._proxy.onNotify('statechange', this.notifyHandler.bind(this));
+	}
+
+	notifyHandler(args: any) {
+		this.state.update(args);
 	}
 
 	getConfigs(): Promise<{ key: string; value: string; }[]> {
