@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Octokit from '@octokit/rest';
+import * as GraphQLClient from 'github-graphql-api';
 import * as vscode from 'vscode';
 import { agent } from '../common/net';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
@@ -19,12 +20,18 @@ const SIGNIN_COMMAND = 'Sign in';
 
 const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
+
+export interface GitHub {
+	octokit: Octokit;
+	graphql: GraphQLClient.GitHub;
+}
+
 export class CredentialStore {
-	private _octokits: Map<string, Octokit>;
+	private _octokits: Map<string, GitHub>;
 	private _authenticationStatusBarItems: Map<string, vscode.StatusBarItem>;
 
 	constructor(private readonly _telemetry: ITelemetry) {
-		this._octokits = new Map<string, Octokit>();
+		this._octokits = new Map<string, GitHub>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 		vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
 			const uriOrToken = await vscode.window.showInputBox({ prompt: 'Token' });
@@ -43,7 +50,7 @@ export class CredentialStore {
 	}
 
 	public reset() {
-		this._octokits = new Map<string, Octokit>();
+		this._octokits = new Map<string, GitHub>();
 
 		this._authenticationStatusBarItems.forEach(statusBarItem => statusBarItem.dispose());
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
@@ -61,11 +68,11 @@ export class CredentialStore {
 
 		const server = new GitHubServer(host);
 		const token = await getToken(host);
-		let octokit: Octokit;
+		let octokit: GitHub;
 
 		if (token) {
 			if (await server.validate(token)) {
-				octokit = this.createOctokit({ host, token });
+				octokit = this.createHub({ host, token });
 			} else {
 				Logger.debug(`Token is no longer valid for host ${host}.`, 'Authentication');
 			}
@@ -80,13 +87,23 @@ export class CredentialStore {
 		return this._octokits.has(host);
 	}
 
-	public getOctokit(remote: Remote): Octokit {
+	public getHub(remote: Remote): GitHub {
 		const normalizedUri = remote.gitProtocol.normalizeUri();
 		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
 		return this._octokits.get(host);
 	}
 
-	public async loginWithConfirmation(remote: Remote): Promise<Octokit> {
+	public getOctokit(remote: Remote): Octokit {
+		const hub = this.getHub(remote);
+		return hub && hub.octokit;
+	}
+
+	public getGraphQL(remote: Remote) {
+		const hub = this.getHub(remote);
+		return hub && hub.graphql;
+	}
+
+	public async loginWithConfirmation(remote: Remote): Promise<GitHub> {
 		const normalizedUri = remote.gitProtocol.normalizeUri();
 		const result = await vscode.window.showInformationMessage(
 			`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
@@ -101,7 +118,7 @@ export class CredentialStore {
 		}
 	}
 
-	public async login(remote: Remote): Promise<Octokit> {
+	public async login(remote: Remote): Promise<GitHub> {
 		this._telemetry.on('auth.start');
 
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
@@ -110,7 +127,7 @@ export class CredentialStore {
 		const host = `${scheme}://${authority}`;
 
 		let retry: boolean = true;
-		let octokit: Octokit;
+		let octokit: GitHub;
 		const server = new GitHubServer(host);
 
 		while (retry) {
@@ -118,7 +135,7 @@ export class CredentialStore {
 				this.willStartLogin(authority);
 				const login = await server.login();
 				if (login) {
-					octokit = this.createOctokit(login);
+					octokit = this.createHub(login);
 					await setToken(login.host, login.token, { emit: false });
 					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
 				}
@@ -155,7 +172,7 @@ export class CredentialStore {
 		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
 	}
 
-	private createOctokit(creds: IHostConfiguration): Octokit {
+	private createHub(creds: IHostConfiguration): GitHub {
 		const octokit = new Octokit({
 			agent,
 			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
@@ -166,7 +183,8 @@ export class CredentialStore {
 			type: 'token',
 			token: creds.token,
 		});
-		return octokit;
+
+		return {octokit, graphql: new GraphQLClient.GitHub({ token: creds.token })}
 	}
 
 	private async updateStatusBarItem(statusBarItem: vscode.StatusBarItem, remote: Remote): Promise<void> {

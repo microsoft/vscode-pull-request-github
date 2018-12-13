@@ -73,6 +73,18 @@ function getExtensionConfig(env) {
 					test: /\.tsx?$/,
 					use: 'ts-loader',
 					exclude: /node_modules/
+				},
+				// FIXME: github-graphql-api uses .mjs, which imposes hard restrictions
+				// on imports available from other callers. They probably didn't know
+				// this. They just used .mjs because it seemed new and hip.
+				//
+				// We should either fix or remove that package, then remove this rule,
+				// which introduces nonstandard behavior for mjs files, which are
+				// terrible. This is all terrible. Everything is terrible.👇🏾
+				{
+					test: /\.mjs$/,
+					include: /node_modules/,
+					type: "javascript/auto",
 				}
 			]
 		},

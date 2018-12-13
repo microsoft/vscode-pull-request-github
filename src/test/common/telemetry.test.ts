@@ -16,7 +16,8 @@ const context = {
 	extensionPath: '',
 	asAbsolutePath: relativePath => `/${relativePath}`,
 	storagePath: '',
-	logPath: ''
+	logPath: '',
+	globalStoragePath: ''
 };
 
 describe('Telemetry', () => {

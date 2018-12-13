@@ -479,6 +479,13 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
+	async startReview(pullRequest: IPullRequestModel): Promise<void> {
+		const { graphql } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		console.log(await graphql.query(`
+			query { viewer { login } }
+		`))
+	}
+
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 

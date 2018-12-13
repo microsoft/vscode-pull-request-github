@@ -3045,6 +3045,11 @@ git-credential-node@^1.1.0:
   dependencies:
     execa "^0.6.0"
 
+github-graphql-api@^1.0.6:
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/github-graphql-api/-/github-graphql-api-1.0.6.tgz#43eb1423198975ee91fa0682bfe1a9452c8ba8e5"
+  integrity sha512-Oe/+7WQup22g0aIv+S7YyIbXvOujfVl6I1t8+NFfwjfcEarDXWDOup3VplOiRs/ezDP+uB/WTEk7p4cVWAGXSQ==
+
 github-username@^4.0.0:
   version "4.1.0"
   resolved "https://registry.yarnpkg.com/github-username/-/github-username-4.1.0.tgz#cbe280041883206da4212ae9e4b5f169c30bf417"

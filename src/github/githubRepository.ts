@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as Github from '@octokit/rest';
+import * as Octokit from '@octokit/rest';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
 import { PRType, IGitHubRepository, PullRequest } from './interface';
 import { PullRequestModel } from './pullRequestModel';
-import { CredentialStore } from './credentials';
+import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -21,18 +21,26 @@ export interface PullRequestData {
 
 export class GitHubRepository implements IGitHubRepository {
 	static ID = 'GitHubRepository';
-	private _octokit: Github;
+	private _hub: GitHub;
 	private _initialized: boolean;
 	private _metadata: any;
-	public get octokit(): Github {
-		if (this._octokit === undefined) {
+	public get hub(): GitHub {
+		if (this._hub === undefined) {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
 			} else {
 				throw new AuthenticationError('Not authenticated.');
 			}
 		}
-		return this._octokit;
+		return this._hub;
+	}
+
+	public get octokit(): Octokit {
+		return this.hub && this._hub.octokit;
+	}
+
+	public get graphql() {
+		return this.hub && this._hub.graphql;
 	}
 
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
@@ -67,9 +75,9 @@ export class GitHubRepository implements IGitHubRepository {
 		this._initialized = true;
 
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			this._octokit = await this._credentialStore.loginWithConfirmation(this.remote);
+			this._hub = await this._credentialStore.loginWithConfirmation(this.remote);
 		} else {
-			this._octokit = await this._credentialStore.getOctokit(this.remote);
+			this._hub = await this._credentialStore.getHub(this.remote);
 		}
 
 		return this;
@@ -78,9 +86,9 @@ export class GitHubRepository implements IGitHubRepository {
 	async authenticate(): Promise<boolean> {
 		this._initialized = true;
 		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			this._octokit = await this._credentialStore.login(this.remote);
+			this._hub = await this._credentialStore.login(this.remote);
 		} else {
-			this._octokit = this._credentialStore.getOctokit(this.remote);
+			this._hub = this._credentialStore.getHub(this.remote);
 		}
 		return this.octokit !== undefined;
 	}
@@ -103,7 +111,7 @@ export class GitHubRepository implements IGitHubRepository {
 		return 'master';
 	}
 
-	async getBranch(branchName: string): Promise<Github.ReposGetBranchResponse> {
+	async getBranch(branchName: string): Promise<Octokit.ReposGetBranchResponse> {
 		try {
 			Logger.debug(`Fetch branch ${branchName} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();

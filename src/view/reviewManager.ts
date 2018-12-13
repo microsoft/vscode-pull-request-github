@@ -951,7 +951,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 			createNewCommentThread: this.createNewCommentThread.bind(this),
 			replyToCommentThread: this.replyToCommentThread.bind(this),
 			editComment: this.editComment.bind(this),
-			deleteComment: this.deleteComment.bind(this)
+			deleteComment: this.deleteComment.bind(this),
+			startDraft: this.startDraft.bind(this),
+			deleteDraft: this.deleteDraft.bind(this),
+			finishDraft: this.finishDraft.bind(this),
+			startDraftLabel: 'Start Review',
+			deleteDraftLabel: 'Delete Review',
+			finishDraftLabel: 'Submit Review'
 		});
 
 		this._workspaceCommentProvider = vscode.workspace.registerWorkspaceCommentProvider({
@@ -966,6 +972,18 @@ export class ReviewManager implements vscode.DecorationProvider {
 				return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
 			}
 		});
+	}
+
+	private startDraft(token: vscode.CancellationToken) {
+		this._prManager.startReview(this._prManager.activePullRequest);
+	}
+
+	private deleteDraft() {
+
+	}
+
+	private finishDraft() {
+
 	}
 
 	private findMatchedFileChange(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode {

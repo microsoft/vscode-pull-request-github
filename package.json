@@ -398,6 +398,7 @@
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
+    "github-graphql-api": "^1.0.6",
     "iconv-lite": "0.4.23",
     "js-base64": "^2.4.9",
     "markdown-it": "^8.4.0",
