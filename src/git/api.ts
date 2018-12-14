@@ -46,6 +46,7 @@ class CommonGitAPI implements API, vscode.Disposable {
 	get repositories(): Repository[] {
 		return this._model.repositories;
 	}
+	private _disposables: vscode.Disposable[];
 
 	constructor(
 		private _model: Model
@@ -53,8 +54,9 @@ class CommonGitAPI implements API, vscode.Disposable {
 		this._api = null;
 		this._host = null;
 		this._guest = null;
-		this._model.onDidCloseRepository(e => this._onDidCloseRepository.fire(e));
-		this._model.onDidOpenRepository(e => this._onDidOpenRepository.fire(e));
+		this._disposables = [];
+		this._disposables.push(this._model.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
+		this._disposables.push(this._model.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
 		this.initilize();
 	}
 
@@ -63,7 +65,7 @@ class CommonGitAPI implements API, vscode.Disposable {
 			this._api = await getVSLSApi();
 		}
 
-		this._api.onDidChangeSession(e => this._onDidChangeSession(e.session), this);
+		this._disposables.push(this._api.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
 		if (this._api.session) {
 			this._onDidChangeSession(this._api.session);
 		}
@@ -90,14 +92,30 @@ class CommonGitAPI implements API, vscode.Disposable {
 		}
 	}
 
-	dispose() {
+	public dispose() {
 		this._api = null;
-		this._model = null;
+		if (this._model) {
+			this._model.dispose();
+			this._model = null;
+		}
+
+		if (this._host) {
+			this._host.dispose();
+			this._host = null;
+		}
+
+		if (this._guest) {
+			this._guest.dispose();
+			this._guest = null;
+		}
+
+		this._disposables.forEach(d => d.dispose());
+		this._disposables = [];
 	}
 }
 
 const api = new CommonGitAPI(new Model());
 
-export function getAPI(): API {
+export function getAPI(): CommonGitAPI {
 	return api;
 }

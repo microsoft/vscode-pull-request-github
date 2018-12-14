@@ -9,9 +9,13 @@ import { Model } from './model';
 import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
 import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
 
-export class VSLSGuest {
+export class VSLSGuest implements vscode.Disposable {
 	private _sharedServiceProxy: SharedServiceProxy;
-	constructor(private _api: LiveShare, private _model: Model) { }
+	private _disposables: vscode.Disposable[];
+	constructor(private _api: LiveShare, private _model: Model) {
+		this._sharedServiceProxy = null;
+		this._disposables = [];
+	}
 
 	async initialize() {
 		this._sharedServiceProxy = await this._api.getSharedService(VSLS_GIT_PR_SESSION_NAME);
@@ -57,6 +61,11 @@ export class VSLSGuest {
 	}
 
 	public dispose() {
+		this._sharedServiceProxy = null;
+		this._api = null;
+		this._model = null;
+		this._disposables.forEach(d => d.dispose());
+		this._disposables = [];
 	}
 }
 

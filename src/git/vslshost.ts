@@ -7,9 +7,12 @@ import * as vscode from 'vscode';
 import { LiveShare, SharedService } from 'vsls/vscode.js';
 import { Model } from './model';
 import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
-export class VSLSHost {
+export class VSLSHost implements vscode.Disposable {
 	private _sharedService: SharedService;
+	private _disposables: vscode.Disposable[];
 	constructor(private _api: LiveShare, private _model: Model) {
+		this._sharedService = null;
+		this._disposables = [];
 	}
 
 	async initialize() {
@@ -25,13 +28,13 @@ export class VSLSHost {
 		if (localRepository) {
 			let commandArgs = args.slice(2);
 			if (type === VSLS_REPOSITORY_INITIALIZATION_NAME) {
-				localRepository.state.onDidChange(e => {
+				this._disposables.push(localRepository.state.onDidChange(e => {
 					this._sharedService.notify(VSLS_STATE_CHANGE_NOFITY_NAME, {
 						HEAD: localRepository.state.HEAD,
 						remotes: localRepository.state.remotes,
 						refs: localRepository.state.refs
 					});
-				});
+				}));
 				return {
 					HEAD: localRepository.state.HEAD,
 					remotes: localRepository.state.remotes,
@@ -47,5 +50,10 @@ export class VSLSHost {
 		}
 	}
 	public dispose() {
+		this._disposables.forEach(d => d.dispose());
+		this._sharedService = null;
+		this._disposables = [];
+		this._api = null;
+		this._model = null;
 	}
 }

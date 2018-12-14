@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { API, Repository } from '../typings/git';
 import { GitExtension } from '../typings/git';
+import { dispose } from '../common/utils';
 
 export function getAPI() {
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
@@ -13,7 +14,7 @@ export function getAPI() {
 	return git;
 }
 
-export class Model {
+export class Model implements vscode.Disposable {
 	repositories: Repository[];
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
@@ -24,12 +25,14 @@ export class Model {
 	get openRepositoryes(): Repository[] {
 		return this._openRepositories;
 	}
+	private _disposables: vscode.Disposable[];
 
 	constructor() {
+		this._disposables = [];
 		this._gitApi = getAPI();
 		this.repositories = this._gitApi.repositories;
-		this._gitApi.onDidCloseRepository(this._onDidCloseGitRepository.bind(this));
-		this._gitApi.onDidOpenRepository(this._onDidOpenGitRepository.bind(this));
+		this._disposables.push(this._gitApi.onDidCloseRepository(this._onDidCloseGitRepository.bind(this)));
+		this._disposables.push(this._gitApi.onDidOpenRepository(this._onDidOpenGitRepository.bind(this)));
 	}
 
 	private _onDidCloseGitRepository(repository: Repository) {
@@ -55,5 +58,12 @@ export class Model {
 
 	public getRepository(folder: vscode.WorkspaceFolder): Repository {
 		return this._openRepositories.filter(repository => (repository as any).workspaceFolder === folder)[0];
+	}
+
+	public dispose() {
+		this._disposables.forEach(d => d.dispose());
+		this._disposables = [];
+		this._gitApi = null;
+		this._openRepositories = [];
 	}
 }
