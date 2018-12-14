@@ -60,6 +60,8 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public parentSha: string;
 	public contextValue: string;
 	public command: vscode.Command;
+	public opts: vscode.TextDocumentShowOptions;
+
 
 	constructor(
 		public readonly pullRequest: IPullRequestModel,
@@ -75,6 +77,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		public comments: Comment[] = [],
 		public readonly sha?: string,
+
 	) {
 		super();
 		this.contextValue = 'filechange';
@@ -83,7 +86,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.iconPath = this.iconPath = vscode.ThemeIcon.File;
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, status);
 
-		let opts: vscode.TextDocumentShowOptions = {
+		this.opts = {
 			preserveFocus: true
 		};
 
@@ -99,7 +102,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
 					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
-					opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
+					this.opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				}
 			}
 		}
@@ -107,13 +110,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.command = {
 			title: 'show diff',
 			command: 'pr.openDiffView',
-			arguments: [
-				this.parentFilePath,
-				this.filePath,
-				this.fileName,
-				this.isPartial,
-				opts
-			]
+			arguments: [ this ]
 		};
 	}
 
