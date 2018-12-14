@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 export { API, Repository, InputBox, RepositoryState, RepositoryUIState, Commit, Branch, Git, RefType, UpstreamRef, GitErrorCodes } from '../typings/git';
-import { API, Repository, InputBox, RepositoryState, RepositoryUIState, Commit, Branch, Git, Ref, Remote, Submodule, Change } from '../typings/git';
+import { API, Repository, RepositoryState, Commit, Branch, Git, Ref, Remote, Submodule, Change } from '../typings/git';
 import { getAPI as getLocalAPI } from './local';
 import { LiveShare, SharedService, SharedServiceProxy } from 'vsls/vscode.js';
 import { EXTENSION_ID } from '../constants';
@@ -38,7 +38,7 @@ export class CommonGitAPI implements API, vscode.Disposable {
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
 	private _api: LiveShare;
-	private _openRepositories: LiveShareRepository[] = [];
+	private _openRepositories: Repository[] = [];
 	private _currentRole: number; //Role;
 	private _sharedService: SharedService;
 	private _sharedServiceProxy: SharedServiceProxy;
@@ -137,14 +137,16 @@ export class CommonGitAPI implements API, vscode.Disposable {
 			return;
 		}
 
-		const repository = new LiveShareRepository(folder, this._sharedServiceProxy);
+		const liveShareRepository = new LiveShareRepository(folder, this._sharedServiceProxy);
+		const repositoryProxyHandler = new LiveShareRepositoryProxyHandler();
+		const repository = new Proxy(liveShareRepository, repositoryProxyHandler);
 		await repository.initialize();
 		this._openRepositories.push(repository);
 		this._onDidOpenRepository.fire(repository);
 	}
 
-	getRepository(folder: vscode.WorkspaceFolder): LiveShareRepository {
-		return this._openRepositories.filter(repository => repository.workspaceFolder === folder)[0];
+	getRepository(folder: vscode.WorkspaceFolder): Repository {
+		return this._openRepositories.filter(repository => (repository as any).workspaceFolder === folder)[0];
 	}
 
 	dispose() {
@@ -153,6 +155,20 @@ export class CommonGitAPI implements API, vscode.Disposable {
 		this._currentRole = null;
 		this._sharedService = null;
 		this._sharedServiceProxy = null;
+	}
+}
+
+export class LiveShareRepositoryProxyHandler {
+	constructor() { }
+
+	get (obj, prop) {
+		if (prop in obj) {
+			return obj[prop];
+		}
+
+		return function () {
+			return obj._proxy.request('git', [prop, obj.workspaceFolder.uri.toString(), ...arguments]);
+		};
 	}
 }
 
@@ -182,11 +198,12 @@ export class LiveShareRepositoryState implements RepositoryState {
 		this._onDidChange.fire();
 	}
 }
-export class LiveShareRepository implements Repository {
+
+export class LiveShareRepository {
 	rootUri: vscode.Uri;
-	inputBox: InputBox;
+	// inputBox: InputBox;
 	state: LiveShareRepositoryState;
-	ui: RepositoryUIState;
+	// ui: RepositoryUIState;
 
 	constructor(
 		public workspaceFolder: vscode.WorkspaceFolder,
@@ -202,97 +219,6 @@ export class LiveShareRepository implements Repository {
 
 	notifyHandler(args: any) {
 		this.state.update(args);
-	}
-
-	getConfigs(): Promise<{ key: string; value: string; }[]> {
-		return this._proxy.request('git', ['getConfigs', this.workspaceFolder.uri.toString()]);
-	}
-	getConfig(key: string): Promise<string> {
-		return this._proxy.request('git', ['getConfig', this.workspaceFolder.uri.toString(), key]);
-	}
-	setConfig(key: string, value: string): Promise<string> {
-		return this._proxy.request('git', ['setConfig', this.workspaceFolder.uri.toString(), key, value]);
-	}
-	getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number; }> {
-		return this._proxy.request('git', ['getObjectDetails', this.workspaceFolder.uri.toString(), treeish, path]);
-	}
-	detectObjectType(object: string): Promise<{ mimetype: string; encoding?: string; }> {
-		return this._proxy.request('git', ['detectObjectType', this.workspaceFolder.uri.toString(), object]);
-	}
-	buffer(ref: string, path: string): Promise<Buffer> {
-		return this._proxy.request('git', ['buffer', this.workspaceFolder.uri.toString(), ref, path]);
-	}
-	show(ref: string, path: string): Promise<string> {
-		return this._proxy.request('git', ['show', this.workspaceFolder.uri.toString(), ref, path]);
-	}
-	getCommit(ref: string): Promise<Commit> {
-		return this._proxy.request('git', ['getCommit', this.workspaceFolder.uri.toString(), ref]);
-	}
-	clean(paths: string[]): Promise<void> {
-		return this._proxy.request('git', ['clean', this.workspaceFolder.uri.toString(), paths]);
-	}
-	apply(patch: string, reverse?: boolean): Promise<void> {
-		return this._proxy.request('git', ['apply', this.workspaceFolder.uri.toString(), patch, reverse]);
-	}
-	diff(cached?: boolean): Promise<string> {
-		return this._proxy.request('git', ['diff', this.workspaceFolder.uri.toString(), cached]);
-	}
-	diffWithHEAD(path: string): Promise<string> {
-		return this._proxy.request('git', ['diffWithHEAD', this.workspaceFolder.uri.toString(), path]);
-	}
-	diffWith(ref: string, path: string): Promise<string> {
-		return this._proxy.request('git', ['diffWith', this.workspaceFolder.uri.toString(), ref, path]);
-	}
-	diffIndexWithHEAD(path: string): Promise<string> {
-		return this._proxy.request('git', ['diffIndexWithHEAD', this.workspaceFolder.uri.toString(), path]);
-	}
-	diffIndexWith(ref: string, path: string): Promise<string> {
-		return this._proxy.request('git', ['diffIndexWith', this.workspaceFolder.uri.toString(), ref, path]);
-	}
-	diffBlobs(object1: string, object2: string): Promise<string> {
-		return this._proxy.request('git', ['diffBlobs', this.workspaceFolder.uri.toString(), object1, object2]);
-	}
-	diffBetween(ref1: string, ref2: string, path: string): Promise<string> {
-		return this._proxy.request('git', ['diffBetween', this.workspaceFolder.uri.toString(), ref1, ref2]);
-	}
-	hashObject(data: string): Promise<string> {
-		return this._proxy.request('git', ['hashObject', this.workspaceFolder.uri.toString(), data]);
-	}
-	createBranch(name: string, checkout: boolean, ref?: string): Promise<void> {
-		return this._proxy.request('git', ['createBranch', this.workspaceFolder.uri.toString(), name, checkout, ref]);
-	}
-	deleteBranch(name: string, force?: boolean): Promise<void> {
-		return this._proxy.request('git', ['deleteBranch', this.workspaceFolder.uri.toString(), name, force]);
-	}
-	getBranch(name: string): Promise<Branch> {
-		return this._proxy.request('git', ['getBranch', this.workspaceFolder.uri.toString(), name]);
-	}
-	setBranchUpstream(name: string, upstream: string): Promise<void> {
-		return this._proxy.request('git', ['setBranchUpstream', this.workspaceFolder.uri.toString(), name, upstream]);
-	}
-	getMergeBase(ref1: string, ref2: string): Promise<string> {
-		return this._proxy.request('git', ['getMergeBase', this.workspaceFolder.uri.toString(), ref1, ref2]);
-	}
-	status(): Promise<void> {
-		return this._proxy.request('git', ['status', this.workspaceFolder.uri.toString()]);
-	}
-	checkout(treeish: string): Promise<void> {
-		return this._proxy.request('git', ['checkout', this.workspaceFolder.uri.toString(), treeish]);
-	}
-	addRemote(name: string, url: string): Promise<void> {
-		return this._proxy.request('git', ['addRemote', this.workspaceFolder.uri.toString(), name, url]);
-	}
-	removeRemote(name: string): Promise<void> {
-		return this._proxy.request('git', ['removeRemote', this.workspaceFolder.uri.toString(), name]);
-	}
-	fetch(remote?: string, ref?: string): Promise<void> {
-		return this._proxy.request('git', ['fetch', this.workspaceFolder.uri.toString(), remote, ref]);
-	}
-	pull(): Promise<void> {
-		return this._proxy.request('git', ['pull', this.workspaceFolder.uri.toString()]);
-	}
-	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void> {
-		return this._proxy.request('git', ['push', this.workspaceFolder.uri.toString(), remoteName, branchName, setUpstream]);
 	}
 }
 
