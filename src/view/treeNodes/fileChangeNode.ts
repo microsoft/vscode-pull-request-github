@@ -62,7 +62,6 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
 
-
 	constructor(
 		public readonly pullRequest: IPullRequestModel,
 		public readonly status: GitChangeType,
@@ -76,8 +75,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly diffHunks: DiffHunk[],
 
 		public comments: Comment[] = [],
-		public readonly sha?: string,
-
+		public readonly sha?: string
 	) {
 		super();
 		this.contextValue = 'filechange';
