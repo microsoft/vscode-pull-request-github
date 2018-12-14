@@ -10,6 +10,9 @@ import { getAPI as getLocalAPI } from './local';
 import { LiveShare, SharedService, SharedServiceProxy } from 'vsls/vscode.js';
 import { EXTENSION_ID } from '../constants';
 
+const VSLS_REQUEST_NAME = 'git';
+const VSLS_REPOSITORY_INITIALIZATION_NAME = 'initialize';
+const VSLS_STATE_CHANGE_NOFITY_NAME = 'statechange';
 async function getApi() {
 	const liveshareExtension = vscode.extensions.getExtension('ms-vsliveshare.vsliveshare');
 	if (!liveshareExtension) {
@@ -32,7 +35,7 @@ async function getApi() {
 
 export class CommonGitAPI implements API, vscode.Disposable {
 	git: Git;
-	repositories: Repository[];
+	openRepositories: Repository[];
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
@@ -50,7 +53,7 @@ export class CommonGitAPI implements API, vscode.Disposable {
 		this._sharedService = null;
 		this._sharedServiceProxy = null;
 		this._gitApi = getLocalAPI();
-		this.repositories = this._gitApi.repositories;
+		this.openRepositories = this._gitApi.openRepositories;
 		this._gitApi.onDidCloseRepository(this._onDidCloseGitRepository);
 		this._gitApi.onDidOpenRepository(this._onDidOpenGitRepository);
 
@@ -58,17 +61,13 @@ export class CommonGitAPI implements API, vscode.Disposable {
 	}
 
 	private _onDidCloseGitRepository(repository: Repository) {
-		this.repositories = this._gitApi.repositories;
-
+		this.openRepositories = this._gitApi.openRepositories;
+		this.openRepositories = this.openRepositories.filter(e => e !== repository);
 		this._onDidCloseRepository.fire(repository);
 	}
 
 	private _onDidOpenGitRepository(repository: Repository) {
-		this.repositories = this._gitApi.repositories;
-
-		if (repository.rootUri.scheme === 'vsls') {
-
-		}
+		this.openRepositories = this._gitApi.openRepositories;
 		this._onDidOpenRepository.fire(repository);
 	}
 
@@ -84,10 +83,14 @@ export class CommonGitAPI implements API, vscode.Disposable {
 	}
 
 	async _onDidChangeSession(session) {
+		if (this._sharedService) {
+			this._sharedService = null;
+		}
+
 		this._currentRole = session.role;
 		if (session.role === 1 /* Role.Host */) {
 			this._sharedService = await this._api.shareService(EXTENSION_ID);
-			this._sharedService.onRequest('git', this._gitHandler.bind(this));
+			this._sharedService.onRequest(VSLS_REQUEST_NAME, this._gitHandler.bind(this));
 			return;
 		}
 
@@ -105,13 +108,13 @@ export class CommonGitAPI implements API, vscode.Disposable {
 		let type = args[0];
 		let workspaceFolderUri = args[1];
 		let localWorkSpaceFolderUri = this._api.convertSharedUriToLocal(vscode.Uri.parse(workspaceFolderUri));
-		let localRepository = this.repositories.filter(repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString())[0];
+		let localRepository = this.openRepositories.filter(repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString())[0];
 
 		if (localRepository) {
 			let commandArgs = args.slice(2);
-			if (type === 'initialize') {
+			if (type === VSLS_REPOSITORY_INITIALIZATION_NAME) {
 				localRepository.state.onDidChange(e => {
-					this._sharedService.notify('statechange', {
+					this._sharedService.notify(VSLS_STATE_CHANGE_NOFITY_NAME, {
 						HEAD: localRepository.state.HEAD,
 						remotes: localRepository.state.remotes,
 						refs: localRepository.state.refs
@@ -167,7 +170,7 @@ export class LiveShareRepositoryProxyHandler {
 		}
 
 		return function () {
-			return obj._proxy.request('git', [prop, obj.workspaceFolder.uri.toString(), ...arguments]);
+			return obj._proxy.request(VSLS_REQUEST_NAME, [prop, obj.workspaceFolder.uri.toString(), ...arguments]);
 		};
 	}
 }
@@ -211,10 +214,10 @@ export class LiveShareRepository {
 	) { }
 
 	async initialize() {
-		let state = await this._proxy.request('git', ['initialize', this.workspaceFolder.uri.toString()]);
-		this.state = new LiveShareRepositoryState(state);
-		this.rootUri = vscode.Uri.parse(state.rootUri);
-		this._proxy.onNotify('statechange', this.notifyHandler.bind(this));
+		let result = await this._proxy.request(VSLS_REQUEST_NAME, [VSLS_REPOSITORY_INITIALIZATION_NAME, this.workspaceFolder.uri.toString()]);
+		this.state = new LiveShareRepositoryState(result);
+		this.rootUri = vscode.Uri.parse(result.rootUri);
+		this._proxy.onNotify(VSLS_STATE_CHANGE_NOFITY_NAME, this.notifyHandler.bind(this));
 	}
 
 	notifyHandler(args: any) {

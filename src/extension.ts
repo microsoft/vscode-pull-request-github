@@ -51,7 +51,7 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 	const reviewManager = new ReviewManager(context, Keychain.onDidChange, repository, prManager, telemetry);
 	registerCommands(context, prManager, reviewManager, telemetry);
 
-	git.repositories.forEach(repo => {
+	git.openRepositories.forEach(repo => {
 		repo.ui.onDidChange(() => {
 			// No multi-select support, always show last selected repo
 			if (repo.ui.selected) {
@@ -81,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const git = getAPI();
 
 	Logger.appendLine('Looking for git repository');
-	const firstRepository = git.repositories[0];
+	const firstRepository = git.openRepositories[0];
 
 	if (firstRepository) {
 		await init(context, git, firstRepository);
