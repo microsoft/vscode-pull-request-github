@@ -479,15 +479,14 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	// async isDraftMode(): Promise<boolean> {
-	// 	if (!this._activePullRequest) return false;
-	// 	const { octokit } = (this._activePullRequest as PullRequestModel).githubRepository.ensure()
-
-	// }
+	async isDraftMode(): Promise<boolean> {
+		if (!this._activePullRequest) return false;
+		return !await this.getPendingReviewId(this._activePullRequest as PullRequestModel)
+	}
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {
 		const { graphql } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-		(<any>pullRequest).pendingReviewId = await this.getPendingReviewId(pullRequest) || graphql(`
+		return this.getPendingReviewId(pullRequest) || graphql(`
 			mutation StartReview($input: AddPullRequestReviewInput!) {
 				addPullRequestReview(input: $input) {
 					pullRequestReview { id }
@@ -501,11 +500,8 @@ export class PullRequestManager implements IPullRequestManager {
 	async getPendingReviewId(pullRequest: PullRequestModel): Promise<string | null> {
 		const { graphql, octokit } = await pullRequest.githubRepository.ensure()
 		const { currentUser='' } = octokit as any;
-		const vars = {
-			pullRequestId: pullRequest.prItem.node_id,
-			author: currentUser.login // await this.getViewerId(pullRequest) //currentUser.node_id
-		}
-		const rsp = await graphql(`
+		try {
+			return (await graphql(`
 			query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 				node(id: $pullRequestId) {
 					...on PullRequest {
@@ -513,27 +509,25 @@ export class PullRequestManager implements IPullRequestManager {
 					}
 				}
 			}
-			`, vars)
-		return rsp.node.reviews.nodes[0].id
-	}
-
-	async getViewerId(pullRequest: PullRequestModel): Promise<string | null> {
-		const { graphql } = await pullRequest.githubRepository.ensure()
-		const rsp = await graphql(`
-			query { viewer { id } }
-		`, {})
-		return rsp.viewer.id
+			`, {
+				pullRequestId: pullRequest.prItem.node_id,
+				author: currentUser.login
+			})).node.reviews.nodes[0].id
+		} catch (error) {
+			return null
+		}
 	}
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, path: string, position: number): Promise<Comment> {
 		const { graphql, remote } = await pullRequest.githubRepository.ensure();
-		const pendingComment = graphql(`
+		const rsp = await graphql(`
 			mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 				addPullRequestReviewComment(input: $input) {
-					comment { id, body, author {
-							login,
-
-						}
+					comment {
+						id, databaseId,
+						url,
+					  author { login }
+						position
 					}
 				}
 			}`, {
@@ -545,7 +539,13 @@ export class PullRequestManager implements IPullRequestManager {
 				}
 			}).catch(e => console.log(e));
 
-		return this.addCommentPermissions(pendingComment, remote);
+		return this.addCommentPermissions({
+			id: rsp.databaseId,
+			node_id: rsp.id,
+			user: rsp.author.login,
+			position: rsp.position,
+			url: rsp.url,
+		} as any, remote);
 	}
 
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
