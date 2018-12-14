@@ -11,6 +11,7 @@ import { LiveShare, SharedService, SharedServiceProxy } from 'vsls/vscode.js';
 import { EXTENSION_ID } from '../constants';
 
 const VSLS_REQUEST_NAME = 'git';
+const VSLS_GIT_PR_SESSION_NAME = 'ghpr';
 const VSLS_REPOSITORY_INITIALIZATION_NAME = 'initialize';
 const VSLS_STATE_CHANGE_NOFITY_NAME = 'statechange';
 async function getApi() {
@@ -89,13 +90,13 @@ export class CommonGitAPI implements API, vscode.Disposable {
 
 		this._currentRole = session.role;
 		if (session.role === 1 /* Role.Host */) {
-			this._sharedService = await this._api.shareService(EXTENSION_ID);
+			this._sharedService = await this._api.shareService(VSLS_GIT_PR_SESSION_NAME);
 			this._sharedService.onRequest(VSLS_REQUEST_NAME, this._gitHandler.bind(this));
 			return;
 		}
 
 		if (session.role === 2 /* Role.Guest */) {
-			this._sharedServiceProxy = await this._api.getSharedService(`${EXTENSION_ID}.${EXTENSION_ID}`);
+			this._sharedServiceProxy = await this._api.getSharedService(VSLS_GIT_PR_SESSION_NAME);
 			vscode.workspace.workspaceFolders.forEach(async folder => {
 				if (folder.uri.scheme === 'vsls') {
 					await this.openVSLSRepository(folder);
