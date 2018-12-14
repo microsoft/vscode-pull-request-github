@@ -10,7 +10,7 @@ import * as Github from '@octokit/rest';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri, ReviewUriParams } from './common/uri';
-import { GitFileChangeNode } from './view/treeNodes/fileChangeNode';
+import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { IPullRequestManager, IPullRequestModel, ITelemetry } from './github/interface';
 import { formatError } from './common/utils';
@@ -122,12 +122,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (gitFileChangeNode: GitFileChangeNode) => {
-		const parentFilePath = gitFileChangeNode.parentFilePath;
-		const filePath = gitFileChangeNode.filePath;
-		const fileName = gitFileChangeNode.fileName;
-		const isPartial = gitFileChangeNode.isPartial;
-		const opts = gitFileChangeNode.opts;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+		const parentFilePath = fileChangeNode.parentFilePath;
+		const filePath = fileChangeNode.filePath;
+		const fileName = fileChangeNode.fileName;
+		const isPartial = fileChangeNode.isPartial;
+		const opts = fileChangeNode.opts;
 
 		if (isPartial) {
 			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
