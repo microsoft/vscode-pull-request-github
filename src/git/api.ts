@@ -22,7 +22,7 @@ async function getApi() {
 		// The extensibility API is not enabled.
 		return null;
 	}
-	const liveShareApiVersion = '0.3.1013';
+	const liveShareApiVersion = liveshareExtension.packageJSON.version;
 	// Support deprecated function name to preserve compatibility with older versions of VSLS.
 	if (!extensionApi.getApi) {
 		return extensionApi.getApiAsync(liveShareApiVersion);
