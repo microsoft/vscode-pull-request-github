@@ -35,7 +35,7 @@ async function getApi() {
 
 export class CommonGitAPI implements API, vscode.Disposable {
 	git: Git;
-	openRepositories: Repository[];
+	repositories: Repository[];
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
@@ -53,7 +53,7 @@ export class CommonGitAPI implements API, vscode.Disposable {
 		this._sharedService = null;
 		this._sharedServiceProxy = null;
 		this._gitApi = getLocalAPI();
-		this.openRepositories = this._gitApi.openRepositories;
+		this.repositories = this._gitApi.repositories;
 		this._gitApi.onDidCloseRepository(this._onDidCloseGitRepository);
 		this._gitApi.onDidOpenRepository(this._onDidOpenGitRepository);
 
@@ -61,13 +61,13 @@ export class CommonGitAPI implements API, vscode.Disposable {
 	}
 
 	private _onDidCloseGitRepository(repository: Repository) {
-		this.openRepositories = this._gitApi.openRepositories;
-		this.openRepositories = this.openRepositories.filter(e => e !== repository);
+		this.repositories = this._gitApi.repositories;
+		this.repositories = this.repositories.filter(e => e !== repository);
 		this._onDidCloseRepository.fire(repository);
 	}
 
 	private _onDidOpenGitRepository(repository: Repository) {
-		this.openRepositories = this._gitApi.openRepositories;
+		this.repositories = this._gitApi.repositories;
 		this._onDidOpenRepository.fire(repository);
 	}
 
@@ -108,7 +108,7 @@ export class CommonGitAPI implements API, vscode.Disposable {
 		let type = args[0];
 		let workspaceFolderUri = args[1];
 		let localWorkSpaceFolderUri = this._api.convertSharedUriToLocal(vscode.Uri.parse(workspaceFolderUri));
-		let localRepository = this.openRepositories.filter(repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString())[0];
+		let localRepository = this.repositories.filter(repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString())[0];
 
 		if (localRepository) {
 			let commandArgs = args.slice(2);

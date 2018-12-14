@@ -161,7 +161,7 @@ export interface Repository {
 
 export interface API {
 	readonly git: Git;
-	readonly openRepositories: Repository[];
+	readonly repositories: Repository[];
 	readonly onDidOpenRepository: Event<Repository>;
 	readonly onDidCloseRepository: Event<Repository>;
 }
