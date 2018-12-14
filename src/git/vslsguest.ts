@@ -22,8 +22,23 @@ export class VSLSGuest implements vscode.Disposable {
 		if (this._sharedServiceProxy.isServiceAvailable) {
 			await this._refreshWorkspaces(true);
 		}
-		this._sharedServiceProxy.onDidChangeIsServiceAvailable(async e => {
+		this._disposables.push(this._sharedServiceProxy.onDidChangeIsServiceAvailable(async e => {
 			await this._refreshWorkspaces(e);
+		}));
+		this._disposables.push(vscode.workspace.onDidChangeWorkspaceFolders(this._onDidChangeWorkspaceFolders.bind(this)));
+	}
+
+	private async _onDidChangeWorkspaceFolders(e: vscode.WorkspaceFoldersChangeEvent) {
+		e.added.forEach(async folder => {
+			if (folder.uri.scheme === 'vsls' && this._sharedServiceProxy && this._sharedServiceProxy.isServiceAvailable) {
+				await this.openVSLSRepository(folder);
+			}
+		});
+
+		e.removed.forEach(async folder => {
+			if (folder.uri.scheme === 'vsls' && this._sharedServiceProxy && this._sharedServiceProxy.isServiceAvailable) {
+				await this.closeVSLSRepository(folder);
+			}
 		});
 	}
 
