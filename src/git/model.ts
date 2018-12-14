@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 import { API, Repository } from '../typings/git';
 import { GitExtension } from '../typings/git';
-import { dispose } from '../common/utils';
 
 export function getAPI() {
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
