@@ -14,14 +14,13 @@ export function getAPI() {
 }
 
 export class Model implements vscode.Disposable {
-	repositories: Repository[];
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
 	private _gitApi: API;
 	private _openRepositories: Repository[] = [];
-	get openRepositoryes(): Repository[] {
+	get repositories(): Repository[] {
 		return this._openRepositories;
 	}
 	private _disposables: vscode.Disposable[];
@@ -29,19 +28,19 @@ export class Model implements vscode.Disposable {
 	constructor() {
 		this._disposables = [];
 		this._gitApi = getAPI();
-		this.repositories = this._gitApi.repositories;
+		this._openRepositories = this._gitApi.repositories;
 		this._disposables.push(this._gitApi.onDidCloseRepository(this._onDidCloseGitRepository.bind(this)));
 		this._disposables.push(this._gitApi.onDidOpenRepository(this._onDidOpenGitRepository.bind(this)));
 	}
 
 	private _onDidCloseGitRepository(repository: Repository) {
-		this.repositories = this._gitApi.repositories;
-		this.repositories = this.repositories.filter(e => e !== repository);
+		this._openRepositories = this._gitApi.repositories;
+		this._openRepositories = this.repositories.filter(e => e !== repository);
 		this._onDidCloseRepository.fire(repository);
 	}
 
 	private _onDidOpenGitRepository(repository: Repository) {
-		this.repositories = this._gitApi.repositories;
+		this._openRepositories = this._gitApi.repositories;
 		this._onDidOpenRepository.fire(repository);
 	}
 
