@@ -67,6 +67,7 @@ export type PullRequest = Pick<
 	| 'commits'
 	| 'head'
 	| 'base'
+	| 'node_id'
 >;
 export interface IPullRequestModel {
 	remote: Remote;

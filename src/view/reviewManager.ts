@@ -845,6 +845,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					return {
 						threads: this.fileCommentsToCommentThreads(matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed),
 						commentingRanges: ranges,
+						inDraftMode: false
 					};
 				}
 

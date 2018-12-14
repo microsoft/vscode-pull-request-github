@@ -479,14 +479,81 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async startReview(pullRequest: IPullRequestModel): Promise<void> {
+	// async isDraftMode(): Promise<boolean> {
+	// 	if (!this._activePullRequest) return false;
+	// 	const { octokit } = (this._activePullRequest as PullRequestModel).githubRepository.ensure()
+
+	// }
+
+	async startReview(pullRequest: PullRequestModel): Promise<void> {
 		const { graphql } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-		console.log(await graphql.query(`
-			query { viewer { login } }
-		`))
+		(<any>pullRequest).pendingReviewId = await this.getPendingReviewId(pullRequest) || graphql(`
+			mutation StartReview($input: AddPullRequestReviewInput!) {
+				addPullRequestReview(input: $input) {
+					pullRequestReview { id }
+				}
+			}
+			`, { input: { body: '', pullRequestId: pullRequest.prItem.node_id } }).catch(e => {
+				Logger.appendLine(`Failed to start review: ${e.message}`);
+			});
+	}
+
+	async getPendingReviewId(pullRequest: PullRequestModel): Promise<string | null> {
+		const { graphql, octokit } = await pullRequest.githubRepository.ensure()
+		const { currentUser='' } = octokit as any;
+		const vars = {
+			pullRequestId: pullRequest.prItem.node_id,
+			author: currentUser.login // await this.getViewerId(pullRequest) //currentUser.node_id
+		}
+		const rsp = await graphql(`
+			query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
+				node(id: $pullRequestId) {
+					...on PullRequest {
+						reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
+					}
+				}
+			}
+			`, vars)
+		return rsp.node.reviews.nodes[0].id
+	}
+
+	async getViewerId(pullRequest: PullRequestModel): Promise<string | null> {
+		const { graphql } = await pullRequest.githubRepository.ensure()
+		const rsp = await graphql(`
+			query { viewer { id } }
+		`, {})
+		return rsp.viewer.id
+	}
+
+	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, path: string, position: number): Promise<Comment> {
+		const { graphql, remote } = await pullRequest.githubRepository.ensure();
+		const pendingComment = graphql(`
+			mutation AddComment($input: AddPullRequestReviewCommentInput!) {
+				addPullRequestReviewComment(input: $input) {
+					comment { id, body, author {
+							login,
+
+						}
+					}
+				}
+			}`, {
+				input: {
+					pullRequestReviewId: reviewId,
+					body,
+					path,
+					position
+				}
+			}).catch(e => console.log(e));
+
+		return this.addCommentPermissions(pendingComment, remote);
 	}
 
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		if (pendingReviewId) {
+			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, path, position)
+		}
+
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		try {
@@ -613,7 +680,8 @@ export class PullRequestManager implements IPullRequestManager {
 				comments: 0,
 				commits: 0,
 				head: data.head,
-				base: data.base
+				base: data.base,
+				node_id: data.node_id
 			};
 
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);

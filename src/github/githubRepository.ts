@@ -11,6 +11,7 @@ import { PRType, IGitHubRepository, PullRequest } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
+import { Dict } from 'github-graphql-api';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -39,8 +40,19 @@ export class GitHubRepository implements IGitHubRepository {
 		return this.hub && this._hub.octokit;
 	}
 
-	public get graphql() {
-		return this.hub && this._hub.graphql;
+	graphql = async (query: string, vars: Dict<any>) => {
+		const gql = this.hub && this._hub.graphql;
+		if (!gql) {
+			Logger.debug(`Not available for query: ${query}`, 'GraphQL')
+			return null
+		}
+		Logger.appendLine('---');
+		Logger.appendLine(query);
+		Logger.appendLine('>>>');
+		const rsp = await gql.query(query, vars);
+		Logger.appendLine(JSON.stringify(rsp, null, 2));
+		Logger.appendLine('---');
+		return rsp;
 	}
 
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
@@ -157,7 +169,8 @@ export class GitHubRepository implements IGitHubRepository {
 						created_at,
 						updated_at,
 						head,
-						base
+						base,
+						node_id
 					}) => {
 						if (!head.repo) {
 							Logger.appendLine(
@@ -181,7 +194,8 @@ export class GitHubRepository implements IGitHubRepository {
 							comments: 0,
 							commits: 0,
 							head,
-							base
+							base,
+							node_id
 						};
 
 						return new PullRequestModel(this, this.remote, item);
