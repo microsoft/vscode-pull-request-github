@@ -11,4 +11,5 @@ export interface Comment extends Github.PullRequestsCreateCommentResponse {
 	diff_hunks?: DiffHunk[];
 	canEdit?: boolean;
 	canDelete?: boolean;
+	isDraft?: boolean;
 }

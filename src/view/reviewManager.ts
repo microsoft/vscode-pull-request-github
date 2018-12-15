@@ -364,7 +364,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
 				canEdit: rawComment.canEdit,
-				canDelete: rawComment.canDelete
+				canDelete: rawComment.canDelete,
+				isDraft: rawComment.isDraft
 			};
 
 			let commentThread: vscode.CommentThread = {
@@ -845,7 +846,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					return {
 						threads: this.fileCommentsToCommentThreads(matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed),
 						commentingRanges: ranges,
-						inDraftMode: false
+						inDraftMode: await this._prManager.inDraftMode()
 					};
 				}
 
@@ -944,7 +945,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 						});
 
 						return {
-							threads: ret
+							threads: ret,
+							inDraftMode: await this._prManager.inDraftMode()
 						};
 					}
 				}
@@ -975,12 +977,19 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private startDraft(token: vscode.CancellationToken) {
-		this._prManager.startReview(this._prManager.activePullRequest);
+	private async startDraft(token: vscode.CancellationToken) {
+		await this._prManager.startReview(this._prManager.activePullRequest);
 	}
 
-	private deleteDraft() {
-
+	private async deleteDraft() {
+		const deletedReviewComments = await this._prManager.deleteReview(this._prManager.activePullRequest);
+		console.log(deletedReviewComments);
+		this._onDidChangeDocumentCommentThreads.fire({
+			added: [],
+			changed: [],
+			removed: this.allCommentsToCommentThreads(deletedReviewComments, vscode.CommentThreadCollapsibleState.Expanded),
+			inDraftMode: false
+		})
 	}
 
 	private finishDraft() {

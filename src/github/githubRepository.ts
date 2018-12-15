@@ -36,6 +36,11 @@ export class GitHubRepository implements IGitHubRepository {
 		return this._hub;
 	}
 
+	supportsGraphQl(): boolean {
+		return !!(this.hub && this._hub.graphql);
+
+	}
+
 	public get octokit(): Octokit {
 		return this.hub && this._hub.octokit;
 	}
