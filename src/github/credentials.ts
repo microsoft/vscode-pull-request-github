@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Octokit from '@octokit/rest';
-import * as GraphQLClient from 'github-graphql-api';
+import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
+import { setContext } from 'apollo-link-context';
+
 import * as vscode from 'vscode';
 import { agent } from '../common/net';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
@@ -14,6 +16,7 @@ import { Remote } from '../common/remote';
 import Logger from '../common/logger';
 import { ITelemetry } from './interface';
 import { handler as uriHandler } from '../common/uri';
+import { createHttpLink } from 'apollo-link-http';
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
@@ -22,7 +25,7 @@ const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
 export interface GitHub {
 	octokit: Octokit;
-	graphql: GraphQLClient.GitHub;
+	graphql: ApolloClient<NormalizedCacheObject>;
 }
 
 export class CredentialStore {
@@ -172,9 +175,10 @@ export class CredentialStore {
 	}
 
 	private createHub(creds: IHostConfiguration): GitHub {
+		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`
 		const octokit = new Octokit({
 			agent,
-			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
+			baseUrl,
 			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
 		});
 
@@ -183,7 +187,7 @@ export class CredentialStore {
 			token: creds.token,
 		});
 
-		return { octokit, graphql: new GraphQLClient.GitHub({ token: creds.token }) };
+		return { octokit, graphql: new ApolloClient({ link: link(baseUrl, creds.token), cache: new InMemoryCache }) };
 	}
 
 	private async updateStatusBarItem(statusBarItem: vscode.StatusBarItem, remote: Remote): Promise<void> {
@@ -238,3 +242,13 @@ export class CredentialStore {
 	}
 
 }
+
+const link = (url: string, token: string) =>
+	setContext((_, { headers }) => (({
+		headers: {
+			...headers,
+			authorization: token ? `Bearer ${token}` : "",
+		}
+	}))).concat(createHttpLink({
+		uri: `${url}/graphql`
+	}));

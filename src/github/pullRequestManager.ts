@@ -18,6 +18,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
+import gql from 'graphql-tag';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -352,40 +353,42 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	private async getAllPullRequestReviewComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
-		const { remote, graphql } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-		const rsp = await graphql(
-			`fragment Comment on PullRequestReviewComment {
-				id databaseId url
-				author {login avatarUrl}
-				path originalPosition
-				body
-				diffHunk
-				position
-			  }
-
-			  query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100),{
-				repository(owner:$owner, name:$name) {
-				  pullRequest(number:$number) {
-					reviews(first:$first) {
-					  nodes {
-						comments(first:100) {
-						  nodes { ...Comment }
-						}
-					  }
-					}
-				  }
+		const { remote, query } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { data } = await query({
+			query: gql `
+			  fragment Comment on PullRequestReviewComment {
+					id databaseId url
+					author {login avatarUrl}
+					path originalPosition
+					body
+					diffHunk
+					position
 				}
-			  }`, {
+
+				query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100) {
+					repository(owner:$owner, name:$name) {
+						pullRequest(number:$number) {
+							reviews(first:$first) {
+								nodes {
+									comments(first:100) {
+										nodes { ...Comment }
+									}
+								}
+							}
+						}
+					}
+				}
+			`,
+			variables: {
 				owner: remote.owner,
 				name: remote.repositoryName,
-				number: pullRequest.prNumber
-			});
-
+				number: pullRequest.prNumber,
+			}
+		});
 		try {
-			const comments = rsp.repository.pullRequest.reviews.nodes
+			const comments = data.repository.pullRequest.reviews.nodes
 				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toDraftComment(comment), remote)))
 				.reduce((prev, curr) => curr = prev.concat(curr), []);
-
 			return parserCommentDiffHunk(comments);
 		} catch (e) {
 			console.log(e);
@@ -513,43 +516,53 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async deleteReview(pullRequest: PullRequestModel): Promise<Comment[]> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
-		const { graphql } = await pullRequest.githubRepository.ensure();
+		const { query } = await pullRequest.githubRepository.ensure();
+		const { data } = await query<any>({
+			query: gql `
+				fragment Comment on PullRequestReviewComment {
+						id databaseId url
+						author {login avatarUrl}
+						path originalPosition
+						body
+						diffHunk
+						position
+				}
 
-		const rsp = await graphql(`
-			fragment Comment on PullRequestReviewComment {
-                id databaseId url
-                author {login avatarUrl}
-                path originalPosition
-                body
-                diffHunk
-                position
-            }
+				mutation EndReview($input: DeletePullRequestReviewInput!) {
+						deletePullRequestReview(input: $input) {
+								pullRequestReview {
+									comments(first:100) {
+											nodes { ...Comment }
+									}
+								}
+						}
+				}
+			`,
+			variables: {
+				input: { pullRequestReviewId: pendingReviewId }
+			}
+		})
 
-            mutation EndReview($input: DeletePullRequestReviewInput!) {
-                deletePullRequestReview(input: $input) {
-                    pullRequestReview {
-                      comments(first:100) {
-                          nodes { ...Comment }
-                      }
-                    }
-                }
-            }
-			`, { input: { pullRequestReviewId: pendingReviewId } }).catch(e => {
-			Logger.appendLine(`Failed to delete review: ${e.message}`);
-		});
-
-		return rsp.deletePullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+		return data.deletePullRequestReview.pullRequestReview.comments.nodes.map(toComment);
 	}
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {
-		const { graphql } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-		return graphql(`
-			mutation StartReview($input: AddPullRequestReviewInput!) {
-				addPullRequestReview(input: $input) {
-					pullRequestReview { id }
+		const { query } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		return query<void>({
+			query: gql `
+				mutation StartReview($input: AddPullRequestReviewInput!) {
+					addPullRequestReview(input: $input) {
+						pullRequestReview { id }
+					}
+				}
+				`,
+			variables: {
+				input: {
+					body: '',
+					pullRequestId: pullRequest.prItem.node_id
 				}
 			}
-			`, { input: { body: '', pullRequestId: pullRequest.prItem.node_id } }).catch(e => {
+		}).then(x => x.data).catch(e => {
 			Logger.appendLine(`Failed to start review: ${e.message}`);
 		});
 	}
@@ -559,21 +572,25 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPendingReviewId(pullRequest = this._activePullRequest as PullRequestModel): Promise<string | null> {
-		const { graphql, octokit } = await pullRequest.githubRepository.ensure();
+		const { query, octokit } = await pullRequest.githubRepository.ensure();
 		const { currentUser = '' } = octokit as any;
 		try {
-			return (await graphql(`
-			query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
-				node(id: $pullRequestId) {
-					...on PullRequest {
-						reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
+			const { data } = await query({
+				query: gql `
+					query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
+						node(id: $pullRequestId) {
+							...on PullRequest {
+								reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
+							}
+						}
 					}
-				}
-			}
-			`, {
+			 `,
+				variables: {
 					pullRequestId: (pullRequest as PullRequestModel).prItem.node_id,
 					author: currentUser.login
-				})).node.reviews.nodes[0].id;
+				}
+			});
+			return data.node.reviews.nodes[0].id;
 		} catch (error) {
 			console.log(error);
 			return null;
@@ -581,31 +598,34 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, path: string, position: number): Promise<Comment> {
-		const { graphql, remote } = await pullRequest.githubRepository.ensure();
-		const rsp = await graphql(`
-			mutation AddComment($input: AddPullRequestReviewCommentInput!) {
-				addPullRequestReviewComment(input: $input) {
-					comment {
-						id, databaseId,
-						url,
-						author { login avatarUrl }
-						position,
-						path,
-						originalPosition,
-						body,
-						diffHunk
+		const { query, remote } = await pullRequest.githubRepository.ensure();
+		const { data } = await query({
+			query: gql `
+				mutation AddComment($input: AddPullRequestReviewCommentInput!) {
+					addPullRequestReviewComment(input: $input) {
+						comment {
+							id, databaseId,
+							url,
+							author { login avatarUrl }
+							position,
+							path,
+							originalPosition,
+							body,
+							diffHunk
+						}
 					}
-				}
-			}`, {
+				}`,
+			variables: {
 				input: {
 					pullRequestReviewId: reviewId,
 					body,
 					path,
 					position
 				}
-			}).catch(e => console.log(e));
+			}
+		});
 
-		const { comment } = rsp.addPullRequestReviewComment;
+		const { comment } = data.addPullRequestReviewComment;
 
 		return this.addCommentPermissions(toDraftComment(comment), remote);
 	}
@@ -908,35 +928,37 @@ export class PullRequestManager implements IPullRequestManager {
 
 	public async submitReview(pullRequest: IPullRequestModel): Promise<Comment[]> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
-		const { graphql } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { query } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		if (pendingReviewId) {
-			const rsp = await graphql(`
-				fragment Comment on PullRequestReviewComment {
-					id databaseId url
-					author {login avatarUrl}
-					path originalPosition
-					body
-					diffHunk
-					position
-				}
-				mutation SubmitReview($id: ID!) {
-					submitPullRequestReview(input: {
-						event: COMMENT,
-						pullRequestReviewId: $id
-					}) {
-						pullRequestReview {
-							comments(first:100) {
-								nodes { ...Comment }
+			const { data } = await query({
+				query: gql `
+					fragment Comment on PullRequestReviewComment {
+						id databaseId url
+						author {login avatarUrl}
+						path originalPosition
+						body
+						diffHunk
+						position
+					}
+					mutation SubmitReview($id: ID!) {
+						submitPullRequestReview(input: {
+							event: COMMENT,
+							pullRequestReviewId: $id
+						}) {
+							pullRequestReview {
+								comments(first:100) {
+									nodes { ...Comment }
+								}
 							}
 						}
 					}
+				`,
+				variables: {
+					id: pendingReviewId
 				}
-			`, { id: pendingReviewId }).catch(e => {
-				Logger.appendLine(`Failed to submit review: ${e}`);
-				throw e;
 			});
-			return rsp.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
 		} else {
 			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
 		}

@@ -11,7 +11,7 @@ import { PRType, IGitHubRepository, PullRequest } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
-import { Dict } from 'github-graphql-api';
+import { QueryOptions, MutationOptions } from 'apollo-boost';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -38,23 +38,37 @@ export class GitHubRepository implements IGitHubRepository {
 
 	supportsGraphQl(): boolean {
 		return !!(this.hub && this._hub.graphql);
-
 	}
 
 	public get octokit(): Octokit {
 		return this.hub && this._hub.octokit;
 	}
 
-	graphql = async (query: string, vars: Dict<any>) => {
+	query = async <T=any>(query: QueryOptions) => {
 		const gql = this.hub && this._hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${query}`, 'GraphQL');
 			return null;
 		}
 		Logger.appendLine('---');
-		Logger.appendLine(query);
+		Logger.appendLine(JSON.stringify(query, null, 2));
 		Logger.appendLine('>>>');
-		const rsp = await gql.query(query, vars);
+		const rsp = await gql.query<T>(query);
+		Logger.appendLine(JSON.stringify(rsp, null, 2));
+		Logger.appendLine('---');
+		return rsp;
+	}
+
+	mutate = async <T=any>(mutation: MutationOptions) => {
+		const gql = this.hub && this._hub.graphql;
+		if (!gql) {
+			Logger.debug(`Not available for query: ${mutation}`, 'GraphQL');
+			return null;
+		}
+		Logger.appendLine('---');
+		Logger.appendLine(JSON.stringify(mutation, null, 2));
+		Logger.appendLine('>>>');
+		const rsp = await gql.mutate<T>(mutation);
 		Logger.appendLine(JSON.stringify(rsp, null, 2));
 		Logger.appendLine('---');
 		return rsp;
