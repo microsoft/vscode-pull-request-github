@@ -20,7 +20,6 @@ const SIGNIN_COMMAND = 'Sign in';
 
 const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
-
 export interface GitHub {
 	octokit: Octokit;
 	graphql: GraphQLClient.GitHub;
@@ -184,7 +183,7 @@ export class CredentialStore {
 			token: creds.token,
 		});
 
-		return {octokit, graphql: new GraphQLClient.GitHub({ token: creds.token })}
+		return { octokit, graphql: new GraphQLClient.GitHub({ token: creds.token }) };
 	}
 
 	private async updateStatusBarItem(statusBarItem: vscode.StatusBarItem, remote: Remote): Promise<void> {

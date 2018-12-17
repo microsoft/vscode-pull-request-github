@@ -110,7 +110,7 @@ export function providePRDocumentComments(
 
 	return {
 		threads,
-		commentingRanges,
+		commentingRanges
 	};
 }
 

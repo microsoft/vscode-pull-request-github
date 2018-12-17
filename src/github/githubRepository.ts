@@ -48,8 +48,8 @@ export class GitHubRepository implements IGitHubRepository {
 	graphql = async (query: string, vars: Dict<any>) => {
 		const gql = this.hub && this._hub.graphql;
 		if (!gql) {
-			Logger.debug(`Not available for query: ${query}`, 'GraphQL')
-			return null
+			Logger.debug(`Not available for query: ${query}`, 'GraphQL');
+			return null;
 		}
 		Logger.appendLine('---');
 		Logger.appendLine(query);

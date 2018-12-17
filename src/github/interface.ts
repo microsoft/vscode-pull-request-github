@@ -144,6 +144,7 @@ export interface IPullRequestManager {
 	startReview(pullRequest: IPullRequestModel): Promise<void>;
 	inDraftMode(): Promise<boolean>;
 	deleteReview(pullRequest: IPullRequestModel): Promise<Comment[]>;
+	submitReview(pullRequest: IPullRequestModel): Promise<Comment[]>;
 
 	/**
 	 * Fullfill information for a pull request which we can't fetch with one single api call.

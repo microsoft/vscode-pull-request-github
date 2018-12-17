@@ -979,21 +979,39 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private async startDraft(token: vscode.CancellationToken) {
 		await this._prManager.startReview(this._prManager.activePullRequest);
+		this._onDidChangeDocumentCommentThreads.fire({
+			added: [],
+			changed: [],
+			removed: [],
+			inDraftMode: true
+		});
 	}
 
 	private async deleteDraft() {
 		const deletedReviewComments = await this._prManager.deleteReview(this._prManager.activePullRequest);
 		console.log(deletedReviewComments);
+
+		// TODO ensure that comment thread resource is correct. Potentially also remove workspace comments with another event.
 		this._onDidChangeDocumentCommentThreads.fire({
 			added: [],
 			changed: [],
 			removed: this.allCommentsToCommentThreads(deletedReviewComments, vscode.CommentThreadCollapsibleState.Expanded),
 			inDraftMode: false
-		})
+		});
 	}
 
-	private finishDraft() {
-
+	private async finishDraft() {
+		try {
+			const comments = await this._prManager.submitReview(this._prManager.activePullRequest);
+			this._onDidChangeDocumentCommentThreads.fire({
+				added: [],
+				changed: this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded),
+				removed: [],
+				inDraftMode: false
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
+		}
 	}
 
 	private findMatchedFileChange(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode {

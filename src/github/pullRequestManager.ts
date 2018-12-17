@@ -63,7 +63,7 @@ export class BadUpstreamError extends Error {
 	}
 
 	get message() {
-		const {upstreamRef: {remote, name}, branchName, problem} = this;
+		const { upstreamRef: { remote, name }, branchName, problem } = this;
 		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
 	}
 }
@@ -264,7 +264,7 @@ export class PullRequestManager implements IPullRequestManager {
 		let remoteName: string = null;
 		try {
 			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
-		} catch (e) {}
+		} catch (e) { }
 
 		if (!remoteName) {
 			return;
@@ -382,8 +382,8 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 
 		try {
-			const comments =  rsp.repository.pullRequest.reviews.nodes
-				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(this.toComment(comment), remote)))
+			const comments = rsp.repository.pullRequest.reviews.nodes
+				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toDraftComment(comment), remote)))
 				.reduce((prev, curr) => curr = prev.concat(curr), []);
 
 			return parserCommentDiffHunk(comments);
@@ -434,7 +434,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]> {
 		try {
-		Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
+			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
@@ -516,7 +516,6 @@ export class PullRequestManager implements IPullRequestManager {
 		const { graphql } = await pullRequest.githubRepository.ensure();
 
 		const rsp = await graphql(`
-
 			fragment Comment on PullRequestReviewComment {
                 id databaseId url
                 author {login avatarUrl}
@@ -536,14 +535,10 @@ export class PullRequestManager implements IPullRequestManager {
                 }
             }
 			`, { input: { pullRequestReviewId: pendingReviewId } }).catch(e => {
-				Logger.appendLine(`Failed to delete review: ${e.message}`);
-			});
+			Logger.appendLine(`Failed to delete review: ${e.message}`);
+		});
 
-		try {
-			return rsp.deletePullRequestReview.pullRequestReview.comments.nodes.map(comment => this.toComment(comment));
-		} catch (e) {
-			console.log(e);
-		}
+		return rsp.deletePullRequestReview.pullRequestReview.comments.nodes.map(toComment);
 	}
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {
@@ -555,17 +550,17 @@ export class PullRequestManager implements IPullRequestManager {
 				}
 			}
 			`, { input: { body: '', pullRequestId: pullRequest.prItem.node_id } }).catch(e => {
-				Logger.appendLine(`Failed to start review: ${e.message}`);
-			});
+			Logger.appendLine(`Failed to start review: ${e.message}`);
+		});
 	}
 
-	async inDraftMode(pullRequest=this._activePullRequest): Promise<boolean> {
+	async inDraftMode(pullRequest = this._activePullRequest): Promise<boolean> {
 		return !!await this.getPendingReviewId(pullRequest as PullRequestModel);
 	}
 
-	async getPendingReviewId(pullRequest=this._activePullRequest as PullRequestModel): Promise<string | null> {
+	async getPendingReviewId(pullRequest = this._activePullRequest as PullRequestModel): Promise<string | null> {
 		const { graphql, octokit } = await pullRequest.githubRepository.ensure();
-		const { currentUser='' } = octokit as any;
+		const { currentUser = '' } = octokit as any;
 		try {
 			return (await graphql(`
 			query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
@@ -576,31 +571,13 @@ export class PullRequestManager implements IPullRequestManager {
 				}
 			}
 			`, {
-				pullRequestId: (pullRequest as PullRequestModel).prItem.node_id,
-				author: currentUser.login
-			})).node.reviews.nodes[0].id;
+					pullRequestId: (pullRequest as PullRequestModel).prItem.node_id,
+					author: currentUser.login
+				})).node.reviews.nodes[0].id;
 		} catch (error) {
 			console.log(error);
 			return null;
 		}
-	}
-
-	private toComment(comment: any): any {
-		return {
-			id: comment.databaseId,
-			node_id: comment.id,
-			body: comment.body,
-			user: {
-				login: comment.author.login,
-				avatar_url: comment.author.avatarUrl,
-			},
-			position: comment.position,
-			url: comment.url,
-			path: comment.path,
-			original_position: comment.originalPosition,
-			isDraft: true,
-			diff_hunk: comment.diffHunk
-		};
 	}
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, path: string, position: number): Promise<Comment> {
@@ -630,13 +607,13 @@ export class PullRequestManager implements IPullRequestManager {
 
 		const { comment } = rsp.addPullRequestReviewComment;
 
-		return this.addCommentPermissions(this.toComment(comment), remote);
+		return this.addCommentPermissions(toDraftComment(comment), remote);
 	}
 
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
 		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, path, position)
+			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, path, position);
 		}
 
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
@@ -662,13 +639,13 @@ export class PullRequestManager implements IPullRequestManager {
 		if (!this.repository.state.HEAD) {
 			throw new DetachedHeadError(this.repository);
 		}
-		const {origin} = this;
+		const { origin } = this;
 		const meta = await origin.getMetadata();
 		const parent = meta.fork
 			? meta.parent
 			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
 		const branchName = this.repository.state.HEAD.name;
-		const {title, body} = titleAndBodyFrom(await this.getHeadCommitMessage());
+		const { title, body } = titleAndBodyFrom(await this.getHeadCommitMessage());
 		return {
 			title, body,
 			owner: parent.owner.login,
@@ -684,8 +661,8 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getHeadCommitMessage(): Promise<string> {
-		const {repository} = this;
-		const {message} = await repository.getCommit(repository.state.HEAD.commit);
+		const { repository } = this;
+		const { message } = await repository.getCommit(repository.state.HEAD.commit);
 		return message;
 	}
 
@@ -694,7 +671,7 @@ export class PullRequestManager implements IPullRequestManager {
 			throw new NoGitHubReposError(this.repository);
 		}
 
-		const {upstreamRef} = this;
+		const { upstreamRef } = this;
 		if (upstreamRef) {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
@@ -725,7 +702,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	get upstreamRef(): UpstreamRef | undefined {
-		const {HEAD} = this.repository.state;
+		const { HEAD } = this.repository.state;
 		return HEAD && HEAD.upstream;
 	}
 
@@ -927,6 +904,42 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 
 		return ret.data;
+	}
+
+	public async submitReview(pullRequest: IPullRequestModel): Promise<Comment[]> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		const { graphql } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+
+		if (pendingReviewId) {
+			const rsp = await graphql(`
+				fragment Comment on PullRequestReviewComment {
+					id databaseId url
+					author {login avatarUrl}
+					path originalPosition
+					body
+					diffHunk
+					position
+				}
+				mutation SubmitReview($id: ID!) {
+					submitPullRequestReview(input: {
+						event: COMMENT,
+						pullRequestReviewId: $id
+					}) {
+						pullRequestReview {
+							comments(first:100) {
+								nodes { ...Comment }
+							}
+						}
+					}
+				}
+			`, { id: pendingReviewId }).catch(e => {
+				Logger.appendLine(`Failed to submit review: ${e}`);
+				throw e;
+			});
+			return rsp.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+		} else {
+			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
+		}
 	}
 
 	async requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any> {
@@ -1156,14 +1169,14 @@ export function getEventType(text: string) {
 }
 
 const ownedByMe: Predicate<GitHubRepository> = repo => {
-	const { currentUser=null } = repo.octokit as any;
+	const { currentUser = null } = repo.octokit as any;
 	return currentUser && repo.remote.owner === currentUser.login;
 };
 
 const byRemoteName = (name: string): Predicate<GitHubRepository> =>
-	({remote: {remoteName}}) => remoteName === name;
+	({ remote: { remoteName } }) => remoteName === name;
 
-const titleAndBodyFrom = (message: string): {title: string, body: string} => {
+const titleAndBodyFrom = (message: string): { title: string, body: string } => {
 	const idxLineBreak = message.indexOf('\n');
 	return {
 		title: idxLineBreak === -1
@@ -1175,3 +1188,22 @@ const titleAndBodyFrom = (message: string): {title: string, body: string} => {
 			: message.slice(idxLineBreak + 1),
 	};
 };
+
+const createComment = (isDraft=true) => (comment: any): any => ({
+	id: comment.databaseId,
+	node_id: comment.id,
+	body: comment.body,
+	user: {
+		login: comment.author.login,
+		avatar_url: comment.author.avatarUrl,
+	},
+	position: comment.position,
+	url: comment.url,
+	path: comment.path,
+	original_position: comment.originalPosition,
+	isDraft,
+	diff_hunk: comment.diffHunk
+});
+
+const toDraftComment = createComment();
+const toComment = createComment(false);
