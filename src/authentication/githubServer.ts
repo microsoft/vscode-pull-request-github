@@ -121,7 +121,7 @@ class ResponseExpired extends Error {
 	get message() { return 'Token response expired'; }
 }
 
-const SEPARATOR = '/', SEPARATOR_LEN = SEPARATOR.length
+const SEPARATOR = '/', SEPARATOR_LEN = SEPARATOR.length;
 
 /**
  * Hydrate and verify the signature of a message produced with `encode`

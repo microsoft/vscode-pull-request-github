@@ -17,6 +17,7 @@ import Logger from '../common/logger';
 import { ITelemetry } from './interface';
 import { handler as uriHandler } from '../common/uri';
 import { createHttpLink } from 'apollo-link-http';
+import fetch from 'node-fetch';
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
@@ -175,7 +176,7 @@ export class CredentialStore {
 	}
 
 	private createHub(creds: IHostConfiguration): GitHub {
-		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`
+		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
 		const octokit = new Octokit({
 			agent,
 			baseUrl,
@@ -187,7 +188,13 @@ export class CredentialStore {
 			token: creds.token,
 		});
 
-		return { octokit, graphql: new ApolloClient({ link: link(baseUrl, creds.token), cache: new InMemoryCache }) };
+		return {
+			octokit,
+			graphql: new ApolloClient({
+				link: link(baseUrl, creds.token),
+				cache: new InMemoryCache
+			})
+		};
 	}
 
 	private async updateStatusBarItem(statusBarItem: vscode.StatusBarItem, remote: Remote): Promise<void> {
@@ -247,8 +254,9 @@ const link = (url: string, token: string) =>
 	setContext((_, { headers }) => (({
 		headers: {
 			...headers,
-			authorization: token ? `Bearer ${token}` : "",
+			authorization: token ? `Bearer ${token}` : '',
 		}
 	}))).concat(createHttpLink({
-		uri: `${url}/graphql`
+		uri: `${url}/graphql`,
+		fetch
 	}));

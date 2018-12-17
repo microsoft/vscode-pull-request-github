@@ -497,6 +497,11 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		if (pendingReviewId) {
+			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body);
+		}
+
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		try {
@@ -516,9 +521,9 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async deleteReview(pullRequest: PullRequestModel): Promise<Comment[]> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
-		const { query } = await pullRequest.githubRepository.ensure();
-		const { data } = await query<any>({
-			query: gql `
+		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { data } = await mutate<any>({
+			mutation: gql `
 				fragment Comment on PullRequestReviewComment {
 						id databaseId url
 						author {login avatarUrl}
@@ -547,20 +552,42 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {
-		const { query } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-		return query<void>({
-			query: gql `
+		const { octokit, mutate } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { currentUser = '' } = octokit as any;
+		return mutate<void>({
+			mutation: gql `
 				mutation StartReview($input: AddPullRequestReviewInput!) {
 					addPullRequestReview(input: $input) {
 						pullRequestReview { id }
 					}
 				}
-				`,
+			`,
 			variables: {
 				input: {
 					body: '',
 					pullRequestId: pullRequest.prItem.node_id
 				}
+			},
+			update: (proxy, { data }) => {
+				const { pullRequestReview } = data.addPullRequestReview;
+				proxy.writeQuery({
+					query: GET_PENDING_REVIEW_ID_QUERY,
+					variables: {
+						pullRequestId: (pullRequest as PullRequestModel).prItem.node_id,
+						author: currentUser.login
+					},
+					data: {
+						node: {
+							reviews: {
+								nodes: [
+									pullRequestReview
+								],
+								__typename: 'PullRequestReviewsConnection'
+							},
+							__typename: 'PullRequest'
+						}
+					}
+				});
 			}
 		}).then(x => x.data).catch(e => {
 			Logger.appendLine(`Failed to start review: ${e.message}`);
@@ -576,15 +603,7 @@ export class PullRequestManager implements IPullRequestManager {
 		const { currentUser = '' } = octokit as any;
 		try {
 			const { data } = await query({
-				query: gql `
-					query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
-						node(id: $pullRequestId) {
-							...on PullRequest {
-								reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
-							}
-						}
-					}
-			 `,
+				query: GET_PENDING_REVIEW_ID_QUERY,
 				variables: {
 					pullRequestId: (pullRequest as PullRequestModel).prItem.node_id,
 					author: currentUser.login
@@ -598,9 +617,9 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, path: string, position: number): Promise<Comment> {
-		const { query, remote } = await pullRequest.githubRepository.ensure();
-		const { data } = await query({
-			query: gql `
+		const { mutate, remote } = await pullRequest.githubRepository.ensure();
+		const { data } = await mutate({
+			mutation: gql `
 				mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 					addPullRequestReviewComment(input: $input) {
 						comment {
@@ -928,11 +947,11 @@ export class PullRequestManager implements IPullRequestManager {
 
 	public async submitReview(pullRequest: IPullRequestModel): Promise<Comment[]> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
-		const { query } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { mutate } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		if (pendingReviewId) {
-			const { data } = await query({
-				query: gql `
+			const { data } = await mutate({
+				mutation: gql `
 					fragment Comment on PullRequestReviewComment {
 						id databaseId url
 						author {login avatarUrl}
@@ -956,6 +975,9 @@ export class PullRequestManager implements IPullRequestManager {
 				`,
 				variables: {
 					id: pendingReviewId
+				},
+				update: (proxy, result) => {
+
 				}
 			});
 			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
@@ -1093,6 +1115,8 @@ export class PullRequestManager implements IPullRequestManager {
 				// since it will have a more useful stack
 				throw e;
 			}
+
+			console.log(errorObject);
 			const firstError = errorObject && errorObject.errors && errorObject.errors[0];
 			if (firstError && firstError.code === 'missing_field' && firstError.field === 'body') {
 				throw new Error('Body can\'t be blank');
@@ -1229,3 +1253,13 @@ const createComment = (isDraft=true) => (comment: any): any => ({
 
 const toDraftComment = createComment();
 const toComment = createComment(false);
+
+const GET_PENDING_REVIEW_ID_QUERY = gql `
+	query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
+		node(id: $pullRequestId) {
+			...on PullRequest {
+				reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
+			}
+		}
+	}
+`;
