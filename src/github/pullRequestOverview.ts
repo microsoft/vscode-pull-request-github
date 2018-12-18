@@ -30,6 +30,7 @@ interface IReplyMessage {
 }
 
 export class PullRequestOverviewPanel {
+	public static ID: string = 'PullRequestOverviewPanel';
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
@@ -284,6 +285,7 @@ export class PullRequestOverviewPanel {
 				(prContainer as TreeNode | Revealable<TreeNode>).revealComment(comment);
 			}
 		} catch (e) {
+			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
 	}
 

@@ -591,7 +591,7 @@ class ReviewNode {
 						});
 					}
 
-					let outdated = comments[0].position !== comments[0].original_position;
+					let outdated = comments[0].position === null;
 
 					const diffView: HTMLDivElement = document.createElement('div');
 					diffView.className = 'diff';
@@ -600,10 +600,10 @@ class ReviewNode {
 					const diffPath: HTMLSpanElement = document.createElement('span');
 					diffPath.className =  outdated ? 'diffPath outdated' : 'diffPath';
 					diffPath.textContent = comments[0].path;
-					diffPath.addEventListener('click', () => this.openDiff(comments[0]));
 					diffHeader.appendChild(diffPath);
 
 					if (outdated) {
+						diffPath.addEventListener('click', () => this.openDiff(comments[0]));
 						const outdatedLabel: HTMLSpanElement = document.createElement('span');
 						outdatedLabel.className = 'outdatedLabel';
 						outdatedLabel.textContent = 'Outdated';
