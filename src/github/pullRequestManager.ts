@@ -824,7 +824,16 @@ export class PullRequestManager implements IPullRequestManager {
 				pullRequest.update(data);
 			}
 
-			pullRequest.mergeBase = await PullRequestGitHelper.getPullRequestMergeBase(this.repository, remote, pullRequest);
+			if (!pullRequest.mergeBase) {
+				const { data } = await octokit.repos.compareCommits({
+					repo: remote.repositoryName,
+					owner: remote.owner,
+					base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
+					head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`
+				});
+
+				pullRequest.mergeBase = data.merge_base_commit.sha;
+			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
