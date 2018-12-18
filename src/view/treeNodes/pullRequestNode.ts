@@ -23,7 +23,8 @@ import { getPRDocumentCommentProvider } from '../prDocumentCommentProvider';
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
 	prNumber: number,
-	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[]) {
+	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[],
+	inDraftMode: boolean) {
 	const params = fromPRUri(document.uri);
 
 	if (params.prNumber !== prNumber) {
@@ -101,7 +102,8 @@ export function providePRDocumentComments(
 					userName: comment.user.login,
 					gravatar: comment.user.avatar_url,
 					canEdit: comment.canEdit,
-					canDelete: comment.canDelete
+					canDelete: comment.canDelete,
+					isDraft: comment.isDraft
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -110,7 +112,8 @@ export function providePRDocumentComments(
 
 	return {
 		threads,
-		commentingRanges
+		commentingRanges,
+		inDraftMode
 	};
 }
 
@@ -144,7 +147,8 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 					userName: comment.user.login,
 					gravatar: comment.user.avatar_url,
 					canEdit: comment.canEdit,
-					canDelete: comment.canDelete
+					canDelete: comment.canDelete,
+					isDraft: comment.isDraft
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -284,7 +288,13 @@ export class PRNode extends TreeNode {
 						createNewCommentThread: this.createNewCommentThread.bind(this),
 						replyToCommentThread: this.replyToCommentThread.bind(this),
 						editComment: this.editComment.bind(this),
-						deleteComment: this.deleteComment.bind(this)
+						deleteComment: this.deleteComment.bind(this),
+						startDraft: this.startDraft.bind(this),
+						deleteDraft: this.deleteDraft.bind(this),
+						finishDraft: this.finishDraft.bind(this),
+						startDraftLabel: 'Start Review',
+						deleteDraftLabel: 'Delete Review',
+						finishDraftLabel: 'Submit Review'
 					});
 				}
 			} else {
@@ -483,7 +493,8 @@ export class PRNode extends TreeNode {
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
 				canEdit: rawComment.canEdit,
-				canDelete: rawComment.canDelete
+				canDelete: rawComment.canDelete,
+				isDraft: rawComment.isDraft
 			};
 
 			fileChange.comments.push(rawComment);
@@ -532,7 +543,8 @@ export class PRNode extends TreeNode {
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
 				canEdit: rawComment.canEdit,
-				canDelete: rawComment.canDelete
+				canDelete: rawComment.canDelete,
+				isDraft: rawComment.isDraft
 			});
 
 			fileChange.comments.push(rawComment);
@@ -545,10 +557,49 @@ export class PRNode extends TreeNode {
 
 	private async provideDocumentComments(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CommentInfo> {
 		if (document.uri.scheme === 'pr') {
-			return providePRDocumentComments(document, this.pullRequestModel.prNumber, this._fileChanges);
+			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
+			return providePRDocumentComments(document, this.pullRequestModel.prNumber, this._fileChanges, inDraftMode);
 		}
 
 		return null;
+	}
+
+	private async startDraft(_token: vscode.CancellationToken): Promise<void> {
+		await this._prManager.startReview(this.pullRequestModel);
+		this._onDidChangeCommentThreads.fire({
+			added: [],
+			changed: [],
+			removed: [],
+			inDraftMode: true
+		});
+	}
+
+	private async deleteDraft(_token: vscode.CancellationToken): Promise<void> {
+		const deletedReviewComments = await this._prManager.deleteReview(this.pullRequestModel);
+		console.log(deletedReviewComments);
+		// TODO fix
+		// this._onDidChangeCommentThreads.fire({
+		// 	added: [],
+		// 	changed: [],
+		// 	removed: this.allCommentsToCommentThreads(deletedReviewComments, vscode.CommentThreadCollapsibleState.Expanded),
+		// 	inDraftMode: false
+		// });
+	}
+
+	private async finishDraft(_token: vscode.CancellationToken): Promise<void> {
+		try {
+			const comments = await this._prManager.submitReview(this._prManager.activePullRequest);
+			console.log(comments);
+			// TODO fix
+			// this._onDidChangeDocumentCommentThreads.fire({
+			// 	added: [],
+			// 	changed: this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded),
+			// 	removed: [],
+			// 	inDraftMode: false
+			// });
+		} catch (e) {
+			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
+		}
 	}
 
 	dispose(): void {

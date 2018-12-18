@@ -758,7 +758,6 @@ declare module 'vscode' {
 		 */
 		userIconPath?: Uri;
 
-
 		/**
 		 * @deprecated Use userIconPath instead. The avatar src of the user who created the comment
 		 */
@@ -785,7 +784,7 @@ declare module 'vscode' {
 		 */
 		command?: Command;
 
-		isDraft?: boolean;
+		isDraft: boolean;
 	}
 
 	export interface CommentThreadChangedEvent {
@@ -836,9 +835,10 @@ declare module 'vscode' {
 		 */
 		deleteComment?(document: TextDocument, comment: Comment, token: CancellationToken): Promise<void>;
 
-		startDraft?(token: CancellationToken): Promise<void>;
-		deleteDraft?(token: CancellationToken): Promise<void>;
-		finishDraft?(token: CancellationToken): Promise<void>;
+		startDraft?(document: TextDocument, token: CancellationToken): Promise<void>;
+		deleteDraft?(document: TextDocument, token: CancellationToken): Promise<void>;
+		finishDraft?(document: TextDocument, token: CancellationToken): Promise<void>;
+
 
 		startDraftLabel?: string;
 		deleteDraftLabel?: string;

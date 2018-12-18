@@ -321,7 +321,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 				userName: comment.user.login,
 				gravatar: comment.user.avatar_url,
 				canEdit: comment.canEdit,
-				canDelete: comment.canDelete
+				canDelete: comment.canDelete,
+				isDraft: comment.isDraft
 			});
 
 			matchedFile.comments.push(comment);
@@ -697,7 +698,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 							]
 						},
 						canEdit: comment.canEdit,
-						canDelete: comment.canDelete
+						canDelete: comment.canDelete,
+						isDraft: comment.isDraft
 					};
 				}),
 				collapsibleState: collapsibleState
@@ -749,7 +751,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 						gravatar: comment.user.avatar_url,
 						command: command,
 						canEdit: comment.canEdit,
-						canDelete: comment.canDelete
+						canDelete: comment.canDelete,
+						isDraft: comment.isDraft
 					};
 				}),
 				collapsibleState: collapsibleState
@@ -846,12 +849,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 					return {
 						threads: this.fileCommentsToCommentThreads(matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed),
 						commentingRanges: ranges,
-						inDraftMode: await this._prManager.inDraftMode()
+						inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest)
 					};
 				}
 
 				if (document.uri.scheme === 'pr') {
-					return providePRDocumentComments(document, this._prNumber, this._localFileChanges);
+					const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest);
+					return providePRDocumentComments(document, this._prNumber, this._localFileChanges, inDraftMode);
 				}
 
 				if (document.uri.scheme === 'review') {
@@ -938,7 +942,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 									userName: comment.user.login,
 									gravatar: comment.user.avatar_url,
 									canEdit: comment.canEdit,
-									canDelete: comment.canDelete
+									canDelete: comment.canDelete,
+									isDraft: comment.isDraft
 								};
 							}),
 							collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
@@ -946,7 +951,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 						return {
 							threads: ret,
-							inDraftMode: await this._prManager.inDraftMode()
+							inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest)
 						};
 					}
 				}
@@ -977,7 +982,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private async startDraft(token: vscode.CancellationToken) {
+	private async startDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<void> {
 		await this._prManager.startReview(this._prManager.activePullRequest);
 		this._onDidChangeDocumentCommentThreads.fire({
 			added: [],
@@ -987,11 +992,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private async deleteDraft() {
+	private async deleteDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
 		const deletedReviewComments = await this._prManager.deleteReview(this._prManager.activePullRequest);
-		console.log(deletedReviewComments);
-
-		// TODO ensure that comment thread resource is correct. Potentially also remove workspace comments with another event.
 		this._onDidChangeDocumentCommentThreads.fire({
 			added: [],
 			changed: [],
@@ -1000,7 +1002,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private async finishDraft() {
+	private async finishDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
 		try {
 			const comments = await this._prManager.submitReview(this._prManager.activePullRequest);
 			this._onDidChangeDocumentCommentThreads.fire({

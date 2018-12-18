@@ -12,6 +12,10 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent> = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 	public onDidChangeCommentThreads: vscode.Event<vscode.CommentThreadChangedEvent> = this._onDidChangeCommentThreads.event;
 
+	public startDraftLabel = 'Start Review';
+	public finishDraftLabel = 'Submit Review';
+	public deleteDraftLabel = 'Delete Review';
+
 	private _prDocumentCommentProviders: {[key: number]: vscode.DocumentCommentProvider} = {};
 
 	constructor() {}
@@ -85,6 +89,39 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 		}
 
 		return await commentProvider.deleteComment(document, comment, token);
+	}
+
+	async startDraft(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<void> {
+		const params = fromPRUri(document.uri);
+		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
+
+		if (!commentProvider) {
+			throw new Error(`Couldn't find document provider`);
+		}
+
+		return await commentProvider.startDraft(document, token);
+	}
+
+	async deleteDraft(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<void> {
+		const params = fromPRUri(document.uri);
+		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
+
+		if (!commentProvider) {
+			throw new Error(`Couldn't find document provider`);
+		}
+
+		return await commentProvider.deleteDraft(document, token);
+	}
+
+	async finishDraft(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<void> {
+		const params = fromPRUri(document.uri);
+		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
+
+		if (!commentProvider) {
+			throw new Error(`Couldn't find document provider`);
+		}
+
+		return await commentProvider.finishDraft(document, token);
 	}
 }
 

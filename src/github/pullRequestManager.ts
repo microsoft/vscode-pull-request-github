@@ -497,10 +497,10 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment> {
-		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
-		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body);
-		}
+		// const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		// if (pendingReviewId) {
+		// 	return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, reply_to);
+		// }
 
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
@@ -546,7 +546,7 @@ export class PullRequestManager implements IPullRequestManager {
 			variables: {
 				input: { pullRequestReviewId: pendingReviewId }
 			}
-		})
+		});
 
 		return data.deletePullRequestReview.pullRequestReview.comments.nodes.map(toComment);
 	}
@@ -594,7 +594,7 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 	}
 
-	async inDraftMode(pullRequest = this._activePullRequest): Promise<boolean> {
+	async inDraftMode(pullRequest: IPullRequestModel): Promise<boolean> {
 		return !!await this.getPendingReviewId(pullRequest as PullRequestModel);
 	}
 
@@ -611,7 +611,6 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 			return data.node.reviews.nodes[0].id;
 		} catch (error) {
-			console.log(error);
 			return null;
 		}
 	}

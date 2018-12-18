@@ -141,10 +141,10 @@ export interface IPullRequestManager {
 	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetFilesResponseItem[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
 	getStatusChecks(pullRequest: IPullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse>;
-	startReview(pullRequest: IPullRequestModel): Promise<void>;
-	inDraftMode(): Promise<boolean>;
+	inDraftMode(pullRequest: IPullRequestModel): Promise<boolean>;
 	deleteReview(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	submitReview(pullRequest: IPullRequestModel): Promise<Comment[]>;
+	startReview(pullRequest: IPullRequestModel): Promise<void>;
 
 	/**
 	 * Fullfill information for a pull request which we can't fetch with one single api call.
