@@ -159,10 +159,10 @@ export interface IPullRequestManager {
 
 	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
 	getMatchingPullRequestMetadataForBranch();
-	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
+	checkoutExistingPullRequestBranch(pullRequest: IPullRequestModel): Promise<boolean>;
 	getBranch(remote: Remote, branchName: string): Promise<Branch>;
 	checkout(branchName: string): Promise<void>;
-	fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
+	fetchAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
 }
 
 export interface ITelemetry {

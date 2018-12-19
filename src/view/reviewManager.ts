@@ -1005,10 +1005,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.statusBarItem.show();
 
 		try {
-			let localCheckout = await this._prManager.getBranchForPullRequestFromExistingRemotes(pr);
+			const didLocalCheckout = await this._prManager.checkoutExistingPullRequestBranch(pr);
 
-			if (!localCheckout) {
-				await this._prManager.fetchAndCheckout(localCheckout.remote, localCheckout.branch, pr);
+			if (!didLocalCheckout) {
+				await this._prManager.fetchAndCheckout(pr);
 			}
 		} catch (e) {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);

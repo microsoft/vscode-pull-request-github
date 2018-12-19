@@ -53,17 +53,12 @@ export class PullRequestGitHelper {
 	}
 
 	static async fetchAndCheckout(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel): Promise<void> {
-		let remote: Remote;
-		let branchName: string;
-		let headRemote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, githubRepositories, pullRequest);
-		if (headRemote) {
-			// the head of the PR is in this repository (not fork), we can just fetch
-			remote = headRemote;
-			branchName = pullRequest.head.ref;
-		} else {
+		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, githubRepositories, pullRequest);
+		if (!remote) {
 			return PullRequestGitHelper.createAndCheckout(repository, pullRequest);
 		}
 
+		const branchName = pullRequest.head.ref;
 		let remoteName = remote.remoteName;
 		let branch: Branch;
 
