@@ -1005,14 +1005,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.statusBarItem.show();
 
 		try {
-			let localBranchInfo = await this._prManager.getBranchForPullRequestFromExistingRemotes(pr);
+			let localCheckout = await this._prManager.getBranchForPullRequestFromExistingRemotes(pr);
 
-			if (localBranchInfo) {
-				Logger.appendLine(`Review> there is already one local branch ${localBranchInfo.remote.remoteName}/${localBranchInfo.branch} associated with Pull Request #${pr.prNumber}`);
-				await this._prManager.fetchAndCheckout(localBranchInfo.remote, localBranchInfo.branch, pr);
-			} else {
-				Logger.appendLine(`Review> there is no local branch associated with Pull Request #${pr.prNumber}, we will create a new branch.`);
-				await this._prManager.createAndCheckout(pr);
+			if (!localCheckout) {
+				await this._prManager.fetchAndCheckout(localCheckout.remote, localCheckout.branch, pr);
 			}
 		} catch (e) {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);

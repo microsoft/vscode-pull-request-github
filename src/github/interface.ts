@@ -163,8 +163,6 @@ export interface IPullRequestManager {
 	getBranch(remote: Remote, branchName: string): Promise<Branch>;
 	checkout(branchName: string): Promise<void>;
 	fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
-	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
-
 }
 
 export interface ITelemetry {

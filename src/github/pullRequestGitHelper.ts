@@ -52,7 +52,18 @@ export class PullRequestGitHelper {
 		await repository.setConfig(prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 
-	static async fetchAndCheckout(repository: Repository, remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
+	static async fetchAndCheckout(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel): Promise<void> {
+		let remote: Remote;
+		let branchName: string;
+		let headRemote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, githubRepositories, pullRequest);
+		if (headRemote) {
+			// the head of the PR is in this repository (not fork), we can just fetch
+			remote = headRemote;
+			branchName = pullRequest.head.ref;
+		} else {
+			return PullRequestGitHelper.createAndCheckout(repository, pullRequest);
+		}
+
 		let remoteName = remote.remoteName;
 		let branch: Branch;
 
@@ -96,42 +107,24 @@ export class PullRequestGitHelper {
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
-	static async getBranchForPullRequestFromExistingRemotes(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel) {
-		let headRemote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, githubRepositories, pullRequest);
-		if (headRemote) {
-			// the head of the PR is in this repository (not fork), we can just fetch
+	static async checkoutExistingPullRequestBranch(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel) {
+		let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
+		let configs = await repository.getConfigs();
+
+		let branchInfos = configs.map(config => {
+			let matches = PullRequestBranchRegex.exec(config.key);
 			return {
-				remote: headRemote,
-				branch: pullRequest.head.ref
+				branch: matches && matches.length ? matches[1] : null,
+				value: config.value
 			};
+		}).filter(c => c.branch && c.value === key);
+
+		if (branchInfos && branchInfos.length) {
+			// let's immediately checkout to branchInfos[0].branch
+			await repository.checkout(branchInfos[0].branch);
+			return true;
 		} else {
-			let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
-			let configs = await repository.getConfigs();
-
-			let branchInfos = configs.map(config => {
-				let matches = PullRequestBranchRegex.exec(config.key);
-				return {
-					branch: matches && matches.length ? matches[1] : null,
-					value: config.value
-				};
-			}).filter(c => c.branch && c.value === key);
-
-			try {
-				if (branchInfos && branchInfos.length) {
-					let remoteName = await repository.getConfig(`branch.${branchInfos[0].branch}.remote`);
-					let headRemoteMatches = parseRepositoryRemotes(repository).filter(remote => remote.remoteName === remoteName);
-					if (headRemoteMatches && headRemoteMatches.length) {
-						return {
-							remote: headRemoteMatches[0],
-							branch: branchInfos[0].branch
-						};
-					}
-				}
-			} catch (_) {
-				return null;
-			}
-
-			return null;
+			return false;
 		}
 	}
 
