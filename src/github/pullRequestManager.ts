@@ -386,6 +386,7 @@ export class PullRequestManager implements IPullRequestManager {
 			}
 		});
 		try {
+			// TODO these should not all be marked as draft comments
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toDraftComment(comment), remote)))
 				.reduce((prev, curr) => curr = prev.concat(curr), []);

@@ -70,6 +70,7 @@ export function providePRDocumentComments(
 		return {
 			threads: [],
 			commentingRanges,
+			inDraftMode
 		};
 	}
 
@@ -574,29 +575,72 @@ export class PRNode extends TreeNode {
 		});
 	}
 
+	private calculateChangedAndRemovedThreads(changed: vscode.CommentThread[], removed: vscode.CommentThread[], fileChange: InMemFileChangeNode, deletedComments: Comment[], isBase: boolean): void {
+		const oldCommentThreads = commentsToCommentThreads(fileChange, fileChange.comments, isBase);
+		oldCommentThreads.forEach(thread => {
+			thread.comments = thread.comments.filter(comment => !deletedComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+			if (!thread.comments.length) {
+				removed.push(thread);
+			} else {
+				changed.push(thread);
+			}
+		});
+	}
+
 	private async deleteDraft(_token: vscode.CancellationToken): Promise<void> {
 		const deletedReviewComments = await this._prManager.deleteReview(this.pullRequestModel);
-		console.log(deletedReviewComments);
-		// TODO fix
-		// this._onDidChangeCommentThreads.fire({
-		// 	added: [],
-		// 	changed: [],
-		// 	removed: this.allCommentsToCommentThreads(deletedReviewComments, vscode.CommentThreadCollapsibleState.Expanded),
-		// 	inDraftMode: false
-		// });
+
+		let changed: vscode.CommentThread[] = [];
+		let removed: vscode.CommentThread[] = [];
+
+		// Group comments by file and then position to create threads.
+		const commentsByPath = groupBy(deletedReviewComments, comment => comment.path);
+
+		for (let filePath in commentsByPath) {
+			const commentsForFile = commentsByPath[filePath];
+			const matchingFileChange = this._fileChanges.find(fileChange => fileChange.fileName === filePath);
+
+			if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
+				this.calculateChangedAndRemovedThreads(changed, removed, matchingFileChange, commentsForFile, true);
+				this.calculateChangedAndRemovedThreads(changed, removed, matchingFileChange, commentsForFile, false);
+				matchingFileChange.comments = commentsForFile;
+			}
+		}
+
+		this._onDidChangeCommentThreads.fire({
+			added: [],
+			changed,
+			removed,
+			inDraftMode: false
+		});
 	}
 
 	private async finishDraft(_token: vscode.CancellationToken): Promise<void> {
 		try {
-			const comments = await this._prManager.submitReview(this._prManager.activePullRequest);
-			console.log(comments);
-			// TODO fix
-			// this._onDidChangeDocumentCommentThreads.fire({
-			// 	added: [],
-			// 	changed: this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded),
-			// 	removed: [],
-			// 	inDraftMode: false
-			// });
+			const comments = await this._prManager.submitReview(this.pullRequestModel);
+
+			// Group comments by file and then position to create threads.
+			const commentsByPath = groupBy(comments, comment => comment.path);
+
+			let commentThreads: vscode.CommentThread[] = [];
+			for (let filePath in commentsByPath) {
+				const commentsForFile = commentsByPath[filePath];
+				const matchingFileChange = this._fileChanges.find(fileChange => fileChange.fileName === filePath);
+
+				if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
+					// Create threads for comments on the base file and on the modified file.
+					commentThreads = commentThreads.concat(commentsToCommentThreads(matchingFileChange, commentsForFile, false));
+					commentThreads = commentThreads.concat(commentsToCommentThreads(matchingFileChange, commentsForFile, true));
+					matchingFileChange.comments = commentsForFile;
+				}
+			}
+
+			this._onDidChangeCommentThreads.fire({
+				added: [],
+				changed: commentThreads,
+				removed: [],
+				inDraftMode: false
+			});
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
