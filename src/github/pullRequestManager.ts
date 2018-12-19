@@ -10,7 +10,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest } from './interface';
+import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
@@ -785,24 +785,30 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 	}
 
-	async getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetFilesResponseItem[]> {
-		Logger.debug(`Fetch changed files of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
+	async getPullRequestFileChangesInfo(pullRequest: IPullRequestModel): Promise<IRawFileChange[]> {
+		Logger.debug(`Fetch file changes, base, head and merge base of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
-		let response = await octokit.pullRequests.getFiles({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
-			per_page: 100
-		});
-		let { data } = response;
-
-		while (response.headers.link && octokit.hasNextPage(response.headers)) {
-			response = await octokit.getNextPage(response.headers);
-			data = data.concat(response.data);
+		if (!pullRequest.base) {
+			const info = await octokit.pullRequests.get({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				number: pullRequest.prNumber
+			});
+			pullRequest.update(info.data);
 		}
-		Logger.debug(`Fetch changed files of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
-		return data;
+
+		const { data } = await octokit.repos.compareCommits({
+			repo: remote.repositoryName,
+			owner: remote.owner,
+			base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
+			head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`
+		});
+
+		pullRequest.mergeBase = data.merge_base_commit.sha;
+
+		Logger.debug(`Fetch file changes and merge base of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
+		return data.files;
 	}
 
 	async getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string> {
@@ -824,7 +830,16 @@ export class PullRequestManager implements IPullRequestManager {
 				pullRequest.update(data);
 			}
 
-			pullRequest.mergeBase = await PullRequestGitHelper.getPullRequestMergeBase(this.repository, remote, pullRequest);
+			if (!pullRequest.mergeBase) {
+				const { data } = await octokit.repos.compareCommits({
+					repo: remote.repositoryName,
+					owner: remote.owner,
+					base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
+					head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`
+				});
+
+				pullRequest.mergeBase = data.merge_base_commit.sha;
+			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
