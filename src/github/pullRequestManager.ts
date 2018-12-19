@@ -363,6 +363,7 @@ export class PullRequestManager implements IPullRequestManager {
 					body
 					diffHunk
 					position
+					state
 				}
 
 				query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100) {
@@ -386,9 +387,8 @@ export class PullRequestManager implements IPullRequestManager {
 			}
 		});
 		try {
-			// TODO these should not all be marked as draft comments
 			const comments = data.repository.pullRequest.reviews.nodes
-				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toDraftComment(comment), remote)))
+				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toComment(comment), remote)))
 				.reduce((prev, curr) => curr = prev.concat(curr), []);
 			return parserCommentDiffHunk(comments);
 		} catch (e) {
@@ -399,7 +399,6 @@ export class PullRequestManager implements IPullRequestManager {
 	async getPullRequestCommentsOld(pullRequest: IPullRequestModel): Promise<Comment[]> {
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-		console.log(await this.getAllPullRequestReviewComments(pullRequest));
 		const reviewData = await octokit.pullRequests.getComments({
 			owner: remote.owner,
 			repo: remote.repositoryName,
@@ -532,6 +531,7 @@ export class PullRequestManager implements IPullRequestManager {
 						body
 						diffHunk
 						position
+						state
 				}
 
 				mutation EndReview($input: DeletePullRequestReviewInput!) {
@@ -630,7 +630,8 @@ export class PullRequestManager implements IPullRequestManager {
 							path,
 							originalPosition,
 							body,
-							diffHunk
+							diffHunk,
+							state
 						}
 					}
 				}`,
@@ -646,7 +647,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 		const { comment } = data.addPullRequestReviewComment;
 
-		return this.addCommentPermissions(toDraftComment(comment), remote);
+		return this.addCommentPermissions(toComment(comment), remote);
 	}
 
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
@@ -959,6 +960,7 @@ export class PullRequestManager implements IPullRequestManager {
 						body
 						diffHunk
 						position
+						state
 					}
 					mutation SubmitReview($id: ID!) {
 						submitPullRequestReview(input: {
@@ -1235,7 +1237,7 @@ const titleAndBodyFrom = (message: string): { title: string, body: string } => {
 	};
 };
 
-const createComment = (isDraft=true) => (comment: any): any => ({
+const toComment = (comment: any): any => ({
 	id: comment.databaseId,
 	node_id: comment.id,
 	body: comment.body,
@@ -1247,12 +1249,9 @@ const createComment = (isDraft=true) => (comment: any): any => ({
 	url: comment.url,
 	path: comment.path,
 	original_position: comment.originalPosition,
-	isDraft,
-	diff_hunk: comment.diffHunk
+	diff_hunk: comment.diffHunk,
+	isDraft: comment.state === 'PENDING'
 });
-
-const toDraftComment = createComment();
-const toComment = createComment(false);
 
 const GET_PENDING_REVIEW_ID_QUERY = gql `
 	query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
