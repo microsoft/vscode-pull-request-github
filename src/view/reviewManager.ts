@@ -23,6 +23,7 @@ import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
+import { CheckRunWithAnnotations } from '../common/checkRun';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	private static _instance: ReviewManager;
@@ -32,6 +33,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private _comments: Comment[] = [];
 	private _localFileChanges: (GitFileChangeNode)[] = [];
+	private _checkRuns: (CheckRunWithAnnotations)[] = [];
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha: string;
 	private _updateMessageShown: boolean = false;
@@ -856,7 +858,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 
 				if (document.uri.scheme === 'pr') {
-					return providePRDocumentComments(document, this._prNumber, this._localFileChanges);
+					return providePRDocumentComments(document, this._prNumber, this._localFileChanges, this._checkRuns);
 				}
 
 				if (document.uri.scheme === 'review') {

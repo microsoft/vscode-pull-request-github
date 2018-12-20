@@ -18,6 +18,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
+import { CheckRunWithAnnotations } from '../common/checkRun';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -349,6 +350,38 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 
 		return result.data;
+	}
+
+	async getPullRequestCheckRuns(pullRequest: IPullRequestModel): Promise<Github.ChecksListForRefResponse> {
+		Logger.debug(`Fetch check_runs of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
+		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { owner, repositoryName: repo } = remote;
+		const checks = await octokit.checks.listForRef({
+			owner,
+			repo,
+			ref: pullRequest.head.sha
+		});
+		return checks.data;
+	}
+
+	async getCheckRunsWithAnnotations(pullRequest: IPullRequestModel, checks: Github.ChecksListForRefResponse): Promise<CheckRunWithAnnotations[]> {
+		Logger.debug(`Fetch annotations of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
+		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { owner, repositoryName: repo } = remote;
+		const annotations: CheckRunWithAnnotations[] = [];
+		for (const checkRun of checks.check_runs) {
+			if (checkRun.output.annotations_count === 0) {
+				continue;
+			}
+			const ann = await octokit.checks.listAnnotations({
+				owner, repo, check_run_id: checkRun.id
+			});
+			annotations.push({
+				checkRun,
+				annotations: ann.data
+			});
+		}
+		return annotations;
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {

@@ -11,6 +11,7 @@ import { TimelineEvent } from '../common/timelineEvent';
 import { Remote } from '../common/remote';
 import { Repository, Branch } from '../typings/git';
 import { PullRequestsCreateParams } from '@octokit/rest';
+import { CheckRunWithAnnotations } from '../common/checkRun';
 
 export enum PRType {
 	RequestReview = 0,
@@ -131,6 +132,8 @@ export interface IPullRequestManager {
 	getGitHubRemotes(): Remote[];
 	mayHaveMorePages(): boolean;
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
+	getPullRequestCheckRuns(pullRequest: IPullRequestModel): Promise<Github.ChecksListForRefResponse>;
+	getCheckRunsWithAnnotations(pullRequest: IPullRequestModel, checks: Github.ChecksListForRefResponse): Promise<CheckRunWithAnnotations[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]>;
 	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]>;
 	getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Github.PullRequestsCreateCommentResponse[]>;

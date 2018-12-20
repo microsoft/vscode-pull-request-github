@@ -19,11 +19,13 @@ import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
 import { getPRDocumentCommentProvider } from '../prDocumentCommentProvider';
+import { CheckRunWithAnnotations } from '../../common/checkRun';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
 	prNumber: number,
-	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[]) {
+	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[],
+	checkRuns: CheckRunWithAnnotations[]) {
 	const params = fromPRUri(document.uri);
 
 	if (params.prNumber !== prNumber) {
@@ -105,6 +107,25 @@ export function providePRDocumentComments(
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
+		});
+	}
+
+	for (const checkRun of checkRuns) {
+		checkRun.annotations.forEach((ann, i) => {
+			threads.push({
+				threadId: checkRun.checkRun.node_id,
+				resource: document.uri,
+				range: new vscode.Range(new vscode.Position(ann.start_line - 1, ann.start_column || 0), new vscode.Position(ann.end_line - 1, ann.end_column || 0)),
+				comments: [{
+						commentId: checkRun.checkRun.node_id + '_' + i,
+						body: new vscode.MarkdownString(ann.message),
+						userName: checkRun.checkRun.app.name,
+						gravatar: null,
+						canEdit: false,
+						canDelete: false
+				}],
+				collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
+			});
 		});
 	}
 
@@ -210,6 +231,7 @@ function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread
 
 export class PRNode extends TreeNode {
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
+	private _checkRuns: CheckRunWithAnnotations[];
 	private _documentCommentsProvider: vscode.Disposable;
 	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent>;
 
@@ -233,6 +255,8 @@ export class PRNode extends TreeNode {
 			}
 
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
+			const checks = await this._prManager.getPullRequestCheckRuns(this.pullRequestModel);
+			const checkRuns = await this._prManager.getCheckRunsWithAnnotations(this.pullRequestModel, checks);
 			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
 			const mergeBase = this.pullRequestModel.mergeBase;
 			const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
@@ -276,6 +300,7 @@ export class PRNode extends TreeNode {
 					this._fileChanges = fileChanges;
 				} else {
 					this._fileChanges = fileChanges;
+					this._checkRuns = checkRuns;
 					this._onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 					this._documentCommentsProvider = getPRDocumentCommentProvider().registerDocumentCommentProvider(this.pullRequestModel, {
 						onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
@@ -544,7 +569,7 @@ export class PRNode extends TreeNode {
 
 	private async provideDocumentComments(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CommentInfo> {
 		if (document.uri.scheme === 'pr') {
-			return providePRDocumentComments(document, this.pullRequestModel.prNumber, this._fileChanges);
+			return providePRDocumentComments(document, this.pullRequestModel.prNumber, this._fileChanges, this._checkRuns);
 		}
 
 		return null;
