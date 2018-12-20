@@ -34,8 +34,9 @@ export class PullRequestGitHelper {
 		let remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
 		// fetch the branch
 		let ref = `${pullRequest.head.ref}:${localBranchName}`;
-		Logger.debug(`Fetch remote ${remoteName}`, PullRequestGitHelper.ID);
+		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - start`, PullRequestGitHelper.ID);
 		await repository.fetch(remoteName, ref);
+		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - done`, PullRequestGitHelper.ID);
 		await repository.checkout(localBranchName);
 		// set remote tracking branch for the local branch
 		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);

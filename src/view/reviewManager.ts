@@ -25,6 +25,7 @@ import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
 
 export class ReviewManager implements vscode.DecorationProvider {
+	public static ID = 'Review';
 	private static _instance: ReviewManager;
 	private _documentCommentProvider: vscode.Disposable;
 	private _workspaceCommentProvider: vscode.Disposable;
@@ -44,6 +45,18 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber: number;
+	private _switchingToReviewMode: boolean;
+
+	public get switchingToReviewMode(): boolean {
+		return this._switchingToReviewMode;
+	}
+
+	public set switchingToReviewMode(newState: boolean) {
+		this._switchingToReviewMode = newState;
+		if (!newState) {
+			this.updateState();
+		}
+	}
 
 	private _previousRepositoryState: {
 		HEAD: Branch | undefined;
@@ -59,6 +72,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	) {
 		this._documentCommentProvider = null;
 		this._workspaceCommentProvider = null;
+		this._switchingToReviewMode = false;
 		this._disposables = [];
 		let gitContentProvider = new GitContentProvider(_repository);
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
@@ -211,6 +225,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async updateState() {
+		if (this.switchingToReviewMode) {
+			return;
+		}
 		if (!this._validateStatusInProgress) {
 			this._validateStatusInProgress = this.validateState();
 			return this._validateStatusInProgress;
@@ -1008,7 +1025,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	public async switch(pr: IPullRequestModel): Promise<void> {
-		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber}`);
+		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - start`);
+		this.switchingToReviewMode = true;
 		await this._prManager.fullfillPullRequestMissingInfo(pr);
 
 		this.statusBarItem.text = '$(sync~spin) Switching to Review Mode';
@@ -1023,6 +1041,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 		} catch (e) {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);
+			this.switchingToReviewMode = false;
 
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
@@ -1038,6 +1057,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		this._telemetry.on('pr.checkout');
+		Logger.appendLine('Review> switch to Pull Request #${pr.prNumber} - done', ReviewManager.ID);
+		this.switchingToReviewMode = false;
 		await this._repository.status();
 	}
 
