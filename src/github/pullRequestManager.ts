@@ -364,6 +364,7 @@ export class PullRequestManager implements IPullRequestManager {
 					diffHunk
 					position
 					state
+					pullRequestReview { databaseId }
 				}
 
 				query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100) {
@@ -532,6 +533,7 @@ export class PullRequestManager implements IPullRequestManager {
 						diffHunk
 						position
 						state
+						pullRequestReview { databaseId }
 				}
 
 				mutation EndReview($input: DeletePullRequestReviewInput!) {
@@ -631,7 +633,8 @@ export class PullRequestManager implements IPullRequestManager {
 							originalPosition,
 							body,
 							diffHunk,
-							state
+							state,
+							pullRequestReview { databaseId }
 						}
 					}
 				}`,
@@ -961,6 +964,7 @@ export class PullRequestManager implements IPullRequestManager {
 						diffHunk
 						position
 						state
+						pullRequestReview { databaseId }
 					}
 					mutation SubmitReview($id: ID!) {
 						submitPullRequestReview(input: {
@@ -1250,7 +1254,8 @@ const toComment = (comment: any): any => ({
 	path: comment.path,
 	original_position: comment.originalPosition,
 	diff_hunk: comment.diffHunk,
-	isDraft: comment.state === 'PENDING'
+	isDraft: comment.state === 'PENDING',
+	pull_request_review_id: comment.pullRequestReview.databaseId
 });
 
 const GET_PENDING_REVIEW_ID_QUERY = gql `
