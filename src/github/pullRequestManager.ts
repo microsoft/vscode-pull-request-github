@@ -595,7 +595,7 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 
 		if (pullRequestModel) {
-			await PullRequestGitHelper.fetchAndCheckout(this._repository, pullRequestModel.remote, params.head, pullRequestModel);
+			await PullRequestGitHelper.fetchAndCheckout(this._repository, this._githubRepositories, pullRequestModel);
 			return pullRequestModel;
 		}
 

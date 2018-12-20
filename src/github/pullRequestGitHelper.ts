@@ -27,27 +27,18 @@ export interface PullRequestMetadata {
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
 	static async createAndCheckout(repository: Repository, pullRequest: IPullRequestModel) {
-		let localBranchName = await PullRequestGitHelper.getBranchNameForPullRequest(repository, pullRequest);
-
-		try {
-			await repository.getBranch(localBranchName);
-			// already exist but the metadata is missing.
-			Logger.appendLine(`Branch ${localBranchName} exists locally but metadata is missing, checkout...`, PullRequestGitHelper.ID);
-			await repository.checkout(localBranchName);
-		} catch (err) {
-			// the branch is from a fork
-			// create remote for this fork
-			Logger.appendLine(`Branch ${localBranchName} is from a fork. Create a remote first.`, PullRequestGitHelper.ID);
-			let remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
-			// fetch the branch
-			let ref = `${pullRequest.head.ref}:${localBranchName}`;
-			Logger.debug(`Fetch remote ${remoteName}`, PullRequestGitHelper.ID);
-			await repository.fetch(remoteName, ref);
-			await repository.checkout(localBranchName);
-			// set remote tracking branch for the local branch
-			await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
-		}
-
+		// the branch is from a fork
+		let localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+		// create remote for this fork
+		Logger.appendLine(`Branch ${localBranchName} is from a fork. Create a remote first.`, PullRequestGitHelper.ID);
+		let remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
+		// fetch the branch
+		let ref = `${pullRequest.head.ref}:${localBranchName}`;
+		Logger.debug(`Fetch remote ${remoteName}`, PullRequestGitHelper.ID);
+		await repository.fetch(remoteName, ref);
+		await repository.checkout(localBranchName);
+		// set remote tracking branch for the local branch
+		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
 		let prBranchMetadataKey = `branch.${localBranchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
@@ -64,16 +55,6 @@ export class PullRequestGitHelper {
 
 		try {
 			branch = await repository.getBranch(branchName);
-
-			if (branch.remote && branch.remote !== remote.remoteName) {
-				// the pull request branch is a branch with the same name in a fork
-				// we should check whehter the branch for this fork
-				// if `repository.getBranch(branchName)` fails, it means there is no branch with the same name locally
-				// we can just create the branch and checkout
-				await PullRequestGitHelper.createAndCheckout(repository, pullRequest);
-				return;
-			}
-
 			Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
 			await repository.checkout(branchName);
 
@@ -207,7 +188,7 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static async getBranchNameForPullRequest(repository: Repository, pullRequest: IPullRequestModel): Promise<string> {
+	static async calculateUniqueBranchNameForPR(repository: Repository, pullRequest: IPullRequestModel): Promise<string> {
 		let branchName = `pr/${pullRequest.author.login}/${pullRequest.prNumber}`;
 		let result = branchName;
 		let number = 1;
