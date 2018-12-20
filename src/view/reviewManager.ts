@@ -550,7 +550,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._onDidChangeDocumentCommentThreads.fire({
 				added: added,
 				removed: removed,
-				changed: changed
+				changed: changed,
+				inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest)
 			});
 
 			this._onDidChangeWorkspaceCommentThreads.fire({
@@ -994,10 +995,35 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private async deleteDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
 		const deletedReviewComments = await this._prManager.deleteReview(this._prManager.activePullRequest);
+
+		const removed = [];
+		const changed = [];
+
+		const oldCommentThreads = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
+		oldCommentThreads.forEach(thread => {
+			thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+			if (!thread.comments.length) {
+				removed.push(thread);
+			} else {
+				changed.push(thread);
+			}
+		});
+
+		const commentsByFile = groupBy(deletedReviewComments, comment => comment.path);
+		for (let filePath in commentsByFile) {
+			const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
+			if (matchedFile) {
+				const deletedFileComments = commentsByFile[filePath];
+				matchedFile.comments = matchedFile.comments.filter(comment => !deletedFileComments.some(deletedComment => deletedComment.id === comment.id));
+			}
+		}
+
+		this._comments = this._comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id === comment.id));
+
 		this._onDidChangeDocumentCommentThreads.fire({
 			added: [],
-			changed: [],
-			removed: this.allCommentsToCommentThreads(deletedReviewComments, vscode.CommentThreadCollapsibleState.Expanded),
+			changed,
+			removed,
 			inDraftMode: false
 		});
 	}
@@ -1005,6 +1031,26 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private async finishDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
 		try {
 			const comments = await this._prManager.submitReview(this._prManager.activePullRequest);
+
+			this._comments.forEach(comment => {
+				if (comments.some(updatedComment => updatedComment.id === comment.id)) {
+					comment.isDraft = false;
+				}
+			});
+
+			const commentsByFile = groupBy(comments, comment => comment.path);
+			for (let filePath in commentsByFile) {
+				const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
+				if (matchedFile) {
+					const fileComments = commentsByFile[filePath];
+					matchedFile.comments.forEach(comment => {
+						if (fileComments.some(updatedComment => updatedComment.id === comment.id)) {
+							comment.isDraft = false;
+						}
+					});
+				}
+			}
+
 			this._onDidChangeDocumentCommentThreads.fire({
 				added: [],
 				changed: this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded),

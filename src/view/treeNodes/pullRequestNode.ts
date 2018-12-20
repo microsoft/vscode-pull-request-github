@@ -383,7 +383,8 @@ export class PRNode extends TreeNode {
 			this._onDidChangeCommentThreads.fire({
 				added: added,
 				removed: removed,
-				changed: changed
+				changed: changed,
+				inDraftMode: await this._prManager.inDraftMode(this.pullRequestModel)
 			});
 			// this._onDidChangeDecorations.fire();
 		}
@@ -603,7 +604,9 @@ export class PRNode extends TreeNode {
 			if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
 				this.calculateChangedAndRemovedThreads(changed, removed, matchingFileChange, commentsForFile, true);
 				this.calculateChangedAndRemovedThreads(changed, removed, matchingFileChange, commentsForFile, false);
-				matchingFileChange.comments = commentsForFile;
+
+				// Remove deleted comments from the file change's comment list
+				matchingFileChange.comments = matchingFileChange.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id === comment.id));
 			}
 		}
 
@@ -631,7 +634,13 @@ export class PRNode extends TreeNode {
 					// Create threads for comments on the base file and on the modified file.
 					commentThreads = commentThreads.concat(commentsToCommentThreads(matchingFileChange, commentsForFile, false));
 					commentThreads = commentThreads.concat(commentsToCommentThreads(matchingFileChange, commentsForFile, true));
-					matchingFileChange.comments = commentsForFile;
+
+					// Update isDraft flags on comments in file change's comment list
+					matchingFileChange.comments.forEach(comment => {
+						if (comments.some(updatedComment => updatedComment.id === comment.id)) {
+							comment.isDraft = false;
+						}
+					});
 				}
 			}
 
