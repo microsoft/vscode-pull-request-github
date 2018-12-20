@@ -331,7 +331,7 @@ class CommentNode {
 		const userIcon = renderUserIcon(this._comment.user.html_url, this._comment.user.avatar_url);
 		const reviewCommentContainer: HTMLDivElement = document.createElement('div');
 		reviewCommentContainer.className = 'review-comment-container';
-		this._commentContainer.appendChild(userIcon);
+
 		this._commentContainer.appendChild(reviewCommentContainer);
 
 		const commentHeader: HTMLDivElement = document.createElement('div');
@@ -341,6 +341,7 @@ class CommentNode {
 		authorLink.href = this._comment.user.html_url;
 		authorLink.textContent = this._comment.user.login;
 
+		commentHeader.appendChild(userIcon);
 		commentHeader.appendChild(authorLink);
 
 		const isPending = this._review && this._review.isPending();
@@ -549,11 +550,13 @@ class ReviewNode {
 			timestamp.classList.add('pending');
 		}
 
+		commentHeader.appendChild(userIcon);
 		commentHeader.appendChild(userLogin);
 		commentHeader.appendChild(reviewState);
 		commentHeader.appendChild(timestamp);
-		this._commentContainer.appendChild(userIcon);
+
 		const reviewCommentContainer = document.createElement('div');
+		reviewCommentContainer.className = 'review-comment-container';
 		this._commentContainer.appendChild(reviewCommentContainer);
 		reviewCommentContainer.appendChild(commentHeader);
 
@@ -565,9 +568,9 @@ class ReviewNode {
 		reviewBody.className = 'review-body';
 		if (this._review.body) {
 			reviewBody.innerHTML = md.render(emoji.emojify(this._review.body));
+			reviewCommentContainer.appendChild(reviewBody);
 		}
 
-		reviewCommentContainer.className = 'review-comment-container';
 		reviewCommentContainer.appendChild(reviewBody);
 
 		if (this._review.comments) {
