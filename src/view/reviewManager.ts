@@ -45,6 +45,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber: number;
+	private _previousRepositoryState: {
+		HEAD: Branch | undefined;
+		remotes: Remote[];
+	};
+
 	private _switchingToReviewMode: boolean;
 
 	public get switchingToReviewMode(): boolean {
@@ -57,11 +62,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this.updateState();
 		}
 	}
-
-	private _previousRepositoryState: {
-		HEAD: Branch | undefined;
-		remotes: Remote[];
-	};
 
 	constructor(
 		private _context: vscode.ExtensionContext,
