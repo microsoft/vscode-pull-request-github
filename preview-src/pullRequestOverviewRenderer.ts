@@ -89,6 +89,8 @@ export function renderStatusChecks(statusInfo: any) {
 	if (!statusInfo.statuses.length) {
 		statusContainer.classList.add('hidden');
 		return;
+	} else {
+		statusContainer.classList.remove('hidden');
 	}
 
 	statusContainer.open = statusInfo.state !== 'success';

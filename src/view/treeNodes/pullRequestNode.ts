@@ -233,9 +233,8 @@ export class PRNode extends TreeNode {
 			}
 
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
-			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
-			await this._prManager.fullfillPullRequestMissingInfo(this.pullRequestModel);
-			let mergeBase = this.pullRequestModel.mergeBase;
+			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
+			const mergeBase = this.pullRequestModel.mergeBase;
 			const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
 			let fileChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
@@ -254,8 +253,8 @@ export class PRNode extends TreeNode {
 					change.fileName,
 					change.previousFileName,
 					change.blobUrl,
-					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false),
-					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true),
+					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
+					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
 					change.isPartial,
 					change.patch,
 					change.diffHunks,

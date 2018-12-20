@@ -7,7 +7,7 @@ import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
-import { toReviewUri, fromReviewUri, fromPRUri } from '../common/uri';
+import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange } from '../common/file';
@@ -63,8 +63,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 		let gitContentProvider = new GitContentProvider(_repository);
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
-		this._disposables.push(vscode.commands.registerCommand('review.openFile', (uri: vscode.Uri) => {
-			let params = fromReviewUri(uri);
+		this._disposables.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
+			let params: ReviewUriParams;
+			let filePath: string;
+			if (value instanceof GitFileChangeNode) {
+				params = fromReviewUri(value.filePath);
+				filePath = value.filePath.path;
+			} else {
+				params = fromReviewUri(value);
+				filePath = value.path;
+			}
 
 			const activeTextEditor = vscode.window.activeTextEditor;
 			const opts: vscode.TextDocumentShowOptions = {
@@ -74,11 +82,19 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			// Check if active text editor has same path as other editor. we cannot compare via
 			// URI.toString() here because the schemas can be different. Instead we just go by path.
-			if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
+			if (activeTextEditor && activeTextEditor.document.uri.path === filePath) {
 				opts.selection = activeTextEditor.selection;
 			}
 
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, params.path)), opts);
+		}));
+		this._disposables.push(vscode.commands.registerCommand('pr.openChangedFile', (value: GitFileChangeNode) => {
+			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
+			if (openDiff) {
+				return vscode.commands.executeCommand('pr.openDiffView', value);
+			} else {
+				return vscode.commands.executeCommand('review.openFile', value);
+			}
 		}));
 
 		this._disposables.push(_repository.state.onDidChange(e => {
@@ -87,11 +103,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			if (!oldHead && !newHead) {
 				// both oldHead and newHead are undefined
-				return;
-			}
-
-			if (newHead && !newHead.upstream) {
-				// if newhead has no upstream, we won't get any meaningful pull request info from that.
 				return;
 			}
 
@@ -572,10 +583,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let activeComments = this._comments.filter(comment => comment.position);
 			let outdatedComments = this._comments.filter(comment => !comment.position);
 
-			const data = await this._prManager.getPullRequestChangedFiles(pr);
-			await this._prManager.fullfillPullRequestMissingInfo(pr);
-			let headSha = pr.head.sha;
-			let mergeBase = pr.mergeBase;
+			const data = await this._prManager.getPullRequestFileChangesInfo(pr);
+			const headSha = pr.head.sha;
+			const mergeBase = pr.mergeBase;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase);
 			this._localFileChanges = [];
@@ -786,7 +796,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return {
 				bubble: false,
 				title: 'Commented',
-				letter: '◆'
+				letter: '◆',
+				priority: 2
 			};
 		}
 
@@ -1139,10 +1150,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	public async createPullRequest(): Promise<void> {
-		const HEAD = this._repository.state.HEAD;
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
-		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
-		let targetRemote = await this.getRemote(potentialTargetRemotes, 'Choose a remote which you want to send a pull request to',
+		const githubRemotes = this._prManager.getGitHubRemotes();
+		let targetRemote = await this.getRemote(githubRemotes, 'Choose a remote which you want to send a pull request to',
 			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Fork')
 		);
 
@@ -1169,11 +1179,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 			cancellable: false
 		}, async (progress) => {
 			progress.report({ increment: 10 });
-			let branchName = HEAD.name;
+			let HEAD = this._repository.state.HEAD;
+			const branchName = HEAD.name;
+
 			if (!HEAD.upstream) {
 				progress.report({ increment: 10, message: `Start publishing branch ${branchName}` });
-				let latestBranch = await this.publishBranch(HEAD);
-				if (!latestBranch) {
+				HEAD = await this.publishBranch(HEAD);
+				if (!HEAD) {
 					return;
 				}
 				progress.report({ increment: 20, message: `Branch ${branchName} published` });
@@ -1182,8 +1194,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			}
 
+			const headRemote = githubRemotes.find(remote => remote.remoteName === HEAD.upstream.remote);
+			if (!headRemote) {
+				return;
+			}
+
 			pullRequestDefaults.base = target;
-			pullRequestDefaults.head = branchName;
+			// For cross-repository pull requests, the owner must be listed. Always list to be safe. See https://developer.github.com/v3/pulls/#create-a-pull-request.
+			pullRequestDefaults.head = `${headRemote.owner}:${branchName}`;
 			pullRequestDefaults.owner = targetRemote.owner;
 			pullRequestDefaults.repo = targetRemote.name;
 			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);

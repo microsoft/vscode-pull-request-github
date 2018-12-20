@@ -233,19 +233,4 @@ export class PullRequestGitHelper {
 		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
-
-	static async getPullRequestMergeBase(repository: Repository, remote: Remote, pullRequest: IPullRequestModel): Promise<string> {
-		try {
-			Logger.appendLine(`Get merge base of ${pullRequest.base.sha}, ${pullRequest.head.sha}`, PullRequestGitHelper.ID);
-			return await repository.getMergeBase(pullRequest.base.sha, pullRequest.head.sha);
-		} catch (err) {
-			Logger.appendLine(`Get merge base of ${pullRequest.base.sha}, ${pullRequest.head.sha} failed, start fetching from remote`, PullRequestGitHelper.ID);
-			const pullrequestHeadRef = `refs/pull/${pullRequest.prNumber}/head`;
-			await repository.fetch(remote.remoteName, pullrequestHeadRef);
-			await repository.fetch(remote.remoteName, pullRequest.base.ref);
-
-			Logger.appendLine(`Get merge base of ${pullRequest.base.sha}, ${pullRequest.head.sha} again`, PullRequestGitHelper.ID);
-			return await repository.getMergeBase(pullRequest.base.sha, pullRequest.head.sha);
-		}
-	}
 }
