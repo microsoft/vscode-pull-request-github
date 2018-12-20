@@ -603,11 +603,12 @@ class ReviewNode {
 					diffHeader.appendChild(diffPath);
 
 					if (outdated) {
-						diffPath.addEventListener('click', () => this.openDiff(comments[0]));
 						const outdatedLabel: HTMLSpanElement = document.createElement('span');
 						outdatedLabel.className = 'outdatedLabel';
 						outdatedLabel.textContent = 'Outdated';
 						diffHeader.appendChild(outdatedLabel);
+					} else {
+						diffPath.addEventListener('click', () => this.openDiff(comments[0]));
 					}
 
 					diffView.appendChild(diffHeader);
