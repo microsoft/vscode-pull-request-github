@@ -571,17 +571,16 @@ class ReviewNode {
 			reviewCommentContainer.appendChild(reviewBody);
 		}
 
-		reviewCommentContainer.appendChild(reviewBody);
-
 		if (this._review.comments) {
 			const commentBody: HTMLDivElement = document.createElement('div');
-			commentBody.className = 'comment-body';
+			commentBody.classList.add('comment-body', 'review-comment-body');
 			let groups = groupBy(this._review.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
 
 			for (let path in groups) {
 				let comments = groups[path];
-				const threadContainer: HTMLSpanElement = document.createElement('span');
+				const threadContainer: HTMLDivElement = document.createElement('div');
 				threadContainer.id = path;
+				threadContainer.className = 'diff-container';
 
 				if (comments && comments.length) {
 					let diffLines: HTMLElement[] = [];

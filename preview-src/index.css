@@ -3,10 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-:root {
-	--border-color: var(--vscode-notifications-border);
-}
-
 a:focus, input:focus, select:focus, textarea:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
@@ -15,7 +11,6 @@ a:focus, input:focus, select:focus, textarea:focus {
 	display: flex;
 	align-items: flex-start;
 	margin-top: 20px;
-	border-bottom: 1px solid var(--border-color);
 }
 
 .comment-body li div {
@@ -88,13 +83,14 @@ body .comment-container.review {
 body .comment-container .review-comment-header {
 	display: flex;
 	width: 100%;
+	height: 36px;
 	box-sizing: border-box;
 	padding: 6px;
 	font-size: 12px;
 	color: var(--vscode-foreground);
-	border: 1px solid var(--vscode-editor-selectionBackground);
 	align-items: center;
-	background: var(--vscode-peekViewEditor-background);
+	background: var(--vscode-list-inactiveSelectionBackground);
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
 .description-header {
@@ -151,8 +147,12 @@ body .commit .commit-message > a {
 
 body .comment-container .comment-body, .review-body {
 	padding: 10px;
-	border: 1px solid var(--vscode-editor-selectionBackground);
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 	border-top: none;
+}
+
+body .comment-container .review-comment-container .review-comment-body {
+	padding: 0;
 }
 
 body .comment-container .comment-body > p {
@@ -255,7 +255,7 @@ body button.checkedOut svg {
 
 .description-container {
 	padding: 12px;
-	border: 1px solid var(--vscode-editor-selectionBackground);
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
 .subtitle {
@@ -263,8 +263,8 @@ body button.checkedOut svg {
 	align-items: center;
 	margin-top: 8px;
 	padding: 6px;
-	border: 1px solid var(--vscode-editor-selectionBackground);
-	background: var(--vscode-peekViewEditor-background);
+	background: var(--vscode-list-inactiveSelectionBackground);
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 	border-bottom: none;
 }
 
@@ -386,12 +386,22 @@ body .overview-title .button-group button {
 }
 
 .comment-body .review-comment {
-	padding: 12px;
+	padding: 3px;
 	box-sizing: border-box;
 	border-top: none;
-	border-right: 1px solid var(--vscode-notifications-background);
-	border-left: 1px solid var(--vscode-notifications-background);
-	border-bottom: 1px solid var(--vscode-notifications-background);
+}
+
+.review-comment-container .comment-body .review-comment:last-of-type {
+	border-bottom: none;
+}
+
+.review-comment-container .review-comment .review-comment-header {
+	border: none;
+	background: none;
+}
+
+.review-comment-container .review-comment .comment-body {
+	border: none;
 }
 
 .comment-body .line {
@@ -602,6 +612,19 @@ code {
 	border-color: rgb(0, 0, 0);
 }
 
+.vscode-high-contrast .comment-container .review-comment-header, .vscode-high-contrast .subtitle {
+	background: none;
+	border-color: var(--vscode-panel-border);
+}
+
+.vscode-high-contrast .description-container {
+	border-color: var(--vscode-panel-border);
+}
+
+.vscode-high-contrast .comment-container .comment-body, .vscode-high-contrast .review-comment-container .review-body {
+	border-color: var(--vscode-panel-border);
+}
+
 .vscode-light .comment-body table > thead > tr > th {
 	border-color: rgba(0, 0, 0, 0.69);
 }
@@ -622,19 +645,17 @@ code {
 	border-color: rgba(255, 255, 255, 0.18);
 }
 
-.diff {
-	margin: 40px 0 0px;
-	border: 1px solid var(--vscode-notifications-background) !important;
+.review-comment-body .diff-container {
+	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
-.diff:first-of-type {
-	margin-top: 8px;
+.review-comment-body .diff-container:last-of-type {
+	border-bottom: none;
 }
 
 .diff .diffHeader {
 	padding: 6px 12px;
 	line-height: 1.5;
-	border-bottom: solid 1px var(--vscode-notifications-background);
 	background-color: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
@@ -714,6 +735,10 @@ code {
 }
 
 .vscode-high-contrast .diff .diffLine {
+	background: none;
+}
+
+.vscode-high-constrat .diff .diffHeader {
 	background: none;
 }
 
