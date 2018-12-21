@@ -12,6 +12,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions } from 'apollo-boost';
+import { ALL_PULL_REQUEST_QUERY as ALL_PULL_REQUESTS_QUERY, resolvePullRequests } from './gql/pullrequests';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -85,8 +86,8 @@ export class GitHubRepository implements IGitHubRepository {
 		}
 		const { octokit, remote } = await this.ensure();
 		const result = await octokit.repos.get({
-				owner: remote.owner,
-				repo: remote.repositoryName
+			owner: remote.owner,
+			repo: remote.repositoryName
 		});
 		Logger.debug(`Fetch metadata ${remote.owner}/${remote.repositoryName} - done`, GitHubRepository.ID);
 		this._metadata = Object.assign(result.data, { currentUser: (octokit as any).currentUser });
@@ -95,7 +96,7 @@ export class GitHubRepository implements IGitHubRepository {
 
 	async resolveRemote(): Promise<void> {
 		try {
-			const {clone_url} = await this.getMetadata();
+			const { clone_url } = await this.getMetadata();
 			this.remote = parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol);
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
@@ -166,7 +167,27 @@ export class GitHubRepository implements IGitHubRepository {
 	private async getAllPullRequests(page?: number): Promise<PullRequestData> {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
+			const { octokit, remote, query } = await this.ensure();
+			if (this.supportsGraphQl()) {
+				try {
+					const { data } = await query({
+						query: ALL_PULL_REQUESTS_QUERY,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+						}
+					});
+					let ret = {
+						pullRequests: resolvePullRequests(data),
+						hasMorePages: data.repository.pullRequests.pageInfo.hasPreviousPage
+					};
+
+					return ret;
+				} catch (error) {
+					return null;
+				}
+			}
+
 			const result = await octokit.pullRequests.getAll({
 				owner: remote.owner,
 				repo: remote.repositoryName,
