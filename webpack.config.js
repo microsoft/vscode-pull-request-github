@@ -74,6 +74,11 @@ function getExtensionConfig(env) {
 					use: 'ts-loader',
 					exclude: /node_modules/
 				},
+				{
+					test: /\.(graphql|gql)$/,
+					exclude: /node_modules/,
+					loader: 'graphql-tag/loader'
+				},
 				// FIXME: github-graphql-api uses .mjs, which imposes hard restrictions
 				// on imports available from other callers. They probably didn't know
 				// this. They just used .mjs because it seemed new and hip.

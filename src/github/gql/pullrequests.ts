@@ -4,56 +4,10 @@
 *  Licensed under the MIT License. See License.txt in the project root for license information.
 *--------------------------------------------------------------------------------------------*/
 
-import gql from 'graphql-tag';
+import * as pullRequestsQuery from './pullrequests.graphql';
 import { PullRequestModel } from '../pullRequestModel';
 
-export const ALL_PULL_REQUEST_QUERY = gql `
-query PullRequests($owner:String!, $name:String!) {
-	repository(owner:$owner, name:$name) {
-		pullRequests(last: 20 states:OPEN) {
-			pageInfo {
-				hasPreviousPage
-				hasNextPage
-				startCursor
-				endCursor
-			}
-			edges {
-				node {
-					number
-					body
-					author {
-						login
-						avatarUrl
-					}
-					title
-					url
-					state
-					createdAt
-					updatedAt
-					headRef {
-						name
-						repository {
-							nameWithOwner
-						}
-						target {
-							oid
-						}
-					}
-					baseRef {
-						name
-						repository {
-							nameWithOwner
-						}
-						target {
-							oid
-						}
-					}
-				}
-			}
-		}
-	}
-}
-`;
+export const ALL_PULL_REQUEST_QUERY = pullRequestsQuery;
 
 export function resolvePullRequests(data) {
 	return data.repository.pullRequests.edges.map(edge => {
@@ -77,11 +31,10 @@ export function resolvePullRequests(data) {
 				label: '',
 				user: null,
 				repo: {
-					clone_url: edge.node.headRef.repository.url
-
+					clone_url: edge.node.headRef ? edge.node.headRef.repository.url : ''
 				},
-				ref: edge.node.headRef.name,
-				sha: edge.node.headRef.target.oid
+				ref: edge.node.headRef ? edge.node.headRef.name : null,
+				sha: edge.node.headRef ? edge.node.headRef.target.oid : null
 			},
 			base: {
 				label: '',

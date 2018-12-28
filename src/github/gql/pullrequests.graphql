@@ -1,0 +1,45 @@
+query PullRequests($owner:String!, $name:String!) {
+	repository(owner:$owner, name:$name) {
+		pullRequests(last: 20 states:OPEN) {
+			pageInfo {
+				hasPreviousPage
+				hasNextPage
+				startCursor
+				endCursor
+			}
+			edges {
+				node {
+					number
+					body
+					author {
+						login
+						avatarUrl
+					}
+					title
+					url
+					state
+					createdAt
+					updatedAt
+					headRef {
+						name
+						repository {
+							nameWithOwner
+						}
+						target {
+							oid
+						}
+					}
+					baseRef {
+						name
+						repository {
+							nameWithOwner
+						}
+						target {
+							oid
+						}
+					}
+				}
+			}
+		}
+	}
+}
