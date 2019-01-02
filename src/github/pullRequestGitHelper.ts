@@ -40,8 +40,7 @@ export class PullRequestGitHelper {
 		await repository.checkout(localBranchName);
 		// set remote tracking branch for the local branch
 		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
-		let prBranchMetadataKey = `branch.${localBranchName}.${PullRequestMetadataKey}`;
-		await repository.setConfig(prBranchMetadataKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 
 	static async fetchAndCheckout(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel): Promise<void> {
@@ -74,7 +73,7 @@ export class PullRequestGitHelper {
 			Logger.appendLine(`Branch ${remoteName}/${branchName} doesn't exist on local disk yet.`, PullRequestGitHelper.ID);
 			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
 			Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
-			await repository.fetch(remoteName, trackedBranchName);
+			await repository.fetch(remoteName, branchName);
 			const trackedBranch = await repository.getBranch(trackedBranchName);
 			// create branch
 			await repository.createBranch(branchName, true, trackedBranch.commit);
