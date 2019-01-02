@@ -26,7 +26,7 @@ export interface PullRequestMetadata {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
-	static async createAndCheckout(repository: Repository, pullRequest: IPullRequestModel) {
+	static async checkoutFromFork(repository: Repository, pullRequest: IPullRequestModel) {
 		// the branch is from a fork
 		let localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
 		// create remote for this fork
@@ -47,7 +47,7 @@ export class PullRequestGitHelper {
 	static async fetchAndCheckout(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel): Promise<void> {
 		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, githubRepositories, pullRequest);
 		if (!remote) {
-			return PullRequestGitHelper.createAndCheckout(repository, pullRequest);
+			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest);
 		}
 
 		const branchName = pullRequest.head.ref;
