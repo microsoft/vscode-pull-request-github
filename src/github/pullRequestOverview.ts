@@ -43,16 +43,19 @@ export class PullRequestOverviewPanel {
 	private _initialized: boolean;
 	private _scrollPosition = { x: 0, y: 0 };
 
-	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel) {
-		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel, toTheSide: Boolean = false) {
+		let activeColumn = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+		if (toTheSide && activeColumn) {
+			activeColumn = vscode.ViewColumn.Beside;
+		}
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
 		if (PullRequestOverviewPanel.currentPanel) {
-			PullRequestOverviewPanel.currentPanel._panel.reveal(column, true);
+			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, column || vscode.ViewColumn.One, title, pullRequestManager);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.One, title, pullRequestManager);
 		}
 
 		PullRequestOverviewPanel.currentPanel.update(pullRequestModel);
