@@ -209,6 +209,7 @@ function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread
 }
 
 export class PRNode extends TreeNode {
+	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _documentCommentsProvider: vscode.Disposable;
 	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent>;
@@ -227,6 +228,7 @@ export class PRNode extends TreeNode {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.prNumber}`, PRNode.ID);
 		try {
 			if (this.childrenDisposables && this.childrenDisposables.length) {
 				this.childrenDisposables.forEach(dp => dp.dispose());

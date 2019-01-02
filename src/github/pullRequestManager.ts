@@ -871,16 +871,12 @@ export class PullRequestManager implements IPullRequestManager {
 		return matchingPullRequestMetadata;
 	}
 
-	async getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel) {
-		return await PullRequestGitHelper.getBranchForPullRequestFromExistingRemotes(this.repository, this._githubRepositories, pullRequest);
+	async checkoutExistingPullRequestBranch(pullRequest: IPullRequestModel): Promise<boolean> {
+		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, this._githubRepositories, pullRequest);
 	}
 
-	async fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.fetchAndCheckout(this.repository, remote, branchName, pullRequest);
-	}
-
-	async createAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
-		await PullRequestGitHelper.createAndCheckout(this.repository, pullRequest);
+	async fetchAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
+		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._githubRepositories, pullRequest);
 	}
 
 	async getBranch(remote: Remote, branchName: string): Promise<Branch> {
