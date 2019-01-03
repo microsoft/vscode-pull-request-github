@@ -187,7 +187,8 @@ export class GitHubRepository implements IGitHubRepository {
 						created_at,
 						updated_at,
 						head,
-						base
+						base,
+						node_id
 					}) => {
 						if (!head.repo) {
 							Logger.appendLine(
@@ -211,7 +212,8 @@ export class GitHubRepository implements IGitHubRepository {
 							comments: 0,
 							commits: 0,
 							head,
-							base
+							base,
+							node_id
 						};
 
 						return new PullRequestModel(this, this.remote, item);

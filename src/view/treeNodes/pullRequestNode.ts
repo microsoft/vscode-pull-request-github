@@ -23,7 +23,8 @@ import { getPRDocumentCommentProvider } from '../prDocumentCommentProvider';
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
 	prNumber: number,
-	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[]) {
+	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[],
+	inDraftMode: boolean) {
 	const params = fromPRUri(document.uri);
 
 	if (params.prNumber !== prNumber) {
@@ -69,6 +70,7 @@ export function providePRDocumentComments(
 		return {
 			threads: [],
 			commentingRanges,
+			inDraftMode
 		};
 	}
 
@@ -101,7 +103,8 @@ export function providePRDocumentComments(
 					userName: comment.user.login,
 					gravatar: comment.user.avatar_url,
 					canEdit: comment.canEdit,
-					canDelete: comment.canDelete
+					canDelete: comment.canDelete,
+					isDraft: comment.isDraft
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -111,6 +114,7 @@ export function providePRDocumentComments(
 	return {
 		threads,
 		commentingRanges,
+		inDraftMode
 	};
 }
 
@@ -144,7 +148,8 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 					userName: comment.user.login,
 					gravatar: comment.user.avatar_url,
 					canEdit: comment.canEdit,
-					canDelete: comment.canDelete
+					canDelete: comment.canDelete,
+					isDraft: comment.isDraft
 				};
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -373,7 +378,8 @@ export class PRNode extends TreeNode {
 			this._onDidChangeCommentThreads.fire({
 				added: added,
 				removed: removed,
-				changed: changed
+				changed: changed,
+				inDraftMode: await this._prManager.inDraftMode(this.pullRequestModel)
 			});
 			// this._onDidChangeDecorations.fire();
 		}
@@ -484,7 +490,8 @@ export class PRNode extends TreeNode {
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
 				canEdit: rawComment.canEdit,
-				canDelete: rawComment.canDelete
+				canDelete: rawComment.canDelete,
+				isDraft: rawComment.isDraft
 			};
 
 			fileChange.comments.push(rawComment);
@@ -520,20 +527,34 @@ export class PRNode extends TreeNode {
 		if (index > -1) {
 			fileChange.comments.splice(index, 1);
 		}
+
+		const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
+		this._onDidChangeCommentThreads.fire({
+			added: [],
+			changed: [],
+			removed: [],
+			inDraftMode
+		});
 	}
 
 	private async replyToCommentThread(document: vscode.TextDocument, _range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
 			const fileChange = this.findMatchingFileNode(document.uri);
 
-			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, text, thread.threadId);
+			const commentFromThread = fileChange.comments.find(c => c.id.toString() === thread.threadId);
+			if (!commentFromThread) {
+				throw new Error('Unable to find thread to respond to.');
+			}
+
+			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, text, commentFromThread);
 			thread.comments.push({
 				commentId: rawComment.id.toString(),
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
 				canEdit: rawComment.canEdit,
-				canDelete: rawComment.canDelete
+				canDelete: rawComment.canDelete,
+				isDraft: rawComment.isDraft
 			});
 
 			fileChange.comments.push(rawComment);
@@ -546,7 +567,8 @@ export class PRNode extends TreeNode {
 
 	private async provideDocumentComments(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CommentInfo> {
 		if (document.uri.scheme === 'pr') {
-			return providePRDocumentComments(document, this.pullRequestModel.prNumber, this._fileChanges);
+			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
+			return providePRDocumentComments(document, this.pullRequestModel.prNumber, this._fileChanges, inDraftMode);
 		}
 
 		return null;

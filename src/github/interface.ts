@@ -67,6 +67,7 @@ export type PullRequest = Pick<
 	| 'commits'
 	| 'head'
 	| 'base'
+	| 'node_id'
 >;
 
 export interface IRawFileChange {
@@ -133,11 +134,10 @@ export interface IPullRequestManager {
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]>;
 	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]>;
-	getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Github.PullRequestsCreateCommentResponse[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
 	getIssueComments(pullRequest: IPullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]>;
 	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Github.IssuesCreateCommentResponse>;
-	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
+	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: Comment): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
 	getPullRequestDefaults(): Promise<PullRequestsCreateParams>;
 	createPullRequest(params: PullRequestsCreateParams): Promise<IPullRequestModel>;
@@ -154,6 +154,10 @@ export interface IPullRequestManager {
 	getPullRequestFileChangesInfo(pullRequest: IPullRequestModel): Promise<IRawFileChange[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
 	getStatusChecks(pullRequest: IPullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse>;
+	inDraftMode(pullRequest: IPullRequestModel): Promise<boolean>;
+	deleteReview(pullRequest: IPullRequestModel): Promise<Comment[]>;
+	submitReview(pullRequest: IPullRequestModel): Promise<Comment[]>;
+	startReview(pullRequest: IPullRequestModel): Promise<void>;
 
 	/**
 	 * Fullfill information for a pull request which we can't fetch with one single api call.
