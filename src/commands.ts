@@ -248,6 +248,14 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		telemetry.on('pr.openDescription');
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
+		let pr = descriptionNode.pullRequestModel;
+		const pullRequest = ensurePR(prManager, pr);
+		// Create and show a new webview
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, true);
+		telemetry.on('pr.openDescriptionToTheSide');
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
 		if (fileChange.status === GitChangeType.DELETE || fileChange.status === GitChangeType.ADD) {
 			// create an empty `review` uri without any path/commit info.
