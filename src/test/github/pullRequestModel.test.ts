@@ -143,6 +143,7 @@ const pr = {
 		sha: '',
 		user,
 	},
+	node_id: '1'
 };
 
 describe('PullRequestModel', () => {

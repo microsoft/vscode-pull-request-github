@@ -23,6 +23,7 @@ import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -339,14 +340,20 @@ export class ReviewManager implements vscode.DecorationProvider {
 				throw new Error('Unable to find matching file');
 			}
 
-			const comment = await this._prManager.createCommentReply(this._prManager.activePullRequest, text, thread.threadId);
+			const commentFromThread = this._comments.find(c => c.id.toString() === thread.threadId);
+			if (!commentFromThread) {
+				throw new Error('Unable to find thread to respond to.');
+			}
+
+			const comment = await this._prManager.createCommentReply(this._prManager.activePullRequest, text, commentFromThread);
 			thread.comments.push({
 				commentId: comment.id.toString(),
 				body: new vscode.MarkdownString(comment.body),
 				userName: comment.user.login,
 				gravatar: comment.user.avatar_url,
 				canEdit: comment.canEdit,
-				canDelete: comment.canDelete
+				canDelete: comment.canDelete,
+				isDraft: comment.isDraft
 			});
 
 			matchedFile.comments.push(comment);
@@ -389,7 +396,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 				userName: rawComment.user.login,
 				gravatar: rawComment.user.avatar_url,
 				canEdit: rawComment.canEdit,
-				canDelete: rawComment.canDelete
+				canDelete: rawComment.canDelete,
+				isDraft: rawComment.isDraft
 			};
 
 			let commentThread: vscode.CommentThread = {
@@ -480,6 +488,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 						}]
 					});
 				}
+
+				this._onDidChangeDocumentCommentThreads.fire({
+					added: [],
+					changed: [],
+					removed: [],
+					inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest)
+				});
 			}
 
 			const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);
@@ -573,7 +588,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._onDidChangeDocumentCommentThreads.fire({
 				added: added,
 				removed: removed,
-				changed: changed
+				changed: changed,
+				inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest)
 			});
 
 			this._onDidChangeWorkspaceCommentThreads.fire({
@@ -720,7 +736,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 							]
 						},
 						canEdit: comment.canEdit,
-						canDelete: comment.canDelete
+						canDelete: comment.canDelete,
+						isDraft: comment.isDraft
 					};
 				}),
 				collapsibleState: collapsibleState
@@ -772,7 +789,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 						gravatar: comment.user.avatar_url,
 						command: command,
 						canEdit: comment.canEdit,
-						canDelete: comment.canDelete
+						canDelete: comment.canDelete,
+						isDraft: comment.isDraft
 					};
 				}),
 				collapsibleState: collapsibleState
@@ -822,6 +840,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private registerCommentProvider() {
+		const supportsGraphQL = this._prManager.activePullRequest && (this._prManager.activePullRequest as PullRequestModel).githubRepository.supportsGraphQl();
 		this._documentCommentProvider = vscode.workspace.registerDocumentCommentProvider({
 			onDidChangeCommentThreads: this._onDidChangeDocumentCommentThreads.event,
 			provideDocumentComments: async (document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo> => {
@@ -869,11 +888,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 					return {
 						threads: this.fileCommentsToCommentThreads(matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed),
 						commentingRanges: ranges,
+						inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest)
 					};
 				}
 
 				if (document.uri.scheme === 'pr') {
-					return providePRDocumentComments(document, this._prNumber, this._localFileChanges);
+					const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest);
+					return providePRDocumentComments(document, this._prNumber, this._localFileChanges, inDraftMode);
 				}
 
 				if (document.uri.scheme === 'review') {
@@ -960,14 +981,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 									userName: comment.user.login,
 									gravatar: comment.user.avatar_url,
 									canEdit: comment.canEdit,
-									canDelete: comment.canDelete
+									canDelete: comment.canDelete,
+									isDraft: comment.isDraft
 								};
 							}),
 							collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
 						});
 
 						return {
-							threads: ret
+							threads: ret,
+							inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest)
 						};
 					}
 				}
@@ -975,7 +998,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 			createNewCommentThread: this.createNewCommentThread.bind(this),
 			replyToCommentThread: this.replyToCommentThread.bind(this),
 			editComment: this.editComment.bind(this),
-			deleteComment: this.deleteComment.bind(this)
+			deleteComment: this.deleteComment.bind(this),
+			startDraft: supportsGraphQL ? this.startDraft.bind(this) : undefined,
+			deleteDraft: supportsGraphQL ? this.deleteDraft.bind(this) : undefined,
+			finishDraft: supportsGraphQL ? this.finishDraft.bind(this) : undefined,
+			startDraftLabel: 'Start Review',
+			deleteDraftLabel: 'Delete Review',
+			finishDraftLabel: 'Submit Review'
 		});
 
 		this._workspaceCommentProvider = vscode.workspace.registerWorkspaceCommentProvider({
@@ -990,6 +1019,92 @@ export class ReviewManager implements vscode.DecorationProvider {
 				return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
 			}
 		});
+	}
+
+	private async startDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<void> {
+		await this._prManager.startReview(this._prManager.activePullRequest);
+		this._onDidChangeDocumentCommentThreads.fire({
+			added: [],
+			changed: [],
+			removed: [],
+			inDraftMode: true
+		});
+	}
+
+	private async deleteDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
+		const deletedReviewComments = await this._prManager.deleteReview(this._prManager.activePullRequest);
+
+		const removed = [];
+		const changed = [];
+
+		const oldCommentThreads = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
+		oldCommentThreads.forEach(thread => {
+			thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+			if (!thread.comments.length) {
+				removed.push(thread);
+			} else {
+				changed.push(thread);
+			}
+		});
+
+		const commentsByFile = groupBy(deletedReviewComments, comment => comment.path);
+		for (let filePath in commentsByFile) {
+			const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
+			if (matchedFile) {
+				const deletedFileComments = commentsByFile[filePath];
+				matchedFile.comments = matchedFile.comments.filter(comment => !deletedFileComments.some(deletedComment => deletedComment.id === comment.id));
+			}
+		}
+
+		this._comments = this._comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id === comment.id));
+
+		this._onDidChangeDocumentCommentThreads.fire({
+			added: [],
+			changed,
+			removed,
+			inDraftMode: false
+		});
+
+		this._onDidChangeWorkspaceCommentThreads.fire({
+			added: [],
+			changed,
+			removed,
+			inDraftMode: false
+		});
+	}
+
+	private async finishDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
+		try {
+			const comments = await this._prManager.submitReview(this._prManager.activePullRequest);
+
+			this._comments.forEach(comment => {
+				if (comments.some(updatedComment => updatedComment.id === comment.id)) {
+					comment.isDraft = false;
+				}
+			});
+
+			const commentsByFile = groupBy(comments, comment => comment.path);
+			for (let filePath in commentsByFile) {
+				const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
+				if (matchedFile) {
+					const fileComments = commentsByFile[filePath];
+					matchedFile.comments.forEach(comment => {
+						if (fileComments.some(updatedComment => updatedComment.id === comment.id)) {
+							comment.isDraft = false;
+						}
+					});
+				}
+			}
+
+			this._onDidChangeDocumentCommentThreads.fire({
+				added: [],
+				changed: this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded),
+				removed: [],
+				inDraftMode: false
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
+		}
 	}
 
 	private findMatchedFileChange(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode {
