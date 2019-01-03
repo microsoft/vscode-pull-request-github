@@ -27,6 +27,7 @@ export class GitHubRepository implements IGitHubRepository {
 	private _hub: GitHub;
 	private _initialized: boolean;
 	private _metadata: any;
+
 	public get hub(): GitHub {
 		if (this._hub === undefined) {
 			if (!this._initialized) {
@@ -38,16 +39,19 @@ export class GitHubRepository implements IGitHubRepository {
 		return this._hub;
 	}
 
-	supportsGraphQl(): boolean {
-		return !!(this.hub && this._hub.graphql);
+	public get octokit(): Octokit {
+		return this.hub && this.hub.octokit;
 	}
 
-	public get octokit(): Octokit {
-		return this.hub && this._hub.octokit;
+	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
+	}
+
+	supportsGraphQl(): boolean {
+		return !!(this.hub && this.hub.graphql);
 	}
 
 	query = async <T = any>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
-		const gql = this.hub && this._hub.graphql;
+		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${query}`, GRAPHQL_COMPONENT_ID);
 			return null;
@@ -60,7 +64,7 @@ export class GitHubRepository implements IGitHubRepository {
 	}
 
 	mutate = async <T = any>(mutation: MutationOptions): Promise<ApolloQueryResult<T>> => {
-		const gql = this.hub && this._hub.graphql;
+		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
 			return null;
@@ -70,9 +74,6 @@ export class GitHubRepository implements IGitHubRepository {
 		const rsp = await gql.mutate<T>(mutation);
 		Logger.debug(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
-	}
-
-	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
 	}
 
 	async getMetadata(): Promise<any> {
