@@ -83,7 +83,6 @@ body .comment-container.review {
 body .comment-container .review-comment-header {
 	display: flex;
 	width: 100%;
-	height: 36px;
 	box-sizing: border-box;
 	padding: 6px;
 	font-size: 12px;
@@ -109,7 +108,9 @@ body .comment-container .review-comment-header {
 
 .comment-actions button {
 	background-color: transparent;
-	padding: 2px 6px 3px;
+	padding: 0 6px;
+	line-height: normal;
+	font-size: 11px;
 }
 
 .comment-actions button svg {
@@ -153,13 +154,15 @@ body .comment-container .comment-body, .review-body {
 
 body .comment-container .review-comment-container .review-comment-body {
 	padding: 0;
+	margin: 0 0 0 36px;
+	border: none;
 }
 
-body .comment-container .comment-body > p {
+body .comment-container .comment-body > p, .comment-container .review-body > p {
 	margin-top: 0;
 }
 
-body .comment-container .comment-body > p:last-child {
+body .comment-container .comment-body > p:last-child, .comment-container .review-body > p:last-child {
 	margin-bottom: 0;
 }
 
@@ -184,7 +187,6 @@ button {
 	padding: 4px 12px;
 	font-size: 13px;
 	line-height: 18px;
-	height: 28px;
 	white-space: nowrap;
 	user-select: none;
 }
@@ -348,8 +350,8 @@ body .overview-title .button-group button {
 }
 
 .commit .avatar-container .avatar {
-	width: 16px;
-	height: 16px;
+	width: 18px;
+	height: 18px;
 }
 
 .commit .commit-message .message {
@@ -388,11 +390,7 @@ body .overview-title .button-group button {
 .comment-body .review-comment {
 	padding: 3px;
 	box-sizing: border-box;
-	border-top: none;
-}
-
-.review-comment-container .comment-body .review-comment:last-of-type {
-	border-bottom: none;
+	border-top: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
 .review-comment-container .review-comment .review-comment-header {
@@ -402,6 +400,7 @@ body .overview-title .button-group button {
 
 .review-comment-container .review-comment .comment-body {
 	border: none;
+	padding: 4px 12px 8px 12px;
 }
 
 .comment-body .line {
@@ -646,17 +645,27 @@ code {
 }
 
 .review-comment-body .diff-container {
-	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	margin-top: 10px;
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
-.review-comment-body .diff-container:last-of-type {
-	border-bottom: none;
+.review-comment-body .diff-container .review-comment-container .comment-container {
+	padding-top: 0;
+}
+
+.review-comment-body .diff-container .review-comment-container .review-comment-header .avatar-container {
+	margin-right: 4px;
+}
+
+.review-comment-body .diff-container .review-comment-container .review-comment-header .avatar {
+	width: 18px;
+	height: 18px;
 }
 
 .diff .diffHeader {
 	padding: 6px 12px;
 	line-height: 1.5;
-	background-color: var(--vscode-editorGroupHeader-tabsBackground);
+	background: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
 .diff .diffHeader .diffPath:hover {
@@ -738,8 +747,12 @@ code {
 	background: none;
 }
 
-.vscode-high-constrat .diff .diffHeader {
+.vscode-high-contrast .diff .diffHeader {
 	background: none;
+}
+
+.vscode-high-contrast .diff-container {
+	border-color: var(--vscode-contrastBorder);
 }
 
 .vscode-high-contrast .diff .diffLine.add {
