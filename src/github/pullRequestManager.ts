@@ -606,8 +606,7 @@ export class PullRequestManager implements IPullRequestManager {
 				comments: 0,
 				commits: 0,
 				head: data.head,
-				base: data.base,
-				mergeable: true
+				base: data.base
 			};
 
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
