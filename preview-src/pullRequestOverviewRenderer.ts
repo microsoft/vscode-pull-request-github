@@ -8,7 +8,7 @@ import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, EventType, isCom
 import { PullRequestStateEnum } from '../src/github/interface';
 import md from './mdRenderer';
 import { MessageHandler } from './message';
-import { getState, updateState, PullRequest } from './cache';
+import { getState, updateState } from './cache';
 import { Comment } from '../src/common/comment';
 
 const commitIconSvg = require('../resources/icons/commit_icon.svg');
@@ -82,77 +82,46 @@ function getStateIcon(state: string) {
 	}
 }
 
-export function renderStatusChecks(pr: PullRequest) {
-	const statusContainer = document.getElementById('status-checks') as HTMLDivElement;
+export function renderStatusChecks(statusInfo: any) {
+	const statusContainer: HTMLDetailsElement = document.getElementById('status-checks') as HTMLDetailsElement;
 	statusContainer.innerHTML = '';
 
-	const { status, mergeable } = pr;
+	if (!statusInfo.statuses.length) {
+		statusContainer.classList.add('hidden');
+		return;
+	} else {
+		statusContainer.classList.remove('hidden');
+	}
 
-	const statusCheckInformationContainer = document.createElement('div');
+	statusContainer.open = statusInfo.state !== 'success';
 
-	const statusSummary = document.createElement('div');
-	statusSummary.classList.add('status-item');
-	const statusSummaryIcon = document.createElement('div');
-	const statusSummaryText = document.createElement('div');
-	statusSummaryIcon.innerHTML = getStateIcon(status.state);
+	const statusSummary = document.createElement('summary');
+	const statusSummaryIcon = document.createElement('span');
+	const statusSummaryText = document.createElement('span');
+	statusSummaryIcon.innerHTML = getStateIcon(statusInfo.state);
 	statusSummary.appendChild(statusSummaryIcon);
-	statusSummaryText.textContent = getSummaryLabel(status.statuses);
+	statusSummaryText.textContent = getSummaryLabel(statusInfo.statuses);
 	statusSummary.appendChild(statusSummaryText);
-	statusCheckInformationContainer.appendChild(statusSummary);
+	statusContainer.appendChild(statusSummary);
 
-	const statusesToggle = document.createElement('a');
-	statusesToggle.textContent = status.state === 'success' ? 'Show' : 'Hide';
-	statusesToggle.addEventListener('click', () => {
-		if (statusList.classList.contains('hidden')) {
-			statusList.classList.remove('hidden');
-			statusesToggle.textContent = 'Hide';
-		} else {
-			statusList.classList.add('hidden');
-			statusesToggle.textContent = 'Show';
-		}
-	});
-
-	statusSummary.appendChild(statusesToggle);
-
-	if (!status.statuses.length) {
-		statusCheckInformationContainer.classList.add('hidden');
-	}
-
-	const statusList = document.createElement('div');
-	if (status.state === 'success') {
-		statusList.classList.add('hidden');
-	}
-	statusCheckInformationContainer.appendChild(statusList);
-	statusContainer.appendChild(statusCheckInformationContainer);
-
-	status.statuses.forEach(s => {
+	statusInfo.statuses.forEach(status => {
 		const statusElement: HTMLDivElement = document.createElement('div');
 		statusElement.className = 'status-check';
 
 		const state: HTMLSpanElement = document.createElement('span');
-		state.innerHTML = getStateIcon(s.state);
+		state.innerHTML = getStateIcon(status.state);
 
 		statusElement.appendChild(state);
 
-		const statusIcon = renderUserIcon(s.url, s.avatar_url);
+		const statusIcon = renderUserIcon(status.url, status.avatar_url);
 		statusElement.appendChild(statusIcon);
 
 		const statusDescription = document.createElement('span');
-		statusDescription.textContent = `${s.context} - ${s.description}`;
+		statusDescription.textContent = `${status.context} - ${status.description}`;
 		statusElement.appendChild(statusDescription);
 
-		statusList.appendChild(statusElement);
+		statusContainer.appendChild(statusElement);
 	});
-
-	const mergeableSummary = document.createElement('div');
-	mergeableSummary.classList.add('status-item');
-	const mergeableSummaryIcon = document.createElement('div');
-	const mergeableSummaryText = document.createElement('div');
-	mergeableSummaryIcon.innerHTML = mergeable ? checkIcon : deleteIcon;
-	mergeableSummary.appendChild(mergeableSummaryIcon);
-	mergeableSummaryText.textContent = mergeable ? 'This branch has no conflicts with the base branch' : 'This branch has conflicts that must be resolved';
-	mergeableSummary.appendChild(mergeableSummaryText);
-	statusContainer.appendChild(mergeableSummary);
 }
 
 function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {

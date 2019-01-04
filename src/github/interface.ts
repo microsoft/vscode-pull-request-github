@@ -67,7 +67,6 @@ export type PullRequest = Pick<
 	| 'commits'
 	| 'head'
 	| 'base'
-	| 'mergeable'
 >;
 
 export interface IRawFileChange {
@@ -104,7 +103,6 @@ export interface IPullRequestModel {
 	userAvatarUri: vscode.Uri;
 	body: string;
 	labels: string[];
-	prItem: PullRequest;
 	update(prItem: Github.PullRequestsGetResponse): void;
 	equals(other: IPullRequestModel): boolean;
 }

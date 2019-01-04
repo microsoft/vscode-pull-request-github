@@ -125,16 +125,6 @@ body .comment-container .review-comment-header a {
 	margin-left: 15px;
 }
 
-.status-item {
-	display: flex;
-	padding-top: 12px;
-}
-
-.status-item a {
-	margin-left: 10px;
-	cursor: pointer;
-}
-
 #status-checks {
 	margin-top: 5px;
 }
