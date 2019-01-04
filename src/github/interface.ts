@@ -104,6 +104,7 @@ export interface IPullRequestModel {
 	userAvatarUri: vscode.Uri;
 	body: string;
 	labels: string[];
+	prItem: PullRequest;
 	update(prItem: Github.PullRequestsGetResponse): void;
 	equals(other: IPullRequestModel): boolean;
 }
