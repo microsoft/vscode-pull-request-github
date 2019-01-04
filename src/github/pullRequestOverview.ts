@@ -236,6 +236,9 @@ export class PullRequestOverviewPanel {
 				return this.applyPatch(message);
 			case 'pr.edit-title':
 				return this.editTitle(message);
+			case 'pr.refresh':
+				this.refreshPanel();
+				return;
 		}
 	}
 
