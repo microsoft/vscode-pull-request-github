@@ -6,10 +6,11 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
-import { IPullRequestManager, PRType, ITelemetry } from '../github/interface';
+import { PRType, ITelemetry } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { getPRDocumentCommentProvider } from './prDocumentCommentProvider';
+import { PullRequestManager } from '../github/pullRequestManager';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
@@ -22,7 +23,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	constructor(
 		onShouldReload: vscode.Event<any>,
-		private _prManager: IPullRequestManager,
+		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry
 	) {
 		this._disposables = [];

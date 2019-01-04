@@ -7,13 +7,15 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { IPullRequestManager, IPullRequestModel, MergePullRequest, PullRequestStateEnum } from './interface';
+import { MergePullRequest, PullRequestStateEnum } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
 import { Comment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
+import { PullRequestManager } from './pullRequestManager';
+import { PullRequestModel } from './pullRequestModel';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -38,12 +40,12 @@ export class PullRequestOverviewPanel {
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionPath: string;
 	private _disposables: vscode.Disposable[] = [];
-	private _pullRequest: IPullRequestModel;
-	private _pullRequestManager: IPullRequestManager;
+	private _pullRequest: PullRequestModel;
+	private _pullRequestManager: PullRequestManager;
 	private _initialized: boolean;
 	private _scrollPosition = { x: 0, y: 0 };
 
-	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel, toTheSide: Boolean = false) {
+	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, toTheSide: Boolean = false) {
 		let activeColumn = toTheSide ?
 							vscode.ViewColumn.Beside :
 							vscode.window.activeTextEditor ?
@@ -68,7 +70,7 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: IPullRequestManager) {
+	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager) {
 		this._extensionPath = extensionPath;
 		this._pullRequestManager = pullRequestManager;
 
@@ -128,7 +130,7 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	public async update(pullRequestModel: IPullRequestModel): Promise<void> {
+	public async update(pullRequestModel: PullRequestModel): Promise<void> {
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,

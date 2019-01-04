@@ -4,11 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IPullRequestManager, IPullRequestModel, PRType, ITelemetry } from '../../github/interface';
+import { PRType, ITelemetry } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
 import { formatError } from '../../common/utils';
 import { AuthenticationError } from '../../common/authentication';
+import { PullRequestManager } from '../../github/pullRequestManager';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -67,12 +69,12 @@ interface PageInformation {
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public readonly label: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public prs: IPullRequestModel[];
+	public prs: PullRequestModel[];
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
 	constructor(
-		private _prManager: IPullRequestManager,
+		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry,
 		private _type: PRType
 	) {

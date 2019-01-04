@@ -5,8 +5,8 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { IPullRequestModel } from '../github/interface';
 import { fromPRUri } from '../common/uri';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider {
 	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent> = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
@@ -16,7 +16,7 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 
 	constructor() {}
 
-	public registerDocumentCommentProvider(pullRequestModel: IPullRequestModel, provider: vscode.DocumentCommentProvider) {
+	public registerDocumentCommentProvider(pullRequestModel: PullRequestModel, provider: vscode.DocumentCommentProvider) {
 		this._prDocumentCommentProviders[pullRequestModel.prNumber] = provider;
 		const changeListener = provider.onDidChangeCommentThreads(e => {
 			this._onDidChangeCommentThreads.fire(e);

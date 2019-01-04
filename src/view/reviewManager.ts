@@ -11,7 +11,7 @@ import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams } from '../commo
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange } from '../common/file';
-import { IPullRequestModel, IPullRequestManager, ITelemetry } from '../github/interface';
+import { ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes, Branch } from '../typings/git';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
@@ -23,6 +23,8 @@ import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
+import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -67,7 +69,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		private _context: vscode.ExtensionContext,
 		onShouldReload: vscode.Event<any>,
 		private _repository: Repository,
-		private _prManager: IPullRequestManager,
+		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry
 	) {
 		this._documentCommentProvider = null;
@@ -594,7 +596,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return Promise.resolve(null);
 	}
 
-	private async getPullRequestData(pr: IPullRequestModel): Promise<void> {
+	private async getPullRequestData(pr: PullRequestModel): Promise<void> {
 		try {
 			this._comments = await this._prManager.getPullRequestComments(pr);
 			let activeComments = this._comments.filter(comment => comment.position);
@@ -1024,7 +1026,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return null;
 	}
 
-	public async switch(pr: IPullRequestModel): Promise<void> {
+	public async switch(pr: PullRequestModel): Promise<void> {
 		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - start`);
 		this.switchingToReviewMode = true;
 		await this._prManager.fullfillPullRequestMissingInfo(pr);

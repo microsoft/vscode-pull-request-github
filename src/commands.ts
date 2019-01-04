@@ -12,7 +12,7 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri, ReviewUriParams } from './common/uri';
 import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
-import { IPullRequestManager, IPullRequestModel, ITelemetry } from './github/interface';
+import { ITelemetry } from './github/interface';
 import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
@@ -22,11 +22,13 @@ import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
 import { GitErrorCodes } from './typings/git';
+import { PullRequestManager } from './github/pullRequestManager';
+import { PullRequestModel } from './github/pullRequestModel';
 
 const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
 export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;
 
-function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestModel): IPullRequestModel {
+function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
 		if (!prManager.activePullRequest) {
@@ -40,7 +42,7 @@ function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestMode
 	}
 }
 
-export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager,
+export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager,
 	reviewManager: ReviewManager, telemetry: ITelemetry) {
 	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
 		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true });
@@ -48,7 +50,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		await Promise.all(selection.map(host => deleteToken(host)));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | IPullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | PullRequestModel) => {
 		if (!e) {
 			if (prManager.activePullRequest) {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
@@ -172,8 +174,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		reviewManager.createPullRequest();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {
-		let pullRequestModel: IPullRequestModel;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+		let pullRequestModel: PullRequestModel;
 
 		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
 			pullRequestModel = pr.pullRequestModel;
@@ -233,15 +235,15 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.approve', async (pr: IPullRequestModel, message?: string) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.approve', async (pr: PullRequestModel, message?: string) => {
 		return await prManager.approvePullRequest(pr, message);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges', async (pr: IPullRequestModel, message?: string) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges', async (pr: PullRequestModel, message?: string) => {
 		return await prManager.requestChanges(pr, message);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: IPullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: PullRequestModel) => {
 		const pullRequest = ensurePR(prManager, pr);
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest);

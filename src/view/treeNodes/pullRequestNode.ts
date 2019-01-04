@@ -12,13 +12,14 @@ import Logger from '../../common/logger';
 import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
-import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
 import { RemoteFileChangeNode, InMemFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
 import { getPRDocumentCommentProvider } from '../prDocumentCommentProvider';
+import { PullRequestManager } from '../../github/pullRequestManager';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
@@ -217,8 +218,8 @@ export class PRNode extends TreeNode {
 	private _inMemPRContentProvider: vscode.Disposable;
 
 	constructor(
-		private _prManager: IPullRequestManager,
-		public pullRequestModel: IPullRequestModel,
+		private _prManager: PullRequestManager,
+		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean
 	) {
 		super();

@@ -4,19 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IPullRequestModel, IPullRequestManager } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { CommitNode } from './commitNode';
 import { Comment } from '../../common/comment';
+import { PullRequestManager } from '../../github/pullRequestManager';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Commits';
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	private _prManager: IPullRequestManager;
-	private _pr: IPullRequestModel;
+	private _prManager: PullRequestManager;
+	private _pr: PullRequestModel;
 	private _comments: Comment[];
 
-	constructor(prManager: IPullRequestManager, pr: IPullRequestModel, comments: Comment[]) {
+	constructor(prManager: PullRequestManager, pr: PullRequestModel, comments: Comment[]) {
 		super();
 		this._pr = pr;
 		this._prManager = prManager;
