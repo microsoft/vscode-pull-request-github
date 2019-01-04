@@ -143,6 +143,7 @@ const pr = {
 		sha: '',
 		user,
 	},
+	mergeable: true
 };
 
 describe('PullRequestModel', () => {

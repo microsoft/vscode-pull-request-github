@@ -211,7 +211,8 @@ export class GitHubRepository implements IGitHubRepository {
 							comments: 0,
 							commits: 0,
 							head,
-							base
+							base,
+							mergeable: true
 						};
 
 						return new PullRequestModel(this, this.remote, item);
