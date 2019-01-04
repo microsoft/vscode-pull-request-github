@@ -18,6 +18,7 @@ const ElementIds = {
 	CheckoutDefaultBranch: 'checkout-default-branch',
 	Merge: 'merge',
 	Close: 'close',
+	Refresh: 'refresh',
 	Reply: 'reply',
 	Approve: 'approve',
 	RequestChanges: 'request-changes',
@@ -110,6 +111,7 @@ function setTitleHTML(pr: PullRequest): void {
 					<div class="button-group">
 						<button id="${ElementIds.Checkout}" aria-live="polite"></button>
 						<button id="${ElementIds.CheckoutDefaultBranch}" aria-live="polite">Exit Review Mode</button>
+						<button id="${ElementIds.Refresh}">Refresh</button>
 					</div>
 				</div>
 				<div class="subtitle">
@@ -233,6 +235,12 @@ function addEventListeners(pr: PullRequest): void {
 		updateStateTimer = window.setTimeout(() => {
 			updateState({ pendingCommentText: inputText });
 		}, 500);
+	});
+
+	document.getElementById(ElementIds.Refresh).addEventListener('click', () => {
+		messageHandler.postMessage({
+			command: 'pr.refresh'
+		});
 	});
 
 	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
