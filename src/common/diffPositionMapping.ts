@@ -165,7 +165,7 @@ export function mapCommentsToHead(diffHunks: DiffHunk[], localDiff: string, comm
 		const comment = comments[i];
 
 		// Diff line is null when the original line the comment was on has been removed
-		const diffLine = getDiffLineByPosition(diffHunks, comment.position || comment.original_position);
+		const diffLine = getDiffLineByPosition(diffHunks, comment.position || comment.originalPosition);
 		if (diffLine) {
 			const positionInPr = diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber;
 			const newPosition = mapOldPositionToNew(localDiff, positionInPr);

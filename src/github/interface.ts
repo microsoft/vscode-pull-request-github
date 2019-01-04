@@ -35,12 +35,11 @@ export enum PullRequestStateEnum {
 
 export interface IAccount {
 	login: string;
-	isUser: boolean;
-	isEnterprise: boolean;
 	avatarUrl: string;
 	htmlUrl: string;
-	ownedPrivateRepositoryCount?: number;
-	privateRepositoryInPlanCount?: number;
+	type: string;
+	isUser?: boolean;
+	isEnterprise?: boolean;
 }
 
 export interface MergePullRequest {
@@ -50,24 +49,38 @@ export interface MergePullRequest {
 	documentation_url: string;
 }
 
-export type PullRequest = Pick<
-	Github.PullRequestsGetResponse,
-	| 'number'
-	| 'body'
-	| 'labels'
-	| 'title'
-	| 'html_url'
-	| 'user'
-	| 'state'
-	| 'merged'
-	| 'assignee'
-	| 'created_at'
-	| 'updated_at'
-	| 'comments'
-	| 'commits'
-	| 'head'
-	| 'base'
->;
+export interface IRepository {
+	cloneUrl: string;
+}
+
+export interface IGitHubRef {
+	label: string;
+	ref: string;
+	sha: string;
+	repo: IRepository;
+}
+
+export interface ILabel {
+	name: string;
+}
+
+export interface IRawPullRequest {
+	url: string;
+	number: number;
+	state: string;
+	body: string;
+	title: string;
+	assignee: IAccount;
+	createdAt: string;
+	updatedAt: string;
+	head: IGitHubRef;
+	base: IGitHubRef;
+	user: IAccount;
+	labels: ILabel[];
+	// comments: number;
+	// commits: number;
+	merged: boolean;
+}
 
 export interface IRawFileChange {
 	filename: string;
@@ -102,8 +115,9 @@ export interface IPullRequestModel {
 	userAvatar: string;
 	userAvatarUri: vscode.Uri;
 	body: string;
+	bodyHTML?: string;
 	labels: string[];
-	update(prItem: Github.PullRequestsGetResponse): void;
+	update(prItem: IRawPullRequest): void;
 	equals(other: IPullRequestModel): boolean;
 }
 
@@ -133,10 +147,10 @@ export interface IPullRequestManager {
 	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
 	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]>;
 	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]>;
-	getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Github.PullRequestsCreateCommentResponse[]>;
+	getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Comment[]>;
 	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
 	getIssueComments(pullRequest: IPullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]>;
-	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Github.IssuesCreateCommentResponse>;
+	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment>;
 	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
 	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
 	getPullRequestDefaults(): Promise<PullRequestsCreateParams>;
@@ -148,7 +162,7 @@ export interface IPullRequestManager {
 	deleteReviewComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
 	canEditPullRequest(pullRequest: IPullRequestModel): boolean;
 	editPullRequest(pullRequest: IPullRequestModel, toEdit: IPullRequestEditData): Promise<Github.PullRequestsUpdateResponse>;
-	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
+	closePullRequest(pullRequest: IPullRequestModel): Promise<IRawPullRequest>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	getPullRequestFileChangesInfo(pullRequest: IPullRequestModel): Promise<IRawFileChange[]>;

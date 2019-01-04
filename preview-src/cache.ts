@@ -14,6 +14,7 @@ export interface PullRequest {
 	url: string;
 	createdAt: Date;
 	body: string;
+	bodyHTML?: string;
 	author: any;
 	state: PullRequestStateEnum;
 	events: TimelineEvent[];

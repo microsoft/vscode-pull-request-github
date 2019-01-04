@@ -168,9 +168,11 @@ function renderDescription(pr: PullRequest): HTMLElement {
 	commentHeader.classList.add('description-header');
 
 	const commentBody = document.createElement('div');
-	commentBody.innerHTML = pr.body
-		? md.render(emoji.emojify(pr.body))
-		: '<p><i>No description provided.</i></p>';
+	commentBody.innerHTML = pr.bodyHTML ?
+		pr.bodyHTML :
+		pr.body
+			? md.render(emoji.emojify(pr.body))
+			: '<p><i>No description provided.</i></p>';
 
 	if (pr.labels.length) {
 		const line = document.createElement('div');

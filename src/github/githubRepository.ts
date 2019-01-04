@@ -7,11 +7,12 @@ import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { PRType, IGitHubRepository, PullRequest } from './interface';
+import { PRType, IGitHubRepository } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult } from 'apollo-boost';
+import { convertRESTPullRequestToRawPullRequest } from './utils';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -176,43 +177,15 @@ export class GitHubRepository implements IGitHubRepository {
 			const hasMorePages = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
 			const pullRequests = result.data
 				.map(
-					({
-						number,
-						body,
-						title,
-						html_url,
-						user,
-						state,
-						assignee,
-						created_at,
-						updated_at,
-						head,
-						base
-					}) => {
-						if (!head.repo) {
+					pullRequest => {
+						if (!pullRequest.head.repo) {
 							Logger.appendLine(
 								'GitHubRepository> The remote branch for this PR was already deleted.'
 							);
 							return null;
 						}
 
-						const item: PullRequest = {
-							number,
-							body,
-							title,
-							html_url,
-							user,
-							labels: [],
-							state,
-							merged: false,
-							assignee,
-							created_at,
-							updated_at,
-							comments: 0,
-							commits: 0,
-							head,
-							base
-						};
+						const item = convertRESTPullRequestToRawPullRequest(pullRequest);
 
 						return new PullRequestModel(this, this.remote, item);
 					}
@@ -304,7 +277,9 @@ export class GitHubRepository implements IGitHubRepository {
 				return null;
 			}
 
-			return new PullRequestModel(this, remote, data);
+			let item = convertRESTPullRequestToRawPullRequest(data);
+
+			return new PullRequestModel(this, remote, item);
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return null;

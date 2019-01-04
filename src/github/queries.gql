@@ -1,0 +1,105 @@
+fragment Merged on MergedEvent {
+  id
+  actor {
+    login
+    avatarUrl
+    url
+  }
+  createdAt
+  mergeRef {
+    name
+  }
+}
+
+fragment Comment on IssueComment {
+  id
+  authorAssociation
+  author {
+    login
+    avatarUrl
+    url
+  }
+  body
+  updatedAt
+  createdAt
+  viewerCanUpdate
+  viewerCanReact
+  viewerCanDelete
+}
+
+fragment Commit on Commit {
+  id
+  committer {
+    user {
+      login
+      avatarUrl
+      url
+    }
+  }
+  oid
+}
+
+fragment AssignedEvent on AssignedEvent {
+  actor {
+    login
+    avatarUrl
+    url
+  }
+  user {
+    login
+    avatarUrl
+    url
+  }
+}
+
+fragment Review on PullRequestReview {
+  id
+  authorAssociation
+  author {
+    login
+    avatarUrl
+    url
+  }
+  state
+  comments(last: 20) {
+    edges {
+      node {
+        author {
+          login
+          avatarUrl
+          url
+        }
+        diffHunk
+        bodyHTML
+        createdAt
+        updatedAt
+        viewerCanUpdate
+        viewerCanReact
+        viewerCanDelete
+      }
+    }
+  }
+  body
+  updatedAt
+  createdAt
+}
+
+query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 100) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      bodyHTML
+      timeline(last: $last) {
+        edges {
+          node {
+            __typename
+            ...Merged
+            ...Comment
+            ...Review
+            ...Commit
+            ...AssignedEvent
+          }
+        }
+      }
+    }
+  }
+}
