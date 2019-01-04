@@ -61,7 +61,7 @@ function renderPullRequest(pr: PullRequest): void {
 	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
-	renderStatusChecks(pr.status);
+	renderStatusChecks(pr);
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
