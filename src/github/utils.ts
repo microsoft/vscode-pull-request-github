@@ -13,7 +13,7 @@ import { EventType } from '../common/timelineEvent';
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
 		login: user.login,
-		htmlUrl: user.html_url,
+		url: user.html_url,
 		avatarUrl: user.avatar_url,
 		type: user.type,
 		isUser: user.type === 'User',
@@ -70,9 +70,9 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 	return item;
 }
 
-export function parseCommentDiffHunk(comment: Octokit.PullRequestsGetCommentsResponseItem): DiffHunk[] {
+export function parseCommentDiffHunk(comment: Comment): DiffHunk[] {
 	let diffHunks = [];
-	let diffHunkReader = parseDiffHunk(comment.diff_hunk);
+	let diffHunkReader = parseDiffHunk(comment.diffHunk);
 	let diffHunkIter = diffHunkReader.next();
 
 	while (!diffHunkIter.done) {
@@ -103,12 +103,11 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 }
 
 export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse): Comment {
-	return {
+	let ret: Comment = {
 		url: comment.url,
 		id: comment.id,
 		pullRequestReviewId: comment.pull_request_review_id,
 		diffHunk: comment.diff_hunk,
-		diffHunks: parseCommentDiffHunk(comment),
 		path: comment.path,
 		position: comment.position,
 		originalPosition: comment.original_position,
@@ -118,6 +117,10 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url
 	};
+
+	let diffHunks = parseCommentDiffHunk(ret);
+	ret.diffHunks = diffHunks;
+	return ret;
 }
 
 export function convertGraphQLEventType(text: string) {

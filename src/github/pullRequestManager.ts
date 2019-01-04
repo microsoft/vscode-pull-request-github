@@ -954,7 +954,7 @@ export class PullRequestManager implements IPullRequestManager {
 				if (author !== null) {
 					commitEvent.author.avatarUrl = author.avatar_url;
 					commitEvent.author.login = author.login;
-					commitEvent.author.htmlUrl = author.html_url;
+					commitEvent.author.url = author.html_url;
 				}
 			}
 		}
@@ -985,8 +985,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 			if (event.event === EventType.Committed) {
 				event.sha = event.oid;
-				event.author = {};
-				event.author = event.committer.user;
+				event.author = event.author.user;
 			}
 		});
 

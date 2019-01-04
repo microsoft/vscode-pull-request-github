@@ -328,7 +328,7 @@ class CommentNode {
 			this._commentContainer.classList.add('review-comment');
 		}
 
-		const userIcon = renderUserIcon(this._comment.user.htmlUrl, this._comment.user.avatarUrl);
+		const userIcon = renderUserIcon(this._comment.user.url, this._comment.user.avatarUrl);
 		const reviewCommentContainer: HTMLDivElement = document.createElement('div');
 		reviewCommentContainer.className = 'review-comment-container';
 		this._commentContainer.appendChild(userIcon);
@@ -338,7 +338,7 @@ class CommentNode {
 		commentHeader.className = 'review-comment-header';
 		const authorLink: HTMLAnchorElement = document.createElement('a');
 		authorLink.className = 'author';
-		authorLink.href = this._comment.user.htmlUrl;
+		authorLink.href = this._comment.user.url;
 		authorLink.textContent = this._comment.user.login;
 
 		const timestamp: HTMLAnchorElement = document.createElement('a');
@@ -419,13 +419,13 @@ export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
 
 	const message: HTMLDivElement = document.createElement('div');
 	message.className = 'message';
-	if (timelineEvent.author.htmlUrl && timelineEvent.author.avatarUrl) {
-		const userIcon = renderUserIcon(timelineEvent.author.htmlUrl, timelineEvent.author.avatarUrl);
+	if (timelineEvent.author.url && timelineEvent.author.avatarUrl) {
+		const userIcon = renderUserIcon(timelineEvent.author.url, timelineEvent.author.avatarUrl);
 		commitMessage.appendChild(userIcon);
 
 		const login: HTMLAnchorElement = document.createElement('a');
 		login.className = 'author';
-		login.href = timelineEvent.author.htmlUrl;
+		login.href = timelineEvent.author.url;
 		login.textContent = timelineEvent.author.login!;
 		commitMessage.appendChild(login);
 		message.textContent = timelineEvent.message;
@@ -503,13 +503,13 @@ class ReviewNode {
 
 		this._commentContainer = document.createElement('div');
 		this._commentContainer.classList.add('comment-container', 'comment');
-		const userIcon = renderUserIcon(this._review.user.htmlUrl, this._review.user.avatarUrl);
+		const userIcon = renderUserIcon(this._review.user.url, this._review.user.avatarUrl);
 
 		const commentHeader: HTMLDivElement = document.createElement('div');
 		commentHeader.className = 'review-comment-header';
 
 		const userLogin: HTMLAnchorElement = document.createElement('a');
-		userLogin.href = this._review.user.htmlUrl;
+		userLogin.href = this._review.user.url;
 		userLogin.textContent = this._review.user.login;
 
 		const reviewState = document.createElement('span');

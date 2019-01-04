@@ -29,7 +29,7 @@ fragment Comment on IssueComment {
 
 fragment Commit on Commit {
   id
-  committer {
+  author {
     user {
       login
       avatarUrl
@@ -37,6 +37,7 @@ fragment Commit on Commit {
     }
   }
   oid
+  message
 }
 
 fragment AssignedEvent on AssignedEvent {
