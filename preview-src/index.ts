@@ -96,28 +96,37 @@ function renderTitle(pr: PullRequest): HTMLElement {
 	const titleHeader = document.createElement('div');
 	titleHeader.classList.add('description-header');
 
-	const titleBody = document.createElement('div');
-	titleBody.innerHTML = `${pr.title} (<a href=${pr.url}>#${pr.number}</a>)`;
+	const title = document.createElement('span');
+	title.classList.add('title-text');
+	title.textContent = pr.title;
 
 	if (pr.canEdit) {
-		function updateTitle(text: string) {
-			pr.title = text;
-			updateState({ title: text });
-			titleBody.innerHTML = `${pr.title} (<a href=${pr.url}>#${pr.number}</a>)`;
-		}
+		title.contentEditable = 'true';
+		title.addEventListener('blur', () => {
+			const state = getState();
+			if (state.title !== title.innerText) {
+				messageHandler.postMessage({
+					command: 'pr.edit-title',
+					args: {
+						text: title.innerText,
+						comment: { body: pr.title, id: pr.number.toString() }
+					}
+				}).then(result => {
+					updateState({ title: result.text });
+				}).catch(_ => {
+					title.textContent = state.title;
+				});
+			}
 
-		const actionsBar = new ActionsBar(titleContainer, { body: pr.title, id: pr.number.toString() }, titleBody, messageHandler, updateTitle, 'pr.edit-title');
-		const renderedActionsBar = actionsBar.render();
-		actionsBar.registerActionBarListeners();
-		titleHeader.appendChild(renderedActionsBar);
-
-		if (pr.pendingCommentDrafts && pr.pendingCommentDrafts[pr.number]) {
-			actionsBar.startEdit(pr.pendingCommentDrafts[pr.number]);
-		}
+		});
 	}
 
+	const prNumber = document.createElement('span');
+	prNumber.innerHTML = `(<a href=${pr.url}>#${pr.number}</a>)`;
+
 	titleContainer.appendChild(titleHeader);
-	titleContainer.appendChild(titleBody);
+	titleContainer.appendChild(title);
+	titleContainer.appendChild(prNumber);
 
 	return titleContainer;
 }
