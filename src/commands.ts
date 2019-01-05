@@ -10,7 +10,7 @@ import * as Github from '@octokit/rest';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri, ReviewUriParams } from './common/uri';
-import { GitFileChangeNode } from './view/treeNodes/fileChangeNode';
+import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { IPullRequestManager, IPullRequestModel, ITelemetry } from './github/interface';
 import { formatError } from './common/utils';
@@ -63,11 +63,23 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
 		try {
-			const diff = await prManager.repository.diff(true);
-			if (!diff) {
-				vscode.window.showWarningMessage('There are no staged changes for suggestions.');
-				return;
+			const { indexChanges, workingTreeChanges } = prManager.repository.state;
+
+			if (!indexChanges.length) {
+				if (workingTreeChanges.length) {
+					const stageAll = await vscode.window.showWarningMessage('There are no staged changes to suggest.\n\nWould you like to automatically stage all your of changes and suggest them?', { modal: true }, 'Yes');
+					if (stageAll === 'Yes') {
+						await vscode.commands.executeCommand('git.stageAll');
+					} else {
+						return;
+					}
+				} else {
+					vscode.window.showInformationMessage('There are no changes to suggest.');
+					return;
+				}
 			}
+
+			const diff = await prManager.repository.diff(true);
 
 			let suggestEditMessage = '';
 			if (e && e.inputBox && e.inputBox.value) {
@@ -110,7 +122,13 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (parentFilePath: string, filePath: string, fileName: string, isPartial: boolean, opts: any) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+		const parentFilePath = fileChangeNode.parentFilePath;
+		const filePath = fileChangeNode.filePath;
+		const fileName = fileChangeNode.fileName;
+		const isPartial = fileChangeNode.isPartial;
+		const opts = fileChangeNode.opts;
+
 		if (isPartial) {
 			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
 		}
@@ -233,6 +251,14 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode);
 		telemetry.on('pr.openDescription');
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
+		let pr = descriptionNode.pullRequestModel;
+		const pullRequest = ensurePR(prManager, pr);
+		// Create and show a new webview
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, true);
+		telemetry.on('pr.openDescriptionToTheSide');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {

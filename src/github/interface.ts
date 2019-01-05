@@ -68,6 +68,19 @@ export type PullRequest = Pick<
 	| 'head'
 	| 'base'
 >;
+
+export interface IRawFileChange {
+	filename: string;
+	previous_filename?: string;
+	additions: number;
+	deletions: number;
+	changes: number;
+	status: string;
+	raw_url: string;
+	blob_url: string;
+	patch: string;
+}
+
 export interface IPullRequestModel {
 	remote: Remote;
 	prNumber: number;
@@ -138,7 +151,7 @@ export interface IPullRequestManager {
 	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
 	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
 	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
-	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetFilesResponseItem[]>;
+	getPullRequestFileChangesInfo(pullRequest: IPullRequestModel): Promise<IRawFileChange[]>;
 	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
 	getStatusChecks(pullRequest: IPullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse>;
 
@@ -159,12 +172,10 @@ export interface IPullRequestManager {
 
 	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
 	getMatchingPullRequestMetadataForBranch();
-	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
+	checkoutExistingPullRequestBranch(pullRequest: IPullRequestModel): Promise<boolean>;
 	getBranch(remote: Remote, branchName: string): Promise<Branch>;
 	checkout(branchName: string): Promise<void>;
-	fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
-	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
-
+	fetchAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
 }
 
 export interface ITelemetry {

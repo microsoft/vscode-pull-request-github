@@ -11,6 +11,7 @@ import * as Github from '@octokit/rest';
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
 import { Repository } from '../typings/git';
 import { Comment } from './comment';
+import { IRawFileChange } from '../github/interface';
 
 export enum DiffChangeType {
 	Context,
@@ -253,7 +254,7 @@ export function getGitChangeType(status: string): GitChangeType {
 	}
 }
 
-export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
+export async function parseDiff(reviews: IRawFileChange[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
 	let fileChanges: (InMemFileChange | SlimFileChange)[] = [];
 
 	for (let i = 0; i < reviews.length; i++) {

@@ -47,16 +47,20 @@ export class PullRequestOverviewPanel {
 	private _initialized: boolean;
 	private _scrollPosition = { x: 0, y: 0 };
 
-	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel, descriptionNode: DescriptionNode) {
-		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+		let activeColumn = toTheSide ?
+							vscode.ViewColumn.Beside :
+							vscode.window.activeTextEditor ?
+								vscode.window.activeTextEditor.viewColumn :
+								vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
 		if (PullRequestOverviewPanel.currentPanel) {
-			PullRequestOverviewPanel.currentPanel._panel.reveal(column, true);
+			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, column || vscode.ViewColumn.One, title, pullRequestManager, descriptionNode);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn, title, pullRequestManager, descriptionNode);
 		}
 
 		PullRequestOverviewPanel.currentPanel.update(pullRequestModel, descriptionNode);
@@ -240,6 +244,9 @@ export class PullRequestOverviewPanel {
 				return this.openDiff(message);
 			case 'pr.edit-title':
 				return this.editTitle(message);
+			case 'pr.refresh':
+				this.refreshPanel();
+				return;
 		}
 	}
 
@@ -296,8 +303,8 @@ export class PullRequestOverviewPanel {
 			this._throwError(message, e);
 			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
 		});
-	}
 
+	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
 		this._pullRequestManager.editPullRequest(this._pullRequest, { title: message.args.text }).then(result => {
 			this._replyMessage(message, { text: result.title });

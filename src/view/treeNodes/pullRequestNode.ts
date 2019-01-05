@@ -209,6 +209,7 @@ function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread
 }
 
 export class PRNode extends TreeNode {
+	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _documentCommentsProvider: vscode.Disposable;
 	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent>;
@@ -228,15 +229,15 @@ export class PRNode extends TreeNode {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.prNumber}`, PRNode.ID);
 		try {
 			if (this.childrenDisposables && this.childrenDisposables.length) {
 				this.childrenDisposables.forEach(dp => dp.dispose());
 			}
 
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
-			const data = await this._prManager.getPullRequestChangedFiles(this.pullRequestModel);
-			await this._prManager.fullfillPullRequestMissingInfo(this.pullRequestModel);
-			let mergeBase = this.pullRequestModel.mergeBase;
+			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
+			const mergeBase = this.pullRequestModel.mergeBase;
 			const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
 			let fileChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
