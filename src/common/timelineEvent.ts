@@ -38,9 +38,7 @@ export interface CommentEvent {
 }
 
 export interface ReviewEvent {
-	author_association: string;
 	event: string;
-	eventType: EventType;
 	comments: Comment[];
 	submitted_at: string;
 	body: string;
@@ -54,12 +52,10 @@ export interface CommitEvent {
 	author: IAccount;
 	event: string;
 	sha: string;
-	node_id: string;
 	url: string;
 	html_url: string;
 	message: string;
 	bodyHTML?: string;
-	author_association?: string;
 }
 
 export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent;

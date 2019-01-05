@@ -14,8 +14,6 @@ export class PullRequestModel implements IPullRequestModel {
 	public title: string;
 	public html_url: string;
 	public state: PullRequestStateEnum = PullRequestStateEnum.Open;
-	public commentCount: number;
-	public commitCount: number;
 	public author: IAccount;
 	public assignee: IAccount;
 	public createdAt: string;
@@ -87,8 +85,6 @@ export class PullRequestModel implements IPullRequestModel {
 
 		this.createdAt = prItem.createdAt;
 		this.updatedAt = prItem.updatedAt ? prItem.updatedAt : this.createdAt;
-		// this.commentCount = prItem.comments;
-		// this.commitCount = prItem.commits;
 
 		this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.cloneUrl);
 		this.base = new GitHubRef(prItem.base.ref, prItem.base.label, prItem.base.sha, prItem.base.repo.cloneUrl);

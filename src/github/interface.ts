@@ -100,8 +100,6 @@ export interface IPullRequestModel {
 	title: string;
 	html_url: string;
 	state: PullRequestStateEnum;
-	commentCount: number;
-	commitCount: number;
 	author: IAccount;
 	assignee: IAccount;
 	createdAt: string;

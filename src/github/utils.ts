@@ -5,10 +5,12 @@
 'use strict';
 
 import * as Octokit from '@octokit/rest';
-import { IAccount, IRawPullRequest } from './interface';
+import { IAccount, IRawPullRequest, IPullRequestModel } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
-import { EventType } from '../common/timelineEvent';
+import { EventType, TimelineEvent } from '../common/timelineEvent';
+import { Remote } from '../common/remote';
+import { getEventType } from './pullRequestManager';
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
@@ -54,7 +56,6 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			title,
 			url: html_url,
 			user: convertRESTUserToAccount(user),
-			// labels: ,
 			state,
 			merged: false,
 			assignee: assignee ? convertRESTUserToAccount(assignee) : null,

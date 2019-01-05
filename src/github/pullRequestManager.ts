@@ -992,7 +992,7 @@ export class PullRequestManager implements IPullRequestManager {
 		return events;
 	}
 
-	private async parseRESTTimelineEvents(pullRequest: IPullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
+	private async parseRESTTimelineEvents(pullRequest: IPullRequestModel, remote: Remote, events: Octokit.IssuesGetEventsTimelineResponseItem[]): Promise<TimelineEvent[]> {
 		events.forEach(event => {
 			let type = getEventType(event.event);
 			event.event = type;

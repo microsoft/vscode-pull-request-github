@@ -172,7 +172,6 @@ export class PullRequestOverviewPanel {
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 					base: this._pullRequest.base && this._pullRequest.base.label || 'UNKNOWN',
 					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
-					commitsCount: this._pullRequest.commitCount,
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
 					status: status
