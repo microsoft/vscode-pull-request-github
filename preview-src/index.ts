@@ -165,6 +165,7 @@ function renderTitle(pr: PullRequest): HTMLElement {
 
 function renderDescription(pr: PullRequest): HTMLElement {
 	const commentContainer = document.createElement('div');
+	commentContainer.classList.add('description-container');
 
 	const commentHeader = document.createElement('div');
 	commentHeader.classList.add('description-header');
