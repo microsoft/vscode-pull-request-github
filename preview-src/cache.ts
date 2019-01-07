@@ -27,7 +27,7 @@ export interface PullRequest {
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string; };
 	status: ReposGetCombinedStatusForRefResponse;
-	mergeable; boolean;
+	mergeable: boolean;
 }
 
 export function getState(): PullRequest {

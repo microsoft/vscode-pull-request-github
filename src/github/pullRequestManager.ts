@@ -708,8 +708,6 @@ export class PullRequestManager implements IPullRequestManager {
 				assignee: data.assignee,
 				created_at: data.created_at,
 				updated_at: data.updated_at,
-				comments: 0,
-				commits: 0,
 				head: data.head,
 				base: data.base,
 				node_id: data.node_id

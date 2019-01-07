@@ -101,6 +101,7 @@ export function renderStatusChecks(pr: PullRequest) {
 	statusCheckInformationContainer.appendChild(statusSummary);
 
 	const statusesToggle = document.createElement('a');
+	statusesToggle.setAttribute('aria-role', 'button');
 	statusesToggle.textContent = status.state === 'success' ? 'Show' : 'Hide';
 	statusesToggle.addEventListener('click', () => {
 		if (statusList.classList.contains('hidden')) {
