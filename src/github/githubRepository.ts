@@ -210,7 +210,8 @@ export class GitHubRepository implements IGitHubRepository {
 							created_at,
 							updated_at,
 							head,
-							base
+							base,
+							node_id
 						};
 
 						return new PullRequestModel(this, this.remote, item);
