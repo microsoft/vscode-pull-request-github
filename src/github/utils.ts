@@ -5,12 +5,10 @@
 'use strict';
 
 import * as Octokit from '@octokit/rest';
-import { IAccount, IRawPullRequest, IPullRequestModel } from './interface';
+import { IAccount, IRawPullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
-import { Remote } from '../common/remote';
-import { getEventType } from './pullRequestManager';
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
@@ -144,4 +142,32 @@ export function convertGraphQLEventType(text: string) {
 		default:
 			return EventType.Other;
 	}
+}
+
+export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {
+	events.forEach(event => {
+		let type = convertGraphQLEventType(event.__typename);
+		event.event = type;
+
+		if (event.event === EventType.Commented) {
+			event.canEdit = event.viewerCanUpdate;
+			event.canDelete = event.viewerCanDelete;
+			event.user = event.author;
+			event.id = event.databaseId;
+		}
+
+		if (event.event === EventType.Reviewed) {
+			event.user = event.author;
+			event.canEdit = event.viewerCanUpdate;
+			event.canDelete = event.viewerCanDelete;
+			event.id = event.databaseId;
+		}
+
+		if (event.event === EventType.Committed) {
+			event.sha = event.oid;
+			event.author = event.author.user;
+		}
+	});
+
+	return events;
 }

@@ -19,6 +19,7 @@ fragment Merged on MergedEvent {
 
 fragment Comment on IssueComment {
   id
+  databaseId
   authorAssociation
   author {
     login
@@ -61,6 +62,7 @@ fragment AssignedEvent on AssignedEvent {
 
 fragment Review on PullRequestReview {
   id
+  databaseId
   authorAssociation
   author {
     login
@@ -68,24 +70,6 @@ fragment Review on PullRequestReview {
     url
   }
   state
-  comments(last: 20) {
-    edges {
-      node {
-        author {
-          login
-          avatarUrl
-          url
-        }
-        diffHunk
-        bodyHTML
-        createdAt
-        updatedAt
-        viewerCanUpdate
-        viewerCanReact
-        viewerCanDelete
-      }
-    }
-  }
   body
   updatedAt
   createdAt

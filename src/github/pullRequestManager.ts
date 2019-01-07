@@ -17,7 +17,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, parseCommentDiffHunk, convertIssuesCreateCommentResponseToComment, convertGraphQLEventType } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents } from './utils';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -434,7 +434,9 @@ export class PullRequestManager implements IPullRequestManager {
 				}
 			});
 			ret = data.repository.pullRequest.timeline.edges.map(edge => edge.node);
-			return this.parseGraphQLTimelineEvents(ret);
+			let events = parseGraphQLTimelineEvents(ret);
+			await this.addReviewTimelineEventComments(pullRequest, events);
+			return events;
 	} else {
 			ret = (await octokit.issues.getEventsTimeline({
 				owner: remote.owner,
@@ -960,39 +962,7 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	private async parseGraphQLTimelineEvents(events: any[]): Promise<TimelineEvent[]> {
-		events.forEach(event => {
-			let type = convertGraphQLEventType(event.__typename);
-			event.event = type;
-
-			if (event.event === EventType.Commented) {
-				event.canEdit = event.viewerCanUpdate;
-				event.canDelete = event.viewerCanDelete;
-				event.user = event.author;
-			}
-
-			if (event.event === EventType.Reviewed) {
-				event.comments = event.comments.edges.map(edge => edge.node);
-				event.comments.forEach(comment => {
-					comment.user = comment.author;
-					comment.diffHunk = comment.diffHunk;
-					comment.diffHunks = parseCommentDiffHunk(comment);
-				});
-				event.user = event.author;
-				event.canEdit = event.viewerCanUpdate;
-				event.canDelete = event.viewerCanDelete;
-			}
-
-			if (event.event === EventType.Committed) {
-				event.sha = event.oid;
-				event.author = event.author.user;
-			}
-		});
-
-		return events;
-	}
-
-	private async parseRESTTimelineEvents(pullRequest: IPullRequestModel, remote: Remote, events: Octokit.IssuesGetEventsTimelineResponseItem[]): Promise<TimelineEvent[]> {
+	private async parseRESTTimelineEvents(pullRequest: IPullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
 		events.forEach(event => {
 			let type = getEventType(event.event);
 			event.event = type;
