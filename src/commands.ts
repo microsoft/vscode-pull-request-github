@@ -257,7 +257,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		let pr = descriptionNode.pullRequestModel;
 		const pullRequest = ensurePR(prManager, pr);
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, true);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode, true);
 		telemetry.on('pr.openDescriptionToTheSide');
 	}));
 
