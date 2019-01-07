@@ -14,6 +14,8 @@ import { GitErrorCodes } from '../typings/git';
 import { Comment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
+import { DescriptionNode } from '../view/treeNodes/descriptionNode';
+import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -28,6 +30,7 @@ interface IReplyMessage {
 }
 
 export class PullRequestOverviewPanel {
+	public static ID: string = 'PullRequestOverviewPanel';
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
@@ -38,12 +41,13 @@ export class PullRequestOverviewPanel {
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionPath: string;
 	private _disposables: vscode.Disposable[] = [];
+	private _descriptionNode: DescriptionNode;
 	private _pullRequest: IPullRequestModel;
 	private _pullRequestManager: IPullRequestManager;
 	private _initialized: boolean;
 	private _scrollPosition = { x: 0, y: 0 };
 
-	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel, toTheSide: Boolean = false) {
+	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		let activeColumn = toTheSide ?
 							vscode.ViewColumn.Beside :
 							vscode.window.activeTextEditor ?
@@ -56,10 +60,10 @@ export class PullRequestOverviewPanel {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn, title, pullRequestManager);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn, title, pullRequestManager, descriptionNode);
 		}
 
-		PullRequestOverviewPanel.currentPanel.update(pullRequestModel);
+		PullRequestOverviewPanel.currentPanel.update(pullRequestModel, descriptionNode);
 	}
 
 	public static refresh(): void {
@@ -68,9 +72,10 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: IPullRequestManager) {
+	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: IPullRequestManager, descriptionNode: DescriptionNode) {
 		this._extensionPath = extensionPath;
 		this._pullRequestManager = pullRequestManager;
+		this._descriptionNode = descriptionNode;
 
 		// Create and show a new webview panel
 		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel._viewType, title, column, {
@@ -90,7 +95,7 @@ export class PullRequestOverviewPanel {
 		// Listen for changes to panel visibility, if the webview comes into view resubmit data
 		this._panel.onDidChangeViewState(e => {
 			if (e.webviewPanel.visible) {
-				this.update(this._pullRequest);
+				this.update(this._pullRequest, this._descriptionNode);
 			}
 		}, this, this._disposables);
 
@@ -124,11 +129,12 @@ export class PullRequestOverviewPanel {
 	public async refreshPanel(): Promise<void> {
 		this._initialized = false;
 		if (this._panel && this._panel.visible) {
-			this.update(this._pullRequest);
+			this.update(this._pullRequest, this._descriptionNode);
 		}
 	}
 
-	public async update(pullRequestModel: IPullRequestModel): Promise<void> {
+	public async update(pullRequestModel: IPullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
+		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
@@ -234,6 +240,8 @@ export class PullRequestOverviewPanel {
 				return this.editDescription(message);
 			case 'pr.apply-patch':
 				return this.applyPatch(message);
+			case 'pr.open-diff':
+				return this.openDiff(message);
 			case 'pr.edit-title':
 				return this.editTitle(message);
 			case 'pr.refresh':
@@ -275,6 +283,19 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
+	private openDiff(message: IRequestMessage<{ comment: Comment }>): void {
+		try {
+			const comment = message.args.comment;
+			const prContainer = this._descriptionNode.parent;
+
+			if ((prContainer as TreeNode | Revealable<TreeNode>).revealComment) {
+				(prContainer as TreeNode | Revealable<TreeNode>).revealComment(comment);
+			}
+		} catch (e) {
+			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
 	private editDescription(message: IRequestMessage<{ text: string }>) {
 		this._pullRequestManager.editPullRequest(this._pullRequest, { body: message.args.text }).then(result => {
 			this._replyMessage(message, { text: result.body });
@@ -282,8 +303,8 @@ export class PullRequestOverviewPanel {
 			this._throwError(message, e);
 			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
 		});
-	}
 
+	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
 		this._pullRequestManager.editPullRequest(this._pullRequest, { title: message.args.text }).then(result => {
 			this._replyMessage(message, { text: result.title });

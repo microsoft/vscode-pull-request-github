@@ -14,7 +14,7 @@ import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
 import { IPullRequestManager, IPullRequestModel } from '../../github/interface';
 import { DescriptionNode } from './descriptionNode';
-import { RemoteFileChangeNode, InMemFileChangeNode } from './fileChangeNode';
+import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
@@ -23,7 +23,7 @@ import { getPRDocumentCommentProvider } from '../prDocumentCommentProvider';
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
 	prNumber: number,
-	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[],
+	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[],
 	inDraftMode: boolean) {
 	const params = fromPRUri(document.uri);
 
@@ -222,6 +222,7 @@ export class PRNode extends TreeNode {
 	private _inMemPRContentProvider: vscode.Disposable;
 
 	constructor(
+		public parent: TreeNode | vscode.TreeView<TreeNode>,
 		private _prManager: IPullRequestManager,
 		public pullRequestModel: IPullRequestModel,
 		private _isLocal: boolean
@@ -246,6 +247,7 @@ export class PRNode extends TreeNode {
 			let fileChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
 					return new RemoteFileChangeNode(
+						this,
 						this.pullRequestModel,
 						change.status,
 						change.fileName,
@@ -255,6 +257,7 @@ export class PRNode extends TreeNode {
 
 				const headCommit = this.pullRequestModel.head.sha;
 				let changedItem = new InMemFileChangeNode(
+					this,
 					this.pullRequestModel,
 					change.status,
 					change.fileName,
@@ -297,7 +300,7 @@ export class PRNode extends TreeNode {
 				this._fileChanges = fileChanges;
 			}
 
-			let result = [new DescriptionNode('Description', {
+			let result = [new DescriptionNode(this, 'Description', {
 				light: Resource.icons.light.Description,
 				dark: Resource.icons.dark.Description
 			}, this.pullRequestModel), ...this._fileChanges];
@@ -306,6 +309,35 @@ export class PRNode extends TreeNode {
 			return result;
 		} catch (e) {
 			Logger.appendLine(e);
+		}
+	}
+
+	async revealComment(comment: Comment) {
+		let fileChange = this._fileChanges.find(fc => {
+			if (fc.fileName !== comment.path) {
+				return false;
+			}
+
+			if (fc.pullRequest.head.sha !== comment.commit_id) {
+				return false;
+			}
+
+			return true;
+		});
+
+		if (fileChange) {
+			await this.reveal(fileChange, { focus: true });
+			if (fileChange instanceof InMemFileChangeNode) {
+				let lineNumber = fileChange.getCommentPosition(comment);
+				let [ parentFilePath, filePath, fileName, isPartial, opts ] = fileChange.command.arguments;
+				if (!opts) {
+					opts = {};
+				}
+				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
+				await vscode.commands.executeCommand(fileChange.command.command, parentFilePath, filePath, fileName, isPartial, opts);
+			} else {
+				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments);
+			}
 		}
 	}
 

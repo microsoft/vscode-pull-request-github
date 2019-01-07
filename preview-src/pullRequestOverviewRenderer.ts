@@ -608,11 +608,25 @@ class ReviewNode {
 						});
 					}
 
+					let outdated = comments[0].position === null;
+
 					const diffView: HTMLDivElement = document.createElement('div');
 					diffView.className = 'diff';
 					const diffHeader: HTMLDivElement = document.createElement('div');
 					diffHeader.className = 'diffHeader';
-					diffHeader.textContent = comments[0].path;
+					const diffPath: HTMLSpanElement = document.createElement('span');
+					diffPath.className =  outdated ? 'diffPath outdated' : 'diffPath';
+					diffPath.textContent = comments[0].path;
+					diffHeader.appendChild(diffPath);
+
+					if (outdated) {
+						const outdatedLabel: HTMLSpanElement = document.createElement('span');
+						outdatedLabel.className = 'outdatedLabel';
+						outdatedLabel.textContent = 'Outdated';
+						diffHeader.appendChild(outdatedLabel);
+					} else {
+						diffPath.addEventListener('click', () => this.openDiff(comments[0]));
+					}
 
 					diffView.appendChild(diffHeader);
 					diffLines.forEach(line => diffView.appendChild(line));
@@ -628,6 +642,15 @@ class ReviewNode {
 		}
 
 		return this._commentContainer;
+	}
+
+	openDiff(comment: Comment) {
+		this._messageHandler.postMessage({
+			command: 'pr.open-diff',
+			args: {
+				comment: comment
+			}
+		});
 	}
 }
 

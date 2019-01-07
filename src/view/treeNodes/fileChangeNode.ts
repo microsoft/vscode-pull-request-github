@@ -24,6 +24,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public resourceUri: vscode.Uri;
 
 	constructor(
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: IPullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -63,6 +64,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public opts: vscode.TextDocumentShowOptions;
 
 	constructor(
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: IPullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -112,6 +114,18 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		};
 	}
 
+	getCommentPosition(comment: Comment) {
+		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.original_position : comment.position);
+
+		if (diffLine) {
+			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
+			let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			return lineNumber;
+		}
+
+		return 0;
+	}
+
 	getTreeItem(): vscode.TreeItem {
 		return this;
 	}
@@ -131,6 +145,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public opts: vscode.TextDocumentShowOptions;
 
 	constructor(
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: IPullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -175,6 +190,18 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 			command: 'pr.openChangedFile',
 			arguments: [this]
 		};
+	}
+
+	getCommentPosition(comment: Comment) {
+		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.original_position : comment.position);
+
+		if (diffLine) {
+			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
+			let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			return lineNumber;
+		}
+
+		return 0;
 	}
 
 	getTreeItem(): vscode.TreeItem {

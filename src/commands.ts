@@ -241,10 +241,15 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		return await prManager.requestChanges(pr, message);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: IPullRequestModel) => {
-		const pullRequest = ensurePR(prManager, pr);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
+		if (!descriptionNode) {
+			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
+			let rootNodes = reviewManager.prFileChangesProvider.getChildren();
+			descriptionNode = rootNodes[0];
+		}
+		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode);
 		telemetry.on('pr.openDescription');
 	}));
 
@@ -252,7 +257,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		let pr = descriptionNode.pullRequestModel;
 		const pullRequest = ensurePR(prManager, pr);
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, true);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode, true);
 		telemetry.on('pr.openDescriptionToTheSide');
 	}));
 
