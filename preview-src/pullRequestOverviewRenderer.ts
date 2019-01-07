@@ -341,21 +341,32 @@ class CommentNode {
 		authorLink.href = this._comment.user.html_url;
 		authorLink.textContent = this._comment.user.login;
 
-		const timestamp: HTMLAnchorElement = document.createElement('a');
-		timestamp.className = 'timestamp';
-		timestamp.href = this._comment.html_url;
-		timestamp.textContent = dateFromNow(this._comment.created_at);
+		commentHeader.appendChild(authorLink);
 
-		const commentState = document.createElement('span');
-		commentState.textContent = 'commented';
+		const isPending = this._review && this._review.isPending();
+		if (isPending) {
+			const pendingTag = document.createElement('a');
+			pendingTag.className = 'pending';
+			pendingTag.href = this._comment.html_url;
+			pendingTag.textContent = 'Pending';
+
+			commentHeader.appendChild(pendingTag);
+		} else {
+			const timestamp: HTMLAnchorElement = document.createElement('a');
+			timestamp.className = 'timestamp';
+			timestamp.href = this._comment.html_url;
+			timestamp.textContent = dateFromNow(this._comment.created_at);
+
+			const commentState = document.createElement('span');
+			commentState.textContent = 'commented';
+
+			commentHeader.appendChild(commentState);
+			commentHeader.appendChild(timestamp);
+		}
 
 		this._commentBody.className = 'comment-body';
 
 		this._commentBody.innerHTML  = md.render(emoji.emojify(this._comment.body));
-
-		commentHeader.appendChild(authorLink);
-		commentHeader.appendChild(commentState);
-		commentHeader.appendChild(timestamp);
 
 		if (this._comment.canEdit || this._comment.canDelete) {
 			this._actionsBar = new ActionsBar(this._commentContainer, this._comment as Comment, this._commentBody, this._messageHandler, (e) => { }, 'pr.edit-comment', 'pr.delete-comment', this._review);
@@ -471,6 +482,10 @@ class ReviewNode {
 
 	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler) { }
 
+	isPending(): boolean {
+		return this._review.state === 'pending';
+	}
+
 	deleteCommentFromReview(comment: Comment): void {
 		const deletedCommentIndex = this._review.comments.findIndex(c => c.id.toString() === comment.id.toString());
 		this._review.comments.splice(deletedCommentIndex, 1);
@@ -497,9 +512,6 @@ class ReviewNode {
 	render(): HTMLElement | undefined {
 		// Ignore pending or empty reviews
 		const isEmpty = !this._review.body && !(this._review.comments && this._review.comments.length);
-		if (this._review.state === 'pending') {
-			return undefined;
-		}
 
 		this._commentContainer = document.createElement('div');
 		this._commentContainer.classList.add('comment-container', 'comment');
@@ -530,7 +542,12 @@ class ReviewNode {
 		const timestamp: HTMLAnchorElement = document.createElement('a');
 		timestamp.className = 'timestamp';
 		timestamp.href = this._review.html_url;
-		timestamp.textContent = dateFromNow(this._review.submitted_at);
+		const isPending = this.isPending();
+		timestamp.textContent = isPending ? 'Pending' : dateFromNow(this._review.submitted_at);
+
+		if (isPending) {
+			timestamp.classList.add('pending');
+		}
 
 		commentHeader.appendChild(userLogin);
 		commentHeader.appendChild(reviewState);

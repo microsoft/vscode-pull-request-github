@@ -19,6 +19,8 @@ import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
 
+const queries = require('./queries.gql');
+
 interface PageInformation {
 	pullRequestPage: number;
 	hasMorePages: boolean;
@@ -63,7 +65,7 @@ export class BadUpstreamError extends Error {
 	}
 
 	get message() {
-		const {upstreamRef: {remote, name}, branchName, problem} = this;
+		const { upstreamRef: { remote, name }, branchName, problem } = this;
 		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
 	}
 }
@@ -74,6 +76,15 @@ const LOG_LEVEL_SETTING = 'includeRemotes';
 const enum IncludeRemote {
 	Default,
 	All
+}
+
+interface NewCommentPosition {
+	path: string;
+	position: number;
+}
+
+interface ReplyCommentPosition {
+	inReplyTo: string;
 }
 
 export class PullRequestManager implements IPullRequestManager {
@@ -352,9 +363,39 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
+		const { supportsGraphQl } = (pullRequest as PullRequestModel).githubRepository;
+		return supportsGraphQl
+			? this.getAllPullRequestReviewComments(pullRequest)
+			: this.getPullRequestReviewComments(pullRequest);
+	}
+
+	private async getAllPullRequestReviewComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
+		const { remote, query } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		try {
+			const { data } = await query({
+				query: queries.PullRequestComments,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: pullRequest.prNumber,
+				}
+			});
+
+			const comments = data.repository.pullRequest.reviews.nodes
+				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toComment(comment), remote)))
+				.reduce((prev, curr) => curr = prev.concat(curr), []);
+			return parserCommentDiffHunk(comments);
+		} catch (e) {
+			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
+		}
+	}
+
+	/**
+	 * Returns review comments from the pull request using the REST API, comments on pending reviews are not included.
+	 */
+	private async getPullRequestReviewComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-
 		const reviewData = await octokit.pullRequests.getComments({
 			owner: remote.owner,
 			repo: remote.repositoryName,
@@ -386,7 +427,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]> {
 		try {
-		Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
+			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
@@ -400,22 +441,6 @@ export class PullRequestManager implements IPullRequestManager {
 			vscode.window.showErrorMessage(`Fetching commit file changes failed: ${formatError(e)}`);
 			return [];
 		}
-	}
-
-	async getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Comment[]> {
-		Logger.debug(`Fetch comments of review #${reviewId} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-
-		const reviewData = await octokit.pullRequests.getReviewComments({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
-			review_id: reviewId
-		});
-
-		Logger.debug(`Fetch comments of review #${reviewId} in PR #${pullRequest.prNumber} - `, PullRequestManager.ID);
-		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(comment, remote));
-		return parserCommentDiffHunk(rawComments);
 	}
 
 	async getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]> {
@@ -461,7 +486,12 @@ export class PullRequestManager implements IPullRequestManager {
 		return this.addCommentPermissions(promise.data as Comment, remote);
 	}
 
-	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment> {
+	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: Comment): Promise<Comment> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		if (pendingReviewId) {
+			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { inReplyTo: reply_to.node_id });
+		}
+
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		try {
@@ -470,7 +500,7 @@ export class PullRequestManager implements IPullRequestManager {
 				repo: remote.repositoryName,
 				number: pullRequest.prNumber,
 				body: body,
-				in_reply_to: Number(reply_to)
+				in_reply_to: Number(reply_to.id)
 			});
 
 			return this.addCommentPermissions(ret.data, remote);
@@ -479,7 +509,82 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
+	async deleteReview(pullRequest: PullRequestModel): Promise<Comment[]> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { data } = await mutate<any>({
+			mutation: queries.DeleteReview,
+			variables: {
+				input: { pullRequestReviewId: pendingReviewId }
+			}
+		});
+
+		return data.deletePullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+	}
+
+	async startReview(pullRequest: PullRequestModel): Promise<void> {
+		const { mutate } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		return mutate<void>({
+			mutation: queries.StartReview,
+			variables: {
+				input: {
+					body: '',
+					pullRequestId: pullRequest.prItem.node_id
+				}
+			}
+		}).then(x => x.data).catch(e => {
+			Logger.appendLine(`Failed to start review: ${e.message}`);
+		});
+	}
+
+	async inDraftMode(pullRequest: IPullRequestModel): Promise<boolean> {
+		return !!await this.getPendingReviewId(pullRequest as PullRequestModel);
+	}
+
+	async getPendingReviewId(pullRequest = this._activePullRequest as PullRequestModel): Promise<string | null> {
+		if (!pullRequest.githubRepository.supportsGraphQl()) {
+			return null;
+		}
+
+		const { query, octokit } = await pullRequest.githubRepository.ensure();
+		const { currentUser = '' } = octokit as any;
+		try {
+			const { data } = await query({
+				query: queries.GetPendingReviewId,
+				variables: {
+					pullRequestId: (pullRequest as PullRequestModel).prItem.node_id,
+					author: currentUser.login
+				}
+			});
+			return data.node.reviews.nodes[0].id;
+		} catch (error) {
+			return null;
+		}
+	}
+
+	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<Comment> {
+		const { mutate, remote } = await pullRequest.githubRepository.ensure();
+		const { data } = await mutate({
+			mutation: queries.AddComment,
+			variables: {
+				input: {
+					pullRequestReviewId: reviewId,
+					body,
+					...position
+				}
+			}
+		});
+
+		const { comment } = data.addPullRequestReviewComment;
+		return this.addCommentPermissions(toComment(comment), remote);
+	}
+
 	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		if (pendingReviewId) {
+			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path, position });
+		}
+
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		try {
@@ -503,13 +608,13 @@ export class PullRequestManager implements IPullRequestManager {
 		if (!this.repository.state.HEAD) {
 			throw new DetachedHeadError(this.repository);
 		}
-		const {origin} = this;
+		const { origin } = this;
 		const meta = await origin.getMetadata();
 		const parent = meta.fork
 			? meta.parent
 			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
 		const branchName = this.repository.state.HEAD.name;
-		const {title, body} = titleAndBodyFrom(await this.getHeadCommitMessage());
+		const { title, body } = titleAndBodyFrom(await this.getHeadCommitMessage());
 		return {
 			title, body,
 			owner: parent.owner.login,
@@ -525,8 +630,8 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getHeadCommitMessage(): Promise<string> {
-		const {repository} = this;
-		const {message} = await repository.getCommit(repository.state.HEAD.commit);
+		const { repository } = this;
+		const { message } = await repository.getCommit(repository.state.HEAD.commit);
 		return message;
 	}
 
@@ -535,7 +640,7 @@ export class PullRequestManager implements IPullRequestManager {
 			throw new NoGitHubReposError(this.repository);
 		}
 
-		const {upstreamRef} = this;
+		const { upstreamRef } = this;
 		if (upstreamRef) {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
@@ -566,7 +671,7 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	get upstreamRef(): UpstreamRef | undefined {
-		const {HEAD} = this.repository.state;
+		const { HEAD } = this.repository.state;
 		return HEAD && HEAD.upstream;
 	}
 
@@ -606,7 +711,8 @@ export class PullRequestManager implements IPullRequestManager {
 				comments: 0,
 				commits: 0,
 				head: data.head,
-				base: data.base
+				base: data.base,
+				node_id: data.node_id
 			};
 
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
@@ -767,6 +873,24 @@ export class PullRequestManager implements IPullRequestManager {
 		});
 
 		return ret.data;
+	}
+
+	public async submitReview(pullRequest: IPullRequestModel): Promise<Comment[]> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		const { mutate } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+
+		if (pendingReviewId) {
+			const { data } = await mutate({
+				mutation: queries.SubmitReview,
+				variables: {
+					id: pendingReviewId
+				}
+			});
+
+			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+		} else {
+			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
+		}
 	}
 
 	async requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any> {
@@ -1007,14 +1131,14 @@ export function getEventType(text: string) {
 }
 
 const ownedByMe: Predicate<GitHubRepository> = repo => {
-	const { currentUser=null } = repo.octokit as any;
+	const { currentUser = null } = repo.octokit as any;
 	return currentUser && repo.remote.owner === currentUser.login;
 };
 
 const byRemoteName = (name: string): Predicate<GitHubRepository> =>
-	({remote: {remoteName}}) => remoteName === name;
+	({ remote: { remoteName } }) => remoteName === name;
 
-const titleAndBodyFrom = (message: string): {title: string, body: string} => {
+const titleAndBodyFrom = (message: string): { title: string, body: string } => {
 	const idxLineBreak = message.indexOf('\n');
 	return {
 		title: idxLineBreak === -1
@@ -1026,3 +1150,20 @@ const titleAndBodyFrom = (message: string): {title: string, body: string} => {
 			: message.slice(idxLineBreak + 1),
 	};
 };
+
+const toComment = (comment: any): any => ({
+	id: comment.databaseId,
+	node_id: comment.id,
+	body: comment.body,
+	user: {
+		login: comment.author.login,
+		avatar_url: comment.author.avatarUrl,
+	},
+	position: comment.position,
+	url: comment.url,
+	path: comment.path,
+	original_position: comment.originalPosition,
+	diff_hunk: comment.diffHunk,
+	isDraft: comment.state === 'PENDING',
+	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId
+});

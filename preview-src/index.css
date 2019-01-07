@@ -108,6 +108,11 @@ body .comment-container .review-comment-header a {
 	margin-left: auto;
 }
 
+.review-comment-header .pending {
+	color: inherit;
+	font-style: italic;
+}
+
 .comment-actions button {
 	background-color: transparent;
 	padding: 2px 6px 3px;
