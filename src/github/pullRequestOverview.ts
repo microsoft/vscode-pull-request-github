@@ -180,7 +180,8 @@ export class PullRequestOverviewPanel {
 					commitsCount: this._pullRequest.commitCount,
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
-					status: status
+					status: status,
+					mergeable: this._pullRequest.prItem.mergeable
 				}
 			});
 		}).catch(e => {
@@ -497,7 +498,7 @@ export class PullRequestOverviewPanel {
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 				<div id="title" class="title"></div>
 				<div id="timeline-events" class="discussion" aria-live="polite"></div>
-				<details id="status-checks" class="hidden"></details>
+				<div id="status-checks"></div>
 				<div id="comment-form" class="comment-form"></div>
 			</body>
 			</html>`;

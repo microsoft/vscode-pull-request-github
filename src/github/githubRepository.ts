@@ -209,8 +209,6 @@ export class GitHubRepository implements IGitHubRepository {
 							assignee,
 							created_at,
 							updated_at,
-							comments: 0,
-							commits: 0,
 							head,
 							base,
 							node_id
