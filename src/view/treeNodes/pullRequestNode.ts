@@ -325,6 +325,9 @@ export class PRNode extends TreeNode {
 			if (fileChange instanceof InMemFileChangeNode) {
 				let lineNumber = fileChange.getCommentPosition(comment);
 				let [ parentFilePath, filePath, fileName, isPartial, opts ] = fileChange.command.arguments;
+				if (!opts) {
+					opts = {};
+				}
 				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				await vscode.commands.executeCommand(fileChange.command.command, parentFilePath, filePath, fileName, isPartial, opts);
 			} else {
