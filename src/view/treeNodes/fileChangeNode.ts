@@ -7,11 +7,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
-import { IPullRequestModel } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { Comment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 import { toFileChangeNodeUri } from '../../common/uri';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
@@ -25,7 +25,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
-		public readonly pullRequest: IPullRequestModel,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly blobUrl: string
@@ -65,7 +65,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
-		public readonly pullRequest: IPullRequestModel,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly previousFileName: string | undefined,
@@ -146,7 +146,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
-		public readonly pullRequest: IPullRequestModel,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly blobUrl: string,

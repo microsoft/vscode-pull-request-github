@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IPullRequestModel, IPullRequestManager } from '../github/interface';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { DescriptionNode } from './treeNodes/descriptionNode';
 import { TreeNode } from './treeNodes/treeNode';
 import { FilesCategoryNode } from './treeNodes/filesCategoryNode';
 import { CommitsNode } from './treeNodes/commitsCategoryNode';
 import { Comment } from '../common/comment';
+import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<GitFileChangeNode | DescriptionNode>();
@@ -19,8 +20,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: Comment[] = [];
-	private _pullrequest: IPullRequestModel = null;
-	private _pullRequestManager: IPullRequestManager;
+	private _pullrequest: PullRequestModel = null;
+	private _pullRequestManager: PullRequestManager;
 	private _view: vscode.TreeView<TreeNode>;
 
 	public get view(): vscode.TreeView<TreeNode> {
@@ -50,7 +51,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._onDidChangeTreeData.fire();
 	}
 
-	async showPullRequestFileChanges(pullRequestManager: IPullRequestManager, pullrequest: IPullRequestModel, fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: Comment[]) {
+	async showPullRequestFileChanges(pullRequestManager: PullRequestManager, pullrequest: PullRequestModel, fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: Comment[]) {
 		this._pullRequestManager = pullRequestManager;
 		this._pullrequest = pullrequest;
 		this._comments = comments;

@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { IPullRequestManager, IPullRequestModel, MergePullRequest, PullRequestStateEnum } from './interface';
+import { MergePullRequest, PullRequestStateEnum } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
@@ -16,6 +16,8 @@ import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
+import { PullRequestManager } from './pullRequestManager';
+import { PullRequestModel } from './pullRequestModel';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -42,12 +44,12 @@ export class PullRequestOverviewPanel {
 	private readonly _extensionPath: string;
 	private _disposables: vscode.Disposable[] = [];
 	private _descriptionNode: DescriptionNode;
-	private _pullRequest: IPullRequestModel;
-	private _pullRequestManager: IPullRequestManager;
+	private _pullRequest: PullRequestModel;
+	private _pullRequestManager: PullRequestManager;
 	private _initialized: boolean;
 	private _scrollPosition = { x: 0, y: 0 };
 
-	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		let activeColumn = toTheSide ?
 							vscode.ViewColumn.Beside :
 							vscode.window.activeTextEditor ?
@@ -72,7 +74,7 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: IPullRequestManager, descriptionNode: DescriptionNode) {
+	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
 		this._extensionPath = extensionPath;
 		this._pullRequestManager = pullRequestManager;
 		this._descriptionNode = descriptionNode;
@@ -133,7 +135,7 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	public async update(pullRequestModel: IPullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async update(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
 		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',

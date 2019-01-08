@@ -7,9 +7,9 @@ import * as vscode from 'vscode';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { IAccount, IPullRequestModel, PullRequest, PullRequestStateEnum } from './interface';
+import { IAccount, PullRequest, PullRequestStateEnum } from './interface';
 
-export class PullRequestModel implements IPullRequestModel {
+export class PullRequestModel {
 	public prNumber: number;
 	public title: string;
 	public html_url: string;
@@ -22,6 +22,7 @@ export class PullRequestModel implements IPullRequestModel {
 	public updatedAt: string;
 	public localBranchName?: string;
 	public labels: string[];
+	public mergeBase?: string;
 
 	public get isOpen(): boolean {
 		return this.state === PullRequestStateEnum.Open;
@@ -104,7 +105,7 @@ export class PullRequestModel implements IPullRequestModel {
 		this.base = new GitHubRef(prItem.base.ref, prItem.base.label, prItem.base.sha, prItem.base.repo.clone_url);
 	}
 
-	equals(other: IPullRequestModel): boolean {
+	equals(other: PullRequestModel): boolean {
 		if (!other) {
 			return false;
 		}

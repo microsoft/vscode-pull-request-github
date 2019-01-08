@@ -10,9 +10,9 @@
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { IPullRequestModel } from './interface';
 import { GitHubRepository } from './githubRepository';
 import { Repository, Branch } from '../typings/git';
+import { PullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -26,7 +26,7 @@ export interface PullRequestMetadata {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
-	static async checkoutFromFork(repository: Repository, pullRequest: IPullRequestModel) {
+	static async checkoutFromFork(repository: Repository, pullRequest: PullRequestModel) {
 		// the branch is from a fork
 		let localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
 		// create remote for this fork
@@ -43,7 +43,7 @@ export class PullRequestGitHelper {
 		PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 
-	static async fetchAndCheckout(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel): Promise<void> {
+	static async fetchAndCheckout(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel): Promise<void> {
 		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, githubRepositories, pullRequest);
 		if (!remote) {
 			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest);
@@ -83,7 +83,7 @@ export class PullRequestGitHelper {
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
-	static async checkoutExistingPullRequestBranch(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel) {
+	static async checkoutExistingPullRequestBranch(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel) {
 		let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
 		let configs = await repository.getConfigs();
 
@@ -104,7 +104,7 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static buildPullRequestMetadata(pullRequest: IPullRequestModel) {
+	static buildPullRequestMetadata(pullRequest: PullRequestModel) {
 		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.prNumber;
 	}
 
@@ -188,7 +188,7 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static async calculateUniqueBranchNameForPR(repository: Repository, pullRequest: IPullRequestModel): Promise<string> {
+	static async calculateUniqueBranchNameForPR(repository: Repository, pullRequest: PullRequestModel): Promise<string> {
 		let branchName = `pr/${pullRequest.author.login}/${pullRequest.prNumber}`;
 		let result = branchName;
 		let number = 1;
@@ -217,7 +217,7 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: IPullRequestModel): Remote {
+	static getHeadRemoteForPullRequest(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel): Remote {
 		for (let i = 0; i < githubRepositories.length; i++) {
 			let remote = githubRepositories[i].remote;
 			if (remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl)) {
@@ -228,7 +228,7 @@ export class PullRequestGitHelper {
 		return null;
 	}
 
-	static async associateBranchWithPullRequest(repository: Repository, pullRequest: IPullRequestModel, branchName: string) {
+	static async associateBranchWithPullRequest(repository: Repository, pullRequest: PullRequestModel, branchName: string) {
 		Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.prNumber}`, PullRequestGitHelper.ID);
 		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
