@@ -100,8 +100,6 @@ export class PullRequestModel {
 
 		this.createdAt = prItem.created_at;
 		this.updatedAt = prItem.updated_at ? prItem.updated_at : this.createdAt;
-		this.commentCount = prItem.comments;
-		this.commitCount = prItem.commits;
 
 		this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.clone_url);
 		this.base = new GitHubRef(prItem.base.ref, prItem.base.label, prItem.base.sha, prItem.base.repo.clone_url);

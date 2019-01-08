@@ -61,7 +61,7 @@ function renderPullRequest(pr: PullRequest): void {
 	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
-	renderStatusChecks(pr.status);
+	renderStatusChecks(pr);
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
@@ -165,6 +165,7 @@ function renderTitle(pr: PullRequest): HTMLElement {
 
 function renderDescription(pr: PullRequest): HTMLElement {
 	const commentContainer = document.createElement('div');
+	commentContainer.classList.add('description-container');
 
 	const commentHeader = document.createElement('div');
 	commentHeader.classList.add('description-header');

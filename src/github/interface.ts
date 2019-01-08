@@ -43,24 +43,23 @@ export interface MergePullRequest {
 	documentation_url: string;
 }
 
-export type PullRequest = Pick<
-	Github.PullRequestsGetResponse,
-	| 'number'
-	| 'body'
-	| 'labels'
-	| 'title'
-	| 'html_url'
-	| 'user'
-	| 'state'
-	| 'merged'
-	| 'assignee'
-	| 'created_at'
-	| 'updated_at'
-	| 'comments'
-	| 'commits'
-	| 'head'
-	| 'base'
->;
+export interface PullRequest {
+	number: number;
+	body: string;
+	labels: Array<Github.PullRequestsGetResponseLabelsItem>;
+	title: string;
+	html_url: string;
+	user: Github.PullRequestsGetResponseUser;
+	state: string;
+	merged: boolean;
+	assignee: Github.PullRequestsGetResponseAssignee;
+	created_at: string;
+	updated_at: string;
+	head: Github.PullRequestsGetResponseHead;
+	base: Github.PullRequestsGetResponseBase;
+	node_id: string;
+	mergeable?: boolean;
+}
 
 export interface IRawFileChange {
 	filename: string;

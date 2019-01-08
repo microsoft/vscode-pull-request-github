@@ -127,8 +127,6 @@ const pr = {
 	assignee: user,
 	created_at: '',
 	updated_at: '',
-	comments: 0,
-	commits: 1,
 	head: {
 		label: '',
 		ref: '',
@@ -143,6 +141,7 @@ const pr = {
 		sha: '',
 		user,
 	},
+	node_id: '1'
 };
 
 describe('PullRequestModel', () => {

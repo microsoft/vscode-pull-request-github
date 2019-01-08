@@ -3,10 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-:root {
-	--border-color: var(--vscode-notifications-border);
-}
-
 a:focus, input:focus, select:focus, textarea:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
@@ -15,7 +11,6 @@ a:focus, input:focus, select:focus, textarea:focus {
 	display: flex;
 	align-items: flex-start;
 	margin-top: 20px;
-	border-bottom: 1px solid var(--border-color);
 }
 
 .comment-body li div {
@@ -88,15 +83,13 @@ body .comment-container.review {
 body .comment-container .review-comment-header {
 	display: flex;
 	width: 100%;
-	height: 32px;
 	box-sizing: border-box;
-	padding: 2px 0;
+	padding: 6px;
 	font-size: 12px;
 	color: var(--vscode-foreground);
-}
-
-body .comment-container .review-comment-header a {
-	height: 16px;
+	align-items: center;
+	background: var(--vscode-list-inactiveSelectionBackground);
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
 .description-header {
@@ -108,9 +101,16 @@ body .comment-container .review-comment-header a {
 	margin-left: auto;
 }
 
+.review-comment-header .pending {
+	color: inherit;
+	font-style: italic;
+}
+
 .comment-actions button {
 	background-color: transparent;
-	padding: 2px 6px 3px;
+	padding: 0 6px;
+	line-height: normal;
+	font-size: 11px;
 }
 
 .comment-actions button svg {
@@ -123,6 +123,16 @@ body .comment-container .review-comment-header a {
 	align-items: center;
 	margin-top: 5px;
 	margin-left: 15px;
+}
+
+.status-item {
+	display: flex;
+	padding-top: 12px;
+}
+
+.status-item a {
+	margin-left: 10px;
+	cursor: pointer;
 }
 
 #status-checks {
@@ -146,15 +156,23 @@ body .commit .commit-message > a {
 	margin-right: 4px;
 }
 
-body .comment-container .comment-body {
-	padding: 4px 0 0;
+body .comment-container .comment-body, .review-body {
+	padding: 10px;
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	border-top: none;
 }
 
-body .comment-container .comment-body > p {
+body .comment-container .review-comment-container .review-comment-body {
+	padding: 0;
+	margin: 0 0 0 36px;
+	border: none;
+}
+
+body .comment-container .comment-body > p, .comment-container .review-body > p {
 	margin-top: 0;
 }
 
-body .comment-container .comment-body > p:last-child {
+body .comment-container .comment-body > p:last-child, .comment-container .review-body > p:last-child {
 	margin-bottom: 0;
 }
 
@@ -179,7 +197,6 @@ button {
 	padding: 4px 12px;
 	font-size: 13px;
 	line-height: 18px;
-	height: 28px;
 	white-space: nowrap;
 	user-select: none;
 }
@@ -248,12 +265,19 @@ body button.checkedOut svg {
 	width: 100%;
 }
 
+.description-container {
+	padding: 12px;
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+}
+
 .subtitle {
 	display: flex;
 	align-items: center;
 	margin-top: 8px;
-	padding-bottom: 16px;
-	border-bottom: 1px solid var(--border-color);
+	padding: 6px;
+	background: var(--vscode-list-inactiveSelectionBackground);
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	border-bottom: none;
 }
 
 .subtitle .avatar {
@@ -306,7 +330,8 @@ body .overview-title .button-group button {
 }
 
 .comment-container.commit {
-	padding: 8px 0;
+	padding-left: 16px;
+	box-sizing: border-box
 }
 
 .commit, .review {
@@ -335,8 +360,8 @@ body .overview-title .button-group button {
 }
 
 .commit .avatar-container .avatar {
-	width: 16px;
-	height: 16px;
+	width: 18px;
+	height: 18px;
 }
 
 .commit .commit-message .message {
@@ -357,15 +382,10 @@ body .overview-title .button-group button {
 
 .comment-container {
 	position: relative;
-	padding: 20px 0;
-	border-top: 1px solid var(--border-color);
+	padding-top: 20px;
 	width: 100%;
 	display: flex;
 	margin: 0;
-}
-
-.comment-container:last-of-type {
-	border-bottom: 1px solid var(--border-color);
 }
 
 .comment-container[data-type="commit"] {
@@ -378,12 +398,19 @@ body .overview-title .button-group button {
 }
 
 .comment-body .review-comment {
-	padding: 12px;
+	padding: 3px;
 	box-sizing: border-box;
-	border-top: none;
-	border-right: 1px solid var(--vscode-notifications-background);
-	border-left: 1px solid var(--vscode-notifications-background);
-	border-bottom: 1px solid var(--vscode-notifications-background);
+	border-top: 1px solid var(--vscode-list-inactiveSelectionBackground);
+}
+
+.review-comment-container .review-comment .review-comment-header {
+	border: none;
+	background: none;
+}
+
+.review-comment-container .review-comment .comment-body {
+	border: none;
+	padding: 4px 12px 8px 12px;
 }
 
 .comment-body .line {
@@ -594,6 +621,19 @@ code {
 	border-color: rgb(0, 0, 0);
 }
 
+.vscode-high-contrast .comment-container .review-comment-header, .vscode-high-contrast .subtitle {
+	background: none;
+	border-color: var(--vscode-panel-border);
+}
+
+.vscode-high-contrast .description-container {
+	border-color: var(--vscode-panel-border);
+}
+
+.vscode-high-contrast .comment-container .comment-body, .vscode-high-contrast .review-comment-container .review-body {
+	border-color: var(--vscode-panel-border);
+}
+
 .vscode-light .comment-body table > thead > tr > th {
 	border-color: rgba(0, 0, 0, 0.69);
 }
@@ -614,20 +654,52 @@ code {
 	border-color: rgba(255, 255, 255, 0.18);
 }
 
-.diff {
-	margin: 40px 0 0px;
-	border: 1px solid var(--vscode-notifications-background) !important;
+.review-comment-body .diff-container {
+	margin-top: 10px;
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
-.diff:first-of-type {
-	margin-top: 8px;
+.review-comment-body .diff-container .review-comment-container .comment-container {
+	padding-top: 0;
+}
+
+.review-comment-body .diff-container .review-comment-container .review-comment-header .avatar-container {
+	margin-right: 4px;
+}
+
+.review-comment-body .diff-container .review-comment-container .review-comment-header .avatar {
+	width: 18px;
+	height: 18px;
 }
 
 .diff .diffHeader {
 	padding: 6px 12px;
 	line-height: 1.5;
-	border-bottom: solid 1px var(--vscode-notifications-background);
-	background-color: var(--vscode-editorGroupHeader-tabsBackground);
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+
+.diff .diffHeader .diffPath:hover {
+	text-decoration: underline;
+	color: var(--vscode-textLink-activeForeground);
+	cursor: pointer;
+}
+
+.diff .diffHeader .diffPath.outdated:hover {
+	text-decoration: none;
+	color: var(--vscode-foreground);
+	cursor: default;
+}
+
+.diff .diffHeader .outdatedLabel {
+	border: 1px solid rgba(27,31,35,.15);
+	box-shadow: none;
+	color: #586069;
+	padding: 2px 4px;
+	background-color: #fff5b1;
+	margin-left: 5px;
+	border-radius: 2px;
+	line-height: 1;
+	font-size: 12px;
 }
 
 .diff .diffLine.add {
@@ -683,6 +755,14 @@ code {
 
 .vscode-high-contrast .diff .diffLine {
 	background: none;
+}
+
+.vscode-high-contrast .diff .diffHeader {
+	background: none;
+}
+
+.vscode-high-contrast .diff-container {
+	border-color: var(--vscode-contrastBorder);
 }
 
 .vscode-high-contrast .diff .diffLine.add {
