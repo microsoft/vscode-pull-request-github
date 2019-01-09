@@ -128,6 +128,7 @@ export class PullRequestManager {
 	private setUpCompletionItemProvider() {
 		let lastPullRequest: PullRequestModel = null;
 		let timelineEvents: TimelineEvent[] = [];
+
 		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
 			provideCompletionItems: async (document, position, token) => {
 				try {
@@ -171,17 +172,29 @@ export class PullRequestManager {
 							firstMap[user.login] = user;
 						});
 
-						let secondGroup = users.map(user => {
+						let ret = relatedUsers.map(user => {
 							return {
 								label: `@${user.login}`,
 								insertText: `${user.login}`,
 								filterText: `${user.login}`,
-								sortText: (firstMap[user.login] ? '1' : '2') + `${user.login}`,
+								sortText: `0_${user.login}`,
 								detail: `${user.name}`
 							};
 						});
 
-						return secondGroup;
+						users.forEach(user => {
+							if (!firstMap[user.login]) {
+								ret.push({
+									label: `@${user.login}`,
+									insertText: `${user.login}`,
+									filterText: `${user.login}`,
+									sortText: (firstMap[user.login] ? '1' : '2') + `${user.login}`,
+									detail: `${user.name}`
+								});
+							}
+						});
+
+						return ret;
 					}
 				} catch(e) {
 					return [];
