@@ -198,7 +198,9 @@ export class PullRequestManager {
 		});
 
 		return Promise.all(resolveRemotePromises).then(_ => {
+			const oldRepositories = this._githubRepositories;
 			this._githubRepositories = repositories;
+			oldRepositories.forEach(repo => repo.dispose());
 
 			for (let repository of this._githubRepositories) {
 				const remoteId = repository.remote.url.toString();
