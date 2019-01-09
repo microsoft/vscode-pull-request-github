@@ -40,9 +40,9 @@ export interface CommentEvent {
 export interface ReviewEvent {
 	event: string;
 	comments: Comment[];
-	submitted_at: string;
+	submittedAt: string;
 	body: string;
-	html_url: string;
+	htmlUrl: string;
 	user: IAccount;
 	state: string;
 	id: number;
@@ -53,7 +53,7 @@ export interface CommitEvent {
 	event: string;
 	sha: string;
 	url: string;
-	html_url: string;
+	htmlUrl: string;
 	message: string;
 	bodyHTML?: string;
 }

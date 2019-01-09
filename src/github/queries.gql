@@ -26,6 +26,7 @@ fragment Comment on IssueComment {
     avatarUrl
     url
   }
+  url
   body
   updatedAt
   createdAt
@@ -43,6 +44,7 @@ fragment Commit on Commit {
       url
     }
   }
+  url
   oid
   message
 }
@@ -64,6 +66,7 @@ fragment Review on PullRequestReview {
   id
   databaseId
   authorAssociation
+  url
   author {
     login
     avatarUrl
@@ -71,6 +74,7 @@ fragment Review on PullRequestReview {
   }
   state
   body
+  submittedAt
   updatedAt
   createdAt
 }

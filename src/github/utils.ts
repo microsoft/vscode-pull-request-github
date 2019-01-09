@@ -154,6 +154,7 @@ export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {
 			event.canDelete = event.viewerCanDelete;
 			event.user = event.author;
 			event.id = event.databaseId;
+			event.htmlUrl = event.url;
 		}
 
 		if (event.event === EventType.Reviewed) {
@@ -161,11 +162,33 @@ export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {
 			event.canEdit = event.viewerCanUpdate;
 			event.canDelete = event.viewerCanDelete;
 			event.id = event.databaseId;
+			event.htmlUrl = event.url;
+			event.submittedAt = event.submittedAt;
 		}
 
 		if (event.event === EventType.Committed) {
 			event.sha = event.oid;
 			event.author = event.author.user;
+			event.htmlUrl = event.url;
+		}
+	});
+
+	return events;
+}
+
+export function convertRESTTimelineEvents(events: any[]): TimelineEvent[] {
+	events.forEach(event => {
+		if (event.event === EventType.Commented) {
+
+		}
+
+		if (event.event === EventType.Reviewed) {
+			event.submittedAt = event.submitted_at;
+			event.htmlUrl = event.html_url;
+		}
+
+		if (event.event === EventType.Committed) {
+			event.htmlUrl = event.html_url;
 		}
 	});
 

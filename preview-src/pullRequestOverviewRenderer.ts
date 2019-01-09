@@ -437,7 +437,7 @@ export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
 
 	const sha: HTMLAnchorElement = document.createElement('a');
 	sha.className = 'sha';
-	sha.href = timelineEvent.html_url;
+	sha.href = timelineEvent.htmlUrl;
 	sha.textContent = shaShort;
 
 	commentContainer.appendChild(commitMessage);
@@ -529,8 +529,8 @@ class ReviewNode {
 
 		const timestamp: HTMLAnchorElement = document.createElement('a');
 		timestamp.className = 'timestamp';
-		timestamp.href = this._review.html_url;
-		timestamp.textContent = dateFromNow(this._review.submitted_at);
+		timestamp.href = this._review.htmlUrl;
+		timestamp.textContent = dateFromNow(this._review.submittedAt);
 
 		commentHeader.appendChild(userLogin);
 		commentHeader.appendChild(reviewState);

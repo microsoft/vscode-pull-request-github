@@ -17,7 +17,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents } from './utils';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -445,7 +445,7 @@ export class PullRequestManager implements IPullRequestManager {
 				per_page: 100
 			})).data;
 			Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
-			return await this.parseRESTTimelineEvents(pullRequest, remote, ret);
+			return convertRESTTimelineEvents(await this.parseRESTTimelineEvents(pullRequest, remote, ret));
 		}
 	}
 
