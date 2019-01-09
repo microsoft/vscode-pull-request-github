@@ -36,6 +36,23 @@ query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:In
 	}
 }
 
+query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		mentionableUsers(first: $first, after: $after) {
+			nodes {
+				login
+				avatarUrl
+				name
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+}
+
+
 mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	addPullRequestReviewComment(input: $input) {
 		comment {

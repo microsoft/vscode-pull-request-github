@@ -7,11 +7,12 @@ import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { PRType, IGitHubRepository, PullRequest } from './interface';
+import { PRType, IGitHubRepository, PullRequest, IAccount } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult } from 'apollo-boost';
+const queries = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -309,6 +310,49 @@ export class GitHubRepository implements IGitHubRepository {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return null;
 		}
+	}
+
+	async getMentionableUsers(): Promise<IAccount[]> {
+		try {
+			Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
+			const { query, supportsGraphQl, remote } = await this.ensure();
+
+			if (supportsGraphQl) {
+				let after = null;
+				let hasNextPage = false;
+				let ret = [];
+
+				do {
+					const { data } = await query({
+						query: queries.GetMentionableUsers,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							first: 100,
+							after: after
+						}
+					});
+
+					ret.push(...data.repository.mentionableUsers.nodes.map(node => {
+						return {
+							login: node.login,
+							avatarUrl: node.avatarUrl,
+							name: node.name
+						};
+					}));
+
+					hasNextPage = data.repository.mentionableUsers.pageInfo.hasNextPage;
+					after = data.repository.mentionableUsers.pageInfo.endCursor;
+				} while (hasNextPage);
+
+				return ret;
+			}
+		} catch (e) {
+			Logger.appendLine(`Unable to fetch mentionable users: ${e}`, GitHubRepository.ID);
+			return [];
+		}
+
+		return [];
 	}
 
 	private getPRFetchQuery(repo: string, user: string, type: PRType) {

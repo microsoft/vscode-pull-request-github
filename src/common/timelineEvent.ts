@@ -58,5 +58,5 @@ export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
 }
 
 export function isCommentEvent(event: TimelineEvent): event is CommentEvent {
-	return Number(event.event) === EventType.Committed;
+	return Number(event.event) === EventType.Commented;
 }

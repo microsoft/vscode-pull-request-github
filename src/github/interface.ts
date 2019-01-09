@@ -28,10 +28,11 @@ export enum PullRequestStateEnum {
 
 export interface IAccount {
 	login: string;
-	isUser: boolean;
-	isEnterprise: boolean;
+	name?: string;
+	isUser?: boolean;
+	isEnterprise?: boolean;
 	avatarUrl: string;
-	htmlUrl: string;
+	htmlUrl?: string;
 	ownedPrivateRepositoryCount?: number;
 	privateRepositoryInPlanCount?: number;
 }

@@ -8,9 +8,9 @@ import * as Github from '@octokit/rest';
 import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
+import { TimelineEvent, EventType, isReviewEvent, isCommitEvent, isCommentEvent } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange } from './interface';
+import { IPullRequestsPagingOptions, PullRequest, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, IRawFileChange, IAccount } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
@@ -18,6 +18,8 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
+import { EXTENSION_ID } from '../constants';
+import { fromPRUri } from '../common/uri';
 
 const queries = require('./queries.gql');
 
@@ -92,6 +94,8 @@ export class PullRequestManager {
 	private _activePullRequest?: PullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
+	private _mentionableUsers: { [key: string] : IAccount[] };
+	private _fetchMentionableUsersPromise: Promise<{ [key: string] : IAccount[] }>;
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	private _includeRemotes: IncludeRemote;
@@ -107,6 +111,8 @@ export class PullRequestManager {
 		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
 		this._includeRemotes = IncludeRemote.Default;
+		this._mentionableUsers = null;
+		this._fetchMentionableUsersPromise = null;
 		vscode.workspace.onDidChangeConfiguration(() => {
 			let oldIncludeRemote = this._includeRemotes;
 			this.getIncludeRemoteConfig();
@@ -115,6 +121,74 @@ export class PullRequestManager {
 			}
 		});
 		this.getIncludeRemoteConfig();
+		this.setUpCompletionItemProvider();
+
+	}
+
+	private setUpCompletionItemProvider() {
+		let lastPullRequest: PullRequestModel = null;
+		let timelineEvents: TimelineEvent[] = [];
+		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
+			provideCompletionItems: async (document, position, token) => {
+				try {
+					let query = JSON.parse(document.uri.query);
+					let activeTextEditors = vscode.window.visibleTextEditors.filter(editor => editor.document.uri.scheme === 'pr');
+
+					if (query.extensionId === EXTENSION_ID) {
+						let relatedUsers: IAccount[] = [];
+
+						if (activeTextEditors.length) {
+							let params = fromPRUri(activeTextEditors[0].document.uri);
+
+							if (params) {
+								let relatedTimelineEvents: TimelineEvent[] = [];
+
+								if (lastPullRequest && params.prNumber === lastPullRequest.prNumber) {
+									// fetch from lastPullRequest
+									relatedTimelineEvents = timelineEvents;
+								} else {
+									let remoteName = params.remoteName;
+
+									let githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
+
+									if (githubRepos.length) {
+										lastPullRequest = await githubRepos[0].getPullRequest(params.prNumber);
+										timelineEvents = await this.getTimelineEvents(lastPullRequest);
+										relatedTimelineEvents = timelineEvents;
+									}
+								}
+
+								relatedUsers = getRelatedUsersFromTimelineEvents(relatedTimelineEvents);
+							}
+						}
+
+						let mentionableUsers = await this.getMentionableUsers();
+
+						let users = mentionableUsers['upstream'] || mentionableUsers['origin'] || [];
+
+						let firstMap = {};
+						relatedUsers.forEach(user => {
+							firstMap[user.login] = user;
+						});
+
+						let secondGroup = users.map(user => {
+							return {
+								label: `@${user.login}`,
+								insertText: `${user.login}`,
+								filterText: `${user.login}`,
+								sortText: (firstMap[user.login] ? '1' : '2') + `${user.login}`,
+								detail: `${user.name}`
+							};
+						});
+
+						return secondGroup;
+					}
+				} catch(e) {
+					return [];
+				}
+			}
+		}, '@');
+
 	}
 
 	private getIncludeRemoteConfig() {
@@ -210,7 +284,38 @@ export class PullRequestManager {
 				}
 			}
 
+			this.getMentionableUsers();
 			return Promise.resolve();
+		});
+	}
+
+	async getMentionableUsers(): Promise<{ [key: string] : IAccount[] }> {
+		if (this._mentionableUsers) {
+			return this._mentionableUsers;
+		}
+
+		if (!this._fetchMentionableUsersPromise) {
+			let cache = {};
+			return this._fetchMentionableUsersPromise = new Promise((resolve) => {
+				let promises = [];
+				this._githubRepositories.forEach(githubRepository => {
+					promises.push(new Promise(async (res) => {
+						let data = await githubRepository.getMentionableUsers();
+						cache[githubRepository.remote.remoteName] = data;
+						res();
+					}));
+				});
+
+				Promise.all(promises).then(() => {
+					resolve(cache);
+				});
+			});
+		}
+
+		return this._fetchMentionableUsersPromise.then(cache => {
+			this._mentionableUsers = cache;
+			this._fetchMentionableUsersPromise = null;
+			return this._mentionableUsers;
 		});
 	}
 
@@ -275,7 +380,7 @@ export class PullRequestManager {
 		let remoteName: string = null;
 		try {
 			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
-		} catch (e) {}
+		} catch (e) { }
 
 		if (!remoteName) {
 			return;
@@ -1165,3 +1270,35 @@ const toComment = (comment: any): any => ({
 	isDraft: comment.state === 'PENDING',
 	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId
 });
+
+function getRelatedUsersFromTimelineEvents(timelineEvents: TimelineEvent[]): IAccount[] {
+	let ret: IAccount[] = [];
+
+	timelineEvents.forEach(event => {
+		if (isCommitEvent(event)) {
+			ret.push({
+				login: event.author.login,
+				name: event.author.name,
+				avatarUrl: event.author.avatar_url
+			});
+		}
+
+		if (isReviewEvent(event)) {
+			ret.push({
+				login: event.user.login,
+				name: event.user.login,
+				avatarUrl: event.user.avatar_url
+			});
+		}
+
+		if (isCommentEvent(event)) {
+			ret.push({
+				login: event.user.login,
+				name: event.user.login,
+				avatarUrl: event.user.avatar_url
+			});
+		}
+	});
+
+	return ret;
+}
