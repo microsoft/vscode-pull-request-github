@@ -15,7 +15,7 @@ import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { parserCommentDiffHunk } from '../common/diffHunk';
 import { GitHubManager } from '../authentication/githubServer';
-import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
+import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
 
@@ -385,7 +385,7 @@ export class PullRequestManager {
 
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toComment(comment), remote)))
-				.reduce((prev, curr) => curr = prev.concat(curr), []);
+				.reduce((prev, curr) => prev.concat(curr), []);
 			return parserCommentDiffHunk(comments);
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
@@ -1053,32 +1053,42 @@ export class PullRequestManager {
 	}
 
 	private async addReviewTimelineEventComments(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
-		const reviewEvents = events.filter(isReviewEvent);
-		const reviewComments = await this.getPullRequestComments(pullRequest);
-
-		// Group comments by file and position
-		const commentsByFile = groupBy(reviewComments, comment => comment.path);
-		for (let file in commentsByFile) {
-			const fileComments = commentsByFile[file];
-			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.original_position : comment.position));
-
-			// Loop through threads, for each thread, see if there is a matching review, push all comments to it
-			for (let i in commentThreads) {
-				const comments = commentThreads[i];
-				const reviewId = comments[0].pull_request_review_id;
-
-				if (reviewId) {
-					const matchingEvent = reviewEvents.find(review => review.id === reviewId);
-					if (matchingEvent) {
-						if (matchingEvent.comments) {
-							matchingEvent.comments = matchingEvent.comments.concat(comments);
-						} else {
-							matchingEvent.comments = comments;
-						}
-					}
-				}
-			}
+		interface CommentNode extends Comment {
+			childComments?: CommentNode[];
 		}
+
+		const reviewEvents = events.filter(isReviewEvent);
+		const reviewComments = await this.getPullRequestComments(pullRequest) as CommentNode[];
+
+		const reviewEventsById = reviewEvents.reduce((index, evt) => {
+			index[evt.id] = evt;
+			evt.comments = [];
+			return index;
+		}, {});
+
+		const commentsById = reviewComments.reduce((index, evt) => {
+			index[evt.id] = evt;
+			return index;
+		}, {});
+
+		const roots = [];
+		let i = reviewComments.length; while (i --> 0) {
+			const c: CommentNode = reviewComments[i];
+			if (!c.in_reply_to_id) {
+				roots.push(c);
+				continue;
+			}
+			const parent = commentsById[c.in_reply_to_id];
+			parent.childComments = parent.childComments || [];
+			parent.childComments = [c, ...(c.childComments || []), ...parent.childComments];
+		}
+
+		roots.forEach(c => {
+			const review = reviewEventsById[c.pull_request_review_id];
+			review.comments = review.comments.concat(c).concat(c.childComments || []);
+		});
+
+		console.log(reviewEvents);
 	}
 
 	private async fixCommitAttribution(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
@@ -1172,5 +1182,6 @@ const toComment = (comment: any): any => ({
 	original_position: comment.originalPosition,
 	diff_hunk: comment.diffHunk,
 	isDraft: comment.state === 'PENDING',
-	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId
+	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId,
+	in_reply_to_id: comment.replyTo && comment.replyTo.databaseId,
 });

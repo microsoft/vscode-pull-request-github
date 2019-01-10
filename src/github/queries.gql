@@ -13,6 +13,7 @@ fragment Comment on PullRequestReviewComment {
 	state
 	url
 	pullRequestReview { databaseId }
+	replyTo { databaseId }
 }
 
 query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
