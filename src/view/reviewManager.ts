@@ -1175,7 +1175,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		this._telemetry.on('pr.checkout');
-		Logger.appendLine('Review> switch to Pull Request #${pr.prNumber} - done', ReviewManager.ID);
+		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - done`, ReviewManager.ID);
 		this.switchingToReviewMode = false;
 		await this._repository.status();
 	}
