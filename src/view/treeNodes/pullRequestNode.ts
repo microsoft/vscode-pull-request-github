@@ -664,29 +664,19 @@ export class PRNode extends TreeNode {
 
 	private async finishDraft(_token: vscode.CancellationToken): Promise<void> {
 		try {
-			const comments = await this._prManager.submitReview(this.pullRequestModel);
+			await this._prManager.submitReview(this.pullRequestModel);
+			const allComments = this._fileChanges
+				.reduce((all, change) =>
+					all.concat(change instanceof InMemFileChangeNode ? change.comments : []), []);
+			allComments.forEach(c => c.isDraft = false);
 
-			// Group comments by file and then position to create threads.
-			const commentsByPath = groupBy(comments, comment => comment.path);
-
-			let commentThreads: vscode.CommentThread[] = [];
-			for (let filePath in commentsByPath) {
-				const commentsForFile = commentsByPath[filePath];
-				const matchingFileChange = this._fileChanges.find(fileChange => fileChange.fileName === filePath);
-
-				if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
-					// Create threads for comments on the base file and on the modified file.
-					commentThreads = commentThreads.concat(commentsToCommentThreads(matchingFileChange, commentsForFile, false));
-					commentThreads = commentThreads.concat(commentsToCommentThreads(matchingFileChange, commentsForFile, true));
-
-					// Update isDraft flags on comments in file change's comment list
-					matchingFileChange.comments.forEach(comment => {
-						if (comments.some(updatedComment => updatedComment.id === comment.id)) {
-							comment.isDraft = false;
-						}
-					});
-				}
-			}
+			const commentThreads = this._fileChanges
+				.reduce((threads, change) => change instanceof InMemFileChangeNode
+					? threads
+						.concat(commentsToCommentThreads(change, change.comments, false))
+						.concat(commentsToCommentThreads(change, change.comments, true))
+					: threads,
+					[]);
 
 			this._onDidChangeCommentThreads.fire({
 				added: [],

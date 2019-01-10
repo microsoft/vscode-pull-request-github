@@ -29,7 +29,7 @@ export class GitHubRepository implements IGitHubRepository, IDisposable {
 	private _hub: GitHub;
 	private _initialized: boolean;
 	private _metadata: any;
-	private _toDispose: IDisposable[];
+	private _toDispose: IDisposable[] = [];
 
 	public commentsProvider: PRDocumentCommentProvider | PRDocumentCommentProviderGraphQL;
 
