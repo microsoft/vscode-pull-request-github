@@ -11,6 +11,7 @@ fragment Comment on PullRequestReviewComment {
 	diffHunk
 	position
 	state
+	url
 	pullRequestReview { databaseId }
 }
 
@@ -50,9 +51,9 @@ mutation StartReview($input: AddPullRequestReviewInput!) {
 	}
 }
 
-mutation SubmitReview($id: ID!) {
+mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!) {
 	submitPullRequestReview(input: {
-		event: COMMENT,
+		event: $event,
 		pullRequestReviewId: $id
 	}) {
 		pullRequestReview {

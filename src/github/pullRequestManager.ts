@@ -875,7 +875,7 @@ export class PullRequestManager {
 		return ret.data;
 	}
 
-	public async submitReview(pullRequest: PullRequestModel): Promise<Comment[]> {
+	public async submitReview(pullRequest: PullRequestModel, event='COMMENT'): Promise<Comment[]> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
@@ -883,7 +883,8 @@ export class PullRequestManager {
 			const { data } = await mutate({
 				mutation: queries.SubmitReview,
 				variables: {
-					id: pendingReviewId
+					id: pendingReviewId,
+					event,
 				}
 			});
 
@@ -894,7 +895,11 @@ export class PullRequestManager {
 	}
 
 	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<any> {
-		return this.createReview(pullRequest, ReviewEvent.RequestChanges, message)
+		const action: Promise<any> = await this.getPendingReviewId(pullRequest)
+				? this.submitReview(pullRequest, 'REQUEST_CHANGES')
+				: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
+
+		return action
 			.then(x => {
 				this._telemetry.on('pr.requestChanges');
 				return x;
@@ -902,11 +907,13 @@ export class PullRequestManager {
 	}
 
 	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<any> {
-		return this.createReview(pullRequest, ReviewEvent.Approve, message)
-			.then(x => {
-				this._telemetry.on('pr.approve');
-				return x;
-			});
+		const action: Promise<any> = await this.getPendingReviewId(pullRequest)
+				? this.submitReview(pullRequest, 'APPROVE')
+				: this.createReview(pullRequest, ReviewEvent.Approve, message);
+		return action.then(x => {
+			this._telemetry.on('pr.approve');
+			return x;
+		});
 	}
 
 	async getPullRequestFileChangesInfo(pullRequest: PullRequestModel): Promise<IRawFileChange[]> {
