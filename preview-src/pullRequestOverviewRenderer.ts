@@ -101,6 +101,7 @@ export function renderStatusChecks(pr: PullRequest) {
 	statusCheckInformationContainer.appendChild(statusSummary);
 
 	const statusesToggle = document.createElement('a');
+	statusesToggle.href = '#';
 	statusesToggle.setAttribute('aria-role', 'button');
 	statusesToggle.textContent = status.state === 'success' ? 'Show' : 'Hide';
 	statusesToggle.addEventListener('click', () => {
@@ -135,12 +136,17 @@ export function renderStatusChecks(pr: PullRequest) {
 
 		statusElement.appendChild(state);
 
-		const statusIcon = renderUserIcon(s.url, s.avatar_url);
+		const statusIcon = renderUserIcon(s.target_url, s.avatar_url);
 		statusElement.appendChild(statusIcon);
 
 		const statusDescription = document.createElement('span');
 		statusDescription.textContent = `${s.context} - ${s.description}`;
 		statusElement.appendChild(statusDescription);
+
+		const detailsLink = document.createElement('a');
+		detailsLink.textContent = 'Details';
+		detailsLink.href = s.target_url;
+		statusElement.appendChild(detailsLink);
 
 		statusList.appendChild(statusElement);
 	});
