@@ -17,7 +17,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, parseGraphQLComment } from './utils';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -381,9 +381,9 @@ export class PullRequestManager {
 			});
 
 			const comments = data.repository.pullRequest.reviews.nodes
-				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toComment(comment), remote)))
+				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(parseGraphQLComment(comment), remote)))
 				.reduce((prev, curr) => curr = prev.concat(curr), []);
-			return comments.map(comment => convertPullRequestsGetCommentsResponseItemToComment(comment));
+			return comments;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
 		}
@@ -1158,5 +1158,5 @@ const toComment = (comment: any): any => ({
 	diff_hunk: comment.diffHunk,
 	isDraft: comment.state === 'PENDING',
 	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId,
-	commitId: comment.commit.id
+	commitId: comment.commit.oid
 });

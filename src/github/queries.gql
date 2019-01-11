@@ -112,7 +112,7 @@ fragment ReviewComment on PullRequestReviewComment {
 	state
 	pullRequestReview { databaseId }
 	commit {
-		id
+		oid
 	}
 }
 
