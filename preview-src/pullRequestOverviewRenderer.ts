@@ -376,8 +376,7 @@ class CommentNode {
 		commentHeader.appendChild(userIcon);
 		commentHeader.appendChild(authorLink);
 
-		const isPending = this._review && this._review.isPending();
-		if (isPending) {
+		if ((this._comment as Comment).isDraft) {
 			const pendingTag = document.createElement('a');
 			pendingTag.className = 'pending';
 			pendingTag.href = this._comment.html_url;

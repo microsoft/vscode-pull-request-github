@@ -1075,7 +1075,7 @@ export class PullRequestManager {
 		let i = reviewComments.length; while (i --> 0) {
 			const c: CommentNode = reviewComments[i];
 			if (!c.in_reply_to_id) {
-				roots.push(c);
+				roots.unshift(c);
 				continue;
 			}
 			const parent = commentsById[c.in_reply_to_id];
