@@ -1157,5 +1157,6 @@ const toComment = (comment: any): any => ({
 	original_position: comment.originalPosition,
 	diff_hunk: comment.diffHunk,
 	isDraft: comment.state === 'PENDING',
-	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId
+	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId,
+	commitId: comment.commit.id
 });

@@ -4,98 +4,98 @@
 #  *--------------------------------------------------------------------------------------------*/
 
 fragment Merged on MergedEvent {
-  id
-  actor {
-    login
-    avatarUrl
-    url
-  }
-  createdAt
-  mergeRef {
-    name
-  }
+	id
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	createdAt
+	mergeRef {
+		name
+	}
 }
 
 fragment Comment on IssueComment {
-  id
-  databaseId
-  authorAssociation
-  author {
-    login
-    avatarUrl
-    url
-  }
-  url
-  body
-  updatedAt
-  createdAt
-  viewerCanUpdate
-  viewerCanReact
-  viewerCanDelete
+	id
+	databaseId
+	authorAssociation
+	author {
+		login
+		avatarUrl
+		url
+	}
+	url
+	body
+	updatedAt
+	createdAt
+	viewerCanUpdate
+	viewerCanReact
+	viewerCanDelete
 }
 
 fragment Commit on Commit {
-  id
-  author {
-    user {
-      login
-      avatarUrl
-      url
-    }
-  }
-  url
-  oid
-  message
+	id
+	author {
+		user {
+			login
+			avatarUrl
+			url
+		}
+	}
+	url
+	oid
+	message
 }
 
 fragment AssignedEvent on AssignedEvent {
-  actor {
-    login
-    avatarUrl
-    url
-  }
-  user {
-    login
-    avatarUrl
-    url
-  }
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	user {
+		login
+		avatarUrl
+		url
+	}
 }
 
 fragment Review on PullRequestReview {
-  id
-  databaseId
-  authorAssociation
-  url
-  author {
-    login
-    avatarUrl
-    url
-  }
-  state
-  body
-  submittedAt
-  updatedAt
-  createdAt
+	id
+	databaseId
+	authorAssociation
+	url
+	author {
+		login
+		avatarUrl
+		url
+	}
+	state
+	body
+	submittedAt
+	updatedAt
+	createdAt
 }
 
 query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 100) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      bodyHTML
-      timeline(last: $last) {
-        edges {
-          node {
-            __typename
-            ...Merged
-            ...Comment
-            ...Review
-            ...Commit
-            ...AssignedEvent
-          }
-        }
-      }
-    }
-  }
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			bodyHTML
+			timeline(last: $last) {
+				edges {
+					node {
+						__typename
+						...Merged
+						...Comment
+						...Review
+						...Commit
+						...AssignedEvent
+					}
+				}
+			}
+		}
+	}
 }
 
 fragment ReviewComment on PullRequestReviewComment {
@@ -107,6 +107,9 @@ fragment ReviewComment on PullRequestReviewComment {
 	position
 	state
 	pullRequestReview { databaseId }
+	commit {
+		id
+	}
 }
 
 query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
