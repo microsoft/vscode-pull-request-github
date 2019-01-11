@@ -9,7 +9,7 @@ import * as Github from '@octokit/rest';
 import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType, isReviewEvent, isCommitEvent, isCommentEvent } from '../common/timelineEvent';
+import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
 import { IPullRequestsPagingOptions, PullRequest, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, IRawFileChange, IAccount } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri, PRUriParams } from '../common/uri';
 
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents } from './utils';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -144,9 +144,9 @@ export class PullRequestManager {
 						return;
 					}
 
-					let prRelatedusers: IAccount[] = [];
+					let prRelatedusers: { login: string; name?: string; }[] = [];
 					let fileRelatedUsersNames: { [key: string]: boolean } = {};
-					let mentionableUsers: { [key: string]: IAccount[]; } = {};
+					let mentionableUsers: { [key: string]: { login: string; name?: string; }[]; } = {};
 					let params: PRUriParams;
 
 					if (activeTextEditors.length) {
@@ -181,7 +181,8 @@ export class PullRequestManager {
 							try {
 								Logger.debug('git blame and parse users', PullRequestManager.ID);
 								let fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
-								let blameLines = await this.repository.blame(fsPath, false);
+								let blames = await this.repository.blame(fsPath);
+								let blameLines = blames.split('\n');
 
 								for (let line in blameLines) {
 									let matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(blameLines[line]);
@@ -765,10 +766,10 @@ export class PullRequestManager {
 		return this.addCommentPermissions(toComment(comment), remote);
 	}
 
-	async createComment(pullRequest: PullRequestModel, body: string, path: string, position: number): Promise<Comment> {
+	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<Comment> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
 		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path, position });
+			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path: commentPath, position });
 		}
 
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
@@ -780,7 +781,7 @@ export class PullRequestManager {
 				number: pullRequest.prNumber,
 				body: body,
 				commit_id: pullRequest.head.sha,
-				path: path,
+				path: commentPath,
 				position: position
 			});
 
