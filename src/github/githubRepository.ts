@@ -337,7 +337,8 @@ export class GitHubRepository implements IGitHubRepository {
 						return {
 							login: node.login,
 							avatarUrl: node.avatarUrl,
-							name: node.name
+							name: node.name,
+							email: node.email
 						};
 					}));
 

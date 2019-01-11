@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import * as Github from '@octokit/rest';
 import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
@@ -19,7 +20,7 @@ import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
-import { fromPRUri } from '../common/uri';
+import { fromPRUri, PRUriParams } from '../common/uri';
 
 const queries = require('./queries.gql');
 
@@ -122,12 +123,11 @@ export class PullRequestManager {
 		});
 		this.getIncludeRemoteConfig();
 		this.setUpCompletionItemProvider();
-
 	}
 
 	private setUpCompletionItemProvider() {
 		let lastPullRequest: PullRequestModel = null;
-		let timelineEvents: TimelineEvent[] = [];
+		let cachedUsers = [];
 
 		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
 			provideCompletionItems: async (document, position, token) => {
@@ -135,67 +135,120 @@ export class PullRequestManager {
 					let query = JSON.parse(document.uri.query);
 					let activeTextEditors = vscode.window.visibleTextEditors.filter(editor => editor.document.uri.scheme === 'pr');
 
-					if (query.extensionId === EXTENSION_ID) {
-						let relatedUsers: IAccount[] = [];
+					if (query.extensionId !== EXTENSION_ID) {
+						return;
+					}
 
+					let wordRange = document.getWordRangeAtPosition(position, /@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})?/i);
+					if (wordRange.isEmpty) {
+						return;
+					}
+
+					let prRelatedusers: IAccount[] = [];
+					let fileRelatedUsersNames: { [key: string]: boolean } = {};
+					let mentionableUsers: { [key: string]: IAccount[]; } = {};
+					let params: PRUriParams;
+
+					if (activeTextEditors.length) {
+						params = fromPRUri(activeTextEditors[0].document.uri);
+
+						if (lastPullRequest && params.prNumber === lastPullRequest.prNumber) {
+							return cachedUsers;
+						}
+					}
+
+					let prRelatedUsersPromise = new Promise(async resolve => {
+						if (params) {
+							Logger.debug('get Timeline Events and parse users', PullRequestManager.ID);
+							let relatedTimelineEvents: TimelineEvent[] = [];
+							let remoteName = params.remoteName;
+							let githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
+
+							if (githubRepos.length) {
+								lastPullRequest = await githubRepos[0].getPullRequest(params.prNumber);
+								relatedTimelineEvents = await this.getTimelineEvents(lastPullRequest);
+							}
+
+							prRelatedusers = getRelatedUsersFromTimelineEvents(relatedTimelineEvents);
+							resolve();
+						}
+
+						resolve();
+					});
+
+					let fileRelatedUsersNamesPromise = new Promise(async resolve => {
 						if (activeTextEditors.length) {
-							let params = fromPRUri(activeTextEditors[0].document.uri);
+							try {
+								Logger.debug('git blame and parse users', PullRequestManager.ID);
+								let fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
+								let blameLines = await this.repository.blame(fsPath, false);
 
-							if (params) {
-								let relatedTimelineEvents: TimelineEvent[] = [];
+								for (let line in blameLines) {
+									let matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(blameLines[line]);
 
-								if (lastPullRequest && params.prNumber === lastPullRequest.prNumber) {
-									// fetch from lastPullRequest
-									relatedTimelineEvents = timelineEvents;
-								} else {
-									let remoteName = params.remoteName;
-
-									let githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
-
-									if (githubRepos.length) {
-										lastPullRequest = await githubRepos[0].getPullRequest(params.prNumber);
-										timelineEvents = await this.getTimelineEvents(lastPullRequest);
-										relatedTimelineEvents = timelineEvents;
+									if (matches && matches.length === 2) {
+										let name = matches[1].trim();
+										fileRelatedUsersNames[name] = true;
 									}
 								}
-
-								relatedUsers = getRelatedUsersFromTimelineEvents(relatedTimelineEvents);
+							} catch (err) {
+								Logger.debug(err, PullRequestManager.ID);
 							}
 						}
 
-						let mentionableUsers = await this.getMentionableUsers();
+						resolve();
+					});
 
-						let users = mentionableUsers['upstream'] || mentionableUsers['origin'] || [];
+					let getMentionableUsersPromise = new Promise(async resolve => {
+						Logger.debug('get mentionable users', PullRequestManager.ID);
+						mentionableUsers = await this.getMentionableUsers();
+						resolve();
+					});
 
-						let firstMap = {};
-						relatedUsers.forEach(user => {
-							firstMap[user.login] = user;
-						});
+					await Promise.all([prRelatedUsersPromise, fileRelatedUsersNamesPromise, getMentionableUsersPromise]);
 
-						let ret = relatedUsers.map(user => {
-							return {
+					cachedUsers = [];
+					let prRelatedUsersMap = {};
+					Logger.debug('prepare user suggestions', PullRequestManager.ID);
+
+					prRelatedusers.forEach(user => {
+						if (!prRelatedUsersMap[user.login]) {
+							prRelatedUsersMap[user.login] = true;
+							cachedUsers.push({
 								label: `@${user.login}`,
 								insertText: `${user.login}`,
-								filterText: `${user.login}`,
+								filterText: `${user.login}` + (user.name && user.name !== user.login ? `_${user.name.toLowerCase().replace(' ', '_')}` : ''),
 								sortText: `0_${user.login}`,
 								detail: `${user.name}`
-							};
-						});
+							});
+						}
+					});
 
-						users.forEach(user => {
-							if (!firstMap[user.login]) {
-								ret.push({
+					let secondMap = {};
+
+					for (let mentionableUserGroup in mentionableUsers) {
+						mentionableUsers[mentionableUserGroup].forEach(user => {
+							if (!prRelatedUsersMap[user.login] && !secondMap[user.login]) {
+								secondMap[user.login] = true;
+
+								let priority = 2;
+								if (fileRelatedUsersNames[user.login] || (user.name && fileRelatedUsersNames[user.name])) {
+									priority = 1;
+								}
+								cachedUsers.push({
 									label: `@${user.login}`,
 									insertText: `${user.login}`,
-									filterText: `${user.login}`,
-									sortText: (firstMap[user.login] ? '1' : '2') + `${user.login}`,
+									filterText: `${user.login}` +  (user.name && user.name !== user.login ? `_${user.name.toLowerCase().replace(' ', '_')}` : ''),
+									sortText: `${priority}_${user.login}`,
 									detail: `${user.name}`
 								});
 							}
 						});
-
-						return ret;
 					}
+
+					Logger.debug('done', PullRequestManager.ID);
+					return cachedUsers;
+
 				} catch(e) {
 					return [];
 				}
