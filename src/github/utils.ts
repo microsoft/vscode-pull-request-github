@@ -172,7 +172,7 @@ export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {
 
 		if (event.event === EventType.Committed) {
 			event.sha = event.oid;
-			event.author = event.author.user;
+			event.author = event.author.user || { login: event.committer.name, avatarUrl: event.committer.avatarUrl };
 			event.htmlUrl = event.url;
 		}
 	});

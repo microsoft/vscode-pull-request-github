@@ -43,6 +43,10 @@ fragment Commit on Commit {
 			url
 		}
 	}
+	committer {
+		avatarUrl
+		name
+	}
 	url
 	oid
 	message

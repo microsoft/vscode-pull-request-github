@@ -463,7 +463,7 @@ export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
 
 	const message: HTMLDivElement = document.createElement('div');
 	message.className = 'message';
-	if (timelineEvent.author.url && timelineEvent.author.avatarUrl) {
+	if (timelineEvent.author && timelineEvent.author.url && timelineEvent.author.avatarUrl) {
 		const userIcon = renderUserIcon(timelineEvent.author.url, timelineEvent.author.avatarUrl);
 		commitMessage.appendChild(userIcon);
 
