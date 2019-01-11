@@ -3,7 +3,106 @@
 #  *  Licensed under the MIT License. See License.txt in the project root for license information.
 #  *--------------------------------------------------------------------------------------------*/
 
-fragment Comment on PullRequestReviewComment {
+fragment Merged on MergedEvent {
+	id
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	createdAt
+	mergeRef {
+		name
+	}
+}
+
+fragment Comment on IssueComment {
+	id
+	databaseId
+	authorAssociation
+	author {
+		login
+		avatarUrl
+		url
+	}
+	url
+	body
+	updatedAt
+	createdAt
+	viewerCanUpdate
+	viewerCanReact
+	viewerCanDelete
+}
+
+fragment Commit on Commit {
+	id
+	author {
+		user {
+			login
+			avatarUrl
+			url
+		}
+	}
+	committer {
+		avatarUrl
+		name
+	}
+	url
+	oid
+	message
+}
+
+fragment AssignedEvent on AssignedEvent {
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	user {
+		login
+		avatarUrl
+		url
+	}
+}
+
+fragment Review on PullRequestReview {
+	id
+	databaseId
+	authorAssociation
+	url
+	author {
+		login
+		avatarUrl
+		url
+	}
+	state
+	body
+	submittedAt
+	updatedAt
+	createdAt
+}
+
+query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 100) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			bodyHTML
+			timeline(last: $last) {
+				edges {
+					node {
+						__typename
+						...Merged
+						...Comment
+						...Review
+						...Commit
+						...AssignedEvent
+					}
+				}
+			}
+		}
+	}
+}
+
+fragment ReviewComment on PullRequestReviewComment {
 	id databaseId url
 	author { login avatarUrl }
 	path originalPosition
@@ -12,6 +111,9 @@ fragment Comment on PullRequestReviewComment {
 	position
 	state
 	pullRequestReview { databaseId }
+	commit {
+		id
+	}
 }
 
 query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
@@ -28,7 +130,7 @@ query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:In
 			reviews(first:$first) {
 				nodes {
 					comments(first:100) {
-						nodes { ...Comment }
+						nodes { ...ReviewComment }
 					}
 				}
 			}
@@ -36,27 +138,10 @@ query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:In
 	}
 }
 
-query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
-	repository(owner: $owner, name: $name) {
-		mentionableUsers(first: $first, after: $after) {
-			nodes {
-				login
-				avatarUrl
-				name
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
-			}
-		}
-	}
-}
-
-
 mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	addPullRequestReviewComment(input: $input) {
 		comment {
-		...Comment
+		...ReviewComment
 		}
 	}
 }
@@ -74,7 +159,7 @@ mutation SubmitReview($id: ID!) {
 	}) {
 		pullRequestReview {
 			comments(first:100) {
-				nodes { ...Comment }
+				nodes { ...ReviewComment }
 			}
 		}
 	}
@@ -84,7 +169,23 @@ mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 	deletePullRequestReview(input: $input) {
 		pullRequestReview {
 			comments(first:100) {
-					nodes { ...Comment }
+					nodes { ...ReviewComment }
+			}
+		}
+	}
+}
+
+query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		mentionableUsers(first: $first, after: $after) {
+			nodes {
+				login
+				avatarUrl
+				name
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
 			}
 		}
 	}

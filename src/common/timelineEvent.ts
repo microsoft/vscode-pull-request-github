@@ -3,10 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Github from '@octokit/rest';
 import { Comment } from './comment';
-
-type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+import { IAccount } from '../github/interface';
 
 export enum EventType {
 	Committed,
@@ -14,37 +12,50 @@ export enum EventType {
 	Subscribed,
 	Commented,
 	Reviewed,
+	Labeled,
+	Milestoned,
+	Assigned,
+	Merged,
 	Other
 }
 
-export interface CommentEvent extends Omit<Github.IssuesGetEventsTimelineResponseItem, 'commit_id' | 'commit_url' | 'event'> {
-	html_url: string;
-	issue_url: string;
+export interface Committer {
+	date: string;
+	name: string;
+	email: string;
+}
+
+export interface CommentEvent {
+	htmlUrl: string;
 	body: string;
-	author_association: string;
-	updated_at: string;
-	user: Github.IssuesGetEventsTimelineResponseItem['actor'];
+	bodyHTML?: string;
+	user: IAccount;
 	event: EventType;
 	canEdit?: boolean;
 	canDelete?: boolean;
-	eventType: EventType;
+	id: number;
+	createdAt: string;
 }
 
-export interface ReviewEvent extends Github.PullRequestsCreateReviewResponse {
-	author_association: string;
+export interface ReviewEvent {
 	event: string;
-	eventType: EventType;
 	comments: Comment[];
-	submitted_at: string;
+	submittedAt: string;
+	body: string;
+	htmlUrl: string;
+	user: IAccount;
+	state: string;
+	id: number;
 }
 
-export interface CommitEvent extends Github.ReposCreateFileResponseCommit {
-	author: Github.ReposCreateFileResponseCommit['author'] & {
-		login: string;
-		avatar_url: string;
-		html_url: string;
-	};
+export interface CommitEvent {
+	author: IAccount;
 	event: string;
+	sha: string;
+	url: string;
+	htmlUrl: string;
+	message: string;
+	bodyHTML?: string;
 }
 
 export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent;

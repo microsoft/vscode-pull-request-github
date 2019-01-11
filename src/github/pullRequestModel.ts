@@ -14,8 +14,6 @@ export class PullRequestModel {
 	public title: string;
 	public html_url: string;
 	public state: PullRequestStateEnum = PullRequestStateEnum.Open;
-	public commentCount: number;
-	public commitCount: number;
 	public author: IAccount;
 	public assignee: IAccount;
 	public createdAt: string;
@@ -33,7 +31,7 @@ export class PullRequestModel {
 
 	public get userAvatar(): string {
 		if (this.prItem) {
-			return this.prItem.user.avatar_url;
+			return this.prItem.user.avatarUrl;
 		}
 
 		return null;
@@ -62,6 +60,8 @@ export class PullRequestModel {
 		return null;
 	}
 
+	public bodyHTML?: string;
+
 	public head: GitHubRef;
 	public base: GitHubRef;
 
@@ -72,14 +72,8 @@ export class PullRequestModel {
 	update(prItem: PullRequest): void {
 		this.prNumber = prItem.number;
 		this.title = prItem.title;
-		this.html_url = prItem.html_url;
-		this.author = {
-			login: prItem.user.login,
-			isUser: prItem.user.type === 'User',
-			isEnterprise: prItem.user.type === 'Enterprise',
-			avatarUrl: prItem.user.avatar_url,
-			htmlUrl: prItem.user.html_url
-		};
+		this.html_url = prItem.url;
+		this.author = prItem.user;
 		this.labels = prItem.labels.map(label => label.name);
 
 		if (prItem.state === 'open') {
@@ -89,20 +83,14 @@ export class PullRequestModel {
 		}
 
 		if (prItem.assignee) {
-			this.assignee = {
-				login: prItem.assignee.login,
-				isUser: prItem.assignee.type === 'User',
-				isEnterprise: prItem.assignee.type === 'Enterprise',
-				avatarUrl: prItem.assignee.avatar_url,
-				htmlUrl: prItem.assignee.html_url
-			};
+			this.assignee = prItem.assignee;
 		}
 
-		this.createdAt = prItem.created_at;
-		this.updatedAt = prItem.updated_at ? prItem.updated_at : this.createdAt;
+		this.createdAt = prItem.createdAt;
+		this.updatedAt = prItem.updatedAt ? prItem.updatedAt : this.createdAt;
 
-		this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.clone_url);
-		this.base = new GitHubRef(prItem.base.ref, prItem.base.label, prItem.base.sha, prItem.base.repo.clone_url);
+		this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.cloneUrl);
+		this.base = new GitHubRef(prItem.base.ref, prItem.base.label, prItem.base.sha, prItem.base.repo.cloneUrl);
 	}
 
 	equals(other: PullRequestModel): boolean {
