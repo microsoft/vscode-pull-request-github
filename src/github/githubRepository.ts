@@ -186,7 +186,6 @@ export class GitHubRepository implements IGitHubRepository {
 						}
 
 						const item = convertRESTPullRequestToRawPullRequest(pullRequest);
-
 						return new PullRequestModel(this, this.remote, item);
 					}
 				)

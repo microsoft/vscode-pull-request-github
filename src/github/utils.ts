@@ -5,7 +5,7 @@
 'use strict';
 
 import * as Octokit from '@octokit/rest';
-import { IAccount, IRawPullRequest } from './interface';
+import { IAccount, PullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
@@ -30,7 +30,7 @@ export function convertRESTHeadToIGitHubRef(head: Octokit.PullRequestsGetRespons
 	};
 }
 
-export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullRequestsCreateResponse | Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem): IRawPullRequest {
+export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullRequestsCreateResponse | Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem): PullRequest {
 	let {
 		number,
 		body,
@@ -43,12 +43,13 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 		updated_at,
 		head,
 		base,
-		labels
+		labels,
+		node_id
 		// comments,
 		// commits
 	} = pullRequest;
 
-	const item: IRawPullRequest = {
+	const item: PullRequest = {
 			number,
 			body,
 			title,
@@ -63,7 +64,8 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			// commits,
 			head: convertRESTHeadToIGitHubRef(head),
 			base: convertRESTHeadToIGitHubRef(base),
-			labels
+			labels,
+			nodeId: node_id
 	};
 
 	return item;
@@ -91,6 +93,7 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 		diffHunks: [],
 		path: null,
 		position: null,
+		commitId: null,
 		originalPosition: null,
 		originalCommitId: null,
 		user: convertRESTUserToAccount(comment.user),
@@ -98,7 +101,6 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url
 	};
-
 }
 
 export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse): Comment {
@@ -109,12 +111,14 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		diffHunk: comment.diff_hunk,
 		path: comment.path,
 		position: comment.position,
+		commitId: comment.commit_id,
 		originalPosition: comment.original_position,
 		originalCommitId: comment.original_commit_id,
 		user: convertRESTUserToAccount(comment.user),
 		body: comment.body,
 		createdAt: comment.created_at,
-		htmlUrl: comment.html_url
+		htmlUrl: comment.html_url,
+		nodeId: comment.node_id
 	};
 
 	let diffHunks = parseCommentDiffHunk(ret);

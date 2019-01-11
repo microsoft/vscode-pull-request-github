@@ -6,10 +6,11 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
-import { IPullRequestManager, PRType, ITelemetry } from '../github/interface';
+import { PRType, ITelemetry } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { getPRDocumentCommentProvider } from './prDocumentCommentProvider';
+import { PullRequestManager } from '../github/pullRequestManager';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
@@ -18,11 +19,15 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
 	private _disposables: vscode.Disposable[];
 	private _childrenDisposables: vscode.Disposable[];
-	private _view: vscode.TreeView<any>;
+	private _view: vscode.TreeView<TreeNode>;
+
+	get view(): vscode.TreeView<TreeNode> {
+		return this._view;
+	}
 
 	constructor(
 		onShouldReload: vscode.Event<any>,
-		private _prManager: IPullRequestManager,
+		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry
 	) {
 		this._disposables = [];
@@ -65,21 +70,25 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 
 			let result = [
-				new CategoryTreeNode(this._prManager, this._telemetry, PRType.LocalPullRequest),
-				new CategoryTreeNode(this._prManager, this._telemetry, PRType.RequestReview),
-				new CategoryTreeNode(this._prManager, this._telemetry, PRType.AssignedToMe),
-				new CategoryTreeNode(this._prManager, this._telemetry, PRType.Mine),
-				new CategoryTreeNode(this._prManager, this._telemetry, PRType.All)
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.LocalPullRequest),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.RequestReview),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.AssignedToMe),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Mine),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.All)
 			];
 
 			this._childrenDisposables = result;
 			return Promise.resolve(result);
 		}
 		if (this._prManager.repository.state.remotes.length === 0) {
-			return Promise.resolve([new PRCategoryActionNode(PRCategoryActionType.Empty)]);
+			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Empty)]);
 		}
 
 		return element.getChildren();
+	}
+
+	async getParent(element: TreeNode): Promise<TreeNode> {
+		return element.getParent();
 	}
 
 	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();

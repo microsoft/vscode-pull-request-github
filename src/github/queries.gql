@@ -3,7 +3,6 @@
 #  *  Licensed under the MIT License. See License.txt in the project root for license information.
 #  *--------------------------------------------------------------------------------------------*/
 
-
 fragment Merged on MergedEvent {
   id
   actor {
@@ -97,4 +96,74 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
       }
     }
   }
+}
+
+fragment ReviewComment on PullRequestReviewComment {
+	id databaseId url
+	author { login avatarUrl }
+	path originalPosition
+	body
+	diffHunk
+	position
+	state
+	pullRequestReview { databaseId }
+}
+
+query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
+	node(id: $pullRequestId) {
+		...on PullRequest {
+			reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
+		}
+	}
+}
+
+query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100) {
+	repository(owner:$owner, name:$name) {
+		pullRequest(number:$number) {
+			reviews(first:$first) {
+				nodes {
+					comments(first:100) {
+						nodes { ...ReviewComment }
+					}
+				}
+			}
+		}
+	}
+}
+
+mutation AddComment($input: AddPullRequestReviewCommentInput!) {
+	addPullRequestReviewComment(input: $input) {
+		comment {
+		...ReviewComment
+		}
+	}
+}
+
+mutation StartReview($input: AddPullRequestReviewInput!) {
+	addPullRequestReview(input: $input) {
+		pullRequestReview { id }
+	}
+}
+
+mutation SubmitReview($id: ID!) {
+	submitPullRequestReview(input: {
+		event: COMMENT,
+		pullRequestReviewId: $id
+	}) {
+		pullRequestReview {
+			comments(first:100) {
+				nodes { ...ReviewComment }
+			}
+		}
+	}
+}
+
+mutation DeleteReview($input: DeletePullRequestReviewInput!) {
+	deletePullRequestReview(input: $input) {
+		pullRequestReview {
+			comments(first:100) {
+					nodes { ...ReviewComment }
+			}
+		}
+	}
 }

@@ -18,10 +18,13 @@ export interface Comment {
 	diffHunk: string;
 	path: string;
 	position: number;
+	commitId?: string;
 	originalPosition: number;
 	originalCommitId: string;
 	user: IAccount;
 	body: string;
 	createdAt: string;
 	htmlUrl: string;
+	isDraft?: boolean;
+	nodeId?: string;
 }

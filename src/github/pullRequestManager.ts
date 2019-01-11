@@ -10,7 +10,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestManager, IPullRequestModel, IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, IRawPullRequest, IRawFileChange } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -64,7 +64,7 @@ export class BadUpstreamError extends Error {
 	}
 
 	get message() {
-		const {upstreamRef: {remote, name}, branchName, problem} = this;
+		const { upstreamRef: { remote, name }, branchName, problem } = this;
 		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
 	}
 }
@@ -77,9 +77,18 @@ const enum IncludeRemote {
 	All
 }
 
-export class PullRequestManager implements IPullRequestManager {
+interface NewCommentPosition {
+	path: string;
+	position: number;
+}
+
+interface ReplyCommentPosition {
+	inReplyTo: string;
+}
+
+export class PullRequestManager {
 	static ID = 'PullRequestManager';
-	private _activePullRequest?: IPullRequestModel;
+	private _activePullRequest?: PullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 	private _githubManager: GitHubManager;
@@ -124,7 +133,7 @@ export class PullRequestManager implements IPullRequestManager {
 		return this._activePullRequest;
 	}
 
-	set activePullRequest(pullRequest: IPullRequestModel) {
+	set activePullRequest(pullRequest: PullRequestModel) {
 		this._activePullRequest = pullRequest;
 		this._onDidChangeActivePullRequest.fire();
 	}
@@ -223,7 +232,7 @@ export class PullRequestManager implements IPullRequestManager {
 		return ret;
 	}
 
-	async getLocalPullRequests(): Promise<IPullRequestModel[]> {
+	async getLocalPullRequests(): Promise<PullRequestModel[]> {
 		const githubRepositories = this._githubRepositories;
 
 		if (!githubRepositories || !githubRepositories.length) {
@@ -285,7 +294,7 @@ export class PullRequestManager implements IPullRequestManager {
 		this._telemetry.on('branch.delete');
 	}
 
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[IPullRequestModel[], boolean]> {
+	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[PullRequestModel[], boolean]> {
 		let githubRepositories = this._githubRepositories;
 
 		if (!githubRepositories || !githubRepositories.length) {
@@ -340,8 +349,8 @@ export class PullRequestManager implements IPullRequestManager {
 		return this._githubRepositories.some(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
 	}
 
-	async getStatusChecks(pullRequest: IPullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse> {
-		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+	async getStatusChecks(pullRequest: PullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse> {
+		const { remote, octokit } = await pullRequest.githubRepository.ensure();
 
 		const result = await octokit.repos.getCombinedStatusForRef({
 			owner: remote.owner,
@@ -352,10 +361,40 @@ export class PullRequestManager implements IPullRequestManager {
 		return result.data;
 	}
 
-	async getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]> {
+	async getPullRequestComments(pullRequest: PullRequestModel): Promise<Comment[]> {
+		const { supportsGraphQl } = pullRequest.githubRepository;
+		return supportsGraphQl
+			? this.getAllPullRequestReviewComments(pullRequest)
+			: this.getPullRequestReviewComments(pullRequest);
+	}
+
+	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
+		const { remote, query } = await pullRequest.githubRepository.ensure();
+		try {
+			const { data } = await query({
+				query: queries.PullRequestComments,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: pullRequest.prNumber,
+				}
+			});
+
+			const comments = data.repository.pullRequest.reviews.nodes
+				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toComment(comment), remote)))
+				.reduce((prev, curr) => curr = prev.concat(curr), []);
+			return comments.map(comment => convertPullRequestsGetCommentsResponseItemToComment(comment));
+		} catch (e) {
+			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
+		}
+	}
+
+	/**
+	 * Returns review comments from the pull request using the REST API, comments on pending reviews are not included.
+	 */
+	private async getPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-
 		const reviewData = await octokit.pullRequests.getComments({
 			owner: remote.owner,
 			repo: remote.repositoryName,
@@ -367,10 +406,10 @@ export class PullRequestManager implements IPullRequestManager {
 		return rawComments;
 	}
 
-	async getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]> {
+	async getPullRequestCommits(pullRequest: PullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]> {
 		try {
 			Logger.debug(`Fetch commits of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-			const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { remote, octokit } = await pullRequest.githubRepository.ensure();
 			const commitData = await octokit.pullRequests.getCommits({
 				number: pullRequest.prNumber,
 				owner: remote.owner,
@@ -385,10 +424,10 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]> {
+	async getCommitChangedFiles(pullRequest: PullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]> {
 		try {
-		Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
+			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -403,28 +442,12 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Comment[]> {
-		Logger.debug(`Fetch comments of review #${reviewId} in PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
-
-		const reviewData = await octokit.pullRequests.getReviewComments({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
-			review_id: reviewId
-		});
-
-		Logger.debug(`Fetch comments of review #${reviewId} in PR #${pullRequest.prNumber} - `, PullRequestManager.ID);
-		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(comment), remote));
-		return rawComments;
-	}
-
-	async getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]> {
+	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { octokit, query, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { octokit, query, remote } = await pullRequest.githubRepository.ensure();
 
 		let ret = [];
-		if ((pullRequest as PullRequestModel).githubRepository.supportsGraphQl()) {
+		if (pullRequest.githubRepository.supportsGraphQl()) {
 			const { data } = await query({
 				query: queries.TimelineEvents,
 				variables: {
@@ -449,9 +472,9 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async getIssueComments(pullRequest: IPullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]> {
+	async getIssueComments(pullRequest: PullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]> {
 		Logger.debug(`Fetch issue comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		const promise = await octokit.issues.getComments({
 			owner: remote.owner,
@@ -464,8 +487,8 @@ export class PullRequestManager implements IPullRequestManager {
 		return promise.data;
 	}
 
-	async createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Comment> {
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+	async createIssueComment(pullRequest: PullRequestModel, text: string): Promise<Comment> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		const promise = await octokit.issues.createComment({
 			body: text,
@@ -477,8 +500,13 @@ export class PullRequestManager implements IPullRequestManager {
 		return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(promise.data), remote);
 	}
 
-	async createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment> {
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest);
+		if (pendingReviewId) {
+			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.nodeId });
+		}
+
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		try {
 			let ret = await octokit.pullRequests.createCommentReply({
@@ -486,7 +514,7 @@ export class PullRequestManager implements IPullRequestManager {
 				repo: remote.repositoryName,
 				number: pullRequest.prNumber,
 				body: body,
-				in_reply_to: Number(reply_to)
+				in_reply_to: Number(reply_to.id)
 			});
 
 			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
@@ -495,7 +523,82 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment> {
+	async deleteReview(pullRequest: PullRequestModel): Promise<Comment[]> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest);
+		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { data } = await mutate<any>({
+			mutation: queries.DeleteReview,
+			variables: {
+				input: { pullRequestReviewId: pendingReviewId }
+			}
+		});
+
+		return data.deletePullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+	}
+
+	async startReview(pullRequest: PullRequestModel): Promise<void> {
+		const { mutate } = await pullRequest.githubRepository.ensure();
+		return mutate<void>({
+			mutation: queries.StartReview,
+			variables: {
+				input: {
+					body: '',
+					pullRequestId: pullRequest.prItem.nodeId
+				}
+			}
+		}).then(x => x.data).catch(e => {
+			Logger.appendLine(`Failed to start review: ${e.message}`);
+		});
+	}
+
+	async inDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
+		return !!await this.getPendingReviewId(pullRequest);
+	}
+
+	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | null> {
+		if (!pullRequest.githubRepository.supportsGraphQl()) {
+			return null;
+		}
+
+		const { query, octokit } = await pullRequest.githubRepository.ensure();
+		const { currentUser = '' } = octokit as any;
+		try {
+			const { data } = await query({
+				query: queries.GetPendingReviewId,
+				variables: {
+					pullRequestId: (pullRequest as PullRequestModel).prItem.nodeId,
+					author: currentUser.login
+				}
+			});
+			return data.node.reviews.nodes[0].id;
+		} catch (error) {
+			return null;
+		}
+	}
+
+	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<Comment> {
+		const { mutate, remote } = await pullRequest.githubRepository.ensure();
+		const { data } = await mutate({
+			mutation: queries.AddComment,
+			variables: {
+				input: {
+					pullRequestReviewId: reviewId,
+					body,
+					...position
+				}
+			}
+		});
+
+		const { comment } = data.addPullRequestReviewComment;
+		return this.addCommentPermissions(toComment(comment), remote);
+	}
+
+	async createComment(pullRequest: PullRequestModel, body: string, path: string, position: number): Promise<Comment> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		if (pendingReviewId) {
+			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path, position });
+		}
+
 		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
 
 		try {
@@ -519,13 +622,13 @@ export class PullRequestManager implements IPullRequestManager {
 		if (!this.repository.state.HEAD) {
 			throw new DetachedHeadError(this.repository);
 		}
-		const {origin} = this;
+		const { origin } = this;
 		const meta = await origin.getMetadata();
 		const parent = meta.fork
 			? meta.parent
 			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
 		const branchName = this.repository.state.HEAD.name;
-		const {title, body} = titleAndBodyFrom(await this.getHeadCommitMessage());
+		const { title, body } = titleAndBodyFrom(await this.getHeadCommitMessage());
 		return {
 			title, body,
 			owner: parent.owner.login,
@@ -541,8 +644,8 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	async getHeadCommitMessage(): Promise<string> {
-		const {repository} = this;
-		const {message} = await repository.getCommit(repository.state.HEAD.commit);
+		const { repository } = this;
+		const { message } = await repository.getCommit(repository.state.HEAD.commit);
 		return message;
 	}
 
@@ -551,7 +654,7 @@ export class PullRequestManager implements IPullRequestManager {
 			throw new NoGitHubReposError(this.repository);
 		}
 
-		const {upstreamRef} = this;
+		const { upstreamRef } = this;
 		if (upstreamRef) {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
@@ -582,11 +685,11 @@ export class PullRequestManager implements IPullRequestManager {
 	}
 
 	get upstreamRef(): UpstreamRef | undefined {
-		const {HEAD} = this.repository.state;
+		const { HEAD } = this.repository.state;
 		return HEAD && HEAD.upstream;
 	}
 
-	async createPullRequest(params: Github.PullRequestsCreateParams): Promise<IPullRequestModel> {
+	async createPullRequest(params: Github.PullRequestsCreateParams): Promise<PullRequestModel> {
 		try {
 			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
 			if (!repo) {
@@ -621,9 +724,9 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async editIssueComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment> {
+	async editIssueComment(pullRequest: PullRequestModel, commentId: string, text: string): Promise<Comment> {
 		try {
-			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 			const ret = await octokit.issues.editComment({
 				owner: remote.owner,
@@ -638,9 +741,9 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async editReviewComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment> {
+	async editReviewComment(pullRequest: PullRequestModel, commentId: string, text: string): Promise<Comment> {
 		try {
-			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 			const ret = await octokit.pullRequests.editComment({
 				owner: remote.owner,
@@ -655,9 +758,9 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async deleteIssueComment(pullRequest: IPullRequestModel, commentId: string): Promise<void> {
+	async deleteIssueComment(pullRequest: PullRequestModel, commentId: string): Promise<void> {
 		try {
-			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 			await octokit.issues.deleteComment({
 				owner: remote.owner,
@@ -669,9 +772,9 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async deleteReviewComment(pullRequest: IPullRequestModel, commentId: string): Promise<void> {
+	async deleteReviewComment(pullRequest: PullRequestModel, commentId: string): Promise<void> {
 		try {
-			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 			await octokit.pullRequests.deleteComment({
 				owner: remote.owner,
@@ -683,7 +786,7 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	canEditPullRequest(pullRequest: IPullRequestModel): boolean {
+	canEditPullRequest(pullRequest: PullRequestModel): boolean {
 		const username = pullRequest.author && pullRequest.author.login;
 		return this._credentialStore.isCurrentUser(username, pullRequest.remote);
 	}
@@ -697,8 +800,8 @@ export class PullRequestManager implements IPullRequestManager {
 		return rawComment;
 	}
 
-	private async changePullRequestState(state: 'open' | 'closed', pullRequest: IPullRequestModel): Promise<Github.PullRequestsUpdateResponse> {
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+	private async changePullRequestState(state: 'open' | 'closed', pullRequest: PullRequestModel): Promise<Github.PullRequestsUpdateResponse> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.update({
 			owner: remote.owner,
@@ -710,9 +813,9 @@ export class PullRequestManager implements IPullRequestManager {
 		return ret.data;
 	}
 
-	async editPullRequest(pullRequest: IPullRequestModel, toEdit: IPullRequestEditData): Promise<Github.PullRequestsUpdateResponse> {
+	async editPullRequest(pullRequest: PullRequestModel, toEdit: IPullRequestEditData): Promise<Github.PullRequestsUpdateResponse> {
 		try {
-			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 			const { data } = await octokit.pullRequests.update({
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -726,7 +829,7 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	async closePullRequest(pullRequest: IPullRequestModel): Promise<IRawPullRequest> {
+	async closePullRequest(pullRequest: PullRequestModel): Promise<PullRequest> {
 		return this.changePullRequestState('closed', pullRequest)
 			.then(x => {
 				this._telemetry.on('pr.close');
@@ -734,8 +837,8 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 	}
 
-	async mergePullRequest(pullRequest: IPullRequestModel): Promise<any> {
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+	async mergePullRequest(pullRequest: PullRequestModel): Promise<any> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 		return await octokit.pullRequests.merge({
 			commit_message: '',
 			commit_title: '',
@@ -750,8 +853,8 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 	}
 
-	private async createReview(pullRequest: IPullRequestModel, event: ReviewEvent, message?: string): Promise<Github.PullRequestsCreateReviewResponse> {
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<Github.PullRequestsCreateReviewResponse> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		let ret = await octokit.pullRequests.createReview({
 			owner: remote.owner,
@@ -764,7 +867,25 @@ export class PullRequestManager implements IPullRequestManager {
 		return ret.data;
 	}
 
-	async requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any> {
+	public async submitReview(pullRequest: PullRequestModel): Promise<Comment[]> {
+		const pendingReviewId = await this.getPendingReviewId(pullRequest);
+		const { mutate } = await pullRequest.githubRepository.ensure();
+
+		if (pendingReviewId) {
+			const { data } = await mutate({
+				mutation: queries.SubmitReview,
+				variables: {
+					id: pendingReviewId
+				}
+			});
+
+			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+		} else {
+			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
+		}
+	}
+
+	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<any> {
 		return this.createReview(pullRequest, ReviewEvent.RequestChanges, message)
 			.then(x => {
 				this._telemetry.on('pr.requestChanges');
@@ -772,7 +893,7 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 	}
 
-	async approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any> {
+	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<any> {
 		return this.createReview(pullRequest, ReviewEvent.Approve, message)
 			.then(x => {
 				this._telemetry.on('pr.approve');
@@ -780,9 +901,9 @@ export class PullRequestManager implements IPullRequestManager {
 			});
 	}
 
-	async getPullRequestFileChangesInfo(pullRequest: IPullRequestModel): Promise<IRawFileChange[]> {
+	async getPullRequestFileChangesInfo(pullRequest: PullRequestModel): Promise<IRawFileChange[]> {
 		Logger.debug(`Fetch file changes, base, head and merge base of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		if (!pullRequest.base) {
 			const info = await octokit.pullRequests.get({
@@ -806,15 +927,15 @@ export class PullRequestManager implements IPullRequestManager {
 		return data.files;
 	}
 
-	async getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string> {
-		const branch = await (pullRequest as PullRequestModel).githubRepository.getDefaultBranch();
+	async getPullRequestRepositoryDefaultBranch(pullRequest: PullRequestModel): Promise<string> {
+		const branch = await pullRequest.githubRepository.getDefaultBranch();
 		return branch;
 	}
 
-	async fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void> {
+	async fullfillPullRequestMissingInfo(pullRequest: PullRequestModel): Promise<void> {
 		try {
 			Logger.debug(`Fullfill pull request missing info - start`, PullRequestManager.ID);
-			const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 			if (!pullRequest.base) {
 				const { data } = await octokit.pullRequests.get({
@@ -843,7 +964,7 @@ export class PullRequestManager implements IPullRequestManager {
 
 	//#region Git related APIs
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel> {
+	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<PullRequestModel> {
 		const githubRepo = this._githubRepositories.find(repo =>
 			repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase()
 		);
@@ -866,11 +987,11 @@ export class PullRequestManager implements IPullRequestManager {
 		return matchingPullRequestMetadata;
 	}
 
-	async checkoutExistingPullRequestBranch(pullRequest: IPullRequestModel): Promise<boolean> {
+	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel): Promise<boolean> {
 		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, this._githubRepositories, pullRequest);
 	}
 
-	async fetchAndCheckout(pullRequest: IPullRequestModel): Promise<void> {
+	async fetchAndCheckout(pullRequest: PullRequestModel): Promise<void> {
 		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._githubRepositories, pullRequest);
 	}
 
@@ -916,7 +1037,7 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	private async addReviewTimelineEventComments(pullRequest: IPullRequestModel, events: TimelineEvent[]): Promise<void> {
+	private async addReviewTimelineEventComments(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
 		const reviewEvents = events.filter(isReviewEvent);
 		const reviewComments = await this.getPullRequestComments(pullRequest);
 
@@ -945,7 +1066,7 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	private async fixCommitAttribution(pullRequest: IPullRequestModel, events: TimelineEvent[]): Promise<void> {
+	private async fixCommitAttribution(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
 		const commits = await this.getPullRequestCommits(pullRequest);
 		const commitEvents = events.filter(isCommitEvent);
 		for (let commitEvent of commitEvents) {
@@ -962,7 +1083,7 @@ export class PullRequestManager implements IPullRequestManager {
 		}
 	}
 
-	private async parseRESTTimelineEvents(pullRequest: IPullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
+	private async parseRESTTimelineEvents(pullRequest: PullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
 		events.forEach(event => {
 			let type = getEventType(event.event);
 			event.event = type;
@@ -1002,14 +1123,14 @@ export function getEventType(text: string) {
 }
 
 const ownedByMe: Predicate<GitHubRepository> = repo => {
-	const { currentUser=null } = repo.octokit as any;
+	const { currentUser = null } = repo.octokit as any;
 	return currentUser && repo.remote.owner === currentUser.login;
 };
 
 const byRemoteName = (name: string): Predicate<GitHubRepository> =>
-	({remote: {remoteName}}) => remoteName === name;
+	({ remote: { remoteName } }) => remoteName === name;
 
-const titleAndBodyFrom = (message: string): {title: string, body: string} => {
+const titleAndBodyFrom = (message: string): { title: string, body: string } => {
 	const idxLineBreak = message.indexOf('\n');
 	return {
 		title: idxLineBreak === -1
@@ -1021,3 +1142,20 @@ const titleAndBodyFrom = (message: string): {title: string, body: string} => {
 			: message.slice(idxLineBreak + 1),
 	};
 };
+
+const toComment = (comment: any): any => ({
+	id: comment.databaseId,
+	node_id: comment.id,
+	body: comment.body,
+	user: {
+		login: comment.author.login,
+		avatar_url: comment.author.avatarUrl,
+	},
+	position: comment.position,
+	url: comment.url,
+	path: comment.path,
+	original_position: comment.originalPosition,
+	diff_hunk: comment.diffHunk,
+	isDraft: comment.state === 'PENDING',
+	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId
+});

@@ -6,8 +6,8 @@
 'use strict';
 
 import { Uri, UriHandler, EventEmitter } from 'vscode';
-import { IPullRequestModel } from '../github/interface';
 import { GitChangeType } from './file';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export interface ReviewUriParams {
 	path: string;
@@ -94,7 +94,7 @@ export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams {
 	}
 }
 
-export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean, status: GitChangeType): Uri {
+export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean, status: GitChangeType): Uri {
 	const params: PRUriParams = {
 		baseCommit: baseCommit,
 		headCommit: headCommit,

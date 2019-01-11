@@ -18,6 +18,7 @@ const ElementIds = {
 	CheckoutDefaultBranch: 'checkout-default-branch',
 	Merge: 'merge',
 	Close: 'close',
+	Refresh: 'refresh',
 	Reply: 'reply',
 	Approve: 'approve',
 	RequestChanges: 'request-changes',
@@ -60,7 +61,7 @@ function renderPullRequest(pr: PullRequest): void {
 	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
-	renderStatusChecks(pr.status);
+	renderStatusChecks(pr);
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
@@ -110,6 +111,7 @@ function setTitleHTML(pr: PullRequest): void {
 					<div class="button-group">
 						<button id="${ElementIds.Checkout}" aria-live="polite"></button>
 						<button id="${ElementIds.CheckoutDefaultBranch}" aria-live="polite">Exit Review Mode</button>
+						<button id="${ElementIds.Refresh}">Refresh</button>
 					</div>
 				</div>
 				<div class="subtitle">
@@ -163,6 +165,7 @@ function renderTitle(pr: PullRequest): HTMLElement {
 
 function renderDescription(pr: PullRequest): HTMLElement {
 	const commentContainer = document.createElement('div');
+	commentContainer.classList.add('description-container');
 
 	const commentHeader = document.createElement('div');
 	commentHeader.classList.add('description-header');
@@ -235,6 +238,12 @@ function addEventListeners(pr: PullRequest): void {
 		updateStateTimer = window.setTimeout(() => {
 			updateState({ pendingCommentText: inputText });
 		}, 500);
+	});
+
+	document.getElementById(ElementIds.Refresh).addEventListener('click', () => {
+		messageHandler.postMessage({
+			command: 'pr.refresh'
+		});
 	});
 
 	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
