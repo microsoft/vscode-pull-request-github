@@ -156,6 +156,7 @@ export function parseGraphQLComment(comment: any): Comment {
 	comment.htmlUrl = comment.url;
 	comment.commitId = comment.commit && comment.commit.oid;
 	comment.pullRequestReviewId = comment.pullRequestReview && comment.pullRequestReview.databaseId;
+	comment.isDraft = comment.state === 'PENDING';
 
 	let diffHunks = parseCommentDiffHunk(comment);
 	comment.diffHunks = diffHunks;
