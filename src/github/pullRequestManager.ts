@@ -13,12 +13,11 @@ import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { parserCommentDiffHunk } from '../common/diffHunk';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
-
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents } from './utils';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -384,7 +383,7 @@ export class PullRequestManager {
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toComment(comment), remote)))
 				.reduce((prev, curr) => curr = prev.concat(curr), []);
-			return parserCommentDiffHunk(comments);
+			return comments.map(comment => convertPullRequestsGetCommentsResponseItemToComment(comment));
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
 		}
@@ -403,8 +402,8 @@ export class PullRequestManager {
 			per_page: 100
 		});
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
-		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(comment, remote));
-		return parserCommentDiffHunk(rawComments);
+		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(comment), remote));
+		return rawComments;
 	}
 
 	async getPullRequestCommits(pullRequest: PullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]> {
@@ -445,17 +444,32 @@ export class PullRequestManager {
 
 	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		const { octokit, query, remote } = await pullRequest.githubRepository.ensure();
 
-		let ret = await octokit.issues.getEventsTimeline({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
-			per_page: 100
-		});
-		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
-
-		return await this.parseTimelineEvents(pullRequest, remote, ret.data);
+		let ret = [];
+		if (pullRequest.githubRepository.supportsGraphQl()) {
+			const { data } = await query({
+				query: queries.TimelineEvents,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: pullRequest.prNumber
+				}
+			});
+			ret = data.repository.pullRequest.timeline.edges.map(edge => edge.node);
+			let events = parseGraphQLTimelineEvents(ret);
+			await this.addReviewTimelineEventComments(pullRequest, events);
+			return events;
+	} else {
+			ret = (await octokit.issues.getEventsTimeline({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				number: pullRequest.prNumber,
+				per_page: 100
+			})).data;
+			Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
+			return convertRESTTimelineEvents(await this.parseRESTTimelineEvents(pullRequest, remote, ret));
+		}
 	}
 
 	async getIssueComments(pullRequest: PullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]> {
@@ -473,7 +487,7 @@ export class PullRequestManager {
 		return promise.data;
 	}
 
-	async createIssueComment(pullRequest: PullRequestModel, text: string): Promise<Github.IssuesCreateCommentResponse> {
+	async createIssueComment(pullRequest: PullRequestModel, text: string): Promise<Comment> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		const promise = await octokit.issues.createComment({
@@ -483,13 +497,13 @@ export class PullRequestManager {
 			repo: remote.repositoryName
 		});
 
-		return this.addCommentPermissions(promise.data as Comment, remote);
+		return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(promise.data), remote);
 	}
 
 	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.node_id });
+			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.nodeId });
 		}
 
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
@@ -503,7 +517,7 @@ export class PullRequestManager {
 				in_reply_to: Number(reply_to.id)
 			});
 
-			return this.addCommentPermissions(ret.data, remote);
+			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
 		} catch (e) {
 			this.handleError(e);
 		}
@@ -529,7 +543,7 @@ export class PullRequestManager {
 			variables: {
 				input: {
 					body: '',
-					pullRequestId: pullRequest.prItem.node_id
+					pullRequestId: pullRequest.prItem.nodeId
 				}
 			}
 		}).then(x => x.data).catch(e => {
@@ -552,7 +566,7 @@ export class PullRequestManager {
 			const { data } = await query({
 				query: queries.GetPendingReviewId,
 				variables: {
-					pullRequestId: (pullRequest as PullRequestModel).prItem.node_id,
+					pullRequestId: (pullRequest as PullRequestModel).prItem.nodeId,
 					author: currentUser.login
 				}
 			});
@@ -598,7 +612,7 @@ export class PullRequestManager {
 				position: position
 			});
 
-			return this.addCommentPermissions(ret.data, remote);
+			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
 		} catch (e) {
 			this.handleError(e);
 		}
@@ -695,24 +709,7 @@ export class PullRequestManager {
 
 			// Create PR
 			let { data } = await repo.octokit.pullRequests.create(params);
-
-			const item: PullRequest = {
-				number: data.number,
-				body: data.body,
-				title: data.title,
-				html_url: data.html_url,
-				user: data.user,
-				labels: [],
-				state: data.state,
-				merged: false,
-				assignee: data.assignee,
-				created_at: data.created_at,
-				updated_at: data.updated_at,
-				head: data.head,
-				base: data.base,
-				node_id: data.node_id
-			};
-
+			const item =  convertRESTPullRequestToRawPullRequest(data);
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
 
 			const branchNameSeparatorIndex = params.head.indexOf(':');
@@ -738,7 +735,7 @@ export class PullRequestManager {
 				comment_id: Number(commentId)
 			});
 
-			return this.addCommentPermissions(ret.data as Comment, remote);
+			return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(ret.data), remote);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -755,7 +752,7 @@ export class PullRequestManager {
 				comment_id: Number(commentId)
 			});
 
-			return this.addCommentPermissions(ret.data, remote);
+			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -794,10 +791,7 @@ export class PullRequestManager {
 		return this._credentialStore.isCurrentUser(username, pullRequest.remote);
 	}
 
-	private addCommentPermissions<T extends Pick<Comment, 'canEdit' | 'canDelete' | 'position' | 'user'>>(
-		rawComment: T,
-		remote: Remote
-	): T {
+	private addCommentPermissions(rawComment: Comment, remote: Remote): Comment {
 		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user.login, remote);
 		const notOutdated = rawComment.position !== null;
 		rawComment.canEdit = isCurrentUser && notOutdated;
@@ -835,11 +829,11 @@ export class PullRequestManager {
 		}
 	}
 
-	async closePullRequest(pullRequest: PullRequestModel): Promise<any> {
+	async closePullRequest(pullRequest: PullRequestModel): Promise<PullRequest> {
 		return this.changePullRequestState('closed', pullRequest)
 			.then(x => {
 				this._telemetry.on('pr.close');
-				return x;
+				return convertRESTPullRequestToRawPullRequest(x);
 			});
 	}
 
@@ -917,7 +911,7 @@ export class PullRequestManager {
 				repo: remote.repositoryName,
 				number: pullRequest.prNumber
 			});
-			pullRequest.update(info.data);
+			pullRequest.update(convertRESTPullRequestToRawPullRequest(info.data));
 		}
 
 		const { data } = await octokit.repos.compareCommits({
@@ -949,7 +943,7 @@ export class PullRequestManager {
 					repo: remote.repositoryName,
 					number: pullRequest.prNumber
 				});
-				pullRequest.update(data);
+				pullRequest.update(convertRESTPullRequestToRawPullRequest(data));
 			}
 
 			if (!pullRequest.mergeBase) {
@@ -1051,12 +1045,12 @@ export class PullRequestManager {
 		const commentsByFile = groupBy(reviewComments, comment => comment.path);
 		for (let file in commentsByFile) {
 			const fileComments = commentsByFile[file];
-			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.original_position : comment.position));
+			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.originalPosition : comment.position));
 
 			// Loop through threads, for each thread, see if there is a matching review, push all comments to it
 			for (let i in commentThreads) {
 				const comments = commentThreads[i];
-				const reviewId = comments[0].pull_request_review_id;
+				const reviewId = comments[0].pullRequestReviewId;
 
 				if (reviewId) {
 					const matchingEvent = reviewEvents.find(review => review.id === reviewId);
@@ -1081,15 +1075,15 @@ export class PullRequestManager {
 				const author = matchingCommits[0].author;
 				// There is not necessarily a GitHub account associated with the commit.
 				if (author !== null) {
-					commitEvent.author.avatar_url = author.avatar_url;
+					commitEvent.author.avatarUrl = author.avatar_url;
 					commitEvent.author.login = author.login;
-					commitEvent.author.html_url = author.html_url;
+					commitEvent.author.url = author.html_url;
 				}
 			}
 		}
 	}
 
-	private async parseTimelineEvents(pullRequest: PullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
+	private async parseRESTTimelineEvents(pullRequest: PullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
 		events.forEach(event => {
 			let type = getEventType(event.event);
 			event.event = type;
@@ -1163,5 +1157,6 @@ const toComment = (comment: any): any => ({
 	original_position: comment.originalPosition,
 	diff_hunk: comment.diffHunk,
 	isDraft: comment.state === 'PENDING',
-	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId
+	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId,
+	commitId: comment.commit.id
 });

@@ -102,7 +102,7 @@ export function providePRDocumentComments(
 					commentId: comment.id.toString(),
 					body: new vscode.MarkdownString(comment.body),
 					userName: comment.user.login,
-					gravatar: comment.user.avatar_url,
+					gravatar: comment.user.avatarUrl,
 					canEdit: comment.canEdit,
 					canDelete: comment.canDelete,
 					isDraft: comment.isDraft
@@ -147,7 +147,7 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 					commentId: comment.id.toString(),
 					body: new vscode.MarkdownString(comment.body),
 					userName: comment.user.login,
-					gravatar: comment.user.avatar_url,
+					gravatar: comment.user.avatarUrl,
 					canEdit: comment.canEdit,
 					canDelete: comment.canDelete,
 					isDraft: comment.isDraft
@@ -319,7 +319,7 @@ export class PRNode extends TreeNode {
 				return false;
 			}
 
-			if (fc.pullRequest.head.sha !== comment.commit_id) {
+			if (fc.pullRequest.head.sha !== comment.commitId) {
 				return false;
 			}
 
@@ -521,7 +521,7 @@ export class PRNode extends TreeNode {
 				commentId: rawComment.id.toString(),
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
-				gravatar: rawComment.user.avatar_url,
+				gravatar: rawComment.user.avatarUrl,
 				canEdit: rawComment.canEdit,
 				canDelete: rawComment.canDelete,
 				isDraft: rawComment.isDraft
@@ -584,7 +584,7 @@ export class PRNode extends TreeNode {
 				commentId: rawComment.id.toString(),
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
-				gravatar: rawComment.user.avatar_url,
+				gravatar: rawComment.user.avatarUrl,
 				canEdit: rawComment.canEdit,
 				canDelete: rawComment.canDelete,
 				isDraft: rawComment.isDraft

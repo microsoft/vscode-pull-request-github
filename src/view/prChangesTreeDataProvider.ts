@@ -95,7 +95,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 				return false;
 			}
 
-			if (fc.pullRequest.head.sha !== comment.commit_id) {
+			if (fc.pullRequest.head.sha !== comment.commitId) {
 				return false;
 			}
 
