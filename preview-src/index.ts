@@ -82,7 +82,8 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 
 	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
 	if (merge) {
-		merge.disabled = state !== PullRequestStateEnum.Open;
+		const { mergeable } = getState();
+		merge.disabled = !mergeable || state !== PullRequestStateEnum.Open;
 	}
 
 	const close = (<HTMLButtonElement>document.getElementById(ElementIds.Close));
