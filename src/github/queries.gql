@@ -52,10 +52,11 @@ mutation StartReview($input: AddPullRequestReviewInput!) {
 	}
 }
 
-mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!) {
+mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!, $body: String) {
 	submitPullRequestReview(input: {
 		event: $event,
-		pullRequestReviewId: $id
+		pullRequestReviewId: $id,
+		body: $body
 	}) {
 		pullRequestReview {
 			comments(first:100) {

@@ -46,7 +46,6 @@ export class PullRequestOverviewPanel {
 	private _descriptionNode: DescriptionNode;
 	private _pullRequest: PullRequestModel;
 	private _pullRequestManager: PullRequestManager;
-	private _initialized: boolean;
 	private _scrollPosition = { x: 0, y: 0 };
 
 	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
@@ -129,7 +128,6 @@ export class PullRequestOverviewPanel {
 	}
 
 	public async refreshPanel(): Promise<void> {
-		this._initialized = false;
 		if (this._panel && this._panel.visible) {
 			this.update(this._pullRequest, this._descriptionNode);
 		}
@@ -142,10 +140,7 @@ export class PullRequestOverviewPanel {
 			scrollPosition: this._scrollPosition,
 		});
 
-		if (this._initialized && pullRequestModel.equals(this._pullRequest)) { return; }
-
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
-		this._initialized = true;
 
 		Promise.all([
 			this._pullRequestManager.resolvePullRequest(
@@ -228,6 +223,8 @@ export class PullRequestOverviewPanel {
 				return this.approvePullRequest(message);
 			case 'pr.request-changes':
 				return this.requestChanges(message);
+			case 'pr.submit':
+				return this.submitReview(message);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message.args);
 			case 'pr.comment':
@@ -442,9 +439,7 @@ export class PullRequestOverviewPanel {
 	private approvePullRequest(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.approve', this._pullRequest, message.args).then(review => {
 			if (review) {
-				this._replyMessage(message, {
-					value: review
-				});
+				this.refreshPanel();
 			}
 
 			this._throwError(message, {});
@@ -458,9 +453,18 @@ export class PullRequestOverviewPanel {
 	private requestChanges(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.requestChanges', this._pullRequest, message.args).then(review => {
 			if (review) {
-				this._replyMessage(message, {
-					value: review
-				});
+				this.refreshPanel();
+			}
+		}, (e) => {
+			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
+			this._throwError(message, `${formatError(e)}`);
+		});
+	}
+
+	private submitReview(message: IRequestMessage<string>): void {
+		this._pullRequestManager.submitReview(this._pullRequest, 'COMMENT', message.args).then(review => {
+			if (review) {
+				this.refreshPanel();
 			}
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);

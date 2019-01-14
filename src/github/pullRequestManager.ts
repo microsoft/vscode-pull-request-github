@@ -875,7 +875,7 @@ export class PullRequestManager {
 		return ret.data;
 	}
 
-	public async submitReview(pullRequest: PullRequestModel, event='COMMENT'): Promise<Comment[]> {
+	public async submitReview(pullRequest: PullRequestModel, event='COMMENT', body?: string): Promise<Comment[]> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
@@ -885,6 +885,7 @@ export class PullRequestManager {
 				variables: {
 					id: pendingReviewId,
 					event,
+					body
 				}
 			});
 
@@ -896,7 +897,7 @@ export class PullRequestManager {
 
 	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<any> {
 		const action: Promise<any> = await this.getPendingReviewId(pullRequest)
-				? this.submitReview(pullRequest, 'REQUEST_CHANGES')
+				? this.submitReview(pullRequest, 'REQUEST_CHANGES', message)
 				: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
 
 		return action
@@ -908,7 +909,7 @@ export class PullRequestManager {
 
 	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<any> {
 		const action: Promise<any> = await this.getPendingReviewId(pullRequest)
-				? this.submitReview(pullRequest, 'APPROVE')
+				? this.submitReview(pullRequest, 'APPROVE', message)
 				: this.createReview(pullRequest, ReviewEvent.Approve, message);
 		return action.then(x => {
 			this._telemetry.on('pr.approve');
@@ -1088,7 +1089,11 @@ export class PullRequestManager {
 			review.comments = review.comments.concat(c).concat(c.childComments || []);
 		});
 
-		console.log(reviewEvents);
+		const pendingReview = reviewEvents.filter(r => r.state === 'pending')[0];
+		if (pendingReview) {
+			// Ensures that pending comments made in reply to other reviews are included for the pending review
+			pendingReview.comments = reviewComments.filter(c => c.isDraft);
+		}
 	}
 
 	private async fixCommitAttribution(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {

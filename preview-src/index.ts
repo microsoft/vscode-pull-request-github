@@ -5,7 +5,7 @@
 import './index.css';
 import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
-import {  EventType } from '../src/common/timelineEvent';
+import {  EventType, isReviewEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
@@ -264,33 +264,39 @@ function addEventListeners(pr: PullRequest): void {
 		appendComment(result.value);
 	});
 
-	document.getElementById(ElementIds.Approve)!.addEventListener('click', async () => {
-		(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = true;
-		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		messageHandler.postMessage({
-			command: 'pr.approve',
-			args: inputBox.value
-		}).then(message => {
-			// succeed
-			appendReview(message.value);
-		}, err => {
-			// enable approve button
-			(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
+	const approveButton = document.getElementById(ElementIds.Approve);
+	if (approveButton) {
+		approveButton.addEventListener('click', async () => {
+			(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = true;
+			const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
+			messageHandler.postMessage({
+				command: 'pr.approve',
+				args: inputBox.value
+			}).then(message => {
+				// succeed
+				appendReview(message.value);
+			}, err => {
+				// enable approve button
+				(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
+			});
 		});
-	});
+	}
 
-	document.getElementById(ElementIds.RequestChanges)!.addEventListener('click', () => {
-		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
-		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		messageHandler.postMessage({
-			command: 'pr.request-changes',
-			args: inputBox.value
-		}).then(message => {
-			appendReview(message.value);
-		}, err => {
-			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
+	const requestChangesButton = document.getElementById(ElementIds.RequestChanges);
+	if (requestChangesButton) {
+		requestChangesButton.addEventListener('click', () => {
+			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
+			const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
+			messageHandler.postMessage({
+				command: 'pr.request-changes',
+				args: inputBox.value
+			}).then(message => {
+				appendReview(message.value);
+			}, err => {
+				(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
+			});
 		});
-	});
+	}
 
 	document.getElementById(ElementIds.CheckoutDefaultBranch)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = true;
@@ -377,12 +383,17 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 }
 
 function setTextArea() {
+	const hasPendingReview = !!getState().events.filter(e => isReviewEvent(e) && e.state === 'pending').length;
+
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
 			<button id="${ElementIds.Merge}" class="secondary">Merge Pull Request</button>
 			<button id="${ElementIds.Close}" class="secondary">Close Pull Request</button>
-			<button id="${ElementIds.RequestChanges}" disabled="true" class="secondary">Request Changes</button>
-			<button id="${ElementIds.Approve}" class="secondary">Approve</button>
+			${ hasPendingReview
+				? ''
+				: `<button id="${ElementIds.RequestChanges}" disabled="true" class="secondary">Request Changes</button>
+					<button id="${ElementIds.Approve}" class="secondary">Approve</button>`
+			}
 			<button class="reply-button" id="${ElementIds.Reply}" disabled="true">Comment</button>
 		</div>`;
 

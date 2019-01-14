@@ -379,7 +379,7 @@ class CommentNode {
 		if ((this._comment as Comment).isDraft) {
 			const pendingTag = document.createElement('a');
 			pendingTag.className = 'pending';
-			pendingTag.href = this._comment.html_url;
+			pendingTag.href = this._comment.url;
 			pendingTag.textContent = 'Pending';
 
 			commentHeader.appendChild(pendingTag);
@@ -573,7 +573,7 @@ class ReviewNode {
 
 		const timestamp: HTMLAnchorElement = document.createElement('a');
 		timestamp.className = 'timestamp';
-		timestamp.href = this._review.html_url;
+		timestamp.href = (this._review as any).url || this._review.html_url;
 		const isPending = this.isPending();
 		timestamp.textContent = isPending ? 'Pending' : dateFromNow(this._review.submitted_at);
 
@@ -672,9 +672,50 @@ class ReviewNode {
 			}
 
 			reviewCommentContainer.appendChild(commentBody);
+
+			if (this.isPending()) {
+				this.renderSubmitButtons(reviewCommentContainer);
+			}
 		}
 
 		return this._commentContainer;
+	}
+
+	private renderSubmitButtons(reviewCommentContainer: HTMLElement) {
+		const commentingContainer = document.createElement('div');
+		commentingContainer.classList.add('comment-form');
+		reviewCommentContainer.appendChild(commentingContainer);
+
+		const commentingArea = document.createElement('textarea');
+		commentingArea.placeholder = 'Leave a review summary comment';
+		commentingContainer.appendChild(commentingArea);
+
+		const formActions = document.createElement('div');
+		formActions.classList.add('form-actions');
+		commentingContainer.appendChild(formActions);
+
+		this.renderSubmitButton('Request Changes', 'pr.request-changes', formActions, commentingArea);
+		this.renderSubmitButton('Approve', 'pr.approve', formActions, commentingArea);
+		this.renderSubmitButton('Submit', 'pr.submit', formActions, commentingArea);
+	}
+
+	private renderSubmitButton(buttonText: string, buttonAction: string, container: HTMLElement, commentingArea: HTMLTextAreaElement) {
+		const submitButton = document.createElement('button');
+		submitButton.textContent = buttonText;
+		submitButton.addEventListener('click', () => {
+			submitButton.disabled = true;
+			this._messageHandler.postMessage({
+				command: buttonAction,
+				args: commentingArea.value
+			}).then(message => {
+				// No-op, page is refreshed
+			}, err => {
+				// Handle error
+				submitButton.disabled = false;
+			});
+		});
+
+		container.appendChild(submitButton);
 	}
 
 	openDiff(comment: Comment) {
