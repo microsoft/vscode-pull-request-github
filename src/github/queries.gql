@@ -112,8 +112,10 @@ fragment ReviewComment on PullRequestReviewComment {
 	state
 	pullRequestReview { databaseId }
 	commit {
-		id
+		oid
 	}
+	viewerCanUpdate
+	viewerCanDelete
 }
 
 query GetPendingReviewId($pullRequestId: ID!, $author: String!) {

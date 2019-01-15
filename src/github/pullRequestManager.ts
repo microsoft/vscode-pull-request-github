@@ -17,7 +17,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, parseGraphQLComment } from './utils';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -381,9 +381,9 @@ export class PullRequestManager {
 			});
 
 			const comments = data.repository.pullRequest.reviews.nodes
-				.map(node => node.comments.nodes.map(comment => this.addCommentPermissions(toComment(comment), remote)))
+				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment), remote))
 				.reduce((prev, curr) => curr = prev.concat(curr), []);
-			return comments.map(comment => convertPullRequestsGetCommentsResponseItemToComment(comment));
+			return comments;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
 		}
@@ -533,7 +533,7 @@ export class PullRequestManager {
 			}
 		});
 
-		return data.deletePullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+		return data.deletePullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
 	}
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {
@@ -577,7 +577,7 @@ export class PullRequestManager {
 	}
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<Comment> {
-		const { mutate, remote } = await pullRequest.githubRepository.ensure();
+		const { mutate } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate({
 			mutation: queries.AddComment,
 			variables: {
@@ -590,7 +590,7 @@ export class PullRequestManager {
 		});
 
 		const { comment } = data.addPullRequestReviewComment;
-		return this.addCommentPermissions(toComment(comment), remote);
+		return parseGraphQLComment(comment);
 	}
 
 	async createComment(pullRequest: PullRequestModel, body: string, path: string, position: number): Promise<Comment> {
@@ -879,7 +879,7 @@ export class PullRequestManager {
 				}
 			});
 
-			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
 		} else {
 			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
 		}
@@ -1142,21 +1142,3 @@ const titleAndBodyFrom = (message: string): { title: string, body: string } => {
 			: message.slice(idxLineBreak + 1),
 	};
 };
-
-const toComment = (comment: any): any => ({
-	id: comment.databaseId,
-	node_id: comment.id,
-	body: comment.body,
-	user: {
-		login: comment.author.login,
-		avatar_url: comment.author.avatarUrl,
-	},
-	position: comment.position,
-	url: comment.url,
-	path: comment.path,
-	original_position: comment.originalPosition,
-	diff_hunk: comment.diffHunk,
-	isDraft: comment.state === 'PENDING',
-	pull_request_review_id: comment.pullRequestReview && comment.pullRequestReview.databaseId,
-	commitId: comment.commit.id
-});

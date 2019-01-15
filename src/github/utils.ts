@@ -148,6 +148,22 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
+export function parseGraphQLComment(comment: any): Comment {
+	comment.canEdit = comment.viewerCanUpdate;
+	comment.canDelete = comment.viewerCanDelete;
+	comment.user = comment.author;
+	comment.id = comment.databaseId;
+	comment.htmlUrl = comment.url;
+	comment.commitId = comment.commit && comment.commit.oid;
+	comment.pullRequestReviewId = comment.pullRequestReview && comment.pullRequestReview.databaseId;
+	comment.isDraft = comment.state === 'PENDING';
+
+	let diffHunks = parseCommentDiffHunk(comment);
+	comment.diffHunks = diffHunks;
+
+	return comment;
+}
+
 export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {
 	events.forEach(event => {
 		let type = convertGraphQLEventType(event.__typename);
