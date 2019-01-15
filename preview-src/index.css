@@ -429,6 +429,14 @@ body .comment-form {
 	padding: 10px 0;
 }
 
+.review-comment-container #request-changes {
+	margin-left: auto;
+}
+
+.review-comment-container #submit {
+	margin-right: 0;
+}
+
 textarea {
 	display: block;
 	box-sizing: border-box;

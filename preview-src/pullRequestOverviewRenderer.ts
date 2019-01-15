@@ -701,6 +701,7 @@ class ReviewNode {
 
 	private renderSubmitButton(buttonText: string, buttonAction: string, container: HTMLElement, commentingArea: HTMLTextAreaElement) {
 		const submitButton = document.createElement('button');
+		submitButton.id = buttonAction.slice(3);
 		submitButton.textContent = buttonText;
 		submitButton.addEventListener('click', () => {
 			submitButton.disabled = true;
