@@ -221,8 +221,8 @@ export class GitHubRepository implements IGitHubRepository {
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			let promises = [];
-			data.items.forEach(item => {
+			let promises: Promise<Octokit.Response<Octokit.PullRequestsGetResponse>>[] = [];
+			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
 					let prData = await octokit.pullRequests.get({
 						owner: remote.owner,

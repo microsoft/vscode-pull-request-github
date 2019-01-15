@@ -382,10 +382,10 @@ export class PRNode extends TreeNode {
 			if (oldFileChange instanceof RemoteFileChangeNode) {
 				continue;
 			}
-			let newFileChange;
+			let newFileChange: InMemFileChangeNode;
 			let newFileChanges = fileChanges.filter(fileChange => fileChange instanceof InMemFileChangeNode).filter(fileChange => fileChange.fileName === oldFileChange.fileName);
 			if (newFileChanges && newFileChanges.length) {
-				newFileChange = newFileChanges[0];
+				newFileChange = newFileChanges[0] as InMemFileChangeNode;
 			} else {
 				continue;
 			}

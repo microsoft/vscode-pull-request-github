@@ -351,7 +351,7 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private checkoutPullRequest(message): void {
+	private checkoutPullRequest(message: IRequestMessage<any>): void {
 		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {
 			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });

@@ -186,8 +186,8 @@ export class PullRequestManager {
 			Logger.appendLine(`serverAuthPromises failed: ${formatError(e)}`);
 		});
 
-		let repositories = [];
-		let resolveRemotePromises = [];
+		let repositories: GitHubRepository[] = [];
+		let resolveRemotePromises: Promise<void>[] = [];
 		let userCreatedRemoteNames = this._includeRemotes === IncludeRemote.All ? (gitHubRemotes as Remote[]) : await PullRequestGitHelper.getUserCreatedRemotes(this.repository, (gitHubRemotes as Remote[]));
 
 		userCreatedRemoteNames.forEach(remote => {
@@ -381,8 +381,8 @@ export class PullRequestManager {
 			});
 
 			const comments = data.repository.pullRequest.reviews.nodes
-				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment), remote))
-				.reduce((prev, curr) => curr = prev.concat(curr), []);
+				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
+				.reduce((prev: any, curr: any) => curr = prev.concat(curr), []);
 			return comments;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
@@ -456,7 +456,7 @@ export class PullRequestManager {
 					number: pullRequest.prNumber
 				}
 			});
-			ret = data.repository.pullRequest.timeline.edges.map(edge => edge.node);
+			ret = data.repository.pullRequest.timeline.edges.map((edge: any) => edge.node);
 			let events = parseGraphQLTimelineEvents(ret);
 			await this.addReviewTimelineEventComments(pullRequest, events);
 			return events;

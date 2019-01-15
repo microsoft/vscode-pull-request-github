@@ -115,7 +115,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}
 	}
 
-	getChildren(element?: GitFileChangeNode): vscode.ProviderResult<TreeNode[]> {
+	async getChildren(element?: GitFileChangeNode): Promise<TreeNode[]> {
 		if (!element) {
 			if (!this._descriptionNode || !this._filesCategoryNode || !this._commitsCategoryNode) {
 				this._descriptionNode = new DescriptionNode(this, this._pullrequest.title,
@@ -125,7 +125,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			}
 			return [ this._descriptionNode, this._filesCategoryNode, this._commitsCategoryNode ];
 		} else {
-			return element.getChildren();
+			return await element.getChildren();
 		}
 	}
 

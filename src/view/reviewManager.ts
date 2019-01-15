@@ -5,7 +5,7 @@
 
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
-import { parseDiff, parsePatch } from '../common/diffHunk';
+import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
 import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
@@ -626,7 +626,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			for (let i = 0; i < contentChanges.length; i++) {
 				let change = contentChanges[i];
 				let isPartial = false;
-				let diffHunks = [];
+				let diffHunks: DiffHunk[] = [];
 
 				if (change instanceof InMemFileChange) {
 					isPartial = change.isPartial;
@@ -665,7 +665,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 				for (let fileName in commentsForFile) {
 
-					let diffHunks = [];
+					let diffHunks: DiffHunk[] = [];
 					try {
 						const patch = await this._repository.diffBetween(pr.base.sha, commit, fileName);
 						diffHunks = parsePatch(patch);
@@ -1037,8 +1037,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private async deleteDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
 		const deletedReviewComments = await this._prManager.deleteReview(this._prManager.activePullRequest);
 
-		const removed = [];
-		const changed = [];
+		const removed: vscode.CommentThread[] = [];
+		const changed: vscode.CommentThread[] = [];
 
 		const oldCommentThreads = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
 		oldCommentThreads.forEach(thread => {
@@ -1193,7 +1193,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			inputBox.value = branch.name;
 			inputBox.ignoreFocusOut = true;
 			inputBox.prompt = potentialTargetRemotes.length === 1 ? `The branch '${branch.name}' is not published yet, pick a name for the upstream branch` : 'Pick a name for the upstream branch';
-			let validate = async function (value) {
+			let validate = async function (value: string) {
 				try {
 					inputBox.busy = true;
 					let remoteBranch = await this._prManager.getBranch(selectedRemote, value);

@@ -117,7 +117,7 @@ export function formatError(e: any): string {
 		if (message) {
 			errorMessage = message.message;
 
-			const furtherInfo = message.errors && message.errors.map(error => {
+			const furtherInfo = message.errors && message.errors.map((error: any) => {
 				if (typeof error === 'string') {
 					return error;
 				} else {

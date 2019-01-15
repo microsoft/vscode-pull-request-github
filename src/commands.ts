@@ -246,8 +246,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
 		if (!descriptionNode) {
 			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
-			let rootNodes = reviewManager.prFileChangesProvider.getChildren();
-			descriptionNode = rootNodes[0];
+			let rootNodes = await reviewManager.prFileChangesProvider.getChildren();
+			descriptionNode = rootNodes[0] as DescriptionNode;
 		}
 		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
 		// Create and show a new webview

@@ -40,7 +40,7 @@ const SERVICE_ID = 'vscode-pull-request-github';
 export const ALL_HOSTS_KEY = 'keychain::all';
 
 let defaultStorage: vscode.Memento = null;
-let defaultKeychain = null;
+let defaultKeychain: Keytar = null;
 
 const didChange = new vscode.EventEmitter<IHostConfiguration>();
 export const onDidChange = didChange.event;

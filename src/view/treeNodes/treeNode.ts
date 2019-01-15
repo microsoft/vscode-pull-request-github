@@ -25,7 +25,7 @@ export abstract class TreeNode implements vscode.Disposable {
 		return null;
 	}
 
-	async reveal(treeNode: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }) {
+	async reveal(treeNode: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Promise<void> {
 		return this.parent.reveal(treeNode || this);
 	}
 
