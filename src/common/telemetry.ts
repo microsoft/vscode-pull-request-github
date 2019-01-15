@@ -9,7 +9,7 @@ const DEPRECATED_CONFIG_SECTION = 'optout';
 const CONFIG_SECTION = 'enabled';
 
 export class Telemetry implements ITelemetry {
-	private _version; string;
+	private _version: string;
 	private _telemetry: StatsStore;
 	constructor(private readonly _context: vscode.ExtensionContext) {
 		this._version = vscode.extensions.getExtension(EXTENSION_ID).packageJSON.version;

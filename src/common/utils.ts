@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event } from 'vscode';
+import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
 import * as moment from 'moment';
 
@@ -145,7 +145,7 @@ export interface PromiseAdapter<T, U> {
 	): any;
 }
 
-const passthrough = (value, resolve) => resolve(value);
+const passthrough = (value: any, resolve: (value?: any) => void) => resolve(value);
 
 /**
  * Return a promise that resolves with the next emitted event, or with some future
@@ -164,7 +164,7 @@ const passthrough = (value, resolve) => resolve(value);
 export async function promiseFromEvent<T, U>(
 	event: Event<T>,
 	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
-	let subscription;
+	let subscription: Disposable;
 	return new Promise<U>((resolve, reject) =>
 		subscription = event((value: T) => {
 			try {

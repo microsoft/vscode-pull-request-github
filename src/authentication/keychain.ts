@@ -78,7 +78,7 @@ export async function deleteToken(host: string, { storage = defaultStorage, keyc
 	host = toCanonical(host);
 	await keychain.deletePassword(SERVICE_ID, host)
 		.catch(() => storage.update(keyFor(host), undefined));
-	const hosts = storage.get(ALL_HOSTS_KEY, {});
+	const hosts = storage.get<{ [key: string]: string }>(ALL_HOSTS_KEY, {});
 	delete hosts[host];
 	storage.update(ALL_HOSTS_KEY, hosts);
 	if (emit) { didChange.fire({ host, token: null }); }

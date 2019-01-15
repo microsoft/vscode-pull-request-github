@@ -159,7 +159,7 @@ export class PullRequestGitHelper {
 		try {
 			Logger.debug(`Get user created remotes - start`, PullRequestGitHelper.ID);
 			const allConfigs = await repository.getConfigs();
-			let remotesForPullRequest = [];
+			let remotesForPullRequest: string[] = [];
 			for (let i = 0; i < allConfigs.length; i++) {
 				let key = allConfigs[i].key;
 				let matches = /^remote\.(.*)\.github-pr-remote$/.exec(key);

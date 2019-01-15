@@ -6,3 +6,7 @@
 /// <reference path='./vscode.proposed.d.ts'/>
 /// <reference path='./git-credential-node.d.ts'/>
 /// <reference path='./graphql.d.ts'/>
+
+declare module 'js-base64';
+declare module 'tunnel';
+declare module 'ssh-config';
