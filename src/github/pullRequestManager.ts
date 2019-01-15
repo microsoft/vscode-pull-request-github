@@ -87,6 +87,9 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
+const _onDidSubmitReview = new vscode.EventEmitter<Comment[]>();
+export const onDidSubmitReview: vscode.Event<Comment[]> = _onDidSubmitReview.event;
+
 export class PullRequestManager {
 	static ID = 'PullRequestManager';
 	private _activePullRequest?: PullRequestModel;
@@ -875,7 +878,7 @@ export class PullRequestManager {
 		return ret.data;
 	}
 
-	public async submitReview(pullRequest: PullRequestModel, event='COMMENT', body?: string): Promise<Comment[]> {
+	public async submitReview(pullRequest: PullRequestModel, event='COMMENT', body?: string): Promise<void> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
@@ -889,7 +892,8 @@ export class PullRequestManager {
 				}
 			});
 
-			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+			const submittedComments = data.submitPullRequestReview.pullRequestReview.comments.nodes.map(toComment);
+			_onDidSubmitReview.fire(submittedComments);
 		} else {
 			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
 		}

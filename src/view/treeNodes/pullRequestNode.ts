@@ -11,13 +11,13 @@ import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
 import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
-import { groupBy, formatError } from '../../common/utils';
+import { groupBy, formatError, IDisposable } from '../../common/utils';
 import { DescriptionNode } from './descriptionNode';
 import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { PullRequestManager, onDidSubmitReview } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
 export function providePRDocumentComments(
@@ -218,6 +218,7 @@ export class PRNode extends TreeNode {
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _documentCommentsProvider: vscode.Disposable;
 	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent>;
+	private _disposables: IDisposable[] = [];
 
 	private _inMemPRContentProvider: vscode.Disposable;
 
@@ -299,6 +300,10 @@ export class PRNode extends TreeNode {
 						finishDraft: this.finishDraft.bind(this),
 						deleteDraft: this.deleteDraft.bind(this)
 					});
+
+					this._disposables.push(onDidSubmitReview(_ => {
+						this.updateCommentPendingState();
+					}));
 				}
 			} else {
 				this._fileChanges = fileChanges;
@@ -620,6 +625,29 @@ export class PRNode extends TreeNode {
 		});
 	}
 
+	private updateCommentPendingState() {
+		const allComments = this._fileChanges
+			.reduce((all, change) =>
+				all.concat(change instanceof InMemFileChangeNode ? change.comments : []), []);
+
+		allComments.forEach(c => c.isDraft = false);
+
+		const commentThreads = this._fileChanges
+			.reduce((threads, change) => change instanceof InMemFileChangeNode
+				? threads
+					.concat(commentsToCommentThreads(change, change.comments, false))
+					.concat(commentsToCommentThreads(change, change.comments, true))
+				: threads,
+				[]);
+
+		this._onDidChangeCommentThreads.fire({
+			added: [],
+			changed: commentThreads,
+			removed: [],
+			inDraftMode: false
+		});
+	}
+
 	private calculateChangedAndRemovedThreads(changed: vscode.CommentThread[], removed: vscode.CommentThread[], fileChange: InMemFileChangeNode, deletedComments: Comment[], isBase: boolean): void {
 		const oldCommentThreads = commentsToCommentThreads(fileChange, fileChange.comments, isBase);
 		oldCommentThreads.forEach(thread => {
@@ -665,25 +693,6 @@ export class PRNode extends TreeNode {
 	private async finishDraft(_token: vscode.CancellationToken): Promise<void> {
 		try {
 			await this._prManager.submitReview(this.pullRequestModel);
-			const allComments = this._fileChanges
-				.reduce((all, change) =>
-					all.concat(change instanceof InMemFileChangeNode ? change.comments : []), []);
-			allComments.forEach(c => c.isDraft = false);
-
-			const commentThreads = this._fileChanges
-				.reduce((threads, change) => change instanceof InMemFileChangeNode
-					? threads
-						.concat(commentsToCommentThreads(change, change.comments, false))
-						.concat(commentsToCommentThreads(change, change.comments, true))
-					: threads,
-					[]);
-
-			this._onDidChangeCommentThreads.fire({
-				added: [],
-				changed: commentThreads,
-				removed: [],
-				inDraftMode: false
-			});
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
@@ -699,5 +708,7 @@ export class PRNode extends TreeNode {
 		if (this._inMemPRContentProvider) {
 			this._inMemPRContentProvider.dispose();
 		}
+
+		this._disposables.forEach(d => d.dispose());
 	}
 }

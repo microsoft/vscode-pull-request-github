@@ -439,12 +439,8 @@ export class PullRequestOverviewPanel {
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.approve', this._pullRequest, message.args).then(review => {
-			if (review) {
-				this.refreshPanel();
-			}
-
-			this._throwError(message, {});
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.approve', this._pullRequest, message.args).then(_ => {
+			this.refreshPanel();
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
@@ -453,10 +449,8 @@ export class PullRequestOverviewPanel {
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.requestChanges', this._pullRequest, message.args).then(review => {
-			if (review) {
-				this.refreshPanel();
-			}
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.requestChanges', this._pullRequest, message.args).then(_ => {
+			this.refreshPanel();
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
@@ -465,9 +459,7 @@ export class PullRequestOverviewPanel {
 
 	private submitReview(message: IRequestMessage<string>): void {
 		this._pullRequestManager.submitReview(this._pullRequest, 'COMMENT', message.args).then(review => {
-			if (review) {
-				this.refreshPanel();
-			}
+			this.refreshPanel();
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
