@@ -113,6 +113,19 @@ export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit
 	});
 }
 
+/**
+ * Return the URI for the other side of a split view.
+ *
+ * @param uri this side of the split view (i.e. isBase=true)
+ * @returns other side of the split view (i.e. isBase=false)
+ */
+export function otherPRUri(uri: Uri) {
+	const params = fromPRUri(uri);
+	const other = { ...params };
+	other.isBase = !params.isBase;
+	return uri.with({ query: JSON.stringify(other) });
+}
+
 class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
 	public handleUri(uri: Uri) {
 		this.fire(uri);

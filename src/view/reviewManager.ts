@@ -7,7 +7,7 @@ import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
-import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams } from '../common/uri';
+import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams, otherPRUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange } from '../common/file';
@@ -812,14 +812,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 		let ret: vscode.CommentThread[] = [];
 
 		for (let file in fileCommentGroups) {
-			let fileComments = fileCommentGroups[file];
+			let fileComments: CommentForDocuments[] = fileCommentGroups[file];
 
 			let matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === file);
 
 			if (matchedFiles && matchedFiles.length) {
-				return this.fileCommentsToCommentThreads(matchedFiles[0], fileComments, collapsibleState);
-			} else {
-				return [];
+				const uris = new Set<string>();
+				ret = [...ret, ...this.fileCommentsToCommentThreads(matchedFiles[0], fileComments, collapsibleState)];
 			}
 		}
 		return ret;
@@ -848,7 +847,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			onDidChangeCommentThreads: this._onDidChangeDocumentCommentThreads.event,
 			provideDocumentComments: async (document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo> => {
 				let ranges: vscode.Range[] = [];
-				let matchingComments: Comment[];
+				let matchingComments: CommentForDocuments[];
 
 				if (document.uri.scheme === 'file') {
 					// local file, we only provide active comments
@@ -1076,32 +1075,38 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private async finishDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
+	private async finishDraft(document: vscode.TextDocument, _token: vscode.CancellationToken) {
 		try {
 			const comments = await this._prManager.submitReview(this._prManager.activePullRequest);
 
 			this._comments.forEach(comment => {
-				if (comments.some(updatedComment => updatedComment.id === comment.id)) {
-					comment.isDraft = false;
-				}
+				comment.isDraft = false;
 			});
 
 			const commentsByFile = groupBy(comments, comment => comment.path);
 			for (let filePath in commentsByFile) {
 				const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
 				if (matchedFile) {
-					const fileComments = commentsByFile[filePath];
 					matchedFile.comments.forEach(comment => {
-						if (fileComments.some(updatedComment => updatedComment.id === comment.id)) {
-							comment.isDraft = false;
-						}
+						comment.isDraft = false;
 					});
 				}
 			}
 
+			const open = groupBy(vscode.workspace.textDocuments,
+				doc => doc.uri.scheme === 'file'
+					? vscode.workspace.asRelativePath(doc.uri.path)
+					: doc.uri.path[0] === '/' ? doc.uri.path.slice(1) : doc.uri.path);
+			const changed = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
+			let i = changed.length; while (i --> 0) {
+				const thread = changed[i];
+				const docsForThread = open[vscode.workspace.asRelativePath(thread.resource)];
+				if (!docsForThread) { continue; }
+				changed.push(...docsForThread.map(doc => ({ ...thread, resource: doc.uri })));
+			}
 			this._onDidChangeDocumentCommentThreads.fire({
 				added: [],
-				changed: this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded),
+				changed,
 				removed: [],
 				inDraftMode: false
 			});
