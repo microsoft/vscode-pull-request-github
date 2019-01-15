@@ -240,7 +240,7 @@ export class GitHubRepository implements IGitHubRepository {
 						Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 						return null;
 					}
-					return new PullRequestModel(this, this.remote, item.data);
+					return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(item.data));
 				}).filter(item => item !== null);
 			});
 			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - done`, GitHubRepository.ID);
