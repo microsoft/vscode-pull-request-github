@@ -158,6 +158,7 @@ export class PullRequestOverviewPanel {
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
+			const supportsGraphQl = pullRequestModel.githubRepository.supportsGraphQl();
 
 			this._postMessage({
 				command: 'pr.initialize',
@@ -178,7 +179,8 @@ export class PullRequestOverviewPanel {
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
 					status: status,
-					mergeable: this._pullRequest.prItem.mergeable
+					mergeable: this._pullRequest.prItem.mergeable,
+					supportsGraphQl
 				}
 			});
 		}).catch(e => {

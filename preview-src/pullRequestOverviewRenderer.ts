@@ -504,15 +504,15 @@ function getDiffChangeClass(type: DiffChangeType) {
 	}
 }
 
-export function renderReview(review: ReviewEvent, messageHandler: MessageHandler): HTMLElement | undefined {
-	const reviewNode = new ReviewNode(review, messageHandler);
+export function renderReview(review: ReviewEvent, messageHandler: MessageHandler, supportsGraphQl: boolean): HTMLElement | undefined {
+	const reviewNode = new ReviewNode(review, messageHandler, supportsGraphQl);
 	return reviewNode.render();
 }
 
 class ReviewNode {
 	private _commentContainer: HTMLDivElement | undefined;
 
-	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler) { }
+	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler, private _supportsGraphQl: boolean) { }
 
 	isPending(): boolean {
 		return this._review.state === 'pending';
@@ -673,7 +673,7 @@ class ReviewNode {
 
 			reviewCommentContainer.appendChild(commentBody);
 
-			if (this.isPending()) {
+			if (this.isPending() && this._supportsGraphQl) {
 				this.renderSubmitButtons(reviewCommentContainer);
 			}
 		}
@@ -728,14 +728,14 @@ class ReviewNode {
 	}
 }
 
-export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler): HTMLElement | undefined {
+export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler, state: PullRequest): HTMLElement | undefined {
 	switch (timelineEvent.event) {
 		case EventType.Committed:
 			return renderCommit((<CommitEvent>timelineEvent));
 		case EventType.Commented:
 			return renderComment((<CommentEvent>timelineEvent), messageHandler);
 		case EventType.Reviewed:
-			return renderReview(<ReviewEvent>timelineEvent, messageHandler);
+			return renderReview(<ReviewEvent>timelineEvent, messageHandler, state.supportsGraphQl);
 		default:
 			return undefined;
 	}

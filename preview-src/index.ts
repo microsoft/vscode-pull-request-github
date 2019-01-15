@@ -5,7 +5,7 @@
 import './index.css';
 import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
-import {  EventType, isReviewEvent } from '../src/common/timelineEvent';
+import { EventType, isReviewEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
@@ -72,7 +72,7 @@ function renderTimelineEvents(pr: PullRequest): void {
 	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
 	timelineElement.innerHTML = '';
 	pr.events
-		.map(event => renderTimelineEvent(event, messageHandler))
+		.map(event => renderTimelineEvent(event, messageHandler, pr))
 		.filter(event => event !== undefined)
 		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
@@ -342,7 +342,7 @@ function appendReview(review: any): void {
 	events.push(review);
 	updateState({ events: events });
 
-	const newReview = renderReview(review, messageHandler);
+	const newReview = renderReview(review, messageHandler, pullRequest.supportsGraphQl);
 	if (newReview) {
 		document.getElementById(ElementIds.TimelineEvents)!.appendChild(newReview);
 	}
@@ -383,13 +383,14 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 }
 
 function setTextArea() {
-	const hasPendingReview = !!getState().events.filter(e => isReviewEvent(e) && e.state === 'pending').length;
+	const { supportsGraphQl, events } = getState();
+	const displaySubmitButtonsOnPendingReview = supportsGraphQl && events.some(e => isReviewEvent(e) && e.state === 'pending');
 
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
 			<button id="${ElementIds.Merge}" class="secondary">Merge Pull Request</button>
 			<button id="${ElementIds.Close}" class="secondary">Close Pull Request</button>
-			${ hasPendingReview
+			${ displaySubmitButtonsOnPendingReview
 				? ''
 				: `<button id="${ElementIds.RequestChanges}" disabled="true" class="secondary">Request Changes</button>
 					<button id="${ElementIds.Approve}" class="secondary">Approve</button>`
