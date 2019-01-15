@@ -82,7 +82,8 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 
 	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
 	if (merge) {
-		merge.disabled = state !== PullRequestStateEnum.Open;
+		const { mergeable } = getState();
+		merge.disabled = !mergeable || state !== PullRequestStateEnum.Open;
 	}
 
 	const close = (<HTMLButtonElement>document.getElementById(ElementIds.Close));
@@ -117,7 +118,7 @@ function setTitleHTML(pr: PullRequest): void {
 				<div class="subtitle">
 					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
 					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
-					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
+					<span class="author"><a href="${pr.author.url}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
 					<span class="created-at">Created <a href=${pr.url} class="timestamp">${dateFromNow(pr.createdAt)}</a></span>
 				</div>
 			</div>
@@ -171,9 +172,11 @@ function renderDescription(pr: PullRequest): HTMLElement {
 	commentHeader.classList.add('description-header');
 
 	const commentBody = document.createElement('div');
-	commentBody.innerHTML = pr.body
-		? md.render(emoji.emojify(pr.body))
-		: '<p><i>No description provided.</i></p>';
+	commentBody.innerHTML = pr.bodyHTML ?
+		pr.bodyHTML :
+		pr.body
+			? md.render(emoji.emojify(pr.body))
+			: '<p><i>No description provided.</i></p>';
 
 	if (pr.labels.length) {
 		const line = document.createElement('div');
@@ -384,7 +387,7 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 
 function setTextArea() {
 	const { supportsGraphQl, events } = getState();
-	const displaySubmitButtonsOnPendingReview = supportsGraphQl && events.some(e => isReviewEvent(e) && e.state === 'pending');
+	const displaySubmitButtonsOnPendingReview = supportsGraphQl && events.some(e => isReviewEvent(e) && e.state.toLowerCase() === 'pending');
 
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">

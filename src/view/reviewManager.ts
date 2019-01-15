@@ -348,7 +348,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				commentId: comment.id.toString(),
 				body: new vscode.MarkdownString(comment.body),
 				userName: comment.user.login,
-				gravatar: comment.user.avatar_url,
+				gravatar: comment.user.avatarUrl,
 				canEdit: comment.canEdit,
 				canDelete: comment.canDelete,
 				isDraft: comment.isDraft
@@ -392,7 +392,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				commentId: rawComment.id.toString(),
 				body: new vscode.MarkdownString(rawComment.body),
 				userName: rawComment.user.login,
-				gravatar: rawComment.user.avatar_url,
+				gravatar: rawComment.user.avatarUrl,
 				canEdit: rawComment.canEdit,
 				canDelete: rawComment.canDelete,
 				isDraft: rawComment.isDraft
@@ -654,7 +654,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				this._localFileChanges.push(changedItem);
 			}
 
-			let commitsGroup = groupBy(outdatedComments, comment => comment.original_commit_id);
+			let commitsGroup = groupBy(outdatedComments, comment => comment.originalCommitId);
 			this._obsoleteFileChanges = [];
 			for (let commit in commitsGroup) {
 				let commentsForCommit = commitsGroup[commit];
@@ -678,8 +678,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 						GitChangeType.MODIFY,
 						fileName,
 						null,
-						toReviewUri(uri, fileName, null, oldComments[0].original_commit_id, true, { base: false }),
-						toReviewUri(uri, fileName, null, oldComments[0].original_commit_id, true, { base: true }),
+						toReviewUri(uri, fileName, null, oldComments[0].originalCommitId, true, { base: false }),
+						toReviewUri(uri, fileName, null, oldComments[0].originalCommitId, true, { base: true }),
 						false,
 						diffHunks,
 						oldComments,
@@ -709,7 +709,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let comments = sections[i];
 
 			const firstComment = comments[0];
-			let diffLine = getDiffLineByPosition(firstComment.diff_hunks, firstComment.original_position);
+			let diffLine = getDiffLineByPosition(firstComment.diffHunks, firstComment.originalPosition);
 
 			if (diffLine) {
 				firstComment.absolutePosition = diffLine.newLineNumber;
@@ -727,7 +727,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						commentId: comment.id.toString(),
 						body: new vscode.MarkdownString(comment.body),
 						userName: comment.user.login,
-						gravatar: comment.user.avatar_url,
+						gravatar: comment.user.avatarUrl,
 						command: {
 							title: 'View Changes',
 							command: 'pr.viewChanges',
@@ -786,7 +786,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						commentId: comment.id.toString(),
 						body: new vscode.MarkdownString(comment.body),
 						userName: comment.user.login,
-						gravatar: comment.user.avatar_url,
+						gravatar: comment.user.avatarUrl,
 						command: command,
 						canEdit: comment.canEdit,
 						canDelete: comment.canDelete,
@@ -972,13 +972,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					// comments are outdated
 					matchedFile = this.findMatchedFileChange(this._obsoleteFileChanges, document.uri);
-					let comments = [];
+					let comments: Comment[] = [];
 					if (!matchedFile) {
 						// The file may be a change from a specific commit, check the comments themselves to see if they match it, as obsolete file changs
 						// may not contain it
 						try {
 							query = fromReviewUri(document.uri);
-							comments = this._comments.filter(comment => comment.path === query.path && `${comment.original_commit_id}^` === query.commit);
+							comments = this._comments.filter(comment => comment.path === query.path && `${comment.originalCommitId}^` === query.commit);
 						} catch (_) {
 							// Do nothing
 						}
@@ -990,12 +990,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 						comments = matchedFile.comments;
 					}
 
-					let sections = groupBy(comments, comment => String(comment.original_position)); // comment.position is null in this case.
+					let sections = groupBy(comments, comment => String(comment.originalPosition)); // comment.position is null in this case.
 					let ret: vscode.CommentThread[] = [];
 					for (let i in sections) {
 						let commentGroup = sections[i];
 						const firstComment = commentGroup[0];
-						let diffLine = getLastDiffLine(firstComment.diff_hunk);
+						let diffLine = getLastDiffLine(firstComment.diffHunk);
 						const lineNumber = isBase
 							? diffLine.oldLineNumber
 							: diffLine.oldLineNumber > 0
@@ -1009,15 +1009,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 						const range = new vscode.Range(new vscode.Position(lineNumber, 0), new vscode.Position(lineNumber, 0));
 
 						ret.push({
-							threadId: firstComment.id,
+							threadId: String(firstComment.id),
 							resource: vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, firstComment.path)),
 							range,
 							comments: commentGroup.map(comment => {
 								return {
-									commentId: comment.id,
+									commentId: String(comment.id),
 									body: new vscode.MarkdownString(comment.body),
 									userName: comment.user.login,
-									gravatar: comment.user.avatar_url,
+									gravatar: comment.user.avatarUrl,
 									canEdit: comment.canEdit,
 									canDelete: comment.canDelete,
 									isDraft: comment.isDraft
@@ -1184,7 +1184,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		this._telemetry.on('pr.checkout');
-		Logger.appendLine('Review> switch to Pull Request #${pr.prNumber} - done', ReviewManager.ID);
+		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - done`, ReviewManager.ID);
 		this.switchingToReviewMode = false;
 		await this._repository.status();
 	}
@@ -1415,10 +1415,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let changedItem = changedItems[0];
 			let diffChangeTypeFilter = commit === changedItem.sha ? DiffChangeType.Delete : DiffChangeType.Add;
 			let ret = [];
-			let commentGroups = groupBy(changedItem.comments, comment => String(comment.original_position));
+			let commentGroups = groupBy(changedItem.comments, comment => String(comment.originalPosition));
 
 			for (let comment_position in commentGroups) {
-				let lines = commentGroups[comment_position][0].diff_hunks
+				let lines = commentGroups[comment_position][0].diffHunks
 					.map(diffHunk =>
 						diffHunk.diffLines.filter(diffLine => diffLine.type !== diffChangeTypeFilter)
 							.map(diffLine => diffLine.text)

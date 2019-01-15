@@ -6,13 +6,12 @@
 
 import * as vscode from 'vscode';
 import * as pathLib from 'path';
-import * as Github from '@octokit/rest';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri, ReviewUriParams } from './common/uri';
 import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
-import { ITelemetry } from './github/interface';
+import { ITelemetry, PullRequest } from './github/interface';
 import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
@@ -22,11 +21,12 @@ import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
 import { GitErrorCodes } from './typings/git';
+import { Comment } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 
-const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
-export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;
+const _onDidUpdatePR = new vscode.EventEmitter<PullRequest>();
+export const onDidUpdatePR: vscode.Event<PullRequest> = _onDidUpdatePR.event;
 
 function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
@@ -216,7 +216,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
-					let newComment: Github.IssuesCreateCommentResponse;
+					let newComment: Comment;
 					if (message) {
 						newComment = await prManager.createIssueComment(pullRequest, message);
 					}
@@ -296,11 +296,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 		if (fileChange.comments && fileChange.comments.length) {
 			const sortedOutdatedComments = fileChange.comments.filter(comment => comment.position === null).sort((a, b) => {
-				return a.original_position - b.original_position;
+				return a.originalPosition - b.originalPosition;
 			});
 
 			if (sortedOutdatedComments.length) {
-				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].original_position);
+				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].originalPosition);
 
 				if (diffLine) {
 					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);

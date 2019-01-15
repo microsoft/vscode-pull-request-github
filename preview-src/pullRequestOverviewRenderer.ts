@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { dateFromNow } from '../src/common/utils';
-import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, EventType, isCommentEvent } from '../src/common/timelineEvent';
+import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, isCommentEvent, isReviewEvent, isCommitEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
 import md from './mdRenderer';
 import { MessageHandler } from './message';
@@ -101,6 +101,7 @@ export function renderStatusChecks(pr: PullRequest) {
 	statusCheckInformationContainer.appendChild(statusSummary);
 
 	const statusesToggle = document.createElement('a');
+	statusesToggle.href = '#';
 	statusesToggle.setAttribute('aria-role', 'button');
 	statusesToggle.textContent = status.state === 'success' ? 'Show' : 'Hide';
 	statusesToggle.addEventListener('click', () => {
@@ -135,12 +136,17 @@ export function renderStatusChecks(pr: PullRequest) {
 
 		statusElement.appendChild(state);
 
-		const statusIcon = renderUserIcon(s.url, s.avatar_url);
+		const statusIcon = renderUserIcon(s.target_url, s.avatar_url);
 		statusElement.appendChild(statusIcon);
 
 		const statusDescription = document.createElement('span');
 		statusDescription.textContent = `${s.context} - ${s.description}`;
 		statusElement.appendChild(statusDescription);
+
+		const detailsLink = document.createElement('a');
+		detailsLink.textContent = 'Details';
+		detailsLink.href = s.target_url;
+		statusElement.appendChild(detailsLink);
 
 		statusList.appendChild(statusElement);
 	});
@@ -360,7 +366,7 @@ class CommentNode {
 			this._commentContainer.classList.add('review-comment');
 		}
 
-		const userIcon = renderUserIcon(this._comment.user.html_url, this._comment.user.avatar_url);
+		const userIcon = renderUserIcon(this._comment.user.url, this._comment.user.avatarUrl);
 		const reviewCommentContainer: HTMLDivElement = document.createElement('div');
 		reviewCommentContainer.className = 'review-comment-container';
 
@@ -370,7 +376,7 @@ class CommentNode {
 		commentHeader.className = 'review-comment-header';
 		const authorLink: HTMLAnchorElement = document.createElement('a');
 		authorLink.className = 'author';
-		authorLink.href = this._comment.user.html_url;
+		authorLink.href = this._comment.user.url;
 		authorLink.textContent = this._comment.user.login;
 
 		commentHeader.appendChild(userIcon);
@@ -379,15 +385,15 @@ class CommentNode {
 		if ((this._comment as Comment).isDraft) {
 			const pendingTag = document.createElement('a');
 			pendingTag.className = 'pending';
-			pendingTag.href = this._comment.url;
+			pendingTag.href = this._comment.htmlUrl;
 			pendingTag.textContent = 'Pending';
 
 			commentHeader.appendChild(pendingTag);
 		} else {
 			const timestamp: HTMLAnchorElement = document.createElement('a');
 			timestamp.className = 'timestamp';
-			timestamp.href = this._comment.html_url;
-			timestamp.textContent = dateFromNow(this._comment.created_at);
+			timestamp.href = this._comment.htmlUrl;
+			timestamp.textContent = dateFromNow(this._comment.createdAt);
 
 			const commentState = document.createElement('span');
 			commentState.textContent = 'commented';
@@ -398,7 +404,7 @@ class CommentNode {
 
 		this._commentBody.className = 'comment-body';
 
-		this._commentBody.innerHTML  = md.render(emoji.emojify(this._comment.body));
+		this._commentBody.innerHTML  = this._comment.bodyHTML ? this._comment.bodyHTML :  md.render(emoji.emojify(this._comment.body));
 
 		if (this._comment.canEdit || this._comment.canDelete) {
 			this._actionsBar = new ActionsBar(this._commentContainer, this._comment as Comment, this._commentBody, this._messageHandler, (e) => { }, 'pr.edit-comment', 'pr.delete-comment', this._review);
@@ -410,7 +416,7 @@ class CommentNode {
 		reviewCommentContainer.appendChild(commentHeader);
 		reviewCommentContainer.appendChild(this._commentBody);
 
-		if (this._comment.body.indexOf('```diff') > -1) {
+		if (this._comment.body && this._comment.body.indexOf('```diff') > -1) {
 			const replyButton = document.createElement('button');
 			replyButton.textContent = 'Apply Patch';
 			replyButton.onclick = _ => {
@@ -462,25 +468,25 @@ export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
 
 	const message: HTMLDivElement = document.createElement('div');
 	message.className = 'message';
-	if (timelineEvent.author.html_url && timelineEvent.author.avatar_url) {
-		const userIcon = renderUserIcon(timelineEvent.author.html_url, timelineEvent.author.avatar_url);
+	if (timelineEvent.author && timelineEvent.author.url && timelineEvent.author.avatarUrl) {
+		const userIcon = renderUserIcon(timelineEvent.author.url, timelineEvent.author.avatarUrl);
 		commitMessage.appendChild(userIcon);
 
 		const login: HTMLAnchorElement = document.createElement('a');
 		login.className = 'author';
-		login.href = timelineEvent.author.html_url;
+		login.href = timelineEvent.author.url;
 		login.textContent = timelineEvent.author.login!;
 		commitMessage.appendChild(login);
 		message.textContent = timelineEvent.message;
 	} else {
-		message.textContent = `${timelineEvent.author.name} ${timelineEvent.message}`;
+		message.textContent = `${timelineEvent.author.login} ${timelineEvent.message}`;
 	}
 
 	commitMessage.appendChild(message);
 
 	const sha: HTMLAnchorElement = document.createElement('a');
 	sha.className = 'sha';
-	sha.href = timelineEvent.html_url;
+	sha.href = timelineEvent.htmlUrl;
 	sha.textContent = shaShort;
 
 	commentContainer.appendChild(commitMessage);
@@ -515,7 +521,7 @@ class ReviewNode {
 	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler, private _supportsGraphQl: boolean) { }
 
 	isPending(): boolean {
-		return this._review.state === 'pending';
+		return this._review.state.toLowerCase() === 'pending';
 	}
 
 	deleteCommentFromReview(comment: Comment): void {
@@ -530,9 +536,9 @@ class ReviewNode {
 			return;
 		}
 
-		const commentsOnSameThread = this._review.comments.filter(c => c.path === comment.path && c.position === comment.position && c.original_position === comment.original_position);
+		const commentsOnSameThread = this._review.comments.filter(c => c.path === comment.path && c.position === comment.position && c.originalPosition === comment.originalPosition);
 		if (!commentsOnSameThread.length) {
-			const path = comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`);
+			const path = comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`);
 			const threadContainer = document.getElementById(path);
 			if (threadContainer) {
 				threadContainer.remove();
@@ -547,13 +553,13 @@ class ReviewNode {
 
 		this._commentContainer = document.createElement('div');
 		this._commentContainer.classList.add('comment-container', 'comment');
-		const userIcon = renderUserIcon(this._review.user.html_url, this._review.user.avatar_url);
+		const userIcon = renderUserIcon(this._review.user.url, this._review.user.avatarUrl);
 
 		const commentHeader: HTMLDivElement = document.createElement('div');
 		commentHeader.className = 'review-comment-header';
 
 		const userLogin: HTMLAnchorElement = document.createElement('a');
-		userLogin.href = this._review.user.html_url;
+		userLogin.href = this._review.user.url;
 		userLogin.textContent = this._review.user.login;
 
 		const reviewState = document.createElement('span');
@@ -573,9 +579,9 @@ class ReviewNode {
 
 		const timestamp: HTMLAnchorElement = document.createElement('a');
 		timestamp.className = 'timestamp';
-		timestamp.href = (this._review as any).url || this._review.html_url;
+		timestamp.href = this._review.htmlUrl;
 		const isPending = this.isPending();
-		timestamp.textContent = isPending ? 'Pending' : dateFromNow(this._review.submitted_at);
+		timestamp.textContent = isPending ? 'Pending' : dateFromNow(this._review.submittedAt);
 
 		if (isPending) {
 			timestamp.classList.add('pending');
@@ -605,7 +611,7 @@ class ReviewNode {
 		if (this._review.comments) {
 			const commentBody: HTMLDivElement = document.createElement('div');
 			commentBody.classList.add('comment-body', 'review-comment-body');
-			let groups = groupBy(this._review.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.original_position}`));
+			let groups = groupBy(this._review.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`));
 
 			for (let path in groups) {
 				let comments = groups[path];
@@ -616,8 +622,8 @@ class ReviewNode {
 				if (comments && comments.length) {
 					let diffLines: HTMLElement[] = [];
 
-					for (let i = 0; i < comments[0].diff_hunks.length; i++) {
-						diffLines = comments[0].diff_hunks[i].diffLines.slice(-4).map(diffLine => {
+					for (let i = 0; i < comments[0].diffHunks.length; i++) {
+						diffLines = comments[0].diffHunks[i].diffLines.slice(-4).map(diffLine => {
 							const diffLineElement = document.createElement('div');
 							diffLineElement.classList.add('diffLine',  getDiffChangeClass(diffLine.type));
 
@@ -730,16 +736,19 @@ class ReviewNode {
 }
 
 export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler, state: PullRequest): HTMLElement | undefined {
-	switch (timelineEvent.event) {
-		case EventType.Committed:
-			return renderCommit((<CommitEvent>timelineEvent));
-		case EventType.Commented:
-			return renderComment((<CommentEvent>timelineEvent), messageHandler);
-		case EventType.Reviewed:
-			return renderReview(<ReviewEvent>timelineEvent, messageHandler, state.supportsGraphQl);
-		default:
-			return undefined;
+	if (isReviewEvent(timelineEvent)) {
+		return renderReview(timelineEvent, messageHandler, state.supportsGraphQl);
 	}
+
+	if (isCommitEvent(timelineEvent)) {
+		return renderCommit(timelineEvent);
+	}
+
+	if (isCommentEvent(timelineEvent)) {
+		return renderComment(timelineEvent, messageHandler);
+	}
+
+	return undefined;
 }
 
 export function getStatus(state: PullRequestStateEnum) {

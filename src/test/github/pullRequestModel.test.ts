@@ -1,10 +1,12 @@
 import * as assert from 'assert';
+import * as Octokit from '@octokit/rest';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PullRequestStateEnum } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { Remote } from '../../common/remote';
+import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 
 const telemetry = {
 	on: (action) => Promise.resolve(),
@@ -14,7 +16,7 @@ const credentials = new CredentialStore(telemetry);
 const protocol = new Protocol('');
 const remote = new Remote('test', 'github/test', protocol);
 const repo = new GitHubRepository(remote, credentials);
-const user = {
+const user: Octokit.PullRequestsGetAllResponseItemUser = {
 	login: 'me',
 	id: 1,
 	node_id: 'string',
@@ -34,7 +36,7 @@ const user = {
 	type: '',
 	site_admin: false,
 };
-const githubRepo = {
+const githubRepo: Octokit.PullRequestsGetResponseHeadRepo = {
 	id: 1,
 	node_id: '',
 	name: '',
@@ -115,7 +117,31 @@ const githubRepo = {
 	subscribers_count: 0,
 	network_count: 0,
 };
-const pr = {
+const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem = {
+	id: 1,
+	url: '',
+	diff_url: '',
+	patch_url: '',
+	commits_url: '',
+	review_comments_url: '',
+	review_comment_url: '',
+	comments_url: '',
+	node_id: '1',
+	issue_url: '',
+	statuses_url: '',
+	milestone: null,
+	locked: false,
+	active_lock_reason: '',
+	closed_at: null,
+	merged_at: null,
+	_links: null,
+	merge_commit_sha: null,
+	mergeable: true,
+	merged_by: null,
+	additions:1,
+	deletions: 1,
+	changed_files: 1,
+	maintainer_can_modify: true,
 	number: 1,
 	body: 'My PR body.',
 	labels: [],
@@ -140,25 +166,24 @@ const pr = {
 		repo: githubRepo,
 		sha: '',
 		user,
-	},
-	node_id: '1'
+	}
 };
 
 describe('PullRequestModel', () => {
 	it('should return `state` properly as `open`', () => {
-		const open = new PullRequestModel(repo, remote, pr);
+		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr));
 
 		assert.equal(open.state, PullRequestStateEnum.Open);
 	});
 
 	it('should return `state` properly as `closed`', () => {
-		const open = new PullRequestModel(repo, remote, { ...pr, state: 'closed' });
+		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest({ ...pr, state: 'closed' }));
 
 		assert.equal(open.state, PullRequestStateEnum.Closed);
 	});
 
 	it('should return `state` properly as `merged`', () => {
-		const open = new PullRequestModel(repo, remote, { ...pr, merged: true, state: 'closed' });
+		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest({ ...pr, merged: true, state: 'closed' }));
 
 		assert.equal(open.state, PullRequestStateEnum.Merged);
 	});

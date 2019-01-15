@@ -130,7 +130,7 @@ body .comment-container .review-comment-header {
 	padding-top: 12px;
 }
 
-.status-item a {
+#status-checks a {
 	margin-left: 10px;
 	cursor: pointer;
 }

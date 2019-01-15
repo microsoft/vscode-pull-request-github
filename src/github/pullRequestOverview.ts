@@ -168,6 +168,7 @@ export class PullRequestOverviewPanel {
 					url: this._pullRequest.html_url,
 					createdAt: this._pullRequest.createdAt,
 					body: this._pullRequest.body,
+					bodyHTML: this._pullRequest.bodyHTML,
 					labels: this._pullRequest.labels,
 					author: this._pullRequest.author,
 					state: this._pullRequest.state,
@@ -175,7 +176,6 @@ export class PullRequestOverviewPanel {
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 					base: this._pullRequest.base && this._pullRequest.base.label || 'UNKNOWN',
 					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
-					commitsCount: this._pullRequest.commitCount,
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
 					status: status,
@@ -318,7 +318,7 @@ export class PullRequestOverviewPanel {
 
 	private editComment(message: IRequestMessage<{ comment: Comment, text: string }>) {
 		const { comment, text } = message.args;
-		const editCommentPromise = comment.pull_request_review_id !== undefined
+		const editCommentPromise = comment.pullRequestReviewId !== undefined
 			? this._pullRequestManager.editReviewComment(this._pullRequest, comment.id.toString(), text)
 			: this._pullRequestManager.editIssueComment(this._pullRequest, comment.id.toString(), text);
 
@@ -336,7 +336,7 @@ export class PullRequestOverviewPanel {
 		const comment = message.args;
 		vscode.window.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete').then(value => {
 			if (value === 'Delete') {
-				const deleteCommentPromise = comment.pull_request_review_id !== undefined
+				const deleteCommentPromise = comment.pullRequestReviewId !== undefined
 					? this._pullRequestManager.deleteReviewComment(this._pullRequest, comment.id.toString())
 					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id.toString());
 

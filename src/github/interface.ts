@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Github from '@octokit/rest';
-
 export enum PRType {
 	RequestReview = 0,
 	AssignedToMe = 1,
@@ -28,12 +26,11 @@ export enum PullRequestStateEnum {
 
 export interface IAccount {
 	login: string;
-	isUser: boolean;
-	isEnterprise: boolean;
 	avatarUrl: string;
-	htmlUrl: string;
-	ownedPrivateRepositoryCount?: number;
-	privateRepositoryInPlanCount?: number;
+	url: string;
+	type: string;
+	isUser?: boolean;
+	isEnterprise?: boolean;
 }
 
 export interface MergePullRequest {
@@ -43,22 +40,39 @@ export interface MergePullRequest {
 	documentation_url: string;
 }
 
+export interface IRepository {
+	cloneUrl: string;
+}
+
+export interface IGitHubRef {
+	label: string;
+	ref: string;
+	sha: string;
+	repo: IRepository;
+}
+
+export interface ILabel {
+	name: string;
+}
+
 export interface PullRequest {
+	url: string;
 	number: number;
-	body: string;
-	labels: Array<Github.PullRequestsGetResponseLabelsItem>;
-	title: string;
-	html_url: string;
-	user: Github.PullRequestsGetResponseUser;
 	state: string;
+	body: string;
+	title: string;
+	assignee: IAccount;
+	createdAt: string;
+	updatedAt: string;
+	head: IGitHubRef;
+	base: IGitHubRef;
+	user: IAccount;
+	labels: ILabel[];
+	// comments: number;
+	// commits: number;
 	merged: boolean;
-	assignee: Github.PullRequestsGetResponseAssignee;
-	created_at: string;
-	updated_at: string;
-	head: Github.PullRequestsGetResponseHead;
-	base: Github.PullRequestsGetResponseBase;
-	node_id: string;
 	mergeable?: boolean;
+	nodeId: string;
 }
 
 export interface IRawFileChange {
