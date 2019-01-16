@@ -9,7 +9,7 @@ import { Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 
 const telemetry = {
-	on: (action) => Promise.resolve(),
+	on: (action: string) => Promise.resolve(),
 	shutdown: () => Promise.resolve()
 };
 const credentials = new CredentialStore(telemetry);

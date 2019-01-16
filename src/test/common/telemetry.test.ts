@@ -3,18 +3,18 @@ import * as vscode from 'vscode';
 import { Telemetry } from '../../common/telemetry';
 
 const memento = {
-	get(key) {
+	get(key: string): any {
 		return undefined;
 	},
-	update: (key, value) => Promise.resolve(value)
+	update: (key: string, value: any) => Promise.resolve(value)
 };
 
-const context = {
+const context: vscode.ExtensionContext = {
 	subscriptions: [],
 	workspaceState: memento,
 	globalState: memento,
 	extensionPath: '',
-	asAbsolutePath: relativePath => `/${relativePath}`,
+	asAbsolutePath: (relativePath: string) => `/${relativePath}`,
 	storagePath: '',
 	logPath: '',
 	globalStoragePath: ''

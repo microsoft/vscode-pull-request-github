@@ -43,7 +43,7 @@ describe('VSCodeConfiguration', () => {
 
 		const configDidChange = promiseFromEvent(vscode.workspace.onDidChangeConfiguration);
 
-		const keychain = [], setMockKeychain = (...args) => keychain.push(args);
+		const keychain: any[] = [], setMockKeychain = (...args: any[]) => keychain.push(args);
 		await migrateConfiguration(setMockKeychain as any);
 		await configDidChange;
 
