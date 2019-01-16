@@ -45,8 +45,6 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 		base,
 		labels,
 		node_id
-		// comments,
-		// commits
 	} = pullRequest;
 
 	const item: PullRequest = {
@@ -56,15 +54,14 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			url: html_url,
 			user: convertRESTUserToAccount(user),
 			state,
-			merged: false,
+			merged: (pullRequest as Octokit.PullRequestsGetResponse).merged || false,
 			assignee: assignee ? convertRESTUserToAccount(assignee) : null,
 			createdAt: created_at,
 			updatedAt: updated_at,
-			// comments,
-			// commits,
 			head: convertRESTHeadToIGitHubRef(head),
 			base: convertRESTHeadToIGitHubRef(base),
 			labels,
+			mergeable: (pullRequest as Octokit.PullRequestsGetResponse).mergeable,
 			nodeId: node_id
 	};
 
