@@ -104,7 +104,11 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 
 fragment ReviewComment on PullRequestReviewComment {
 	id databaseId url
-	author { login avatarUrl }
+	author {
+		login
+		avatarUrl
+		url
+	}
 	path originalPosition
 	body
 	diffHunk
@@ -112,6 +116,10 @@ fragment ReviewComment on PullRequestReviewComment {
 	state
 	pullRequestReview { databaseId }
 	commit {
+		oid
+	}
+	createdAt
+	originalCommit {
 		oid
 	}
 	viewerCanUpdate

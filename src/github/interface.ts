@@ -28,9 +28,6 @@ export interface IAccount {
 	login: string;
 	avatarUrl: string;
 	url: string;
-	type: string;
-	isUser?: boolean;
-	isEnterprise?: boolean;
 }
 
 export interface MergePullRequest {
