@@ -64,6 +64,7 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			// commits,
 			head: convertRESTHeadToIGitHubRef(head),
 			base: convertRESTHeadToIGitHubRef(base),
+			mergeable: (pullRequest as Octokit.PullRequestsGetResponse).mergeable,
 			labels,
 			nodeId: node_id
 	};

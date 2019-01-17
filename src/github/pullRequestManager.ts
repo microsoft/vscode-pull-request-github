@@ -837,12 +837,12 @@ export class PullRequestManager {
 			});
 	}
 
-	async mergePullRequest(pullRequest: PullRequestModel): Promise<any> {
+	async mergePullRequest(pullRequest: PullRequestModel, title?: string, description?: string, method?: 'merge' | 'squash' | 'rebase'): Promise<any> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 		return await octokit.pullRequests.merge({
-			commit_message: '',
-			commit_title: '',
-			merge_method: 'merge',
+			commit_message: description,
+			commit_title: title,
+			merge_method: method || vscode.workspace.getConfiguration('githubPullRequests').get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,

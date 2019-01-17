@@ -19,6 +19,20 @@ const dotIcon = require('../resources/icons/dot.svg');
 
 const emoji = require('node-emoji');
 
+export const ElementIds = {
+	Checkout: 'checkout',
+	CheckoutDefaultBranch: 'checkout-default-branch',
+	Merge: 'merge',
+	Close: 'close',
+	Refresh: 'refresh',
+	Reply: 'reply',
+	Approve: 'approve',
+	RequestChanges: 'request-changes',
+	Status: 'status',
+	CommentTextArea: 'comment-textarea',
+	TimelineEvents: 'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
+};
+
 export enum DiffChangeType {
 	Context,
 	Add,
@@ -82,13 +96,14 @@ function getStateIcon(state: string) {
 	}
 }
 
-export function renderStatusChecks(pr: PullRequest) {
+export function renderStatusChecks(pr: PullRequest, messageHandler: MessageHandler) {
 	const statusContainer = document.getElementById('status-checks') as HTMLDivElement;
 	statusContainer.innerHTML = '';
 
 	const { status, mergeable } = pr;
 
 	const statusCheckInformationContainer = document.createElement('div');
+	statusCheckInformationContainer.classList.add('status-section');
 
 	const statusSummary = document.createElement('div');
 	statusSummary.classList.add('status-item');
@@ -101,7 +116,6 @@ export function renderStatusChecks(pr: PullRequest) {
 	statusCheckInformationContainer.appendChild(statusSummary);
 
 	const statusesToggle = document.createElement('a');
-	statusesToggle.href = '#';
 	statusesToggle.setAttribute('aria-role', 'button');
 	statusesToggle.textContent = status.state === 'success' ? 'Show' : 'Hide';
 	statusesToggle.addEventListener('click', () => {
@@ -152,7 +166,7 @@ export function renderStatusChecks(pr: PullRequest) {
 	});
 
 	const mergeableSummary = document.createElement('div');
-	mergeableSummary.classList.add('status-item');
+	mergeableSummary.classList.add('status-item', 'status-section');
 	const mergeableSummaryIcon = document.createElement('div');
 	const mergeableSummaryText = document.createElement('div');
 	mergeableSummaryIcon.innerHTML = mergeable ? checkIcon : deleteIcon;
@@ -160,6 +174,113 @@ export function renderStatusChecks(pr: PullRequest) {
 	mergeableSummaryText.textContent = mergeable ? 'This branch has no conflicts with the base branch' : 'This branch has conflicts that must be resolved';
 	mergeableSummary.appendChild(mergeableSummaryText);
 	statusContainer.appendChild(mergeableSummary);
+
+	renderMerge(pr, messageHandler, statusContainer);
+}
+
+function renderMerge(pr: PullRequest, messageHandler: MessageHandler, container: HTMLElement) {
+	const mergeContainer = document.createElement('div');
+	container.appendChild(mergeContainer);
+
+	const mergeSelectorContainer = document.createElement('div');
+	mergeSelectorContainer.classList.add('merge-select-container');
+	const mergeButton = document.createElement('button');
+	mergeButton.id = 'merge';
+	mergeButton.textContent = 'Merge Pull Request';
+	const mergeText = document.createElement('div');
+	mergeText.textContent = 'using method';
+	const mergeSelector = document.createElement('select');
+	mergeSelector.innerHTML = `
+		<option value="merge">Create Merge Commit</option>
+		<option value="squash">Squash and Merge</option>
+		<option value="rebase">Rebase and Merge</option>`;
+
+	mergeSelector.value = pr.defaultMergeMethod;
+
+	mergeSelectorContainer.appendChild(mergeButton);
+	mergeSelectorContainer.appendChild(mergeText);
+	mergeSelectorContainer.appendChild(mergeSelector);
+
+	mergeButton.addEventListener('click', () => {
+		if (mergeSelector.value !== 'rebase') {
+			mergeInputsContainer.classList.remove('hidden');
+		}
+		mergeActionsContainer.classList.remove('hidden');
+		mergeSelectorContainer.classList.add('hidden');
+
+		title.value = getDefaultTitleText(mergeSelector.value, pr);
+		description.value = getDefaultDescriptionText(mergeSelector.value, pr);
+	});
+
+	const mergeInputsContainer = document.createElement('div');
+	mergeInputsContainer.classList.add('hidden');
+	const title = document.createElement('input');
+	title.type = 'text';
+	const description = document.createElement('textarea');
+	description.placeholder = 'Add an optional extended description';
+
+	mergeInputsContainer.appendChild(title);
+	mergeInputsContainer.appendChild(description);
+
+	const mergeActionsContainer = document.createElement('div');
+	mergeActionsContainer.classList.add('hidden', 'form-actions');
+	const completeMergeButton = document.createElement('button');
+	completeMergeButton.id = 'confirm-merge';
+	completeMergeButton.textContent = 'Confirm Merge';
+	const cancelButton = document.createElement('button');
+	cancelButton.textContent = 'Cancel';
+	cancelButton.classList.add('secondary');
+
+	cancelButton.addEventListener('click', () => {
+		mergeInputsContainer.classList.add('hidden');
+		mergeActionsContainer.classList.add('hidden');
+		mergeSelectorContainer.classList.remove('hidden');
+	});
+
+	completeMergeButton.addEventListener('click', () => {
+		completeMergeButton.disabled = true;
+		cancelButton.disabled = true;
+		messageHandler.postMessage({
+			command: 'pr.merge',
+			args: {
+				title: title.value,
+				description: description.value,
+				method: mergeSelector.value
+			}
+		}).then(response => {
+			container.innerHTML = 'Pull request successfully merged';
+			updatePullRequestState(response.state);
+		}).catch(_ => {
+			mergeInputsContainer.classList.add('hidden');
+			mergeActionsContainer.classList.add('hidden');
+			mergeSelectorContainer.classList.remove('hidden');
+
+			completeMergeButton.disabled = false;
+			cancelButton.disabled = false;
+		});
+	});
+
+	mergeActionsContainer.appendChild(cancelButton);
+	mergeActionsContainer.appendChild(completeMergeButton);
+
+	mergeContainer.appendChild(mergeSelectorContainer);
+	mergeContainer.appendChild(mergeInputsContainer);
+	mergeContainer.appendChild(mergeActionsContainer);
+}
+
+function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
+	switch (mergeMethod) {
+		case 'merge':
+			return `Merge pull request #${pr.number} from ${pr.head}`;
+		case 'squash':
+			return pr.title;
+		default:
+			return '';
+	}
+}
+
+function getDefaultDescriptionText(mergeMethod: string, pr: PullRequest) {
+	return mergeMethod === 'merge' ? pr.title : '';
 }
 
 function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
@@ -177,6 +298,34 @@ function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
 	iconContainer.appendChild(avatarLink).appendChild(avatar);
 
 	return iconContainer;
+}
+
+export function updatePullRequestState(state: PullRequestStateEnum): void {
+	updateState({ state: state });
+
+	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
+	if (merge) {
+		const { mergeable } = getState();
+		merge.disabled = !mergeable || state !== PullRequestStateEnum.Open;
+	}
+
+	const close = (<HTMLButtonElement>document.getElementById(ElementIds.Close));
+	if (close) {
+		close.disabled = state !== PullRequestStateEnum.Open;
+	}
+
+	const checkout = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
+	if (checkout) {
+		checkout.disabled = checkout.disabled || state !== PullRequestStateEnum.Open;
+	}
+
+	const approve = (<HTMLButtonElement>document.getElementById(ElementIds.Approve));
+	if (approve) {
+		approve.disabled = state !== PullRequestStateEnum.Open;
+	}
+
+	const status = document.getElementById(ElementIds.Status);
+	status!.innerHTML = getStatus(state);
 }
 
 export interface ActionData {

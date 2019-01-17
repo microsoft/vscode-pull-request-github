@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { MergePullRequest, PullRequestStateEnum } from './interface';
+import { PullRequestStateEnum } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
@@ -163,6 +163,7 @@ export class PullRequestOverviewPanel {
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
+			const defaultMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<string>('defaultMergeMethod');
 
 			this._postMessage({
 				command: 'pr.initialize',
@@ -183,7 +184,8 @@ export class PullRequestOverviewPanel {
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
 					status: status,
-					mergeable: this._pullRequest.prItem.mergeable
+					mergeable: this._pullRequest.prItem.mergeable,
+					defaultMergeMethod
 				}
 			});
 		}).catch(e => {
@@ -361,29 +363,21 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private mergePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<MergePullRequest>('pr.merge', this._pullRequest, message.args).then(result => {
-			if (!result) {
-				this._postMessage({
-					command: 'update-state',
-					state: PullRequestStateEnum.Open,
-				});
-				return;
-			}
+	private mergePullRequest(message: IRequestMessage<{ title: string, description: string, method: 'merge' | 'squash' | 'rebase' }>): void {
+		const { title, description, method } = message.args;
+		this._pullRequestManager.mergePullRequest(this._pullRequest, title, description, method).then(result => {
+			vscode.commands.executeCommand('pr.refreshList');
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
 			}
 
-			this._postMessage({
-				command: 'update-state',
+			this._replyMessage(message, {
 				state: result.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Open
 			});
-		}, (_) => {
-			this._postMessage({
-				command: 'update-state',
-				state: PullRequestStateEnum.Open,
-			});
+		}).catch(e => {
+			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+			this._throwError(message, {});
 		});
 	}
 
