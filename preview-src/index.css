@@ -224,8 +224,7 @@ button:focus {
 	outline-offset: 2px;
 }
 
-button:hover:enabled, button:focus:enabled,
-select:hover:enabled, select:focus:enabled {
+button:hover:enabled, button:focus:enabled {
 	background-color: var(--vscode-button-hoverBackground);
 	cursor: pointer;
 }
@@ -462,8 +461,9 @@ select {
 	padding: 4px 12px;
 	border-radius: 0;
 	font-size: 13px;
-	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
 	border: 1px solid transparent;
 }
 
