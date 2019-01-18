@@ -17,12 +17,10 @@ export abstract class TreeNode implements vscode.Disposable {
 
 	constructor() { }
 	abstract getTreeItem(): vscode.TreeItem;
-	getParent(): TreeNode | null {
+	getParent(): TreeNode | undefined {
 		if (this.parent instanceof TreeNode) {
 			return this.parent;
 		}
-
-		return null;
 	}
 
 	async reveal(treeNode: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Promise<void> {

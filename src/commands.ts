@@ -129,9 +129,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: GitFileChangeNode) => {
-		if (e.blobUrl) {
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
-		}
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl!));
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {

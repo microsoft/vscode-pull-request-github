@@ -88,7 +88,7 @@ interface ReplyCommentPosition {
 
 export class PullRequestManager {
 	static ID = 'PullRequestManager';
-	private _activePullRequest: PullRequestModel | null;
+	private _activePullRequest?: PullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 	private _githubManager: GitHubManager;
@@ -129,11 +129,11 @@ export class PullRequestManager {
 		}
 	}
 
-	get activePullRequest(): (PullRequestModel | null) {
+	get activePullRequest(): (PullRequestModel | undefined) {
 		return this._activePullRequest;
 	}
 
-	set activePullRequest(pullRequest: (PullRequestModel | null)) {
+	set activePullRequest(pullRequest: (PullRequestModel | undefined)) {
 		this._activePullRequest = pullRequest;
 		this._onDidChangeActivePullRequest.fire();
 	}
@@ -251,7 +251,7 @@ export class PullRequestManager {
 				const githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
 
 				if (githubRepo) {
-					const pullRequest: PullRequestModel | null = await githubRepo.getPullRequest(prNumber);
+					const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber);
 
 					if (pullRequest) {
 						pullRequest.localBranchName = localBranchName;
@@ -274,7 +274,7 @@ export class PullRequestManager {
 		}
 		await this.repository.deleteBranch(pullRequest.localBranchName, force);
 
-		let remoteName: string | null = null;
+		let remoteName: string | undefined = undefined;
 		try {
 			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
 		} catch (e) {}
@@ -510,7 +510,7 @@ export class PullRequestManager {
 		return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(promise.data), remote);
 	}
 
-	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment | null> {
+	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment | undefined> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		if (pendingReviewId) {
 			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: String(reply_to.id) });
@@ -530,7 +530,6 @@ export class PullRequestManager {
 			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
 		} catch (e) {
 			this.handleError(e);
-			return null;
 		}
 	}
 
@@ -568,13 +567,13 @@ export class PullRequestManager {
 		return !!await this.getPendingReviewId(pullRequest);
 	}
 
-	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | null> {
-		if (pullRequest === null) {
-			return null;
+	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | undefined> {
+		if (!pullRequest) {
+			return undefined;
 		}
 
 		if (!pullRequest.githubRepository.supportsGraphQl()) {
-			return null;
+			return;
 		}
 
 		const { query, octokit } = await pullRequest.githubRepository.ensure();
@@ -589,7 +588,7 @@ export class PullRequestManager {
 			});
 			return data.node.reviews.nodes[0].id;
 		} catch (error) {
-			return null;
+			return;
 		}
 	}
 
@@ -610,7 +609,7 @@ export class PullRequestManager {
 		return parseGraphQLComment(comment);
 	}
 
-	async createComment(pullRequest: PullRequestModel, body: string, path: string, position: number): Promise<Comment | null> {
+	async createComment(pullRequest: PullRequestModel, body: string, path: string, position: number): Promise<Comment | undefined> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
 		if (pendingReviewId) {
 			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path, position });
@@ -632,7 +631,6 @@ export class PullRequestManager {
 			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
 		} catch (e) {
 			this.handleError(e);
-			return null;
 		}
 	}
 
@@ -711,7 +709,7 @@ export class PullRequestManager {
 		return HEAD && HEAD.upstream;
 	}
 
-	async createPullRequest(params: Github.PullRequestsCreateParams): Promise<PullRequestModel | null> {
+	async createPullRequest(params: Github.PullRequestsCreateParams): Promise<PullRequestModel | undefined> {
 		try {
 			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
 			if (!repo) {
@@ -742,7 +740,6 @@ export class PullRequestManager {
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
 			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
-			return null;
 		}
 	}
 
@@ -987,13 +984,13 @@ export class PullRequestManager {
 
 	//#region Git related APIs
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<PullRequestModel | null> {
+	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<PullRequestModel | undefined> {
 		const githubRepo = this._githubRepositories.find(repo =>
 			repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase()
 		);
 
 		if (!githubRepo) {
-			return null;
+			return;
 		}
 
 		const pr = await githubRepo.getPullRequest(pullReuqestNumber);

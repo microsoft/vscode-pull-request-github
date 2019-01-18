@@ -71,7 +71,7 @@ export class CredentialStore {
 
 		const server = new GitHubServer(host);
 		const token = await getToken(host);
-		let octokit: GitHub | null = null;
+		let octokit: GitHub | undefined = undefined;
 
 		if (token) {
 			if (await server.validate(token)) {

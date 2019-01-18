@@ -93,7 +93,7 @@ export class PullRequestModel {
 		this.base = new GitHubRef(prItem.base.ref, prItem.base.label, prItem.base.sha, prItem.base.repo.cloneUrl);
 	}
 
-	equals(other: PullRequestModel | null): boolean {
+	equals(other: PullRequestModel | undefined): boolean {
 		if (!other) {
 			return false;
 		}

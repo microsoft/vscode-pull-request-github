@@ -20,7 +20,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: Comment[] = [];
-	private _pullrequest: PullRequestModel | null = null;
+	private _pullrequest?: PullRequestModel;
 	private _pullRequestManager: PullRequestManager;
 	private _view: vscode.TreeView<TreeNode>;
 
@@ -28,9 +28,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		return this._view;
 	}
 
-	private _descriptionNode: DescriptionNode | null;
-	private _filesCategoryNode: FilesCategoryNode | null;
-	private _commitsCategoryNode: CommitsNode | null;
+	private _descriptionNode?: DescriptionNode;
+	private _filesCategoryNode?: FilesCategoryNode;
+	private _commitsCategoryNode?: CommitsNode;
 
 	constructor(private _context: vscode.ExtensionContext) {
 		super(() => this.dispose());
@@ -38,16 +38,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			treeDataProvider: this,
 			showCollapseAll: true
 		});
-		this._descriptionNode = null;
-		this._filesCategoryNode = null;
-		this._commitsCategoryNode = null;
 		this._context.subscriptions.push(this._view);
 	}
 
 	refresh() {
-		this._descriptionNode = null;
-		this._filesCategoryNode = null;
-		this._commitsCategoryNode = null;
+		this._descriptionNode = undefined;
+		this._filesCategoryNode = undefined;
+		this._commitsCategoryNode = undefined;
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -63,9 +60,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		);
 
 		this._localFileChanges = fileChanges;
-		this._descriptionNode = null;
-		this._filesCategoryNode = null;
-		this._commitsCategoryNode = null;
+		this._descriptionNode = undefined;
+		this._filesCategoryNode = undefined;
+		this._commitsCategoryNode = undefined;
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -119,7 +116,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	}
 
 	async getChildren(element?: GitFileChangeNode): Promise<TreeNode[]> {
-		if (this._pullrequest === null) {
+		if (!this._pullrequest) {
 			return [];
 		}
 

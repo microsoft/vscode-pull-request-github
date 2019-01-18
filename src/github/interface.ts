@@ -61,7 +61,7 @@ export interface PullRequest {
 	state: string;
 	body: string;
 	title: string;
-	assignee: IAccount | null;
+	assignee?: IAccount;
 	createdAt: string;
 	updatedAt: string;
 	head: IGitHubRef;

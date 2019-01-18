@@ -51,7 +51,7 @@ export class GitHubRepository implements IGitHubRepository {
 		return !!(this.hub && this.hub.graphql);
 	}
 
-	query = async <T = any>(query: QueryOptions): Promise<ApolloQueryResult<T | null>> => {
+	query = async <T = any>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${query}`, GRAPHQL_COMPONENT_ID);
@@ -60,7 +60,7 @@ export class GitHubRepository implements IGitHubRepository {
 				loading: false,
 				networkStatus: NetworkStatus.error,
 				stale: false
-			};
+			} as any;
 		}
 
 		Logger.debug(`Request: ${JSON.stringify(query, null, 2)}`, GRAPHQL_COMPONENT_ID);
@@ -69,7 +69,7 @@ export class GitHubRepository implements IGitHubRepository {
 		return rsp;
 	}
 
-	mutate = async <T = any>(mutation: MutationOptions): Promise<ApolloQueryResult<T | null>> => {
+	mutate = async <T = any>(mutation: MutationOptions): Promise<ApolloQueryResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
@@ -78,7 +78,7 @@ export class GitHubRepository implements IGitHubRepository {
 				loading: false,
 				networkStatus: NetworkStatus.error,
 				stale: false
-			};
+			} as any;
 		}
 
 		Logger.debug(`Request: ${JSON.stringify(mutation, null, 2)}`, GRAPHQL_COMPONENT_ID);
@@ -152,11 +152,11 @@ export class GitHubRepository implements IGitHubRepository {
 		return 'master';
 	}
 
-	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData | null> {
+	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData | undefined> {
 		return prType === PRType.All ? this.getAllPullRequests(page) : this.getPullRequestsForCategory(prType, page);
 	}
 
-	private async getAllPullRequests(page?: number): Promise<PullRequestData | null> {
+	private async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
@@ -198,11 +198,9 @@ export class GitHubRepository implements IGitHubRepository {
 				throw e;
 			}
 		}
-
-		return null;
 	}
 
-	private async getPullRequestsForCategory(prType: PRType, page?: number): Promise<PullRequestData | null> {
+	private async getPullRequestsForCategory(prType: PRType, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
@@ -251,11 +249,9 @@ export class GitHubRepository implements IGitHubRepository {
 				throw e;
 			}
 		}
-
-		return null;
 	}
 
-	async getPullRequest(id: number): Promise<PullRequestModel | null> {
+	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
@@ -268,7 +264,7 @@ export class GitHubRepository implements IGitHubRepository {
 
 			if (!data.head.repo) {
 				Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-				return null;
+				return;
 			}
 
 			let item = convertRESTPullRequestToRawPullRequest(data);
@@ -276,7 +272,7 @@ export class GitHubRepository implements IGitHubRepository {
 			return new PullRequestModel(this, remote, item);
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
-			return null;
+			return;
 		}
 	}
 

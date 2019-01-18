@@ -57,7 +57,7 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			user: convertRESTUserToAccount(user),
 			state,
 			merged: false,
-			assignee: assignee ? convertRESTUserToAccount(assignee) : null,
+			assignee: assignee ? convertRESTUserToAccount(assignee) : undefined,
 			createdAt: created_at,
 			updatedAt: updated_at,
 			// comments,

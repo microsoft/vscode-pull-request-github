@@ -158,7 +158,7 @@ export class PullRequestOverviewPanel {
 			this._pullRequestManager.getStatusChecks(pullRequestModel)
 		]).then(result => {
 			const [pullRequest, timelineEvents, defaultBranch, status] = result;
-			if (pullRequest === null) {
+			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
 

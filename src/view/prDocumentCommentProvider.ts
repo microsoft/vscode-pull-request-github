@@ -31,49 +31,35 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 
 	}
 
-	async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | null> {
+	async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | undefined> {
 		let uri = document.uri;
 		if (uri.scheme === 'pr') {
 			let params = fromPRUri(uri);
 
-			if (!params) {
-				return null;
-			}
-
-			if (!this._prDocumentCommentProviders[params.prNumber]) {
-				return null;
+			if (!params || !this._prDocumentCommentProviders[params.prNumber]) {
+				return;
 			}
 
 			return await this._prDocumentCommentProviders[params.prNumber].provideDocumentComments(document, token);
 		}
-
-		return null;
 	}
 
-	async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread | null> {
+	async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread | undefined> {
 		let uri = document.uri;
 		let params = fromPRUri(uri);
 
-		if (!params) {
-			return null;
-		}
-
-		if (!this._prDocumentCommentProviders[params.prNumber]) {
-			return null;
+		if (!params || !this._prDocumentCommentProviders[params.prNumber]) {
+			return;
 		}
 
 		return await this._prDocumentCommentProviders[params.prNumber].createNewCommentThread(document, range, text, token);
 	}
-	async replyToCommentThread(document: vscode.TextDocument, range: vscode.Range, commentThread: vscode.CommentThread, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread | null> {
+	async replyToCommentThread(document: vscode.TextDocument, range: vscode.Range, commentThread: vscode.CommentThread, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread | undefined> {
 		let uri = document.uri;
 		let params = fromPRUri(uri);
 
-		if (!params) {
-			return null;
-		}
-
-		if (!this._prDocumentCommentProviders[params.prNumber]) {
-			return null;
+		if (!params || !this._prDocumentCommentProviders[params.prNumber]) {
+			return;
 		}
 
 		return await this._prDocumentCommentProviders[params.prNumber].replyToCommentThread(document, range, commentThread, text, token);

@@ -29,21 +29,21 @@ export function providePRDocumentComments(
 	const params = fromPRUri(document.uri);
 
 	if (!params) {
-		return null;
+		return undefined;
 	}
 
 	if (params.prNumber !== prNumber) {
-		return null;
+		return undefined;
 	}
 
 	const isBase = params.isBase;
 	const fileChange = fileChanges.find(change => change.fileName === params.fileName);
 	if (!fileChange) {
-		return null;
+		return undefined;
 	}
 
 	if (fileChange instanceof RemoteFileChangeNode) {
-		return null;
+		return undefined;
 	}
 
 	let commentingRanges: vscode.Range[] = [];
@@ -221,10 +221,10 @@ function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread
 export class PRNode extends TreeNode {
 	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
-	private _documentCommentsProvider: vscode.Disposable | null;
-	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent> | null;
+	private _documentCommentsProvider?: vscode.Disposable;
+	private _onDidChangeCommentThreads?: vscode.EventEmitter<vscode.CommentThreadChangedEvent>;
 
-	private _inMemPRContentProvider: vscode.Disposable | null;
+	private _inMemPRContentProvider?: vscode.Disposable;
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
@@ -233,9 +233,6 @@ export class PRNode extends TreeNode {
 		private _isLocal: boolean
 	) {
 		super();
-		this._documentCommentsProvider = null;
-		this._inMemPRContentProvider = null;
-		this._onDidChangeCommentThreads = null;
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
@@ -385,7 +382,7 @@ export class PRNode extends TreeNode {
 	}
 
 	private async updateComments(comments: Comment[], fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[]): Promise<void> {
-		if (this._onDidChangeCommentThreads === null) {
+		if (!this._onDidChangeCommentThreads) {
 			return;
 		}
 
@@ -587,7 +584,7 @@ export class PRNode extends TreeNode {
 		}
 
 		const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
-		if (this._onDidChangeCommentThreads !== null) {
+		if (this._onDidChangeCommentThreads) {
 			this._onDidChangeCommentThreads.fire({
 				added: [],
 				changed: [],
@@ -625,13 +622,13 @@ export class PRNode extends TreeNode {
 		}
 	}
 
-	private async provideDocumentComments(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CommentInfo | null> {
+	private async provideDocumentComments(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CommentInfo | undefined> {
 		if (document.uri.scheme === 'pr') {
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
 			return providePRDocumentComments(document, this.pullRequestModel.prNumber, this._fileChanges, inDraftMode);
 		}
 
-		return null;
+		return;
 	}
 
 	dispose(): void {

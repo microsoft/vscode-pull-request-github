@@ -36,9 +36,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _comments: Comment[] = [];
 	private _localFileChanges: (GitFileChangeNode)[] = [];
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
-	private _lastCommitSha: string | null;
+	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
-	private _validateStatusInProgress: Promise<void> | null;
+	private _validateStatusInProgress?: Promise<void>;
 
 	private _onDidChangeDocumentCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 	private _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
@@ -46,7 +46,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _prsTreeDataProvider: PullRequestsTreeDataProvider;
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
 	private _statusBarItem: vscode.StatusBarItem;
-	private _prNumber: number | null;
+	private _prNumber?: number;
 	private _previousRepositoryState: {
 		HEAD: Branch | undefined;
 		remotes: Remote[];
@@ -294,10 +294,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
-		this._validateStatusInProgress = null;
+		this._validateStatusInProgress = undefined;
 	}
 
-	private findMatchedFileByUri(document: vscode.TextDocument): GitFileChangeNode | null {
+	private findMatchedFileByUri(document: vscode.TextDocument): GitFileChangeNode | undefined {
 		const uri = document.uri;
 
 		let fileName: string;
@@ -330,8 +330,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		if (matchedFiles && matchedFiles.length) {
 			return matchedFiles[0];
 		}
-
-		return null;
 	}
 
 	private async replyToCommentThread(document: vscode.TextDocument, range: vscode.Range, thread: vscode.CommentThread, text: string) {
@@ -868,7 +866,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		const supportsGraphQL = this._prManager.activePullRequest && (this._prManager.activePullRequest as PullRequestModel).githubRepository.supportsGraphQl();
 		this._documentCommentProvider = vscode.workspace.registerDocumentCommentProvider({
 			onDidChangeCommentThreads: this._onDidChangeDocumentCommentThreads.event,
-			provideDocumentComments: async (document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | null> => {
+			provideDocumentComments: async (document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | undefined> => {
 				let ranges: vscode.Range[] = [];
 				let matchingComments: Comment[] = [];
 
@@ -971,7 +969,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						}
 
 						if (!comments.length) {
-							return null;
+							return;
 						}
 					} else {
 						comments = matchedFile.comments;
@@ -1024,7 +1022,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					}
 				}
 
-				return null;
+				return;
 			},
 			createNewCommentThread: this.createNewCommentThread.bind(this),
 			replyToCommentThread: this.replyToCommentThread.bind(this),
@@ -1220,15 +1218,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 		await this._repository.status();
 	}
 
-	public async publishBranch(branch: Branch): Promise<Branch | null> {
+	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
 		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
 		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch '${branch.name}' to:`))!.remote;
 
 		if (!selectedRemote || branch.name === undefined) {
-			return null;
+			return;
 		}
 
-		return new Promise<Branch | null>(async (resolve) => {
+		return new Promise<Branch | undefined>(async (resolve) => {
 			let inputBox = vscode.window.createInputBox();
 			inputBox.value = branch.name!;
 			inputBox.ignoreFocusOut = true;
@@ -1263,7 +1261,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 							modal: true
 						});
 
-						resolve(null);
+						resolve();
 					}
 
 					// we can't handle the error
@@ -1273,7 +1271,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				// we don't want to wait for repository status update
 				let latestBranch = await this._repository.getBranch(branch.name!);
 				if (!latestBranch || !latestBranch.upstream) {
-					resolve(null);
+					resolve();
 				}
 
 				resolve(latestBranch);

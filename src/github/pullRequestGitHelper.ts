@@ -110,7 +110,7 @@ export class PullRequestGitHelper {
 		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.prNumber;
 	}
 
-	static parsePullRequestMetadata(value: string): PullRequestMetadata | null {
+	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
 		if (value) {
 			let matches = /(.*)#(.*)#(.*)/g.exec(value);
 			if (matches && matches.length === 4) {
@@ -122,17 +122,15 @@ export class PullRequestGitHelper {
 				};
 			}
 		}
-
-		return null;
 	}
 
-	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata | null> {
+	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata | undefined> {
 		try {
 			let configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 			let configValue = await repository.getConfig(configKey);
 			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
 		} catch (_) {
-			return null;
+			return;
 		}
 	}
 
@@ -219,7 +217,7 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel): Remote | null {
+	static getHeadRemoteForPullRequest(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel): Remote | undefined {
 		for (let i = 0; i < githubRepositories.length; i++) {
 			let remote = githubRepositories[i].remote;
 			if (remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl)) {
@@ -227,7 +225,7 @@ export class PullRequestGitHelper {
 			}
 		}
 
-		return null;
+		return;
 	}
 
 	static async associateBranchWithPullRequest(repository: Repository, pullRequest: PullRequestModel, branchName: string) {
