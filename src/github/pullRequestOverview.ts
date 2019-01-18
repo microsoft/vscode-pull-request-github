@@ -262,7 +262,7 @@ export class PullRequestOverviewPanel {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
-			if (vscode.workspace.rootPath === undefined) {
+			if (!vscode.workspace.rootPath) {
 				throw new Error('Current workspace rootpath is undefined.');
 			}
 			const tempFilePath = path.resolve(vscode.workspace.rootPath, '.git', `${comment.id}.diff`);

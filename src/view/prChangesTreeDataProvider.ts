@@ -101,7 +101,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 		if (fileChange) {
 			await this.reveal(fileChange, { focus: true, expand: 2 });
-			if (fileChange.command.arguments === undefined) {
+			if (!fileChange.command.arguments) {
 				return;
 			}
 			if (fileChange instanceof GitFileChangeNode) {

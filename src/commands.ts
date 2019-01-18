@@ -99,7 +99,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
 
-			if (vscode.workspace.rootPath === undefined) {
+			if (!vscode.workspace.rootPath) {
 				throw new Error('Current workspace root path is undefined.');
 			}
 

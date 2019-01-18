@@ -30,7 +30,7 @@ export class GitHubRepository implements IGitHubRepository {
 	private _metadata: any;
 
 	public get hub(): GitHub {
-		if (this._hub === undefined) {
+		if (!this._hub) {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
 			} else {

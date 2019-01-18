@@ -68,18 +68,18 @@ export class Resolvers {
 	static current = Resolvers.default;
 }
 
-const parse = (url: string): Config | null => {
+const parse = (url: string): Config | undefined => {
 	const urlMatch = URL_SCHEME_RE.exec(url);
 	if (urlMatch) {
 		const [fullSchemePrefix, scheme] = urlMatch;
 		if (scheme === 'ssh') {
 			url = url.slice(fullSchemePrefix.length);
 		} else {
-			return null;
+			return;
 		}
 	}
 	const match = SSH_URL_RE.exec(url);
-	if (!match) { return null; }
+	if (!match) { return; }
 	const [, User, Host, path] = match;
 	return {User, Host, path};
 };

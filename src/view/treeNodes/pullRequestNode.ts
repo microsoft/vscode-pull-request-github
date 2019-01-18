@@ -28,22 +28,14 @@ export function providePRDocumentComments(
 	inDraftMode: boolean) {
 	const params = fromPRUri(document.uri);
 
-	if (!params) {
-		return undefined;
-	}
-
-	if (params.prNumber !== prNumber) {
-		return undefined;
+	if (!params || params.prNumber !== prNumber) {
+		return;
 	}
 
 	const isBase = params.isBase;
 	const fileChange = fileChanges.find(change => change.fileName === params.fileName);
-	if (!fileChange) {
-		return undefined;
-	}
-
-	if (fileChange instanceof RemoteFileChangeNode) {
-		return undefined;
+	if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
+		return;
 	}
 
 	let commentingRanges: vscode.Range[] = [];
@@ -245,7 +237,7 @@ export class PRNode extends TreeNode {
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
 			const mergeBase = this.pullRequestModel.mergeBase;
-			if (mergeBase === undefined) {
+			if (!mergeBase) {
 				return [];
 			}
 
@@ -334,7 +326,7 @@ export class PRNode extends TreeNode {
 
 		if (fileChange) {
 			await this.reveal(fileChange, { focus: true });
-			if (fileChange.command.arguments === undefined) {
+			if (!fileChange.command.arguments) {
 				return;
 			}
 			if (fileChange instanceof InMemFileChangeNode) {

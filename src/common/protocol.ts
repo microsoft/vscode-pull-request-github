@@ -97,7 +97,7 @@ export class Protocol {
 		let lastIndex = normalized.lastIndexOf('/');
 		let lastSegment = normalized.substr(lastIndex + 1);
 		if (lastSegment === '' || lastSegment === '/') {
-			return null;
+			return;
 		}
 
 		return lastSegment.replace(/\/$/, '').replace(/\.git$/, '');
@@ -114,12 +114,12 @@ export class Protocol {
 			return fragments[fragments.length - 2];
 		}
 
-		return null;
+		return;
 	}
 
-	normalizeUri(): vscode.Uri | null {
+	normalizeUri(): vscode.Uri | undefined {
 		if (this.type === ProtocolType.OTHER && !this.url) {
-			return null;
+			return;
 		}
 
 		if (this.type === ProtocolType.Local) {
@@ -134,11 +134,11 @@ export class Protocol {
 		try {
 			return vscode.Uri.parse(`${scheme}://${this.host.toLocaleLowerCase()}/${this.nameWithOwner.toLocaleLowerCase()}`);
 		} catch (e) {
-			return null;
+			return;
 		}
 	}
 
-	toString(): string | null {
+	toString(): string | undefined {
 		// based on Uri scheme for SSH https://tools.ietf.org/id/draft-salowey-secsh-uri-00.html#anchor1 and heuristics of how GitHub handles ssh url
 		// sshUri        = `ssh:`
 		//    - omitted
@@ -163,7 +163,7 @@ export class Protocol {
 			return normalizedUri.toString();
 		}
 
-		return null;
+		return;
 	}
 
 	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string; }): Protocol {
