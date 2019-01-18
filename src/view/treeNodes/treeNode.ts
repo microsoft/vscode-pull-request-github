@@ -17,7 +17,7 @@ export abstract class TreeNode implements vscode.Disposable {
 
 	constructor() { }
 	abstract getTreeItem(): vscode.TreeItem;
-	getParent(): TreeNode {
+	getParent(): TreeNode | null {
 		if (this.parent instanceof TreeNode) {
 			return this.parent;
 		}

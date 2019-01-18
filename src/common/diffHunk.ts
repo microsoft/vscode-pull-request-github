@@ -97,7 +97,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 	let lineReader = LineReader(diffHunkPatch);
 
 	let itr = lineReader.next();
-	let diffHunk: DiffHunk = null;
+	let diffHunk: DiffHunk | null = null;
 	let positionInHunk = -1;
 	let oldLine = -1;
 	let newLine = -1;

@@ -87,7 +87,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return element.getChildren();
 	}
 
-	async getParent(element: TreeNode): Promise<TreeNode> {
+	async getParent(element: TreeNode): Promise<TreeNode | null> {
 		return element.getParent();
 	}
 

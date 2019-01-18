@@ -44,7 +44,7 @@ export class GitHubManager {
 		}
 
 		if (this._servers.has(host.authority)) {
-			return this._servers.get(host.authority);
+			return !!this._servers.get(host.authority);
 		}
 
 		const keychainHosts = await listHosts();

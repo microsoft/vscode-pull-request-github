@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as Octokit from '@octokit/rest';
+import * as Octokit from '../common/octokit';
 import { IAccount, PullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
@@ -91,11 +91,11 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 		id: comment.id,
 		diffHunk: '',
 		diffHunks: [],
-		path: null,
-		position: null,
-		commitId: null,
-		originalPosition: null,
-		originalCommitId: null,
+		path: undefined,
+		position: undefined,
+		commitId: undefined,
+		originalPosition: undefined,
+		originalCommitId: undefined,
 		user: convertRESTUserToAccount(comment.user),
 		body: comment.body,
 		createdAt: comment.created_at,

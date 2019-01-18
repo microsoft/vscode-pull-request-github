@@ -15,7 +15,7 @@ import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
-import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
+import { Repository, RefType, UpstreamRef } from '../typings/git';
 import Logger from '../common/logger';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, parseGraphQLComment } from './utils';
 const queries = require('./queries.gql');
@@ -88,7 +88,7 @@ interface ReplyCommentPosition {
 
 export class PullRequestManager {
 	static ID = 'PullRequestManager';
-	private _activePullRequest?: PullRequestModel;
+	private _activePullRequest: PullRequestModel | null;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 	private _githubManager: GitHubManager;
@@ -129,11 +129,11 @@ export class PullRequestManager {
 		}
 	}
 
-	get activePullRequest() {
+	get activePullRequest(): (PullRequestModel | null) {
 		return this._activePullRequest;
 	}
 
-	set activePullRequest(pullRequest: PullRequestModel) {
+	set activePullRequest(pullRequest: (PullRequestModel | null)) {
 		this._activePullRequest = pullRequest;
 		this._onDidChangeActivePullRequest.fire();
 	}
@@ -154,14 +154,14 @@ export class PullRequestManager {
 		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
-		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
+		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
 				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
 				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
 				return [];
 			});
-		gitHubRemotes = uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().toString());
+		gitHubRemotes = uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri()!.toString());
 
 		if (gitHubRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
@@ -173,7 +173,7 @@ export class PullRequestManager {
 		}
 
 		let serverAuthPromises = [];
-		for (let server of uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().authority)) {
+		for (let server of uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
 			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
 				if (!authd) {
 					this._credentialStore.loginWithConfirmation(server);
@@ -204,7 +204,7 @@ export class PullRequestManager {
 				if (!this._repositoryPageInformation.get(remoteId)) {
 					this._repositoryPageInformation.set(remoteId, {
 						pullRequestPage: 1,
-						hasMorePages: null
+						hasMorePages: false
 					});
 				}
 			}
@@ -240,8 +240,8 @@ export class PullRequestManager {
 		}
 
 		const localBranches = this.repository.state.refs
-			.filter(r => r.type === RefType.Head && r.name)
-			.map(r => r.name);
+			.filter(r => r.type === RefType.Head && r.name !== undefined)
+			.map(r => r.name!);
 
 		const promises = localBranches.map(async localBranchName => {
 			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, localBranchName);
@@ -251,7 +251,7 @@ export class PullRequestManager {
 				const githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
 
 				if (githubRepo) {
-					const pullRequest: PullRequestModel = await githubRepo.getPullRequest(prNumber);
+					const pullRequest: PullRequestModel | null = await githubRepo.getPullRequest(prNumber);
 
 					if (pullRequest) {
 						pullRequest.localBranchName = localBranchName;
@@ -264,14 +264,17 @@ export class PullRequestManager {
 		});
 
 		return Promise.all(promises).then(values => {
-			return values.filter(value => value !== null);
+			return values.filter(value => value !== null) as PullRequestModel[];
 		});
 	}
 
 	async deleteLocalPullRequest(pullRequest: PullRequestModel, force?: boolean): Promise<void> {
+		if (!pullRequest.localBranchName) {
+			return;
+		}
 		await this.repository.deleteBranch(pullRequest.localBranchName, force);
 
-		let remoteName: string = null;
+		let remoteName: string | null = null;
 		try {
 			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
 		} catch (e) {}
@@ -305,12 +308,15 @@ export class PullRequestManager {
 			for (let repository of this._githubRepositories) {
 				this._repositoryPageInformation.set(repository.remote.url.toString(), {
 					pullRequestPage: 1,
-					hasMorePages: null
+					hasMorePages: false
 				});
 			}
 		}
 
-		githubRepositories = githubRepositories.filter(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
+		githubRepositories = githubRepositories.filter(repo => {
+			let info = this._repositoryPageInformation.get(repo.remote.url.toString());
+			return info && info.hasMorePages;
+		});
 
 		let pullRequests: PullRequestModel[] = [];
 		let numPullRequests = 0;
@@ -327,7 +333,7 @@ export class PullRequestManager {
 			const shouldLoad = this._includeRemotes === IncludeRemote.All || !(await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote));
 			if (shouldLoad) {
 				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
-				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation.hasMorePages !== false) {
+				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation && pageInformation.hasMorePages !== false) {
 					const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
 					if (!pullRequestData) {
 						break;
@@ -346,7 +352,10 @@ export class PullRequestManager {
 	}
 
 	public mayHaveMorePages(): boolean {
-		return this._githubRepositories.some(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
+		return this._githubRepositories.some(repo => {
+			let info = this._repositoryPageInformation.get(repo.remote.url.toString());
+			return !!(info && info.hasMorePages);
+		});
 	}
 
 	async getStatusChecks(pullRequest: PullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse> {
@@ -386,6 +395,7 @@ export class PullRequestManager {
 			return comments;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
+			return [];
 		}
 	}
 
@@ -500,10 +510,10 @@ export class PullRequestManager {
 		return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(promise.data), remote);
 	}
 
-	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment> {
+	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment | null> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.nodeId });
+			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: String(reply_to.id) });
 		}
 
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
@@ -520,6 +530,7 @@ export class PullRequestManager {
 			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
 		} catch (e) {
 			this.handleError(e);
+			return null;
 		}
 	}
 
@@ -538,7 +549,7 @@ export class PullRequestManager {
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		return mutate<void>({
+		await mutate<void>({
 			mutation: queries.StartReview,
 			variables: {
 				input: {
@@ -549,6 +560,8 @@ export class PullRequestManager {
 		}).then(x => x.data).catch(e => {
 			Logger.appendLine(`Failed to start review: ${e.message}`);
 		});
+
+		return;
 	}
 
 	async inDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
@@ -556,6 +569,10 @@ export class PullRequestManager {
 	}
 
 	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | null> {
+		if (pullRequest === null) {
+			return null;
+		}
+
 		if (!pullRequest.githubRepository.supportsGraphQl()) {
 			return null;
 		}
@@ -593,7 +610,7 @@ export class PullRequestManager {
 		return parseGraphQLComment(comment);
 	}
 
-	async createComment(pullRequest: PullRequestModel, body: string, path: string, position: number): Promise<Comment> {
+	async createComment(pullRequest: PullRequestModel, body: string, path: string, position: number): Promise<Comment | null> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
 		if (pendingReviewId) {
 			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path, position });
@@ -615,6 +632,7 @@ export class PullRequestManager {
 			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
 		} catch (e) {
 			this.handleError(e);
+			return null;
 		}
 	}
 
@@ -645,8 +663,12 @@ export class PullRequestManager {
 
 	async getHeadCommitMessage(): Promise<string> {
 		const { repository } = this;
-		const { message } = await repository.getCommit(repository.state.HEAD.commit);
-		return message;
+		if (repository.state.HEAD && repository.state.HEAD.commit) {
+			const { message } = await repository.getCommit(repository.state.HEAD.commit);
+			return message;
+		}
+
+		return '';
 	}
 
 	get origin(): GitHubRepository {
@@ -662,7 +684,7 @@ export class PullRequestManager {
 				// No GitHubRepository? We currently won't try pushing elsewhere,
 				// so fail.
 				throw new BadUpstreamError(
-					this.repository.state.HEAD.name,
+					this.repository.state.HEAD!.name!,
 					upstreamRef,
 					'is not a GitHub repo');
 			}
@@ -689,7 +711,7 @@ export class PullRequestManager {
 		return HEAD && HEAD.upstream;
 	}
 
-	async createPullRequest(params: Github.PullRequestsCreateParams): Promise<PullRequestModel> {
+	async createPullRequest(params: Github.PullRequestsCreateParams): Promise<PullRequestModel | null> {
 		try {
 			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
 			if (!repo) {
@@ -882,6 +904,7 @@ export class PullRequestManager {
 			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
 		} else {
 			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
+			return [];
 		}
 	}
 
@@ -964,7 +987,7 @@ export class PullRequestManager {
 
 	//#region Git related APIs
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<PullRequestModel> {
+	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<PullRequestModel | null> {
 		const githubRepo = this._githubRepositories.find(repo =>
 			repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase()
 		);
@@ -978,12 +1001,11 @@ export class PullRequestManager {
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
-		if (!this.repository || !this.repository.state.HEAD) {
+		if (!this.repository || !this.repository.state.HEAD || !this.repository.state.HEAD.name) {
 			return null;
 		}
 
-		const HEAD = this.repository.state.HEAD;
-		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, HEAD.name);
+		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, this.repository.state.HEAD.name);
 		return matchingPullRequestMetadata;
 	}
 
@@ -993,22 +1015,6 @@ export class PullRequestManager {
 
 	async fetchAndCheckout(pullRequest: PullRequestModel): Promise<void> {
 		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._githubRepositories, pullRequest);
-	}
-
-	async getBranch(remote: Remote, branchName: string): Promise<Branch> {
-		let githubRepository = this.findRepo(byRemoteName(remote.remoteName));
-		if (githubRepository) {
-			let githubBranch = await githubRepository.getBranch(branchName);
-
-			if (githubBranch) {
-				return {
-					name: githubBranch.name,
-					type: RefType.RemoteHead
-				};
-			}
-		}
-
-		return null;
 	}
 
 	async checkout(branchName: string): Promise<void> {
@@ -1042,10 +1048,10 @@ export class PullRequestManager {
 		const reviewComments = await this.getPullRequestComments(pullRequest);
 
 		// Group comments by file and position
-		const commentsByFile = groupBy(reviewComments, comment => comment.path);
+		const commentsByFile = groupBy(reviewComments, comment => comment.path!);
 		for (let file in commentsByFile) {
 			const fileComments = commentsByFile[file];
-			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.originalPosition : comment.position));
+			const commentThreads = groupBy(fileComments, (comment: Comment) => String(comment.position === undefined ? comment.originalPosition! : comment.position));
 
 			// Loop through threads, for each thread, see if there is a matching review, push all comments to it
 			for (let i in commentThreads) {

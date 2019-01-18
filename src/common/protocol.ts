@@ -42,8 +42,8 @@ export class Protocol {
 
 			this.host = this.getHostName(this.url.authority);
 			if (this.host) {
-				this.repositoryName = this.getRepositoryName(this.url.path);
-				this.owner = this.getOwnerName(this.url.path);
+				this.repositoryName = this.getRepositoryName(this.url.path) || '';
+				this.owner = this.getOwnerName(this.url.path) || '';
 			}
 		} catch (e) {
 			Logger.appendLine(`Failed to parse '${uriString}'`);
@@ -72,8 +72,8 @@ export class Protocol {
 		if (!sshConfig) { return false; }
 		const { HostName, path } = sshConfig;
 		this.host = HostName;
-		this.owner = this.getOwnerName(path);
-		this.repositoryName = this.getRepositoryName(path);
+		this.owner = this.getOwnerName(path) || '';
+		this.repositoryName = this.getRepositoryName(path) || '';
 		this.type = ProtocolType.SSH;
 		return true;
 	}
@@ -117,7 +117,7 @@ export class Protocol {
 		return null;
 	}
 
-	normalizeUri(): vscode.Uri {
+	normalizeUri(): vscode.Uri | null {
 		if (this.type === ProtocolType.OTHER && !this.url) {
 			return null;
 		}
@@ -138,7 +138,7 @@ export class Protocol {
 		}
 	}
 
-	toString(): string {
+	toString(): string | null {
 		// based on Uri scheme for SSH https://tools.ietf.org/id/draft-salowey-secsh-uri-00.html#anchor1 and heuristics of how GitHub handles ssh url
 		// sshUri        = `ssh:`
 		//    - omitted
@@ -187,6 +187,16 @@ export class Protocol {
 	}
 
 	equals(other: Protocol) {
-		return this.normalizeUri().toString().toLocaleLowerCase() === other.normalizeUri().toString().toLocaleLowerCase();
+		let normalizeUri = this.normalizeUri();
+		if (!normalizeUri) {
+			return false;
+		}
+
+		let otherNormalizeUri = other.normalizeUri();
+		if (!otherNormalizeUri) {
+			return false;
+		}
+
+		return normalizeUri.toString().toLocaleLowerCase() === otherNormalizeUri.toString().toLocaleLowerCase();
 	}
 }

@@ -25,16 +25,20 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 		return {
 			dispose: () => {
 				changeListener.dispose();
-				this._prDocumentCommentProviders[pullRequestModel.prNumber] = null;
+				delete this._prDocumentCommentProviders[pullRequestModel.prNumber];
 			}
 		};
 
 	}
 
-	async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo> {
+	async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | null> {
 		let uri = document.uri;
 		if (uri.scheme === 'pr') {
 			let params = fromPRUri(uri);
+
+			if (!params) {
+				return null;
+			}
 
 			if (!this._prDocumentCommentProviders[params.prNumber]) {
 				return null;
@@ -42,11 +46,17 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 
 			return await this._prDocumentCommentProviders[params.prNumber].provideDocumentComments(document, token);
 		}
+
+		return null;
 	}
 
-	async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread> {
+	async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread | null> {
 		let uri = document.uri;
 		let params = fromPRUri(uri);
+
+		if (!params) {
+			return null;
+		}
 
 		if (!this._prDocumentCommentProviders[params.prNumber]) {
 			return null;
@@ -54,9 +64,13 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 
 		return await this._prDocumentCommentProviders[params.prNumber].createNewCommentThread(document, range, text, token);
 	}
-	async replyToCommentThread(document: vscode.TextDocument, range: vscode.Range, commentThread: vscode.CommentThread, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread> {
+	async replyToCommentThread(document: vscode.TextDocument, range: vscode.Range, commentThread: vscode.CommentThread, text: string, token: vscode.CancellationToken): Promise<vscode.CommentThread | null> {
 		let uri = document.uri;
 		let params = fromPRUri(uri);
+
+		if (!params) {
+			return null;
+		}
 
 		if (!this._prDocumentCommentProviders[params.prNumber]) {
 			return null;
@@ -67,21 +81,39 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 
 	async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string, token: vscode.CancellationToken): Promise<void> {
 		const params = fromPRUri(document.uri);
+		if (!params) {
+			throw new Error(`Current document ${document.uri.toString()} is not valid PR document`);
+		}
+
 		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
 
 		if (!commentProvider) {
 			throw new Error(`Couldn't find document provider`);
 		}
 
-		return await commentProvider.editComment(document, comment, text, token);
+		if (!commentProvider.editComment) {
+			throw new Error(`Document provider doesn't support editing comment.`);
+		}
+
+		await commentProvider.editComment(document, comment, text, token);
+		return;
 	}
 
 	async deleteComment(document: vscode.TextDocument, comment: vscode.Comment, token: vscode.CancellationToken): Promise<void> {
 		const params = fromPRUri(document.uri);
+
+		if (!params) {
+			throw new Error(`Current document ${document.uri.toString()} is not valid PR document`);
+		}
+
 		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
 
 		if (!commentProvider) {
 			throw new Error(`Couldn't find document provider`);
+		}
+
+		if (!commentProvider.deleteComment) {
+			throw new Error(`Document provider doesn't support deleting comment.`);
 		}
 
 		return await commentProvider.deleteComment(document, comment, token);

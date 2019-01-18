@@ -721,7 +721,7 @@ declare module 'vscode' {
 		 * The range the comment thread is located within the document. The thread icon will be shown
 		 * at the first line of the range.
 		 */
-		range: Range;
+		range: Range | null;
 
 		/**
 		 * The ordered comments of the thread.
@@ -813,17 +813,17 @@ declare module 'vscode' {
 		/**
 		 * Provide the commenting ranges and comment threads for the given document. The comments are displayed within the editor.
 		 */
-		provideDocumentComments(document: TextDocument, token: CancellationToken): Promise<CommentInfo>;
+		provideDocumentComments(document: TextDocument, token: CancellationToken): Promise<CommentInfo | null>;
 
 		/**
 		 * Called when a user adds a new comment thread in the document at the specified range, with body text.
 		 */
-		createNewCommentThread(document: TextDocument, range: Range, text: string, token: CancellationToken): Promise<CommentThread>;
+		createNewCommentThread(document: TextDocument, range: Range, text: string, token: CancellationToken): Promise<CommentThread | null>;
 
 		/**
 		 * Called when a user replies to a new comment thread in the document at the specified range, with body text.
 		 */
-		replyToCommentThread(document: TextDocument, range: Range, commentThread: CommentThread, text: string, token: CancellationToken): Promise<CommentThread>;
+		replyToCommentThread(document: TextDocument, range: Range, commentThread: CommentThread, text: string, token: CancellationToken): Promise<CommentThread | null>;
 
 		/**
 		 * Called when a user edits the comment body to the be new text.

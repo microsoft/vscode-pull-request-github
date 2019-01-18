@@ -39,8 +39,8 @@ export type GlobalStateContext = { globalState: vscode.Memento };
 const SERVICE_ID = 'vscode-pull-request-github';
 export const ALL_HOSTS_KEY = 'keychain::all';
 
-let defaultStorage: vscode.Memento = null;
-let defaultKeychain: Keytar = null;
+let defaultStorage: vscode.Memento | null = null;
+let defaultKeychain: Keytar | null = null;
 
 const didChange = new vscode.EventEmitter<IHostConfiguration>();
 export const onDidChange = didChange.event;
@@ -50,10 +50,10 @@ export function init(ctx: GlobalStateContext, keychain: Keytar = systemKeychain)
 	defaultKeychain = keychain;
 }
 
-export async function getToken(host: string, { storage = defaultStorage, keychain = defaultKeychain } = {}): Promise<string> {
+export async function getToken(host: string, { storage = defaultStorage, keychain = defaultKeychain } = {}): Promise<string | null | undefined> {
 	host = toCanonical(host);
-	const token = keychain.getPassword(SERVICE_ID, toCanonical(host))
-		.catch(() => storage.get(keyFor(host)));
+	const token = keychain!.getPassword(SERVICE_ID, toCanonical(host))
+		.catch(() => storage!.get(keyFor(host)));
 
 	// While we're transitioning everything out of configuration and into local storage, it's possible
 	// that we end up in a state where a host is not in the hosts list (perhaps because it was removed
@@ -68,20 +68,20 @@ export async function getToken(host: string, { storage = defaultStorage, keychai
 export async function setToken(host: string, token: string, { storage = defaultStorage, keychain = defaultKeychain, emit = true } = {}) {
 	if (!token) { return deleteToken(host, { storage, keychain, emit }); }
 	host = toCanonical(host);
-	await keychain.setPassword(SERVICE_ID, host, token)
-		.catch(() => storage.update(keyFor(host), token));
+	await keychain!.setPassword(SERVICE_ID, host, token)
+		.catch(() => storage!.update(keyFor(host), token));
 	await addHost(host, { storage });
 	if (emit) { didChange.fire({ host, token }); }
 }
 
 export async function deleteToken(host: string, { storage = defaultStorage, keychain = defaultKeychain, emit = true } = {}) {
 	host = toCanonical(host);
-	await keychain.deletePassword(SERVICE_ID, host)
-		.catch(() => storage.update(keyFor(host), undefined));
-	const hosts = storage.get<{ [key: string]: string }>(ALL_HOSTS_KEY, {});
+	await keychain!.deletePassword(SERVICE_ID, host)
+		.catch(() => storage!.update(keyFor(host), undefined));
+	const hosts = storage!.get<{ [key: string]: string }>(ALL_HOSTS_KEY, {});
 	delete hosts[host];
-	storage.update(ALL_HOSTS_KEY, hosts);
-	if (emit) { didChange.fire({ host, token: null }); }
+	storage!.update(ALL_HOSTS_KEY, hosts);
+	if (emit) { didChange.fire({ host, token: undefined }); }
 }
 
 export async function migrateToken(host: string, token: string, { storage = defaultStorage, keychain = defaultKeychain, emit = false } = {}) {
@@ -94,17 +94,16 @@ export async function migrateToken(host: string, token: string, { storage = defa
 }
 
 export async function listHosts({ storage = defaultStorage } = {}) {
-	return Object.keys(storage.get(ALL_HOSTS_KEY) || {});
+	return Object.keys(storage!.get(ALL_HOSTS_KEY) || {});
 }
 
 async function addHost(host: string, { storage = defaultStorage }) {
-	return storage.update(ALL_HOSTS_KEY, { ...storage.get(ALL_HOSTS_KEY), [host]: true });
+	return storage!.update(ALL_HOSTS_KEY, { ...storage!.get(ALL_HOSTS_KEY), [host]: true });
 }
 
 const SCHEME_RE = /^[a-z-]+:\/?\/?/;
 export function toCanonical(host: string): string {
 	host = host.toLocaleLowerCase();
-	if (!host) { return; }
 	if (host.endsWith('/')) {
 		host = host.slice(0, -1);
 	}

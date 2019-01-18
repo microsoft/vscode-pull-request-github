@@ -14,7 +14,8 @@
 			"./node_modules/@types",
 			"./src/typings/"
 		],
-		"noImplicitAny": true
+		"noImplicitAny": true,
+		"strictNullChecks": true
 	},
 	"include": [
 		"src/**/*"

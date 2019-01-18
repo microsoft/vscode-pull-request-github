@@ -79,7 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	telemetry = new Telemetry(context);
 
-	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
+	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
 	const git = gitExtension.getAPI(1);
 
 	Logger.appendLine('Looking for git repository');
