@@ -12,7 +12,7 @@ export class Telemetry implements ITelemetry {
 	private _version: string;
 	private _telemetry: StatsStore;
 	constructor(private readonly _context: vscode.ExtensionContext) {
-		this._version = vscode.extensions.getExtension(EXTENSION_ID).packageJSON.version;
+		this._version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
 		const database = new MementoDatabase(this._context, () => this._telemetry.createReport());
 		this._telemetry = new StatsStore(AppName.VSCode, this._version,
 			() => '',
@@ -40,7 +40,7 @@ class VSSettings implements ISettings {
 		this._config = vscode.workspace.getConfiguration('githubPullRequests.telemetry');
 
 		const deprecated = vscode.workspace.getConfiguration('telemetry');
-		const { globalValue, workspaceFolderValue, workspaceValue } = deprecated.inspect(DEPRECATED_CONFIG_SECTION);
+		const { globalValue, workspaceFolderValue, workspaceValue } = deprecated.inspect(DEPRECATED_CONFIG_SECTION)!;
 		const values = [
 			{ target: vscode.ConfigurationTarget.Global, value: globalValue },
 			{ target: vscode.ConfigurationTarget.WorkspaceFolder, value: workspaceFolderValue },
@@ -56,7 +56,7 @@ class VSSettings implements ISettings {
 			});
 		}
 	}
-	getItem(key: string): Promise<string> {
+	getItem(key: string): Promise<string | undefined> {
 		switch (key) {
 			case 'last-daily-stats-report':
 				return Promise.resolve(this._context.globalState.get<string>(`${TELEMETRY_KEY}.last`));

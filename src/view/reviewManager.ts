@@ -239,7 +239,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private async validateState() {
 		await this._prManager.updateRepositories();
 
-		if (this._repository.state.HEAD === undefined) {
+		if (!this._repository.state.HEAD) {
 			this.clear(true);
 			return;
 		}
@@ -269,12 +269,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 		Logger.appendLine(`Review> current branch ${this._repository.state.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`);
 		this.clear(false);
 		this._prNumber = matchingPullRequestMetadata.prNumber;
-		this._lastCommitSha = null;
+		this._lastCommitSha = undefined;
 
 		const { owner, repositoryName } = matchingPullRequestMetadata;
 		const pr = await this._prManager.resolvePullRequest(owner, repositoryName, matchingPullRequestMetadata.prNumber);
 		if (!pr) {
-			this._prNumber = null;
+			this._prNumber = undefined;
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}
@@ -334,7 +334,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private async replyToCommentThread(document: vscode.TextDocument, range: vscode.Range, thread: vscode.CommentThread, text: string) {
 		try {
-			if (this._prManager.activePullRequest === null) {
+			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 			const matchedFile = this.findMatchedFileByUri(document);
@@ -381,11 +381,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const query = uri.query === '' ? undefined : fromReviewUri(uri);
 			const isBase = query && query.base;
 
-			if (matchedFile === null) {
+			if (!matchedFile) {
 				throw new Error(`Cannot find document ${uri.toString()}`);
 			}
 
-			if (this._lastCommitSha === null) {
+			if (!this._lastCommitSha) {
 				throw new Error('Last commit sha can not be null');
 			}
 			// git diff sha -- fileName
@@ -434,7 +434,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string): Promise<void> {
 		try {
-			if (this._prManager.activePullRequest === null) {
+			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
@@ -470,7 +470,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private async deleteComment(document: vscode.TextDocument, comment: vscode.Comment): Promise<void> {
 		try {
-			if (this._prManager.activePullRequest === null) {
+			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
@@ -533,7 +533,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) { return; }
 
-		if (this._prNumber === null || this._prManager.activePullRequest === null) {
+		if (this._prNumber === undefined || !this._prManager.activePullRequest) {
 			return;
 		}
 
@@ -1051,7 +1051,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async startDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<void> {
-		if (this._prManager.activePullRequest === null) {
+		if (!this._prManager.activePullRequest) {
 			throw new Error('Unable to find active pull request');
 		}
 
@@ -1065,7 +1065,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async deleteDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
-		if (this._prManager.activePullRequest === null) {
+		if (!this._prManager.activePullRequest) {
 			throw new Error('Unable to find active pull request');
 		}
 
@@ -1111,7 +1111,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async finishDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
-		if (this._prManager.activePullRequest === null) {
+		if (!this._prManager.activePullRequest) {
 			throw new Error('Unable to find active pull request');
 		}
 
@@ -1148,7 +1148,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 	}
 
-	private findMatchedFileChange(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode | null {
+	private findMatchedFileChange(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode | undefined {
 		let query = fromReviewUri(uri);
 		let matchedFiles = fileChanges.filter(fileChange => {
 			if (fileChange instanceof RemoteFileChangeNode) {
@@ -1176,8 +1176,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		if (matchedFiles && matchedFiles.length) {
 			return matchedFiles[0] as GitFileChangeNode;
 		}
-
-		return null;
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
@@ -1281,10 +1279,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private async getRemote(potentialTargetRemotes: Remote[], placeHolder: string, defaultUpstream?: RemoteQuickPickItem): Promise<RemoteQuickPickItem | null> {
+	private async getRemote(potentialTargetRemotes: Remote[], placeHolder: string, defaultUpstream?: RemoteQuickPickItem): Promise<RemoteQuickPickItem | undefined> {
 		if (!potentialTargetRemotes.length) {
 			vscode.window.showWarningMessage(`No GitHub remotes found. Add a remote and try again.`);
-			return null;
+			return;
 		}
 
 		if (potentialTargetRemotes.length === 1 && !defaultUpstream) {
@@ -1320,7 +1318,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 
 		if (!selected) {
-			return null;
+			return;
 		}
 
 		return selected;
@@ -1360,7 +1358,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			cancellable: false
 		}, async (progress) => {
 			progress.report({ increment: 10 });
-			let HEAD: Branch | null = this._repository.state.HEAD!;
+			let HEAD: Branch | undefined = this._repository.state.HEAD!;
 			const branchName = HEAD.name;
 
 			if (!HEAD.upstream) {
@@ -1411,8 +1409,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		if (quitReviewMode) {
-			this._prNumber = null;
-			this._prManager.activePullRequest = null;
+			this._prNumber = undefined;
+			this._prManager.activePullRequest = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();
@@ -1432,7 +1430,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 	}
 
-	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | null> {
+	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
 		let { path, commit } = fromReviewUri(uri);
 		let changedItems = gitFileChangeNodeFilter(this._localFileChanges)
 			.filter(change => change.fileName === path)
@@ -1471,8 +1469,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			return ret.join('\n');
 		}
-
-		return null;
 	}
 
 	dispose() {

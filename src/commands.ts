@@ -25,8 +25,8 @@ import { Comment } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 
-const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | null>();
-export const onDidUpdatePR: vscode.Event<PullRequest | null> = _onDidUpdatePR.event;
+const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
+export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
 
 function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
@@ -65,7 +65,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
 		try {
-			if (prManager.activePullRequest === null) {
+			if (!prManager.activePullRequest) {
 				return;
 			}
 
@@ -224,7 +224,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
-					let newComment: Comment | null = null;
+					let newComment: Comment | undefined = undefined;
 					if (message) {
 						newComment = await prManager.createIssueComment(pullRequest, message);
 					}
@@ -235,11 +235,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 					return newComment;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to close pull request. ${formatError(e)}`);
-					_onDidUpdatePR.fire(null);
+					_onDidUpdatePR.fire();
 				}
 			}
 
-			_onDidUpdatePR.fire(null);
+			_onDidUpdatePR.fire();
 		});
 	}));
 

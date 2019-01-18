@@ -39,8 +39,8 @@ export type GlobalStateContext = { globalState: vscode.Memento };
 const SERVICE_ID = 'vscode-pull-request-github';
 export const ALL_HOSTS_KEY = 'keychain::all';
 
-let defaultStorage: vscode.Memento | null = null;
-let defaultKeychain: Keytar | null = null;
+let defaultStorage: vscode.Memento | undefined = undefined;
+let defaultKeychain: Keytar | undefined = undefined;
 
 const didChange = new vscode.EventEmitter<IHostConfiguration>();
 export const onDidChange = didChange.event;

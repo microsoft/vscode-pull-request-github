@@ -97,7 +97,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 	let lineReader = LineReader(diffHunkPatch);
 
 	let itr = lineReader.next();
-	let diffHunk: DiffHunk | null = null;
+	let diffHunk: DiffHunk | undefined = undefined;
 	let positionInHunk = -1;
 	let oldLine = -1;
 	let newLine = -1;
@@ -107,7 +107,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 		if (DIFF_HUNK_HEADER.test(line)) {
 			if (diffHunk) {
 				yield diffHunk;
-				diffHunk = null;
+				diffHunk = undefined;
 			}
 
 			if (positionInHunk === -1) {
@@ -125,7 +125,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 			diffHunk = new DiffHunk(oriStartLine, oriLen, newStartLine, newLen, positionInHunk);
 			// @rebornix todo, once we have enough tests, this should be removed.
 			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Control, -1, -1, positionInHunk, line));
-		} else if (diffHunk !== null) {
+		} else if (diffHunk) {
 			let type = getDiffChangeType(line);
 
 			if (type === DiffChangeType.Control) {

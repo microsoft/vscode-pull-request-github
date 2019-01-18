@@ -30,12 +30,10 @@ export interface PRUriParams {
 	status: GitChangeType;
 }
 
-export function fromPRUri(uri: Uri): PRUriParams | null {
+export function fromPRUri(uri: Uri): PRUriParams | undefined {
 	try {
 		return JSON.parse(uri.query) as PRUriParams;
-	} catch (e) {
-		return null;
-	}
+	} catch (e) { }
 }
 
 export interface GitUriOptions {
@@ -86,12 +84,10 @@ export function toFileChangeNodeUri(uri: Uri, hasComments: boolean, status: GitC
 	});
 }
 
-export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams | null {
+export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams | undefined {
 	try {
 		return JSON.parse(uri.query) as FileChangeNodeUriParams;
-	} catch (e) {
-		return null;
-	}
+	} catch (e) { }
 }
 
 export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean, status: GitChangeType): Uri {
