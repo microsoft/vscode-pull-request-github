@@ -68,8 +68,6 @@ export interface PullRequest {
 	base: IGitHubRef;
 	user: IAccount;
 	labels: ILabel[];
-	// comments: number;
-	// commits: number;
 	merged: boolean;
 	mergeable?: boolean;
 	nodeId: string;
