@@ -51,7 +51,7 @@ export class GitHubRepository implements IGitHubRepository {
 		return !!(this.hub && this.hub.graphql);
 	}
 
-	query = async <T = any>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${query}`, GRAPHQL_COMPONENT_ID);
@@ -64,7 +64,7 @@ export class GitHubRepository implements IGitHubRepository {
 		return rsp;
 	}
 
-	mutate = async <T = any>(mutation: MutationOptions): Promise<ApolloQueryResult<T>> => {
+	mutate = async <T>(mutation: MutationOptions): Promise<ApolloQueryResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
