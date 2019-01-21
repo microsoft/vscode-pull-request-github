@@ -9,7 +9,7 @@ import { IAccount, PullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
-import { ReviewComment } from './graphql';
+import { ReviewComment, PullRequestResponse } from './graphql';
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
@@ -169,6 +169,41 @@ export function parseGraphQLComment(comment: ReviewComment): Comment {
 	c.diffHunks = diffHunks;
 
 	return c;
+}
+
+export function parseGraphQLPullRequest(pullRequest: PullRequestResponse): PullRequest {
+	const graphQLPullRequest = pullRequest.repository.pullRequest;
+	return {
+		url: graphQLPullRequest.url,
+		number: graphQLPullRequest.number,
+		state: graphQLPullRequest.state,
+		body: graphQLPullRequest.body,
+		bodyHTML: graphQLPullRequest.bodyHTML,
+		title: graphQLPullRequest.title,
+		createdAt: graphQLPullRequest.createdAt,
+		updatedAt: graphQLPullRequest.updatedAt,
+		head: {
+			label: graphQLPullRequest.headRef.name,
+			ref: graphQLPullRequest.headRef.repository.nameWithOwner,
+			sha: graphQLPullRequest.headRef.target.oid,
+			repo: {
+				cloneUrl: graphQLPullRequest.headRef.repository.url
+			}
+		},
+		base: {
+			label: graphQLPullRequest.baseRef.name,
+			ref: graphQLPullRequest.baseRef.repository.nameWithOwner,
+			sha: graphQLPullRequest.baseRef.target.oid,
+			repo: {
+				cloneUrl: graphQLPullRequest.baseRef.repository.url
+			}
+		},
+		user: graphQLPullRequest.author,
+		merged: graphQLPullRequest.merged,
+		mergeable: graphQLPullRequest.mergeable,
+		nodeId: graphQLPullRequest.id,
+		labels: []
+	};
 }
 
 export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {

@@ -12,7 +12,9 @@ import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult } from 'apollo-boost';
-import { convertRESTPullRequestToRawPullRequest } from './utils';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
+import { PullRequestResponse } from './graphql';
+const queries = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -263,22 +265,36 @@ export class GitHubRepository implements IGitHubRepository {
 	async getPullRequest(id: number): Promise<PullRequestModel> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
-			let { data } = await octokit.pullRequests.get({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				number: id
-			});
-			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
+			const { octokit, query, remote } = await this.ensure();
 
-			if (!data.head.repo) {
-				Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-				return null;
+			if (this.supportsGraphQl()) {
+				const { data } = await query<PullRequestResponse>({
+					query: queries.PullRequest,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: id
+					}
+				});
+
+				Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
+				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data));
+			} else {
+				let { data } = await octokit.pullRequests.get({
+					owner: remote.owner,
+					repo: remote.repositoryName,
+					number: id
+				});
+				Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
+
+				if (!data.head.repo) {
+					Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
+					return null;
+				}
+
+				let item = convertRESTPullRequestToRawPullRequest(data);
+				return new PullRequestModel(this, remote, item);
 			}
-
-			let item = convertRESTPullRequestToRawPullRequest(data);
-
-			return new PullRequestModel(this, remote, item);
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return null;

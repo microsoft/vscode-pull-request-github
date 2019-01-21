@@ -72,6 +72,7 @@ export class PullRequestModel {
 	update(prItem: PullRequest): void {
 		this.prNumber = prItem.number;
 		this.title = prItem.title;
+		this.bodyHTML = prItem.bodyHTML;
 		this.html_url = prItem.url;
 		this.author = prItem.user;
 		this.labels = prItem.labels.map(label => label.name);

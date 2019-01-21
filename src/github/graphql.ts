@@ -32,6 +32,7 @@ export interface IssueComment {
 	};
 	url: string;
 	body: string;
+	bodyHTML: string;
 	updatedAt: string;
 	createdAt: string;
 	viewerCanUpdate: boolean;
@@ -51,6 +52,7 @@ export interface ReviewComment {
 	path: string;
 	originalPosition: number;
 	body: string;
+	bodyHTML: string;
 	diffHunk: string;
 	position: number;
 	state: string;
@@ -175,6 +177,49 @@ export interface DeleteReviewResponse {
 			comments: {
 				nodes: ReviewComment[];
 			}
+		}
+	};
+}
+
+export interface PullRequestResponse {
+	repository: {
+		pullRequest: {
+			number: number;
+			url: string;
+			state: string;
+			body: string;
+			bodyHTML: string;
+			title: string;
+			author: {
+				login: string;
+				url: string;
+				avatarUrl: string;
+			}
+			createdAt: string;
+			updatedAt: string;
+			headRef: {
+				name: string;
+				repository: {
+					nameWithOwner: string;
+					url: string;
+				}
+				target: {
+					oid: string;
+				}
+			}
+			baseRef: {
+				name: string;
+				repository: {
+					nameWithOwner: string;
+					url: string;
+				}
+				target: {
+					oid: string
+				}
+			}
+			merged: boolean;
+			mergeable: boolean;
+			id: string;
 		}
 	};
 }

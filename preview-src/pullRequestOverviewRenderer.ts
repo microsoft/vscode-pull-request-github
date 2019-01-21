@@ -654,7 +654,7 @@ class ReviewNode {
 		const reviewBody: HTMLDivElement = document.createElement('div');
 		reviewBody.className = 'review-body';
 		if (this._review.body) {
-			reviewBody.innerHTML = md.render(emoji.emojify(this._review.body));
+			reviewBody.innerHTML = this._review.bodyHTML ? this._review.bodyHTML : md.render(emoji.emojify(this._review.body));
 			reviewCommentContainer.appendChild(reviewBody);
 		}
 

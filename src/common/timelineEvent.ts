@@ -42,6 +42,7 @@ export interface ReviewEvent {
 	comments: Comment[];
 	submittedAt: string;
 	body: string;
+	bodyHTML?: string;
 	htmlUrl: string;
 	user: IAccount;
 	authorAssociation: string;
