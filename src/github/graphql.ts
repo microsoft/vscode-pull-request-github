@@ -102,7 +102,7 @@ export interface AssignedEvent {
 export interface Review {
 	id: string;
 	databaseId: number;
-	authorAssocation: string;
+	authorAssociation: string;
 	author: {
 		login: string;
 		avatarUrl: string;

@@ -608,6 +608,9 @@ class ReviewNode {
 		userLogin.href = this._review.user.url;
 		userLogin.textContent = this._review.user.login;
 
+		const authorAssociation: HTMLSpanElement = document.createElement('span');
+		authorAssociation.textContent = `(${this._review.authorAssociation.toLocaleLowerCase()})`;
+
 		const reviewState = document.createElement('span');
 		switch (this._review.state.toLowerCase()) {
 			case 'approved':
@@ -635,6 +638,7 @@ class ReviewNode {
 
 		commentHeader.appendChild(userIcon);
 		commentHeader.appendChild(userLogin);
+		commentHeader.appendChild(authorAssociation);
 		commentHeader.appendChild(reviewState);
 		commentHeader.appendChild(timestamp);
 

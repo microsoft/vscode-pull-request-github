@@ -44,6 +44,7 @@ export interface ReviewEvent {
 	body: string;
 	htmlUrl: string;
 	user: IAccount;
+	authorAssociation: string;
 	state: string;
 	id: number;
 }
