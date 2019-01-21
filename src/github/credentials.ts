@@ -6,7 +6,6 @@
 import * as Octokit from '@octokit/rest';
 import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
-
 import * as vscode from 'vscode';
 import { agent } from '../common/net';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
@@ -177,8 +176,7 @@ export class CredentialStore {
 
 	private createHub(creds: IHostConfiguration): GitHub {
 		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
-		let Oct = require('@octokit/rest');
-		const octokit = new Oct({
+		let octokit = new Octokit({
 			agent,
 			baseUrl,
 			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
@@ -186,7 +184,7 @@ export class CredentialStore {
 
 		octokit.authenticate({
 			type: 'token',
-			token: creds.token,
+			token: creds.token || '',
 		});
 
 		return {
