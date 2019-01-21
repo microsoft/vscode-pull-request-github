@@ -14,6 +14,11 @@ export interface MergedEvent {
 	mergeRef: {
 		name: string;
 	};
+	commit: {
+		oid: string;
+		commitUrl: string;
+	};
+	url: string;
 }
 
 export interface IssueComment {

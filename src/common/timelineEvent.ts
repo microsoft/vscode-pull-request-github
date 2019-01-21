@@ -58,7 +58,18 @@ export interface CommitEvent {
 	bodyHTML?: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent;
+export interface MergedEvent {
+	graphNodeId: string;
+	user: IAccount;
+	createdAt: string;
+	mergeRef: string;
+	sha: string;
+	commitUrl: string;
+	event: string;
+	url: string;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | MergedEvent;
 
 export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
 	return Number(event.event) === EventType.Reviewed;
@@ -70,4 +81,8 @@ export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
 
 export function isCommentEvent(event: TimelineEvent): event is CommentEvent {
 	return Number(event.event) === EventType.Commented;
+}
+
+export function isMergedEvent(event: TimelineEvent): event is MergedEvent {
+	return Number(event.event) === EventType.Merged;
 }

@@ -14,6 +14,11 @@ fragment Merged on MergedEvent {
 	mergeRef {
 		name
 	}
+	commit {
+		oid
+		commitUrl
+	}
+	url
 }
 
 fragment Comment on IssueComment {

@@ -198,6 +198,14 @@ export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {
 			event.author = event.author.user || { login: event.committer.name, avatarUrl: event.committer.avatarUrl };
 			event.htmlUrl = event.url;
 		}
+
+		if (event.event === EventType.Merged) {
+			event.user = event.actor;
+			event.mergeRef = event.mergeRef.name;
+			event.sha = event.commit.oid;
+			event.commitUrl = event.commit.commitUrl;
+			event.graphNodeId = event.id;
+		}
 	});
 
 	return events;
