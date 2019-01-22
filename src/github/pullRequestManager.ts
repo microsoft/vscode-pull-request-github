@@ -35,6 +35,7 @@ interface RestError {
 	field: string;
 	resource: string;
 }
+
 export class NoGitHubReposError extends Error {
 	constructor(public repository: Repository) {
 		super();
@@ -858,10 +859,10 @@ export class PullRequestManager {
 			});
 	}
 
-	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<Github.PullRequestsCreateReviewResponse> {
+	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<void> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
-		let ret = await octokit.pullRequests.createReview({
+		await octokit.pullRequests.createReview({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -869,10 +870,10 @@ export class PullRequestManager {
 			body: message,
 		});
 
-		return ret.data;
+		return;
 	}
 
-	public async submitReview(pullRequest: PullRequestModel, event='COMMENT', body?: string): Promise<void> {
+	public async submitReview(pullRequest: PullRequestModel, event?: ReviewEvent, body?: string): Promise<void> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
@@ -881,7 +882,7 @@ export class PullRequestManager {
 				mutation: queries.SubmitReview,
 				variables: {
 					id: pendingReviewId,
-					event,
+					event: event || ReviewEvent.Comment,
 					body
 				}
 			});
@@ -895,7 +896,7 @@ export class PullRequestManager {
 
 	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<any> {
 		const action: Promise<any> = await this.getPendingReviewId(pullRequest)
-				? this.submitReview(pullRequest, 'REQUEST_CHANGES', message)
+				? this.submitReview(pullRequest, ReviewEvent.RequestChanges, message)
 				: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
 
 		return action
@@ -907,7 +908,7 @@ export class PullRequestManager {
 
 	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<any> {
 		const action: Promise<any> = await this.getPendingReviewId(pullRequest)
-				? this.submitReview(pullRequest, 'APPROVE', message)
+				? this.submitReview(pullRequest, ReviewEvent.Approve, message)
 				: this.createReview(pullRequest, ReviewEvent.Approve, message);
 		return action.then(x => {
 			this._telemetry.on('pr.approve');

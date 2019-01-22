@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { MergePullRequest, PullRequestStateEnum } from './interface';
+import { MergePullRequest, PullRequestStateEnum, ReviewEvent } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
@@ -458,7 +458,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private submitReview(message: IRequestMessage<string>): void {
-		this._pullRequestManager.submitReview(this._pullRequest, 'COMMENT', message.args).then(review => {
+		this._pullRequestManager.submitReview(this._pullRequest, ReviewEvent.Comment, message.args).then(review => {
 			this.refreshPanel();
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
