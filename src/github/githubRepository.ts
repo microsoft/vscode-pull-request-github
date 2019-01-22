@@ -13,7 +13,6 @@ import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult } from 'apollo-boost';
 import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../view/prDocumentCommentProvider';
-import { IDisposable } from '../common/utils';
 import { convertRESTPullRequestToRawPullRequest } from './utils';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -25,12 +24,12 @@ export interface PullRequestData {
 	hasMorePages: boolean;
 }
 
-export class GitHubRepository implements IGitHubRepository, IDisposable {
+export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	static ID = 'GitHubRepository';
 	private _hub: GitHub;
 	private _initialized: boolean;
 	private _metadata: any;
-	private _toDispose: IDisposable[] = [];
+	private _toDispose: vscode.Disposable[] = [];
 
 	public commentsProvider: PRDocumentCommentProvider | PRDocumentCommentProviderGraphQL;
 

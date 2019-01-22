@@ -11,7 +11,7 @@ import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
 import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
-import { groupBy, formatError, IDisposable } from '../../common/utils';
+import { groupBy, formatError } from '../../common/utils';
 import { DescriptionNode } from './descriptionNode';
 import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
@@ -218,7 +218,7 @@ export class PRNode extends TreeNode {
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _documentCommentsProvider: vscode.Disposable;
 	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent>;
-	private _disposables: IDisposable[] = [];
+	private _disposables: vscode.Disposable[] = [];
 
 	private _inMemPRContentProvider: vscode.Disposable;
 

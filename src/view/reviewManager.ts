@@ -29,7 +29,7 @@ import { PullRequestModel } from '../github/pullRequestModel';
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
 	private static _instance: ReviewManager;
-	private _localToDispose: vscode.Disposable[];
+	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
 
 	private _comments: Comment[] = [];
