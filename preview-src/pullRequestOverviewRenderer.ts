@@ -608,8 +608,14 @@ class ReviewNode {
 		userLogin.href = this._review.user.url;
 		userLogin.textContent = this._review.user.login;
 
-		const authorAssociation: HTMLSpanElement = document.createElement('span');
-		authorAssociation.textContent = `(${this._review.authorAssociation.toLocaleLowerCase()})`;
+		commentHeader.appendChild(userIcon);
+		commentHeader.appendChild(userLogin);
+
+		if (this._review.authorAssociation && this._review.authorAssociation !== 'NONE') {
+			const authorAssociation: HTMLSpanElement = document.createElement('span');
+			authorAssociation.textContent = `(${this._review.authorAssociation.toLocaleLowerCase()})`;
+			commentHeader.appendChild(authorAssociation);
+		}
 
 		const reviewState = document.createElement('span');
 		switch (this._review.state.toLowerCase()) {
@@ -636,9 +642,6 @@ class ReviewNode {
 			timestamp.classList.add('pending');
 		}
 
-		commentHeader.appendChild(userIcon);
-		commentHeader.appendChild(userLogin);
-		commentHeader.appendChild(authorAssociation);
 		commentHeader.appendChild(reviewState);
 		commentHeader.appendChild(timestamp);
 

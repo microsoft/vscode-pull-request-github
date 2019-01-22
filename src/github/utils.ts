@@ -182,22 +182,22 @@ export function parseGraphQLPullRequest(pullRequest: PullRequestResponse): PullR
 		title: graphQLPullRequest.title,
 		createdAt: graphQLPullRequest.createdAt,
 		updatedAt: graphQLPullRequest.updatedAt,
-		head: {
+		head: graphQLPullRequest.headRef ? {
 			label: graphQLPullRequest.headRef.name,
 			ref: graphQLPullRequest.headRef.repository.nameWithOwner,
 			sha: graphQLPullRequest.headRef.target.oid,
 			repo: {
 				cloneUrl: graphQLPullRequest.headRef.repository.url
 			}
-		},
-		base: {
+		} : undefined,
+		base: graphQLPullRequest.baseRef ? {
 			label: graphQLPullRequest.baseRef.name,
 			ref: graphQLPullRequest.baseRef.repository.nameWithOwner,
 			sha: graphQLPullRequest.baseRef.target.oid,
 			repo: {
 				cloneUrl: graphQLPullRequest.baseRef.repository.url
 			}
-		},
+		} : undefined,
 		user: graphQLPullRequest.author,
 		merged: graphQLPullRequest.merged,
 		mergeable: graphQLPullRequest.mergeable,

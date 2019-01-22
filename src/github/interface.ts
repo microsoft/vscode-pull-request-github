@@ -62,8 +62,8 @@ export interface PullRequest {
 	assignee?: IAccount;
 	createdAt: string;
 	updatedAt: string;
-	head: IGitHubRef;
-	base: IGitHubRef;
+	head?: IGitHubRef;
+	base?: IGitHubRef;
 	user: IAccount;
 	labels?: ILabel[];
 	merged: boolean;

@@ -197,7 +197,7 @@ export interface PullRequestResponse {
 			}
 			createdAt: string;
 			updatedAt: string;
-			headRef: {
+			headRef?: {
 				name: string;
 				repository: {
 					nameWithOwner: string;
@@ -207,7 +207,7 @@ export interface PullRequestResponse {
 					oid: string;
 				}
 			}
-			baseRef: {
+			baseRef?: {
 				name: string;
 				repository: {
 					nameWithOwner: string;
