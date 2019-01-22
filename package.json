@@ -75,7 +75,7 @@
           "items": {
             "type": "string"
           },
-          "description": "List of remotes to fetch pull requests from. If no remotes are specified, will default to `upstream` or `origin` if these remotes are present, or allvalid GitHub remotes."
+          "description": "List of remotes to fetch pull requests from. If no remotes are specified, will default to `upstream` or `origin` if these remotes are present, or all valid GitHub remotes."
         },
         "githubPullRequests.includeRemotes": {
           "type": "string",
@@ -84,6 +84,7 @@
             "all"
           ],
           "default": "default",
+          "deprecationMessage": "The setting `githubPullRequests.includeRemotes` has been deprecated. Use `githubPullRequests.remotes` to configure what remotes are shown.",
           "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
         },
         "telemetry.optout": {

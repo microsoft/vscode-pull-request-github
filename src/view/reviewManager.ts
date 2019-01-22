@@ -150,15 +150,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 					remotes: remotes
 				};
 
-				if (sameHead && !sameRemotes) {
-					let oldHeadRemote = this._previousRepositoryState.remotes.find(remote => remote.remoteName === oldHead.remote);
-					let newHeadRemote = remotes.find(remote => remote.remoteName === oldHead.remote);
-					if ((!oldHeadRemote && !newHeadRemote) || (oldHeadRemote && newHeadRemote && oldHeadRemote.equals(newHeadRemote))
-					) {
-						return;
-					}
-				}
-
 				this.updateState();
 			}
 		}));
@@ -257,6 +248,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		const hasPushedChanges = branch.commit !== this._lastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (this._prNumber === matchingPullRequestMetadata.prNumber && !hasPushedChanges) {
+			vscode.commands.executeCommand('pr.refreshList');
 			return;
 		}
 

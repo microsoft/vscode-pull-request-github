@@ -71,13 +71,7 @@ export class BadUpstreamError extends Error {
 }
 
 const SETTINGS_NAMESPACE = 'githubPullRequests';
-const LOG_LEVEL_SETTING = 'includeRemotes';
 const REMOTES_SETTING = 'remotes';
-
-const enum IncludeRemote {
-	Default,
-	All
-}
 
 interface NewCommentPosition {
 	path: string;
@@ -95,7 +89,6 @@ export class PullRequestManager {
 	private _githubRepositories: GitHubRepository[];
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
-	private _includeRemotes: IncludeRemote;
 
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
@@ -107,73 +100,52 @@ export class PullRequestManager {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
-		this._includeRemotes = IncludeRemote.Default;
-		vscode.workspace.onDidChangeConfiguration(e => {
-			let oldIncludeRemote = this._includeRemotes;
-			this.getIncludeRemoteConfig();
-			if (this._includeRemotes !== oldIncludeRemote) {
-				this.updateRepositories();
-			}
-
+		vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
+				await this.updateRepositories();
 				vscode.commands.executeCommand('pr.refreshList');
 			}
 		});
-		this.getIncludeRemoteConfig();
 	}
 
-	private getIncludeRemoteConfig() {
-		let includeRemotes = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
-		switch (includeRemotes) {
-			case 'default':
-				this._includeRemotes = IncludeRemote.Default;
-				break;
-			case 'all':
-				this._includeRemotes = IncludeRemote.All;
-			default:
-				break;
-		}
-	}
-
-	private validateRemotesSetting() {
+	private async getActiveGitHubRemotes(allGitHubRemotes: Remote[]): Promise<Remote[]> {
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 
 		if (remotesSetting) {
-			return remotesSetting.forEach(remote => {
-				if (!this._githubRepositories.some(repo => repo.remote.remoteName === remote)) {
-					vscode.window.showWarningMessage(`No remote with name '${remote}' found. Please update your 'githubPullRequests.remotes' setting.`);
+			remotesSetting.forEach(remote => {
+				if (!allGitHubRemotes.some(repo => repo.remoteName === remote)) {
+					Logger.appendLine(`No remote with name '${remote}' found. Please update your 'githubPullRequests.remotes' setting.`);
 				}
 			});
-		}
-	}
-
-	private getDisplayedGitHubRemotes(): GitHubRepository[] {
-		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
-
-		if (remotesSetting) {
-			this.validateRemotesSetting();
 
 			Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, PullRequestManager.ID);
 
 			return remotesSetting
-				.map(remote =>  this._githubRepositories.find(repo => repo.remote.remoteName === remote))
+				.map(remote =>  allGitHubRemotes.find(repo => repo.remoteName === remote))
 				.filter(repo => !!repo);
 		}
 
-		const upstream = this._githubRepositories.find(repo => repo.remote.remoteName === 'upstream');
+		const upstream = allGitHubRemotes.find(repo => repo.remoteName === 'upstream');
+		const origin = allGitHubRemotes.find(repo => repo.remoteName === 'origin');
+
+		const activeRemotes: Remote[] = [];
 		if (upstream) {
 			Logger.debug(`Displaying upstream remote`, PullRequestManager.ID);
-			return [upstream];
+			activeRemotes.push(upstream);
 		}
 
-		const origin = this._githubRepositories.find(repo => repo.remote.remoteName === 'origin');
 		if (origin) {
 			Logger.debug(`Displaying origin remote`, PullRequestManager.ID);
-			return [origin];
+			activeRemotes.push(origin);
+		}
+
+		if (activeRemotes.length) {
+			return activeRemotes;
 		}
 
 		Logger.debug(`Displaying all github remotes`, PullRequestManager.ID);
-		return this._githubRepositories;
+		const remotes = uniqBy(allGitHubRemotes, remote => remote.gitProtocol.normalizeUri().toString());
+		return await PullRequestGitHelper.getUserCreatedRemotes(this.repository, remotes);
 	}
 
 	get activePullRequest() {
@@ -201,16 +173,17 @@ export class PullRequestManager {
 		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
-		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
+		const allGitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri())))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
 				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
 				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
 				return [];
 			});
-		gitHubRemotes = uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().toString());
 
-		if (gitHubRemotes.length) {
+		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+
+		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
 			Logger.appendLine('Found GitHub remote');
 		} else {
@@ -220,7 +193,7 @@ export class PullRequestManager {
 		}
 
 		let serverAuthPromises = [];
-		for (let server of uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri().authority)) {
+		for (let server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri().authority)) {
 			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
 				if (!authd) {
 					this._credentialStore.loginWithConfirmation(server);
@@ -235,9 +208,8 @@ export class PullRequestManager {
 
 		let repositories = [];
 		let resolveRemotePromises = [];
-		let userCreatedRemoteNames = this._includeRemotes === IncludeRemote.All ? (gitHubRemotes as Remote[]) : await PullRequestGitHelper.getUserCreatedRemotes(this.repository, (gitHubRemotes as Remote[]));
 
-		userCreatedRemoteNames.forEach(remote => {
+		activeRemotes.forEach(remote => {
 			const repository = new GitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
@@ -342,9 +314,7 @@ export class PullRequestManager {
 	}
 
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<PullRequestsResponseResult> {
-		let githubRepositories = this.getDisplayedGitHubRemotes();
-
-		if (!githubRepositories || !githubRepositories.length) {
+		if (!this._githubRepositories || !this._githubRepositories.length) {
 			return {
 				pullRequests: [],
 				hasMorePages: false,
@@ -361,26 +331,22 @@ export class PullRequestManager {
 			}
 		}
 
-		githubRepositories = githubRepositories.filter(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
+		const githubRepositories = this._githubRepositories.filter(repo => this._repositoryPageInformation.get(repo.remote.url.toString()).hasMorePages !== false);
 
 		for (let i = 0; i < githubRepositories.length; i++) {
 			const githubRepository = githubRepositories[i];
-			const remote = githubRepository.remote.remoteName;
-			const shouldLoad = this._includeRemotes === IncludeRemote.All || !(await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote));
-			if (shouldLoad) {
-				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
-				const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
+			const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
+			const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
 
-				pageInformation.hasMorePages = !!pullRequestData && pullRequestData.hasMorePages;
-				pageInformation.pullRequestPage++;
+			pageInformation.hasMorePages = !!pullRequestData && pullRequestData.hasMorePages;
+			pageInformation.pullRequestPage++;
 
-				if (pullRequestData && pullRequestData.pullRequests.length) {
-					return {
-						pullRequests: pullRequestData.pullRequests,
-						hasMorePages: pageInformation.hasMorePages,
-						hasUnsearchedRepositories: i < githubRepositories.length - 1
-					};
-				}
+			if (pullRequestData && pullRequestData.pullRequests.length) {
+				return {
+					pullRequests: pullRequestData.pullRequests,
+					hasMorePages: pageInformation.hasMorePages,
+					hasUnsearchedRepositories: i < githubRepositories.length - 1
+				};
 			}
 		}
 

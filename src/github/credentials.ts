@@ -263,5 +263,6 @@ const link = (url: string, token: string) =>
 		}
 	}))).concat(createHttpLink({
 		uri: `${url}/graphql`,
-		fetch
+		// https://github.com/apollographql/apollo-link/issues/513
+		fetch: fetch as any
 	}));
