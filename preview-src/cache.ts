@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { PullRequestStateEnum } from '../src/github/interface';
+import { PullRequestStateEnum, IAccount } from '../src/github/interface';
 import { TimelineEvent } from '../src/common/timelineEvent';
 import { ReposGetCombinedStatusForRefResponse } from '@octokit/rest';
 
@@ -14,7 +14,8 @@ export interface PullRequest {
 	url: string;
 	createdAt: Date;
 	body: string;
-	author: any;
+	bodyHTML?: string;
+	author: IAccount;
 	state: PullRequestStateEnum;
 	events: TimelineEvent[];
 	isCurrentlyCheckedOut: boolean;
@@ -27,6 +28,7 @@ export interface PullRequest {
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string; };
 	status: ReposGetCombinedStatusForRefResponse;
+	mergeable: boolean;
 }
 
 export function getState(): PullRequest {

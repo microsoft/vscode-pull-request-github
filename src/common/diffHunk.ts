@@ -7,10 +7,9 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import * as Github from '@octokit/rest';
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
 import { Repository } from '../typings/git';
-import { Comment } from './comment';
+import { IRawFileChange } from '../github/interface';
 
 export enum DiffChangeType {
 	Context,
@@ -253,7 +252,7 @@ export function getGitChangeType(status: string): GitChangeType {
 	}
 }
 
-export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
+export async function parseDiff(reviews: IRawFileChange[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
 	let fileChanges: (InMemFileChange | SlimFileChange)[] = [];
 
 	for (let i = 0; i < reviews.length; i++) {
@@ -289,20 +288,4 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 	}
 
 	return fileChanges;
-}
-
-export function parserCommentDiffHunk(comments: Github.PullRequestsCreateCommentResponse[]): Comment[] {
-	return comments.map(comment => {
-		let diffHunks = [];
-		let diffHunkReader = parseDiffHunk(comment.diff_hunk);
-		let diffHunkIter = diffHunkReader.next();
-
-		while (!diffHunkIter.done) {
-			let diffHunk = diffHunkIter.value;
-			diffHunks.push(diffHunk);
-			diffHunkIter = diffHunkReader.next();
-		}
-
-		return { ...comment, diff_hunks: diffHunks };
-	});
 }

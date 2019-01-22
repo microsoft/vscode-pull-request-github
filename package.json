@@ -12,10 +12,10 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.30.0"
+    "vscode": "^1.31.0"
   },
   "categories": [
     "Other"
@@ -184,6 +184,15 @@
       {
         "command": "pr.openDiffView",
         "title": "Open Diff View",
+        "category": "GitHub Pull Requests",
+        "icon": {
+          "light": "resources/icons/light/open-change.svg",
+          "dark": "resources/icons/dark/open-change.svg"
+        }
+      },
+      {
+        "command": "pr.openChangedFile",
+        "title": "Open Changed File in PR",
         "category": "GitHub Pull Requests"
       },
       {
@@ -191,6 +200,14 @@
         "title": "View Pull Request Description",
         "category": "GitHub Pull Requests",
         "when": "github:inReviewMode"
+      },
+      {
+        "command": "pr.openDescriptionToTheSide",
+        "title": "Open Pull Request Description to the Side",
+        "icon": {
+          "light": "resources/icons/light/split-editor-horizontal.svg",
+          "dark": "resources/icons/dark/split-editor-horizontal-inverse.svg"
+        }
       },
       {
         "command": "review.openFile",
@@ -249,6 +266,10 @@
           "when": "false"
         },
         {
+          "command": "pr.openChangedFile",
+          "when": "false"
+        },
+        {
           "command": "pr.close",
           "when": "config.git.enabled && github:inReviewMode"
         },
@@ -278,6 +299,10 @@
         },
         {
           "command": "pr.openDiffView",
+          "when": "false"
+        },
+        {
+          "command": "pr.openDescriptionToTheSide",
           "when": "false"
         },
         {
@@ -341,7 +366,22 @@
         },
         {
           "command": "pr.openFileInGitHub",
-          "when": "view =~ /(pr|prStatus)/ && viewItem == filechange"
+          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
+        },
+        {
+          "command": "pr.openDescriptionToTheSide",
+          "group": "inline",
+          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /description/"
+        },
+        {
+          "command": "review.openFile",
+          "group": "inline",
+          "when": "config.git.openDiffOnClick && view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
+        },
+        {
+          "command": "pr.openDiffView",
+          "group": "inline",
+          "when": "!config.git.openDiffOnClick && view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
         }
       ],
       "editor/title": [
@@ -375,6 +415,7 @@
     "@types/markdown-it": "^0.0.5",
     "@types/mocha": "^5.2.2",
     "@types/node": "*",
+    "@types/node-fetch": "^2.1.4",
     "@types/query-string": "^6.1.1",
     "@types/webpack": "^4.4.10",
     "@types/ws": "^5.1.2",
@@ -397,10 +438,13 @@
   },
   "dependencies": {
     "@octokit/rest": "^15.15.1",
+    "apollo-boost": "^0.1.22",
+    "apollo-link-context": "^1.0.12",
     "axios": "^0.18.0",
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
+    "graphql": "^14.0.2",
     "iconv-lite": "0.4.23",
     "js-base64": "^2.4.9",
     "markdown-it": "^8.4.0",

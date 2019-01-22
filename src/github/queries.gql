@@ -1,0 +1,186 @@
+# /*---------------------------------------------------------------------------------------------
+#  *  Copyright (c) Microsoft Corporation. All rights reserved.
+#  *  Licensed under the MIT License. See License.txt in the project root for license information.
+#  *--------------------------------------------------------------------------------------------*/
+
+fragment Merged on MergedEvent {
+	id
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	createdAt
+	mergeRef {
+		name
+	}
+}
+
+fragment Comment on IssueComment {
+	id
+	databaseId
+	authorAssociation
+	author {
+		login
+		avatarUrl
+		url
+	}
+	url
+	body
+	updatedAt
+	createdAt
+	viewerCanUpdate
+	viewerCanReact
+	viewerCanDelete
+}
+
+fragment Commit on Commit {
+	id
+	author {
+		user {
+			login
+			avatarUrl
+			url
+		}
+	}
+	committer {
+		avatarUrl
+		name
+	}
+	url
+	oid
+	message
+}
+
+fragment AssignedEvent on AssignedEvent {
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	user {
+		login
+		avatarUrl
+		url
+	}
+}
+
+fragment Review on PullRequestReview {
+	id
+	databaseId
+	authorAssociation
+	url
+	author {
+		login
+		avatarUrl
+		url
+	}
+	state
+	body
+	submittedAt
+	updatedAt
+	createdAt
+}
+
+query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 100) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			bodyHTML
+			timeline(last: $last) {
+				edges {
+					node {
+						__typename
+						...Merged
+						...Comment
+						...Review
+						...Commit
+						...AssignedEvent
+					}
+				}
+			}
+		}
+	}
+}
+
+fragment ReviewComment on PullRequestReviewComment {
+	id databaseId url
+	author {
+		login
+		avatarUrl
+		url
+	}
+	path originalPosition
+	body
+	diffHunk
+	position
+	state
+	pullRequestReview { databaseId }
+	commit {
+		oid
+	}
+	createdAt
+	originalCommit {
+		oid
+	}
+	viewerCanUpdate
+	viewerCanDelete
+}
+
+query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
+	node(id: $pullRequestId) {
+		...on PullRequest {
+			reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
+		}
+	}
+}
+
+query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100) {
+	repository(owner:$owner, name:$name) {
+		pullRequest(number:$number) {
+			reviews(first:$first) {
+				nodes {
+					comments(first:100) {
+						nodes { ...ReviewComment }
+					}
+				}
+			}
+		}
+	}
+}
+
+mutation AddComment($input: AddPullRequestReviewCommentInput!) {
+	addPullRequestReviewComment(input: $input) {
+		comment {
+		...ReviewComment
+		}
+	}
+}
+
+mutation StartReview($input: AddPullRequestReviewInput!) {
+	addPullRequestReview(input: $input) {
+		pullRequestReview { id }
+	}
+}
+
+mutation SubmitReview($id: ID!) {
+	submitPullRequestReview(input: {
+		event: COMMENT,
+		pullRequestReviewId: $id
+	}) {
+		pullRequestReview {
+			comments(first:100) {
+				nodes { ...ReviewComment }
+			}
+		}
+	}
+}
+
+mutation DeleteReview($input: DeletePullRequestReviewInput!) {
+	deletePullRequestReview(input: $input) {
+		pullRequestReview {
+			comments(first:100) {
+					nodes { ...ReviewComment }
+			}
+		}
+	}
+}

@@ -6,13 +6,12 @@
 
 import * as vscode from 'vscode';
 import * as pathLib from 'path';
-import * as Github from '@octokit/rest';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri, ReviewUriParams } from './common/uri';
-import { GitFileChangeNode } from './view/treeNodes/fileChangeNode';
+import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
-import { IPullRequestManager, IPullRequestModel, ITelemetry } from './github/interface';
+import { ITelemetry, PullRequest } from './github/interface';
 import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
@@ -22,11 +21,14 @@ import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
 import { GitErrorCodes } from './typings/git';
+import { Comment } from './common/comment';
+import { PullRequestManager } from './github/pullRequestManager';
+import { PullRequestModel } from './github/pullRequestModel';
 
-const _onDidUpdatePR = new vscode.EventEmitter<Github.PullRequestsGetResponse>();
-export const onDidUpdatePR: vscode.Event<Github.PullRequestsGetResponse> = _onDidUpdatePR.event;
+const _onDidUpdatePR = new vscode.EventEmitter<PullRequest>();
+export const onDidUpdatePR: vscode.Event<PullRequest> = _onDidUpdatePR.event;
 
-function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestModel): IPullRequestModel {
+function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
 		if (!prManager.activePullRequest) {
@@ -40,7 +42,7 @@ function ensurePR(prManager: IPullRequestManager, pr?: PRNode | IPullRequestMode
 	}
 }
 
-export function registerCommands(context: vscode.ExtensionContext, prManager: IPullRequestManager,
+export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager,
 	reviewManager: ReviewManager, telemetry: ITelemetry) {
 	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
 		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true });
@@ -48,7 +50,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		await Promise.all(selection.map(host => deleteToken(host)));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | IPullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | PullRequestModel) => {
 		if (!e) {
 			if (prManager.activePullRequest) {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
@@ -63,11 +65,23 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
 		try {
-			const diff = await prManager.repository.diff(true);
-			if (!diff) {
-				vscode.window.showWarningMessage('There are no staged changes for suggestions.');
-				return;
+			const { indexChanges, workingTreeChanges } = prManager.repository.state;
+
+			if (!indexChanges.length) {
+				if (workingTreeChanges.length) {
+					const stageAll = await vscode.window.showWarningMessage('There are no staged changes to suggest.\n\nWould you like to automatically stage all your of changes and suggest them?', { modal: true }, 'Yes');
+					if (stageAll === 'Yes') {
+						await vscode.commands.executeCommand('git.stageAll');
+					} else {
+						return;
+					}
+				} else {
+					vscode.window.showInformationMessage('There are no changes to suggest.');
+					return;
+				}
 			}
+
+			const diff = await prManager.repository.diff(true);
 
 			let suggestEditMessage = '';
 			if (e && e.inputBox && e.inputBox.value) {
@@ -110,7 +124,13 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (parentFilePath: string, filePath: string, fileName: string, isPartial: boolean, opts: any) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+		const parentFilePath = fileChangeNode.parentFilePath;
+		const filePath = fileChangeNode.filePath;
+		const fileName = fileChangeNode.fileName;
+		const isPartial = fileChangeNode.isPartial;
+		const opts = fileChangeNode.opts;
+
 		if (isPartial) {
 			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
 		}
@@ -154,8 +174,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		reviewManager.createPullRequest();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | IPullRequestModel) => {
-		let pullRequestModel: IPullRequestModel;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+		let pullRequestModel: PullRequestModel;
 
 		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
 			pullRequestModel = pr.pullRequestModel;
@@ -196,7 +216,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
-					let newComment: Github.IssuesCreateCommentResponse;
+					let newComment: Comment;
 					if (message) {
 						newComment = await prManager.createIssueComment(pullRequest, message);
 					}
@@ -215,19 +235,32 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.approve', async (pr: IPullRequestModel, message?: string) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.approve', async (pr: PullRequestModel, message?: string) => {
 		return await prManager.approvePullRequest(pr, message);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges', async (pr: IPullRequestModel, message?: string) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges', async (pr: PullRequestModel, message?: string) => {
 		return await prManager.requestChanges(pr, message);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (pr: IPullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
+		if (!descriptionNode) {
+			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
+			let rootNodes = reviewManager.prFileChangesProvider.getChildren();
+			descriptionNode = rootNodes[0];
+		}
+		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
+		// Create and show a new webview
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode);
+		telemetry.on('pr.openDescription');
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
+		let pr = descriptionNode.pullRequestModel;
 		const pullRequest = ensurePR(prManager, pr);
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest);
-		telemetry.on('pr.openDescription');
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode, true);
+		telemetry.on('pr.openDescriptionToTheSide');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
@@ -263,11 +296,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: IP
 
 		if (fileChange.comments && fileChange.comments.length) {
 			const sortedOutdatedComments = fileChange.comments.filter(comment => comment.position === null).sort((a, b) => {
-				return a.original_position - b.original_position;
+				return a.originalPosition - b.originalPosition;
 			});
 
 			if (sortedOutdatedComments.length) {
-				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].original_position);
+				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].originalPosition);
 
 				if (diffLine) {
 					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);

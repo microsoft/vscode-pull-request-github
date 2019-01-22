@@ -3,12 +3,28 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Github from '@octokit/rest';
 import { DiffHunk } from './diffHunk';
+import { IAccount } from '../github/interface';
 
-export interface Comment extends Github.PullRequestsCreateCommentResponse {
+export interface Comment {
 	absolutePosition?: number;
-	diff_hunks?: DiffHunk[];
+	bodyHTML?: string;
+	diffHunks?: DiffHunk[];
 	canEdit?: boolean;
 	canDelete?: boolean;
+	url: string;
+	id: number;
+	pullRequestReviewId?: number;
+	diffHunk: string;
+	path: string;
+	position: number;
+	commitId?: string;
+	originalPosition: number;
+	originalCommitId: string;
+	user: IAccount;
+	body: string;
+	createdAt: string;
+	htmlUrl: string;
+	isDraft?: boolean;
+	graphNodeId: string;
 }

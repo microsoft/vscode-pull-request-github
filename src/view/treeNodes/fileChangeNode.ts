@@ -7,12 +7,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
-import { Resource } from '../../common/resources';
-import { IPullRequestModel } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { Comment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 import { toFileChangeNodeUri } from '../../common/uri';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
@@ -20,11 +19,13 @@ import { toFileChangeNodeUri } from '../../common/uri';
 export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public command: vscode.Command;
+	public resourceUri: vscode.Uri;
 
 	constructor(
-		public readonly pullRequest: IPullRequestModel,
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly blobUrl: string
@@ -32,7 +33,8 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		super();
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
-		this.iconPath = Resource.getFileStatusUri(this);
+		this.iconPath = vscode.ThemeIcon.File;
+		this.resourceUri = toFileChangeNodeUri(vscode.Uri.parse(this.blobUrl), false, status);
 
 		this.command = {
 			title: 'show remote file',
@@ -54,14 +56,16 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public resourceUri: vscode.Uri;
 	public parentSha: string;
 	public contextValue: string;
 	public command: vscode.Command;
+	public opts: vscode.TextDocumentShowOptions;
 
 	constructor(
-		public readonly pullRequest: IPullRequestModel,
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly previousFileName: string | undefined,
@@ -73,16 +77,16 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly diffHunks: DiffHunk[],
 
 		public comments: Comment[] = [],
-		public readonly sha?: string,
+		public readonly sha?: string
 	) {
 		super();
 		this.contextValue = 'filechange';
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
-		this.iconPath = Resource.getFileStatusUri(this);
-		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
+		this.iconPath = this.iconPath = vscode.ThemeIcon.File;
+		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, status);
 
-		let opts: vscode.TextDocumentShowOptions = {
+		this.opts = {
 			preserveFocus: true
 		};
 
@@ -93,12 +97,12 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 			if (sortedActiveComments.length) {
 				let comment = sortedActiveComments[0];
-				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.original_position : comment.position);
+				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.originalPosition : comment.position);
 
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
 					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
-					opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
+					this.opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				}
 			}
 		}
@@ -106,14 +110,20 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.command = {
 			title: 'show diff',
 			command: 'pr.openDiffView',
-			arguments: [
-				this.parentFilePath,
-				this.filePath,
-				this.fileName,
-				this.isPartial,
-				opts
-			]
+			arguments: [ this ]
 		};
+	}
+
+	getCommentPosition(comment: Comment) {
+		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.originalPosition : comment.position);
+
+		if (diffLine) {
+			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
+			let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			return lineNumber;
+		}
+
+		return 0;
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -127,14 +137,16 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
 	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri };
+	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public resourceUri: vscode.Uri;
 	public parentSha: string;
 	public contextValue: string;
 	public command: vscode.Command;
+	public opts: vscode.TextDocumentShowOptions;
 
 	constructor(
-		public readonly pullRequest: IPullRequestModel,
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly blobUrl: string,
@@ -146,13 +158,13 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string,
 	) {
 		super();
-		this.contextValue = 'filechange';
+		this.contextValue = `filechange:${GitChangeType[status]}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
-		this.iconPath = Resource.getFileStatusUri(this);
-		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0);
+		this.iconPath = vscode.ThemeIcon.File;
+		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, status);
 
-		let opts: vscode.TextDocumentShowOptions = {
+		this.opts = {
 			preserveFocus: true
 		};
 
@@ -163,27 +175,33 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 			if (sortedActiveComments.length) {
 				let comment = sortedActiveComments[0];
-				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.original_position : comment.position);
+				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.originalPosition : comment.position);
 
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
 					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
-					opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
+					this.opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				}
 			}
 		}
 
 		this.command = {
-			title: 'show diff',
-			command: 'pr.openDiffView',
-			arguments: [
-				this.parentFilePath,
-				this.filePath,
-				this.fileName,
-				this.isPartial,
-				opts
-			]
+			title: 'open changed file',
+			command: 'pr.openChangedFile',
+			arguments: [this]
 		};
+	}
+
+	getCommentPosition(comment: Comment) {
+		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.originalPosition : comment.position);
+
+		if (diffLine) {
+			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
+			let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			return lineNumber;
+		}
+
+		return 0;
 	}
 
 	getTreeItem(): vscode.TreeItem {

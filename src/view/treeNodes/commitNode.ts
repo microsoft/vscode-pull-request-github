@@ -5,13 +5,14 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IPullRequestModel, IPullRequestManager } from '../../github/interface';
 import { PullRequestsGetCommitsResponseItem } from '@octokit/rest';
 import { TreeNode } from './treeNode';
 import { GitFileChangeNode } from './fileChangeNode';
 import { toReviewUri } from '../../common/uri';
 import { getGitChangeType } from '../../common/diffHunk';
 import { Comment } from '../../common/comment';
+import { PullRequestManager } from '../../github/pullRequestManager';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
@@ -19,8 +20,9 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public iconPath: vscode.Uri | undefined;
 
 	constructor(
-		private readonly pullRequestManager: IPullRequestManager,
-		private readonly pullRequest: IPullRequestModel,
+		public parent: TreeNode | vscode.TreeView<TreeNode>,
+		private readonly pullRequestManager: PullRequestManager,
+		private readonly pullRequest: PullRequestModel,
 		private readonly commit: PullRequestsGetCommitsResponseItem,
 		private readonly comments: Comment[]
 	) {
@@ -48,10 +50,11 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		const fileChanges = await this.pullRequestManager.getCommitChangedFiles(this.pullRequest, this.commit);
 
 		const fileChangeNodes = fileChanges.map(change => {
-			const matchingComments = this.comments.filter(comment => comment.path === change.filename && comment.original_commit_id === this.commit.sha);
+			const matchingComments = this.comments.filter(comment => comment.path === change.filename && comment.originalCommitId === this.commit.sha);
 			const fileName = change.filename;
 			const uri = vscode.Uri.parse(path.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
 			const fileChangeNode = new GitFileChangeNode(
+				this,
 				this.pullRequest,
 				getGitChangeType(change.status),
 				fileName,

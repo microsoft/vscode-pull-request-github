@@ -7,13 +7,17 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { IPullRequestManager, IPullRequestModel, MergePullRequest, PullRequestStateEnum } from './interface';
+import { MergePullRequest, PullRequestStateEnum } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../typings/git';
 import { Comment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
+import { DescriptionNode } from '../view/treeNodes/descriptionNode';
+import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
+import { PullRequestManager } from './pullRequestManager';
+import { PullRequestModel } from './pullRequestModel';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -28,6 +32,7 @@ interface IReplyMessage {
 }
 
 export class PullRequestOverviewPanel {
+	public static ID: string = 'PullRequestOverviewPanel';
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
@@ -38,24 +43,29 @@ export class PullRequestOverviewPanel {
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionPath: string;
 	private _disposables: vscode.Disposable[] = [];
-	private _pullRequest: IPullRequestModel;
-	private _pullRequestManager: IPullRequestManager;
+	private _descriptionNode: DescriptionNode;
+	private _pullRequest: PullRequestModel;
+	private _pullRequestManager: PullRequestManager;
 	private _initialized: boolean;
 	private _scrollPosition = { x: 0, y: 0 };
 
-	public static createOrShow(extensionPath: string, pullRequestManager: IPullRequestManager, pullRequestModel: IPullRequestModel) {
-		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+		let activeColumn = toTheSide ?
+							vscode.ViewColumn.Beside :
+							vscode.window.activeTextEditor ?
+								vscode.window.activeTextEditor.viewColumn :
+								vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
 		if (PullRequestOverviewPanel.currentPanel) {
-			PullRequestOverviewPanel.currentPanel._panel.reveal(column, true);
+			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, column || vscode.ViewColumn.One, title, pullRequestManager);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn, title, pullRequestManager, descriptionNode);
 		}
 
-		PullRequestOverviewPanel.currentPanel.update(pullRequestModel);
+		PullRequestOverviewPanel.currentPanel.update(pullRequestModel, descriptionNode);
 	}
 
 	public static refresh(): void {
@@ -64,9 +74,10 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: IPullRequestManager) {
+	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
 		this._extensionPath = extensionPath;
 		this._pullRequestManager = pullRequestManager;
+		this._descriptionNode = descriptionNode;
 
 		// Create and show a new webview panel
 		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel._viewType, title, column, {
@@ -86,7 +97,7 @@ export class PullRequestOverviewPanel {
 		// Listen for changes to panel visibility, if the webview comes into view resubmit data
 		this._panel.onDidChangeViewState(e => {
 			if (e.webviewPanel.visible) {
-				this.update(this._pullRequest);
+				this.update(this._pullRequest, this._descriptionNode);
 			}
 		}, this, this._disposables);
 
@@ -120,11 +131,12 @@ export class PullRequestOverviewPanel {
 	public async refreshPanel(): Promise<void> {
 		this._initialized = false;
 		if (this._panel && this._panel.visible) {
-			this.update(this._pullRequest);
+			this.update(this._pullRequest, this._descriptionNode);
 		}
 	}
 
-	public async update(pullRequestModel: IPullRequestModel): Promise<void> {
+	public async update(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
+		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
@@ -160,6 +172,7 @@ export class PullRequestOverviewPanel {
 					url: this._pullRequest.html_url,
 					createdAt: this._pullRequest.createdAt,
 					body: this._pullRequest.body,
+					bodyHTML: this._pullRequest.bodyHTML,
 					labels: this._pullRequest.labels,
 					author: this._pullRequest.author,
 					state: this._pullRequest.state,
@@ -167,10 +180,10 @@ export class PullRequestOverviewPanel {
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 					base: this._pullRequest.base && this._pullRequest.base.label || 'UNKNOWN',
 					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
-					commitsCount: this._pullRequest.commitCount,
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
-					status: status
+					status: status,
+					mergeable: this._pullRequest.prItem.mergeable
 				}
 			});
 		}).catch(e => {
@@ -230,8 +243,13 @@ export class PullRequestOverviewPanel {
 				return this.editDescription(message);
 			case 'pr.apply-patch':
 				return this.applyPatch(message);
+			case 'pr.open-diff':
+				return this.openDiff(message);
 			case 'pr.edit-title':
 				return this.editTitle(message);
+			case 'pr.refresh':
+				this.refreshPanel();
+				return;
 		}
 	}
 
@@ -268,6 +286,19 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
+	private openDiff(message: IRequestMessage<{ comment: Comment }>): void {
+		try {
+			const comment = message.args.comment;
+			const prContainer = this._descriptionNode.parent;
+
+			if ((prContainer as TreeNode | Revealable<TreeNode>).revealComment) {
+				(prContainer as TreeNode | Revealable<TreeNode>).revealComment(comment);
+			}
+		} catch (e) {
+			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
 	private editDescription(message: IRequestMessage<{ text: string }>) {
 		this._pullRequestManager.editPullRequest(this._pullRequest, { body: message.args.text }).then(result => {
 			this._replyMessage(message, { text: result.body });
@@ -275,8 +306,8 @@ export class PullRequestOverviewPanel {
 			this._throwError(message, e);
 			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
 		});
-	}
 
+	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
 		this._pullRequestManager.editPullRequest(this._pullRequest, { title: message.args.text }).then(result => {
 			this._replyMessage(message, { text: result.title });
@@ -288,7 +319,7 @@ export class PullRequestOverviewPanel {
 
 	private editComment(message: IRequestMessage<{ comment: Comment, text: string }>) {
 		const { comment, text } = message.args;
-		const editCommentPromise = comment.pull_request_review_id !== undefined
+		const editCommentPromise = comment.pullRequestReviewId !== undefined
 			? this._pullRequestManager.editReviewComment(this._pullRequest, comment.id.toString(), text)
 			: this._pullRequestManager.editIssueComment(this._pullRequest, comment.id.toString(), text);
 
@@ -306,7 +337,7 @@ export class PullRequestOverviewPanel {
 		const comment = message.args;
 		vscode.window.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete').then(value => {
 			if (value === 'Delete') {
-				const deleteCommentPromise = comment.pull_request_review_id !== undefined
+				const deleteCommentPromise = comment.pullRequestReviewId !== undefined
 					? this._pullRequestManager.deleteReviewComment(this._pullRequest, comment.id.toString())
 					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id.toString());
 
@@ -469,7 +500,7 @@ export class PullRequestOverviewPanel {
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 				<div id="title" class="title"></div>
 				<div id="timeline-events" class="discussion" aria-live="polite"></div>
-				<details id="status-checks" class="hidden"></details>
+				<div id="status-checks"></div>
 				<div id="comment-form" class="comment-form"></div>
 			</body>
 			</html>`;
