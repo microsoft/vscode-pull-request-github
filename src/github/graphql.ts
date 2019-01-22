@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 export interface MergedEvent {
+	__typename: string;
 	id: string;
 	actor: {
 		login: string;
@@ -22,6 +23,7 @@ export interface MergedEvent {
 }
 
 export interface IssueComment {
+	__typename: string;
 	id: string;
 	databaseId: number;
 	authorAssocation: string;
@@ -41,6 +43,7 @@ export interface IssueComment {
 }
 
 export interface ReviewComment {
+	__typename: string;
 	id: string;
 	databaseId: number;
 	url: string;
@@ -71,6 +74,7 @@ export interface ReviewComment {
 }
 
 export interface Commit {
+	__typename: string;
 	id: string;
 	author: {
 		user: {
@@ -89,6 +93,7 @@ export interface Commit {
 }
 
 export interface AssignedEvent {
+	__typename: string;
 	actor: {
 		login: string;
 		avatarUrl: string;
@@ -102,9 +107,11 @@ export interface AssignedEvent {
 }
 
 export interface Review {
+	__typename: string;
 	id: string;
 	databaseId: number;
 	authorAssociation: string;
+	url: string;
 	author: {
 		login: string;
 		avatarUrl: string;
@@ -112,6 +119,7 @@ export interface Review {
 	};
 	state: string;
 	body: string;
+	bodyHTML?: string;
 	submittedAt: string;
 	updatedAt: string;
 	createdAt: string;
