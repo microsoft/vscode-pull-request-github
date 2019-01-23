@@ -18,6 +18,7 @@ import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, parseGraphQLComment } from './utils';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse } from './graphql';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -377,7 +378,7 @@ export class PullRequestManager {
 	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
 		const { remote, query } = await pullRequest.githubRepository.ensure();
 		try {
-			const { data } = await query({
+			const { data } = await query<PullRequestCommentsResponse>({
 				query: queries.PullRequestComments,
 				variables: {
 					owner: remote.owner,
@@ -454,7 +455,7 @@ export class PullRequestManager {
 
 		let ret = [];
 		if (pullRequest.githubRepository.supportsGraphQl()) {
-			const { data } = await query({
+			const { data } = await query<TimelineEventsResponse>({
 				query: queries.TimelineEvents,
 				variables: {
 					owner: remote.owner,
@@ -509,7 +510,7 @@ export class PullRequestManager {
 	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.nodeId });
+			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.graphNodeId });
 		}
 
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
@@ -532,7 +533,7 @@ export class PullRequestManager {
 	async deleteReview(pullRequest: PullRequestModel): Promise<Comment[]> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<any>({
+		const { data } = await mutate<DeleteReviewResponse>({
 			mutation: queries.DeleteReview,
 			variables: {
 				input: { pullRequestReviewId: pendingReviewId }
@@ -569,7 +570,7 @@ export class PullRequestManager {
 		const { query, octokit } = await pullRequest.githubRepository.ensure();
 		const { currentUser = '' } = octokit as any;
 		try {
-			const { data } = await query({
+			const { data } = await query<PendingReviewIdResponse>({
 				query: queries.GetPendingReviewId,
 				variables: {
 					pullRequestId: (pullRequest as PullRequestModel).prItem.nodeId,
@@ -584,7 +585,7 @@ export class PullRequestManager {
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<Comment> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate({
+		const { data } = await mutate<AddCommentResponse>({
 			mutation: queries.AddComment,
 			variables: {
 				input: {
@@ -878,7 +879,7 @@ export class PullRequestManager {
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
 		if (pendingReviewId) {
-			const { data } = await mutate({
+			const { data } = await mutate<SubmitReviewResponse>({
 				mutation: queries.SubmitReview,
 				variables: {
 					id: pendingReviewId,
