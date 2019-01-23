@@ -8,7 +8,7 @@ import { API, Repository } from '../typings/git';
 import { GitExtension } from '../typings/git';
 
 export function getAPI() {
-	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
+	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
 	const git = gitExtension.getAPI(1);
 	return git;
 }
@@ -61,7 +61,6 @@ export class Model implements vscode.Disposable {
 	public dispose() {
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
-		this._gitApi = null;
 		this._openRepositories = [];
 	}
 }

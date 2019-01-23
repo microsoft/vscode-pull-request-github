@@ -10,15 +10,19 @@ import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZA
 import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
 
 export class VSLSGuest implements vscode.Disposable {
-	private _sharedServiceProxy: SharedServiceProxy;
+	private _sharedServiceProxy?: SharedServiceProxy;
 	private _disposables: vscode.Disposable[];
 	constructor(private _api: LiveShare, private _model: Model) {
-		this._sharedServiceProxy = null;
 		this._disposables = [];
 	}
 
 	async initialize() {
-		this._sharedServiceProxy = await this._api.getSharedService(VSLS_GIT_PR_SESSION_NAME);
+		this._sharedServiceProxy = await this._api.getSharedService(VSLS_GIT_PR_SESSION_NAME) || undefined;
+
+		if (!this._sharedServiceProxy) {
+			return;
+		}
+
 		if (this._sharedServiceProxy.isServiceAvailable) {
 			await this._refreshWorkspaces(true);
 		}
@@ -43,15 +47,17 @@ export class VSLSGuest implements vscode.Disposable {
 	}
 
 	private async _refreshWorkspaces(available: boolean) {
-		vscode.workspace.workspaceFolders.forEach(async (folder) => {
-			if (folder.uri.scheme === 'vsls') {
-				if (available) {
-					await this.openVSLSRepository(folder);
-				} else {
-					await this.closeVSLSRepository(folder);
+		if (vscode.workspace.workspaceFolders) {
+			vscode.workspace.workspaceFolders.forEach(async (folder) => {
+				if (folder.uri.scheme === 'vsls') {
+					if (available) {
+						await this.openVSLSRepository(folder);
+					} else {
+						await this.closeVSLSRepository(folder);
+					}
 				}
-			}
-		});
+			});
+		}
 	}
 
 	async openVSLSRepository(folder: vscode.WorkspaceFolder) {
@@ -59,7 +65,7 @@ export class VSLSGuest implements vscode.Disposable {
 		if (existingRepository) {
 			return;
 		}
-		const liveShareRepository = new LiveShareRepository(folder, this._sharedServiceProxy);
+		const liveShareRepository = new LiveShareRepository(folder, this._sharedServiceProxy!);
 		const repositoryProxyHandler = new LiveShareRepositoryProxyHandler();
 		const repository = new Proxy(liveShareRepository, repositoryProxyHandler);
 		await repository.initialize();
@@ -76,9 +82,7 @@ export class VSLSGuest implements vscode.Disposable {
 	}
 
 	public dispose() {
-		this._sharedServiceProxy = null;
-		this._api = null;
-		this._model = null;
+		this._sharedServiceProxy = undefined;
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
 	}
@@ -87,7 +91,7 @@ export class VSLSGuest implements vscode.Disposable {
 class LiveShareRepositoryProxyHandler {
 	constructor() { }
 
-	get (obj, prop) {
+	get (obj: any, prop: any) {
 		if (prop in obj) {
 			return obj[prop];
 		}
@@ -99,7 +103,7 @@ class LiveShareRepositoryProxyHandler {
 }
 
 class LiveShareRepositoryState implements RepositoryState {
-	HEAD: Branch;
+	HEAD: Branch | undefined;
 	refs: Ref[];
 	remotes: Remote[];
 	submodules: Submodule[];

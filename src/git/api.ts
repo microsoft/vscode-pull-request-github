@@ -40,9 +40,9 @@ class CommonGitAPI implements API, vscode.Disposable {
 	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
-	private _api: LiveShare;
-	private _host: VSLSHost;
-	private _guest: VSLSGuest;
+	private _api?: LiveShare;
+	private _host?: VSLSHost;
+	private _guest?: VSLSGuest;
 	get repositories(): Repository[] {
 		return this._model.repositories;
 	}
@@ -51,9 +51,6 @@ class CommonGitAPI implements API, vscode.Disposable {
 	constructor(
 		private _model: Model
 	) {
-		this._api = null;
-		this._host = null;
-		this._guest = null;
 		this._disposables = [];
 		this._disposables.push(this._model.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
 		this._disposables.push(this._model.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
@@ -65,13 +62,13 @@ class CommonGitAPI implements API, vscode.Disposable {
 			this._api = await getVSLSApi();
 		}
 
-		this._disposables.push(this._api.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
-		if (this._api.session) {
-			this._onDidChangeSession(this._api.session);
+		this._disposables.push(this._api!.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
+		if (this._api!.session) {
+			this._onDidChangeSession(this._api!.session);
 		}
 	}
 
-	async _onDidChangeSession(session) {
+	async _onDidChangeSession(session: any) {
 		if (this._host) {
 			this._host.dispose();
 		}
@@ -81,32 +78,29 @@ class CommonGitAPI implements API, vscode.Disposable {
 		}
 
 		if (session.role === 1 /* Role.Host */) {
-			this._host = new VSLSHost(this._api, this._model);
+			this._host = new VSLSHost(this._api!, this._model);
 			await this._host.initialize();
 			return;
 		}
 
 		if (session.role === 2 /* Role.Guest */) {
-			this._guest = new VSLSGuest(this._api, this._model);
+			this._guest = new VSLSGuest(this._api!, this._model);
 			await this._guest.initialize();
 		}
 	}
 
 	public dispose() {
-		this._api = null;
+		this._api = undefined;
 		if (this._model) {
 			this._model.dispose();
-			this._model = null;
 		}
 
 		if (this._host) {
 			this._host.dispose();
-			this._host = null;
 		}
 
 		if (this._guest) {
 			this._guest.dispose();
-			this._guest = null;
 		}
 
 		this._disposables.forEach(d => d.dispose());
