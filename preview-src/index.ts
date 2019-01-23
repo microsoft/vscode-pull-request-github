@@ -5,7 +5,7 @@
 import './index.css';
 import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
-import {  EventType } from '../src/common/timelineEvent';
+import { EventType, isReviewEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
@@ -18,6 +18,7 @@ const ElementIds = {
 	CheckoutDefaultBranch: 'checkout-default-branch',
 	Merge: 'merge',
 	Close: 'close',
+	Refresh: 'refresh',
 	Reply: 'reply',
 	Approve: 'approve',
 	RequestChanges: 'request-changes',
@@ -60,7 +61,7 @@ function renderPullRequest(pr: PullRequest): void {
 	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
-	renderStatusChecks(pr.status);
+	renderStatusChecks(pr);
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
@@ -71,7 +72,7 @@ function renderTimelineEvents(pr: PullRequest): void {
 	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
 	timelineElement.innerHTML = '';
 	pr.events
-		.map(event => renderTimelineEvent(event, messageHandler))
+		.map(event => renderTimelineEvent(event, messageHandler, pr))
 		.filter(event => event !== undefined)
 		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
@@ -81,7 +82,8 @@ function updatePullRequestState(state: PullRequestStateEnum): void {
 
 	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
 	if (merge) {
-		merge.disabled = state !== PullRequestStateEnum.Open;
+		const { mergeable } = getState();
+		merge.disabled = !mergeable || state !== PullRequestStateEnum.Open;
 	}
 
 	const close = (<HTMLButtonElement>document.getElementById(ElementIds.Close));
@@ -110,12 +112,13 @@ function setTitleHTML(pr: PullRequest): void {
 					<div class="button-group">
 						<button id="${ElementIds.Checkout}" aria-live="polite"></button>
 						<button id="${ElementIds.CheckoutDefaultBranch}" aria-live="polite">Exit Review Mode</button>
+						<button id="${ElementIds.Refresh}">Refresh</button>
 					</div>
 				</div>
 				<div class="subtitle">
 					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
 					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
-					<span class="author"><a href="${pr.author.htmlUrl}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
+					<span class="author"><a href="${pr.author.url}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
 					<span class="created-at">Created <a href=${pr.url} class="timestamp">${dateFromNow(pr.createdAt)}</a></span>
 				</div>
 			</div>
@@ -163,14 +166,17 @@ function renderTitle(pr: PullRequest): HTMLElement {
 
 function renderDescription(pr: PullRequest): HTMLElement {
 	const commentContainer = document.createElement('div');
+	commentContainer.classList.add('description-container');
 
 	const commentHeader = document.createElement('div');
 	commentHeader.classList.add('description-header');
 
 	const commentBody = document.createElement('div');
-	commentBody.innerHTML = pr.body
-		? md.render(emoji.emojify(pr.body))
-		: '<p><i>No description provided.</i></p>';
+	commentBody.innerHTML = pr.bodyHTML ?
+		pr.bodyHTML :
+		pr.body
+			? md.render(emoji.emojify(pr.body))
+			: '<p><i>No description provided.</i></p>';
 
 	if (pr.labels.length) {
 		const line = document.createElement('div');
@@ -235,6 +241,12 @@ function addEventListeners(pr: PullRequest): void {
 		}, 500);
 	});
 
+	document.getElementById(ElementIds.Refresh).addEventListener('click', () => {
+		messageHandler.postMessage({
+			command: 'pr.refresh'
+		});
+	});
+
 	document.getElementById(ElementIds.Reply)!.addEventListener('click', () => {
 		submitComment();
 	});
@@ -255,33 +267,39 @@ function addEventListeners(pr: PullRequest): void {
 		appendComment(result.value);
 	});
 
-	document.getElementById(ElementIds.Approve)!.addEventListener('click', async () => {
-		(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = true;
-		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		messageHandler.postMessage({
-			command: 'pr.approve',
-			args: inputBox.value
-		}).then(message => {
-			// succeed
-			appendReview(message.value);
-		}, err => {
-			// enable approve button
-			(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
+	const approveButton = document.getElementById(ElementIds.Approve);
+	if (approveButton) {
+		approveButton.addEventListener('click', async () => {
+			(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = true;
+			const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
+			messageHandler.postMessage({
+				command: 'pr.approve',
+				args: inputBox.value
+			}).then(message => {
+				// succeed
+				appendReview(message.value);
+			}, err => {
+				// enable approve button
+				(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
+			});
 		});
-	});
+	}
 
-	document.getElementById(ElementIds.RequestChanges)!.addEventListener('click', () => {
-		(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
-		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		messageHandler.postMessage({
-			command: 'pr.request-changes',
-			args: inputBox.value
-		}).then(message => {
-			appendReview(message.value);
-		}, err => {
-			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
+	const requestChangesButton = document.getElementById(ElementIds.RequestChanges);
+	if (requestChangesButton) {
+		requestChangesButton.addEventListener('click', () => {
+			(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
+			const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
+			messageHandler.postMessage({
+				command: 'pr.request-changes',
+				args: inputBox.value
+			}).then(message => {
+				appendReview(message.value);
+			}, err => {
+				(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
+			});
 		});
-	});
+	}
 
 	document.getElementById(ElementIds.CheckoutDefaultBranch)!.addEventListener('click', () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = true;
@@ -327,7 +345,7 @@ function appendReview(review: any): void {
 	events.push(review);
 	updateState({ events: events });
 
-	const newReview = renderReview(review, messageHandler);
+	const newReview = renderReview(review, messageHandler, pullRequest.supportsGraphQl);
 	if (newReview) {
 		document.getElementById(ElementIds.TimelineEvents)!.appendChild(newReview);
 	}
@@ -368,12 +386,18 @@ function updateCheckoutButton(isCheckedOut: boolean) {
 }
 
 function setTextArea() {
+	const { supportsGraphQl, events } = getState();
+	const displaySubmitButtonsOnPendingReview = supportsGraphQl && events.some(e => isReviewEvent(e) && e.state.toLowerCase() === 'pending');
+
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
 			<button id="${ElementIds.Merge}" class="secondary">Merge Pull Request</button>
 			<button id="${ElementIds.Close}" class="secondary">Close Pull Request</button>
-			<button id="${ElementIds.RequestChanges}" disabled="true" class="secondary">Request Changes</button>
-			<button id="${ElementIds.Approve}" class="secondary">Approve</button>
+			${ displaySubmitButtonsOnPendingReview
+				? ''
+				: `<button id="${ElementIds.RequestChanges}" disabled="true" class="secondary">Request Changes</button>
+					<button id="${ElementIds.Approve}" class="secondary">Approve</button>`
+			}
 			<button class="reply-button" id="${ElementIds.Reply}" disabled="true">Comment</button>
 		</div>`;
 

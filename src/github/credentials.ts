@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Octokit from '@octokit/rest';
+import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
+import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
 import { agent } from '../common/net';
 import { IHostConfiguration, HostHelper } from '../authentication/configuration';
@@ -13,18 +15,25 @@ import { Remote } from '../common/remote';
 import Logger from '../common/logger';
 import { ITelemetry } from './interface';
 import { handler as uriHandler } from '../common/uri';
+import { createHttpLink } from 'apollo-link-http';
+import fetch from 'node-fetch';
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
 
 const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
+export interface GitHub {
+	octokit: Octokit;
+	graphql: ApolloClient<NormalizedCacheObject>;
+}
+
 export class CredentialStore {
-	private _octokits: Map<string, Octokit>;
+	private _octokits: Map<string, GitHub | undefined>;
 	private _authenticationStatusBarItems: Map<string, vscode.StatusBarItem>;
 
 	constructor(private readonly _telemetry: ITelemetry) {
-		this._octokits = new Map<string, Octokit>();
+		this._octokits = new Map<string, GitHub>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 		vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
 			const uriOrToken = await vscode.window.showInputBox({ prompt: 'Token' });
@@ -43,7 +52,7 @@ export class CredentialStore {
 	}
 
 	public reset() {
-		this._octokits = new Map<string, Octokit>();
+		this._octokits = new Map<string, GitHub>();
 
 		this._authenticationStatusBarItems.forEach(statusBarItem => statusBarItem.dispose());
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
@@ -52,7 +61,7 @@ export class CredentialStore {
 	public async hasOctokit(remote: Remote): Promise<boolean> {
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
 		// so use a normalized http[s] url regardless of the original protocol
-		const normalizedUri = remote.gitProtocol.normalizeUri();
+		const normalizedUri = remote.gitProtocol.normalizeUri()!;
 		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
 
 		if (this._octokits.has(host)) {
@@ -61,11 +70,11 @@ export class CredentialStore {
 
 		const server = new GitHubServer(host);
 		const token = await getToken(host);
-		let octokit: Octokit;
+		let octokit: GitHub | undefined = undefined;
 
 		if (token) {
 			if (await server.validate(token)) {
-				octokit = this.createOctokit({ host, token });
+				octokit = this.createHub({ host, token });
 			} else {
 				Logger.debug(`Token is no longer valid for host ${host}.`, 'Authentication');
 			}
@@ -80,14 +89,24 @@ export class CredentialStore {
 		return this._octokits.has(host);
 	}
 
-	public getOctokit(remote: Remote): Octokit {
-		const normalizedUri = remote.gitProtocol.normalizeUri();
+	public getHub(remote: Remote): GitHub | undefined {
+		const normalizedUri = remote.gitProtocol.normalizeUri()!;
 		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
 		return this._octokits.get(host);
 	}
 
-	public async loginWithConfirmation(remote: Remote): Promise<Octokit> {
-		const normalizedUri = remote.gitProtocol.normalizeUri();
+	public getOctokit(remote: Remote): Octokit | undefined {
+		const hub = this.getHub(remote);
+		return hub && hub.octokit;
+	}
+
+	public getGraphQL(remote: Remote) {
+		const hub = this.getHub(remote);
+		return hub && hub.graphql;
+	}
+
+	public async loginWithConfirmation(remote: Remote): Promise<GitHub | undefined> {
+		const normalizedUri = remote.gitProtocol.normalizeUri()!;
 		const result = await vscode.window.showInformationMessage(
 			`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
 			SIGNIN_COMMAND);
@@ -101,30 +120,30 @@ export class CredentialStore {
 		}
 	}
 
-	public async login(remote: Remote): Promise<Octokit> {
+	public async login(remote: Remote): Promise<GitHub | undefined> {
 		this._telemetry.on('auth.start');
 
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
 		// so use a normalized http[s] url regardless of the original protocol
-		const { scheme, authority } = remote.gitProtocol.normalizeUri();
+		const { scheme, authority } = remote.gitProtocol.normalizeUri()!;
 		const host = `${scheme}://${authority}`;
 
 		let retry: boolean = true;
-		let octokit: Octokit;
+		let octokit: GitHub | undefined = undefined;
 		const server = new GitHubServer(host);
 
 		while (retry) {
 			try {
 				this.willStartLogin(authority);
 				const login = await server.login();
-				if (login) {
-					octokit = this.createOctokit(login);
+				if (login && login.token) {
+					octokit = this.createHub(login);
 					await setToken(login.host, login.token, { emit: false });
 					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
 				}
 			} catch (e) {
 				Logger.appendLine(`Error signing in to ${authority}: ${e}`);
-				if (e instanceof Error) {
+				if (e instanceof Error && e.stack) {
 					Logger.appendLine(e.stack);
 				}
 			} finally {
@@ -155,24 +174,37 @@ export class CredentialStore {
 		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
 	}
 
-	private createOctokit(creds: IHostConfiguration): Octokit {
-		const octokit = new Octokit({
+	private createHub(creds: IHostConfiguration): GitHub {
+		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
+		let octokit = new Octokit({
 			agent,
-			baseUrl: `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`,
+			baseUrl,
 			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
 		});
 
 		octokit.authenticate({
 			type: 'token',
-			token: creds.token,
+			token: creds.token || '',
 		});
-		return octokit;
+
+		return {
+			octokit,
+			graphql: new ApolloClient({
+				link: link(baseUrl, creds.token || ''),
+				cache: new InMemoryCache,
+				defaultOptions: {
+					query: {
+						fetchPolicy: 'no-cache'
+					}
+				}
+			})
+		};
 	}
 
 	private async updateStatusBarItem(statusBarItem: vscode.StatusBarItem, remote: Remote): Promise<void> {
 		const octokit = this.getOctokit(remote);
 		let text: string;
-		let command: string;
+		let command: string | undefined;
 
 		if (octokit) {
 			try {
@@ -183,9 +215,9 @@ export class CredentialStore {
 				text = '$(mark-github) Signed in';
 			}
 
-			command = null;
+			command = undefined;
 		} else {
-			const authority = remote.gitProtocol.normalizeUri().authority;
+			const authority = remote.gitProtocol.normalizeUri()!.authority;
 			text = `$(mark-github) Sign in to ${authority}`;
 			command = 'pr.signin';
 		}
@@ -195,19 +227,19 @@ export class CredentialStore {
 	}
 
 	private willStartLogin(authority: string): void {
-		const status = this._authenticationStatusBarItems.get(authority);
+		const status = this._authenticationStatusBarItems.get(authority)!;
 		status.text = `$(mark-github) Signing in to ${authority}...`;
 		status.command = AUTH_INPUT_TOKEN_CMD;
 	}
 
 	private didEndLogin(authority: string): void {
-		const status = this._authenticationStatusBarItems.get(authority);
+		const status = this._authenticationStatusBarItems.get(authority)!;
 		status.text = `$(mark-github) Signed in to ${authority}`;
-		status.command = null;
+		status.command = undefined;
 	}
 
 	private async updateAuthenticationStatusBar(remote: Remote): Promise<void> {
-		const authority = remote.gitProtocol.normalizeUri().authority;
+		const authority = remote.gitProtocol.normalizeUri()!.authority;
 		const statusBarItem = this._authenticationStatusBarItems.get(authority);
 		if (statusBarItem) {
 			await this.updateStatusBarItem(statusBarItem, remote);
@@ -221,3 +253,14 @@ export class CredentialStore {
 	}
 
 }
+
+const link = (url: string, token: string) =>
+	setContext((_, { headers }) => (({
+		headers: {
+			...headers,
+			authorization: token ? `Bearer ${token}` : '',
+		}
+	}))).concat(createHttpLink({
+		uri: `${url}/graphql`,
+		fetch
+	}));

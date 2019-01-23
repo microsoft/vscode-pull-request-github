@@ -7,10 +7,9 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import * as Github from '@octokit/rest';
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
 import { Repository } from '../git/api';
-import { Comment } from './comment';
+import { IRawFileChange } from '../github/interface';
 
 export enum DiffChangeType {
 	Context,
@@ -98,7 +97,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 	let lineReader = LineReader(diffHunkPatch);
 
 	let itr = lineReader.next();
-	let diffHunk: DiffHunk = null;
+	let diffHunk: DiffHunk | undefined = undefined;
 	let positionInHunk = -1;
 	let oldLine = -1;
 	let newLine = -1;
@@ -108,7 +107,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 		if (DIFF_HUNK_HEADER.test(line)) {
 			if (diffHunk) {
 				yield diffHunk;
-				diffHunk = null;
+				diffHunk = undefined;
 			}
 
 			if (positionInHunk === -1) {
@@ -116,17 +115,17 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 			}
 
 			const matches = DIFF_HUNK_HEADER.exec(line);
-			const oriStartLine = oldLine = Number(matches[1]);
+			const oriStartLine = oldLine = Number(matches![1]);
 			// http://www.gnu.org/software/diffutils/manual/diffutils.html#Detailed-Unified
 			// `count` is added when the changes have more than 1 line.
-			const oriLen = Number(matches[3]) || 1;
-			const newStartLine = newLine = Number(matches[5]);
-			const newLen = Number(matches[7]) || 1;
+			const oriLen = Number(matches![3]) || 1;
+			const newStartLine = newLine = Number(matches![5]);
+			const newLen = Number(matches![7]) || 1;
 
 			diffHunk = new DiffHunk(oriStartLine, oriLen, newStartLine, newLen, positionInHunk);
 			// @rebornix todo, once we have enough tests, this should be removed.
 			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Control, -1, -1, positionInHunk, line));
-		} else if (diffHunk !== null) {
+		} else if (diffHunk) {
 			let type = getDiffChangeType(line);
 
 			if (type === DiffChangeType.Control) {
@@ -195,7 +194,7 @@ export function parsePatch(patch: string): DiffHunk[] {
 	return diffHunks;
 }
 
-export function getModifiedContentFromDiffHunk(originalContent, patch) {
+export function getModifiedContentFromDiffHunk(originalContent: string, patch: string) {
 	let left = originalContent.split(/\r?\n/);
 	let diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
@@ -253,7 +252,7 @@ export function getGitChangeType(status: string): GitChangeType {
 	}
 }
 
-export async function parseDiff(reviews: any[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
+export async function parseDiff(reviews: IRawFileChange[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
 	let fileChanges: (InMemFileChange | SlimFileChange)[] = [];
 
 	for (let i = 0; i < reviews.length; i++) {
@@ -277,7 +276,7 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 				break;
 			case GitChangeType.RENAME:
 				try {
-					await repository.getObjectDetails(parentCommit, review.previous_filename);
+					await repository.getObjectDetails(parentCommit, review.previous_filename!);
 					originalFileExist = true;
 				} catch (err) { /* noop */ }
 				break;
@@ -289,20 +288,4 @@ export async function parseDiff(reviews: any[], repository: Repository, parentCo
 	}
 
 	return fileChanges;
-}
-
-export function parserCommentDiffHunk(comments: Github.PullRequestsCreateCommentResponse[]): Comment[] {
-	return comments.map(comment => {
-		let diffHunks = [];
-		let diffHunkReader = parseDiffHunk(comment.diff_hunk);
-		let diffHunkIter = diffHunkReader.next();
-
-		while (!diffHunkIter.done) {
-			let diffHunk = diffHunkIter.value;
-			diffHunks.push(diffHunk);
-			diffHunkIter = diffHunkReader.next();
-		}
-
-		return { ...comment, diff_hunks: diffHunks };
-	});
 }

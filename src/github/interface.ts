@@ -3,15 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
-import * as Github from '@octokit/rest';
-import { Comment } from '../common/comment';
-import { GitHubRef } from '../common/githubRef';
-import { TimelineEvent } from '../common/timelineEvent';
-import { Remote } from '../common/remote';
-import { Repository, Branch } from '../git/api';
-import { PullRequestsCreateParams } from '@octokit/rest';
-
 export enum PRType {
 	RequestReview = 0,
 	AssignedToMe = 1,
@@ -35,12 +26,8 @@ export enum PullRequestStateEnum {
 
 export interface IAccount {
 	login: string;
-	isUser: boolean;
-	isEnterprise: boolean;
 	avatarUrl: string;
-	htmlUrl: string;
-	ownedPrivateRepositoryCount?: number;
-	privateRepositoryInPlanCount?: number;
+	url: string;
 }
 
 export interface MergePullRequest {
@@ -50,48 +37,49 @@ export interface MergePullRequest {
 	documentation_url: string;
 }
 
-export type PullRequest = Pick<
-	Github.PullRequestsGetResponse,
-	| 'number'
-	| 'body'
-	| 'labels'
-	| 'title'
-	| 'html_url'
-	| 'user'
-	| 'state'
-	| 'merged'
-	| 'assignee'
-	| 'created_at'
-	| 'updated_at'
-	| 'comments'
-	| 'commits'
-	| 'head'
-	| 'base'
->;
-export interface IPullRequestModel {
-	remote: Remote;
-	prNumber: number;
+export interface IRepository {
+	cloneUrl: string;
+}
+
+export interface IGitHubRef {
+	label: string;
+	ref: string;
+	sha: string;
+	repo: IRepository;
+}
+
+export interface ILabel {
+	name: string;
+}
+
+export interface PullRequest {
+	url: string;
+	number: number;
+	state: string;
+	body: string;
 	title: string;
-	html_url: string;
-	state: PullRequestStateEnum;
-	commentCount: number;
-	commitCount: number;
-	author: IAccount;
-	assignee: IAccount;
+	assignee?: IAccount;
 	createdAt: string;
 	updatedAt: string;
-	isOpen: boolean;
-	isMerged: boolean;
-	head?: GitHubRef;
-	base?: GitHubRef;
-	mergeBase?: string;
-	localBranchName?: string;
-	userAvatar: string;
-	userAvatarUri: vscode.Uri;
-	body: string;
-	labels: string[];
-	update(prItem: Github.PullRequestsGetResponse): void;
-	equals(other: IPullRequestModel): boolean;
+	head: IGitHubRef;
+	base: IGitHubRef;
+	user: IAccount;
+	labels: ILabel[];
+	merged: boolean;
+	mergeable?: boolean;
+	nodeId: string;
+}
+
+export interface IRawFileChange {
+	filename: string;
+	previous_filename?: string;
+	additions: number;
+	deletions: number;
+	changes: number;
+	status: string;
+	raw_url: string;
+	blob_url: string;
+	patch: string;
 }
 
 export interface IPullRequestsPagingOptions {
@@ -105,66 +93,6 @@ export interface IGitHubRepository {
 export interface IPullRequestEditData {
 	body?: string;
 	title?: string;
-}
-
-export interface IPullRequestManager {
-	activePullRequest?: IPullRequestModel;
-	repository: Repository;
-	readonly onDidChangeActivePullRequest: vscode.Event<void>;
-	getLocalPullRequests(): Promise<IPullRequestModel[]>;
-	deleteLocalPullRequest(pullRequest: IPullRequestModel, force?: boolean): Promise<void>;
-	getPullRequests(type: PRType, options?: IPullRequestsPagingOptions): Promise<[IPullRequestModel[], boolean]>;
-	getMetadata(remote: string): Promise<any>;
-	getGitHubRemotes(): Remote[];
-	mayHaveMorePages(): boolean;
-	getPullRequestComments(pullRequest: IPullRequestModel): Promise<Comment[]>;
-	getPullRequestCommits(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetCommitsResponseItem[]>;
-	getCommitChangedFiles(pullRequest: IPullRequestModel, commit: Github.PullRequestsGetCommitsResponseItem): Promise<Github.ReposGetCommitResponseFilesItem[]>;
-	getReviewComments(pullRequest: IPullRequestModel, reviewId: number): Promise<Github.PullRequestsCreateCommentResponse[]>;
-	getTimelineEvents(pullRequest: IPullRequestModel): Promise<TimelineEvent[]>;
-	getIssueComments(pullRequest: IPullRequestModel): Promise<Github.IssuesGetCommentsResponseItem[]>;
-	createIssueComment(pullRequest: IPullRequestModel, text: string): Promise<Github.IssuesCreateCommentResponse>;
-	createCommentReply(pullRequest: IPullRequestModel, body: string, reply_to: string): Promise<Comment>;
-	createComment(pullRequest: IPullRequestModel, body: string, path: string, position: number): Promise<Comment>;
-	getPullRequestDefaults(): Promise<PullRequestsCreateParams>;
-	createPullRequest(params: PullRequestsCreateParams): Promise<IPullRequestModel>;
-	mergePullRequest(pullRequest: IPullRequestModel): Promise<any>;
-	editReviewComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment>;
-	editIssueComment(pullRequest: IPullRequestModel, commentId: string, text: string): Promise<Comment>;
-	deleteIssueComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
-	deleteReviewComment(pullRequest: IPullRequestModel, commentId: string): Promise<void>;
-	canEditPullRequest(pullRequest: IPullRequestModel): boolean;
-	editPullRequest(pullRequest: IPullRequestModel, toEdit: IPullRequestEditData): Promise<Github.PullRequestsUpdateResponse>;
-	closePullRequest(pullRequest: IPullRequestModel): Promise<any>;
-	approvePullRequest(pullRequest: IPullRequestModel, message?: string): Promise<any>;
-	requestChanges(pullRequest: IPullRequestModel, message?: string): Promise<any>;
-	getPullRequestChangedFiles(pullRequest: IPullRequestModel): Promise<Github.PullRequestsGetFilesResponseItem[]>;
-	getPullRequestRepositoryDefaultBranch(pullRequest: IPullRequestModel): Promise<string>;
-	getStatusChecks(pullRequest: IPullRequestModel): Promise<Github.ReposGetCombinedStatusForRefResponse>;
-
-	/**
-	 * Fullfill information for a pull request which we can't fetch with one single api call.
-	 * 1. base. This property might not exist in search results
-	 * 2. head. This property might not exist in search results
-	 * 3. merge base. This is necessary as base might not be the commit that files in Pull Request are being compared to.
-	 * @param pullRequest
-	 */
-	fullfillPullRequestMissingInfo(pullRequest: IPullRequestModel): Promise<void>;
-	updateRepositories(): Promise<void>;
-	authenticate(): Promise<boolean>;
-
-	/**
-	 * git related APIs
-	 */
-
-	resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<IPullRequestModel>;
-	getMatchingPullRequestMetadataForBranch();
-	getBranchForPullRequestFromExistingRemotes(pullRequest: IPullRequestModel);
-	getBranch(remote: Remote, branchName: string): Promise<Branch>;
-	checkout(branchName: string): Promise<void>;
-	fetchAndCheckout(remote: Remote, branchName: string, pullRequest: IPullRequestModel): Promise<void>;
-	createAndCheckout(pullRequest: IPullRequestModel): Promise<void>;
-
 }
 
 export interface ITelemetry {

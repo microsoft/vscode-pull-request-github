@@ -6,8 +6,8 @@
 'use strict';
 
 import { Uri, UriHandler, EventEmitter } from 'vscode';
-import { IPullRequestModel } from '../github/interface';
 import { GitChangeType } from './file';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export interface ReviewUriParams {
 	path: string;
@@ -30,12 +30,10 @@ export interface PRUriParams {
 	status: GitChangeType;
 }
 
-export function fromPRUri(uri: Uri): PRUriParams {
+export function fromPRUri(uri: Uri): PRUriParams | undefined {
 	try {
 		return JSON.parse(uri.query) as PRUriParams;
-	} catch (e) {
-		return null;
-	}
+	} catch (e) { }
 }
 
 export interface GitUriOptions {
@@ -47,7 +45,7 @@ export interface GitUriOptions {
 // As a mitigation for extensions like ESLint showing warnings and errors
 // for git URIs, let's change the file extension of these uris to .git,
 // when `replaceFileExtension` is true.
-export function toReviewUri(uri: Uri, filePath: string, ref: string, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
+export function toReviewUri(uri: Uri, filePath: string | undefined, ref: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
 	const params: ReviewUriParams = {
 		path: filePath ? filePath : uri.path,
 		ref,
@@ -86,15 +84,13 @@ export function toFileChangeNodeUri(uri: Uri, hasComments: boolean, status: GitC
 	});
 }
 
-export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams {
+export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams | undefined {
 	try {
 		return JSON.parse(uri.query) as FileChangeNodeUriParams;
-	} catch (e) {
-		return null;
-	}
+	} catch (e) { }
 }
 
-export function toPRUri(uri: Uri, pullRequestModel: IPullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean, status: GitChangeType): Uri {
+export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean, status: GitChangeType): Uri {
 	const params: PRUriParams = {
 		baseCommit: baseCommit,
 		headCommit: headCommit,

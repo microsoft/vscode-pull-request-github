@@ -4,20 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IPullRequestModel, IPullRequestManager } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { CommitNode } from './commitNode';
 import { Comment } from '../../common/comment';
+import { PullRequestManager } from '../../github/pullRequestManager';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Commits';
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	private _prManager: IPullRequestManager;
-	private _pr: IPullRequestModel;
+	private _prManager: PullRequestManager;
+	private _pr: PullRequestModel;
 	private _comments: Comment[];
 
-	constructor(prManager: IPullRequestManager, pr: IPullRequestModel, comments: Comment[]) {
+	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, prManager: PullRequestManager, pr: PullRequestModel, comments: Comment[]) {
 		super();
+		this.parent = parent;
 		this._pr = pr;
 		this._prManager = prManager;
 		this._comments = comments;
@@ -31,10 +33,10 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	async getChildren(): Promise<TreeNode[]> {
 		try {
 			const commits = await this._prManager.getPullRequestCommits(this._pr);
-			const commitNodes = commits.map(commit => new CommitNode(this._prManager, this._pr, commit, this._comments));
+			const commitNodes = commits.map(commit => new CommitNode(this, this._prManager, this._pr, commit, this._comments));
 			return Promise.resolve(commitNodes);
 		} catch (e) {
-			Promise.resolve([]);
+			return Promise.resolve([]);
 		}
 	}
 }

@@ -42,8 +42,8 @@ export class Protocol {
 
 			this.host = this.getHostName(this.url.authority);
 			if (this.host) {
-				this.repositoryName = this.getRepositoryName(this.url.path);
-				this.owner = this.getOwnerName(this.url.path);
+				this.repositoryName = this.getRepositoryName(this.url.path) || '';
+				this.owner = this.getOwnerName(this.url.path) || '';
 			}
 		} catch (e) {
 			Logger.appendLine(`Failed to parse '${uriString}'`);
@@ -72,8 +72,8 @@ export class Protocol {
 		if (!sshConfig) { return false; }
 		const { HostName, path } = sshConfig;
 		this.host = HostName;
-		this.owner = this.getOwnerName(path);
-		this.repositoryName = this.getRepositoryName(path);
+		this.owner = this.getOwnerName(path) || '';
+		this.repositoryName = this.getRepositoryName(path) || '';
 		this.type = ProtocolType.SSH;
 		return true;
 	}
@@ -97,7 +97,7 @@ export class Protocol {
 		let lastIndex = normalized.lastIndexOf('/');
 		let lastSegment = normalized.substr(lastIndex + 1);
 		if (lastSegment === '' || lastSegment === '/') {
-			return null;
+			return;
 		}
 
 		return lastSegment.replace(/\/$/, '').replace(/\.git$/, '');
@@ -114,12 +114,12 @@ export class Protocol {
 			return fragments[fragments.length - 2];
 		}
 
-		return null;
+		return;
 	}
 
-	normalizeUri(): vscode.Uri {
+	normalizeUri(): vscode.Uri | undefined {
 		if (this.type === ProtocolType.OTHER && !this.url) {
-			return null;
+			return;
 		}
 
 		if (this.type === ProtocolType.Local) {
@@ -134,11 +134,11 @@ export class Protocol {
 		try {
 			return vscode.Uri.parse(`${scheme}://${this.host.toLocaleLowerCase()}/${this.nameWithOwner.toLocaleLowerCase()}`);
 		} catch (e) {
-			return null;
+			return;
 		}
 	}
 
-	toString(): string {
+	toString(): string | undefined {
 		// based on Uri scheme for SSH https://tools.ietf.org/id/draft-salowey-secsh-uri-00.html#anchor1 and heuristics of how GitHub handles ssh url
 		// sshUri        = `ssh:`
 		//    - omitted
@@ -163,7 +163,7 @@ export class Protocol {
 			return normalizedUri.toString();
 		}
 
-		return null;
+		return;
 	}
 
 	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string; }): Protocol {
@@ -187,6 +187,16 @@ export class Protocol {
 	}
 
 	equals(other: Protocol) {
-		return this.normalizeUri().toString().toLocaleLowerCase() === other.normalizeUri().toString().toLocaleLowerCase();
+		let normalizeUri = this.normalizeUri();
+		if (!normalizeUri) {
+			return false;
+		}
+
+		let otherNormalizeUri = other.normalizeUri();
+		if (!otherNormalizeUri) {
+			return false;
+		}
+
+		return normalizeUri.toString().toLocaleLowerCase() === otherNormalizeUri.toString().toLocaleLowerCase();
 	}
 }

@@ -7,11 +7,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
-import { IPullRequestModel } from '../../github/interface';
 import { TreeNode } from './treeNode';
 import { Comment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 import { toFileChangeNodeUri } from '../../common/uri';
+import { PullRequestModel } from '../../github/pullRequestModel';
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
@@ -24,7 +24,8 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public resourceUri: vscode.Uri;
 
 	constructor(
-		public readonly pullRequest: IPullRequestModel,
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly blobUrl: string
@@ -63,7 +64,8 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public opts: vscode.TextDocumentShowOptions;
 
 	constructor(
-		public readonly pullRequest: IPullRequestModel,
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
 		public readonly previousFileName: string | undefined,
@@ -90,12 +92,12 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		if (this.comments && this.comments.length) {
 			let sortedActiveComments = this.comments.filter(comment => comment.position).sort((a, b) => {
-				return a.position - b.position;
+				return a.position! - b.position!;
 			});
 
 			if (sortedActiveComments.length) {
 				let comment = sortedActiveComments[0];
-				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.original_position : comment.position);
+				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
 
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
@@ -110,6 +112,18 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 			command: 'pr.openDiffView',
 			arguments: [ this ]
 		};
+	}
+
+	getCommentPosition(comment: Comment) {
+		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
+
+		if (diffLine) {
+			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
+			let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			return lineNumber;
+		}
+
+		return 0;
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -131,10 +145,11 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public opts: vscode.TextDocumentShowOptions;
 
 	constructor(
-		public readonly pullRequest: IPullRequestModel,
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
-		public readonly blobUrl: string,
+		public readonly blobUrl: string | undefined,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
 		public readonly isPartial: boolean,
@@ -155,12 +170,12 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		if (this.comments && this.comments.length) {
 			let sortedActiveComments = this.comments.filter(comment => comment.position).sort((a, b) => {
-				return a.position - b.position;
+				return a.position! - b.position!;
 			});
 
 			if (sortedActiveComments.length) {
 				let comment = sortedActiveComments[0];
-				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === null ? comment.original_position : comment.position);
+				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
 
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
@@ -175,6 +190,18 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 			command: 'pr.openChangedFile',
 			arguments: [this]
 		};
+	}
+
+	getCommentPosition(comment: Comment) {
+		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position!);
+
+		if (diffLine) {
+			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
+			let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			return lineNumber;
+		}
+
+		return 0;
 	}
 
 	getTreeItem(): vscode.TreeItem {

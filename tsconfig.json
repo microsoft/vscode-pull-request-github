@@ -13,7 +13,9 @@
 		"typeRoots": [
 			"./node_modules/@types",
 			"./src/typings/"
-		]
+		],
+		"noImplicitAny": true,
+		"strictNullChecks": true
 	},
 	"include": [
 		"src/**/*"
