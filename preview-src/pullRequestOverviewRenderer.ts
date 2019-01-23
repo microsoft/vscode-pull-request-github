@@ -210,6 +210,7 @@ function renderMerge(pr: PullRequest, messageHandler: MessageHandler, container:
 
 		title.value = getDefaultTitleText(mergeSelector.value, pr);
 		description.value = getDefaultDescriptionText(mergeSelector.value, pr);
+		completeMergeButton.textContent = mergeSelector.selectedOptions[0].text;
 	});
 
 	const mergeInputsContainer = document.createElement('div');
