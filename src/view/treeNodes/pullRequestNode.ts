@@ -661,7 +661,7 @@ export class PRNode extends TreeNode {
 	}
 
 	private async deleteDraft(_token: vscode.CancellationToken): Promise<void> {
-		const deletedReviewComments = await this._prManager.deleteReview(this.pullRequestModel);
+		const { deletedReviewId, deletedReviewComments } = await this._prManager.deleteReview(this.pullRequestModel);
 
 		let changed: vscode.CommentThread[] = [];
 		let removed: vscode.CommentThread[] = [];
@@ -678,7 +678,7 @@ export class PRNode extends TreeNode {
 				this.calculateChangedAndRemovedThreads(changed, removed, matchingFileChange, commentsForFile, false);
 
 				// Remove deleted comments from the file change's comment list
-				matchingFileChange.comments = matchingFileChange.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id === comment.id));
+				matchingFileChange.comments = matchingFileChange.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
 			}
 		}
 

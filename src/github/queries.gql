@@ -183,6 +183,7 @@ mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!, $body: String) 
 mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 	deletePullRequestReview(input: $input) {
 		pullRequestReview {
+			databaseId
 			comments(first:100) {
 					nodes { ...ReviewComment }
 			}

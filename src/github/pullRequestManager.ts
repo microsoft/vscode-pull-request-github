@@ -530,7 +530,7 @@ export class PullRequestManager {
 		}
 	}
 
-	async deleteReview(pullRequest: PullRequestModel): Promise<Comment[]> {
+	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: Comment[]}> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
@@ -540,7 +540,12 @@ export class PullRequestManager {
 			}
 		});
 
-		return data.deletePullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
+		const { comments, databaseId } = data.deletePullRequestReview.pullRequestReview;
+
+		return {
+			deletedReviewId: databaseId,
+			deletedReviewComments: comments.nodes.map(parseGraphQLComment)
+		};
 	}
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {

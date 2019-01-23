@@ -170,6 +170,7 @@ export interface SubmitReviewResponse {
 export interface DeleteReviewResponse {
 	deletePullRequestReview: {
 		pullRequestReview: {
+			databaseId: number;
 			comments: {
 				nodes: ReviewComment[];
 			}

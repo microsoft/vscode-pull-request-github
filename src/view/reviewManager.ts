@@ -1070,7 +1070,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async deleteDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
-		const deletedReviewComments = await this._prManager.deleteReview(this._prManager.activePullRequest);
+		const { deletedReviewId, deletedReviewComments } = await this._prManager.deleteReview(this._prManager.activePullRequest);
 
 		const removed = [];
 		const changed = [];
@@ -1089,8 +1089,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		for (let filePath in commentsByFile) {
 			const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
 			if (matchedFile) {
-				const deletedFileComments = commentsByFile[filePath];
-				matchedFile.comments = matchedFile.comments.filter(comment => !deletedFileComments.some(deletedComment => deletedComment.id === comment.id));
+				matchedFile.comments = matchedFile.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
 			}
 		}
 
