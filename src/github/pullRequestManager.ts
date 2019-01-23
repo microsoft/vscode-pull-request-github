@@ -23,7 +23,7 @@ const queries = require('./queries.gql');
 
 interface PageInformation {
 	pullRequestPage: number;
-	hasMorePages: boolean;
+	hasMorePages: boolean | null;
 }
 
 interface RestErrorResult {
@@ -211,7 +211,7 @@ export class PullRequestManager {
 				if (!this._repositoryPageInformation.get(remoteId)) {
 					this._repositoryPageInformation.set(remoteId, {
 						pullRequestPage: 1,
-						hasMorePages: false
+						hasMorePages: null
 					});
 				}
 			}
@@ -315,14 +315,14 @@ export class PullRequestManager {
 			for (let repository of this._githubRepositories) {
 				this._repositoryPageInformation.set(repository.remote.url.toString(), {
 					pullRequestPage: 1,
-					hasMorePages: false
+					hasMorePages: null
 				});
 			}
 		}
 
 		githubRepositories = githubRepositories.filter(repo => {
 			let info = this._repositoryPageInformation.get(repo.remote.url.toString());
-			return info && info.hasMorePages;
+			return info && info.hasMorePages !== false;
 		});
 
 		let pullRequests: PullRequestModel[] = [];
@@ -361,7 +361,7 @@ export class PullRequestManager {
 	public mayHaveMorePages(): boolean {
 		return this._githubRepositories.some(repo => {
 			let info = this._repositoryPageInformation.get(repo.remote.url.toString());
-			return !!(info && info.hasMorePages);
+			return !!(info && info.hasMorePages !== false);
 		});
 	}
 
