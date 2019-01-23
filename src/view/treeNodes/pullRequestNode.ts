@@ -626,11 +626,11 @@ export class PRNode extends TreeNode {
 	}
 
 	private updateCommentPendingState() {
-		const allComments = this._fileChanges
-			.reduce((all, change) =>
-				all.concat(change instanceof InMemFileChangeNode ? change.comments : []), []);
-
-		allComments.forEach(c => c.isDraft = false);
+		this._fileChanges.forEach(fileChange => {
+			if (fileChange instanceof InMemFileChangeNode) {
+				fileChange.comments.forEach(c => c.isDraft = false);
+			}
+		});
 
 		const commentThreads = this._fileChanges
 			.reduce((threads, change) => change instanceof InMemFileChangeNode
