@@ -17,8 +17,7 @@ import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
-import { getPRDocumentCommentProvider } from '../prDocumentCommentProvider';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { PullRequestManager, onDidSubmitReview } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
 export function providePRDocumentComments(
@@ -97,8 +96,8 @@ export function providePRDocumentComments(
 				return {
 					commentId: comment.id.toString(),
 					body: new vscode.MarkdownString(comment.body),
-					userName: comment.user.login,
-					gravatar: comment.user.avatarUrl,
+					userName: comment.user!.login,
+					gravatar: comment.user!.avatarUrl,
 					canEdit: comment.canEdit,
 					canDelete: comment.canDelete,
 					isDraft: !!comment.isDraft
@@ -115,7 +114,7 @@ export function providePRDocumentComments(
 	};
 }
 
-function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Comment[], isBase: boolean) {
+function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Comment[], isBase: boolean): vscode.CommentThread[] {
 	let sections = groupBy(comments, comment => comment.position!.toString());
 	let threads: vscode.CommentThread[] = [];
 
@@ -142,8 +141,8 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 				return {
 					commentId: comment.id.toString(),
 					body: new vscode.MarkdownString(comment.body),
-					userName: comment.user.login,
-					gravatar: comment.user.avatarUrl,
+					userName: comment.user!.login,
+					gravatar: comment.user!.avatarUrl,
 					canEdit: comment.canEdit,
 					canDelete: comment.canDelete,
 					isDraft: !!comment.isDraft
@@ -213,8 +212,9 @@ function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread
 export class PRNode extends TreeNode {
 	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
-	private _documentCommentsProvider?: vscode.Disposable;
-	private _onDidChangeCommentThreads?: vscode.EventEmitter<vscode.CommentThreadChangedEvent>;
+	private _documentCommentsProvider: vscode.Disposable;
+	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent>;
+	private _disposables: vscode.Disposable[] = [];
 
 	private _inMemPRContentProvider?: vscode.Disposable;
 
@@ -285,14 +285,22 @@ export class PRNode extends TreeNode {
 				} else {
 					this._fileChanges = fileChanges;
 					this._onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
-					this._documentCommentsProvider = getPRDocumentCommentProvider().registerDocumentCommentProvider(this.pullRequestModel, {
+					await this.pullRequestModel.githubRepository.ensureCommentsProvider();
+					this._documentCommentsProvider = this.pullRequestModel.githubRepository.commentsProvider.registerDocumentCommentProvider(this.pullRequestModel, {
 						onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
 						provideDocumentComments: this.provideDocumentComments.bind(this),
 						createNewCommentThread: this.createNewCommentThread.bind(this),
 						replyToCommentThread: this.replyToCommentThread.bind(this),
 						editComment: this.editComment.bind(this),
-						deleteComment: this.deleteComment.bind(this)
+						deleteComment: this.deleteComment.bind(this),
+						startDraft: this.startDraft.bind(this),
+						finishDraft: this.finishDraft.bind(this),
+						deleteDraft: this.deleteDraft.bind(this)
 					});
+
+					this._disposables.push(onDidSubmitReview(_ => {
+						this.updateCommentPendingState();
+					}));
 				}
 			} else {
 				this._fileChanges = fileChanges;
@@ -331,12 +339,10 @@ export class PRNode extends TreeNode {
 			}
 			if (fileChange instanceof InMemFileChangeNode) {
 				let lineNumber = fileChange.getCommentPosition(comment);
-				let [ parentFilePath, filePath, fileName, isPartial, opts ] = fileChange.command.arguments!;
-				if (!opts) {
-					opts = {};
-				}
+				const opts = fileChange.opts;
 				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				await vscode.commands.executeCommand(fileChange.command.command, parentFilePath, filePath, fileName, isPartial, opts);
+				fileChange.opts = opts;
+				await vscode.commands.executeCommand(fileChange.command.command, fileChange);
 			} else {
 				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments!);
 			}
@@ -534,8 +540,8 @@ export class PRNode extends TreeNode {
 			let comment: vscode.Comment = {
 				commentId: rawComment!.id.toString(),
 				body: new vscode.MarkdownString(rawComment!.body),
-				userName: rawComment!.user.login,
-				gravatar: rawComment!.user.avatarUrl,
+				userName: rawComment!.user!.login,
+				gravatar: rawComment!.user!.avatarUrl,
 				canEdit: rawComment!.canEdit,
 				canDelete: rawComment!.canDelete,
 				isDraft: !!rawComment!.isDraft
@@ -599,8 +605,8 @@ export class PRNode extends TreeNode {
 			thread.comments.push({
 				commentId: rawComment!.id.toString(),
 				body: new vscode.MarkdownString(rawComment!.body),
-				userName: rawComment!.user.login,
-				gravatar: rawComment!.user.avatarUrl,
+				userName: rawComment!.user!.login,
+				gravatar: rawComment!.user!.avatarUrl,
 				canEdit: rawComment!.canEdit,
 				canDelete: rawComment!.canDelete,
 				isDraft: !!rawComment!.isDraft
@@ -623,6 +629,89 @@ export class PRNode extends TreeNode {
 		return;
 	}
 
+	private async startDraft(_token: vscode.CancellationToken): Promise<void> {
+		await this._prManager.startReview(this.pullRequestModel);
+		this._onDidChangeCommentThreads.fire({
+			added: [],
+			changed: [],
+			removed: [],
+			inDraftMode: true
+		});
+	}
+
+	private updateCommentPendingState() {
+		this._fileChanges.forEach(fileChange => {
+			if (fileChange instanceof InMemFileChangeNode) {
+				fileChange.comments.forEach(c => c.isDraft = false);
+			}
+		});
+
+		const commentThreads = this._fileChanges
+			.reduce((threads, change) => change instanceof InMemFileChangeNode
+				? threads
+					.concat(commentsToCommentThreads(change, change.comments, false))
+					.concat(commentsToCommentThreads(change, change.comments, true))
+				: threads,
+				[] as vscode.CommentThread[]);
+
+		this._onDidChangeCommentThreads.fire({
+			added: [],
+			changed: commentThreads,
+			removed: [],
+			inDraftMode: false
+		});
+	}
+
+	private calculateChangedAndRemovedThreads(changed: vscode.CommentThread[], removed: vscode.CommentThread[], fileChange: InMemFileChangeNode, deletedComments: Comment[], isBase: boolean): void {
+		const oldCommentThreads = commentsToCommentThreads(fileChange, fileChange.comments, isBase);
+		oldCommentThreads.forEach(thread => {
+			thread.comments = thread.comments.filter(comment => !deletedComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+			if (!thread.comments.length) {
+				removed.push(thread);
+			} else {
+				changed.push(thread);
+			}
+		});
+	}
+
+	private async deleteDraft(_token: vscode.CancellationToken): Promise<void> {
+		const { deletedReviewId, deletedReviewComments } = await this._prManager.deleteReview(this.pullRequestModel);
+
+		let changed: vscode.CommentThread[] = [];
+		let removed: vscode.CommentThread[] = [];
+
+		// Group comments by file and then position to create threads.
+		const commentsByPath = groupBy(deletedReviewComments, comment => comment.path || '');
+
+		for (let filePath in commentsByPath) {
+			const commentsForFile = commentsByPath[filePath];
+			const matchingFileChange = this._fileChanges.find(fileChange => fileChange.fileName === filePath);
+
+			if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
+				this.calculateChangedAndRemovedThreads(changed, removed, matchingFileChange, commentsForFile, true);
+				this.calculateChangedAndRemovedThreads(changed, removed, matchingFileChange, commentsForFile, false);
+
+				// Remove deleted comments from the file change's comment list
+				matchingFileChange.comments = matchingFileChange.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
+			}
+		}
+
+		this._onDidChangeCommentThreads.fire({
+			added: [],
+			changed,
+			removed,
+			inDraftMode: false
+		});
+	}
+
+	private async finishDraft(_token: vscode.CancellationToken): Promise<void> {
+		try {
+			await this._prManager.submitReview(this.pullRequestModel);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
+		}
+	}
+
 	dispose(): void {
 		super.dispose();
 
@@ -633,5 +722,7 @@ export class PRNode extends TreeNode {
 		if (this._inMemPRContentProvider) {
 			this._inMemPRContentProvider.dispose();
 		}
+
+		this._disposables.forEach(d => d.dispose());
 	}
 }

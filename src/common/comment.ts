@@ -21,10 +21,11 @@ export interface Comment {
 	commitId?: string;
 	originalPosition?: number;
 	originalCommitId?: string;
-	user: IAccount;
+	user?: IAccount;
 	body: string;
 	createdAt: string;
 	htmlUrl: string;
 	isDraft?: boolean;
-	nodeId?: string;
+	inReplyToId?: number;
+	graphNodeId: string;
 }

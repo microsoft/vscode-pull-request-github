@@ -106,9 +106,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			}
 			if (fileChange instanceof GitFileChangeNode) {
 				let lineNumber = fileChange.getCommentPosition(comment);
-				let [ parentFilePath, filePath, fileName, isPartial, opts ] = fileChange.command.arguments!;
+				const opts = fileChange.opts;
 				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				await vscode.commands.executeCommand(fileChange.command.command, parentFilePath, filePath, fileName, isPartial, opts);
+				fileChange.opts = opts;
+				await vscode.commands.executeCommand(fileChange.command.command, fileChange);
 			} else {
 				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments!);
 			}

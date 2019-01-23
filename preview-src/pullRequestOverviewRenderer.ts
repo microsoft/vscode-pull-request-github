@@ -382,8 +382,7 @@ class CommentNode {
 		commentHeader.appendChild(userIcon);
 		commentHeader.appendChild(authorLink);
 
-		const isPending = this._review && this._review.isPending();
-		if (isPending) {
+		if ((this._comment as Comment).isDraft) {
 			const pendingTag = document.createElement('a');
 			pendingTag.className = 'pending';
 			pendingTag.href = this._comment.htmlUrl;
@@ -511,18 +510,18 @@ function getDiffChangeClass(type: DiffChangeType) {
 	}
 }
 
-export function renderReview(review: ReviewEvent, messageHandler: MessageHandler): HTMLElement | undefined {
-	const reviewNode = new ReviewNode(review, messageHandler);
+export function renderReview(review: ReviewEvent, messageHandler: MessageHandler, supportsGraphQl: boolean): HTMLElement | undefined {
+	const reviewNode = new ReviewNode(review, messageHandler, supportsGraphQl);
 	return reviewNode.render();
 }
 
 class ReviewNode {
 	private _commentContainer: HTMLDivElement | undefined;
 
-	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler) { }
+	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler, private _supportsGraphQl: boolean) { }
 
 	isPending(): boolean {
-		return this._review.state === 'pending';
+		return this._review.state.toLowerCase() === 'pending';
 	}
 
 	deleteCommentFromReview(comment: Comment): void {
@@ -679,9 +678,51 @@ class ReviewNode {
 			}
 
 			reviewCommentContainer.appendChild(commentBody);
+
+			if (this.isPending() && this._supportsGraphQl) {
+				this.renderSubmitButtons(reviewCommentContainer);
+			}
 		}
 
 		return this._commentContainer;
+	}
+
+	private renderSubmitButtons(reviewCommentContainer: HTMLElement) {
+		const commentingContainer = document.createElement('div');
+		commentingContainer.classList.add('comment-form');
+		reviewCommentContainer.appendChild(commentingContainer);
+
+		const commentingArea = document.createElement('textarea');
+		commentingArea.placeholder = 'Leave a review summary comment';
+		commentingContainer.appendChild(commentingArea);
+
+		const formActions = document.createElement('div');
+		formActions.classList.add('form-actions');
+		commentingContainer.appendChild(formActions);
+
+		this.renderSubmitButton('Request Changes', 'pr.request-changes', formActions, commentingArea);
+		this.renderSubmitButton('Approve', 'pr.approve', formActions, commentingArea);
+		this.renderSubmitButton('Submit', 'pr.submit', formActions, commentingArea);
+	}
+
+	private renderSubmitButton(buttonText: string, buttonAction: string, container: HTMLElement, commentingArea: HTMLTextAreaElement) {
+		const submitButton = document.createElement('button');
+		submitButton.id = buttonAction.slice(3);
+		submitButton.textContent = buttonText;
+		submitButton.addEventListener('click', () => {
+			submitButton.disabled = true;
+			this._messageHandler.postMessage({
+				command: buttonAction,
+				args: commentingArea.value
+			}).then(message => {
+				// No-op, page is refreshed
+			}, err => {
+				// Handle error
+				submitButton.disabled = false;
+			});
+		});
+
+		container.appendChild(submitButton);
 	}
 
 	openDiff(comment: Comment) {
@@ -694,9 +735,9 @@ class ReviewNode {
 	}
 }
 
-export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler): HTMLElement | undefined {
+export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler, state: PullRequest): HTMLElement | undefined {
 	if (isReviewEvent(timelineEvent)) {
-		return renderReview(timelineEvent, messageHandler);
+		return renderReview(timelineEvent, messageHandler, state.supportsGraphQl);
 	}
 
 	if (isCommitEvent(timelineEvent)) {

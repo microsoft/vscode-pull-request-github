@@ -12,7 +12,7 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 	private _onDidChangeCommentThreads: vscode.EventEmitter<vscode.CommentThreadChangedEvent> = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 	public onDidChangeCommentThreads: vscode.Event<vscode.CommentThreadChangedEvent> = this._onDidChangeCommentThreads.event;
 
-	private _prDocumentCommentProviders: {[key: number]: vscode.DocumentCommentProvider} = {};
+	protected _prDocumentCommentProviders: {[key: number]: vscode.DocumentCommentProvider} = {};
 
 	constructor() {}
 
@@ -106,8 +106,45 @@ export class PRDocumentCommentProvider implements vscode.DocumentCommentProvider
 	}
 }
 
-const prDocumentCommentProvider = new PRDocumentCommentProvider();
+export class PRDocumentCommentProviderGraphQL extends PRDocumentCommentProvider implements vscode.DocumentCommentProvider {
+	constructor() {
+		super();
+	}
 
-export function getPRDocumentCommentProvider(): PRDocumentCommentProvider {
-	return prDocumentCommentProvider;
+	startDraftLabel = 'Start Review';
+	deleteDraftLabel = 'Delete Review';
+	finishDraftLabel = 'Finish Review';
+
+	async startDraft(document: vscode.TextDocument, token: vscode.CancellationToken) {
+		const params = fromPRUri(document.uri);
+		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
+
+		if (!commentProvider) {
+			throw new Error(`Couldn't find document provider`);
+		}
+
+		return await commentProvider.startDraft(document, token);
+	}
+
+	async finishDraft(document: vscode.TextDocument, token: vscode.CancellationToken) {
+		const params = fromPRUri(document.uri);
+		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
+
+		if (!commentProvider) {
+			throw new Error(`Couldn't find document provider`);
+		}
+
+		return await commentProvider.finishDraft(document, token);
+	}
+
+	async deleteDraft(document: vscode.TextDocument, token: vscode.CancellationToken) {
+		const params = fromPRUri(document.uri);
+		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
+
+		if (!commentProvider) {
+			throw new Error(`Couldn't find document provider`);
+		}
+
+		return await commentProvider.deleteDraft(document, token);
+	}
 }
