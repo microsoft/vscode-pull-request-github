@@ -33,7 +33,7 @@ export class InMemPRContentProvider implements vscode.TextDocumentContentProvide
 
 		return {
 			dispose: () => {
-				this._prFileChangeContentProviders[prNumber] = null;
+				delete this._prFileChangeContentProviders[prNumber];
 			}
 		};
 	}

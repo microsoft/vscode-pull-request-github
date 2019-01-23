@@ -36,7 +36,7 @@ export class PullRequestOverviewPanel {
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
-	public static currentPanel: PullRequestOverviewPanel | undefined;
+	public static currentPanel?: PullRequestOverviewPanel;
 
 	private static readonly _viewType = 'PullRequestOverview';
 
@@ -61,10 +61,10 @@ export class PullRequestOverviewPanel {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn, title, pullRequestManager, descriptionNode);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
 		}
 
-		PullRequestOverviewPanel.currentPanel.update(pullRequestModel, descriptionNode);
+		PullRequestOverviewPanel.currentPanel!.update(pullRequestModel, descriptionNode);
 	}
 
 	public static refresh(): void {
@@ -153,6 +153,10 @@ export class PullRequestOverviewPanel {
 			this._pullRequestManager.getStatusChecks(pullRequestModel)
 		]).then(result => {
 			const [pullRequest, timelineEvents, defaultBranch, status] = result;
+			if (!pullRequest) {
+				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
+			}
+
 			this._pullRequest = pullRequest;
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
@@ -257,8 +261,11 @@ export class PullRequestOverviewPanel {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
+			if (!vscode.workspace.rootPath) {
+				throw new Error('Current workspace rootpath is undefined.');
+			}
 			const tempFilePath = path.resolve(vscode.workspace.rootPath, '.git', `${comment.id}.diff`);
-			writeFile(tempFilePath, matches[1], {}, async (writeError) => {
+			writeFile(tempFilePath, matches![1], {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;
 				}
@@ -291,7 +298,7 @@ export class PullRequestOverviewPanel {
 			const prContainer = this._descriptionNode.parent;
 
 			if ((prContainer as TreeNode | Revealable<TreeNode>).revealComment) {
-				(prContainer as TreeNode | Revealable<TreeNode>).revealComment(comment);
+				(prContainer as TreeNode | Revealable<TreeNode>).revealComment!(comment);
 			}
 		} catch (e) {
 			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
@@ -350,7 +357,7 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private checkoutPullRequest(message): void {
+	private checkoutPullRequest(message: IRequestMessage<any>): void {
 		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {
 			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });

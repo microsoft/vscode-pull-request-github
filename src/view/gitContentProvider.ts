@@ -13,11 +13,15 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
 
-	private _fallback: (uri: vscode.Uri) => Promise<string> = null;
+	private _fallback?: ((uri: vscode.Uri) => Promise<string>);
 
 	constructor(private repository: Repository) { }
 
 	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
+		if (!this._fallback) {
+			return '';
+		}
+
 		let { path, commit } = fromReviewUri(uri);
 
 		if (!path || !commit) {

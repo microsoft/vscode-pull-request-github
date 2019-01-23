@@ -17,7 +17,7 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 	constructor(
 		public owner: string,
 		public name: string,
-		public description,
+		public description: string,
 		public remote?: Remote,
 		public label = `${owner}:${name}`,
 	) {}

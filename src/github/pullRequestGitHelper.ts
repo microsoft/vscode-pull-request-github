@@ -99,7 +99,7 @@ export class PullRequestGitHelper {
 
 		if (branchInfos && branchInfos.length) {
 			// let's immediately checkout to branchInfos[0].branch
-			await repository.checkout(branchInfos[0].branch);
+			await repository.checkout(branchInfos[0].branch!);
 			return true;
 		} else {
 			return false;
@@ -110,7 +110,7 @@ export class PullRequestGitHelper {
 		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.prNumber;
 	}
 
-	static parsePullRequestMetadata(value: string): PullRequestMetadata {
+	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
 		if (value) {
 			let matches = /(.*)#(.*)#(.*)/g.exec(value);
 			if (matches && matches.length === 4) {
@@ -122,17 +122,15 @@ export class PullRequestGitHelper {
 				};
 			}
 		}
-
-		return null;
 	}
 
-	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata> {
+	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata | undefined> {
 		try {
 			let configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 			let configValue = await repository.getConfig(configKey);
 			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
 		} catch (_) {
-			return null;
+			return;
 		}
 	}
 
@@ -150,7 +148,7 @@ export class PullRequestGitHelper {
 		cloneUrl.update({
 			type: baseRemote.gitProtocol.type
 		});
-		await repository.addRemote(remoteName, cloneUrl.toString());
+		await repository.addRemote(remoteName, cloneUrl.toString()!);
 		await repository.setConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`, 'true');
 		return remoteName;
 	}
@@ -159,7 +157,7 @@ export class PullRequestGitHelper {
 		try {
 			Logger.debug(`Get user created remotes - start`, PullRequestGitHelper.ID);
 			const allConfigs = await repository.getConfigs();
-			let remotesForPullRequest = [];
+			let remotesForPullRequest: string[] = [];
 			for (let i = 0; i < allConfigs.length; i++) {
 				let key = allConfigs[i].key;
 				let matches = /^remote\.(.*)\.github-pr-remote$/.exec(key);
@@ -219,7 +217,7 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel): Remote {
+	static getHeadRemoteForPullRequest(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel): Remote | undefined {
 		for (let i = 0; i < githubRepositories.length; i++) {
 			let remote = githubRepositories[i].remote;
 			if (remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl)) {
@@ -227,7 +225,7 @@ export class PullRequestGitHelper {
 			}
 		}
 
-		return null;
+		return;
 	}
 
 	static async associateBranchWithPullRequest(repository: Repository, pullRequest: PullRequestModel, branchName: string) {
