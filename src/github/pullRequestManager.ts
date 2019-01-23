@@ -895,8 +895,8 @@ export class PullRequestManager {
 		}
 	}
 
-	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<any> {
-		const action: Promise<any> = await this.getPendingReviewId(pullRequest)
+	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<void> {
+		const action: Promise<void> = await this.getPendingReviewId(pullRequest)
 				? this.submitReview(pullRequest, ReviewEvent.RequestChanges, message)
 				: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
 
@@ -907,10 +907,11 @@ export class PullRequestManager {
 			});
 	}
 
-	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<any> {
-		const action: Promise<any> = await this.getPendingReviewId(pullRequest)
+	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<void> {
+		const action: Promise<void> = await this.getPendingReviewId(pullRequest)
 				? this.submitReview(pullRequest, ReviewEvent.Approve, message)
 				: this.createReview(pullRequest, ReviewEvent.Approve, message);
+
 		return action.then(x => {
 			this._telemetry.on('pr.approve');
 			return x;
