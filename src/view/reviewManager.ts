@@ -7,7 +7,7 @@ import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
-import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams, toFileChangeNodeUri } from '../common/uri';
+import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange } from '../common/file';
@@ -1178,17 +1178,20 @@ export class ReviewManager implements vscode.DecorationProvider {
 				return false;
 			}
 
-			let q = JSON.parse(fileChange.filePath.query);
+			try {
+				let q = JSON.parse(fileChange.filePath.query);
 
-			if (q.commit === query.commit) {
-				return true;
-			}
+				if (q.commit === query.commit) {
+					return true;
+				}
 
-			q = JSON.parse(fileChange.parentFilePath.query);
+				q = JSON.parse(fileChange.parentFilePath.query);
 
-			if (q.commit === query.commit) {
-				return true;
-			}
+				if (q.commit === query.commit) {
+					return true;
+				}
+			} catch (e) { }
+
 			return false;
 		});
 
