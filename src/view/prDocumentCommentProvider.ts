@@ -117,34 +117,45 @@ export class PRDocumentCommentProviderGraphQL extends PRDocumentCommentProvider 
 
 	async startDraft(document: vscode.TextDocument, token: vscode.CancellationToken) {
 		const params = fromPRUri(document.uri);
+		if (!params) {
+			throw new Error(`Document ${document.uri.toString()} does not support draft`);
+		}
 		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
 
 		if (!commentProvider) {
 			throw new Error(`Couldn't find document provider`);
 		}
 
-		return await commentProvider.startDraft(document, token);
+		return await commentProvider.startDraft!(document, token);
 	}
 
 	async finishDraft(document: vscode.TextDocument, token: vscode.CancellationToken) {
 		const params = fromPRUri(document.uri);
+		if (!params) {
+			throw new Error(`Document ${document.uri.toString()} does not support draft`);
+		}
+
 		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
 
 		if (!commentProvider) {
 			throw new Error(`Couldn't find document provider`);
 		}
 
-		return await commentProvider.finishDraft(document, token);
+		return await commentProvider.finishDraft!(document, token);
 	}
 
 	async deleteDraft(document: vscode.TextDocument, token: vscode.CancellationToken) {
 		const params = fromPRUri(document.uri);
+		if (!params) {
+			throw new Error(`Document ${document.uri.toString()} does not support draft`);
+		}
+
 		const commentProvider = this._prDocumentCommentProviders[params.prNumber];
 
 		if (!commentProvider) {
 			throw new Error(`Couldn't find document provider`);
 		}
 
-		return await commentProvider.deleteDraft(document, token);
+		return await commentProvider.deleteDraft!(document, token);
 	}
 }
