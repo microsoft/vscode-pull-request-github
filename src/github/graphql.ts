@@ -59,6 +59,9 @@ export interface ReviewComment {
 		oid: string;
 	};
 	createdAt: string;
+	replyTo: {
+		databaseId: number;
+	};
 	viewerCanUpdate: boolean;
 	viewerCanDelete: boolean;
 }
@@ -167,6 +170,7 @@ export interface SubmitReviewResponse {
 export interface DeleteReviewResponse {
 	deletePullRequestReview: {
 		pullRequestReview: {
+			databaseId: number;
 			comments: {
 				nodes: ReviewComment[];
 			}

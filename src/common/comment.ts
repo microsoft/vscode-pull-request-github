@@ -26,5 +26,6 @@ export interface Comment {
 	createdAt: string;
 	htmlUrl: string;
 	isDraft?: boolean;
+	inReplyToId?: number;
 	graphNodeId: string;
 }

@@ -118,6 +118,9 @@ fragment ReviewComment on PullRequestReviewComment {
 	commit {
 		oid
 	}
+	replyTo {
+		databaseId
+	}
 	createdAt
 	originalCommit {
 		oid
@@ -162,10 +165,12 @@ mutation StartReview($input: AddPullRequestReviewInput!) {
 	}
 }
 
-mutation SubmitReview($id: ID!) {
+
+mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!, $body: String) {
 	submitPullRequestReview(input: {
-		event: COMMENT,
-		pullRequestReviewId: $id
+		event: $event,
+		pullRequestReviewId: $id,
+		body: $body
 	}) {
 		pullRequestReview {
 			comments(first:100) {
@@ -178,6 +183,7 @@ mutation SubmitReview($id: ID!) {
 mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 	deletePullRequestReview(input: $input) {
 		pullRequestReview {
+			databaseId
 			comments(first:100) {
 					nodes { ...ReviewComment }
 			}

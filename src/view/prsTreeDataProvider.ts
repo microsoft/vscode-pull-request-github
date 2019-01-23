@@ -9,7 +9,6 @@ import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './
 import { PRType, ITelemetry } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { getPRDocumentCommentProvider } from './prDocumentCommentProvider';
 import { PullRequestManager } from '../github/pullRequestManager';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
@@ -32,7 +31,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	) {
 		this._disposables = [];
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', getInMemPRContentProvider()));
-		this._disposables.push(vscode.workspace.registerDocumentCommentProvider(getPRDocumentCommentProvider()));
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this._onDidChangeTreeData.fire();

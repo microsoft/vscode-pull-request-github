@@ -114,6 +114,7 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,
+		inReplyToId: comment.in_reply_to_id,
 		graphNodeId: comment.node_id
 	};
 
@@ -162,7 +163,8 @@ export function parseGraphQLComment(comment: ReviewComment): Comment {
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
-		isDraft: comment.state === 'PENDING'
+		isDraft: comment.state === 'PENDING',
+		inReplyToId: comment.replyTo && comment.replyTo.databaseId
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);

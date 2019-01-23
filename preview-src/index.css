@@ -424,6 +424,19 @@ body .comment-form {
 	padding: 20px 0 10px;
 }
 
+.review-comment-container .comment-form {
+	margin: 0 0 0 36px;
+	padding: 10px 0;
+}
+
+.review-comment-container #request-changes {
+	margin-left: auto;
+}
+
+.review-comment-container #submit {
+	margin-right: 0;
+}
+
 textarea {
 	display: block;
 	box-sizing: border-box;
@@ -464,7 +477,7 @@ textarea:focus {
 }
 
 body .comment-form .form-actions {
-	padding-top: 20px;
+	padding-top: 10px;
 	margin-bottom: 10px;
 	display: flex;
 }

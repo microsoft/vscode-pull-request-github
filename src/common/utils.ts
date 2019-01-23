@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event } from 'vscode';
+import { Event, Disposable} from 'vscode';
 import { sep } from 'path';
 import * as moment from 'moment';
 
@@ -23,20 +23,16 @@ export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	});
 }
 
-export interface IDisposable {
-	dispose(): void;
-}
-
-export function dispose<T extends IDisposable>(disposables: T[]): T[] {
+export function dispose<T extends Disposable>(disposables: T[]): T[] {
 	disposables.forEach(d => d.dispose());
 	return [];
 }
 
-export function toDisposable(d: () => void): IDisposable {
+export function toDisposable(d: () => void): Disposable {
 	return { dispose: d };
 }
 
-export function combinedDisposable(disposables: IDisposable[]): IDisposable {
+export function combinedDisposable(disposables: Disposable[]): Disposable {
 	return toDisposable(() => dispose(disposables));
 }
 

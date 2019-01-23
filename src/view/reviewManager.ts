@@ -23,14 +23,13 @@ import { providePRDocumentComments, PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager, onDidSubmitReview } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
 	private static _instance: ReviewManager;
-	private _documentCommentProvider: vscode.Disposable;
-	private _workspaceCommentProvider: vscode.Disposable;
+	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
 
 	private _comments: Comment[] = [];
@@ -72,8 +71,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry
 	) {
-		this._documentCommentProvider = null;
-		this._workspaceCommentProvider = null;
 		this._switchingToReviewMode = false;
 		this._disposables = [];
 		let gitContentProvider = new GitContentProvider(_repository);
@@ -812,14 +809,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 		let ret: vscode.CommentThread[] = [];
 
 		for (let file in fileCommentGroups) {
-			let fileComments = fileCommentGroups[file];
+			let fileComments: Comment[] = fileCommentGroups[file];
 
 			let matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === file);
 
 			if (matchedFiles && matchedFiles.length) {
-				return this.fileCommentsToCommentThreads(matchedFiles[0], fileComments, collapsibleState);
-			} else {
-				return [];
+				ret = [...ret, ...this.fileCommentsToCommentThreads(matchedFiles[0], fileComments, collapsibleState)];
 			}
 		}
 		return ret;
@@ -842,9 +837,49 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return undefined;
 	}
 
+	private updateCommentPendingState(submittedComments: Comment[]) {
+		this._comments.forEach(comment => {
+			comment.isDraft = false;
+		});
+
+		const commentsByFile = groupBy(submittedComments, comment => comment.path);
+		for (let filePath in commentsByFile) {
+			const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
+			if (matchedFile) {
+				matchedFile.comments.forEach(comment => {
+					comment.isDraft = false;
+				});
+			}
+		}
+
+		const open = groupBy(vscode.workspace.textDocuments,
+			doc => doc.uri.scheme === 'file'
+				? vscode.workspace.asRelativePath(doc.uri.path)
+				: doc.uri.path[0] === '/' ? doc.uri.path.slice(1) : doc.uri.path);
+		const changed = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
+		let i = changed.length; while (i --> 0) {
+			const thread = changed[i];
+			const docsForThread = open[vscode.workspace.asRelativePath(thread.resource)];
+			if (!docsForThread) { continue; }
+			changed.push(...docsForThread.map(doc => ({ ...thread, resource: doc.uri })));
+		}
+		this._onDidChangeDocumentCommentThreads.fire({
+			added: [],
+			changed,
+			removed: [],
+			inDraftMode: false
+		});
+	}
+
 	private registerCommentProvider() {
 		const supportsGraphQL = this._prManager.activePullRequest && (this._prManager.activePullRequest as PullRequestModel).githubRepository.supportsGraphQl();
-		this._documentCommentProvider = vscode.workspace.registerDocumentCommentProvider({
+		if (supportsGraphQL) {
+			this._localToDispose.push(onDidSubmitReview(submittedComments => {
+				this.updateCommentPendingState(submittedComments);
+			}));
+		}
+
+		this._localToDispose.push(vscode.workspace.registerDocumentCommentProvider({
 			onDidChangeCommentThreads: this._onDidChangeDocumentCommentThreads.event,
 			provideDocumentComments: async (document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo> => {
 				let ranges: vscode.Range[] = [];
@@ -1008,9 +1043,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			startDraftLabel: 'Start Review',
 			deleteDraftLabel: 'Delete Review',
 			finishDraftLabel: 'Submit Review'
-		});
+		}));
 
-		this._workspaceCommentProvider = vscode.workspace.registerWorkspaceCommentProvider({
+		this._localToDispose.push(vscode.workspace.registerWorkspaceCommentProvider({
 			onDidChangeCommentThreads: this._onDidChangeWorkspaceCommentThreads.event,
 			provideWorkspaceComments: async (token: vscode.CancellationToken) => {
 				const comments = await Promise.all(gitFileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
@@ -1021,7 +1056,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				});
 				return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
 			}
-		});
+		}));
 	}
 
 	private async startDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<void> {
@@ -1035,7 +1070,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async deleteDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
-		const deletedReviewComments = await this._prManager.deleteReview(this._prManager.activePullRequest);
+		const { deletedReviewId, deletedReviewComments } = await this._prManager.deleteReview(this._prManager.activePullRequest);
 
 		const removed = [];
 		const changed = [];
@@ -1054,8 +1089,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		for (let filePath in commentsByFile) {
 			const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
 			if (matchedFile) {
-				const deletedFileComments = commentsByFile[filePath];
-				matchedFile.comments = matchedFile.comments.filter(comment => !deletedFileComments.some(deletedComment => deletedComment.id === comment.id));
+				matchedFile.comments = matchedFile.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
 			}
 		}
 
@@ -1076,35 +1110,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 		});
 	}
 
-	private async finishDraft(_document: vscode.TextDocument, _token: vscode.CancellationToken) {
+	private async finishDraft(document: vscode.TextDocument, _token: vscode.CancellationToken) {
 		try {
-			const comments = await this._prManager.submitReview(this._prManager.activePullRequest);
-
-			this._comments.forEach(comment => {
-				if (comments.some(updatedComment => updatedComment.id === comment.id)) {
-					comment.isDraft = false;
-				}
-			});
-
-			const commentsByFile = groupBy(comments, comment => comment.path);
-			for (let filePath in commentsByFile) {
-				const matchedFile = this._localFileChanges.find(fileChange => fileChange.fileName === filePath);
-				if (matchedFile) {
-					const fileComments = commentsByFile[filePath];
-					matchedFile.comments.forEach(comment => {
-						if (fileComments.some(updatedComment => updatedComment.id === comment.id)) {
-							comment.isDraft = false;
-						}
-					});
-				}
-			}
-
-			this._onDidChangeDocumentCommentThreads.fire({
-				added: [],
-				changed: this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded),
-				removed: [],
-				inDraftMode: false
-			});
+			await this._prManager.submitReview(this._prManager.activePullRequest);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
@@ -1360,13 +1368,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private clear(quitReviewMode: boolean) {
 		this._updateMessageShown = false;
 
-		if (this._documentCommentProvider) {
-			this._documentCommentProvider.dispose();
-		}
-
-		if (this._workspaceCommentProvider) {
-			this._workspaceCommentProvider.dispose();
-		}
+		this._localToDispose.forEach(disposeable => disposeable.dispose());
 
 		if (quitReviewMode) {
 			this._prNumber = null;
@@ -1431,8 +1433,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	dispose() {
 		this.clear(true);
-		this._disposables.forEach(dispose => {
-			dispose.dispose();
+		this._disposables.forEach(d => {
+			d.dispose();
 		});
 	}
 }
