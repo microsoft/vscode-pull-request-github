@@ -12,6 +12,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult } from 'apollo-boost';
+import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../view/prDocumentCommentProvider';
 import { convertRESTPullRequestToRawPullRequest } from './utils';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -23,11 +24,14 @@ export interface PullRequestData {
 	hasMorePages: boolean;
 }
 
-export class GitHubRepository implements IGitHubRepository {
+export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	static ID = 'GitHubRepository';
 	private _hub: GitHub;
 	private _initialized: boolean;
 	private _metadata: any;
+	private _toDispose: vscode.Disposable[] = [];
+
+	public commentsProvider: PRDocumentCommentProvider | PRDocumentCommentProviderGraphQL;
 
 	public get hub(): GitHub {
 		if (this._hub === undefined) {
@@ -38,6 +42,25 @@ export class GitHubRepository implements IGitHubRepository {
 			}
 		}
 		return this._hub;
+	}
+
+	public async ensureCommentsProvider(): Promise<void> {
+		try {
+			if (this.commentsProvider) {
+				return;
+			}
+
+			await this.ensure();
+			this.commentsProvider = this.supportsGraphQl() ? new PRDocumentCommentProviderGraphQL() : new PRDocumentCommentProvider();
+			this._toDispose.push(vscode.workspace.registerDocumentCommentProvider(this.commentsProvider));
+		} catch (e) {
+			console.log(e);
+		}
+
+	}
+
+	dispose() {
+		this._toDispose.forEach(d => d.dispose());
 	}
 
 	public get octokit(): Octokit {
