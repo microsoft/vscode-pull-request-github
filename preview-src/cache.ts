@@ -30,6 +30,7 @@ export interface PullRequest {
 	status: ReposGetCombinedStatusForRefResponse;
 	mergeable: boolean;
 	defaultMergeMethod: string;
+	supportsGraphQl: boolean;
 }
 
 export function getState(): PullRequest {

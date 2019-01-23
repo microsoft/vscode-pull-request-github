@@ -14,10 +14,11 @@ import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullReque
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
-import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
+import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef, Branch } from '../typings/git';
 import Logger from '../common/logger';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, parseGraphQLComment } from './utils';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse } from './graphql';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -35,6 +36,7 @@ interface RestError {
 	field: string;
 	resource: string;
 }
+
 export class NoGitHubReposError extends Error {
 	constructor(public repository: Repository) {
 		super();
@@ -85,6 +87,9 @@ interface NewCommentPosition {
 interface ReplyCommentPosition {
 	inReplyTo: string;
 }
+
+const _onDidSubmitReview = new vscode.EventEmitter<Comment[]>();
+export const onDidSubmitReview: vscode.Event<Comment[]> = _onDidSubmitReview.event;
 
 export class PullRequestManager {
 	static ID = 'PullRequestManager';
@@ -197,7 +202,9 @@ export class PullRequestManager {
 		});
 
 		return Promise.all(resolveRemotePromises).then(_ => {
+			const oldRepositories = this._githubRepositories;
 			this._githubRepositories = repositories;
+			oldRepositories.forEach(repo => repo.dispose());
 
 			for (let repository of this._githubRepositories) {
 				const remoteId = repository.remote.url.toString();
@@ -371,7 +378,7 @@ export class PullRequestManager {
 	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
 		const { remote, query } = await pullRequest.githubRepository.ensure();
 		try {
-			const { data } = await query({
+			const { data } = await query<PullRequestCommentsResponse>({
 				query: queries.PullRequestComments,
 				variables: {
 					owner: remote.owner,
@@ -448,7 +455,7 @@ export class PullRequestManager {
 
 		let ret = [];
 		if (pullRequest.githubRepository.supportsGraphQl()) {
-			const { data } = await query({
+			const { data } = await query<TimelineEventsResponse>({
 				query: queries.TimelineEvents,
 				variables: {
 					owner: remote.owner,
@@ -503,7 +510,7 @@ export class PullRequestManager {
 	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.nodeId });
+			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.graphNodeId });
 		}
 
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
@@ -523,17 +530,22 @@ export class PullRequestManager {
 		}
 	}
 
-	async deleteReview(pullRequest: PullRequestModel): Promise<Comment[]> {
+	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: Comment[]}> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<any>({
+		const { data } = await mutate<DeleteReviewResponse>({
 			mutation: queries.DeleteReview,
 			variables: {
 				input: { pullRequestReviewId: pendingReviewId }
 			}
 		});
 
-		return data.deletePullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
+		const { comments, databaseId } = data.deletePullRequestReview.pullRequestReview;
+
+		return {
+			deletedReviewId: databaseId,
+			deletedReviewComments: comments.nodes.map(parseGraphQLComment)
+		};
 	}
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {
@@ -563,7 +575,7 @@ export class PullRequestManager {
 		const { query, octokit } = await pullRequest.githubRepository.ensure();
 		const { currentUser = '' } = octokit as any;
 		try {
-			const { data } = await query({
+			const { data } = await query<PendingReviewIdResponse>({
 				query: queries.GetPendingReviewId,
 				variables: {
 					pullRequestId: (pullRequest as PullRequestModel).prItem.nodeId,
@@ -578,7 +590,7 @@ export class PullRequestManager {
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<Comment> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate({
+		const { data } = await mutate<AddCommentResponse>({
 			mutation: queries.AddComment,
 			variables: {
 				input: {
@@ -853,10 +865,10 @@ export class PullRequestManager {
 			});
 	}
 
-	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<Github.PullRequestsCreateReviewResponse> {
+	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<void> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
-		let ret = await octokit.pullRequests.createReview({
+		await octokit.pullRequests.createReview({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -864,41 +876,51 @@ export class PullRequestManager {
 			body: message,
 		});
 
-		return ret.data;
+		return;
 	}
 
-	public async submitReview(pullRequest: PullRequestModel): Promise<Comment[]> {
+	public async submitReview(pullRequest: PullRequestModel, event?: ReviewEvent, body?: string): Promise<void> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
 		if (pendingReviewId) {
-			const { data } = await mutate({
+			const { data } = await mutate<SubmitReviewResponse>({
 				mutation: queries.SubmitReview,
 				variables: {
-					id: pendingReviewId
+					id: pendingReviewId,
+					event: event || ReviewEvent.Comment,
+					body
 				}
 			});
 
-			return data.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
+			const submittedComments = data.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
+			_onDidSubmitReview.fire(submittedComments);
 		} else {
 			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
 		}
 	}
 
-	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<any> {
-		return this.createReview(pullRequest, ReviewEvent.RequestChanges, message)
+	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<void> {
+		const action: Promise<void> = await this.getPendingReviewId(pullRequest)
+				? this.submitReview(pullRequest, ReviewEvent.RequestChanges, message)
+				: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
+
+		return action
 			.then(x => {
 				this._telemetry.on('pr.requestChanges');
 				return x;
 			});
 	}
 
-	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<any> {
-		return this.createReview(pullRequest, ReviewEvent.Approve, message)
-			.then(x => {
-				this._telemetry.on('pr.approve');
-				return x;
-			});
+	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<void> {
+		const action: Promise<void> = await this.getPendingReviewId(pullRequest)
+				? this.submitReview(pullRequest, ReviewEvent.Approve, message)
+				: this.createReview(pullRequest, ReviewEvent.Approve, message);
+
+		return action.then(x => {
+			this._telemetry.on('pr.approve');
+			return x;
+		});
 	}
 
 	async getPullRequestFileChangesInfo(pullRequest: PullRequestModel): Promise<IRawFileChange[]> {
@@ -1038,31 +1060,45 @@ export class PullRequestManager {
 	}
 
 	private async addReviewTimelineEventComments(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
+		interface CommentNode extends Comment {
+			childComments?: CommentNode[];
+		}
+
 		const reviewEvents = events.filter(isReviewEvent);
-		const reviewComments = await this.getPullRequestComments(pullRequest);
+		const reviewComments = await this.getPullRequestComments(pullRequest) as CommentNode[];
 
-		// Group comments by file and position
-		const commentsByFile = groupBy(reviewComments, comment => comment.path);
-		for (let file in commentsByFile) {
-			const fileComments = commentsByFile[file];
-			const commentThreads = groupBy(fileComments, comment => String(comment.position === null ? comment.originalPosition : comment.position));
+		const reviewEventsById = reviewEvents.reduce((index, evt) => {
+			index[evt.id] = evt;
+			evt.comments = [];
+			return index;
+		}, {});
 
-			// Loop through threads, for each thread, see if there is a matching review, push all comments to it
-			for (let i in commentThreads) {
-				const comments = commentThreads[i];
-				const reviewId = comments[0].pullRequestReviewId;
+		const commentsById = reviewComments.reduce((index, evt) => {
+			index[evt.id] = evt;
+			return index;
+		}, {});
 
-				if (reviewId) {
-					const matchingEvent = reviewEvents.find(review => review.id === reviewId);
-					if (matchingEvent) {
-						if (matchingEvent.comments) {
-							matchingEvent.comments = matchingEvent.comments.concat(comments);
-						} else {
-							matchingEvent.comments = comments;
-						}
-					}
-				}
+		const roots: CommentNode[] = [];
+		let i = reviewComments.length; while (i --> 0) {
+			const c: CommentNode = reviewComments[i];
+			if (!c.inReplyToId) {
+				roots.unshift(c);
+				continue;
 			}
+			const parent = commentsById[c.inReplyToId];
+			parent.childComments = parent.childComments || [];
+			parent.childComments = [c, ...(c.childComments || []), ...parent.childComments];
+		}
+
+		roots.forEach(c => {
+			const review = reviewEventsById[c.pullRequestReviewId];
+			review.comments = review.comments.concat(c).concat(c.childComments || []);
+		});
+
+		const pendingReview = reviewEvents.filter(r => r.state.toLowerCase() === 'pending')[0];
+		if (pendingReview) {
+			// Ensures that pending comments made in reply to other reviews are included for the pending review
+			pendingReview.comments = reviewComments.filter(c => c.isDraft);
 		}
 	}
 

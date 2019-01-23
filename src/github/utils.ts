@@ -9,15 +9,13 @@ import { IAccount, PullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
+import { ReviewComment } from './graphql';
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: user.avatar_url,
-		type: user.type,
-		isUser: user.type === 'User',
-		isEnterprise: user.type === 'Enterprise'
+		avatarUrl: user.avatar_url
 	};
 }
 
@@ -45,8 +43,6 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 		base,
 		labels,
 		node_id
-		// comments,
-		// commits
 	} = pullRequest;
 
 	const item: PullRequest = {
@@ -56,12 +52,10 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			url: html_url,
 			user: convertRESTUserToAccount(user),
 			state,
-			merged: false,
+			merged: (pullRequest as Octokit.PullRequestsGetResponse).merged || false,
 			assignee: assignee ? convertRESTUserToAccount(assignee) : null,
 			createdAt: created_at,
 			updatedAt: updated_at,
-			// comments,
-			// commits,
 			head: convertRESTHeadToIGitHubRef(head),
 			base: convertRESTHeadToIGitHubRef(base),
 			mergeable: (pullRequest as Octokit.PullRequestsGetResponse).mergeable,
@@ -100,7 +94,8 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 		user: convertRESTUserToAccount(comment.user),
 		body: comment.body,
 		createdAt: comment.created_at,
-		htmlUrl: comment.html_url
+		htmlUrl: comment.html_url,
+		graphNodeId: comment.node_id
 	};
 }
 
@@ -119,7 +114,8 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,
-		nodeId: comment.node_id
+		inReplyToId: comment.in_reply_to_id,
+		graphNodeId: comment.node_id
 	};
 
 	let diffHunks = parseCommentDiffHunk(ret);
@@ -149,20 +145,32 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
-export function parseGraphQLComment(comment: any): Comment {
-	comment.canEdit = comment.viewerCanUpdate;
-	comment.canDelete = comment.viewerCanDelete;
-	comment.user = comment.author;
-	comment.id = comment.databaseId;
-	comment.htmlUrl = comment.url;
-	comment.commitId = comment.commit && comment.commit.oid;
-	comment.pullRequestReviewId = comment.pullRequestReview && comment.pullRequestReview.databaseId;
-	comment.isDraft = comment.state === 'PENDING';
+export function parseGraphQLComment(comment: ReviewComment): Comment {
+	const c: Comment = {
+		id: comment.databaseId,
+		url: comment.url,
+		body: comment.body,
+		path: comment.path,
+		canEdit: comment.viewerCanDelete,
+		canDelete: comment.viewerCanDelete,
+		pullRequestReviewId: comment.pullRequestReview && comment.pullRequestReview.databaseId,
+		diffHunk: comment.diffHunk,
+		position: comment.position,
+		commitId: comment.commit.oid,
+		originalPosition: comment.originalPosition,
+		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
+		user: comment.author,
+		createdAt: comment.createdAt,
+		htmlUrl: comment.url,
+		graphNodeId: comment.id,
+		isDraft: comment.state === 'PENDING',
+		inReplyToId: comment.replyTo && comment.replyTo.databaseId
+	};
 
-	let diffHunks = parseCommentDiffHunk(comment);
-	comment.diffHunks = diffHunks;
+	const diffHunks = parseCommentDiffHunk(c);
+	c.diffHunks = diffHunks;
 
-	return comment;
+	return c;
 }
 
 export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {
