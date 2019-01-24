@@ -159,6 +159,14 @@ mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	}
 }
 
+mutation EditComment($input: UpdatePullRequestReviewCommentInput!) {
+	updatePullRequestReviewComment(input: $input) {
+		pullRequestReviewComment {
+			...ReviewComment
+		}
+	}
+}
+
 mutation StartReview($input: AddPullRequestReviewInput!) {
 	addPullRequestReview(input: $input) {
 		pullRequestReview { id }

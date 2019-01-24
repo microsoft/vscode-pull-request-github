@@ -157,6 +157,12 @@ export interface AddCommentResponse {
 	};
 }
 
+export interface EditCommentResponse {
+	updatePullRequestReviewComment: {
+		pullRequestReviewComment: ReviewComment;
+	};
+}
+
 export interface SubmitReviewResponse {
 	submitPullRequestReview: {
 		pullRequestReview: {

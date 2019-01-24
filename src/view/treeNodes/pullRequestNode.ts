@@ -564,7 +564,12 @@ export class PRNode extends TreeNode {
 
 	private async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string): Promise<void> {
 		const fileChange = this.findMatchingFileNode(document.uri);
-		const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, comment.commentId, text);
+		const existingComment = fileChange.comments.find(c => c.id.toString() === comment.commentId);
+		if (!existingComment) {
+			throw new Error('Unable to find comment');
+		}
+
+		const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, existingComment, text);
 
 		const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 		if (index > -1) {
