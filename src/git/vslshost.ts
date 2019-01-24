@@ -14,7 +14,7 @@ export class VSLSHost implements vscode.Disposable {
 		this._disposables = [];
 	}
 
-	async initialize() {
+	public async initialize() {
 		this._sharedService = await this._api!.shareService(VSLS_GIT_PR_SESSION_NAME) || undefined;
 
 		if (this._sharedService) {

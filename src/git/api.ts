@@ -57,7 +57,7 @@ class CommonGitAPI implements API, vscode.Disposable {
 		this.initilize();
 	}
 
-	async initilize() {
+	public async initilize() {
 		if (!this._api) {
 			this._api = await getVSLSApi();
 		}
@@ -68,7 +68,7 @@ class CommonGitAPI implements API, vscode.Disposable {
 		}
 	}
 
-	async _onDidChangeSession(session: any) {
+	private async _onDidChangeSession(session: any) {
 		if (this._host) {
 			this._host.dispose();
 		}

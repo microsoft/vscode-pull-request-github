@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
 import { Model } from './model';
 import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
-import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
+import { Repository, RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
 
 export class VSLSGuest implements vscode.Disposable {
 	private _sharedServiceProxy?: SharedServiceProxy;
@@ -16,7 +16,7 @@ export class VSLSGuest implements vscode.Disposable {
 		this._disposables = [];
 	}
 
-	async initialize() {
+	public async initialize() {
 		this._sharedServiceProxy = await this._api.getSharedService(VSLS_GIT_PR_SESSION_NAME) || undefined;
 
 		if (!this._sharedServiceProxy) {
@@ -60,7 +60,7 @@ export class VSLSGuest implements vscode.Disposable {
 		}
 	}
 
-	async openVSLSRepository(folder: vscode.WorkspaceFolder) {
+	public async openVSLSRepository(folder: vscode.WorkspaceFolder): Promise<void> {
 		let existingRepository = this._model.getRepository(folder);
 		if (existingRepository) {
 			return;
@@ -72,7 +72,7 @@ export class VSLSGuest implements vscode.Disposable {
 		this._model.openRepository(repository);
 	}
 
-	async closeVSLSRepository(folder: vscode.WorkspaceFolder) {
+	public async closeVSLSRepository(folder: vscode.WorkspaceFolder): Promise<void> {
 		let existingRepository = this._model.getRepository(folder);
 		if (!existingRepository) {
 			return;
@@ -97,7 +97,7 @@ class LiveShareRepositoryProxyHandler {
 		}
 
 		return function () {
-			return obj._proxy.request(VSLS_REQUEST_NAME, [prop, obj.workspaceFolder.uri.toString(), ...arguments]);
+			return obj.proxy.request(VSLS_REQUEST_NAME, [prop, obj.workspaceFolder.uri.toString(), ...arguments]);
 		};
 	}
 }
@@ -120,7 +120,7 @@ class LiveShareRepositoryState implements RepositoryState {
 		this.refs = state.refs;
 	}
 
-	update(state: RepositoryState) {
+	public update(state: RepositoryState) {
 		this.HEAD = state.HEAD;
 		this.remotes = state.remotes;
 		this.refs = state.refs;
@@ -131,23 +131,21 @@ class LiveShareRepositoryState implements RepositoryState {
 
 class LiveShareRepository {
 	rootUri: vscode.Uri;
-	// inputBox: InputBox;
 	state: LiveShareRepositoryState;
-	// ui: RepositoryUIState;
 
 	constructor(
 		public workspaceFolder: vscode.WorkspaceFolder,
-		private _proxy: SharedServiceProxy
+		public proxy: SharedServiceProxy
 	) { }
 
-	async initialize() {
-		let result = await this._proxy.request(VSLS_REQUEST_NAME, [VSLS_REPOSITORY_INITIALIZATION_NAME, this.workspaceFolder.uri.toString()]);
+	public async initialize() {
+		let result = await this.proxy.request(VSLS_REQUEST_NAME, [VSLS_REPOSITORY_INITIALIZATION_NAME, this.workspaceFolder.uri.toString()]);
 		this.state = new LiveShareRepositoryState(result);
 		this.rootUri = vscode.Uri.parse(result.rootUri);
-		this._proxy.onNotify(VSLS_STATE_CHANGE_NOFITY_NAME, this.notifyHandler.bind(this));
+		this.proxy.onNotify(VSLS_STATE_CHANGE_NOFITY_NAME, this._notifyHandler.bind(this));
 	}
 
-	notifyHandler(args: any) {
+	private _notifyHandler(args: any) {
 		this.state.update(args);
 	}
 }
