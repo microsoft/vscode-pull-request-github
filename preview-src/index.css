@@ -7,6 +7,10 @@ a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
+.title-text {
+	margin-right: 5px;
+}
+
  .title {
 	display: flex;
 	align-items: flex-start;

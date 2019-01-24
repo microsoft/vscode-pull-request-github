@@ -7,7 +7,7 @@ import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
 import { EventType, isReviewEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
-import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds, EditAction } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 const emoji = require('node-emoji');
 import { getMessageHandler } from './message';
@@ -100,29 +100,32 @@ function renderTitle(pr: PullRequest): HTMLElement {
 	title.classList.add('title-text');
 	title.textContent = pr.title;
 
-	if (pr.canEdit) {
-		title.contentEditable = 'true';
-		title.addEventListener('blur', () => {
-			const state = getState();
-			if (state.title !== title.innerText) {
-				messageHandler.postMessage({
-					command: 'pr.edit-title',
-					args: {
-						text: title.innerText,
-						comment: { body: pr.title, id: pr.number.toString() }
-					}
-				}).then(result => {
-					updateState({ title: result.text });
-				}).catch(_ => {
-					title.textContent = state.title;
-				});
-			}
-
-		});
-	}
-
 	const prNumber = document.createElement('span');
 	prNumber.innerHTML = `(<a href=${pr.url}>#${pr.number}</a>)`;
+
+	if (pr.canEdit) {
+		function updateTitle(text: string) {
+			pr.title = text;
+			updateState({ title: text });
+			title.textContent = text;
+		}
+
+		const editAction = new EditAction(
+			{
+				body: pr.title,
+				id: pr.number.toString()
+			},
+			title,
+			messageHandler,
+			updateTitle,
+			'pr.edit-title',
+			[prNumber]
+		);
+
+		title.addEventListener('click', () => {
+			editAction.startEdit();
+		});
+	}
 
 	titleContainer.appendChild(titleHeader);
 	titleContainer.appendChild(title);
