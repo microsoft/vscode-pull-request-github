@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
 import { Model } from './model';
 import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
-import { Repository, RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
+import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
 
 export class VSLSGuest implements vscode.Disposable {
 	private _sharedServiceProxy?: SharedServiceProxy;
