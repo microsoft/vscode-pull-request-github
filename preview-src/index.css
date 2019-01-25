@@ -313,7 +313,6 @@ body button.checkedOut svg {
 	display: flex;
 	align-items: center;
 	padding: 8px 0 12px;
-	margin-bottom: 12px;
 	border-bottom: 1px solid var(--border-color);
 }
 
