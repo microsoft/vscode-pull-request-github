@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 :root {
-	--border-color-primary: var(--vscode-notifications-border);
-	--border-color-secondary: var(--vscode-notifications-background);
+	--border-color: var(--vscode-notifications-border);
+	--header-background: var(--vscode-notifications-background);
  }
 
 a:focus, input:focus, select:focus, textarea:focus {
@@ -85,7 +85,7 @@ body .comment-container.review {
 }
 
 .comment-container:not(.review-comment) > .review-comment-container {
-	border: 1px solid var(--border-color-primary);
+	border: 1px solid var(--border-color);
 }
 
 body .comment-container .review-comment-header,
@@ -98,7 +98,7 @@ body .comment-container .review-comment-header,
 	font-size: 12px;
 	color: var(--vscode-foreground);
 	align-items: center;
-	border-bottom: 1px solid var(--border-color-primary);
+	border-bottom: 1px solid var(--border-color);
 }
 
 .comment-container:not(.review-comment) > .review-comment-container > .review-comment-header *,
@@ -110,7 +110,7 @@ body .comment-container .review-comment-header,
 .comment-container:not(.review-comment) > .review-comment-container > .review-comment-header::before,
 .comment-container .comment-header::before {
 	opacity: 0.6;
-	background: var(--border-color-secondary);
+	background: var(--header-background);
 }
 
 .comment-header .comment-actions {
@@ -297,7 +297,7 @@ body button.checkedOut svg {
 }
 
 .details .comment-container {
-	border: 1px solid var(--border-color-primary);
+	border: 1px solid var(--border-color);
 }
 
 .details .comment-container .comment-info {
@@ -314,7 +314,7 @@ body button.checkedOut svg {
 	align-items: center;
 	padding: 8px 0 12px;
 	margin-bottom: 12px;
-	border-bottom: 1px solid var(--border-color-primary);
+	border-bottom: 1px solid var(--border-color);
 }
 
 .subtitle .avatar {
@@ -720,7 +720,7 @@ code {
 
 .review-comment-body .diff-container {
 	margin: 24px 0;
-	border: 1px solid var(--border-color-primary);
+	border: 1px solid var(--border-color);
 }
 
 .review-comment-body .diff-container .review-comment-container .comment-container {
@@ -737,14 +737,14 @@ code {
 }
 
 .diff {
-	border-bottom: 1px solid var(--border-color-primary);
+	border-bottom: 1px solid var(--border-color);
 }
 
 .diff .diffHeader {
 	position: relative;
 	padding: 6px 12px;
 	line-height: 1.5;
-	border-bottom: 1px solid var(--border-color-primary);
+	border-bottom: 1px solid var(--border-color);
 }
 
 
@@ -758,7 +758,7 @@ code {
 }
 
 .diff .diffHeader::before {
-	background: var(--border-color-secondary);
+	background: var(--header-background);
 }
 
 .diff .diffHeader .diffPath:hover {
