@@ -41,7 +41,7 @@ export class VSLSHost implements vscode.Disposable {
 					HEAD: localRepository.state.HEAD,
 					remotes: localRepository.state.remotes,
 					refs: localRepository.state.refs,
-					rootUri: localRepository.rootUri.toString()
+					rootUri: this._api.convertLocalUriToShared(localRepository.rootUri).toString() // file: --> vsls:/
 				};
 			}
 			if (localRepository[type]) {

@@ -26,7 +26,7 @@ async function getVSLSApi() {
 		// The extensibility API is not enabled.
 		return null;
 	}
-	const liveShareApiVersion = liveshareExtension.packageJSON.version;
+	const liveShareApiVersion = '0.3.967';
 	// Support deprecated function name to preserve compatibility with older versions of VSLS.
 	if (!extensionApi.getApi) {
 		return extensionApi.getApiAsync(liveShareApiVersion);
@@ -62,7 +62,11 @@ class CommonGitAPI implements API, vscode.Disposable {
 			this._api = await getVSLSApi();
 		}
 
-		this._disposables.push(this._api!.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
+		if (!this._api) {
+			return;
+		}
+
+		this._disposables.push(this._api.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
 		if (this._api!.session) {
 			this._onDidChangeSession(this._api!.session);
 		}
