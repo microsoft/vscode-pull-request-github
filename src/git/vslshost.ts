@@ -24,8 +24,9 @@ export class VSLSHost implements vscode.Disposable {
 
 	private async _gitHandler(args: any[]) {
 		let type = args[0];
-		let workspaceFolderUri = args[1];
-		let localWorkSpaceFolderUri = this._api.convertSharedUriToLocal(vscode.Uri.parse(workspaceFolderUri));
+		let workspaceFolderPath = args[1];
+		let workspaceFolderUri = vscode.Uri.parse(workspaceFolderPath);
+		let localWorkSpaceFolderUri = this._api.convertSharedUriToLocal(workspaceFolderUri);
 		let localRepository: any = this._model.repositories.filter(repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString())[0];
 		if (localRepository) {
 			let commandArgs = args.slice(2);
@@ -41,9 +42,19 @@ export class VSLSHost implements vscode.Disposable {
 					HEAD: localRepository.state.HEAD,
 					remotes: localRepository.state.remotes,
 					refs: localRepository.state.refs,
-					rootUri: this._api.convertLocalUriToShared(localRepository.rootUri).toString() // file: --> vsls:/
+					rootUri: workspaceFolderUri.toString() // file: --> vsls:/
 				};
 			}
+
+			if (type === 'show') {
+				let path = commandArgs[1];
+				let vslsFileUri = workspaceFolderUri.with({path: path});
+				let localFileUri = this._api.convertSharedUriToLocal(vslsFileUri);
+				commandArgs[1] = localFileUri.fsPath;
+
+				return localRepository[type](...commandArgs);
+			}
+
 			if (localRepository[type]) {
 				return localRepository[type](...commandArgs);
 			}
