@@ -96,9 +96,24 @@ function getStateIcon(state: string) {
 	}
 }
 
+function setStatusCheckText(container: HTMLElement, state: PullRequestStateEnum) {
+	if (state === PullRequestStateEnum.Merged) {
+		container.innerHTML = 'Pull request successfully merged';
+	}
+
+	if (state === PullRequestStateEnum.Closed) {
+		container.innerHTML = 'This pull request is closed';
+	}
+}
+
 export function renderStatusChecks(pr: PullRequest, messageHandler: MessageHandler) {
 	const statusContainer = document.getElementById('status-checks') as HTMLDivElement;
 	statusContainer.innerHTML = '';
+
+	if (pr.state !== PullRequestStateEnum.Open) {
+		setStatusCheckText(statusContainer, pr.state);
+		return;
+	}
 
 	const { status, mergeable } = pr;
 
@@ -327,6 +342,10 @@ export function updatePullRequestState(state: PullRequestStateEnum): void {
 
 	const status = document.getElementById(ElementIds.Status);
 	status!.innerHTML = getStatus(state);
+
+	if (state !== PullRequestStateEnum.Open) {
+		setStatusCheckText(document.getElementById('status-checks'), state);
+	}
 }
 
 export interface ActionData {
