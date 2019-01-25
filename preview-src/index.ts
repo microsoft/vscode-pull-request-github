@@ -168,9 +168,7 @@ function renderDescription(pr: PullRequest): HTMLElement {
 
 	const commentHeader = document.createElement('div');
 	commentHeader.classList.add('comment-header');
-	commentHeader.innerHTML = `
-				<div class="avatar-container"><img class="avatar" src="${pr.author.avatarUrl}" alt=""></div> <a href="${pr.author.url}">${pr.author.login}</a> commented on <a href=${pr.url} class="timestamp">${dateFromNow(pr.createdAt)}</a>
-		`;
+	commentHeader.innerHTML = `<div class="comment-info"><img class="avatar" src="${pr.author.avatarUrl}" alt=""> <span><a href="${pr.author.url}">${pr.author.login}</a> commented on <a href=${pr.url} class="timestamp">${dateFromNow(pr.createdAt)}</a></span></div>`;
 
 	const commentBody = document.createElement('div');
 	commentBody.classList.add('description-content');

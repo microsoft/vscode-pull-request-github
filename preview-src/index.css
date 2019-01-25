@@ -78,7 +78,6 @@ body .comment-container.review {
 	background-color: var(--vscode-editor-background);
 }
 
-
 .review-comment-container {
 	width: 100%;
 	display: flex;
@@ -284,6 +283,13 @@ body button.checkedOut svg {
 
 .title-container {
 	width: 100%;
+	display: flex;
+	flex-flow: row-reverse;
+}
+
+.title-container .description-header {
+	align-self: flex-end;
+	margin-left: auto;
 }
 
 .comment-container {
@@ -292,6 +298,11 @@ body button.checkedOut svg {
 
 .details .comment-container {
 	border: 1px solid var(--border-color-primary);
+}
+
+.details .comment-container .comment-info {
+	display: flex;
+	align-items: center;
 }
 
 .description-content {
@@ -496,6 +507,7 @@ textarea:focus {
 }
 
 .editing-form {
+	width: 100%;
 	padding: 5px 0;
 	display: flex;
 	flex-direction: column;
