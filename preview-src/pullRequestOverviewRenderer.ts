@@ -490,7 +490,7 @@ export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
 	sha.textContent = shaShort;
 
 	commentContainer.appendChild(commitMessage);
-	commentContainer.appendChild(sha);
+	commitMessage.appendChild(sha);
 
 	return commentContainer;
 }

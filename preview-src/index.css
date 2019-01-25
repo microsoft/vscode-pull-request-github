@@ -3,6 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+:root {
+	--border-color-primary: var(--vscode-notifications-border);
+	--border-color-secondary: var(--vscode-notifications-background);
+ }
+
 a:focus, input:focus, select:focus, textarea:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
@@ -10,7 +15,7 @@ a:focus, input:focus, select:focus, textarea:focus {
  .title {
 	display: flex;
 	align-items: flex-start;
-	margin-top: 20px;
+	margin: 20px 0 12px;
 }
 
 .comment-body li div {
@@ -43,7 +48,7 @@ body a:hover {
 }
 
 body .comment-container .avatar-container {
-	margin-right: 12px;
+	margin-right: 8px;
 }
 
 body .comment-container .avatar-container a {
@@ -80,7 +85,13 @@ body .comment-container.review {
 	flex-direction: column;
 }
 
-body .comment-container .review-comment-header {
+.comment-container:not(.review-comment) > .review-comment-container {
+	border: 1px solid var(--border-color-primary);
+}
+
+body .comment-container .review-comment-header,
+.comment-container .comment-header {
+	position: relative;
 	display: flex;
 	width: 100%;
 	box-sizing: border-box;
@@ -88,13 +99,23 @@ body .comment-container .review-comment-header {
 	font-size: 12px;
 	color: var(--vscode-foreground);
 	align-items: center;
-	background: var(--vscode-list-inactiveSelectionBackground);
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	border-bottom: 1px solid var(--border-color-primary);
 }
 
-.description-header {
-	float: right;
-	height: 32px;
+.comment-container:not(.review-comment) > .review-comment-container > .review-comment-header *,
+.comment-container .comment-header * {
+	position: relative;
+}
+
+/* This ignores the comments inside a diff reivew */
+.comment-container:not(.review-comment) > .review-comment-container > .review-comment-header::before,
+.comment-container .comment-header::before {
+	opacity: 0.6;
+	background: var(--border-color-secondary);
+}
+
+.comment-header .comment-actions {
+	margin-left: auto;
 }
 
 .review-comment-header .comment-actions {
@@ -158,13 +179,12 @@ body .commit .commit-message > a {
 
 body .comment-container .comment-body, .review-body {
 	padding: 10px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 	border-top: none;
 }
 
 body .comment-container .review-comment-container .review-comment-body {
 	padding: 0;
-	margin: 0 0 0 36px;
+	margin: 0 24px;
 	border: none;
 }
 
@@ -259,25 +279,31 @@ body button.checkedOut svg {
 	padding-top: 5px;
 	margin-left: auto;
 	display: flex;
+	align-self: start;
 }
 
 .title-container {
 	width: 100%;
 }
 
-.description-container {
-	padding: 12px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+.comment-container {
+	margin-top: 12px;
+}
+
+.details .comment-container {
+	border: 1px solid var(--border-color-primary);
+}
+
+.description-content {
+	padding: 8px 12px;
 }
 
 .subtitle {
 	display: flex;
 	align-items: center;
-	margin-top: 8px;
-	padding: 6px;
-	background: var(--vscode-list-inactiveSelectionBackground);
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
-	border-bottom: none;
+	padding: 8px 0 12px;
+	margin-bottom: 12px;
+	border-bottom: 1px solid var(--border-color-primary);
 }
 
 .subtitle .avatar {
@@ -308,14 +334,28 @@ body .overview-title .button-group button {
 	margin-right: 12px;
 }
 
+.comment-container .labels {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	padding: 8px 12px 0 8px;
+}
+
+.comment-container .labels svg {
+	fill: var(--vscode-foreground);
+}
+
+.label:first-of-type{
+	margin-left: 8px;
+}
+
 .label {
 	padding: 4px 6px;
 	font-size: 12px;
 	font-weight: 600;
 	line-height: 15px;
 	border-radius: 2px;
-	margin-right: 8px;
-	margin-bottom: 8px;
+	margin: 4px;
 	background: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
 	box-shadow: inset 0 -1px 0 rgba(27,31,35,0.12);
@@ -355,7 +395,7 @@ body .overview-title .button-group button {
 }
 
 .commit .commit-message .avatar-container {
-	margin-right: 4px;
+	margin-right: 8px;
 	flex-shrink: 0;
 }
 
@@ -382,10 +422,9 @@ body .overview-title .button-group button {
 
 .comment-container {
 	position: relative;
-	padding-top: 20px;
 	width: 100%;
 	display: flex;
-	margin: 0;
+	flex-direction: column;
 }
 
 .comment-container[data-type="commit"] {
@@ -398,9 +437,9 @@ body .overview-title .button-group button {
 }
 
 .comment-body .review-comment {
-	padding: 3px;
+	padding: 4px;
 	box-sizing: border-box;
-	border-top: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	border: none;
 }
 
 .review-comment-container .review-comment .review-comment-header {
@@ -410,7 +449,7 @@ body .overview-title .button-group button {
 
 .review-comment-container .review-comment .comment-body {
 	border: none;
-	padding: 4px 12px 8px 12px;
+	padding: 0 12px 8px 34px;
 }
 
 .comment-body .line {
@@ -639,7 +678,7 @@ code {
 	border-color: var(--vscode-panel-border);
 }
 
-.vscode-high-contrast .description-container {
+.vscode-high-contrast .comment-container {
 	border-color: var(--vscode-panel-border);
 }
 
@@ -668,8 +707,8 @@ code {
 }
 
 .review-comment-body .diff-container {
-	margin-top: 10px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	margin: 24px 0;
+	border: 1px solid var(--border-color-primary);
 }
 
 .review-comment-body .diff-container .review-comment-container .comment-container {
@@ -677,7 +716,7 @@ code {
 }
 
 .review-comment-body .diff-container .review-comment-container .review-comment-header .avatar-container {
-	margin-right: 4px;
+	margin-right: 8px;
 }
 
 .review-comment-body .diff-container .review-comment-container .review-comment-header .avatar {
@@ -685,10 +724,29 @@ code {
 	height: 18px;
 }
 
+.diff {
+	border-bottom: 1px solid var(--border-color-primary);
+}
+
 .diff .diffHeader {
+	position: relative;
 	padding: 6px 12px;
 	line-height: 1.5;
-	background: var(--vscode-editorGroupHeader-tabsBackground);
+	border-bottom: 1px solid var(--border-color-primary);
+}
+
+
+.diff .diffHeader::before {
+	opacity: 0.4 !important;
+}
+
+.diff .diffHeader * {
+	position: relative;
+	z-index: 1;
+}
+
+.diff .diffHeader::before {
+	background: var(--border-color-secondary);
 }
 
 .diff .diffHeader .diffPath:hover {
@@ -715,11 +773,38 @@ code {
 	font-size: 12px;
 }
 
-.diff .diffLine.add {
+.diff .diffLine {
+	position: relative;
+}
+.diff .diffLine * {
+	z-index: 1;
+	position: relative;
+}
+
+/* Background with low opacity for comments and diffs */
+.comment-container .comment-header::before,
+.comment-container:not(.review-comment) > .review-comment-container > .review-comment-header::before, /* This ignores comment headers inside a diff review */
+.diff .diffHeader::before,
+.diff .diffLine::before {
+	content: " ";
+	z-index: 0;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	left: 0;
+	top: 0;
+}
+
+.diff .diffLine.add::before,
+.diff .diffLine.delete::before {
+	opacity: 0.8;
+}
+
+.diff .diffLine.add::before {
 	background-color: var(--vscode-diffEditor-insertedTextBackground);
 }
 
-.diff .diffLine.delete {
+.diff .diffLine.delete::before {
 	background-color: var(--vscode-diffEditor-removedTextBackground);
 }
 

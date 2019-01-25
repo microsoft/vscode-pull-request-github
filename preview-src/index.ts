@@ -117,9 +117,7 @@ function setTitleHTML(pr: PullRequest): void {
 				</div>
 				<div class="subtitle">
 					<div id="${ElementIds.Status}">${getStatus(pr.state)}</div>
-					<img class="avatar" src="${pr.author.avatarUrl}" alt="">
 					<span class="author"><a href="${pr.author.url}">${pr.author.login}</a> wants to merge changes from <code>${pr.head}</code> to <code>${pr.base}</code>.</span>
-					<span class="created-at">Created <a href=${pr.url} class="timestamp">${dateFromNow(pr.createdAt)}</a></span>
 				</div>
 			</div>
 		`;
@@ -139,13 +137,13 @@ function renderTitle(pr: PullRequest): HTMLElement {
 	titleHeader.classList.add('description-header');
 
 	const titleBody = document.createElement('div');
-	titleBody.innerHTML = `${pr.title} (<a href=${pr.url}>#${pr.number}</a>)`;
+	titleBody.innerHTML = `${pr.title} <a href=${pr.url}>#${pr.number}</a>`;
 
 	if (pr.canEdit) {
 		function updateTitle(text: string) {
 			pr.title = text;
 			updateState({ title: text });
-			titleBody.innerHTML = `${pr.title} (<a href=${pr.url}>#${pr.number}</a>)`;
+			titleBody.innerHTML = `${pr.title} <a href=${pr.url}>#${pr.number}</a>`;
 		}
 
 		const actionsBar = new ActionsBar(titleContainer, { body: pr.title, id: pr.number.toString() }, titleBody, messageHandler, updateTitle, 'pr.edit-title');
@@ -166,31 +164,36 @@ function renderTitle(pr: PullRequest): HTMLElement {
 
 function renderDescription(pr: PullRequest): HTMLElement {
 	const commentContainer = document.createElement('div');
-	commentContainer.classList.add('description-container');
+	commentContainer.classList.add('comment-container')
 
 	const commentHeader = document.createElement('div');
-	commentHeader.classList.add('description-header');
+	commentHeader.classList.add('comment-header');
+	commentHeader.innerHTML = `
+				<div class="avatar-container"><img class="avatar" src="${pr.author.avatarUrl}" alt=""></div> <a href="${pr.author.url}">${pr.author.login}</a> commented on <a href=${pr.url} class="timestamp">${dateFromNow(pr.createdAt)}</a>
+		`;
 
 	const commentBody = document.createElement('div');
+	commentBody.classList.add('description-content');
 	commentBody.innerHTML = pr.bodyHTML ?
 		pr.bodyHTML :
 		pr.body
 			? md.render(emoji.emojify(pr.body))
 			: '<p><i>No description provided.</i></p>';
 
-	if (pr.labels.length) {
-		const line = document.createElement('div');
-		line.classList.add('line');
+	commentContainer.appendChild(commentHeader);
 
-		line.innerHTML = `<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
+	if (pr.labels.length) {
+		const labels = document.createElement('div');
+		labels.classList.add('labels');
+
+		labels.innerHTML = `<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
 			<path fill-rule="evenodd" d="M7.685 1.72a2.49 2.49 0 0 0-1.76-.726H3.48A2.5 2.5 0 0 0 .994 3.48v2.456c0 .656.269 1.292.726 1.76l6.024 6.024a.99.99 0 0 0 1.402 0l4.563-4.563a.99.99 0 0 0 0-1.402L7.685 1.72zM2.366 7.048a1.54 1.54 0 0 1-.467-1.123V3.48c0-.874.716-1.58 1.58-1.58h2.456c.418 0 .825.159 1.123.467l6.104 6.094-4.702 4.702-6.094-6.114zm.626-4.066h1.989v1.989H2.982V2.982h.01z" />
 			</svg>
 			${pr.labels.map(label => `<span class="label">${label}</span>`).join('')}`;
 
-		commentContainer.appendChild(line);
+		commentContainer.appendChild(labels);
 	}
 
-	commentContainer.appendChild(commentHeader);
 	commentContainer.appendChild(commentBody);
 
 	if (pr.canEdit) {
