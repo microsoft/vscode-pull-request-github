@@ -7,25 +7,11 @@ import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
 import { EventType, isReviewEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
-import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 const emoji = require('node-emoji');
 import { getMessageHandler } from './message';
 import { getState, setState, PullRequest, updateState } from './cache';
-
-const ElementIds = {
-	Checkout: 'checkout',
-	CheckoutDefaultBranch: 'checkout-default-branch',
-	Merge: 'merge',
-	Close: 'close',
-	Refresh: 'refresh',
-	Reply: 'reply',
-	Approve: 'approve',
-	RequestChanges: 'request-changes',
-	Status: 'status',
-	CommentTextArea: 'comment-textarea',
-	TimelineEvents: 'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
-};
 
 window.onload = () => {
 	const pullRequest = getState();
@@ -61,7 +47,7 @@ function renderPullRequest(pr: PullRequest): void {
 	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
-	renderStatusChecks(pr);
+	renderStatusChecks(pr, messageHandler);
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
@@ -75,34 +61,6 @@ function renderTimelineEvents(pr: PullRequest): void {
 		.map(event => renderTimelineEvent(event, messageHandler, pr))
 		.filter(event => event !== undefined)
 		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
-}
-
-function updatePullRequestState(state: PullRequestStateEnum): void {
-	updateState({ state: state });
-
-	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
-	if (merge) {
-		const { mergeable } = getState();
-		merge.disabled = !mergeable || state !== PullRequestStateEnum.Open;
-	}
-
-	const close = (<HTMLButtonElement>document.getElementById(ElementIds.Close));
-	if (close) {
-		close.disabled = state !== PullRequestStateEnum.Open;
-	}
-
-	const checkout = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
-	if (checkout) {
-		checkout.disabled = checkout.disabled || state !== PullRequestStateEnum.Open;
-	}
-
-	const approve = (<HTMLButtonElement>document.getElementById(ElementIds.Approve));
-	if (approve) {
-		approve.disabled = state !== PullRequestStateEnum.Open;
-	}
-
-	const status = document.getElementById(ElementIds.Status);
-	status!.innerHTML = getStatus(state);
 }
 
 function setTitleHTML(pr: PullRequest): void {
@@ -251,15 +209,6 @@ function addEventListeners(pr: PullRequest): void {
 		submitComment();
 	});
 
-	document.getElementById(ElementIds.Merge)!.addEventListener('click', () => {
-		(<HTMLButtonElement>document.getElementById(ElementIds.Merge)).disabled = true;
-		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
-		messageHandler.postMessage({
-			command: 'pr.merge',
-			args: inputBox.value
-		});
-	});
-
 	document.getElementById(ElementIds.Close)!.addEventListener('click', async () => {
 		(<HTMLButtonElement>document.getElementById(ElementIds.Close)).disabled = true;
 		const inputBox = (<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea));
@@ -391,7 +340,6 @@ function setTextArea() {
 
 	document.getElementById('comment-form')!.innerHTML = `<textarea id="${ElementIds.CommentTextArea}"></textarea>
 		<div class="form-actions">
-			<button id="${ElementIds.Merge}" class="secondary">Merge Pull Request</button>
 			<button id="${ElementIds.Close}" class="secondary">Close Pull Request</button>
 			${ displaySubmitButtonsOnPendingReview
 				? ''
