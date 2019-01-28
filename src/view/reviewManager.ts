@@ -669,7 +669,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.blobUrl,
 					change.status === GitChangeType.DELETE ?
 						toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
-						toDiffViewFileUri(uri, undefined, undefined, pr.head.sha, false, { base: false }),
+						toDiffViewFileUri(uri, change.fileName, undefined, pr.head.sha, false, { base: false }),
 					toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : pr.base.sha, false, { base: true }),
 					isPartial,
 					diffHunks,
@@ -965,7 +965,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						// may not contain it
 						try {
 							query = fromReviewUri(document.uri);
-							comments = this._comments.filter(comment => comment.path === query.path && `${comment.originalCommitId}^` === query.commit);
+							comments = this._comments.filter(comment => comment.path === query!.path && `${comment.originalCommitId}^` === query!.commit);
 						} catch (_) {
 							// Do nothing
 						}
