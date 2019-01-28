@@ -3,14 +3,22 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-a:focus, input:focus, select:focus, textarea:focus {
+a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.title-text {
+	margin-right: 5px;
 }
 
  .title {
 	display: flex;
 	align-items: flex-start;
 	margin-top: 20px;
+}
+
+.title .pr-number {
+	margin-left: 5px;
 }
 
 .comment-body li div {

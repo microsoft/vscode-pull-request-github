@@ -7,7 +7,7 @@ import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
 import { EventType, isReviewEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
-import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds, EditAction } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 const emoji = require('node-emoji');
 import { getMessageHandler } from './message';
@@ -96,28 +96,40 @@ function renderTitle(pr: PullRequest): HTMLElement {
 	const titleHeader = document.createElement('div');
 	titleHeader.classList.add('description-header');
 
-	const titleBody = document.createElement('div');
-	titleBody.innerHTML = `${pr.title} (<a href=${pr.url}>#${pr.number}</a>)`;
+	const title = document.createElement('span');
+	title.classList.add('title-text');
+	title.textContent = pr.title;
+
+	const prNumber = document.createElement('span');
+	prNumber.innerHTML = `(<a href=${pr.url}>#${pr.number}</a>)`;
 
 	if (pr.canEdit) {
 		function updateTitle(text: string) {
 			pr.title = text;
 			updateState({ title: text });
-			titleBody.innerHTML = `${pr.title} (<a href=${pr.url}>#${pr.number}</a>)`;
+			title.textContent = text;
 		}
 
-		const actionsBar = new ActionsBar(titleContainer, { body: pr.title, id: pr.number.toString() }, titleBody, messageHandler, updateTitle, 'pr.edit-title');
-		const renderedActionsBar = actionsBar.render();
-		actionsBar.registerActionBarListeners();
-		titleHeader.appendChild(renderedActionsBar);
+		const editAction = new EditAction(
+			{
+				body: pr.title,
+				id: pr.number.toString()
+			},
+			title,
+			messageHandler,
+			updateTitle,
+			'pr.edit-title',
+			[prNumber]
+		);
 
-		if (pr.pendingCommentDrafts && pr.pendingCommentDrafts[pr.number]) {
-			actionsBar.startEdit(pr.pendingCommentDrafts[pr.number]);
-		}
+		title.addEventListener('click', () => {
+			editAction.startEdit();
+		});
 	}
 
 	titleContainer.appendChild(titleHeader);
-	titleContainer.appendChild(titleBody);
+	titleContainer.appendChild(title);
+	titleContainer.appendChild(prNumber);
 
 	return titleContainer;
 }

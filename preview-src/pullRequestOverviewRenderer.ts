@@ -353,78 +353,33 @@ export interface ActionData {
 	id: string;
 }
 
-export class ActionsBar {
-	private _actionsBar: HTMLDivElement | undefined;
+export class EditAction {
 	private _editingContainer: HTMLDivElement | undefined;
 	private _editingArea: HTMLTextAreaElement | undefined;
 	private _updateStateTimer: number = -1;
 
-	constructor(private _container: HTMLElement,
+	constructor (
 		private _data: ActionData | Comment,
 		private _renderedComment: HTMLElement,
 		private _messageHandler: MessageHandler,
 		private _updateHandler: (value: any) => void,
-		private _editCommand?: string,
-		private _deleteCommand?: string,
-		private _review?: ReviewNode) {
+		private _editCommand: string,
+		private _elementsToHide: HTMLElement[]) {
 
 	}
 
-	render(): HTMLElement {
-		this._actionsBar = document.createElement('div');
-		this._actionsBar.classList.add('comment-actions', 'hidden');
-
-		if (this._editCommand) {
-			const editButton = document.createElement('button');
-			editButton.innerHTML = editIcon;
-			editButton.addEventListener('click', () => this.startEdit());
-			this._actionsBar.appendChild(editButton);
-		}
-
-		if (this._deleteCommand) {
-			const deleteButton = document.createElement('button');
-			deleteButton.innerHTML = deleteIcon;
-			deleteButton.addEventListener('click', () => this.delete());
-			this._actionsBar.appendChild(deleteButton);
-		}
-
-		return this._actionsBar;
-	}
-
-	registerActionBarListeners(): void {
-		this._container.addEventListener('mouseenter', () => {
-			if (!this._editingContainer) {
-				this._actionsBar!.classList.remove('hidden');
-			}
-		});
-
-		this._container.addEventListener('focusin', () => {
-			if (!this._editingContainer) {
-				this._actionsBar!.classList.remove('hidden');
-			}
-		});
-
-		this._container.addEventListener('mouseleave', () => {
-			if (!this._container.contains(document.activeElement)) {
-				this._actionsBar!.classList.add('hidden');
-			}
-		});
-
-		this._container.addEventListener('focusout', (e) => {
-			if (!this._container.contains((<any>e).target)) {
-				this._actionsBar!.classList.add('hidden');
-			}
-		});
+	isEditing(): boolean {
+		return !!this._editingContainer;
 	}
 
 	startEdit(text?: string): void {
-		this._actionsBar!.classList.add('hidden');
 		this._editingContainer = document.createElement('div');
 		this._editingContainer.className = 'editing-form';
 		this._editingArea = document.createElement('textarea');
 		this._editingArea.value = text || this._data.body;
 
 		this._renderedComment.classList.add('hidden');
+		this._elementsToHide.forEach(element => element.classList.add('hidden'));
 
 		const cancelButton = document.createElement('button');
 		cancelButton.textContent = 'Cancel';
@@ -483,7 +438,7 @@ export class ActionsBar {
 		this._editingArea = undefined;
 
 		this._renderedComment.classList.remove('hidden');
-		this._actionsBar!.classList.remove('hidden');
+		this._elementsToHide.forEach(element => element.classList.remove('hidden'));
 
 		if (text !== undefined) {
 			this._data.body = text;
@@ -498,6 +453,76 @@ export class ActionsBar {
 		if (pendingCommentDrafts) {
 			delete pendingCommentDrafts[this._data.id];
 			updateState({ pendingCommentDrafts: pendingCommentDrafts });
+		}
+	}
+}
+
+export class ActionsBar {
+	private _actionsBar: HTMLDivElement | undefined;
+	private _editAction: EditAction | undefined;
+
+	constructor(private _container: HTMLElement,
+		private _data: ActionData | Comment,
+		private _renderedComment: HTMLElement,
+		private _messageHandler: MessageHandler,
+		private _updateHandler: (value: any) => void,
+		private _editCommand?: string,
+		private _deleteCommand?: string,
+		private _review?: ReviewNode) {
+
+	}
+
+	render(): HTMLElement {
+		this._actionsBar = document.createElement('div');
+		this._actionsBar.classList.add('comment-actions', 'hidden');
+
+		if (this._editCommand) {
+			const editButton = document.createElement('button');
+			editButton.innerHTML = editIcon;
+			this._editAction = new EditAction(this._data, this._renderedComment, this._messageHandler, this._updateHandler, this._editCommand, [this._actionsBar]);
+			editButton.addEventListener('click', () => this._editAction.startEdit());
+			this._actionsBar.appendChild(editButton);
+		}
+
+		if (this._deleteCommand) {
+			const deleteButton = document.createElement('button');
+			deleteButton.innerHTML = deleteIcon;
+			deleteButton.addEventListener('click', () => this.delete());
+			this._actionsBar.appendChild(deleteButton);
+		}
+
+		return this._actionsBar;
+	}
+
+	registerActionBarListeners(): void {
+		this._container.addEventListener('mouseenter', () => {
+			if (this._editAction && !this._editAction.isEditing()) {
+				this._actionsBar!.classList.remove('hidden');
+			}
+		});
+
+		this._container.addEventListener('focusin', () => {
+			if (this._editAction && !this._editAction.isEditing()) {
+				this._actionsBar!.classList.remove('hidden');
+			}
+		});
+
+		this._container.addEventListener('mouseleave', () => {
+			if (!this._container.contains(document.activeElement)) {
+				this._actionsBar!.classList.add('hidden');
+			}
+		});
+
+		this._container.addEventListener('focusout', (e) => {
+			if (!this._container.contains((<any>e).target)) {
+				this._actionsBar!.classList.add('hidden');
+			}
+		});
+	}
+
+	startEdit(text?: string): void {
+		if (this._editAction) {
+			this._editAction.startEdit(text);
 		}
 	}
 
