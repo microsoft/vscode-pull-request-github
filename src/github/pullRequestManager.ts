@@ -15,7 +15,7 @@ import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate } from '../common/utils';
-import { Repository, RefType, UpstreamRef } from '../typings/git';
+import { Repository, RefType, UpstreamRef } from '../git/api';
 import Logger from '../common/logger';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, parseGraphQLComment } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse } from './graphql';

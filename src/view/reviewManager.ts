@@ -12,7 +12,7 @@ import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange } from '../common/file';
 import { ITelemetry } from '../github/interface';
-import { Repository, GitErrorCodes, Branch } from '../typings/git';
+import { Repository, GitErrorCodes, Branch } from '../git/api';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
@@ -448,7 +448,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
 			if (matchingCommentIndex > -1) {
 				matchedFile.comments.splice(matchingCommentIndex, 1, editedComment);
-				const changedThreads = this.fileCommentsToCommentThreads(matchedFile, matchedFile.comments.filter(c => c.position === editedComment.position), vscode.CommentThreadCollapsibleState.Expanded);
+				const changedThreads = this.workspaceLocalCommentsToCommentThreads(matchedFile, matchedFile.comments.filter(c => c.position === editedComment.position), vscode.CommentThreadCollapsibleState.Expanded);
 
 				this._onDidChangeWorkspaceCommentThreads.fire({
 					added: [],
@@ -486,7 +486,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 				// If the deleted comment was the last in its thread, remove the thread
 				if (updatedThreadComments.length) {
-					const changedThreads = this.fileCommentsToCommentThreads(matchedFile, updatedThreadComments, vscode.CommentThreadCollapsibleState.Expanded);
+					const changedThreads = this.workspaceLocalCommentsToCommentThreads(matchedFile, updatedThreadComments, vscode.CommentThreadCollapsibleState.Expanded);
 					this._onDidChangeWorkspaceCommentThreads.fire({
 						added: [],
 						changed: changedThreads,
@@ -769,7 +769,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return ret;
 	}
 
-	private fileCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
+	private workspaceLocalCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
 		if (!fileChange) {
 			return [];
 		}
@@ -799,9 +799,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const pos = new vscode.Position(getZeroBased(firstComment.absolutePosition || 0), 0);
 			const range = new vscode.Range(pos, pos);
 
+			let newPath = nodePath.join(this._repository.rootUri.path, firstComment.path!).replace(/\\/g, '/');
+			let newUri = this._repository.rootUri.with({ path: newPath });
 			ret.push({
 				threadId: firstComment.id.toString(),
-				resource: vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, firstComment.path!)),
+				resource: newUri,
 				range,
 				comments: comments.map(comment => {
 					return {
@@ -836,7 +838,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			let matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === file);
 
 			if (matchedFiles && matchedFiles.length) {
-				ret = [...ret, ...this.fileCommentsToCommentThreads(matchedFiles[0], fileComments, collapsibleState)];
+				ret = [...ret, ...this.workspaceLocalCommentsToCommentThreads(matchedFiles[0], fileComments, collapsibleState)];
 			}
 		}
 		return ret;
@@ -907,51 +909,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 				let ranges: vscode.Range[] = [];
 				let matchingComments: Comment[] = [];
 
-				if (document.uri.scheme === 'file') {
-					// local file, we only provide active comments
-					// TODO. for comments in deleted ranges, they should show on top of the first line.
-					const fileName = document.uri.fsPath;
-					const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => nodePath.resolve(this._repository.rootUri.fsPath, fileChange.fileName) === fileName);
-					let matchedFile: GitFileChangeNode;
-					if (matchedFiles && matchedFiles.length) {
-						matchedFile = matchedFiles[0];
-
-						let contentDiff: string;
-						if (document.isDirty) {
-							const documentText = document.getText();
-							const details = await this._repository.getObjectDetails(this._lastCommitSha!, matchedFile.fileName);
-							const idAtLastCommit = details.object;
-							const idOfCurrentText = await this._repository.hashObject(documentText);
-
-							// git diff <blobid> <blobid>
-							contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
-						} else {
-							// git diff sha -- fileName
-							contentDiff = await this._repository.diffWith(this._lastCommitSha!, matchedFile.fileName);
-						}
-
-						matchingComments = this._comments.filter(comment => nodePath.resolve(this._repository.rootUri.fsPath, comment.path!) === fileName);
-						matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
-
-						let diffHunks = matchedFile.diffHunks;
-
-						for (let i = 0; i < diffHunks.length; i++) {
-							let diffHunk = diffHunks[i];
-							let start = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber);
-							let end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1);
-							if (start > 0 && end > 0) {
-								ranges.push(new vscode.Range(start - 1, 0, end - 1, 0));
-							}
-						}
-					}
-
-					return {
-						threads: this.fileCommentsToCommentThreads(matchedFile!, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed),
-						commentingRanges: ranges,
-						inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest!)
-					};
-				}
-
 				if (document.uri.scheme === 'pr') {
 					const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 					return providePRDocumentComments(document, this._prNumber!, this._localFileChanges, inDraftMode);
@@ -987,7 +944,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						}
 
 						return {
-							threads: this.fileCommentsToCommentThreads(matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded),
+							threads: this.workspaceLocalCommentsToCommentThreads(matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded),
 							commentingRanges: ranges,
 						};
 					}
@@ -1059,6 +1016,58 @@ export class ReviewManager implements vscode.DecorationProvider {
 					}
 				}
 
+				const currentWorkspace = vscode.workspace.getWorkspaceFolder(document.uri);
+				if (!currentWorkspace) {
+					return;
+				}
+
+				if (document.uri.scheme === currentWorkspace.uri.scheme) {
+					// local file, we only provide active comments
+					// TODO. for comments in deleted ranges, they should show on top of the first line.
+					const fileName = nodePath.relative(currentWorkspace!.uri.fsPath, document.uri.fsPath);
+					const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === fileName);
+					let matchedFile: GitFileChangeNode;
+					if (matchedFiles && matchedFiles.length) {
+						matchedFile = matchedFiles[0];
+
+						let contentDiff: string;
+						if (document.isDirty) {
+							const documentText = document.getText();
+							const details = await this._repository.getObjectDetails(this._lastCommitSha!, matchedFile.fileName);
+							const idAtLastCommit = details.object;
+							const idOfCurrentText = await this._repository.hashObject(documentText);
+
+							// git diff <blobid> <blobid>
+							contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
+						} else {
+							// git diff sha -- fileName
+							contentDiff = await this._repository.diffWith(this._lastCommitSha!, matchedFile.fileName);
+						}
+
+						matchingComments = this._comments.filter(comment => comment.path! === fileName);
+						matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
+
+						let diffHunks = matchedFile.diffHunks;
+
+						for (let i = 0; i < diffHunks.length; i++) {
+							let diffHunk = diffHunks[i];
+							let start = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber);
+							let end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1);
+							if (start > 0 && end > 0) {
+								ranges.push(new vscode.Range(start - 1, 0, end - 1, 0));
+							}
+						}
+					}
+
+					return {
+						threads: this.workspaceLocalCommentsToCommentThreads(matchedFile!, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed),
+						commentingRanges: ranges,
+						inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest!)
+					};
+				}
+
+
+
 				return;
 			},
 			createNewCommentThread: this.createNewCommentThread.bind(this),
@@ -1077,7 +1086,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			onDidChangeCommentThreads: this._onDidChangeWorkspaceCommentThreads.event,
 			provideWorkspaceComments: async (token: vscode.CancellationToken) => {
 				const comments = await Promise.all(gitFileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
-					return this.fileCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
+					return this.workspaceLocalCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
 				}));
 				const outdatedComments = gitFileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
 					return this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);

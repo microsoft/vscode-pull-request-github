@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import * as pathLib from 'path';
-import { Repository } from '../typings/git';
+import { Repository } from '../git/api';
 import { fromReviewUri } from '../common/uri';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {
@@ -28,7 +28,7 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 			return '';
 		}
 
-		const absolutePath = pathLib.join(this.repository.rootUri.fsPath, path);
+		const absolutePath = pathLib.join(this.repository.rootUri.fsPath, path).replace(/\\/g, '/');
 		let content = await this.repository.show(commit, absolutePath);
 
 		if (!content) {

@@ -111,7 +111,7 @@ function getExtensionConfig(env) {
 			'utf-8-validate': 'utf-8-validate',
 			'bufferutil': 'bufferutil',
 			'encoding': 'encoding'
-		},
+		}
 	};
 
 	return config;

@@ -8,7 +8,7 @@
  */
 
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
-import { Repository } from '../typings/git';
+import { Repository } from '../git/api';
 import { IRawFileChange } from '../github/interface';
 
 export enum DiffChangeType {

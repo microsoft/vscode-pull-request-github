@@ -11,7 +11,7 @@ import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { Repository, Branch } from '../typings/git';
+import { Repository, Branch } from '../git/api';
 import { PullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';

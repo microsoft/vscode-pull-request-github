@@ -10,7 +10,7 @@ import * as Github from '@octokit/rest';
 import { PullRequestStateEnum, ReviewEvent } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
-import { GitErrorCodes } from '../typings/git';
+import { GitErrorCodes } from '../git/api';
 import { Comment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
