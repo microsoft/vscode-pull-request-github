@@ -921,7 +921,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					let query = fromReviewUri(document.uri);
 					let isBase = query.base;
 
-					let matchedFile = this.findMatchedFileChange(this._localFileChanges, document.uri);
+					let matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
 
 					if (matchedFile) {
 						matchingComments = matchedFile.comments;
@@ -952,7 +952,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					}
 
 					// comments are outdated
-					matchedFile = this.findMatchedFileChange(this._obsoleteFileChanges, document.uri);
+					matchedFile = this.findMatchedFileChangeForReviewDiffView(this._obsoleteFileChanges, document.uri);
 					let comments: Comment[] = [];
 					if (!matchedFile) {
 						// The file may be a change from a specific commit, check the comments themselves to see if they match it, as obsolete file changs
@@ -1167,7 +1167,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 	}
 
-	private findMatchedFileChange(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode | undefined {
+	private findMatchedFileChangeForReviewDiffView(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode | undefined {
 		let query = fromReviewUri(uri);
 		let matchedFiles = fileChanges.filter(fileChange => {
 			if (fileChange instanceof RemoteFileChangeNode) {
@@ -1184,8 +1184,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 				if (q.commit === query.commit) {
 					return true;
 				}
+			} catch (e) { }
 
-				q = JSON.parse(fileChange.parentFilePath.query);
+			try {
+				let q = JSON.parse(fileChange.parentFilePath.query);
 
 				if (q.commit === query.commit) {
 					return true;
