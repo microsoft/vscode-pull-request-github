@@ -17,8 +17,6 @@ import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../
 import { convertRESTPullRequestToRawPullRequest } from './utils';
 const queries = require('./queries.gql');
 
-
-\
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
 const GRAPHQL_COMPONENT_ID = 'GraphQL';
