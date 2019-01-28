@@ -11,10 +11,10 @@ import { PRType, IGitHubRepository, IAccount } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
-
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus } from 'apollo-boost';
 import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../view/prDocumentCommentProvider';
 import { convertRESTPullRequestToRawPullRequest } from './utils';
+import { MentionableUsersResponse } from './graphql';
 const queries = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -309,10 +309,10 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			if (supportsGraphQl) {
 				let after = null;
 				let hasNextPage = false;
-				let ret = [];
+				let ret: IAccount[] = [];
 
 				do {
-					const { data } = await query({
+					const result: { data: MentionableUsersResponse } = await query<MentionableUsersResponse>({
 						query: queries.GetMentionableUsers,
 						variables: {
 							owner: remote.owner,
@@ -322,17 +322,18 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 						}
 					});
 
-					ret.push(...data.repository.mentionableUsers.nodes.map(node => {
+					ret.push(...result.data.repository.mentionableUsers.nodes.map((node: any) => {
 						return {
 							login: node.login,
 							avatarUrl: node.avatarUrl,
 							name: node.name,
-							email: node.email
+							email: node.email,
+							url: node.url
 						};
 					}));
 
-					hasNextPage = data.repository.mentionableUsers.pageInfo.hasNextPage;
-					after = data.repository.mentionableUsers.pageInfo.endCursor;
+					hasNextPage = result.data.repository.mentionableUsers.pageInfo.hasNextPage;
+					after = result.data.repository.mentionableUsers.pageInfo.endCursor;
 				} while (hasNextPage);
 
 				return ret;

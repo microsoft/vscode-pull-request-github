@@ -151,6 +151,25 @@ export interface PullRequestCommentsResponse {
 	};
 }
 
+export interface MentionableUsersResponse {
+	repository: {
+		mentionableUsers: {
+			nodes: [
+				{
+					login: string;
+					avatarUrl: string;
+					name: string;
+					url: string;
+				}
+			];
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			};
+		}
+	};
+}
+
 export interface AddCommentResponse {
 	addPullRequestReviewComment: {
 		comment: ReviewComment;

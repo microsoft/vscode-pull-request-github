@@ -99,8 +99,9 @@ export class PullRequestManager {
 	private _activePullRequest?: PullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
-	private _mentionableUsers: { [key: string] : IAccount[] };
-	private _fetchMentionableUsersPromise: Promise<{ [key: string] : IAccount[] }>;
+	private _mentionableUsers?: { [key: string]: IAccount[] };
+	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
+	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	private _includeRemotes: IncludeRemote;
@@ -116,8 +117,6 @@ export class PullRequestManager {
 		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
 		this._includeRemotes = IncludeRemote.Default;
-		this._mentionableUsers = null;
-		this._fetchMentionableUsersPromise = null;
 		vscode.workspace.onDidChangeConfiguration(() => {
 			let oldIncludeRemote = this._includeRemotes;
 			this.getIncludeRemoteConfig();
@@ -130,8 +129,9 @@ export class PullRequestManager {
 	}
 
 	private setUpCompletionItemProvider() {
-		let lastPullRequest: PullRequestModel = null;
-		let cachedUsers = [];
+		let lastPullRequest: PullRequestModel | undefined = undefined;
+		let lastPullRequestTimelineEvents: TimelineEvent[] = [];
+		let cachedUsers: vscode.CompletionItem[] = [];
 
 		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
 			provideCompletionItems: async (document, position, token) => {
@@ -143,20 +143,20 @@ export class PullRequestManager {
 						return;
 					}
 
-					let wordRange = document.getWordRangeAtPosition(position, /@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})?/i);
-					if (wordRange.isEmpty) {
+					const wordRange = document.getWordRangeAtPosition(position, /@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})?/i);
+					if (!wordRange || wordRange.isEmpty) {
 						return;
 					}
 
 					let prRelatedusers: { login: string; name?: string; }[] = [];
 					let fileRelatedUsersNames: { [key: string]: boolean } = {};
 					let mentionableUsers: { [key: string]: { login: string; name?: string; }[]; } = {};
-					let params: PRUriParams;
+					let params: PRUriParams | undefined;
 
 					if (activeTextEditors.length) {
 						params = fromPRUri(activeTextEditors[0].document.uri);
 
-						if (lastPullRequest && params.prNumber === lastPullRequest.prNumber) {
+						if (lastPullRequest && params && params.prNumber === lastPullRequest.prNumber) {
 							return cachedUsers;
 						}
 					}
@@ -164,16 +164,19 @@ export class PullRequestManager {
 					let prRelatedUsersPromise = new Promise(async resolve => {
 						if (params) {
 							Logger.debug('get Timeline Events and parse users', PullRequestManager.ID);
-							let relatedTimelineEvents: TimelineEvent[] = [];
+							if (lastPullRequest && lastPullRequest.prNumber === params.prNumber) {
+								return lastPullRequestTimelineEvents;
+							}
+
 							let remoteName = params.remoteName;
 							let githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
 
 							if (githubRepos.length) {
 								lastPullRequest = await githubRepos[0].getPullRequest(params.prNumber);
-								relatedTimelineEvents = await this.getTimelineEvents(lastPullRequest);
+								lastPullRequestTimelineEvents = await this.getTimelineEvents(lastPullRequest!);
 							}
 
-							prRelatedusers = getRelatedUsersFromTimelineEvents(relatedTimelineEvents);
+							prRelatedusers = getRelatedUsersFromTimelineEvents(lastPullRequestTimelineEvents);
 							resolve();
 						}
 
@@ -185,7 +188,14 @@ export class PullRequestManager {
 							try {
 								Logger.debug('git blame and parse users', PullRequestManager.ID);
 								let fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
-								let blames = await this.repository.blame(fsPath);
+								let blames: string | undefined;
+								if (this._gitBlameCache[fsPath]) {
+									blames = this._gitBlameCache[fsPath];
+								} else {
+									blames = await this.repository.blame(fsPath);
+									this._gitBlameCache[fsPath] = blames;
+								}
+
 								let blameLines = blames.split('\n');
 
 								for (let line in blameLines) {
@@ -213,7 +223,7 @@ export class PullRequestManager {
 					await Promise.all([prRelatedUsersPromise, fileRelatedUsersNamesPromise, getMentionableUsersPromise]);
 
 					cachedUsers = [];
-					let prRelatedUsersMap = {};
+					let prRelatedUsersMap: { [key: string]: boolean } = {};
 					Logger.debug('prepare user suggestions', PullRequestManager.ID);
 
 					prRelatedusers.forEach(user => {
@@ -229,7 +239,7 @@ export class PullRequestManager {
 						}
 					});
 
-					let secondMap = {};
+					let secondMap: { [key: string]: boolean } = {};
 
 					for (let mentionableUserGroup in mentionableUsers) {
 						mentionableUsers[mentionableUserGroup].forEach(user => {
@@ -243,7 +253,7 @@ export class PullRequestManager {
 								cachedUsers.push({
 									label: `@${user.login}`,
 									insertText: `${user.login}`,
-									filterText: `${user.login}` +  (user.name && user.name !== user.login ? `_${user.name.toLowerCase().replace(' ', '_')}` : ''),
+									filterText: `${user.login}` + (user.name && user.name !== user.login ? `_${user.name.toLowerCase().replace(' ', '_')}` : ''),
 									sortText: `${priority}_${user.login}`,
 									detail: `${user.name}`
 								});
@@ -253,8 +263,7 @@ export class PullRequestManager {
 
 					Logger.debug('done', PullRequestManager.ID);
 					return cachedUsers;
-
-				} catch(e) {
+				} catch (e) {
 					return [];
 				}
 			}
@@ -362,17 +371,17 @@ export class PullRequestManager {
 		});
 	}
 
-	async getMentionableUsers(): Promise<{ [key: string] : IAccount[] }> {
+	async getMentionableUsers(): Promise<{ [key: string]: IAccount[] }> {
 		if (this._mentionableUsers) {
 			return this._mentionableUsers;
 		}
 
 		if (!this._fetchMentionableUsersPromise) {
-			let cache = {};
+			let cache: { [key: string]: IAccount[] } = {};
 			return this._fetchMentionableUsersPromise = new Promise((resolve) => {
-				let promises = [];
+				let promises: Promise<void>[] = [];
 				this._githubRepositories.forEach(githubRepository => {
-					promises.push(new Promise(async (res) => {
+					promises.push(new Promise<void>(async (res) => {
 						let data = await githubRepository.getMentionableUsers();
 						cache[githubRepository.remote.remoteName] = data;
 						res();
@@ -387,7 +396,7 @@ export class PullRequestManager {
 
 		return this._fetchMentionableUsersPromise.then(cache => {
 			this._mentionableUsers = cache;
-			this._fetchMentionableUsersPromise = null;
+			this._fetchMentionableUsersPromise = undefined;
 			return this._mentionableUsers;
 		});
 	}
@@ -649,7 +658,7 @@ export class PullRequestManager {
 			let events = parseGraphQLTimelineEvents(ret);
 			await this.addReviewTimelineEventComments(pullRequest, events);
 			return events;
-	} else {
+		} else {
 			ret = (await octokit.issues.getEventsTimeline({
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -712,7 +721,7 @@ export class PullRequestManager {
 		}
 	}
 
-	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: Comment[]}> {
+	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: Comment[] }> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
@@ -913,7 +922,7 @@ export class PullRequestManager {
 
 			// Create PR
 			let { data } = await repo.octokit.pullRequests.create(params);
-			const item =  convertRESTPullRequestToRawPullRequest(data);
+			const item = convertRESTPullRequestToRawPullRequest(data);
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
 
 			const branchNameSeparatorIndex = params.head.indexOf(':');
@@ -1113,8 +1122,8 @@ export class PullRequestManager {
 
 	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<void> {
 		const action: Promise<void> = await this.getPendingReviewId(pullRequest)
-				? this.submitReview(pullRequest, ReviewEvent.RequestChanges, message)
-				: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
+			? this.submitReview(pullRequest, ReviewEvent.RequestChanges, message)
+			: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
 
 		return action
 			.then(x => {
@@ -1125,8 +1134,8 @@ export class PullRequestManager {
 
 	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<void> {
 		const action: Promise<void> = await this.getPendingReviewId(pullRequest)
-				? this.submitReview(pullRequest, ReviewEvent.Approve, message)
-				: this.createReview(pullRequest, ReviewEvent.Approve, message);
+			? this.submitReview(pullRequest, ReviewEvent.Approve, message)
+			: this.createReview(pullRequest, ReviewEvent.Approve, message);
 
 		return action.then(x => {
 			this._telemetry.on('pr.approve');
@@ -1273,7 +1282,7 @@ export class PullRequestManager {
 		}, {} as { [key: number]: CommentNode });
 
 		const roots: CommentNode[] = [];
-		let i = reviewComments.length; while (i --> 0) {
+		let i = reviewComments.length; while (i-- > 0) {
 			const c: CommentNode = reviewComments[i];
 			if (!c.inReplyToId) {
 				roots.unshift(c);

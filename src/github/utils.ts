@@ -231,7 +231,7 @@ export function getRelatedUsersFromTimelineEvents(timelineEvents: TimelineEvent[
 		if (isCommitEvent(event)) {
 			ret.push({
 				login: event.author.login,
-				name: event.author.name
+				name: event.author.name || ''
 			});
 		}
 
