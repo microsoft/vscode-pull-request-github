@@ -34,7 +34,6 @@ export interface IAccount {
 	ownedPrivateRepositoryCount?: number;
 	privateRepositoryInPlanCount?: number;
 	url: string;
-	type: string;
 }
 
 export interface MergePullRequest {
@@ -65,15 +64,13 @@ export interface PullRequest {
 	state: string;
 	body: string;
 	title: string;
-	assignee: IAccount;
+	assignee?: IAccount;
 	createdAt: string;
 	updatedAt: string;
 	head: IGitHubRef;
 	base: IGitHubRef;
 	user: IAccount;
 	labels: ILabel[];
-	// comments: number;
-	// commits: number;
 	merged: boolean;
 	mergeable?: boolean;
 	nodeId: string;

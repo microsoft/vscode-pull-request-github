@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event } from 'vscode';
+import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
 import * as moment from 'moment';
 
@@ -23,20 +23,16 @@ export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	});
 }
 
-export interface IDisposable {
-	dispose(): void;
-}
-
-export function dispose<T extends IDisposable>(disposables: T[]): T[] {
+export function dispose<T extends Disposable>(disposables: T[]): T[] {
 	disposables.forEach(d => d.dispose());
 	return [];
 }
 
-export function toDisposable(d: () => void): IDisposable {
+export function toDisposable(d: () => void): Disposable {
 	return { dispose: d };
 }
 
-export function combinedDisposable(disposables: IDisposable[]): IDisposable {
+export function combinedDisposable(disposables: Disposable[]): Disposable {
 	return toDisposable(() => dispose(disposables));
 }
 
@@ -117,7 +113,7 @@ export function formatError(e: any): string {
 		if (message) {
 			errorMessage = message.message;
 
-			const furtherInfo = message.errors && message.errors.map(error => {
+			const furtherInfo = message.errors && message.errors.map((error: any) => {
 				if (typeof error === 'string') {
 					return error;
 				} else {
@@ -145,7 +141,7 @@ export interface PromiseAdapter<T, U> {
 	): any;
 }
 
-const passthrough = (value, resolve) => resolve(value);
+const passthrough = (value: any, resolve: (value?: any) => void) => resolve(value);
 
 /**
  * Return a promise that resolves with the next emitted event, or with some future
@@ -164,7 +160,7 @@ const passthrough = (value, resolve) => resolve(value);
 export async function promiseFromEvent<T, U>(
 	event: Event<T>,
 	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
-	let subscription;
+	let subscription: Disposable;
 	return new Promise<U>((resolve, reject) =>
 		subscription = event((value: T) => {
 			try {

@@ -4,20 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as Octokit from '@octokit/rest';
+import * as Octokit from '../common/octokit';
 import { IAccount, PullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import { EventType, TimelineEvent, isCommitEvent, isReviewEvent, isCommentEvent } from '../common/timelineEvent';
+import { ReviewComment } from './graphql';
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: user.avatar_url,
-		type: user.type,
-		isUser: user.type === 'User',
-		isEnterprise: user.type === 'Enterprise'
+		avatarUrl: user.avatar_url
 	};
 }
 
@@ -45,8 +43,6 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 		base,
 		labels,
 		node_id
-		// comments,
-		// commits
 	} = pullRequest;
 
 	const item: PullRequest = {
@@ -56,14 +52,13 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			url: html_url,
 			user: convertRESTUserToAccount(user),
 			state,
-			merged: false,
-			assignee: assignee ? convertRESTUserToAccount(assignee) : null,
+			merged: (pullRequest as Octokit.PullRequestsGetResponse).merged || false,
+			assignee: assignee ? convertRESTUserToAccount(assignee) : undefined,
 			createdAt: created_at,
 			updatedAt: updated_at,
-			// comments,
-			// commits,
 			head: convertRESTHeadToIGitHubRef(head),
 			base: convertRESTHeadToIGitHubRef(base),
+			mergeable: (pullRequest as Octokit.PullRequestsGetResponse).mergeable,
 			labels,
 			nodeId: node_id
 	};
@@ -91,15 +86,16 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 		id: comment.id,
 		diffHunk: '',
 		diffHunks: [],
-		path: null,
-		position: null,
-		commitId: null,
-		originalPosition: null,
-		originalCommitId: null,
+		path: undefined,
+		position: undefined,
+		commitId: undefined,
+		originalPosition: undefined,
+		originalCommitId: undefined,
 		user: convertRESTUserToAccount(comment.user),
 		body: comment.body,
 		createdAt: comment.created_at,
-		htmlUrl: comment.html_url
+		htmlUrl: comment.html_url,
+		graphNodeId: comment.node_id
 	};
 }
 
@@ -118,7 +114,8 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,
-		nodeId: comment.node_id
+		inReplyToId: comment.in_reply_to_id,
+		graphNodeId: comment.node_id
 	};
 
 	let diffHunks = parseCommentDiffHunk(ret);
@@ -146,6 +143,34 @@ export function convertGraphQLEventType(text: string) {
 		default:
 			return EventType.Other;
 	}
+}
+
+export function parseGraphQLComment(comment: ReviewComment): Comment {
+	const c: Comment = {
+		id: comment.databaseId,
+		url: comment.url,
+		body: comment.body,
+		path: comment.path,
+		canEdit: comment.viewerCanDelete,
+		canDelete: comment.viewerCanDelete,
+		pullRequestReviewId: comment.pullRequestReview && comment.pullRequestReview.databaseId,
+		diffHunk: comment.diffHunk,
+		position: comment.position,
+		commitId: comment.commit.oid,
+		originalPosition: comment.originalPosition,
+		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
+		user: comment.author,
+		createdAt: comment.createdAt,
+		htmlUrl: comment.url,
+		graphNodeId: comment.id,
+		isDraft: comment.state === 'PENDING',
+		inReplyToId: comment.replyTo && comment.replyTo.databaseId
+	};
+
+	const diffHunks = parseCommentDiffHunk(c);
+	c.diffHunks = diffHunks;
+
+	return c;
 }
 
 export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {

@@ -7,10 +7,10 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { MergePullRequest, PullRequestStateEnum } from './interface';
+import { PullRequestStateEnum, ReviewEvent } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
-import { GitErrorCodes } from '../typings/git';
+import { GitErrorCodes } from '../git/api';
 import { Comment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
@@ -36,7 +36,7 @@ export class PullRequestOverviewPanel {
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
-	public static currentPanel: PullRequestOverviewPanel | undefined;
+	public static currentPanel?: PullRequestOverviewPanel;
 
 	private static readonly _viewType = 'PullRequestOverview';
 
@@ -46,7 +46,6 @@ export class PullRequestOverviewPanel {
 	private _descriptionNode: DescriptionNode;
 	private _pullRequest: PullRequestModel;
 	private _pullRequestManager: PullRequestManager;
-	private _initialized: boolean;
 	private _scrollPosition = { x: 0, y: 0 };
 
 	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
@@ -62,10 +61,10 @@ export class PullRequestOverviewPanel {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn, title, pullRequestManager, descriptionNode);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
 		}
 
-		PullRequestOverviewPanel.currentPanel.update(pullRequestModel, descriptionNode);
+		PullRequestOverviewPanel.currentPanel!.update(pullRequestModel, descriptionNode);
 	}
 
 	public static refresh(): void {
@@ -129,7 +128,6 @@ export class PullRequestOverviewPanel {
 	}
 
 	public async refreshPanel(): Promise<void> {
-		this._initialized = false;
 		if (this._panel && this._panel.visible) {
 			this.update(this._pullRequest, this._descriptionNode);
 		}
@@ -142,10 +140,7 @@ export class PullRequestOverviewPanel {
 			scrollPosition: this._scrollPosition,
 		});
 
-		if (this._initialized && pullRequestModel.equals(this._pullRequest)) { return; }
-
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
-		this._initialized = true;
 
 		Promise.all([
 			this._pullRequestManager.resolvePullRequest(
@@ -158,11 +153,17 @@ export class PullRequestOverviewPanel {
 			this._pullRequestManager.getStatusChecks(pullRequestModel)
 		]).then(result => {
 			const [pullRequest, timelineEvents, defaultBranch, status] = result;
+			if (!pullRequest) {
+				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
+			}
+
 			this._pullRequest = pullRequest;
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
+			const defaultMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<string>('defaultMergeMethod');
+			const supportsGraphQl = pullRequestModel.githubRepository.supportsGraphQl();
 
 			this._postMessage({
 				command: 'pr.initialize',
@@ -183,7 +184,9 @@ export class PullRequestOverviewPanel {
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
 					status: status,
-					mergeable: this._pullRequest.prItem.mergeable
+					mergeable: this._pullRequest.prItem.mergeable,
+					defaultMergeMethod,
+					supportsGraphQl
 				}
 			});
 		}).catch(e => {
@@ -228,6 +231,8 @@ export class PullRequestOverviewPanel {
 				return this.approvePullRequest(message);
 			case 'pr.request-changes':
 				return this.requestChanges(message);
+			case 'pr.submit':
+				return this.submitReview(message);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message.args);
 			case 'pr.comment':
@@ -258,8 +263,11 @@ export class PullRequestOverviewPanel {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
+			if (!vscode.workspace.rootPath) {
+				throw new Error('Current workspace rootpath is undefined.');
+			}
 			const tempFilePath = path.resolve(vscode.workspace.rootPath, '.git', `${comment.id}.diff`);
-			writeFile(tempFilePath, matches[1], {}, async (writeError) => {
+			writeFile(tempFilePath, matches![1], {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;
 				}
@@ -292,7 +300,7 @@ export class PullRequestOverviewPanel {
 			const prContainer = this._descriptionNode.parent;
 
 			if ((prContainer as TreeNode | Revealable<TreeNode>).revealComment) {
-				(prContainer as TreeNode | Revealable<TreeNode>).revealComment(comment);
+				(prContainer as TreeNode | Revealable<TreeNode>).revealComment!(comment);
 			}
 		} catch (e) {
 			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
@@ -320,7 +328,7 @@ export class PullRequestOverviewPanel {
 	private editComment(message: IRequestMessage<{ comment: Comment, text: string }>) {
 		const { comment, text } = message.args;
 		const editCommentPromise = comment.pullRequestReviewId !== undefined
-			? this._pullRequestManager.editReviewComment(this._pullRequest, comment.id.toString(), text)
+			? this._pullRequestManager.editReviewComment(this._pullRequest, comment, text)
 			: this._pullRequestManager.editIssueComment(this._pullRequest, comment.id.toString(), text);
 
 		editCommentPromise.then(result => {
@@ -351,7 +359,7 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private checkoutPullRequest(message): void {
+	private checkoutPullRequest(message: IRequestMessage<any>): void {
 		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {
 			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
@@ -361,29 +369,21 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private mergePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<MergePullRequest>('pr.merge', this._pullRequest, message.args).then(result => {
-			if (!result) {
-				this._postMessage({
-					command: 'update-state',
-					state: PullRequestStateEnum.Open,
-				});
-				return;
-			}
+	private mergePullRequest(message: IRequestMessage<{ title: string, description: string, method: 'merge' | 'squash' | 'rebase' }>): void {
+		const { title, description, method } = message.args;
+		this._pullRequestManager.mergePullRequest(this._pullRequest, title, description, method).then(result => {
+			vscode.commands.executeCommand('pr.refreshList');
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
 			}
 
-			this._postMessage({
-				command: 'update-state',
+			this._replyMessage(message, {
 				state: result.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Open
 			});
-		}, (_) => {
-			this._postMessage({
-				command: 'update-state',
-				state: PullRequestStateEnum.Open,
-			});
+		}).catch(e => {
+			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+			this._throwError(message, {});
 		});
 	}
 
@@ -440,14 +440,8 @@ export class PullRequestOverviewPanel {
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.approve', this._pullRequest, message.args).then(review => {
-			if (review) {
-				this._replyMessage(message, {
-					value: review
-				});
-			}
-
-			this._throwError(message, {});
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.approve', this._pullRequest, message.args).then(_ => {
+			this.refreshPanel();
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
@@ -456,12 +450,17 @@ export class PullRequestOverviewPanel {
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.requestChanges', this._pullRequest, message.args).then(review => {
-			if (review) {
-				this._replyMessage(message, {
-					value: review
-				});
-			}
+		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.requestChanges', this._pullRequest, message.args).then(_ => {
+			this.refreshPanel();
+		}, (e) => {
+			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
+			this._throwError(message, `${formatError(e)}`);
+		});
+	}
+
+	private submitReview(message: IRequestMessage<string>): void {
+		this._pullRequestManager.submitReview(this._pullRequest, ReviewEvent.Comment, message.args).then(review => {
+			this.refreshPanel();
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);

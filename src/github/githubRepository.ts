@@ -11,10 +11,14 @@ import { PRType, IGitHubRepository, IAccount } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
-import { QueryOptions, MutationOptions, ApolloQueryResult } from 'apollo-boost';
-const queries = require('./queries.gql');
-import { convertRESTPullRequestToRawPullRequest } from './utils';
 
+import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus } from 'apollo-boost';
+import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../view/prDocumentCommentProvider';
+import { convertRESTPullRequestToRawPullRequest } from './utils';
+const queries = require('./queries.gql');
+
+
+\
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
 const GRAPHQL_COMPONENT_ID = 'GraphQL';
@@ -24,14 +28,17 @@ export interface PullRequestData {
 	hasMorePages: boolean;
 }
 
-export class GitHubRepository implements IGitHubRepository {
+export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	static ID = 'GitHubRepository';
-	private _hub: GitHub;
+	private _hub: GitHub | undefined;
 	private _initialized: boolean;
 	private _metadata: any;
+	private _toDispose: vscode.Disposable[] = [];
+
+	public commentsProvider: PRDocumentCommentProvider | PRDocumentCommentProviderGraphQL;
 
 	public get hub(): GitHub {
-		if (this._hub === undefined) {
+		if (!this._hub) {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
 			} else {
@@ -39,6 +46,25 @@ export class GitHubRepository implements IGitHubRepository {
 			}
 		}
 		return this._hub;
+	}
+
+	public async ensureCommentsProvider(): Promise<void> {
+		try {
+			if (this.commentsProvider) {
+				return;
+			}
+
+			await this.ensure();
+			this.commentsProvider = this.supportsGraphQl() ? new PRDocumentCommentProviderGraphQL() : new PRDocumentCommentProvider();
+			this._toDispose.push(vscode.workspace.registerDocumentCommentProvider(this.commentsProvider));
+		} catch (e) {
+			console.log(e);
+		}
+
+	}
+
+	dispose() {
+		this._toDispose.forEach(d => d.dispose());
 	}
 
 	public get octokit(): Octokit {
@@ -52,11 +78,16 @@ export class GitHubRepository implements IGitHubRepository {
 		return !!(this.hub && this.hub.graphql);
 	}
 
-	query = async <T = any>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${query}`, GRAPHQL_COMPONENT_ID);
-			return null;
+			return {
+				data: null,
+				loading: false,
+				networkStatus: NetworkStatus.error,
+				stale: false
+			} as any;
 		}
 
 		Logger.debug(`Request: ${JSON.stringify(query, null, 2)}`, GRAPHQL_COMPONENT_ID);
@@ -65,11 +96,16 @@ export class GitHubRepository implements IGitHubRepository {
 		return rsp;
 	}
 
-	mutate = async <T = any>(mutation: MutationOptions): Promise<ApolloQueryResult<T>> => {
+	mutate = async <T>(mutation: MutationOptions): Promise<ApolloQueryResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
-			return null;
+			return {
+				data: null,
+				loading: false,
+				networkStatus: NetworkStatus.error,
+				stale: false
+			} as any;
 		}
 
 		Logger.debug(`Request: ${JSON.stringify(mutation, null, 2)}`, GRAPHQL_COMPONENT_ID);
@@ -97,7 +133,7 @@ export class GitHubRepository implements IGitHubRepository {
 	async resolveRemote(): Promise<void> {
 		try {
 			const {clone_url} = await this.getMetadata();
-			this.remote = parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol);
+			this.remote = parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol)!;
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
 		}
@@ -143,28 +179,11 @@ export class GitHubRepository implements IGitHubRepository {
 		return 'master';
 	}
 
-	async getBranch(branchName: string): Promise<Octokit.ReposGetBranchResponse> {
-		try {
-			Logger.debug(`Fetch branch ${branchName} - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
-			const { data } = await octokit.repos.getBranch({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				branch: branchName
-			});
-			Logger.debug(`Fetch branch ${branchName} - done`, GitHubRepository.ID);
-
-			return data;
-		} catch (e) {
-			Logger.appendLine(`Fetching branch ${branchName} failed`, GitHubRepository.ID);
-		}
-	}
-
-	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData> {
+	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData | undefined> {
 		return prType === PRType.All ? this.getAllPullRequests(page) : this.getPullRequestsForCategory(prType, page);
 	}
 
-	private async getAllPullRequests(page?: number): Promise<PullRequestData> {
+	private async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
@@ -190,7 +209,7 @@ export class GitHubRepository implements IGitHubRepository {
 						return new PullRequestModel(this, this.remote, item);
 					}
 				)
-				.filter(item => item !== null);
+				.filter(item => item !== null) as PullRequestModel[];
 
 			Logger.debug(`Fetch all pull requests - done`, GitHubRepository.ID);
 			return {
@@ -206,11 +225,9 @@ export class GitHubRepository implements IGitHubRepository {
 				throw e;
 			}
 		}
-
-		return null;
 	}
 
-	private async getPullRequestsForCategory(prType: PRType, page: number): Promise<PullRequestData> {
+	private async getPullRequestsForCategory(prType: PRType, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
@@ -222,8 +239,8 @@ export class GitHubRepository implements IGitHubRepository {
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			let promises = [];
-			data.items.forEach(item => {
+			let promises: Promise<Octokit.Response<Octokit.PullRequestsGetResponse>>[] = [];
+			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
 					let prData = await octokit.pullRequests.get({
 						owner: remote.owner,
@@ -241,8 +258,8 @@ export class GitHubRepository implements IGitHubRepository {
 						Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 						return null;
 					}
-					return new PullRequestModel(this, this.remote, item.data);
-				}).filter(item => item !== null);
+					return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(item.data));
+				}).filter(item => item !== null) as PullRequestModel[];
 			});
 			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - done`, GitHubRepository.ID);
 
@@ -261,7 +278,7 @@ export class GitHubRepository implements IGitHubRepository {
 		}
 	}
 
-	async getPullRequest(id: number): Promise<PullRequestModel> {
+	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
@@ -274,7 +291,7 @@ export class GitHubRepository implements IGitHubRepository {
 
 			if (!data.head.repo) {
 				Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-				return null;
+				return;
 			}
 
 			let item = convertRESTPullRequestToRawPullRequest(data);
@@ -282,7 +299,7 @@ export class GitHubRepository implements IGitHubRepository {
 			return new PullRequestModel(this, remote, item);
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
-			return null;
+			return;
 		}
 	}
 

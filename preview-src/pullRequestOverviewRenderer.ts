@@ -19,6 +19,20 @@ const dotIcon = require('../resources/icons/dot.svg');
 
 const emoji = require('node-emoji');
 
+export const ElementIds = {
+	Checkout: 'checkout',
+	CheckoutDefaultBranch: 'checkout-default-branch',
+	Merge: 'merge',
+	Close: 'close',
+	Refresh: 'refresh',
+	Reply: 'reply',
+	Approve: 'approve',
+	RequestChanges: 'request-changes',
+	Status: 'status',
+	CommentTextArea: 'comment-textarea',
+	TimelineEvents: 'timeline-events' // If updating this value, change id in pullRequestOverview.ts as well.
+};
+
 export enum DiffChangeType {
 	Context,
 	Add,
@@ -82,13 +96,29 @@ function getStateIcon(state: string) {
 	}
 }
 
-export function renderStatusChecks(pr: PullRequest) {
+function setStatusCheckText(container: HTMLElement, state: PullRequestStateEnum) {
+	if (state === PullRequestStateEnum.Merged) {
+		container.innerHTML = 'Pull request successfully merged';
+	}
+
+	if (state === PullRequestStateEnum.Closed) {
+		container.innerHTML = 'This pull request is closed';
+	}
+}
+
+export function renderStatusChecks(pr: PullRequest, messageHandler: MessageHandler) {
 	const statusContainer = document.getElementById('status-checks') as HTMLDivElement;
 	statusContainer.innerHTML = '';
+
+	if (pr.state !== PullRequestStateEnum.Open) {
+		setStatusCheckText(statusContainer, pr.state);
+		return;
+	}
 
 	const { status, mergeable } = pr;
 
 	const statusCheckInformationContainer = document.createElement('div');
+	statusCheckInformationContainer.classList.add('status-section');
 
 	const statusSummary = document.createElement('div');
 	statusSummary.classList.add('status-item');
@@ -135,18 +165,23 @@ export function renderStatusChecks(pr: PullRequest) {
 
 		statusElement.appendChild(state);
 
-		const statusIcon = renderUserIcon(s.url, s.avatar_url);
+		const statusIcon = renderUserIcon(s.target_url, s.avatar_url);
 		statusElement.appendChild(statusIcon);
 
 		const statusDescription = document.createElement('span');
 		statusDescription.textContent = `${s.context} - ${s.description}`;
 		statusElement.appendChild(statusDescription);
 
+		const detailsLink = document.createElement('a');
+		detailsLink.textContent = 'Details';
+		detailsLink.href = s.target_url;
+		statusElement.appendChild(detailsLink);
+
 		statusList.appendChild(statusElement);
 	});
 
 	const mergeableSummary = document.createElement('div');
-	mergeableSummary.classList.add('status-item');
+	mergeableSummary.classList.add('status-item', 'status-section');
 	const mergeableSummaryIcon = document.createElement('div');
 	const mergeableSummaryText = document.createElement('div');
 	mergeableSummaryIcon.innerHTML = mergeable ? checkIcon : deleteIcon;
@@ -154,6 +189,114 @@ export function renderStatusChecks(pr: PullRequest) {
 	mergeableSummaryText.textContent = mergeable ? 'This branch has no conflicts with the base branch' : 'This branch has conflicts that must be resolved';
 	mergeableSummary.appendChild(mergeableSummaryText);
 	statusContainer.appendChild(mergeableSummary);
+
+	renderMerge(pr, messageHandler, statusContainer);
+}
+
+function renderMerge(pr: PullRequest, messageHandler: MessageHandler, container: HTMLElement) {
+	const mergeContainer = document.createElement('div');
+	container.appendChild(mergeContainer);
+
+	const mergeSelectorContainer = document.createElement('div');
+	mergeSelectorContainer.classList.add('merge-select-container');
+	const mergeButton = document.createElement('button');
+	mergeButton.id = 'merge';
+	mergeButton.textContent = 'Merge Pull Request';
+	const mergeText = document.createElement('div');
+	mergeText.textContent = 'using method';
+	const mergeSelector = document.createElement('select');
+	mergeSelector.innerHTML = `
+		<option value="merge">Create Merge Commit</option>
+		<option value="squash">Squash and Merge</option>
+		<option value="rebase">Rebase and Merge</option>`;
+
+	mergeSelector.value = pr.defaultMergeMethod;
+
+	mergeSelectorContainer.appendChild(mergeButton);
+	mergeSelectorContainer.appendChild(mergeText);
+	mergeSelectorContainer.appendChild(mergeSelector);
+
+	mergeButton.addEventListener('click', () => {
+		if (mergeSelector.value !== 'rebase') {
+			mergeInputsContainer.classList.remove('hidden');
+		}
+		mergeActionsContainer.classList.remove('hidden');
+		mergeSelectorContainer.classList.add('hidden');
+
+		title.value = getDefaultTitleText(mergeSelector.value, pr);
+		description.value = getDefaultDescriptionText(mergeSelector.value, pr);
+		completeMergeButton.textContent = mergeSelector.selectedOptions[0].text;
+	});
+
+	const mergeInputsContainer = document.createElement('div');
+	mergeInputsContainer.classList.add('hidden');
+	const title = document.createElement('input');
+	title.type = 'text';
+	const description = document.createElement('textarea');
+	description.placeholder = 'Add an optional extended description';
+
+	mergeInputsContainer.appendChild(title);
+	mergeInputsContainer.appendChild(description);
+
+	const mergeActionsContainer = document.createElement('div');
+	mergeActionsContainer.classList.add('hidden', 'form-actions');
+	const completeMergeButton = document.createElement('button');
+	completeMergeButton.id = 'confirm-merge';
+	completeMergeButton.textContent = 'Confirm Merge';
+	const cancelButton = document.createElement('button');
+	cancelButton.textContent = 'Cancel';
+	cancelButton.classList.add('secondary');
+
+	cancelButton.addEventListener('click', () => {
+		mergeInputsContainer.classList.add('hidden');
+		mergeActionsContainer.classList.add('hidden');
+		mergeSelectorContainer.classList.remove('hidden');
+	});
+
+	completeMergeButton.addEventListener('click', () => {
+		completeMergeButton.disabled = true;
+		cancelButton.disabled = true;
+		messageHandler.postMessage({
+			command: 'pr.merge',
+			args: {
+				title: title.value,
+				description: description.value,
+				method: mergeSelector.value
+			}
+		}).then(response => {
+			container.innerHTML = 'Pull request successfully merged';
+			updatePullRequestState(response.state);
+		}).catch(_ => {
+			mergeInputsContainer.classList.add('hidden');
+			mergeActionsContainer.classList.add('hidden');
+			mergeSelectorContainer.classList.remove('hidden');
+
+			completeMergeButton.disabled = false;
+			cancelButton.disabled = false;
+		});
+	});
+
+	mergeActionsContainer.appendChild(cancelButton);
+	mergeActionsContainer.appendChild(completeMergeButton);
+
+	mergeContainer.appendChild(mergeSelectorContainer);
+	mergeContainer.appendChild(mergeInputsContainer);
+	mergeContainer.appendChild(mergeActionsContainer);
+}
+
+function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
+	switch (mergeMethod) {
+		case 'merge':
+			return `Merge pull request #${pr.number} from ${pr.head}`;
+		case 'squash':
+			return pr.title;
+		default:
+			return '';
+	}
+}
+
+function getDefaultDescriptionText(mergeMethod: string, pr: PullRequest) {
+	return mergeMethod === 'merge' ? pr.title : '';
 }
 
 function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
@@ -173,83 +316,70 @@ function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
 	return iconContainer;
 }
 
+export function updatePullRequestState(state: PullRequestStateEnum): void {
+	updateState({ state: state });
+
+	const merge = (<HTMLButtonElement>document.getElementById(ElementIds.Merge));
+	if (merge) {
+		const { mergeable } = getState();
+		merge.disabled = !mergeable || state !== PullRequestStateEnum.Open;
+	}
+
+	const close = (<HTMLButtonElement>document.getElementById(ElementIds.Close));
+	if (close) {
+		close.disabled = state !== PullRequestStateEnum.Open;
+	}
+
+	const checkout = (<HTMLButtonElement>document.getElementById(ElementIds.Checkout));
+	if (checkout) {
+		checkout.disabled = checkout.disabled || state !== PullRequestStateEnum.Open;
+	}
+
+	const approve = (<HTMLButtonElement>document.getElementById(ElementIds.Approve));
+	if (approve) {
+		approve.disabled = state !== PullRequestStateEnum.Open;
+	}
+
+	const status = document.getElementById(ElementIds.Status);
+	status!.innerHTML = getStatus(state);
+
+	if (state !== PullRequestStateEnum.Open) {
+		setStatusCheckText(document.getElementById('status-checks'), state);
+	}
+}
+
 export interface ActionData {
 	body: string;
 	id: string;
 }
 
-export class ActionsBar {
-	private _actionsBar: HTMLDivElement | undefined;
+export class EditAction {
 	private _editingContainer: HTMLDivElement | undefined;
 	private _editingArea: HTMLTextAreaElement | undefined;
 	private _updateStateTimer: number = -1;
 
-	constructor(private _container: HTMLElement,
+	constructor (
 		private _data: ActionData | Comment,
 		private _renderedComment: HTMLElement,
 		private _messageHandler: MessageHandler,
 		private _updateHandler: (value: any) => void,
-		private _editCommand?: string,
-		private _deleteCommand?: string,
-		private _review?: ReviewNode) {
+		private _editCommand: string,
+		private _elementsToHide: HTMLElement[]) {
 
 	}
 
-	render(): HTMLElement {
-		this._actionsBar = document.createElement('div');
-		this._actionsBar.classList.add('comment-actions', 'hidden');
-
-		if (this._editCommand) {
-			const editButton = document.createElement('button');
-			editButton.innerHTML = editIcon;
-			editButton.addEventListener('click', () => this.startEdit());
-			this._actionsBar.appendChild(editButton);
-		}
-
-		if (this._deleteCommand) {
-			const deleteButton = document.createElement('button');
-			deleteButton.innerHTML = deleteIcon;
-			deleteButton.addEventListener('click', () => this.delete());
-			this._actionsBar.appendChild(deleteButton);
-		}
-
-		return this._actionsBar;
-	}
-
-	registerActionBarListeners(): void {
-		this._container.addEventListener('mouseenter', () => {
-			if (!this._editingContainer) {
-				this._actionsBar!.classList.remove('hidden');
-			}
-		});
-
-		this._container.addEventListener('focusin', () => {
-			if (!this._editingContainer) {
-				this._actionsBar!.classList.remove('hidden');
-			}
-		});
-
-		this._container.addEventListener('mouseleave', () => {
-			if (!this._container.contains(document.activeElement)) {
-				this._actionsBar!.classList.add('hidden');
-			}
-		});
-
-		this._container.addEventListener('focusout', (e) => {
-			if (!this._container.contains((<any>e).target)) {
-				this._actionsBar!.classList.add('hidden');
-			}
-		});
+	isEditing(): boolean {
+		return !!this._editingContainer;
 	}
 
 	startEdit(text?: string): void {
-		this._actionsBar!.classList.add('hidden');
 		this._editingContainer = document.createElement('div');
 		this._editingContainer.className = 'editing-form';
 		this._editingArea = document.createElement('textarea');
 		this._editingArea.value = text || this._data.body;
 
 		this._renderedComment.classList.add('hidden');
+		this._elementsToHide.forEach(element => element.classList.add('hidden'));
 
 		const cancelButton = document.createElement('button');
 		cancelButton.textContent = 'Cancel';
@@ -308,7 +438,7 @@ export class ActionsBar {
 		this._editingArea = undefined;
 
 		this._renderedComment.classList.remove('hidden');
-		this._actionsBar!.classList.remove('hidden');
+		this._elementsToHide.forEach(element => element.classList.remove('hidden'));
 
 		if (text !== undefined) {
 			this._data.body = text;
@@ -323,6 +453,76 @@ export class ActionsBar {
 		if (pendingCommentDrafts) {
 			delete pendingCommentDrafts[this._data.id];
 			updateState({ pendingCommentDrafts: pendingCommentDrafts });
+		}
+	}
+}
+
+export class ActionsBar {
+	private _actionsBar: HTMLDivElement | undefined;
+	private _editAction: EditAction | undefined;
+
+	constructor(private _container: HTMLElement,
+		private _data: ActionData | Comment,
+		private _renderedComment: HTMLElement,
+		private _messageHandler: MessageHandler,
+		private _updateHandler: (value: any) => void,
+		private _editCommand?: string,
+		private _deleteCommand?: string,
+		private _review?: ReviewNode) {
+
+	}
+
+	render(): HTMLElement {
+		this._actionsBar = document.createElement('div');
+		this._actionsBar.classList.add('comment-actions', 'hidden');
+
+		if (this._editCommand) {
+			const editButton = document.createElement('button');
+			editButton.innerHTML = editIcon;
+			this._editAction = new EditAction(this._data, this._renderedComment, this._messageHandler, this._updateHandler, this._editCommand, [this._actionsBar]);
+			editButton.addEventListener('click', () => this._editAction.startEdit());
+			this._actionsBar.appendChild(editButton);
+		}
+
+		if (this._deleteCommand) {
+			const deleteButton = document.createElement('button');
+			deleteButton.innerHTML = deleteIcon;
+			deleteButton.addEventListener('click', () => this.delete());
+			this._actionsBar.appendChild(deleteButton);
+		}
+
+		return this._actionsBar;
+	}
+
+	registerActionBarListeners(): void {
+		this._container.addEventListener('mouseenter', () => {
+			if (this._editAction && !this._editAction.isEditing()) {
+				this._actionsBar!.classList.remove('hidden');
+			}
+		});
+
+		this._container.addEventListener('focusin', () => {
+			if (this._editAction && !this._editAction.isEditing()) {
+				this._actionsBar!.classList.remove('hidden');
+			}
+		});
+
+		this._container.addEventListener('mouseleave', () => {
+			if (!this._container.contains(document.activeElement)) {
+				this._actionsBar!.classList.add('hidden');
+			}
+		});
+
+		this._container.addEventListener('focusout', (e) => {
+			if (!this._container.contains((<any>e).target)) {
+				this._actionsBar!.classList.add('hidden');
+			}
+		});
+	}
+
+	startEdit(text?: string): void {
+		if (this._editAction) {
+			this._editAction.startEdit(text);
 		}
 	}
 
@@ -376,8 +576,7 @@ class CommentNode {
 		commentHeader.appendChild(userIcon);
 		commentHeader.appendChild(authorLink);
 
-		const isPending = this._review && this._review.isPending();
-		if (isPending) {
+		if ((this._comment as Comment).isDraft) {
 			const pendingTag = document.createElement('a');
 			pendingTag.className = 'pending';
 			pendingTag.href = this._comment.htmlUrl;
@@ -505,18 +704,18 @@ function getDiffChangeClass(type: DiffChangeType) {
 	}
 }
 
-export function renderReview(review: ReviewEvent, messageHandler: MessageHandler): HTMLElement | undefined {
-	const reviewNode = new ReviewNode(review, messageHandler);
+export function renderReview(review: ReviewEvent, messageHandler: MessageHandler, supportsGraphQl: boolean): HTMLElement | undefined {
+	const reviewNode = new ReviewNode(review, messageHandler, supportsGraphQl);
 	return reviewNode.render();
 }
 
 class ReviewNode {
 	private _commentContainer: HTMLDivElement | undefined;
 
-	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler) { }
+	constructor(private _review: ReviewEvent, private _messageHandler: MessageHandler, private _supportsGraphQl: boolean) { }
 
 	isPending(): boolean {
-		return this._review.state === 'pending';
+		return this._review.state.toLowerCase() === 'pending';
 	}
 
 	deleteCommentFromReview(comment: Comment): void {
@@ -673,9 +872,51 @@ class ReviewNode {
 			}
 
 			reviewCommentContainer.appendChild(commentBody);
+
+			if (this.isPending() && this._supportsGraphQl) {
+				this.renderSubmitButtons(reviewCommentContainer);
+			}
 		}
 
 		return this._commentContainer;
+	}
+
+	private renderSubmitButtons(reviewCommentContainer: HTMLElement) {
+		const commentingContainer = document.createElement('div');
+		commentingContainer.classList.add('comment-form');
+		reviewCommentContainer.appendChild(commentingContainer);
+
+		const commentingArea = document.createElement('textarea');
+		commentingArea.placeholder = 'Leave a review summary comment';
+		commentingContainer.appendChild(commentingArea);
+
+		const formActions = document.createElement('div');
+		formActions.classList.add('form-actions');
+		commentingContainer.appendChild(formActions);
+
+		this.renderSubmitButton('Request Changes', 'pr.request-changes', formActions, commentingArea);
+		this.renderSubmitButton('Approve', 'pr.approve', formActions, commentingArea);
+		this.renderSubmitButton('Submit', 'pr.submit', formActions, commentingArea);
+	}
+
+	private renderSubmitButton(buttonText: string, buttonAction: string, container: HTMLElement, commentingArea: HTMLTextAreaElement) {
+		const submitButton = document.createElement('button');
+		submitButton.id = buttonAction.slice(3);
+		submitButton.textContent = buttonText;
+		submitButton.addEventListener('click', () => {
+			submitButton.disabled = true;
+			this._messageHandler.postMessage({
+				command: buttonAction,
+				args: commentingArea.value
+			}).then(message => {
+				// No-op, page is refreshed
+			}, err => {
+				// Handle error
+				submitButton.disabled = false;
+			});
+		});
+
+		container.appendChild(submitButton);
 	}
 
 	openDiff(comment: Comment) {
@@ -688,9 +929,9 @@ class ReviewNode {
 	}
 }
 
-export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler): HTMLElement | undefined {
+export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler, state: PullRequest): HTMLElement | undefined {
 	if (isReviewEvent(timelineEvent)) {
-		return renderReview(timelineEvent, messageHandler);
+		return renderReview(timelineEvent, messageHandler, state.supportsGraphQl);
 	}
 
 	if (isCommitEvent(timelineEvent)) {

@@ -29,6 +29,8 @@ export interface PullRequest {
 	pendingCommentDrafts?: { [key: string]: string; };
 	status: ReposGetCombinedStatusForRefResponse;
 	mergeable: boolean;
+	defaultMergeMethod: string;
+	supportsGraphQl: boolean;
 }
 
 export function getState(): PullRequest {

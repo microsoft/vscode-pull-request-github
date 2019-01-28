@@ -104,7 +104,11 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 
 fragment ReviewComment on PullRequestReviewComment {
 	id databaseId url
-	author { login avatarUrl }
+	author {
+		login
+		avatarUrl
+		url
+	}
 	path originalPosition
 	body
 	diffHunk
@@ -112,8 +116,17 @@ fragment ReviewComment on PullRequestReviewComment {
 	state
 	pullRequestReview { databaseId }
 	commit {
-		id
+		oid
 	}
+	replyTo {
+		databaseId
+	}
+	createdAt
+	originalCommit {
+		oid
+	}
+	viewerCanUpdate
+	viewerCanDelete
 }
 
 query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
@@ -146,16 +159,26 @@ mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	}
 }
 
+mutation EditComment($input: UpdatePullRequestReviewCommentInput!) {
+	updatePullRequestReviewComment(input: $input) {
+		pullRequestReviewComment {
+			...ReviewComment
+		}
+	}
+}
+
 mutation StartReview($input: AddPullRequestReviewInput!) {
 	addPullRequestReview(input: $input) {
 		pullRequestReview { id }
 	}
 }
 
-mutation SubmitReview($id: ID!) {
+
+mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!, $body: String) {
 	submitPullRequestReview(input: {
-		event: COMMENT,
-		pullRequestReviewId: $id
+		event: $event,
+		pullRequestReviewId: $id,
+		body: $body
 	}) {
 		pullRequestReview {
 			comments(first:100) {
@@ -168,6 +191,7 @@ mutation SubmitReview($id: ID!) {
 mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 	deletePullRequestReview(input: $input) {
 		pullRequestReview {
+			databaseId
 			comments(first:100) {
 					nodes { ...ReviewComment }
 			}

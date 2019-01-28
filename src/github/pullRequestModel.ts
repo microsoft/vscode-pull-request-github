@@ -34,9 +34,9 @@ export class PullRequestModel {
 			return this.prItem.user.avatarUrl;
 		}
 
-		return null;
+		return '';
 	}
-	public get userAvatarUri(): vscode.Uri {
+	public get userAvatarUri(): vscode.Uri | undefined {
 		if (this.prItem) {
 			let key = this.userAvatar;
 			let gravatar = vscode.Uri.parse(`${key}&s=${64}`);
@@ -50,14 +50,14 @@ export class PullRequestModel {
 			return gravatar;
 		}
 
-		return null;
+		return undefined;
 	}
 
 	public get body(): string {
 		if (this.prItem) {
 			return this.prItem.body;
 		}
-		return null;
+		return '';
 	}
 
 	public bodyHTML?: string;
@@ -93,7 +93,7 @@ export class PullRequestModel {
 		this.base = new GitHubRef(prItem.base.ref, prItem.base.label, prItem.base.sha, prItem.base.repo.cloneUrl);
 	}
 
-	equals(other: PullRequestModel): boolean {
+	equals(other: PullRequestModel | undefined): boolean {
 		if (!other) {
 			return false;
 		}
