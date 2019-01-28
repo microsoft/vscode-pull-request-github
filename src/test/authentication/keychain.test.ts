@@ -56,7 +56,7 @@ describe('keychain', () => {
 
 	describe('getToken', () => {
 		it('gets tokens from the system keychain if available', async () => {
-			await keychain.setPassword(null, 'github.com', 'monalisa');
+			await keychain.setPassword('', 'github.com', 'monalisa');
 			assert.equal(await getToken('github.com', { storage, keychain }), 'monalisa');
 		});
 
@@ -69,7 +69,7 @@ describe('keychain', () => {
 	describe('setToken', () => {
 		it('sets tokens into the system keychain if available', async () => {
 			await setToken('github.com', '🤫', { storage, keychain });
-			assert.equal(await keychain.getPassword(null, 'github.com'), '🤫');
+			assert.equal(await keychain.getPassword('', 'github.com'), '🤫');
 		});
 
 		it('falls back to storage if the keychain fails', async () => {
@@ -98,7 +98,7 @@ describe('keychain', () => {
 
 			it('removes tokens from the keychain', async () => {
 				await deleteToken('github.com', { storage, keychain });
-				assert.equal(await keychain.getPassword(null, 'github.com'), void 0);
+				assert.equal(await keychain.getPassword('', 'github.com'), void 0);
 			});
 
 			it('removes hosts from the hosts list', async () => {

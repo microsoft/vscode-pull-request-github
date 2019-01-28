@@ -20,7 +20,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: Comment[] = [];
-	private _pullrequest: PullRequestModel = null;
+	private _pullrequest?: PullRequestModel;
 	private _pullRequestManager: PullRequestManager;
 	private _view: vscode.TreeView<TreeNode>;
 
@@ -28,9 +28,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		return this._view;
 	}
 
-	private _descriptionNode: DescriptionNode;
-	private _filesCategoryNode: FilesCategoryNode;
-	private _commitsCategoryNode: CommitsNode;
+	private _descriptionNode?: DescriptionNode;
+	private _filesCategoryNode?: FilesCategoryNode;
+	private _commitsCategoryNode?: CommitsNode;
 
 	constructor(private _context: vscode.ExtensionContext) {
 		super(() => this.dispose());
@@ -38,16 +38,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			treeDataProvider: this,
 			showCollapseAll: true
 		});
-		this._descriptionNode = null;
-		this._filesCategoryNode = null;
-		this._commitsCategoryNode = null;
 		this._context.subscriptions.push(this._view);
 	}
 
 	refresh() {
-		this._descriptionNode = null;
-		this._filesCategoryNode = null;
-		this._commitsCategoryNode = null;
+		this._descriptionNode = undefined;
+		this._filesCategoryNode = undefined;
+		this._commitsCategoryNode = undefined;
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -63,9 +60,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		);
 
 		this._localFileChanges = fileChanges;
-		this._descriptionNode = null;
-		this._filesCategoryNode = null;
-		this._commitsCategoryNode = null;
+		this._descriptionNode = undefined;
+		this._filesCategoryNode = undefined;
+		this._commitsCategoryNode = undefined;
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -104,28 +101,36 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 		if (fileChange) {
 			await this.reveal(fileChange, { focus: true, expand: 2 });
+			if (!fileChange.command.arguments) {
+				return;
+			}
 			if (fileChange instanceof GitFileChangeNode) {
 				let lineNumber = fileChange.getCommentPosition(comment);
-				let [ parentFilePath, filePath, fileName, isPartial, opts ] = fileChange.command.arguments;
+				const opts = fileChange.opts;
 				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				await vscode.commands.executeCommand(fileChange.command.command, parentFilePath, filePath, fileName, isPartial, opts);
+				fileChange.opts = opts;
+				await vscode.commands.executeCommand(fileChange.command.command, fileChange);
 			} else {
-				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments);
+				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments!);
 			}
 		}
 	}
 
-	getChildren(element?: GitFileChangeNode): vscode.ProviderResult<TreeNode[]> {
+	async getChildren(element?: GitFileChangeNode): Promise<TreeNode[]> {
+		if (!this._pullrequest) {
+			return [];
+		}
+
 		if (!element) {
 			if (!this._descriptionNode || !this._filesCategoryNode || !this._commitsCategoryNode) {
 				this._descriptionNode = new DescriptionNode(this, this._pullrequest.title,
-					this._pullrequest.userAvatarUri, this._pullrequest);
+					this._pullrequest.userAvatarUri!, this._pullrequest);
 				this._filesCategoryNode = new FilesCategoryNode(this._view, this._localFileChanges);
 				this._commitsCategoryNode = new CommitsNode(this._view, this._pullRequestManager, this._pullrequest, this._comments);
 			}
 			return [ this._descriptionNode, this._filesCategoryNode, this._commitsCategoryNode ];
 		} else {
-			return element.getChildren();
+			return await element.getChildren();
 		}
 	}
 

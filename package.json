@@ -87,6 +87,16 @@
           "deprecationMessage": "The setting `githubPullRequests.includeRemotes` has been deprecated. Use `githubPullRequests.remotes` to configure what remotes are shown.",
           "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
         },
+        "githubPullRequests.defaultMergeMethod": {
+          "type": "string",
+          "enum": [
+            "merge",
+            "squash",
+            "rebase"
+          ],
+          "default": "merge",
+          "description": "The method to use when merging pull requests."
+        },
         "telemetry.optout": {
           "type": "boolean",
           "default": false,
@@ -435,7 +445,7 @@
     "tslint-webpack-plugin": "^1.2.2",
     "typescript": "^2.1.4",
     "webpack": "^4.1.0",
-    "webpack-cli": "^2.0.10"
+    "webpack-cli": "^3.2.1"
   },
   "dependencies": {
     "@octokit/rest": "^15.15.1",
@@ -459,6 +469,7 @@
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "tunnel": "0.0.6",
     "vscode": "^1.1.18",
+    "vsls": "^0.3.967",
     "ws": "^6.0.0"
   },
   "optionalDependencies": {

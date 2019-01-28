@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as Octokit from '@octokit/rest';
+import * as Octokit from '../common/octokit';
 import { IAccount, PullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
@@ -53,13 +53,13 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			user: convertRESTUserToAccount(user),
 			state,
 			merged: (pullRequest as Octokit.PullRequestsGetResponse).merged || false,
-			assignee: assignee ? convertRESTUserToAccount(assignee) : null,
+			assignee: assignee ? convertRESTUserToAccount(assignee) : undefined,
 			createdAt: created_at,
 			updatedAt: updated_at,
 			head: convertRESTHeadToIGitHubRef(head),
 			base: convertRESTHeadToIGitHubRef(base),
-			labels,
 			mergeable: (pullRequest as Octokit.PullRequestsGetResponse).mergeable,
+			labels,
 			nodeId: node_id
 	};
 
@@ -86,11 +86,11 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 		id: comment.id,
 		diffHunk: '',
 		diffHunks: [],
-		path: null,
-		position: null,
-		commitId: null,
-		originalPosition: null,
-		originalCommitId: null,
+		path: undefined,
+		position: undefined,
+		commitId: undefined,
+		originalPosition: undefined,
+		originalCommitId: undefined,
 		user: convertRESTUserToAccount(comment.user),
 		body: comment.body,
 		createdAt: comment.created_at,
@@ -114,6 +114,7 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,
+		inReplyToId: comment.in_reply_to_id,
 		graphNodeId: comment.node_id
 	};
 
@@ -162,7 +163,8 @@ export function parseGraphQLComment(comment: ReviewComment): Comment {
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
-		isDraft: comment.state === 'PENDING'
+		isDraft: comment.state === 'PENDING',
+		inReplyToId: comment.replyTo && comment.replyTo.databaseId
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);

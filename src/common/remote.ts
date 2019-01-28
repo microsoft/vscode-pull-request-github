@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Protocol } from './protocol';
-import { Repository } from '../typings/git';
+import { Repository } from '../git/api';
 
 export class Remote {
 	public get host(): string {
@@ -19,7 +19,7 @@ export class Remote {
 
 	public get normalizedHost(): string {
 		const normalizedUri = this.gitProtocol.normalizeUri();
-		return `${normalizedUri.scheme}://${normalizedUri.authority}`;
+		return `${normalizedUri!.scheme}://${normalizedUri!.authority}`;
 	}
 
 	constructor(
@@ -46,7 +46,10 @@ export class Remote {
 	}
 }
 
-export function parseRemote(remoteName: string, url: string, originalProtocol?: Protocol): Remote | null {
+export function parseRemote(remoteName: string, url: string | undefined, originalProtocol?: Protocol): Remote | null {
+	if (!url) {
+		return null;
+	}
 	let gitProtocol = new Protocol(url);
 	if (originalProtocol) {
 		gitProtocol.update({
@@ -64,5 +67,5 @@ export function parseRemote(remoteName: string, url: string, originalProtocol?: 
 export function parseRepositoryRemotes(repository: Repository): Remote[] {
 	return repository.state.remotes
 		.map(r => parseRemote(r.name, r.fetchUrl || r.pushUrl))
-		.filter(r => !!r);
+		.filter(r => !!r) as Remote[];
 }

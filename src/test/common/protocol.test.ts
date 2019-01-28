@@ -13,10 +13,10 @@ Host gh
   HostName github.com
 `;
 
-const str = x => JSON.stringify(x);
+const str = (x: any) => JSON.stringify(x);
 
-const testRemote = remote => describe(`new Protocol(${str(remote.uri)})`, () => {
-	let protocol;
+const testRemote = (remote: { uri: any, expectedType: ProtocolType, expectedHost: string, expectedOwner: string, expectedRepositoryName: string }) => describe(`new Protocol(${str(remote.uri)})`, () => {
+	let protocol: Protocol;
 	before(() => protocol = new Protocol(remote.uri));
 
 	it(`type should be ${ProtocolType[remote.expectedType]}`, () =>

@@ -70,8 +70,8 @@ export class Resource {
 		}
 
 		return {
-			light: iconUri,
-			dark: iconDarkUri
+			light: iconUri!,
+			dark: iconDarkUri!
 		};
 	}
 }

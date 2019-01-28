@@ -12,7 +12,7 @@ export const agent = getAgent();
  * @param {string} url the proxy URL, (default: `process.env.HTTPS_PROXY`)
  * @returns {https.Agent}
  */
-function getAgent(url: string = process.env.HTTPS_PROXY): Agent {
+function getAgent(url: string | undefined = process.env.HTTPS_PROXY): Agent {
 	if (!url) { return globalAgent; }
 	try {
 		const { hostname, port, username, password } = new URL(url);

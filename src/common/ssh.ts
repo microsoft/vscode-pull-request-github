@@ -68,18 +68,18 @@ export class Resolvers {
 	static current = Resolvers.default;
 }
 
-const parse = (url: string): Config | null => {
+const parse = (url: string): Config | undefined => {
 	const urlMatch = URL_SCHEME_RE.exec(url);
 	if (urlMatch) {
 		const [fullSchemePrefix, scheme] = urlMatch;
 		if (scheme === 'ssh') {
 			url = url.slice(fullSchemePrefix.length);
 		} else {
-			return null;
+			return;
 		}
 	}
 	const match = SSH_URL_RE.exec(url);
-	if (!match) { return null; }
+	if (!match) { return; }
 	const [, User, Host, path] = match;
 	return {User, Host, path};
 };
@@ -91,7 +91,7 @@ function baseResolver(config: Config) {
 	};
 }
 
-function resolverFromConfigFile(configPath=join(homedir(), '.ssh', 'config')): ConfigResolver {
+function resolverFromConfigFile(configPath=join(homedir(), '.ssh', 'config')): ConfigResolver | undefined {
 	try {
 		const config = readFileSync(configPath).toString();
 		return resolverFromConfig(config);
@@ -105,8 +105,8 @@ export function resolverFromConfig(text: string): ConfigResolver {
 	return h => config.compute(h.Host);
 }
 
-function chainResolvers(...chain: ConfigResolver[]): ConfigResolver {
-	const resolvers = chain.filter(x => !!x);
+function chainResolvers(...chain: (ConfigResolver | undefined)[]): ConfigResolver {
+	const resolvers = chain.filter(x => !!x) as ConfigResolver[];
 	return  (config: Config) => resolvers
 		.reduce((resolved, next) => ({
 			...resolved,

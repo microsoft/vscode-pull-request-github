@@ -3,14 +3,22 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-a:focus, input:focus, select:focus, textarea:focus {
+a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.title-text {
+	margin-right: 5px;
 }
 
  .title {
 	display: flex;
 	align-items: flex-start;
 	margin-top: 20px;
+}
+
+.title .pr-number {
+	margin-left: 5px;
 }
 
 .comment-body li div {
@@ -125,9 +133,16 @@ body .comment-container .review-comment-header {
 	margin-left: 15px;
 }
 
-.status-item {
+.status-item, #status-checks .form-actions {
 	display: flex;
-	padding-top: 12px;
+}
+
+#confirm-merge {
+	margin-left: auto;
+}
+
+.status-section {
+	padding-bottom: 12px;
 }
 
 #status-checks a {
@@ -136,7 +151,9 @@ body .comment-container .review-comment-header {
 }
 
 #status-checks {
-	margin-top: 5px;
+	padding: 10px;
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	margin-top: 20px;
 }
 
 #status-checks summary {
@@ -148,6 +165,15 @@ body .comment-container .review-comment-header {
 	fill: var(--vscode-foreground);
 	margin-right: 6px;
 	width: 12px;
+}
+
+#status-checks .merge-select-container {
+	display: flex;
+	align-items: center;
+}
+
+#status-checks .merge-select-container > * {
+	margin-right: 5px;
 }
 
 body .comment-container .review-comment-header > span,
@@ -424,19 +450,51 @@ body .comment-form {
 	padding: 20px 0 10px;
 }
 
-textarea {
+.review-comment-container .comment-form {
+	margin: 0 0 0 36px;
+	padding: 10px 0;
+}
+
+.review-comment-container #request-changes {
+	margin-left: auto;
+}
+
+.review-comment-container #submit {
+	margin-right: 0;
+}
+
+textarea, input {
 	display: block;
 	box-sizing: border-box;
 	padding: 10px;
 	width: 100%;
-	min-height: 100px;
-	max-height: 500px;
 	resize: vertical;
 	font-size: 13px;
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
 	font-family: var(--vscode-editor-font-family);
+}
+
+select {
+	display: block;
+	box-sizing: border-box;
+	padding: 4px 12px;
+	border-radius: 0;
+	font-size: 13px;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	border: 1px solid transparent;
+}
+
+#status-checks textarea {
+	margin: 10px 0;
+}
+
+textarea {
+	min-height: 100px;
+	max-height: 500px;
 }
 
 textarea:focus {
@@ -464,7 +522,7 @@ textarea:focus {
 }
 
 body .comment-form .form-actions {
-	padding-top: 20px;
+	padding-top: 10px;
 	margin-bottom: 10px;
 	display: flex;
 }

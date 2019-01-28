@@ -16,15 +16,16 @@ export interface Comment {
 	id: number;
 	pullRequestReviewId?: number;
 	diffHunk: string;
-	path: string;
-	position: number;
+	path?: string;
+	position?: number;
 	commitId?: string;
-	originalPosition: number;
-	originalCommitId: string;
-	user: IAccount;
+	originalPosition?: number;
+	originalCommitId?: string;
+	user?: IAccount;
 	body: string;
 	createdAt: string;
 	htmlUrl: string;
 	isDraft?: boolean;
+	inReplyToId?: number;
 	graphNodeId: string;
 }
