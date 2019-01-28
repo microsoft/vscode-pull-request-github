@@ -850,6 +850,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
 	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
 	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
+		if (uri.scheme !== 'review') {
+			return;
+		}
+
 		let fileName = uri.path;
 		let matchingComments = this._comments.filter(comment => nodePath.resolve(this._repository.rootUri.fsPath, comment.path!) === fileName && comment.position !== null);
 		if (matchingComments && matchingComments.length) {
