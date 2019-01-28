@@ -7,7 +7,7 @@ import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
 import { getDiffLineByPosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getZeroBased, getAbsolutePosition } from '../common/diffPositionMapping';
-import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams } from '../common/uri';
+import { toReviewUri, fromReviewUri, fromPRUri, ReviewUriParams, toDiffViewFileUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange } from '../common/file';
@@ -668,7 +668,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.fileName,
 					change.blobUrl,
 					change.status === GitChangeType.DELETE ?
-						toReviewUri(uri, undefined, undefined, change.status === GitChangeType.DELETE ? '' : pr.head.sha, false, { base: false }) : uri,
+						toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
+						toDiffViewFileUri(uri, undefined, undefined, pr.head.sha, false, { base: false }),
 					toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : pr.base.sha, false, { base: true }),
 					isPartial,
 					diffHunks,
@@ -916,9 +917,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 					return providePRDocumentComments(document, this._prNumber!, this._localFileChanges, inDraftMode);
 				}
 
-				if (document.uri.scheme === 'review') {
+				let query: ReviewUriParams | undefined;
+
+				try {
+					query = fromReviewUri(document.uri);
+				} catch (e) {}
+
+				if (query) {
 					// we should check whehter the docuemnt is original or modified.
-					let query = fromReviewUri(document.uri);
 					let isBase = query.base;
 
 					let matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
