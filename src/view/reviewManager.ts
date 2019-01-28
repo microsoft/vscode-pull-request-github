@@ -442,7 +442,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 				throw new Error('Unable to find matching file');
 			}
 
-			const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, comment.commentId, text);
+			const rawComment = matchedFile.comments.find(c => c.id === Number(comment.commentId));
+			if (!rawComment) {
+				throw new Error('Unable to find comment');
+			}
+
+			const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, rawComment, text);
 
 			// Update the cached comments of the file
 			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);

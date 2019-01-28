@@ -18,7 +18,7 @@ import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../git/api';
 import Logger from '../common/logger';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, parseGraphQLComment } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse } from './graphql';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -772,21 +772,41 @@ export class PullRequestManager {
 		}
 	}
 
-	async editReviewComment(pullRequest: PullRequestModel, commentId: string, text: string): Promise<Comment> {
+	async editReviewComment(pullRequest: PullRequestModel, comment: Comment, text: string): Promise<Comment> {
 		try {
+			if (comment.isDraft) {
+				return this.editPendingReviewComment(pullRequest, comment.graphNodeId, text);
+			}
+
 			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 			const ret = await octokit.pullRequests.editComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				body: text,
-				comment_id: Number(commentId)
+				comment_id: comment.id
 			});
 
 			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
+	}
+
+	private async editPendingReviewComment(pullRequest: PullRequestModel, commentNodeId: string, text: string): Promise<Comment> {
+		const { mutate } = await pullRequest.githubRepository.ensure();
+
+		const { data } = await mutate<EditCommentResponse>({
+			mutation: queries.EditComment,
+			variables: {
+				input: {
+					pullRequestReviewCommentId: commentNodeId,
+					body: text
+				}
+			}
+		});
+
+		return parseGraphQLComment(data.updatePullRequestReviewComment.pullRequestReviewComment);
 	}
 
 	async deleteIssueComment(pullRequest: PullRequestModel, commentId: string): Promise<void> {
