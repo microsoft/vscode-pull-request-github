@@ -223,7 +223,7 @@ export interface PullRequestResponse {
 		pullRequest: {
 			number: number;
 			url: string;
-			state: string;
+			state: 'OPEN' | 'CLOSED' | 'MERGED';
 			body: string;
 			bodyHTML: string;
 			title: string;
@@ -255,7 +255,7 @@ export interface PullRequestResponse {
 				}
 			}
 			merged: boolean;
-			mergeable: boolean;
+			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			id: string;
 		}
 	};

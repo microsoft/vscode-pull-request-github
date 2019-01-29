@@ -77,7 +77,7 @@ export class PullRequestModel {
 		this.author = prItem.user;
 		this.labels = (prItem.labels || []).map(label => label.name);
 
-		if (prItem.state === 'open') {
+		if (prItem.state.toLowerCase() === 'open') {
 			this.state = PullRequestStateEnum.Open;
 		} else {
 			this.state = prItem.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Closed;
