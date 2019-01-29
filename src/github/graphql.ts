@@ -69,6 +69,9 @@ export interface ReviewComment {
 		oid: string;
 	};
 	createdAt: string;
+	replyTo: {
+		databaseId: number;
+	};
 	viewerCanUpdate: boolean;
 	viewerCanDelete: boolean;
 }
@@ -163,9 +166,34 @@ export interface PullRequestCommentsResponse {
 	};
 }
 
+export interface MentionableUsersResponse {
+	repository: {
+		mentionableUsers: {
+			nodes: [
+				{
+					login: string;
+					avatarUrl: string;
+					name: string;
+					url: string;
+				}
+			];
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			};
+		}
+	};
+}
+
 export interface AddCommentResponse {
 	addPullRequestReviewComment: {
 		comment: ReviewComment;
+	};
+}
+
+export interface EditCommentResponse {
+	updatePullRequestReviewComment: {
+		pullRequestReviewComment: ReviewComment;
 	};
 }
 
@@ -182,6 +210,7 @@ export interface SubmitReviewResponse {
 export interface DeleteReviewResponse {
 	deletePullRequestReview: {
 		pullRequestReview: {
+			databaseId: number;
 			comments: {
 				nodes: ReviewComment[];
 			}

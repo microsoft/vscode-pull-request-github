@@ -8,7 +8,7 @@
  */
 
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
-import { Repository } from '../typings/git';
+import { Repository } from '../git/api';
 import { IRawFileChange } from '../github/interface';
 
 export enum DiffChangeType {
@@ -97,7 +97,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 	let lineReader = LineReader(diffHunkPatch);
 
 	let itr = lineReader.next();
-	let diffHunk: DiffHunk = null;
+	let diffHunk: DiffHunk | undefined = undefined;
 	let positionInHunk = -1;
 	let oldLine = -1;
 	let newLine = -1;
@@ -107,7 +107,7 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 		if (DIFF_HUNK_HEADER.test(line)) {
 			if (diffHunk) {
 				yield diffHunk;
-				diffHunk = null;
+				diffHunk = undefined;
 			}
 
 			if (positionInHunk === -1) {
@@ -115,17 +115,17 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 			}
 
 			const matches = DIFF_HUNK_HEADER.exec(line);
-			const oriStartLine = oldLine = Number(matches[1]);
+			const oriStartLine = oldLine = Number(matches![1]);
 			// http://www.gnu.org/software/diffutils/manual/diffutils.html#Detailed-Unified
 			// `count` is added when the changes have more than 1 line.
-			const oriLen = Number(matches[3]) || 1;
-			const newStartLine = newLine = Number(matches[5]);
-			const newLen = Number(matches[7]) || 1;
+			const oriLen = Number(matches![3]) || 1;
+			const newStartLine = newLine = Number(matches![5]);
+			const newLen = Number(matches![7]) || 1;
 
 			diffHunk = new DiffHunk(oriStartLine, oriLen, newStartLine, newLen, positionInHunk);
 			// @rebornix todo, once we have enough tests, this should be removed.
 			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Control, -1, -1, positionInHunk, line));
-		} else if (diffHunk !== null) {
+		} else if (diffHunk) {
 			let type = getDiffChangeType(line);
 
 			if (type === DiffChangeType.Control) {
@@ -194,7 +194,7 @@ export function parsePatch(patch: string): DiffHunk[] {
 	return diffHunks;
 }
 
-export function getModifiedContentFromDiffHunk(originalContent, patch) {
+export function getModifiedContentFromDiffHunk(originalContent: string, patch: string) {
 	let left = originalContent.split(/\r?\n/);
 	let diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
@@ -276,7 +276,7 @@ export async function parseDiff(reviews: IRawFileChange[], repository: Repositor
 				break;
 			case GitChangeType.RENAME:
 				try {
-					await repository.getObjectDetails(parentCommit, review.previous_filename);
+					await repository.getObjectDetails(parentCommit, review.previous_filename!);
 					originalFileExist = true;
 				} catch (err) { /* noop */ }
 				break;

@@ -11,7 +11,7 @@ import { EXTENSION_ID } from '../constants';
 import { onDidChange as onKeychainDidChange, toCanonical, listHosts } from './keychain';
 
 const SCOPES: string = 'read:user user:email repo write:discussion';
-const GHE_OPTIONAL_SCOPES: object = {'write:discussion': true};
+const GHE_OPTIONAL_SCOPES: { [key: string]: boolean } = {'write:discussion': true};
 
 const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
 const CALLBACK_PATH = '/did-authenticate';
@@ -44,7 +44,7 @@ export class GitHubManager {
 		}
 
 		if (this._servers.has(host.authority)) {
-			return this._servers.get(host.authority);
+			return !!this._servers.get(host.authority);
 		}
 
 		const keychainHosts = await listHosts();

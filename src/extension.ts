@@ -12,7 +12,7 @@ import { registerCommands } from './commands';
 import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
 import { formatError, onceEvent } from './common/utils';
-import { GitExtension, API as GitAPI, Repository } from './typings/git';
+import { API as GitAPI, Repository, getAPI } from './git/api';
 import { Telemetry } from './common/telemetry';
 import { handler as uriHandler } from './common/uri';
 import { ITelemetry } from './github/interface';
@@ -78,9 +78,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	Resource.initialize(context);
 
 	telemetry = new Telemetry(context);
-
-	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
-	const git = gitExtension.getAPI(1);
+	const git = getAPI();
+	context.subscriptions.push(git);
 
 	Logger.appendLine('Looking for git repository');
 	const firstRepository = git.repositories[0];

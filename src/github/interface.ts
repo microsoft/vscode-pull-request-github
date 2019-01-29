@@ -26,6 +26,7 @@ export enum PullRequestStateEnum {
 
 export interface IAccount {
 	login: string;
+	name?: string;
 	avatarUrl: string;
 	url: string;
 }

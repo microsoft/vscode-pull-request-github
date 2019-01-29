@@ -36,7 +36,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 			const commitNodes = commits.map(commit => new CommitNode(this, this._prManager, this._pr, commit, this._comments));
 			return Promise.resolve(commitNodes);
 		} catch (e) {
-			Promise.resolve([]);
+			return Promise.resolve([]);
 		}
 	}
 }

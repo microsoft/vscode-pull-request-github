@@ -10,5 +10,5 @@ declare module 'git-credential-node' {
 		password: string;
 	}
 
-	function fill(url: string): Promise<Credentials | null>;
+	function fill(url: string): Promise<Credentials | undefined>;
 }

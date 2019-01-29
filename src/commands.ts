@@ -20,20 +20,20 @@ import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
-import { GitErrorCodes } from './typings/git';
+import { GitErrorCodes } from './git/api';
 import { Comment } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 
-const _onDidUpdatePR = new vscode.EventEmitter<PullRequest>();
-export const onDidUpdatePR: vscode.Event<PullRequest> = _onDidUpdatePR.event;
+const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
+export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
 
 function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
 		if (!prManager.activePullRequest) {
 			vscode.window.showErrorMessage('Unable to find current pull request.');
-			return;
+			throw new Error('Unable to find current pull request.');
 		}
 
 		return prManager.activePullRequest;
@@ -65,6 +65,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
 		try {
+			if (!prManager.activePullRequest) {
+				return;
+			}
+
 			const { indexChanges, workingTreeChanges } = prManager.repository.state;
 
 			if (!indexChanges.length) {
@@ -95,6 +99,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
 
+			if (!vscode.workspace.rootPath) {
+				throw new Error('Current workspace root path is undefined.');
+			}
+
 			const tempFilePath = pathLib.resolve(vscode.workspace.rootPath, '.git', `${prManager.activePullRequest.prNumber}.diff`);
 			writeFile(tempFilePath, diff, {}, async (writeError) => {
 				if (writeError) {
@@ -121,7 +129,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: GitFileChangeNode) => {
-		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl!));
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
@@ -216,7 +224,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
-					let newComment: Comment;
+					let newComment: Comment | undefined = undefined;
 					if (message) {
 						newComment = await prManager.createIssueComment(pullRequest, message);
 					}
@@ -227,11 +235,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 					return newComment;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to close pull request. ${formatError(e)}`);
-					_onDidUpdatePR.fire(null);
+					_onDidUpdatePR.fire();
 				}
 			}
 
-			_onDidUpdatePR.fire(null);
+			_onDidUpdatePR.fire();
 		});
 	}));
 
@@ -246,8 +254,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
 		if (!descriptionNode) {
 			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
-			let rootNodes = reviewManager.prFileChangesProvider.getChildren();
-			descriptionNode = rootNodes[0];
+			let rootNodes = await reviewManager.prFileChangesProvider.getChildren();
+			descriptionNode = rootNodes[0] as DescriptionNode;
 		}
 		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
 		// Create and show a new webview
@@ -295,12 +303,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		};
 
 		if (fileChange.comments && fileChange.comments.length) {
-			const sortedOutdatedComments = fileChange.comments.filter(comment => comment.position === null).sort((a, b) => {
-				return a.originalPosition - b.originalPosition;
+			const sortedOutdatedComments = fileChange.comments.filter(comment => comment.position === undefined).sort((a, b) => {
+				return a.originalPosition! - b.originalPosition!;
 			});
 
 			if (sortedOutdatedComments.length) {
-				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].originalPosition);
+				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].originalPosition!);
 
 				if (diffLine) {
 					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
@@ -309,7 +317,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			}
 		}
 
-		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${commit.substr(0, 8)}`, options);
+		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${(commit || '').substr(0, 8)}`, options);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signin', async () => {

@@ -124,6 +124,9 @@ fragment ReviewComment on PullRequestReviewComment {
 	commit {
 		oid
 	}
+	replyTo {
+		databaseId
+	}
 	createdAt
 	originalCommit {
 		oid
@@ -205,16 +208,26 @@ mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	}
 }
 
+mutation EditComment($input: UpdatePullRequestReviewCommentInput!) {
+	updatePullRequestReviewComment(input: $input) {
+		pullRequestReviewComment {
+			...ReviewComment
+		}
+	}
+}
+
 mutation StartReview($input: AddPullRequestReviewInput!) {
 	addPullRequestReview(input: $input) {
 		pullRequestReview { id }
 	}
 }
 
-mutation SubmitReview($id: ID!) {
+
+mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!, $body: String) {
 	submitPullRequestReview(input: {
-		event: COMMENT,
-		pullRequestReviewId: $id
+		event: $event,
+		pullRequestReviewId: $id,
+		body: $body
 	}) {
 		pullRequestReview {
 			comments(first:100) {
@@ -227,8 +240,26 @@ mutation SubmitReview($id: ID!) {
 mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 	deletePullRequestReview(input: $input) {
 		pullRequestReview {
+			databaseId
 			comments(first:100) {
 					nodes { ...ReviewComment }
+			}
+		}
+	}
+}
+
+query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		mentionableUsers(first: $first, after: $after) {
+			nodes {
+				login
+				avatarUrl
+				name
+				url
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
 			}
 		}
 	}
