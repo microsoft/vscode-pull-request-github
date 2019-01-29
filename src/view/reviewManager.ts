@@ -1358,7 +1358,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	public async createPullRequest(): Promise<void> {
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
 		const githubRemotes = this._prManager.getGitHubRemotes();
-		let targetRemote = await this.getRemote(githubRemotes, 'Choose a remote which you want to send a pull request to',
+		let targetRemote = await this.getRemote(githubRemotes, 'Select the remote to send the pull request to',
 			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Fork')
 		);
 
