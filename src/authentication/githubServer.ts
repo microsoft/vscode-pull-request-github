@@ -92,15 +92,22 @@ export class GitHubManager {
 
 	public static validateScopes(host: vscode.Uri, scopes: string): boolean {
 		if (!scopes) {
-			return false;
+			Logger.appendLine(`[SKIP] validateScopes(${host.toString()}): No scopes available.`);
+			return true;
 		}
 		const tokenScopes = scopes.split(', ');
-		return this.AppScopes.every(x =>
+		const scopesNotFound = this.AppScopes.filter(x => !(
 			tokenScopes.indexOf(x) >= 0 ||
 			tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0 ||
 			// some scopes don't exist on older versions of GHE, treat them as optional
 			(this.isDotCom(host) || GHE_OPTIONAL_SCOPES[x])
-		);
+		));
+		if (scopesNotFound.length) {
+			Logger.appendLine(`[FAIL] validateScopes(${host.toString()}): ${scopesNotFound.length} scopes missing`);
+			scopesNotFound.forEach(scope => Logger.appendLine(`   - ${scope}`));
+			return false;
+		}
+		return true;
 	}
 
 	private static getScopeSuperset(scope: string): string {
