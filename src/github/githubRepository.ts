@@ -280,14 +280,14 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
 			const { octokit, query, remote } = await this.ensure();
-			let { data } = await octokit.pullRequests.get({
+			let prsResult = await octokit.pullRequests.get({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				number: id
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-			if (!data.head.repo) {
+			if (!prsResult.data.head.repo) {
 				Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
 				return;
 			}
@@ -314,7 +314,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 
 				if (!data.head.repo) {
 					Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-					return null;
+					return;
 				}
 
 				let item = convertRESTPullRequestToRawPullRequest(data);
