@@ -19,7 +19,7 @@ import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../git/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
-import { fromPRUri, PRUriParams } from '../common/uri';
+import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse } from './graphql';
 const queries = require('./queries.gql');
