@@ -178,7 +178,8 @@ body .comment-container .review-comment-header {
 
 body .comment-container .review-comment-header > span,
 body .comment-container .review-comment-header > a,
-body .commit .commit-message > a {
+body .commit .commit-message > a,
+body .merged .merged-message > a {
 	margin-right: 4px;
 }
 
@@ -355,12 +356,13 @@ body .overview-title .button-group button {
 	fill: var(--vscode-foreground);
 }
 
-.comment-container.commit {
+.comment-container.commit,
+.comment-container.merged {
 	padding-left: 16px;
 	box-sizing: border-box
 }
 
-.commit, .review {
+.commit, .review, .merged {
 	display: flex;
 	width: 100%;
 	border: none;
@@ -373,24 +375,28 @@ body .overview-title .button-group button {
 	padding: 4px 0;
 }
 
-.commit .commit-message {
+.commit .commit-message,
+.merged .merged-message {
 	display: flex;
 	align-items: center;
 	line-height: 18px;
 	overflow: hidden;
 }
 
-.commit .commit-message .avatar-container {
+.commit .commit-message .avatar-container,
+.merged .merged-message .avatar-container {
 	margin-right: 4px;
 	flex-shrink: 0;
 }
 
-.commit .avatar-container .avatar {
+.commit .avatar-container .avatar,
+.merged .avatar-container .avatar {
 	width: 18px;
 	height: 18px;
 }
 
-.commit .commit-message .message {
+.commit .commit-message .message,
+.merged .merged-message .message {
 	overflow: inherit;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -398,6 +404,19 @@ body .overview-title .button-group button {
 
 .commit .sha {
 	margin-left: auto;
+}
+
+.merged .merged-message .message,
+.merged .inline-sha {
+	margin: 0 4px 0 0;
+}
+
+.merged svg {
+    width: 14px;
+    height: auto;
+    margin-right: 8px;
+    flex-shrink: 0;
+    fill: var(--vscode-foreground);
 }
 
 .details {

@@ -72,9 +72,10 @@ export class PullRequestModel {
 	update(prItem: PullRequest): void {
 		this.prNumber = prItem.number;
 		this.title = prItem.title;
+		this.bodyHTML = prItem.bodyHTML;
 		this.html_url = prItem.url;
 		this.author = prItem.user;
-		this.labels = prItem.labels.map(label => label.name);
+		this.labels = (prItem.labels || []).map(label => label.name);
 
 		if (prItem.state === 'open') {
 			this.state = PullRequestStateEnum.Open;
@@ -89,8 +90,8 @@ export class PullRequestModel {
 		this.createdAt = prItem.createdAt;
 		this.updatedAt = prItem.updatedAt ? prItem.updatedAt : this.createdAt;
 
-		this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.cloneUrl);
-		this.base = new GitHubRef(prItem.base.ref, prItem.base.label, prItem.base.sha, prItem.base.repo.cloneUrl);
+		this.head = new GitHubRef(prItem.head!.ref, prItem.head!.label, prItem.head!.sha, prItem.head!.repo.cloneUrl);
+		this.base = new GitHubRef(prItem.base!.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
 	}
 
 	equals(other: PullRequestModel | undefined): boolean {

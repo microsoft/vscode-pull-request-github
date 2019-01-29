@@ -8,8 +8,8 @@ import * as Octokit from '../common/octokit';
 import { IAccount, PullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
-import { EventType, TimelineEvent, isCommitEvent, isReviewEvent, isCommentEvent } from '../common/timelineEvent';
-import { ReviewComment } from './graphql';
+import * as Common from '../common/timelineEvent';
+import * as GraphQL from './graphql';
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
@@ -126,26 +126,26 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 export function convertGraphQLEventType(text: string) {
 	switch (text) {
 		case 'Commit':
-			return EventType.Committed;
+			return Common.EventType.Committed;
 		case 'LabeledEvent':
-			return EventType.Labeled;
+			return Common.EventType.Labeled;
 		case 'MilestonedEvent':
-			return EventType.Milestoned;
+			return Common.EventType.Milestoned;
 		case 'AssignedEvent':
-			return EventType.Assigned;
+			return Common.EventType.Assigned;
 		case 'IssueComment':
-			return EventType.Commented;
+			return Common.EventType.Commented;
 		case 'PullRequestReview':
-			return EventType.Reviewed;
+			return Common.EventType.Reviewed;
 		case 'MergedEvent':
-			return EventType.Merged;
+			return Common.EventType.Merged;
 
 		default:
-			return EventType.Other;
+			return Common.EventType.Other;
 	}
 }
 
-export function parseGraphQLComment(comment: ReviewComment): Comment {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 	const c: Comment = {
 		id: comment.databaseId,
 		url: comment.url,
@@ -173,50 +173,129 @@ export function parseGraphQLComment(comment: ReviewComment): Comment {
 	return c;
 }
 
-export function parseGraphQLTimelineEvents(events: any[]): TimelineEvent[] {
+export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse): PullRequest {
+	const graphQLPullRequest = pullRequest.repository.pullRequest;
+	return {
+		url: graphQLPullRequest.url,
+		number: graphQLPullRequest.number,
+		state: graphQLPullRequest.state,
+		body: graphQLPullRequest.body,
+		bodyHTML: graphQLPullRequest.bodyHTML,
+		title: graphQLPullRequest.title,
+		createdAt: graphQLPullRequest.createdAt,
+		updatedAt: graphQLPullRequest.updatedAt,
+		head: graphQLPullRequest.headRef ? {
+			label: graphQLPullRequest.headRef.name,
+			ref: graphQLPullRequest.headRef.repository.nameWithOwner,
+			sha: graphQLPullRequest.headRef.target.oid,
+			repo: {
+				cloneUrl: graphQLPullRequest.headRef.repository.url
+			}
+		} : undefined,
+		base: graphQLPullRequest.baseRef ? {
+			label: graphQLPullRequest.baseRef.name,
+			ref: graphQLPullRequest.baseRef.repository.nameWithOwner,
+			sha: graphQLPullRequest.baseRef.target.oid,
+			repo: {
+				cloneUrl: graphQLPullRequest.baseRef.repository.url
+			}
+		} : undefined,
+		user: graphQLPullRequest.author,
+		merged: graphQLPullRequest.merged,
+		mergeable: graphQLPullRequest.mergeable,
+		nodeId: graphQLPullRequest.id,
+		labels: []
+	};
+}
+
+export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent)[]): Common.TimelineEvent[] {
+	let ret: Common.TimelineEvent[] = [];
 	events.forEach(event => {
 		let type = convertGraphQLEventType(event.__typename);
-		event.event = type;
 
-		if (event.event === EventType.Commented) {
-			event.canEdit = event.viewerCanUpdate;
-			event.canDelete = event.viewerCanDelete;
-			event.user = event.author;
-			event.id = event.databaseId;
-			event.htmlUrl = event.url;
-		}
+		switch (type) {
+			case Common.EventType.Commented:
+				let commentEvent = event as GraphQL.IssueComment;
+				ret.push({
+					htmlUrl: commentEvent.url,
+					body: commentEvent.body,
+					bodyHTML: commentEvent.bodyHTML,
+					user: commentEvent.author,
+					event: type,
+					canEdit: commentEvent.viewerCanUpdate,
+					canDelete: commentEvent.viewerCanDelete,
+					id: commentEvent.databaseId,
+					createdAt: commentEvent.createdAt
+				} as Common.CommentEvent);
+				return;
+			case Common.EventType.Reviewed:
+				let reviewEvent = event as GraphQL.Review;
+				ret.push({
+					event: type,
+					comments: [],
+					submittedAt: reviewEvent.submittedAt,
+					body: reviewEvent.body,
+					bodyHTML: reviewEvent.bodyHTML,
+					htmlUrl: reviewEvent.url,
+					user: reviewEvent.author,
+					authorAssociation: reviewEvent.authorAssociation,
+					state: reviewEvent.state,
+					id: reviewEvent.databaseId,
+				} as Common.ReviewEvent);
+				return;
+			case Common.EventType.Committed:
+				let commitEv = event as GraphQL.Commit;
+				ret.push({
+					event: type,
+					sha: commitEv.oid,
+					author: commitEv.author.user || { login: commitEv.committer.name, avatarUrl: commitEv.committer.avatarUrl },
+					htmlUrl: commitEv.url,
+					message: commitEv.message
+				} as Common.CommitEvent);
+				return;
+			case Common.EventType.Merged:
+				let mergeEv = event as GraphQL.MergedEvent;
 
-		if (event.event === EventType.Reviewed) {
-			event.user = event.author;
-			event.canEdit = event.viewerCanUpdate;
-			event.canDelete = event.viewerCanDelete;
-			event.id = event.databaseId;
-			event.htmlUrl = event.url;
-			event.submittedAt = event.submittedAt;
-		}
+				ret.push({
+					event: type,
+					user: mergeEv.actor,
+					createdAt: mergeEv.createdAt,
+					mergeRef: mergeEv.mergeRef.name,
+					sha: mergeEv.commit.oid,
+					commitUrl: mergeEv.commit.commitUrl,
+					url: mergeEv.url,
+					graphNodeId: mergeEv.id
+				} as Common.MergedEvent);
+				return;
+			case Common.EventType.Assigned:
+				let assignEv = event as GraphQL.AssignedEvent;
 
-		if (event.event === EventType.Committed) {
-			event.sha = event.oid;
-			event.author = event.author.user || { login: event.committer.name, avatarUrl: event.committer.avatarUrl };
-			event.htmlUrl = event.url;
+				ret.push({
+					event: type,
+					user: assignEv.user,
+					actor: assignEv.actor
+				} as Common.AssignEvent);
+				return;
+			default:
+				break;
 		}
 	});
 
-	return events;
+	return ret;
 }
 
-export function convertRESTTimelineEvents(events: any[]): TimelineEvent[] {
+export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[] {
 	events.forEach(event => {
-		if (event.event === EventType.Commented) {
+		if (event.event === Common.EventType.Commented) {
 
 		}
 
-		if (event.event === EventType.Reviewed) {
+		if (event.event === Common.EventType.Reviewed) {
 			event.submittedAt = event.submitted_at;
 			event.htmlUrl = event.html_url;
 		}
 
-		if (event.event === EventType.Committed) {
+		if (event.event === Common.EventType.Committed) {
 			event.htmlUrl = event.html_url;
 		}
 	});
@@ -224,25 +303,25 @@ export function convertRESTTimelineEvents(events: any[]): TimelineEvent[] {
 	return events;
 }
 
-export function getRelatedUsersFromTimelineEvents(timelineEvents: TimelineEvent[]): { login: string; name: string; }[] {
+export function getRelatedUsersFromTimelineEvents(timelineEvents: Common.TimelineEvent[]): { login: string; name: string; }[] {
 	let ret: { login: string; name: string; }[] = [];
 
 	timelineEvents.forEach(event => {
-		if (isCommitEvent(event)) {
+		if (Common.isCommitEvent(event)) {
 			ret.push({
 				login: event.author.login,
 				name: event.author.name || ''
 			});
 		}
 
-		if (isReviewEvent(event)) {
+		if (Common.isReviewEvent(event)) {
 			ret.push({
 				login: event.user.login,
 				name: event.user.login
 			});
 		}
 
-		if (isCommentEvent(event)) {
+		if (Common.isCommentEvent(event)) {
 			ret.push({
 				login: event.user.login,
 				name: event.user.login

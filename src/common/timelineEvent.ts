@@ -38,19 +38,21 @@ export interface CommentEvent {
 }
 
 export interface ReviewEvent {
-	event: string;
+	event: EventType;
 	comments: Comment[];
 	submittedAt: string;
 	body: string;
+	bodyHTML?: string;
 	htmlUrl: string;
 	user: IAccount;
+	authorAssociation: string;
 	state: string;
 	id: number;
 }
 
 export interface CommitEvent {
 	author: IAccount;
-	event: string;
+	event: EventType;
 	sha: string;
 	url: string;
 	htmlUrl: string;
@@ -58,16 +60,41 @@ export interface CommitEvent {
 	bodyHTML?: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent;
+export interface MergedEvent {
+	graphNodeId: string;
+	user: IAccount;
+	createdAt: string;
+	mergeRef: string;
+	sha: string;
+	commitUrl: string;
+	event: EventType;
+	url: string;
+}
+
+export interface AssignEvent {
+	event: EventType;
+	user: IAccount;
+	actor: IAccount;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | MergedEvent | AssignEvent;
 
 export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
-	return Number(event.event) === EventType.Reviewed;
+	return event.event === EventType.Reviewed;
 }
 
 export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
-	return Number(event.event) === EventType.Committed;
+	return event.event === EventType.Committed;
 }
 
 export function isCommentEvent(event: TimelineEvent): event is CommentEvent {
-	return Number(event.event) === EventType.Commented;
+	return event.event === EventType.Commented;
+}
+
+export function isMergedEvent(event: TimelineEvent): event is MergedEvent {
+	return event.event === EventType.Merged;
+}
+
+export function isAssignEvent(event: TimelineEvent): event is AssignEvent {
+	return event.event === EventType.Assigned;
 }

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { dateFromNow } from '../src/common/utils';
-import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, isCommentEvent, isReviewEvent, isCommitEvent } from '../src/common/timelineEvent';
+import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, isCommentEvent, isReviewEvent, isCommitEvent, isMergedEvent, MergedEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
 import md from './mdRenderer';
 import { MessageHandler } from './message';
@@ -12,6 +12,7 @@ import { getState, updateState, PullRequest } from './cache';
 import { Comment } from '../src/common/comment';
 
 const commitIconSvg = require('../resources/icons/commit_icon.svg');
+const mergeIconSvg = require('../resources/icons/merge_icon.svg');
 const editIcon = require('../resources/icons/edit.svg');
 const deleteIcon = require('../resources/icons/delete.svg');
 const checkIcon = require('../resources/icons/check.svg');
@@ -689,6 +690,50 @@ export function renderCommit(timelineEvent: CommitEvent): HTMLElement {
 	return commentContainer;
 }
 
+export function renderMergedEvent(timelineEvent: MergedEvent): HTMLElement {
+	const shaShort = timelineEvent.sha.substring(0, 7);
+
+	const mergedMessageContainer: HTMLDivElement = document.createElement('div');
+	mergedMessageContainer.classList.add('comment-container', 'merged');
+	const mergedMessage: HTMLDivElement = document.createElement('div');
+	mergedMessage.className = 'merged-message';
+	mergedMessage.insertAdjacentHTML('beforeend', mergeIconSvg);
+
+	const userIcon = renderUserIcon(timelineEvent.user.url, timelineEvent.user.avatarUrl);
+	mergedMessage.appendChild(userIcon);
+
+	const login: HTMLAnchorElement = document.createElement('a');
+	login.className = 'author';
+	login.href = timelineEvent.user.url;
+	login.textContent = timelineEvent.user.login!;
+	mergedMessage.appendChild(login);
+
+	const message: HTMLSpanElement = document.createElement('span');
+	message.className = 'message';
+	message.textContent = 'merged commit';
+	mergedMessage.appendChild(message);
+
+	const sha: HTMLAnchorElement = document.createElement('a');
+	sha.className = 'inline-sha';
+	sha.href = timelineEvent.commitUrl;
+	sha.textContent = shaShort;
+	mergedMessage.appendChild(sha);
+
+	const ref: HTMLSpanElement = document.createElement('span');
+	ref.className = 'message';
+	ref.textContent = `into ${timelineEvent.mergeRef}`;
+	mergedMessage.appendChild(ref);
+
+	const timestamp: HTMLAnchorElement = document.createElement('a');
+	timestamp.className = 'timestamp';
+	timestamp.href = timelineEvent.url;
+	timestamp.textContent = dateFromNow(timelineEvent.createdAt);
+	mergedMessage.appendChild(timestamp);
+
+	mergedMessageContainer.appendChild(mergedMessage);
+	return mergedMessageContainer;
+}
+
 function getDiffChangeClass(type: DiffChangeType) {
 	switch (type) {
 		case DiffChangeType.Add:
@@ -756,6 +801,15 @@ class ReviewNode {
 		userLogin.href = this._review.user.url;
 		userLogin.textContent = this._review.user.login;
 
+		commentHeader.appendChild(userIcon);
+		commentHeader.appendChild(userLogin);
+
+		if (this._review.authorAssociation && this._review.authorAssociation !== 'NONE') {
+			const authorAssociation: HTMLSpanElement = document.createElement('span');
+			authorAssociation.textContent = `(${this._review.authorAssociation.toLocaleLowerCase()})`;
+			commentHeader.appendChild(authorAssociation);
+		}
+
 		const reviewState = document.createElement('span');
 		switch (this._review.state.toLowerCase()) {
 			case 'approved':
@@ -781,8 +835,6 @@ class ReviewNode {
 			timestamp.classList.add('pending');
 		}
 
-		commentHeader.appendChild(userIcon);
-		commentHeader.appendChild(userLogin);
 		commentHeader.appendChild(reviewState);
 		commentHeader.appendChild(timestamp);
 
@@ -798,7 +850,7 @@ class ReviewNode {
 		const reviewBody: HTMLDivElement = document.createElement('div');
 		reviewBody.className = 'review-body';
 		if (this._review.body) {
-			reviewBody.innerHTML = md.render(emoji.emojify(this._review.body));
+			reviewBody.innerHTML = this._review.bodyHTML ? this._review.bodyHTML : md.render(emoji.emojify(this._review.body));
 			reviewCommentContainer.appendChild(reviewBody);
 		}
 
@@ -940,6 +992,10 @@ export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler
 
 	if (isCommentEvent(timelineEvent)) {
 		return renderComment(timelineEvent, messageHandler);
+	}
+
+	if (isMergedEvent(timelineEvent)) {
+		return renderMergedEvent(timelineEvent);
 	}
 
 	return undefined;

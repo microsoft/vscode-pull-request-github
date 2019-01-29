@@ -58,14 +58,15 @@ export interface PullRequest {
 	number: number;
 	state: string;
 	body: string;
+	bodyHTML?: string;
 	title: string;
 	assignee?: IAccount;
 	createdAt: string;
 	updatedAt: string;
-	head: IGitHubRef;
-	base: IGitHubRef;
+	head?: IGitHubRef;
+	base?: IGitHubRef;
 	user: IAccount;
-	labels: ILabel[];
+	labels?: ILabel[];
 	merged: boolean;
 	mergeable?: boolean;
 	nodeId: string;

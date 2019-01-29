@@ -13,8 +13,8 @@ import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus } from 'apollo-boost';
 import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../view/prDocumentCommentProvider';
-import { convertRESTPullRequestToRawPullRequest } from './utils';
-import { MentionableUsersResponse } from './graphql';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
+import { PullRequestResponse, MentionableUsersResponse } from './graphql';
 const queries = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -279,22 +279,47 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
-			let { data } = await octokit.pullRequests.get({
+			const { octokit, query, remote } = await this.ensure();
+			let prsResult = await octokit.pullRequests.get({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				number: id
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-			if (!data.head.repo) {
+			if (!prsResult.data.head.repo) {
 				Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
 				return;
 			}
 
-			let item = convertRESTPullRequestToRawPullRequest(data);
+			if (this.supportsGraphQl()) {
+				const { data } = await query<PullRequestResponse>({
+					query: queries.PullRequest,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: id
+					}
+				});
 
-			return new PullRequestModel(this, remote, item);
+				Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
+				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data));
+			} else {
+				let { data } = await octokit.pullRequests.get({
+					owner: remote.owner,
+					repo: remote.repositoryName,
+					number: id
+				});
+				Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
+
+				if (!data.head.repo) {
+					Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
+					return;
+				}
+
+				let item = convertRESTPullRequestToRawPullRequest(data);
+				return new PullRequestModel(this, remote, item);
+			}
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
