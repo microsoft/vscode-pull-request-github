@@ -8,7 +8,7 @@ import * as Octokit from '../common/octokit';
 import { IAccount, PullRequest } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
-import { EventType, TimelineEvent } from '../common/timelineEvent';
+import { EventType, TimelineEvent, isCommitEvent, isReviewEvent, isCommentEvent } from '../common/timelineEvent';
 import { ReviewComment } from './graphql';
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
@@ -222,4 +222,33 @@ export function convertRESTTimelineEvents(events: any[]): TimelineEvent[] {
 	});
 
 	return events;
+}
+
+export function getRelatedUsersFromTimelineEvents(timelineEvents: TimelineEvent[]): { login: string; name: string; }[] {
+	let ret: { login: string; name: string; }[] = [];
+
+	timelineEvents.forEach(event => {
+		if (isCommitEvent(event)) {
+			ret.push({
+				login: event.author.login,
+				name: event.author.name || ''
+			});
+		}
+
+		if (isReviewEvent(event)) {
+			ret.push({
+				login: event.user.login,
+				name: event.user.login
+			});
+		}
+
+		if (isCommentEvent(event)) {
+			ret.push({
+				login: event.user.login,
+				name: event.user.login
+			});
+		}
+	});
+
+	return ret;
 }

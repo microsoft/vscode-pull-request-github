@@ -28,6 +28,7 @@ export interface PRUriParams {
 	fileName: string;
 	prNumber: number;
 	status: GitChangeType;
+	remoteName: string;
 }
 
 export function fromPRUri(uri: Uri): PRUriParams | undefined {
@@ -118,7 +119,8 @@ export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit
 		isBase: base,
 		fileName: fileName,
 		prNumber: pullRequestModel.prNumber,
-		status: status
+		status: status,
+		remoteName: pullRequestModel.githubRepository.remote.remoteName
 	};
 
 	let path = uri.path;

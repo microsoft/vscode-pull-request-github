@@ -159,6 +159,14 @@ mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	}
 }
 
+mutation EditComment($input: UpdatePullRequestReviewCommentInput!) {
+	updatePullRequestReviewComment(input: $input) {
+		pullRequestReviewComment {
+			...ReviewComment
+		}
+	}
+}
+
 mutation StartReview($input: AddPullRequestReviewInput!) {
 	addPullRequestReview(input: $input) {
 		pullRequestReview { id }
@@ -186,6 +194,23 @@ mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 			databaseId
 			comments(first:100) {
 					nodes { ...ReviewComment }
+			}
+		}
+	}
+}
+
+query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		mentionableUsers(first: $first, after: $after) {
+			nodes {
+				login
+				avatarUrl
+				name
+				url
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
 			}
 		}
 	}

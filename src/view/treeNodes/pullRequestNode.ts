@@ -261,8 +261,8 @@ export class PRNode extends TreeNode {
 					change.fileName,
 					change.previousFileName,
 					change.blobUrl,
-					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
-					toPRUri(vscode.Uri.file(change.fileName), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
+					toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
+					toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
 					change.isPartial,
 					change.patch,
 					change.diffHunks,
@@ -564,7 +564,12 @@ export class PRNode extends TreeNode {
 
 	private async editComment(document: vscode.TextDocument, comment: vscode.Comment, text: string): Promise<void> {
 		const fileChange = this.findMatchingFileNode(document.uri);
-		const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, comment.commentId, text);
+		const existingComment = fileChange.comments.find(c => c.id.toString() === comment.commentId);
+		if (!existingComment) {
+			throw new Error('Unable to find comment');
+		}
+
+		const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, existingComment, text);
 
 		const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 		if (index > -1) {
