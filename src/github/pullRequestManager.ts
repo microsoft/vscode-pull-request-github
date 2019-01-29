@@ -237,13 +237,6 @@ export class PullRequestManager {
 					prRelatedusers.forEach(user => {
 						if (!prRelatedUsersMap[user.login]) {
 							prRelatedUsersMap[user.login] = true;
-							cachedUsers.push({
-								label: `@${user.login}`,
-								insertText: `${user.login}`,
-								filterText: `${user.login}` + (user.name && user.name !== user.login ? `_${user.name.toLowerCase().replace(' ', '_')}` : ''),
-								sortText: `0_${user.login}`,
-								detail: `${user.name}`
-							});
 						}
 					});
 
@@ -258,6 +251,11 @@ export class PullRequestManager {
 								if (fileRelatedUsersNames[user.login] || (user.name && fileRelatedUsersNames[user.name])) {
 									priority = 1;
 								}
+
+								if (prRelatedUsersMap[user.login]) {
+									priority = 0;
+								}
+
 								cachedUsers.push({
 									label: `@${user.login}`,
 									insertText: `${user.login}`,
@@ -654,18 +652,23 @@ export class PullRequestManager {
 
 		let ret = [];
 		if (pullRequest.githubRepository.supportsGraphQl()) {
-			const { data } = await query<TimelineEventsResponse>({
-				query: queries.TimelineEvents,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: pullRequest.prNumber
-				}
-			});
-			ret = data.repository.pullRequest.timeline.edges.map((edge: any) => edge.node);
-			let events = parseGraphQLTimelineEvents(ret);
-			await this.addReviewTimelineEventComments(pullRequest, events);
-			return events;
+			try {
+				const { data } = await query<TimelineEventsResponse>({
+					query: queries.TimelineEvents,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: pullRequest.prNumber
+					}
+				});
+				ret = data.repository.pullRequest.timeline.edges.map((edge: any) => edge.node);
+				let events = parseGraphQLTimelineEvents(ret);
+				await this.addReviewTimelineEventComments(pullRequest, events);
+				return events;
+			} catch (e) {
+				console.log(e);
+				return [];
+			}
 		} else {
 			ret = (await octokit.issues.getEventsTimeline({
 				owner: remote.owner,
