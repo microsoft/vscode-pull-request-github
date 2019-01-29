@@ -175,6 +175,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 
 export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse): PullRequest {
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
+
 	return {
 		url: graphQLPullRequest.url,
 		number: graphQLPullRequest.number,
@@ -202,7 +203,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		} : undefined,
 		user: graphQLPullRequest.author,
 		merged: graphQLPullRequest.merged,
-		mergeable: graphQLPullRequest.mergeable,
+		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
 		nodeId: graphQLPullRequest.id,
 		labels: []
 	};
