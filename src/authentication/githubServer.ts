@@ -193,19 +193,15 @@ export class GitHubServer {
 
 		return new Promise<IHostConfiguration>((resolve, _) => {
 			const get = https.request(options, res => {
-				let hostConfig: IHostConfiguration | undefined;
 				try {
 					if (res.statusCode === 200) {
 						const scopes = res.headers['x-oauth-scopes'] as string;
-						if (GitHubManager.validateScopes(this.hostUri, scopes)) {
-							this.hostConfiguration.token = token;
-							hostConfig = this.hostConfiguration;
-						}
+						GitHubManager.validateScopes(this.hostUri, scopes);
+						resolve(this.hostConfiguration);
 					}
 				} catch (e) {
 					Logger.appendLine(`validate() error ${e}`);
 				}
-				resolve(hostConfig);
 			});
 
 			get.end();
