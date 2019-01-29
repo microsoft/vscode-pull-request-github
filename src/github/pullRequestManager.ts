@@ -10,7 +10,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, PullRequestsResponseResult } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -35,6 +35,12 @@ interface RestError {
 	code: string;
 	field: string;
 	resource: string;
+}
+
+interface PullRequestsResponseResult {
+	pullRequests: PullRequestModel[];
+	hasMorePages: boolean;
+	hasUnsearchedRepositories: boolean;
 }
 
 export class NoGitHubReposError extends Error {

@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestModel } from './pullRequestModel';
-
 export enum PRType {
 	RequestReview = 0,
 	AssignedToMe = 1,
@@ -95,12 +93,6 @@ export interface IGitHubRepository {
 export interface IPullRequestEditData {
 	body?: string;
 	title?: string;
-}
-
-export interface PullRequestsResponseResult {
-	pullRequests: PullRequestModel[];
-	hasMorePages: boolean;
-	hasUnsearchedRepositories: boolean;
 }
 
 export interface ITelemetry {
