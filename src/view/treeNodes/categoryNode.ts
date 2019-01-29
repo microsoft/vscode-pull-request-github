@@ -15,6 +15,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 export enum PRCategoryActionType {
 	Empty,
 	More,
+	TryOtherRemotes,
 	Login
 }
 
@@ -36,6 +37,16 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				break;
 			case PRCategoryActionType.More:
 				this.label = 'Load more';
+				this.command = {
+					title: 'Load more',
+					command: 'pr.loadMore',
+					arguments: [
+						node
+					]
+				};
+				break;
+			case PRCategoryActionType.TryOtherRemotes:
+				this.label = 'Continue fetching from other remotes';
 				this.command = {
 					title: 'Load more',
 					command: 'pr.loadMore',
@@ -107,6 +118,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	async getChildren(): Promise<TreeNode[]> {
 		let hasMorePages = false;
+		let hasUnsearchedRepositories = false;
 		let needLogin = false;
 		if (this._type === PRType.LocalPullRequest) {
 			try {
@@ -119,9 +131,11 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			if (!this.fetchNextPage) {
 				try {
-					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: false });
-					this.prs = ret[0];
-					hasMorePages = ret[1];
+					const response = await this._prManager.getPullRequests(this._type, { fetchNextPage: false });
+					this.prs = response.pullRequests;
+					hasMorePages = response.hasMorePages;
+					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
+
 					switch (this._type) {
 						case PRType.All:
 							this._telemetry.on('prList.expand.all');
@@ -143,9 +157,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				}
 			} else {
 				try {
-					let ret = await this._prManager.getPullRequests(this._type, { fetchNextPage: true });
-					this.prs = this.prs.concat(ret[0]);
-					hasMorePages = ret[1];
+					const response = await this._prManager.getPullRequests(this._type, { fetchNextPage: true });
+					this.prs = this.prs.concat(response.pullRequests);
+					hasMorePages = response.hasMorePages;
+					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);
 					needLogin = e instanceof AuthenticationError;
@@ -159,6 +174,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this, this._prManager, prItem, this._type === PRType.LocalPullRequest));
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
+			} else if (hasUnsearchedRepositories) {
+				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.TryOtherRemotes, this));
 			}
 
 			this.childrenDisposables = nodes;

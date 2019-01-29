@@ -10,8 +10,8 @@ import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
-import { GitHubRepository, PULL_REQUEST_PAGE_SIZE } from './githubRepository';
-import { IPullRequestsPagingOptions, PullRequest, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, IRawFileChange, IAccount } from './interface';
+import { GitHubRepository } from './githubRepository';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -38,6 +38,12 @@ interface RestError {
 	code: string;
 	field: string;
 	resource: string;
+}
+
+interface PullRequestsResponseResult {
+	pullRequests: PullRequestModel[];
+	hasMorePages: boolean;
+	hasUnsearchedRepositories: boolean;
 }
 
 export class NoGitHubReposError extends Error {
@@ -75,12 +81,7 @@ export class BadUpstreamError extends Error {
 }
 
 const SETTINGS_NAMESPACE = 'githubPullRequests';
-const LOG_LEVEL_SETTING = 'includeRemotes';
-
-const enum IncludeRemote {
-	Default,
-	All
-}
+const REMOTES_SETTING = 'remotes';
 
 interface NewCommentPosition {
 	path: string;
@@ -104,7 +105,6 @@ export class PullRequestManager {
 	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
-	private _includeRemotes: IncludeRemote;
 
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
@@ -116,16 +116,54 @@ export class PullRequestManager {
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
-		this._includeRemotes = IncludeRemote.Default;
-		vscode.workspace.onDidChangeConfiguration(() => {
-			let oldIncludeRemote = this._includeRemotes;
-			this.getIncludeRemoteConfig();
-			if (this._includeRemotes !== oldIncludeRemote) {
-				this.updateRepositories();
+		vscode.workspace.onDidChangeConfiguration(async e => {
+			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
+				await this.updateRepositories();
+				vscode.commands.executeCommand('pr.refreshList');
 			}
 		});
-		this.getIncludeRemoteConfig();
+
 		this.setUpCompletionItemProvider();
+	}
+
+	private async getActiveGitHubRemotes(allGitHubRemotes: Remote[]): Promise<Remote[]> {
+		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+
+		if (remotesSetting) {
+			remotesSetting.forEach(remote => {
+				if (!allGitHubRemotes.some(repo => repo.remoteName === remote)) {
+					Logger.appendLine(`No remote with name '${remote}' found. Please update your 'githubPullRequests.remotes' setting.`);
+				}
+			});
+
+			Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, PullRequestManager.ID);
+
+			return remotesSetting
+				.map(remote =>  allGitHubRemotes.find(repo => repo.remoteName === remote))
+				.filter(repo => !!repo) as Remote[];
+		}
+
+		const upstream = allGitHubRemotes.find(repo => repo.remoteName === 'upstream');
+		const origin = allGitHubRemotes.find(repo => repo.remoteName === 'origin');
+
+		const activeRemotes: Remote[] = [];
+		if (upstream) {
+			Logger.debug(`Displaying upstream remote`, PullRequestManager.ID);
+			activeRemotes.push(upstream);
+		}
+
+		if (origin) {
+			Logger.debug(`Displaying origin remote`, PullRequestManager.ID);
+			activeRemotes.push(origin);
+		}
+
+		if (activeRemotes.length) {
+			return activeRemotes;
+		}
+
+		Logger.debug(`Displaying all github remotes`, PullRequestManager.ID);
+		const remotes = uniqBy(allGitHubRemotes, remote => remote.gitProtocol.normalizeUri()!.toString());
+		return await PullRequestGitHelper.getUserCreatedRemotes(this.repository, remotes);
 	}
 
 	private setUpCompletionItemProvider() {
@@ -277,19 +315,6 @@ export class PullRequestManager {
 
 	}
 
-	private getIncludeRemoteConfig() {
-		let includeRemotes = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
-		switch (includeRemotes) {
-			case 'default':
-				this._includeRemotes = IncludeRemote.Default;
-				break;
-			case 'all':
-				this._includeRemotes = IncludeRemote.All;
-			default:
-				break;
-		}
-	}
-
 	get activePullRequest(): (PullRequestModel | undefined) {
 		return this._activePullRequest;
 	}
@@ -315,16 +340,17 @@ export class PullRequestManager {
 		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
-		let gitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
+		const allGitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
 				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
 				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
 				return [];
 			});
-		gitHubRemotes = uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri()!.toString());
 
-		if (gitHubRemotes.length) {
+		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+
+		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
 			Logger.appendLine('Found GitHub remote');
 		} else {
@@ -334,7 +360,7 @@ export class PullRequestManager {
 		}
 
 		let serverAuthPromises = [];
-		for (let server of uniqBy(gitHubRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
+		for (let server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
 			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
 				if (!authd) {
 					this._credentialStore.loginWithConfirmation(server);
@@ -349,9 +375,8 @@ export class PullRequestManager {
 
 		let repositories: GitHubRepository[] = [];
 		let resolveRemotePromises: Promise<void>[] = [];
-		let userCreatedRemoteNames = this._includeRemotes === IncludeRemote.All ? (gitHubRemotes as Remote[]) : await PullRequestGitHelper.getUserCreatedRemotes(this.repository, (gitHubRemotes as Remote[]));
 
-		userCreatedRemoteNames.forEach(remote => {
+		activeRemotes.forEach(remote => {
 			const repository = new GitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
@@ -491,11 +516,13 @@ export class PullRequestManager {
 		this._telemetry.on('branch.delete');
 	}
 
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<[PullRequestModel[], boolean]> {
-		let githubRepositories = this._githubRepositories;
-
-		if (!githubRepositories || !githubRepositories.length) {
-			return [[], false];
+	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<PullRequestsResponseResult> {
+		if (!this._githubRepositories || !this._githubRepositories.length) {
+			return {
+				pullRequests: [],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false
+			};
 		}
 
 		if (!options.fetchNextPage) {
@@ -507,42 +534,33 @@ export class PullRequestManager {
 			}
 		}
 
-		githubRepositories = githubRepositories.filter(repo => {
-			let info = this._repositoryPageInformation.get(repo.remote.url.toString());
+		const githubRepositories = this._githubRepositories.filter(repo => {
+			const info = this._repositoryPageInformation.get(repo.remote.url.toString());
 			return info && info.hasMorePages !== false;
 		});
 
-		let pullRequests: PullRequestModel[] = [];
-		let numPullRequests = 0;
-		let hasMorePages = false;
-
 		for (let i = 0; i < githubRepositories.length; i++) {
-			if (numPullRequests >= PULL_REQUEST_PAGE_SIZE) {
-				hasMorePages = true;
-				break;
-			}
-
 			const githubRepository = githubRepositories[i];
-			const remote = githubRepository.remote.remoteName;
-			const shouldLoad = this._includeRemotes === IncludeRemote.All || !(await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remote));
-			if (shouldLoad) {
-				const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString());
-				while (numPullRequests < PULL_REQUEST_PAGE_SIZE && pageInformation && pageInformation.hasMorePages !== false) {
-					const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
-					if (!pullRequestData) {
-						break;
-					}
-					numPullRequests += pullRequestData.pullRequests.length;
-					pullRequests = pullRequests.concat(...pullRequestData.pullRequests);
+			const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString())!;
+			const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
 
-					pageInformation.hasMorePages = pullRequestData.hasMorePages;
-					hasMorePages = hasMorePages || pageInformation.hasMorePages;
-					pageInformation.pullRequestPage++;
-				}
+			pageInformation.hasMorePages = !!pullRequestData && pullRequestData.hasMorePages;
+			pageInformation.pullRequestPage++;
+
+			if (pullRequestData && pullRequestData.pullRequests.length) {
+				return {
+					pullRequests: pullRequestData.pullRequests,
+					hasMorePages: pageInformation.hasMorePages,
+					hasUnsearchedRepositories: i < githubRepositories.length - 1
+				};
 			}
 		}
 
-		return [pullRequests, hasMorePages];
+		return {
+			pullRequests: [],
+			hasMorePages: false,
+			hasUnsearchedRepositories: false
+		};
 	}
 
 	public mayHaveMorePages(): boolean {
