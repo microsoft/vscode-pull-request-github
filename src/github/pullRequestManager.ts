@@ -137,8 +137,6 @@ export class PullRequestManager {
 			provideCompletionItems: async (document, position, token) => {
 				try {
 					let query = JSON.parse(document.uri.query);
-					let activeTextEditors = vscode.window.visibleTextEditors.filter(editor => editor.document.uri.scheme === 'pr');
-
 					if (query.extensionId !== EXTENSION_ID) {
 						return;
 					}
@@ -151,28 +149,38 @@ export class PullRequestManager {
 					let prRelatedusers: { login: string; name?: string; }[] = [];
 					let fileRelatedUsersNames: { [key: string]: boolean } = {};
 					let mentionableUsers: { [key: string]: { login: string; name?: string; }[]; } = {};
-					let params: PRUriParams | undefined;
+					let prNumber: number | undefined;
+					let remoteName: string | undefined;
 
+					let activeTextEditors = vscode.window.visibleTextEditors;
 					if (activeTextEditors.length) {
-						params = fromPRUri(activeTextEditors[0].document.uri);
+						let visibilePREditor = activeTextEditors.find(editor => editor.document.uri.scheme === 'pr');
 
-						if (lastPullRequest && params && params.prNumber === lastPullRequest.prNumber) {
+						if (visibilePREditor) {
+							let params = fromPRUri(visibilePREditor.document.uri);
+							prNumber = params!.prNumber;
+							remoteName = params!.remoteName;
+						} else if (this._activePullRequest) {
+							prNumber = this._activePullRequest.prNumber;
+							remoteName = this._activePullRequest.remote.remoteName;
+						}
+
+						if (lastPullRequest && prNumber && prNumber === lastPullRequest.prNumber) {
 							return cachedUsers;
 						}
 					}
 
 					let prRelatedUsersPromise = new Promise(async resolve => {
-						if (params) {
+						if (prNumber && remoteName) {
 							Logger.debug('get Timeline Events and parse users', PullRequestManager.ID);
-							if (lastPullRequest && lastPullRequest.prNumber === params.prNumber) {
+							if (lastPullRequest && lastPullRequest.prNumber === prNumber) {
 								return lastPullRequestTimelineEvents;
 							}
 
-							let remoteName = params.remoteName;
 							let githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
 
 							if (githubRepos.length) {
-								lastPullRequest = await githubRepos[0].getPullRequest(params.prNumber);
+								lastPullRequest = await githubRepos[0].getPullRequest(prNumber);
 								lastPullRequestTimelineEvents = await this.getTimelineEvents(lastPullRequest!);
 							}
 
