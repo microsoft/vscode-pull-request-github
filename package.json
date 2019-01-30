@@ -193,6 +193,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.copyCommitHash",
+        "title": "Copy Commit Hash",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.openDiffView",
         "title": "Open Diff View",
         "category": "GitHub Pull Requests",
@@ -378,6 +383,10 @@
         {
           "command": "pr.openFileInGitHub",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
+        },
+        {
+          "command": "pr.copyCommitHash",
+          "when": "view == prStatus && viewItem =~ /commit/"
         },
         {
           "command": "pr.openDescriptionToTheSide",

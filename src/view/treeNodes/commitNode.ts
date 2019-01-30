@@ -16,8 +16,10 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
+	public sha: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath: vscode.Uri | undefined;
+	public contextValue?: string;
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
@@ -28,8 +30,8 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		this.label = commit.commit.message;
+		this.sha = commit.sha;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-
 		let userIconUri: vscode.Uri | undefined;
 		try {
 			if (commit.author && commit.author.avatar_url) {
@@ -40,6 +42,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		this.iconPath = userIconUri;
+		this.contextValue = 'commit';
 	}
 
 	getTreeItem(): vscode.TreeItem {
