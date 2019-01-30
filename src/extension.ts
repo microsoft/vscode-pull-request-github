@@ -1,6 +1,10 @@
 /*---------------------------------------------------------------------------------------------
+ *
+ *
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *
+ *
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
@@ -32,6 +36,7 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 
 	Keychain.init(context);
 	await migrateConfiguration();
+
 	context.subscriptions.push(Keychain.onDidChange(async _ => {
 		if (prManager) {
 			try {
