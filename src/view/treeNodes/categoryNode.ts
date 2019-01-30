@@ -105,6 +105,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			case PRType.AssignedToMe:
 				this.label = 'Assigned To Me';
 				break;
+			case PRType.Mention:
+				this.label = 'Mentioned Me';
+				break;
 			case PRType.Mine:
 				this.label = 'Created By Me';
 				break;
@@ -142,6 +145,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 							break;
 						case PRType.AssignedToMe:
 							this._telemetry.on('prList.expand.assignedToMe');
+							break;
+						case PRType.Mention:
+							this._telemetry.on('prList.expand.mention');
 							break;
 						case PRType.RequestReview:
 							this._telemetry.on('prList.expand.requestReview');

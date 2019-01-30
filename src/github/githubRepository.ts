@@ -380,6 +380,9 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			case PRType.AssignedToMe:
 				filter = `assignee:${user}`;
 				break;
+			case PRType.Mention:
+				filter = `mentions:${user}`;
+				break;
 			case PRType.Mine:
 				filter = `author:${user}`;
 				break;

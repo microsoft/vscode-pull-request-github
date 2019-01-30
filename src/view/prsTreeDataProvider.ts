@@ -71,6 +71,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.LocalPullRequest),
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.RequestReview),
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.AssignedToMe),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Mention),
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Mine),
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.All)
 			];
