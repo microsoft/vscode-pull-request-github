@@ -218,6 +218,19 @@ export interface DeleteReviewResponse {
 	};
 }
 
+export interface Ref {
+	name: string;
+	repository: {
+		owner: {
+			login: string;
+		}
+		url: string;
+	};
+	target: {
+		oid: string;
+	};
+}
+
 export interface PullRequestResponse {
 	repository: {
 		pullRequest: {
@@ -234,26 +247,8 @@ export interface PullRequestResponse {
 			}
 			createdAt: string;
 			updatedAt: string;
-			headRef?: {
-				name: string;
-				repository: {
-					nameWithOwner: string;
-					url: string;
-				}
-				target: {
-					oid: string;
-				}
-			}
-			baseRef?: {
-				name: string;
-				repository: {
-					nameWithOwner: string;
-					url: string;
-				}
-				target: {
-					oid: string
-				}
-			}
+			headRef?: Ref;
+			baseRef?: Ref;
 			merged: boolean;
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			id: string;
