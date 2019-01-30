@@ -134,7 +134,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.copyCommitHash', (e: CommitNode) => {
-		vscode.window.showInformationMessage(e.sha);
+		vscode.env.clipboard.writeText(e.sha);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
