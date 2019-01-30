@@ -469,7 +469,8 @@ export class ActionsBar {
 		private _updateHandler: (value: any) => void,
 		private _editCommand?: string,
 		private _deleteCommand?: string,
-		private _review?: ReviewNode) {
+		private _review?: ReviewNode,
+		private _elementsToHide?: HTMLElement[]) {
 
 	}
 
@@ -480,7 +481,7 @@ export class ActionsBar {
 		if (this._editCommand) {
 			const editButton = document.createElement('button');
 			editButton.innerHTML = editIcon;
-			this._editAction = new EditAction(this._data, this._renderedComment, this._messageHandler, this._updateHandler, this._editCommand, [this._actionsBar]);
+			this._editAction = new EditAction(this._data, this._renderedComment, this._messageHandler, this._updateHandler, this._editCommand, (this._elementsToHide || []).concat(this._actionsBar));
 			editButton.addEventListener('click', () => this._editAction.startEdit());
 			this._actionsBar.appendChild(editButton);
 		}
