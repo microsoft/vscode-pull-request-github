@@ -176,7 +176,9 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			headRef {
 				name
 				repository {
-					nameWithOwner
+					owner {
+						login
+					}
 					url
 				}
 				target {
@@ -186,7 +188,9 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			baseRef {
 				name
 				repository {
-					nameWithOwner
+					owner {
+						login
+					}
 					url
 				}
 				target {

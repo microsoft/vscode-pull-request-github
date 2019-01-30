@@ -286,6 +286,7 @@ body button.checkedOut svg {
 	padding-top: 5px;
 	margin-left: auto;
 	display: flex;
+	align-self: start;
 }
 
 .title-container {
