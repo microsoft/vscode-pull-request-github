@@ -5,7 +5,7 @@
 'use strict';
 
 import * as Octokit from '../common/octokit';
-import { IAccount, PullRequest } from './interface';
+import { IAccount, PullRequest, IGitHubRef } from './interface';
 import { Comment } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
@@ -173,6 +173,19 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 	return c;
 }
 
+function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
+	if (ref) {
+		return {
+			label: `${ref.repository.owner.login}:${ref.name}`,
+			ref: ref.name,
+			sha: ref.target.oid,
+			repo: {
+				cloneUrl: ref.repository.url
+			}
+		};
+	}
+}
+
 export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse): PullRequest {
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
@@ -185,22 +198,8 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		title: graphQLPullRequest.title,
 		createdAt: graphQLPullRequest.createdAt,
 		updatedAt: graphQLPullRequest.updatedAt,
-		head: graphQLPullRequest.headRef ? {
-			label: graphQLPullRequest.headRef.name,
-			ref: graphQLPullRequest.headRef.repository.nameWithOwner,
-			sha: graphQLPullRequest.headRef.target.oid,
-			repo: {
-				cloneUrl: graphQLPullRequest.headRef.repository.url
-			}
-		} : undefined,
-		base: graphQLPullRequest.baseRef ? {
-			label: graphQLPullRequest.baseRef.name,
-			ref: graphQLPullRequest.baseRef.repository.nameWithOwner,
-			sha: graphQLPullRequest.baseRef.target.oid,
-			repo: {
-				cloneUrl: graphQLPullRequest.baseRef.repository.url
-			}
-		} : undefined,
+		head: parseRef(graphQLPullRequest.headRef),
+		base: parseRef(graphQLPullRequest.baseRef),
 		user: graphQLPullRequest.author,
 		merged: graphQLPullRequest.merged,
 		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
