@@ -38,6 +38,14 @@ export function getState(): PullRequest {
 }
 
 export function setState(pullRequest: PullRequest): void {
+	let oldPullRequest = getState();
+
+	if (oldPullRequest.number && oldPullRequest.number === pullRequest.number) {
+		pullRequest = Object.assign(pullRequest, {
+			pendingCommentText: oldPullRequest.pendingCommentText
+		});
+	}
+
 	vscode.setState(pullRequest);
 }
 
