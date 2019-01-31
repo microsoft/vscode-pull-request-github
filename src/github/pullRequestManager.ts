@@ -269,12 +269,12 @@ export class PullRequestManager {
 					await Promise.all([prRelatedUsersPromise, fileRelatedUsersNamesPromise, getMentionableUsersPromise]);
 
 					cachedUsers = [];
-					let prRelatedUsersMap: { [key: string]: boolean } = {};
+					let prRelatedUsersMap: { [key: string]: { login: string; name?: string; } } = {};
 					Logger.debug('prepare user suggestions', PullRequestManager.ID);
 
 					prRelatedusers.forEach(user => {
 						if (!prRelatedUsersMap[user.login]) {
-							prRelatedUsersMap[user.login] = true;
+							prRelatedUsersMap[user.login] = user;
 						}
 					});
 
@@ -303,6 +303,19 @@ export class PullRequestManager {
 								});
 							}
 						});
+					}
+
+					for (let user in prRelatedUsersMap) {
+						if (!secondMap[user]) {
+							// if the mentionable api call fails partially, we should still populate related users from timeline events into the completion list
+							cachedUsers.push({
+								label: `@${prRelatedUsersMap[user].login}`,
+								insertText: `${prRelatedUsersMap[user].login}`,
+								filterText: `${prRelatedUsersMap[user].login}` + (prRelatedUsersMap[user].name && prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login ? `_${prRelatedUsersMap[user].name.toLowerCase().replace(' ', '_')}` : ''),
+								sortText: `0_${prRelatedUsersMap[user].login}`,
+								detail: `${prRelatedUsersMap[user].name}`
+							});
+						}
 					}
 
 					Logger.debug('done', PullRequestManager.ID);
