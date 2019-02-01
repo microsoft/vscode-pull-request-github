@@ -331,7 +331,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
 			const { query, supportsGraphQl, remote } = await this.ensure();
 
-			if (supportsGraphQl) {
+			if (supportsGraphQl()) {
 				let after = null;
 				let hasNextPage = false;
 				let ret: IAccount[] = [];

@@ -584,7 +584,7 @@ export class PullRequestManager {
 
 	async getPullRequestComments(pullRequest: PullRequestModel): Promise<Comment[]> {
 		const { supportsGraphQl } = pullRequest.githubRepository;
-		return supportsGraphQl
+		return supportsGraphQl()
 			? this.getAllPullRequestReviewComments(pullRequest)
 			: this.getPullRequestReviewComments(pullRequest);
 	}
