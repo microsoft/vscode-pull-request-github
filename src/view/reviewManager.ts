@@ -900,7 +900,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private registerCommentProvider() {
-		const supportsGraphQL = this._prManager.activePullRequest && (this._prManager.activePullRequest as PullRequestModel).githubRepository.supportsGraphQl();
+		const supportsGraphQL = this._prManager.activePullRequest && (this._prManager.activePullRequest as PullRequestModel).githubRepository.supportsGraphQl;
 		if (supportsGraphQL) {
 			this._localToDispose.push(onDidSubmitReview(submittedComments => {
 				this.updateCommentPendingState(submittedComments);

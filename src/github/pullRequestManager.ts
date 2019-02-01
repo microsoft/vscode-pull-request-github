@@ -666,10 +666,10 @@ export class PullRequestManager {
 
 	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { octokit, query, remote } = await pullRequest.githubRepository.ensure();
+		const { octokit, query, remote, supportsGraphQl } = await pullRequest.githubRepository.ensure();
 
 		let ret = [];
-		if (pullRequest.githubRepository.supportsGraphQl()) {
+		if (supportsGraphQl) {
 			try {
 				const { data } = await query<TimelineEventsResponse>({
 					query: queries.TimelineEvents,
@@ -794,7 +794,7 @@ export class PullRequestManager {
 			return undefined;
 		}
 
-		if (!pullRequest.githubRepository.supportsGraphQl()) {
+		if (!pullRequest.githubRepository.supportsGraphQl) {
 			return;
 		}
 
