@@ -153,6 +153,7 @@ function renderDescription(pr: PullRequest): HTMLElement {
 	commentHeader.classList.add('description-header');
 
 	const commentBody = document.createElement('div');
+	commentBody.className = 'comment-body';
 	commentBody.innerHTML = pr.bodyHTML ?
 		pr.bodyHTML :
 		pr.body
