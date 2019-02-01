@@ -73,7 +73,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	}
 
 	get supportsGraphQl(): boolean {
-		Logger.appendLine(`supportsGraphQL(): ${!!(this.hub && this.hub.graphql)}`);
 		return !!(this.hub && this.hub.graphql);
 	}
 
