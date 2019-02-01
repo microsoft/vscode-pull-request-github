@@ -421,6 +421,7 @@
   "devDependencies": {
     "@types/chai": "^4.1.4",
     "@types/debounce": "^3.0.0",
+    "@types/graphql": "^14.0.5",
     "@types/keytar": "^4.0.1",
     "@types/lodash": "^4.14.106",
     "@types/markdown-it": "^0.0.5",

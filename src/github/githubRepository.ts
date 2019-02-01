@@ -53,7 +53,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			}
 
 			await this.ensure();
-			this.commentsProvider = this.supportsGraphQl() ? new PRDocumentCommentProviderGraphQL() : new PRDocumentCommentProvider();
+			this.commentsProvider = this.supportsGraphQl ? new PRDocumentCommentProviderGraphQL() : new PRDocumentCommentProvider();
 			this._toDispose.push(vscode.workspace.registerDocumentCommentProvider(this.commentsProvider));
 		} catch (e) {
 			console.log(e);
@@ -72,7 +72,8 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
 	}
 
-	supportsGraphQl(): boolean {
+	get supportsGraphQl(): boolean {
+		Logger.appendLine(`supportsGraphQL(): ${!!(this.hub && this.hub.graphql)}`);
 		return !!(this.hub && this.hub.graphql);
 	}
 
@@ -279,7 +280,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
-			const { octokit, query, remote } = await this.ensure();
+			const { octokit, query, remote, supportsGraphQl } = await this.ensure();
 			let prsResult = await octokit.pullRequests.get({
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -292,7 +293,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 				return;
 			}
 
-			if (this.supportsGraphQl()) {
+			if (supportsGraphQl) {
 				const { data } = await query<PullRequestResponse>({
 					query: queries.PullRequest,
 					variables: {
