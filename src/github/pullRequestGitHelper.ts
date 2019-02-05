@@ -100,6 +100,12 @@ export class PullRequestGitHelper {
 		if (branchInfos && branchInfos.length) {
 			// let's immediately checkout to branchInfos[0].branch
 			await repository.checkout(branchInfos[0].branch!);
+			const branch = await repository.getBranch(branchInfos[0].branch!);
+			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
+				await repository.pull();
+			}
+
 			return true;
 		} else {
 			return false;
