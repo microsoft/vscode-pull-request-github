@@ -280,17 +280,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
 			const { octokit, query, remote, supportsGraphQl } = await this.ensure();
-			let prsResult = await octokit.pullRequests.get({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				number: id
-			});
-			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
-
-			if (!prsResult.data.head.repo) {
-				Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-				return;
-			}
 
 			if (supportsGraphQl) {
 				const { data } = await query<PullRequestResponse>({
