@@ -140,6 +140,7 @@ export interface TimelineEventsResponse {
 			}
 		}
 	};
+	rateLimit: RateLimit;
 }
 
 export interface PendingReviewIdResponse {
@@ -148,6 +149,7 @@ export interface PendingReviewIdResponse {
 			nodes: Review[];
 		}
 	};
+	rateLimit: RateLimit;
 }
 
 export interface PullRequestCommentsResponse {
@@ -164,6 +166,7 @@ export interface PullRequestCommentsResponse {
 			}
 		}
 	};
+	rateLimit: RateLimit;
 }
 
 export interface MentionableUsersResponse {
@@ -183,6 +186,7 @@ export interface MentionableUsersResponse {
 			};
 		}
 	};
+	rateLimit: RateLimit;
 }
 
 export interface AddCommentResponse {
@@ -254,4 +258,15 @@ export interface PullRequestResponse {
 			id: string;
 		}
 	};
+	rateLimit: RateLimit;
+}
+
+export interface QueryWithRateLimit {
+	rateLimit: RateLimit;
+}
+export interface RateLimit {
+	limit: number;
+	cost: number;
+	remaining: number;
+	resetAt: string;
 }
