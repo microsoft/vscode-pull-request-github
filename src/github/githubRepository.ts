@@ -11,7 +11,7 @@ import { PRType, IGitHubRepository, IAccount } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
-import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus } from 'apollo-boost';
+import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../view/prDocumentCommentProvider';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
@@ -94,7 +94,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		return rsp;
 	}
 
-	mutate = async <T>(mutation: MutationOptions): Promise<ApolloQueryResult<T>> => {
+	mutate = async <T>(mutation: MutationOptions): Promise<FetchResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);

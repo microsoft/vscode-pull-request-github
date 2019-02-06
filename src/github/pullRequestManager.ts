@@ -753,14 +753,18 @@ export class PullRequestManager {
 	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: Comment[] }> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<DeleteReviewResponse>({
+		const { data, errors } = await mutate<DeleteReviewResponse>({
 			mutation: queries.DeleteReview,
 			variables: {
 				input: { pullRequestReviewId: pendingReviewId }
 			}
 		});
 
-		const { comments, databaseId } = data.deletePullRequestReview.pullRequestReview;
+		if (errors) {
+			throw new Error(errors.map(err => err.message).join(', '));
+		}
+
+		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
 		return {
 			deletedReviewId: databaseId,
@@ -816,7 +820,7 @@ export class PullRequestManager {
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<Comment> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<AddCommentResponse>({
+		const { data, errors } = await mutate<AddCommentResponse>({
 			mutation: queries.AddComment,
 			variables: {
 				input: {
@@ -827,7 +831,11 @@ export class PullRequestManager {
 			}
 		});
 
-		const { comment } = data.addPullRequestReviewComment;
+		if (errors) {
+			throw new Error(errors.map(err => err.message).join(', '));
+		}
+
+		const { comment } = data!.addPullRequestReviewComment;
 		return parseGraphQLComment(comment);
 	}
 
@@ -1006,7 +1014,7 @@ export class PullRequestManager {
 	private async editPendingReviewComment(pullRequest: PullRequestModel, commentNodeId: string, text: string): Promise<Comment> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
-		const { data } = await mutate<EditCommentResponse>({
+		const { data, errors } = await mutate<EditCommentResponse>({
 			mutation: queries.EditComment,
 			variables: {
 				input: {
@@ -1016,7 +1024,11 @@ export class PullRequestManager {
 			}
 		});
 
-		return parseGraphQLComment(data.updatePullRequestReviewComment.pullRequestReviewComment);
+		if (errors) {
+			throw new Error(errors.map(err => err.message).join(', '));
+		}
+
+		return parseGraphQLComment(data!.updatePullRequestReviewComment.pullRequestReviewComment);
 	}
 
 	async deleteIssueComment(pullRequest: PullRequestModel, commentId: string): Promise<void> {
@@ -1133,7 +1145,7 @@ export class PullRequestManager {
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
 		if (pendingReviewId) {
-			const { data } = await mutate<SubmitReviewResponse>({
+			const { data, errors } = await mutate<SubmitReviewResponse>({
 				mutation: queries.SubmitReview,
 				variables: {
 					id: pendingReviewId,
@@ -1142,7 +1154,11 @@ export class PullRequestManager {
 				}
 			});
 
-			const submittedComments = data.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
+			if (errors) {
+				throw new Error(errors.map(err => err.message).join(', '));
+			}
+
+			const submittedComments = data!.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
 			_onDidSubmitReview.fire(submittedComments);
 		} else {
 			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
