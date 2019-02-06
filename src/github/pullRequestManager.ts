@@ -773,7 +773,7 @@ export class PullRequestManager {
 			}
 		});
 
-		const { comments, databaseId } = data.deletePullRequestReview.pullRequestReview;
+		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
 		return {
 			deletedReviewId: databaseId,
@@ -840,7 +840,7 @@ export class PullRequestManager {
 			}
 		});
 
-		const { comment } = data.addPullRequestReviewComment;
+		const { comment } = data!.addPullRequestReviewComment;
 		return parseGraphQLComment(comment);
 	}
 
@@ -1029,7 +1029,7 @@ export class PullRequestManager {
 			}
 		});
 
-		return parseGraphQLComment(data.updatePullRequestReviewComment.pullRequestReviewComment);
+		return parseGraphQLComment(data!.updatePullRequestReviewComment.pullRequestReviewComment);
 	}
 
 	async deleteIssueComment(pullRequest: PullRequestModel, commentId: string): Promise<void> {
@@ -1155,7 +1155,7 @@ export class PullRequestManager {
 				}
 			});
 
-			const submittedComments = data.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
+			const submittedComments = data!.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
 			_onDidSubmitReview.fire(submittedComments);
 		} else {
 			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
