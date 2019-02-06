@@ -29,9 +29,13 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 		}
 
 		const absolutePath = pathLib.join(this.repository.rootUri.fsPath, path).replace(/\\/g, '/');
-		let content = await this.repository.show(commit, absolutePath);
-
-		if (!content) {
+		let content: string;
+		try {
+			content = await this.repository.show(commit, absolutePath);
+			if (!content) {
+				throw new Error();
+			}
+		} catch (_) {
 			content = await this._fallback(uri);
 			if (!content) {
 				// Content does not exist for the base or modified file for a file deletion or addition.
