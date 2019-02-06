@@ -311,7 +311,7 @@ export class PullRequestManager {
 							cachedUsers.push({
 								label: `@${prRelatedUsersMap[user].login}`,
 								insertText: `${prRelatedUsersMap[user].login}`,
-								filterText: `${prRelatedUsersMap[user].login}` + (prRelatedUsersMap[user].name && prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login ? `_${prRelatedUsersMap[user].name.toLowerCase().replace(' ', '_')}` : ''),
+								filterText: `${prRelatedUsersMap[user].login}` + (prRelatedUsersMap[user].name && prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login ? `_${prRelatedUsersMap[user].name!.toLowerCase().replace(' ', '_')}` : ''),
 								sortText: `0_${prRelatedUsersMap[user].login}`,
 								detail: `${prRelatedUsersMap[user].name}`
 							});
