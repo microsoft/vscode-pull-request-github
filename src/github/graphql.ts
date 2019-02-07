@@ -129,7 +129,7 @@ export interface Review {
 		avatarUrl: string;
 		url: string;
 	};
-	state: string;
+	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING';
 	body: string;
 	bodyHTML?: string;
 	submittedAt: string;
@@ -210,13 +210,15 @@ export interface EditCommentResponse {
 	};
 }
 
+export interface SubmittedReview extends Review {
+	comments: {
+		nodes: ReviewComment[];
+	};
+}
+
 export interface SubmitReviewResponse {
 	submitPullRequestReview: {
-		pullRequestReview: {
-			comments: {
-				nodes: ReviewComment[];
-			}
-		}
+		pullRequestReview: SubmittedReview;
 	};
 }
 

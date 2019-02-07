@@ -18,7 +18,7 @@ import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { PullRequestManager } from './pullRequestManager';
 import { PullRequestModel } from './pullRequestModel';
-import { TimelineEvent, isReviewEvent } from '../common/timelineEvent';
+import { TimelineEvent, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -587,8 +587,10 @@ export class PullRequestOverviewPanel {
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.approve', this._pullRequest, message.args).then(_ => {
-			this.refreshPanel();
+		vscode.commands.executeCommand<CommonReviewEvent>('pr.approve', this._pullRequest, message.args).then(review => {
+			this._replyMessage(message, {
+				value: review
+			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
@@ -597,8 +599,10 @@ export class PullRequestOverviewPanel {
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.requestChanges', this._pullRequest, message.args).then(_ => {
-			this.refreshPanel();
+		vscode.commands.executeCommand<CommonReviewEvent>('pr.requestChanges', this._pullRequest, message.args).then(review => {
+			this._replyMessage(message, {
+				value: review
+			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
@@ -607,7 +611,9 @@ export class PullRequestOverviewPanel {
 
 	private submitReview(message: IRequestMessage<string>): void {
 		this._pullRequestManager.submitReview(this._pullRequest, ReviewEvent.Comment, message.args).then(review => {
-			this.refreshPanel();
+			this._replyMessage(message, {
+				value: review
+			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
