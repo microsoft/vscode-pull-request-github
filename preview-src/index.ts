@@ -7,7 +7,7 @@ import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
 import { EventType, isReviewEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
-import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds, EditAction } from './pullRequestOverviewRenderer';
+import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds } from './pullRequestOverviewRenderer';
 import md from './mdRenderer';
 const emoji = require('node-emoji');
 import { getMessageHandler } from './message';
@@ -110,7 +110,8 @@ function renderTitle(pr: PullRequest): HTMLElement {
 			title.textContent = text;
 		}
 
-		const editAction = new EditAction(
+		const actionsBar = new ActionsBar(
+			titleContainer,
 			{
 				body: pr.title,
 				id: pr.number.toString()
@@ -119,11 +120,21 @@ function renderTitle(pr: PullRequest): HTMLElement {
 			messageHandler,
 			updateTitle,
 			'pr.edit-title',
+			undefined,
+			undefined,
 			[prNumber]
-		);
+			);
+
+		const renderedActionsBar = actionsBar.render();
+		actionsBar.registerActionBarListeners();
+		titleHeader.appendChild(renderedActionsBar);
+
+		if (pr.pendingCommentDrafts && pr.pendingCommentDrafts[pr.number]) {
+			actionsBar.startEdit(pr.pendingCommentDrafts[pr.number]);
+		}
 
 		title.addEventListener('click', () => {
-			editAction.startEdit();
+			actionsBar.startEdit();
 		});
 	}
 
@@ -142,6 +153,7 @@ function renderDescription(pr: PullRequest): HTMLElement {
 	commentHeader.classList.add('description-header');
 
 	const commentBody = document.createElement('div');
+	commentBody.className = 'comment-body';
 	commentBody.innerHTML = pr.bodyHTML ?
 		pr.bodyHTML :
 		pr.body

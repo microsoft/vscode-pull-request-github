@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as Octokit from '@octokit/rest';
-import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
+import { ApolloClient, InMemoryCache, NormalizedCacheObject, gql } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
 import { agent } from '../common/net';
@@ -25,7 +25,7 @@ const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
 export interface GitHub {
 	octokit: Octokit;
-	graphql: ApolloClient<NormalizedCacheObject>;
+	graphql: ApolloClient<NormalizedCacheObject> | null;
 }
 
 export class CredentialStore {
@@ -74,7 +74,7 @@ export class CredentialStore {
 
 		if (token) {
 			if (await server.validate(token)) {
-				octokit = this.createHub({ host, token });
+				octokit = await this.createHub({ host, token });
 			} else {
 				Logger.debug(`Token is no longer valid for host ${host}.`, 'Authentication');
 			}
@@ -137,7 +137,7 @@ export class CredentialStore {
 				this.willStartLogin(authority);
 				const login = await server.login();
 				if (login && login.token) {
-					octokit = this.createHub(login);
+					octokit = await this.createHub(login);
 					await setToken(login.host, login.token, { emit: false });
 					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
 				}
@@ -174,7 +174,7 @@ export class CredentialStore {
 		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
 	}
 
-	private createHub(creds: IHostConfiguration): GitHub {
+	private async createHub(creds: IHostConfiguration): Promise<GitHub> {
 		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
 		let octokit = new Octokit({
 			agent,
@@ -187,17 +187,30 @@ export class CredentialStore {
 			token: creds.token || '',
 		});
 
+		const graphql = new ApolloClient({
+			link: link(baseUrl, creds.token || ''),
+			cache: new InMemoryCache,
+			defaultOptions: {
+				query: {
+					fetchPolicy: 'no-cache'
+				}
+			}
+		});
+
+		let supportsGraphQL = true;
+		await graphql.query({ query: gql `query { viewer { login } }` })
+			.then(result => {
+				Logger.appendLine(`${baseUrl}: GraphQL support detected`);
+				Logger.appendLine(JSON.stringify(result, null, 2));
+			})
+			.catch(err => {
+				Logger.appendLine(`${baseUrl}: GraphQL not supported (${err.message})`);
+				supportsGraphQL = false;
+			});
+
 		return {
 			octokit,
-			graphql: new ApolloClient({
-				link: link(baseUrl, creds.token || ''),
-				cache: new InMemoryCache,
-				defaultOptions: {
-					query: {
-						fetchPolicy: 'no-cache'
-					}
-				}
-			})
+			graphql: supportsGraphQL ? graphql : null,
 		};
 	}
 

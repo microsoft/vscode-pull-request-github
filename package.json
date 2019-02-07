@@ -40,7 +40,7 @@
         "githubPullRequests.hosts": {
           "type": "array",
           "default": [],
-          "description": "List of host credentials. For example, \"github.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
+          "description": "List of host credentials. For example, \"githubPullRequests.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
           "items": {
             "type": "object",
             "properties": {
@@ -434,6 +434,7 @@
   "devDependencies": {
     "@types/chai": "^4.1.4",
     "@types/debounce": "^3.0.0",
+    "@types/graphql": "^14.0.5",
     "@types/keytar": "^4.0.1",
     "@types/lodash": "^4.14.106",
     "@types/markdown-it": "^0.0.5",

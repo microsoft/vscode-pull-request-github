@@ -106,6 +106,12 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 fragment ReviewComment on PullRequestReviewComment {
@@ -141,6 +147,12 @@ query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 			reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100) {
@@ -154,6 +166,12 @@ query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:In
 				}
 			}
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -176,7 +194,9 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			headRef {
 				name
 				repository {
-					nameWithOwner
+					owner {
+						login
+					}
 					url
 				}
 				target {
@@ -186,7 +206,9 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			baseRef {
 				name
 				repository {
-					nameWithOwner
+					owner {
+						login
+					}
 					url
 				}
 				target {
@@ -197,6 +219,12 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			mergeable
 			id
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -262,5 +290,11 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 				endCursor
 			}
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }

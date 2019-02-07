@@ -635,7 +635,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			const data = await this._prManager.getPullRequestFileChangesInfo(pr);
 			const headSha = pr.head.sha;
-			const mergeBase = pr.mergeBase;
+			const mergeBase = pr.mergeBase || pr.base.sha;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase!);
 			this._localFileChanges = [];
@@ -667,7 +667,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 					change.status === GitChangeType.DELETE ?
 						toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
 						toDiffViewFileUri(uri, change.fileName, undefined, pr.head.sha, false, { base: false }),
-					toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : pr.base.sha, false, { base: true }),
+					toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : mergeBase, false, { base: true }),
 					isPartial,
 					diffHunks,
 					activeComments.filter(comment => comment.path === change.fileName),
@@ -900,7 +900,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private registerCommentProvider() {
-		const supportsGraphQL = this._prManager.activePullRequest && (this._prManager.activePullRequest as PullRequestModel).githubRepository.supportsGraphQl();
+		const supportsGraphQL = this._prManager.activePullRequest && (this._prManager.activePullRequest as PullRequestModel).githubRepository.supportsGraphQl;
 		if (supportsGraphQL) {
 			this._localToDispose.push(onDidSubmitReview(submittedComments => {
 				this.updateCommentPendingState(submittedComments);

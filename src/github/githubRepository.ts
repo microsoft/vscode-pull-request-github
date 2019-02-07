@@ -11,7 +11,7 @@ import { PRType, IGitHubRepository, IAccount } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
-import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus } from 'apollo-boost';
+import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../view/prDocumentCommentProvider';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
@@ -53,7 +53,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			}
 
 			await this.ensure();
-			this.commentsProvider = this.supportsGraphQl() ? new PRDocumentCommentProviderGraphQL() : new PRDocumentCommentProvider();
+			this.commentsProvider = this.supportsGraphQl ? new PRDocumentCommentProviderGraphQL() : new PRDocumentCommentProvider();
 			this._toDispose.push(vscode.workspace.registerDocumentCommentProvider(this.commentsProvider));
 		} catch (e) {
 			console.log(e);
@@ -72,7 +72,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
 	}
 
-	supportsGraphQl(): boolean {
+	get supportsGraphQl(): boolean {
 		return !!(this.hub && this.hub.graphql);
 	}
 
@@ -94,7 +94,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		return rsp;
 	}
 
-	mutate = async <T>(mutation: MutationOptions): Promise<ApolloQueryResult<T>> => {
+	mutate = async <T>(mutation: MutationOptions): Promise<FetchResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
@@ -120,8 +120,8 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		}
 		const { octokit, remote } = await this.ensure();
 		const result = await octokit.repos.get({
-				owner: remote.owner,
-				repo: remote.repositoryName
+			owner: remote.owner,
+			repo: remote.repositoryName
 		});
 		Logger.debug(`Fetch metadata ${remote.owner}/${remote.repositoryName} - done`, GitHubRepository.ID);
 		this._metadata = Object.assign(result.data, { currentUser: (octokit as any).currentUser });
@@ -130,7 +130,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 
 	async resolveRemote(): Promise<void> {
 		try {
-			const {clone_url} = await this.getMetadata();
+			const { clone_url } = await this.getMetadata();
 			this.remote = parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol)!;
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
@@ -279,20 +279,9 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
-			const { octokit, query, remote } = await this.ensure();
-			let prsResult = await octokit.pullRequests.get({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				number: id
-			});
-			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
+			const { octokit, query, remote, supportsGraphQl } = await this.ensure();
 
-			if (!prsResult.data.head.repo) {
-				Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-				return;
-			}
-
-			if (this.supportsGraphQl()) {
+			if (supportsGraphQl) {
 				const { data } = await query<PullRequestResponse>({
 					query: queries.PullRequest,
 					variables: {
@@ -327,16 +316,16 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	}
 
 	async getMentionableUsers(): Promise<IAccount[]> {
-		try {
-			Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
-			const { query, supportsGraphQl, remote } = await this.ensure();
+		Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
+		const { query, supportsGraphQl, remote } = await this.ensure();
 
-			if (supportsGraphQl) {
-				let after = null;
-				let hasNextPage = false;
-				let ret: IAccount[] = [];
+		if (supportsGraphQl) {
+			let after = null;
+			let hasNextPage = false;
+			let ret: IAccount[] = [];
 
-				do {
+			do {
+				try {
 					const result: { data: MentionableUsersResponse } = await query<MentionableUsersResponse>({
 						query: queries.GetMentionableUsers,
 						variables: {
@@ -359,13 +348,13 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 
 					hasNextPage = result.data.repository.mentionableUsers.pageInfo.hasNextPage;
 					after = result.data.repository.mentionableUsers.pageInfo.endCursor;
-				} while (hasNextPage);
+				} catch (e) {
+					Logger.debug(`Unable to fetch mentionable users: ${e}`, GitHubRepository.ID);
+					return ret;
+				}
+			} while (hasNextPage);
 
-				return ret;
-			}
-		} catch (e) {
-			Logger.appendLine(`Unable to fetch mentionable users: ${e}`, GitHubRepository.ID);
-			return [];
+			return ret;
 		}
 
 		return [];
