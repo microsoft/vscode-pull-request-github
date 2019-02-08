@@ -955,6 +955,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 						return {
 							threads: this.workspaceLocalCommentsToCommentThreads(matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded),
 							commentingRanges: ranges,
+							inDraftMode: await this._prManager.inDraftMode(this._prManager.activePullRequest!)
 						};
 					}
 
