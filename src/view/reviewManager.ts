@@ -500,6 +500,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._obsoleteFileChanges,
 			this._comments,);
 
+		this._localToDispose.push(this._reviewDocumentCommentProvider);
+
 		this._localToDispose.push(vscode.workspace.registerDocumentCommentProvider(this._reviewDocumentCommentProvider));
 
 		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeWorkspaceCommentThreads(e => {

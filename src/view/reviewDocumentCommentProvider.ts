@@ -653,4 +653,8 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 			inDraftMode: false
 		});
 	}
+
+	public dispose() {
+		this._localToDispose.forEach(d => d.dispose());
+	}
 }
