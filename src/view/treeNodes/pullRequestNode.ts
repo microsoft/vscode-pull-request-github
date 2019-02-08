@@ -16,7 +16,7 @@ import { DescriptionNode } from './descriptionNode';
 import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
-import { Comment } from '../../common/comment';
+import { Comment, getCommentingRanges, convertToVSCodeComment } from '../../common/comment';
 import { PullRequestManager, onDidSubmitReview } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
@@ -37,29 +37,11 @@ export function providePRDocumentComments(
 		return;
 	}
 
-	let commentingRanges: vscode.Range[] = [];
 	// Partial file change indicates that the file content is only the diff, so the entire
 	// document can be commented on.
-	if (fileChange.isPartial) {
-		commentingRanges.push(new vscode.Range(0, 0, document.lineCount, 0));
-	} else {
-		const diffHunks = fileChange.diffHunks;
-
-		for (let i = 0; i < diffHunks.length; i++) {
-			const diffHunk = diffHunks[i];
-			let startingLine: number;
-			let length: number;
-			if (isBase) {
-				startingLine = getZeroBased(diffHunk.oldLineNumber);
-				length = getZeroBased(diffHunk.oldLength);
-			} else {
-				startingLine = getZeroBased(diffHunk.newLineNumber);
-				length = getZeroBased(diffHunk.newLength);
-			}
-
-			commentingRanges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
-		}
-	}
+	const commentingRanges = fileChange.isPartial
+		? [new vscode.Range(0, 0, document.lineCount, 0)]
+		: getCommentingRanges(fileChange.diffHunks, isBase);
 
 	const matchingComments = fileChange.comments;
 	if (!matchingComments || !matchingComments.length) {
@@ -92,17 +74,7 @@ export function providePRDocumentComments(
 			threadId: firstComment.id.toString(),
 			resource: document.uri,
 			range,
-			comments: comments.map(comment => {
-				return {
-					commentId: comment.id.toString(),
-					body: new vscode.MarkdownString(comment.body),
-					userName: comment.user!.login,
-					gravatar: comment.user!.avatarUrl,
-					canEdit: comment.canEdit,
-					canDelete: comment.canDelete,
-					isDraft: !!comment.isDraft
-				};
-			}),
+			comments: comments.map(comment => convertToVSCodeComment(comment)),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 		});
 	}
@@ -137,17 +109,7 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 			threadId: firstComment.id.toString(),
 			resource: isBase ? fileChange.parentFilePath : fileChange.filePath,
 			range,
-			comments: commentGroup.map(comment => {
-				return {
-					commentId: comment.id.toString(),
-					body: new vscode.MarkdownString(comment.body),
-					userName: comment.user!.login,
-					gravatar: comment.user!.avatarUrl,
-					canEdit: comment.canEdit,
-					canDelete: comment.canDelete,
-					isDraft: !!comment.isDraft
-				};
-			}),
+			comments: commentGroup.map(comment => convertToVSCodeComment(comment)),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 		});
 	}
@@ -536,16 +498,8 @@ export class PRNode extends TreeNode {
 			}
 
 			// there is no thread Id, which means it's a new thread
-			let rawComment = await this._prManager.createComment(this.pullRequestModel, text, params!.fileName, position);
-			let comment: vscode.Comment = {
-				commentId: rawComment!.id.toString(),
-				body: new vscode.MarkdownString(rawComment!.body),
-				userName: rawComment!.user!.login,
-				gravatar: rawComment!.user!.avatarUrl,
-				canEdit: rawComment!.canEdit,
-				canDelete: rawComment!.canDelete,
-				isDraft: !!rawComment!.isDraft
-			};
+			const rawComment = await this._prManager.createComment(this.pullRequestModel, text, params!.fileName, position);
+			const comment = convertToVSCodeComment(rawComment!);
 
 			fileChange.comments.push(rawComment!);
 
@@ -607,15 +561,7 @@ export class PRNode extends TreeNode {
 			}
 
 			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, text, commentFromThread);
-			thread.comments.push({
-				commentId: rawComment!.id.toString(),
-				body: new vscode.MarkdownString(rawComment!.body),
-				userName: rawComment!.user!.login,
-				gravatar: rawComment!.user!.avatarUrl,
-				canEdit: rawComment!.canEdit,
-				canDelete: rawComment!.canDelete,
-				isDraft: !!rawComment!.isDraft
-			});
+			thread.comments.push(convertToVSCodeComment(rawComment!));
 
 			fileChange.comments.push(rawComment!);
 
