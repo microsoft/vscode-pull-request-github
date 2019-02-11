@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
 import { toReviewUri, fromReviewUri, ReviewUriParams, toDiffViewFileUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
-import { Comment, workspaceLocalCommentsToCommentThreads, convertToVSCodeComment } from '../common/comment';
+import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes, Branch } from '../git/api';
@@ -24,8 +24,7 @@ import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { ReviewDocumentCommentProvider } from './reviewDocumentCommentProvider';
-import { getDiffLineByPosition, getZeroBased } from '../common/diffPositionMapping';
+import { ReviewDocumentCommentProvider, ReviewWorkspaceCommentsPRovider } from './reviewDocumentCommentProvider';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -40,8 +39,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewDocumentCommentProvider: ReviewDocumentCommentProvider;
-
-	private _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
 	private _prsTreeDataProvider: PullRequestsTreeDataProvider;
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
@@ -79,6 +76,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
 
 		this.registerCommands();
+		this.registerListeners();
 
 		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(onShouldReload, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
@@ -128,6 +126,23 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 		}));
 
+		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
+			this.updateComments();
+			PullRequestOverviewPanel.refresh();
+			this.prFileChangesProvider.refresh();
+		}));
+
+		this._disposables.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
+			if (prNode.pullRequestModel.equals(this._prManager.activePullRequest)) {
+				this.updateComments();
+			}
+
+			PullRequestOverviewPanel.refresh();
+			this._prsTreeDataProvider.refresh(prNode);
+		}));
+	}
+
+	private registerListeners(): void {
 		this._disposables.push(this._repository.state.onDidChange(e => {
 			const oldHead = this._previousRepositoryState.HEAD;
 			const newHead = this._repository.state.HEAD;
@@ -167,21 +182,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 				this.updateState();
 			}
-		}));
-
-		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
-			this.updateComments();
-			PullRequestOverviewPanel.refresh();
-			this.prFileChangesProvider.refresh();
-		}));
-
-		this._disposables.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
-			if (prNode.pullRequestModel.equals(this._prManager.activePullRequest)) {
-				this.updateComments();
-			}
-
-			PullRequestOverviewPanel.refresh();
-			this._prsTreeDataProvider.refresh(prNode);
 		}));
 	}
 
@@ -431,47 +431,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	}
 
-	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
-		if (!fileComments || !fileComments.length) {
-			return [];
-		}
-
-		let ret: vscode.CommentThread[] = [];
-		let sections = groupBy(fileComments, comment => String(comment.position));
-
-		for (let i in sections) {
-			let comments = sections[i];
-
-			const firstComment = comments[0];
-			let diffLine = getDiffLineByPosition(firstComment.diffHunks || [], firstComment.originalPosition!);
-
-			if (diffLine) {
-				firstComment.absolutePosition = diffLine.newLineNumber;
-			}
-
-			const pos = new vscode.Position(getZeroBased(firstComment.absolutePosition || 0), 0);
-			const range = new vscode.Range(pos, pos);
-
-			ret.push({
-				threadId: firstComment.id.toString(),
-				resource: fileChange.filePath,
-				range,
-				comments: comments.map(comment => {
-					return convertToVSCodeComment(comment, {
-						title: 'View Changes',
-						command: 'pr.viewChanges',
-						arguments: [
-							fileChange
-						]
-					});
-				}),
-				collapsibleState: collapsibleState
-			});
-		}
-
-		return ret;
-	}
-
 	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
 	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
 	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
@@ -498,33 +457,21 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
-			this._comments,);
+			this._comments);
 
 		this._localToDispose.push(this._reviewDocumentCommentProvider);
 
 		this._localToDispose.push(vscode.workspace.registerDocumentCommentProvider(this._reviewDocumentCommentProvider));
-
-		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeWorkspaceCommentThreads(e => {
-			this._onDidChangeWorkspaceCommentThreads.fire(e);
-		}));
 
 		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeComments(comments => {
 			this._comments = comments;
 			this._onDidChangeDecorations.fire();
 		}));
 
-		this._localToDispose.push(vscode.workspace.registerWorkspaceCommentProvider({
-			onDidChangeCommentThreads: this._onDidChangeWorkspaceCommentThreads.event,
-			provideWorkspaceComments: async (token: vscode.CancellationToken) => {
-				const comments = await Promise.all(gitFileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
-					return workspaceLocalCommentsToCommentThreads(this._repository, fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
-				}));
-				const outdatedComments = gitFileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
-					return this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
-				});
-				return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
-			}
-		}));
+		this._localToDispose.push(vscode.workspace.registerWorkspaceCommentProvider(new ReviewWorkspaceCommentsPRovider(
+			this._repository,
+			this._localFileChanges,
+			this._obsoleteFileChanges)));
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
