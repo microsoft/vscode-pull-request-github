@@ -616,7 +616,7 @@ export class PullRequestManager {
 
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
-				.reduce((prev: any, curr: any) => curr = prev.concat(curr), []);
+				.reduce((prev: any, curr: any) => prev.concat(curr), []);
 			return comments;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
