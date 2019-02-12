@@ -137,6 +137,29 @@ fragment ReviewComment on PullRequestReviewComment {
 	originalCommit {
 		oid
 	}
+	reactionGroups {
+		content
+		viewerHasReacted
+		users {
+			totalCount
+		}
+	}
+	reactions(first:8) {
+		edges {
+			node {
+				content
+				user {
+					login
+					avatarUrl
+					url
+				}
+				id
+				reactable {
+					viewerCanReact
+				}
+			}
+		}
+	}
 	viewerCanUpdate
 	viewerCanDelete
 }

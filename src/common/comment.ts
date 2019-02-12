@@ -22,7 +22,10 @@ export function convertToVSCodeComment(comment: Comment, command?: vscode.Comman
 		gravatar: comment.user!.avatarUrl,
 		canEdit: comment.canEdit,
 		canDelete: comment.canDelete,
-		isDraft: !!comment.isDraft
+		isDraft: !!comment.isDraft,
+		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
+			return { label: reaction.label, hasReacted: reaction.viewerHasReacted };
+		}) : []
 	};
 }
 
@@ -92,6 +95,11 @@ export function workspaceLocalCommentsToCommentThreads(repository: Repository, f
 	return ret;
 }
 
+export interface Reaction {
+	label: string;
+	viewerHasReacted: boolean;
+}
+
 export interface Comment {
 	absolutePosition?: number;
 	bodyHTML?: string;
@@ -114,4 +122,5 @@ export interface Comment {
 	isDraft?: boolean;
 	inReplyToId?: number;
 	graphNodeId: string;
+	reactions?: Reaction[];
 }

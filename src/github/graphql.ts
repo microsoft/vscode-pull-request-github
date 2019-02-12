@@ -42,6 +42,27 @@ export interface IssueComment {
 	viewerCanDelete: boolean;
 }
 
+export interface ReactionGroup {
+	content: string;
+	viewerHasReacted: boolean;
+	users: {
+		totalCount: number;
+	};
+}
+
+export interface Reaction {
+	content: string;
+	user: {
+		login: string;
+		avatarUrl: string;
+		url: string;
+	};
+	id: string;
+	reactable: {
+		viewerCanReact: boolean
+	};
+}
+
 export interface ReviewComment {
 	__typename: string;
 	id: string;
@@ -71,6 +92,14 @@ export interface ReviewComment {
 	createdAt: string;
 	replyTo: {
 		databaseId: number;
+	};
+	reactionGroups: ReactionGroup[];
+	reactions: {
+		edges: [
+			{
+				node: Reaction;
+			}
+		]
 	};
 	viewerCanUpdate: boolean;
 	viewerCanDelete: boolean;
