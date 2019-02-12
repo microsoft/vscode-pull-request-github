@@ -152,7 +152,7 @@ export class CredentialStore {
 
 			if (octokit) {
 				retry = false;
-			} else if (retry) {
+			} else {
 				retry = (await vscode.window.showErrorMessage(`Error signing in to ${authority}`, TRY_AGAIN)) === TRY_AGAIN;
 			}
 		}
