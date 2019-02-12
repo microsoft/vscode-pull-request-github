@@ -336,7 +336,7 @@ export function getReactionGroup(): { title: string; label: string; }[] {
 			label: '👀'
 		}, {
 			title: 'HEART',
-			label: '❤'
+			label: '❤️'
 		}, {
 			title: 'HOORAY',
 			label: '🎉'
