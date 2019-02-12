@@ -283,6 +283,22 @@ mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 	}
 }
 
+mutation AddReaction($input: AddReactionInput!) {
+	addReaction(input: $input) {
+		reaction {
+			content
+		}
+	}
+}
+
+mutation DeleteReaction($input: RemoveReactionInput!){
+	removeReaction(input:$input){
+		reaction {
+			content
+		}
+	}
+}
+
 query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		mentionableUsers(first: $first, after: $after) {
