@@ -97,6 +97,11 @@
           "default": "merge",
           "description": "The method to use when merging pull requests."
         },
+        "githubPullRequests.showInSCM": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
+        },
         "telemetry.optout": {
           "type": "boolean",
           "default": false,
@@ -128,17 +133,38 @@
         }
       }
     },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "github-pull-requests",
+          "title": "GitHub Pull Requests",
+          "icon": "resources/icons/github.svg"
+        }
+      ]
+    },
     "views": {
-      "scm": [
+      "github-pull-requests": [
         {
           "id": "pr",
           "name": "GitHub Pull Requests",
-          "when": "config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
+          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
         },
         {
           "id": "prStatus",
           "name": "Changes In Pull Request",
-          "when": "config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
+          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
+        }
+      ],
+      "scm": [
+        {
+          "id": "pr",
+          "name": "GitHub Pull Requests",
+          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
+        },
+        {
+          "id": "prStatus",
+          "name": "Changes In Pull Request",
+          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
         }
       ]
     },
