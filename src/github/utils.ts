@@ -179,15 +179,11 @@ export function parseGraphQLReaction(comment: GraphQL.ReviewComment): Reaction[]
 		prev[curr.title] = curr.label;
 		return prev;
 	}, {} as { [key:string] : string });
-	let reactionGroup = comment.reactionGroups.reduce((prev, curr) => {
-		prev[curr.content] = curr.viewerHasReacted;
-		return prev;
-	}, {} as { [key:string] : boolean });
 
-	let reactions = comment.reactions.edges.map(node => {
+	const reactions = comment.reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
 		const reaction: Reaction = {
-			label: reactionConentEmojiMapping[node.node.content],
-			viewerHasReacted: reactionGroup[node.node.content]
+			label: reactionConentEmojiMapping[group.content],
+			viewerHasReacted: group.viewerHasReacted
 		};
 
 		return reaction;

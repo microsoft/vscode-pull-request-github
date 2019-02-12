@@ -144,22 +144,6 @@ fragment ReviewComment on PullRequestReviewComment {
 			totalCount
 		}
 	}
-	reactions(first:8) {
-		edges {
-			node {
-				content
-				user {
-					login
-					avatarUrl
-					url
-				}
-				id
-				reactable {
-					viewerCanReact
-				}
-			}
-		}
-	}
 	viewerCanUpdate
 	viewerCanDelete
 }

@@ -50,19 +50,6 @@ export interface ReactionGroup {
 	};
 }
 
-export interface Reaction {
-	content: string;
-	user: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
-	id: string;
-	reactable: {
-		viewerCanReact: boolean
-	};
-}
-
 export interface ReviewComment {
 	__typename: string;
 	id: string;
@@ -94,13 +81,6 @@ export interface ReviewComment {
 		databaseId: number;
 	};
 	reactionGroups: ReactionGroup[];
-	reactions: {
-		edges: [
-			{
-				node: Reaction;
-			}
-		]
-	};
 	viewerCanUpdate: boolean;
 	viewerCanDelete: boolean;
 }
