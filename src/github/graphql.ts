@@ -251,8 +251,26 @@ export interface PullRequestResponse {
 			}
 			createdAt: string;
 			updatedAt: string;
+			reviewRequests: {
+				nodes: [
+					{
+						requestedReviewer: {
+							login: string;
+							url: string;
+							avatarUrl: string;
+						}
+					}
+				]
+			}
 			headRef?: Ref;
 			baseRef?: Ref;
+			labels: {
+				nodes: [
+					{
+						name: string;
+					}
+				]
+			}
 			merged: boolean;
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			id: string;
