@@ -5,17 +5,62 @@
 
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
-import { Comment, convertToVSCodeComment, getCommentingRanges, workspaceLocalCommentsToCommentThreads } from '../common/comment';
+import { Comment } from '../common/comment';
 import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getDiffLineByPosition, getZeroBased } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../git/api';
 import { onDidSubmitReview, PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { providePRDocumentComments } from './treeNodes/pullRequestNode';
+import { providePRDocumentComments, getCommentingRanges } from './treeNodes/pullRequestNode';
+import { convertToVSCodeComment } from '../github/utils';
+import { GitChangeType } from '../common/file';
 
 const _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
+function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
+	if (!fileChange) {
+		return [];
+	}
+
+	if (!fileComments || !fileComments.length) {
+		return [];
+	}
+
+	const ret: vscode.CommentThread[] = [];
+	const sections = groupBy(fileComments, comment => String(comment.position));
+
+	let command: vscode.Command | undefined = undefined;
+	if (fileChange.status === GitChangeType.DELETE) {
+		command = {
+			title: 'View Changes',
+			command: 'pr.viewChanges',
+			arguments: [
+				fileChange
+			]
+		};
+	}
+
+	for (let i in sections) {
+		const comments = sections[i];
+
+		const firstComment = comments[0];
+		const pos = new vscode.Position(getZeroBased(firstComment.absolutePosition || 0), 0);
+		const range = new vscode.Range(pos, pos);
+
+		const newPath = nodePath.join(repository.rootUri.path, firstComment.path!).replace(/\\/g, '/');
+		const newUri = repository.rootUri.with({ path: newPath });
+		ret.push({
+			threadId: firstComment.id.toString(),
+			resource: newUri,
+			range,
+			comments: comments.map(comment => convertToVSCodeComment(comment, command)),
+			collapsibleState
+		});
+	}
+
+	return ret;
+}
 export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProvider {
 	private _localToDispose: vscode.Disposable[] = [];
 
