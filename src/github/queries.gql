@@ -137,6 +137,13 @@ fragment ReviewComment on PullRequestReviewComment {
 	originalCommit {
 		oid
 	}
+	reactionGroups {
+		content
+		viewerHasReacted
+		users {
+			totalCount
+		}
+	}
 	viewerCanUpdate
 	viewerCanDelete
 }

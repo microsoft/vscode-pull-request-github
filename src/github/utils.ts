@@ -7,7 +7,7 @@
 import * as Octokit from '../common/octokit';
 import * as vscode from 'vscode';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
-import { Comment } from '../common/comment';
+import { Comment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
@@ -178,13 +178,32 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
 		isDraft: comment.state === 'PENDING',
-		inReplyToId: comment.replyTo && comment.replyTo.databaseId
+		inReplyToId: comment.replyTo && comment.replyTo.databaseId,
+		reactions: parseGraphQLReaction(comment)
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);
 	c.diffHunks = diffHunks;
 
 	return c;
+}
+
+export function parseGraphQLReaction(comment: GraphQL.ReviewComment): Reaction[] {
+	let reactionConentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
+		prev[curr.title] = curr.label;
+		return prev;
+	}, {} as { [key:string] : string });
+
+	const reactions = comment.reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
+		const reaction: Reaction = {
+			label: reactionConentEmojiMapping[group.content],
+			viewerHasReacted: group.viewerHasReacted
+		};
+
+		return reaction;
+	});
+
+	return reactions;
 }
 
 function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
@@ -315,6 +334,38 @@ export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[]
 	});
 
 	return events;
+}
+
+export function getReactionGroup(): { title: string; label: string; }[] {
+	let ret = [
+		{
+			title: 'CONFUSED',
+			label: '😕'
+		}, {
+			title: 'EYES',
+			label: '👀'
+		}, {
+			title: 'HEART',
+			label: '❤️'
+		}, {
+			title: 'HOORAY',
+			label: '🎉'
+		}, {
+			title: 'LAUGH',
+			label: '😄'
+		}, {
+			title: 'ROCKET',
+			label: '🚀'
+		}, {
+			title: 'THUMBS_DOWN',
+			label: '👎'
+		}, {
+			title: 'THUMBS_UP',
+			label: '👍'
+		}
+	];
+
+	return ret;
 }
 
 export function getRelatedUsersFromTimelineEvents(timelineEvents: Common.TimelineEvent[]): { login: string; name: string; }[] {

@@ -168,6 +168,26 @@ function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread
 				return true;
 			}
 
+			if (!matchingComment[0].commentReactions && !oldComment.commentReactions) {
+				// no comment reactions
+				return false;
+			}
+
+			if (!matchingComment[0].commentReactions || !oldComment.commentReactions) {
+				return true;
+			}
+
+			if (matchingComment[0].commentReactions!.length !== oldComment.commentReactions!.length) {
+				return true;
+			}
+
+			for (let i = 0; i < matchingComment[0].commentReactions!.length; i++) {
+				if (matchingComment[0].commentReactions![i].label !== oldComment.commentReactions![i].label ||
+					matchingComment[0].commentReactions![i].hasReacted !== oldComment.commentReactions![i].hasReacted) {
+					return true;
+				}
+			}
+
 			return false;
 		});
 	}

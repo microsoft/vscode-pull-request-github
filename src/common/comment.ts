@@ -6,6 +6,11 @@
 import { IAccount } from '../github/interface';
 import { DiffHunk } from './diffHunk';
 
+export interface Reaction {
+	label: string;
+	viewerHasReacted: boolean;
+}
+
 export interface Comment {
 	absolutePosition?: number;
 	bodyHTML?: string;
@@ -28,4 +33,5 @@ export interface Comment {
 	isDraft?: boolean;
 	inReplyToId?: number;
 	graphNodeId: string;
+	reactions?: Reaction[];
 }
