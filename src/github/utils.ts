@@ -330,25 +330,32 @@ export function getReactionGroup(): { title: string; label: string; icon?: vscod
 	let ret = [
 		{
 			title: 'CONFUSED',
-			label: '😕'
+			label: '😕',
+			icon: Resource.icons.reactions.CONFUSED
 		}, {
 			title: 'EYES',
-			label: '👀'
+			label: '👀',
+			icon: Resource.icons.reactions.EYES
 		}, {
 			title: 'HEART',
-			label: '❤️'
+			label: '❤️',
+			icon: Resource.icons.reactions.HEART
 		}, {
 			title: 'HOORAY',
-			label: '🎉'
+			label: '🎉',
+			icon: Resource.icons.reactions.HOORAY
 		}, {
 			title: 'LAUGH',
-			label: '😄'
+			label: '😄',
+			icon: Resource.icons.reactions.LAUGH
 		}, {
 			title: 'ROCKET',
-			label: '🚀'
+			label: '🚀',
+			icon: Resource.icons.reactions.ROCKET
 		}, {
 			title: 'THUMBS_DOWN',
-			label: '👎'
+			label: '👎',
+			icon: Resource.icons.reactions.THUMBS_DOWN
 		}, {
 			title: 'THUMBS_UP',
 			label: '👍',
