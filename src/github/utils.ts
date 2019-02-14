@@ -6,7 +6,6 @@
 
 import * as vscode from 'vscode';
 import * as Octokit from '../common/octokit';
-import * as vscode from 'vscode';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
 import { Comment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
@@ -25,7 +24,7 @@ export function convertToVSCodeComment(comment: Comment, command?: vscode.Comman
 		canDelete: comment.canDelete,
 		isDraft: !!comment.isDraft,
 		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
-			return { label: reaction.label, hasReacted: reaction.viewerHasReacted };
+			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : []
 	};
 }
