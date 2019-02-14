@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import * as vscode from 'vscode';
 import * as Octokit from '../common/octokit';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
 import { Comment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
+import { Resource } from '../common/resources';
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
@@ -176,13 +178,15 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 
 export function parseGraphQLReaction(comment: GraphQL.ReviewComment): Reaction[] {
 	let reactionConentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
-		prev[curr.title] = curr.label;
+		prev[curr.title] = curr;
 		return prev;
-	}, {} as { [key:string] : string });
+	}, {} as { [key:string] : { title: string; label: string; icon?: vscode.Uri } });
 
 	const reactions = comment.reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
 		const reaction: Reaction = {
-			label: reactionConentEmojiMapping[group.content],
+			label: reactionConentEmojiMapping[group.content].label,
+			count: group.users.totalCount,
+			icon: reactionConentEmojiMapping[group.content].icon,
 			viewerHasReacted: group.viewerHasReacted
 		};
 
@@ -322,7 +326,7 @@ export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[]
 	return events;
 }
 
-export function getReactionGroup(): { title: string; label: string; }[] {
+export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
 	let ret = [
 		{
 			title: 'CONFUSED',
@@ -347,7 +351,8 @@ export function getReactionGroup(): { title: string; label: string; }[] {
 			label: '👎'
 		}, {
 			title: 'THUMBS_UP',
-			label: '👍'
+			label: '👍',
+			icon: Resource.icons.reactions.THUMBS_UP
 		}
 	];
 

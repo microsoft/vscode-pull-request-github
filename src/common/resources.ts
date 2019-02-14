@@ -38,6 +38,9 @@ export class Resource {
 				Comment: context.asAbsolutePath(path.join('resources', 'icons', 'comment.svg')),
 				Fold: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'fold.svg')),
 				Description: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'git-pull-request.svg'))
+			},
+			reactions: {
+				THUMBS_UP: context.asAbsolutePath(path.join('resources', 'icons', 'thumbs_up.svg'))
 			}
 		};
 	}

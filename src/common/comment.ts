@@ -24,7 +24,7 @@ export function convertToVSCodeComment(comment: Comment, command?: vscode.Comman
 		canDelete: comment.canDelete,
 		isDraft: !!comment.isDraft,
 		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
-			return { label: reaction.label, hasReacted: reaction.viewerHasReacted };
+			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : []
 	};
 }
@@ -97,6 +97,8 @@ export function workspaceLocalCommentsToCommentThreads(repository: Repository, f
 
 export interface Reaction {
 	label: string;
+	count: number;
+	icon?: vscode.Uri;
 	viewerHasReacted: boolean;
 }
 

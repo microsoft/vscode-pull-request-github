@@ -819,6 +819,8 @@ declare module 'vscode' {
 
 	interface CommentReaction {
 		readonly label?: string;
+		readonly iconPath?: string | Uri;
+		count?: number;
 		readonly hasReacted?: boolean;
 	}
 
