@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
+import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType, DiffHunk } from '../../common/diffHunk';
 import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
@@ -16,9 +16,10 @@ import { DescriptionNode } from './descriptionNode';
 import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
-import { Comment, getCommentingRanges, convertToVSCodeComment } from '../../common/comment';
+import { Comment } from '../../common/comment';
 import { PullRequestManager, onDidSubmitReview } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { convertToVSCodeComment } from '../../github/utils';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
@@ -84,6 +85,28 @@ export function providePRDocumentComments(
 		commentingRanges,
 		inDraftMode
 	};
+}
+
+export function getCommentingRanges(diffHunks: DiffHunk[], isBase: boolean): vscode.Range[] {
+	const ranges: vscode.Range[] = [];
+
+	for (let i = 0; i < diffHunks.length; i++) {
+		let diffHunk = diffHunks[i];
+		let startingLine: number;
+		let length: number;
+		if (isBase) {
+			startingLine = getZeroBased(diffHunk.oldLineNumber);
+			length = getZeroBased(diffHunk.oldLength);
+
+		} else {
+			startingLine = getZeroBased(diffHunk.newLineNumber);
+			length = getZeroBased(diffHunk.newLength);
+		}
+
+		ranges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
+	}
+
+	return ranges;
 }
 
 function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Comment[], isBase: boolean): vscode.CommentThread[] {

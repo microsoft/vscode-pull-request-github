@@ -6,12 +6,29 @@
 
 import * as vscode from 'vscode';
 import * as Octokit from '../common/octokit';
+import * as vscode from 'vscode';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
 import { Comment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
+
+export function convertToVSCodeComment(comment: Comment, command?: vscode.Command): vscode.Comment {
+	return {
+		commentId: comment.id.toString(),
+		body: new vscode.MarkdownString(comment.body),
+		command: command,
+		userName: comment.user!.login,
+		gravatar: comment.user!.avatarUrl,
+		canEdit: comment.canEdit,
+		canDelete: comment.canDelete,
+		isDraft: !!comment.isDraft,
+		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
+			return { label: reaction.label, hasReacted: reaction.viewerHasReacted };
+		}) : []
+	};
+}
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
 	return {
