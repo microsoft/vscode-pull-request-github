@@ -21,7 +21,10 @@ export function convertToVSCodeComment(comment: Comment, command?: vscode.Comman
 		gravatar: comment.user!.avatarUrl,
 		canEdit: comment.canEdit,
 		canDelete: comment.canDelete,
-		isDraft: !!comment.isDraft
+		isDraft: !!comment.isDraft,
+		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
+			return { label: reaction.label, hasReacted: reaction.viewerHasReacted };
+		}) : []
 	};
 }
 
