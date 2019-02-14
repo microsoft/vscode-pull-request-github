@@ -96,6 +96,8 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		if (!supportsGraphQL) {
 			this.reactionGroup = undefined;
 		}
+		this.deleteReaction = supportsGraphQL ? this.deleteReaction.bind(this) : undefined;
+		this.addReaction = supportsGraphQL ? this.addReaction.bind(this) : undefined;
 	}
 
 	async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | undefined> {
