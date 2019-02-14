@@ -136,27 +136,34 @@ export class PullRequestOverviewPanel {
 
 	private parseReviews(pullRequestModel: PullRequestModel, timelineEvents: TimelineEvent[]): ReviewState[] {
 		const reviewEvents = timelineEvents.filter(isReviewEvent);
-		const reviews: ReviewState[] = [];
+		let reviewers: ReviewState[] = [];
 		const seen = new Map<string, boolean>();
+
+		// Do not show the author in the reviewer list
+		seen.set(pullRequestModel.author.login, true);
+
 		for (let i = reviewEvents.length -1; i >= 0; i--) {
 			const reviewer = reviewEvents[i].user;
 			if (!seen.get(reviewer.login)) {
 				seen.set(reviewer.login, true);
-				reviews.push({
+				reviewers.push({
 					reviewer: reviewer,
-					state: reviewEvents[i].state as any
+					state: reviewEvents[i].state
 				});
 			}
 		}
 
 		pullRequestModel.prItem.reviewRequests.forEach(request => {
-			reviews.push({
+			reviewers.push({
 				reviewer: request,
 				state: 'REQUESTED'
 			});
 		});
 
-		return reviews;
+		// Alphabetize reviewers
+		reviewers = reviewers.sort((a, b) => a.reviewer.login > b.reviewer.login ? -1 : 1);
+
+		return reviewers;
 	}
 
 	public async update(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
