@@ -13,8 +13,9 @@ import { Repository } from '../git/api';
 import { onDidSubmitReview, PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { providePRDocumentComments, getCommentingRanges } from './treeNodes/pullRequestNode';
-import { convertToVSCodeComment } from '../github/utils';
+import { convertToVSCodeComment, getReactionGroup, parseGraphQLReaction } from '../github/utils';
 import { GitChangeType } from '../common/file';
+import { ReactionGroup } from '../github/graphql';
 
 const _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
@@ -73,6 +74,7 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 	public startDraftLabel = 'Start Review';
 	public deleteDraftLabel = 'Delete Review';
 	public finishDraftLabel = 'Submit Review';
+	public reactionGroup? = getReactionGroup();
 
 	constructor(
 		private _prManager: PullRequestManager,
@@ -90,6 +92,10 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		this.startDraft = supportsGraphQL ? this.startDraft.bind(this) : undefined;
 		this.deleteDraft = supportsGraphQL ? this.deleteDraft.bind(this) : undefined;
 		this.finishDraft = supportsGraphQL ? this.finishDraft.bind(this) : undefined;
+
+		if (!supportsGraphQL) {
+			this.reactionGroup = undefined;
+		}
 	}
 
 	async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | undefined> {
@@ -716,6 +722,57 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 			removed: [],
 			inDraftMode: false
 		});
+	}
+
+	public async addReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
+		await this.editReaction(document, comment, reaction, true);
+	}
+
+	public async deleteReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
+		await this.editReaction(document, comment, reaction, false);
+	}
+
+	private async editReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction, addReaction: boolean) {
+		try {
+			if (!this._prManager.activePullRequest) {
+				throw new Error('Unable to find active pull request');
+			}
+
+			const matchedFile = this.findMatchedFileByUri(document);
+			if (!matchedFile) {
+				throw new Error('Unable to find matching file');
+			}
+
+			const rawComment = matchedFile.comments.find(c => c.id === Number(comment.commentId));
+			if (!rawComment) {
+				throw new Error('Unable to find comment');
+			}
+
+			let reactionGroups: ReactionGroup[] = [];
+			if (addReaction) {
+				let result = await this._prManager.addCommentReaction(this._prManager.activePullRequest, rawComment.graphNodeId, reaction);
+				reactionGroups = result.addReaction.subject.reactionGroups;
+			} else {
+				let result = await this._prManager.deleteCommentReaction(this._prManager.activePullRequest, rawComment.graphNodeId, reaction);
+				reactionGroups = result.removeReaction.subject.reactionGroups;
+			}
+
+			// Update the cached comments of the file
+			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
+			if (matchingCommentIndex > -1) {
+				let editedComment = matchedFile.comments[matchingCommentIndex];
+				editedComment.reactions = parseGraphQLReaction(reactionGroups);
+				const changedThreads = workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchedFile.comments.filter(c => c.position === editedComment.position), vscode.CommentThreadCollapsibleState.Expanded);
+
+				this._onDidChangeDocumentCommentThreads.fire({
+					added: [],
+					changed: changedThreads,
+					removed: []
+				});
+			}
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
 	}
 
 	public dispose() {

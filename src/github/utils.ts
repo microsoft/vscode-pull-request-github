@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as vscode from 'vscode';
 import * as Octokit from '../common/octokit';
+import * as vscode from 'vscode';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
 import { Comment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
@@ -183,7 +183,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 		graphNodeId: comment.id,
 		isDraft: comment.state === 'PENDING',
 		inReplyToId: comment.replyTo && comment.replyTo.databaseId,
-		reactions: parseGraphQLReaction(comment)
+		reactions: parseGraphQLReaction(comment.reactionGroups)
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);
@@ -192,13 +192,13 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 	return c;
 }
 
-export function parseGraphQLReaction(comment: GraphQL.ReviewComment): Reaction[] {
+export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): Reaction[] {
 	let reactionConentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
 		prev[curr.title] = curr;
 		return prev;
 	}, {} as { [key:string] : { title: string; label: string; icon?: vscode.Uri } });
 
-	const reactions = comment.reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
+	const reactions = reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
 		const reaction: Reaction = {
 			label: reactionConentEmojiMapping[group.content].label,
 			count: group.users.totalCount,

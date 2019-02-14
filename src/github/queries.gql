@@ -288,13 +288,42 @@ mutation AddReaction($input: AddReactionInput!) {
 		reaction {
 			content
 		}
+		subject {
+			reactionGroups {
+				content
+				viewerHasReacted
+				users {
+					totalCount
+				}
+			}
+		}
 	}
 }
 
 mutation DeleteReaction($input: RemoveReactionInput!){
 	removeReaction(input:$input){
+
 		reaction {
 			content
+			reactable {
+				databaseId
+				reactionGroups {
+					content
+					viewerHasReacted
+					users {
+						totalCount
+					}
+				}
+			}
+		}
+		subject {
+			reactionGroups {
+				content
+				viewerHasReacted
+				users {
+					totalCount
+				}
+			}
 		}
 	}
 }

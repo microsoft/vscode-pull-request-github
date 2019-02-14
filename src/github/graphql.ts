@@ -231,6 +231,28 @@ export interface DeleteReviewResponse {
 	};
 }
 
+export interface AddReactionResponse {
+	addReaction: {
+		reaction: {
+			content: string;
+		}
+		subject: {
+			reactionGroups: ReactionGroup[];
+		}
+	};
+}
+
+export interface DeleteReactionResponse {
+	removeReaction: {
+		reaction: {
+			content: string;
+		}
+		subject: {
+			reactionGroups: ReactionGroup[];
+		}
+	};
+}
+
 export interface Ref {
 	name: string;
 	repository: {

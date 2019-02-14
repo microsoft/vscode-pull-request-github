@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse } from './graphql';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -844,13 +844,13 @@ export class PullRequestManager {
 		return parseGraphQLComment(comment);
 	}
 
-	async addCommentReaction(pullRequest: PullRequestModel, graphNodeId: string, reaction: vscode.CommentReaction): Promise<void> {
+	async addCommentReaction(pullRequest: PullRequestModel, graphNodeId: string, reaction: vscode.CommentReaction): Promise<AddReactionResponse> {
 		let reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
 			prev[curr.label] = curr.title;
 			return prev;
 		}, {} as { [key: string]: string });
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		await mutate<any>({
+		const { data } = await mutate<AddReactionResponse>({
 			mutation: queries.AddReaction,
 			variables: {
 				input: {
@@ -859,15 +859,17 @@ export class PullRequestManager {
 				}
 			}
 		});
+
+		return data!;
 	}
 
-	async deleteCommentReaction(pullRequest: PullRequestModel, graphNodeId: string, reaction: vscode.CommentReaction): Promise<void> {
+	async deleteCommentReaction(pullRequest: PullRequestModel, graphNodeId: string, reaction: vscode.CommentReaction): Promise<DeleteReactionResponse> {
 		let reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
 			prev[curr.label] = curr.title;
 			return prev;
 		}, {} as { [key: string]: string });
 		const { mutate } = await pullRequest.githubRepository.ensure();
-		await mutate<any>({
+		const { data } = await mutate<DeleteReactionResponse>({
 			mutation: queries.DeleteReaction,
 			variables: {
 				input: {
@@ -876,6 +878,8 @@ export class PullRequestManager {
 				}
 			}
 		});
+
+		return data!;
 	}
 
 	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<Comment | undefined> {
