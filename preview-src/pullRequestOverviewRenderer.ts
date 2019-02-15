@@ -743,8 +743,6 @@ function getDiffChangeClass(type: DiffChangeType) {
 			return 'delete';
 		case DiffChangeType.Context:
 			return 'context';
-		case DiffChangeType.Context:
-			return 'context';
 		default:
 			return 'control';
 	}
