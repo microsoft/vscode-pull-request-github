@@ -1280,6 +1280,16 @@ export class PullRequestManager {
 		});
 	}
 
+	async deleteRequestedReview(pullRequest: PullRequestModel, reviewer: string): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.pullRequests.deleteReviewRequest({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			reviewers: [ reviewer ]
+		});
+	}
+
 	async addLabels(pullRequest: PullRequestModel, labels: string[]): Promise<void> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 		octokit.issues.addLabels({
@@ -1287,6 +1297,16 @@ export class PullRequestManager {
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
 			labels
+		});
+	}
+
+	async removeLabel(pullRequest: PullRequestModel, label: string): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		octokit.issues.removeLabel({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			name: label
 		});
 	}
 

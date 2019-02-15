@@ -97,7 +97,7 @@ export class PullRequestOverviewPanel {
 
 		// Listen for changes to panel visibility, if the webview comes into view resubmit data
 		this._panel.onDidChangeViewState(e => {
-			if (e.webviewPanel.visible) {
+			if (e.webviewPanel.visible && this._pullRequest) {
 				this.update(this._pullRequest, this._descriptionNode);
 			}
 		}, this, this._disposables);
@@ -161,8 +161,18 @@ export class PullRequestOverviewPanel {
 			});
 		});
 
-		// Alphabetize reviewers
-		reviewers = reviewers.sort((a, b) => a.reviewer.login > b.reviewer.login ? -1 : 1);
+		// Put completed reviews before review requests and alphabetize each section
+		reviewers = reviewers.sort((a, b) => {
+			if (a.state === 'REQUESTED' && b.state !== 'REQUESTED') {
+				return 1;
+			}
+
+			if (b.state === 'REQUESTED' && a.state !== 'REQUESTED') {
+				return -1;
+			}
+
+			return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
+		});
 
 		this._existingReviewers = reviewers;
 		return reviewers;
@@ -293,12 +303,16 @@ export class PullRequestOverviewPanel {
 				return;
 			case 'pr.add-reviewers':
 				return this.addReviewers(message);
+			case 'pr.remove-reviewer':
+				return this.removeReviewer(message);
 			case 'pr.add-labels':
 				return this.addLabels(message);
+			case 'pr.remove-label':
+				return this.removeLabel(message);
 		}
 	}
 
-	private async addReviewers(message: IRequestMessage<void>) {
+	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const allMentionableUsers = await this._pullRequestManager.getMentionableUsers();
 			const mentionableUsers = allMentionableUsers[this._pullRequest.remote.remoteName];
@@ -321,7 +335,7 @@ export class PullRequestOverviewPanel {
 				const addedReviewers: ReviewState[] = reviewersToAdd.map(reviewer => {
 					return {
 						reviewer: newReviewers.find(r => r.login === reviewer.label)!,
-						state: 'PENDING'
+						state: 'REQUESTED'
 					};
 				});
 
@@ -335,7 +349,20 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private async addLabels(message: IRequestMessage<void>) {
+	private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
+		try {
+			await this._pullRequestManager.deleteRequestedReview(this._pullRequest, message.args);
+
+			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
+			this._existingReviewers.splice(index, 1);
+
+			this._replyMessage(message, { });
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async addLabels(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const allLabels = await this._pullRequestManager.getLabels(this._pullRequest);
 			const newLabels = allLabels
@@ -359,6 +386,19 @@ export class PullRequestOverviewPanel {
 					added: addedLabels
 				});
 			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
+		try {
+			await this._pullRequestManager.removeLabel(this._pullRequest, message.args);
+
+			const index = this._pullRequest.prItem.labels.findIndex(label => label.name === message.args);
+			this._pullRequest.prItem.labels.splice(index, 1);
+
+			this._replyMessage(message, { });
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}

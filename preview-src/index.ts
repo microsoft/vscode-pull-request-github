@@ -13,6 +13,12 @@ import { getMessageHandler } from './message';
 import { getState, setState, PullRequest, updateState } from './cache';
 
 const plusIcon = require('../resources/icons/plus.svg');
+const deleteIcon = require('../resources/icons/delete.svg');
+
+const pendingIcon = require('../resources/icons/dot.svg');
+const checkIcon = require('../resources/icons/check.svg');
+const commentIcon = require('../resources/icons/comment.svg');
+const diffIcon = require('../resources/icons/diff.svg');
 
 window.onload = () => {
 	const pullRequest = getState();
@@ -101,6 +107,42 @@ function renderSection(containerId: string, label: string, addCommand: string, r
 	items.forEach(item => sectionContent.appendChild(item));
 }
 
+function getReviewStateElement(state: string): HTMLElement {
+	const reviewState = document.createElement('div');
+
+	switch (state) {
+		case 'REQUESTED':
+			reviewState.innerHTML = pendingIcon;
+			reviewState.title = 'Awaiting requested review';
+			break;
+		case 'COMMENTED':
+			reviewState.innerHTML = commentIcon;
+			reviewState.title = 'Left review comments';
+			break;
+		case 'APPROVED':
+			reviewState.innerHTML = checkIcon;
+			reviewState.title = 'Approved these changes';
+			break;
+		case 'CHANGES_REQUESTED':
+			reviewState.innerHTML = diffIcon;
+			reviewState.title = 'Requested changes';
+			break;
+	}
+	return reviewState;
+}
+
+function renderDeleteButton(label: string, command: string, args: any, update: () => void): HTMLElement {
+	const deleteButton = document.createElement('button');
+	deleteButton.innerHTML = deleteIcon;
+	deleteButton.className = 'hidden';
+	deleteButton.title = `Remove ${label}`;
+	deleteButton.addEventListener('click', () => {
+		messageHandler.postMessage({ command, args }).then(_ => update());
+	});
+
+	return deleteButton;
+}
+
 function renderReviewers(pr: PullRequest): void {
 	renderSection('reviewers', 'Reviewers',
 		'pr.add-reviewers',
@@ -112,14 +154,41 @@ function renderReviewers(pr: PullRequest): void {
 
 			return pr.reviewers.map((reviewer, i) => {
 				const reviewerElement = document.createElement('div');
-				reviewerElement.classList.add('section-item');
+				reviewerElement.classList.add('section-item', 'reviewer');
 
 				const userIcon = renderUserIcon(reviewer.reviewer.url, reviewer.reviewer.avatarUrl);
 				reviewerElement.appendChild(userIcon);
 
-				const userName = document.createElement('span');
+				const userName = document.createElement('div');
+				userName.className = 'login';
 				reviewerElement.appendChild(userName);
 				userName.textContent = reviewer.reviewer.login;
+
+				const reviewState = getReviewStateElement(reviewer.state);
+				reviewerElement.appendChild(reviewState);
+
+				if (reviewer.state === 'REQUESTED') {
+					const deleteButton = renderDeleteButton('reviewer', 'pr.remove-reviewer', reviewer.reviewer.login, () => {
+						pr.reviewers.splice(i, 1);
+						updateState({ reviewers: pr.reviewers });
+						reviewerElement.remove();
+					});
+					reviewerElement.appendChild(deleteButton);
+
+					reviewerElement.addEventListener('mouseover', () => {
+						deleteButton.classList.remove('hidden');
+						placeholder.classList.add('hidden');
+					});
+
+					reviewerElement.addEventListener('mouseout', () => {
+						deleteButton.classList.add('hidden');
+						placeholder.classList.remove('hidden');
+					});
+				}
+
+				const placeholder = document.createElement('div');
+				placeholder.classList.add('placeholder');
+				reviewerElement.appendChild(placeholder);
 
 				return reviewerElement;
 			});
@@ -135,10 +204,25 @@ function renderLabels(pr: PullRequest): void {
 				updateState({ labels: pr.labels });
 			}
 
-			return pr.labels.map(label => {
+			return pr.labels.map((label, i) => {
 				const labelElement = document.createElement('div');
 				labelElement.textContent = label.name;
 				labelElement.classList.add('label', 'section-item');
+
+				const deleteButton = renderDeleteButton('label', 'pr.remove-label', label.name, () => {
+					pr.labels.splice(i, 1);
+					updateState({ labels: pr.labels });
+					labelElement.remove();
+				});
+				labelElement.appendChild(deleteButton);
+				labelElement.addEventListener('mouseover', () => {
+					deleteButton.classList.remove('hidden');
+				});
+
+				labelElement.addEventListener('mouseout', () => {
+					deleteButton.classList.add('hidden');
+				});
+
 				return labelElement;
 			});
 		});
