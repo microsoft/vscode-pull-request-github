@@ -6,11 +6,13 @@ import './index.css';
 import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
 import { EventType, isReviewEvent } from '../src/common/timelineEvent';
-import { PullRequestStateEnum } from '../src/github/interface';
+import { PullRequestStateEnum, ReviewState, ILabel } from '../src/github/interface';
 import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds, renderUserIcon } from './pullRequestOverviewRenderer';
 
 import { getMessageHandler } from './message';
 import { getState, setState, PullRequest, updateState } from './cache';
+
+const plusIcon = require('../resources/icons/plus.svg');
 
 window.onload = () => {
 	const pullRequest = getState();
@@ -64,7 +66,7 @@ function renderTimelineEvents(pr: PullRequest): void {
 		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
 
-function renderSection(containerId: string, label: string, renderItems: () => HTMLElement[]): void {
+function renderSection(containerId: string, label: string, addCommand: string, renderItems: (newItems?: any[]) => HTMLElement[]): void {
 	const container = document.getElementById(containerId);
 	container.innerHTML = '';
 
@@ -73,11 +75,24 @@ function renderSection(containerId: string, label: string, renderItems: () => HT
 
 	const sectionText = document.createElement('div');
 	sectionText.textContent = label;
+	sectionLabel.appendChild(sectionText);
+
+	const addButton = document.createElement('button');
+	addButton.innerHTML = plusIcon;
+	addButton.title = `Add ${label}`;
+	addButton.addEventListener('click', () => {
+		messageHandler.postMessage({
+			command: addCommand
+		}).then(message => {
+			const updatedItems = renderItems(message.added);
+			sectionContent.innerHTML = '';
+			updatedItems.forEach(item => sectionContent.appendChild(item));
+		});
+	});
+	sectionLabel.appendChild(addButton);
 
 	const sectionContent = document.createElement('div');
 	sectionContent.className = 'section-content';
-
-	sectionLabel.appendChild(sectionText);
 
 	container.appendChild(sectionLabel);
 	container.appendChild(sectionContent);
@@ -87,30 +102,46 @@ function renderSection(containerId: string, label: string, renderItems: () => HT
 }
 
 function renderReviewers(pr: PullRequest): void {
-	renderSection('reviewers', 'Reviewers', (): HTMLElement[] => {
-		return pr.reviewers.map(reviewer => {
-			const reviewerElement = document.createElement('div');
-			reviewerElement.classList.add('section-item');
-			const userIcon = renderUserIcon(reviewer.reviewer.url, reviewer.reviewer.avatarUrl);
-			reviewerElement.appendChild(userIcon);
-			const userName = document.createElement('span');
-			reviewerElement.appendChild(userName);
-			userName.textContent = reviewer.reviewer.login;
+	renderSection('reviewers', 'Reviewers',
+		'pr.add-reviewers',
+		(newItems?: ReviewState[]): HTMLElement[] => {
+			if (newItems) {
+				pr.reviewers = pr.reviewers.concat(newItems);
+				updateState({ reviewers: pr.reviewers });
+			}
 
-			return reviewerElement;
-		});
+			return pr.reviewers.map((reviewer, i) => {
+				const reviewerElement = document.createElement('div');
+				reviewerElement.classList.add('section-item');
+
+				const userIcon = renderUserIcon(reviewer.reviewer.url, reviewer.reviewer.avatarUrl);
+				reviewerElement.appendChild(userIcon);
+
+				const userName = document.createElement('span');
+				reviewerElement.appendChild(userName);
+				userName.textContent = reviewer.reviewer.login;
+
+				return reviewerElement;
+			});
 	});
 }
 
 function renderLabels(pr: PullRequest): void {
-	renderSection('labels', 'Labels', (): HTMLElement[] => {
-		return pr.labels.map(label => {
-			const labelElement = document.createElement('div');
-			labelElement.textContent = label;
-			labelElement.classList.add('label', 'section-item');
-			return labelElement;
+	renderSection('labels', 'Labels',
+		'pr.add-labels',
+		(newItems?: ILabel[]): HTMLElement[] => {
+			if (newItems) {
+				pr.labels = pr.labels.concat(newItems);
+				updateState({ labels: pr.labels });
+			}
+
+			return pr.labels.map(label => {
+				const labelElement = document.createElement('div');
+				labelElement.textContent = label.name;
+				labelElement.classList.add('label', 'section-item');
+				return labelElement;
+			});
 		});
-	});
 }
 
 function setTitleHTML(pr: PullRequest): void {

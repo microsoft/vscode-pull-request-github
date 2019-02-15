@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { PullRequestStateEnum, ReviewEvent, ReviewState } from './interface';
+import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../git/api';
@@ -48,6 +48,7 @@ export class PullRequestOverviewPanel {
 	private _pullRequest: PullRequestModel;
 	private _pullRequestManager: PullRequestManager;
 	private _scrollPosition = { x: 0, y: 0 };
+	private _existingReviewers: ReviewState[];
 
 	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		let activeColumn = toTheSide ?
@@ -134,7 +135,7 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private parseReviews(pullRequestModel: PullRequestModel, timelineEvents: TimelineEvent[]): ReviewState[] {
+	private parseReviewers(pullRequestModel: PullRequestModel, timelineEvents: TimelineEvent[]): ReviewState[] {
 		const reviewEvents = timelineEvents.filter(isReviewEvent);
 		let reviewers: ReviewState[] = [];
 		const seen = new Map<string, boolean>();
@@ -163,6 +164,7 @@ export class PullRequestOverviewPanel {
 		// Alphabetize reviewers
 		reviewers = reviewers.sort((a, b) => a.reviewer.login > b.reviewer.login ? -1 : 1);
 
+		this._existingReviewers = reviewers;
 		return reviewers;
 	}
 
@@ -207,7 +209,7 @@ export class PullRequestOverviewPanel {
 					createdAt: this._pullRequest.createdAt,
 					body: this._pullRequest.body,
 					bodyHTML: this._pullRequest.bodyHTML,
-					labels: this._pullRequest.labels,
+					labels: this._pullRequest.prItem.labels,
 					author: this._pullRequest.author,
 					state: this._pullRequest.state,
 					events: timelineEvents,
@@ -218,7 +220,7 @@ export class PullRequestOverviewPanel {
 					canEdit: canEdit,
 					status: status,
 					mergeable: this._pullRequest.prItem.mergeable,
-					reviewers: this.parseReviews(this._pullRequest, timelineEvents),
+					reviewers: this.parseReviewers(this._pullRequest, timelineEvents),
 					defaultMergeMethod,
 					supportsGraphQl
 				}
@@ -289,6 +291,76 @@ export class PullRequestOverviewPanel {
 			case 'pr.refresh':
 				this.refreshPanel();
 				return;
+			case 'pr.add-reviewers':
+				return this.addReviewers(message);
+			case 'pr.add-labels':
+				return this.addLabels(message);
+		}
+	}
+
+	private async addReviewers(message: IRequestMessage<void>) {
+		try {
+			const allMentionableUsers = await this._pullRequestManager.getMentionableUsers();
+			const mentionableUsers = allMentionableUsers[this._pullRequest.remote.remoteName];
+			const newReviewers = mentionableUsers
+				.filter(user =>
+					!this._existingReviewers.some(reviewer => reviewer.reviewer.login === user.login)
+					&& user.login !== this._pullRequest.author.login);
+
+			const reviewersToAdd = await vscode.window.showQuickPick(newReviewers.map(reviewer => {
+				return {
+					label: reviewer.login,
+					details: reviewer.name
+				};
+			}), {
+				canPickMany: true
+			});
+
+			if (reviewersToAdd) {
+				await this._pullRequestManager.requestReview(this._pullRequest, reviewersToAdd.map(r => r.label));
+				const addedReviewers: ReviewState[] = reviewersToAdd.map(reviewer => {
+					return {
+						reviewer: newReviewers.find(r => r.login === reviewer.label)!,
+						state: 'PENDING'
+					};
+				});
+
+				this._existingReviewers = this._existingReviewers.concat(addedReviewers);
+				this._replyMessage(message, {
+					added: addedReviewers
+				});
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async addLabels(message: IRequestMessage<void>) {
+		try {
+			const allLabels = await this._pullRequestManager.getLabels(this._pullRequest);
+			const newLabels = allLabels
+				.filter(l => !this._pullRequest.prItem.labels.some(label => label.name === l.name));
+
+			const labelsToAdd = await vscode.window.showQuickPick(newLabels.map(label => {
+				return {
+					label: label.name
+				};
+			}), {
+				canPickMany: true
+			});
+
+			if (labelsToAdd) {
+				await this._pullRequestManager.addLabels(this._pullRequest, labelsToAdd.map(r => r.label));
+				const addedLabels: ILabel[] = labelsToAdd.map(label =>  newLabels.find(l => l.name === label.label)!);
+
+				this._pullRequest.prItem.labels.concat(...addedLabels);
+
+				this._replyMessage(message, {
+					added: addedLabels
+				});
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
 

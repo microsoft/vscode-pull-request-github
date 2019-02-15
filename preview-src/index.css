@@ -357,6 +357,31 @@ body .overview-title .button-group button {
 
 .section-header {
 	padding-bottom: 8px;
+	display: flex;
+}
+
+.section button {
+	margin-left: auto;
+	padding: 0 2px;
+	background: transparent;
+}
+
+.section button:hover, .section button:focus {
+	background: transparent;
+}
+
+.section svg {
+	fill: var(--vscode-foreground);
+	width: 14px;
+	height: auto;
+}
+
+.vscode-dark .section svg path {
+	fill: #C5C5C5;
+}
+
+.vscode-light .section svg path {
+	fill: #424242;
 }
 
 .section-item {
@@ -882,6 +907,7 @@ code {
 
 	#sidebar {
 		display: grid;
+		column-gap: 20px;
 		grid-template-columns: 50% 50%;
 		padding: 0;
 	}
