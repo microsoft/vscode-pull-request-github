@@ -109,7 +109,7 @@ describe('keychain', () => {
 			it('fires an event when a token is removed', async () => {
 				const didChange = promiseFromEvent(onDidChange);
 				deleteToken('github.com', { storage, keychain });
-				assert.deepStrictEqual(await didChange, { host: 'github.com', token: null });
+				assert.deepStrictEqual(await didChange, { host: 'github.com', token: undefined });
 			});
 		});
 
@@ -138,7 +138,7 @@ describe('keychain', () => {
 			it('fires an event when a token is removed', async () => {
 				const didChange = promiseFromEvent(onDidChange);
 				deleteToken('github.com', { storage, keychain });
-				assert.deepStrictEqual(await didChange, { host: 'github.com', token: null });
+				assert.deepStrictEqual(await didChange, { host: 'github.com', token: undefined });
 			});
 		});
 	});
