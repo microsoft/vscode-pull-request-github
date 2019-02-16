@@ -11,6 +11,7 @@ import { Comment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
+import { Resource } from '../common/resources';
 
 export function convertToVSCodeComment(comment: Comment, command?: vscode.Command): vscode.Comment {
 	return {
@@ -23,7 +24,7 @@ export function convertToVSCodeComment(comment: Comment, command?: vscode.Comman
 		canDelete: comment.canDelete,
 		isDraft: !!comment.isDraft,
 		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
-			return { label: reaction.label, hasReacted: reaction.viewerHasReacted };
+			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : []
 	};
 }
@@ -182,7 +183,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 		graphNodeId: comment.id,
 		isDraft: comment.state === 'PENDING',
 		inReplyToId: comment.replyTo && comment.replyTo.databaseId,
-		reactions: parseGraphQLReaction(comment)
+		reactions: parseGraphQLReaction(comment.reactionGroups)
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);
@@ -191,15 +192,17 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
 	return c;
 }
 
-export function parseGraphQLReaction(comment: GraphQL.ReviewComment): Reaction[] {
+export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): Reaction[] {
 	let reactionConentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
-		prev[curr.title] = curr.label;
+		prev[curr.title] = curr;
 		return prev;
-	}, {} as { [key:string] : string });
+	}, {} as { [key:string] : { title: string; label: string; icon?: vscode.Uri } });
 
-	const reactions = comment.reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
+	const reactions = reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
 		const reaction: Reaction = {
-			label: reactionConentEmojiMapping[group.content],
+			label: reactionConentEmojiMapping[group.content].label,
+			count: group.users.totalCount,
+			icon: reactionConentEmojiMapping[group.content].icon,
 			viewerHasReacted: group.viewerHasReacted
 		};
 
@@ -339,32 +342,40 @@ export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[]
 	return events;
 }
 
-export function getReactionGroup(): { title: string; label: string; }[] {
+export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
 	let ret = [
 		{
 			title: 'CONFUSED',
-			label: '😕'
+			label: '😕',
+			icon: Resource.icons.reactions.CONFUSED
 		}, {
 			title: 'EYES',
-			label: '👀'
+			label: '👀',
+			icon: Resource.icons.reactions.EYES
 		}, {
 			title: 'HEART',
-			label: '❤️'
+			label: '❤️',
+			icon: Resource.icons.reactions.HEART
 		}, {
 			title: 'HOORAY',
-			label: '🎉'
+			label: '🎉',
+			icon: Resource.icons.reactions.HOORAY
 		}, {
 			title: 'LAUGH',
-			label: '😄'
+			label: '😄',
+			icon: Resource.icons.reactions.LAUGH
 		}, {
 			title: 'ROCKET',
-			label: '🚀'
+			label: '🚀',
+			icon: Resource.icons.reactions.ROCKET
 		}, {
 			title: 'THUMBS_DOWN',
-			label: '👎'
+			label: '👎',
+			icon: Resource.icons.reactions.THUMBS_DOWN
 		}, {
 			title: 'THUMBS_UP',
-			label: '👍'
+			label: '👍',
+			icon: Resource.icons.reactions.THUMBS_UP
 		}
 	];
 

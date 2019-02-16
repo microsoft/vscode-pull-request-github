@@ -89,6 +89,16 @@ fragment Review on PullRequestReview {
 	createdAt
 }
 
+fragment Reactable on Reactable {
+	reactionGroups {
+		content
+		viewerHasReacted
+		users {
+			totalCount
+		}
+	}
+}
+
 query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 100) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
@@ -279,6 +289,28 @@ mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 			comments(first:100) {
 					nodes { ...ReviewComment }
 			}
+		}
+	}
+}
+
+mutation AddReaction($input: AddReactionInput!) {
+	addReaction(input: $input) {
+		reaction {
+			content
+		}
+		subject {
+			...Reactable
+		}
+	}
+}
+
+mutation DeleteReaction($input: RemoveReactionInput!){
+	removeReaction(input:$input){
+		reaction {
+			content
+		}
+		subject {
+			...Reactable
 		}
 	}
 }

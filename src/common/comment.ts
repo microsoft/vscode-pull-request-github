@@ -3,11 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { IAccount } from '../github/interface';
 import { DiffHunk } from './diffHunk';
 
 export interface Reaction {
 	label: string;
+	count: number;
+	icon?: vscode.Uri;
 	viewerHasReacted: boolean;
 }
 
