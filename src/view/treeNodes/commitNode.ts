@@ -50,6 +50,17 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		const currentlyCheckedOut = this.pullRequest.equals(this.pullRequestManager.activePullRequest);
+
+		if (!currentlyCheckedOut) {
+			vscode.window.showInformationMessage('To view commits, this pull request must be checked out.', 'Checkout').then(result => {
+				if (result === 'Checkout') {
+					vscode.commands.executeCommand('pr.pick', this.pullRequest);
+				}
+			});
+
+			return [];
+		}
 		const fileChanges = await this.pullRequestManager.getCommitChangedFiles(this.pullRequest, this.commit);
 
 		const fileChangeNodes = fileChanges.map(change => {
@@ -62,8 +73,8 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				getGitChangeType(change.status),
 				fileName,
 				undefined,
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: false }),
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: true }),
+				toReviewUri(uri, fileName, this.commit.sha, true, { base: false }),
+				toReviewUri(uri, fileName, this.commit.sha, true, { base: true }),
 				false,
 				[],
 				matchingComments,

@@ -25,6 +25,7 @@ import { GitErrorCodes } from './git/api';
 import { Comment } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
+import { ActivePRNode } from './view/treeNodes/activePullRequestNode';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -258,9 +259,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
 		if (!descriptionNode) {
-			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
-			let rootNodes = await reviewManager.prFileChangesProvider.getChildren();
-			descriptionNode = rootNodes[0] as DescriptionNode;
+			// the command is triggerred from command palette or status bar, which means we are already in checkout mode. Assume the PR exists
+			// in the "Local Pull Request Branches" category
+			const rootNodes = await reviewManager.prsTreeDataProvider.getChildren();
+			const localFileChanges = await rootNodes[0].getChildren();
+			const activePR = localFileChanges.filter(change => change instanceof ActivePRNode)[0];
+			descriptionNode = (await activePR.getChildren())[0] as DescriptionNode;
 		}
 		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
 		// Create and show a new webview
@@ -292,11 +296,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 
 		// Show the file change in a diff view.
-		let { path, ref, commit } = fromReviewUri(fileChange.filePath);
+		let { path, commit } = fromReviewUri(fileChange.filePath);
 		let previousCommit = `${commit}^`;
 		const query: ReviewUriParams = {
 			path: path,
-			ref: ref,
 			commit: previousCommit,
 			base: true,
 			isOutdated: true

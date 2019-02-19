@@ -11,14 +11,14 @@ import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../git/api';
 import { onDidSubmitReview, PullRequestManager } from '../github/pullRequestManager';
-import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
+import { GitFileChangeNode, RemoteFileChangeNode, GitFileChange } from './treeNodes/fileChangeNode';
 import { providePRDocumentComments, getCommentingRanges } from './treeNodes/pullRequestNode';
 import { convertToVSCodeComment } from '../github/utils';
 import { GitChangeType } from '../common/file';
 
 const _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
-function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
+function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChange, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
 	if (!fileChange) {
 		return [];
 	}
@@ -77,8 +77,8 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 	constructor(
 		private _prManager: PullRequestManager,
 		private _repository: Repository,
-		private _localFileChanges: GitFileChangeNode[],
-		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+		private _localFileChanges: GitFileChange[],
+		private _obsoleteFileChanges: GitFileChange[],
 		private _comments: Comment[]) {
 		const supportsGraphQL = _prManager.activePullRequest!.githubRepository.supportsGraphQl;
 		if (supportsGraphQL) {
@@ -195,8 +195,8 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		// local file, we only provide active comments
 		// TODO. for comments in deleted ranges, they should show on top of the first line.
 		const fileName = nodePath.relative(currentWorkspace!.uri.fsPath, document.uri.fsPath);
-		const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === fileName);
-		let matchedFile: GitFileChangeNode;
+		const matchedFiles = this._localFileChanges.filter(fileChange => fileChange.fileName === fileName);
+		let matchedFile: GitFileChange;
 		let matchingComments: Comment[] = [];
 		let ranges = [];
 
@@ -240,7 +240,7 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		};
 	}
 
-	private findMatchedFileChangeForReviewDiffView(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode | undefined {
+	private findMatchedFileChangeForReviewDiffView(fileChanges: (GitFileChange | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode | undefined {
 		let query = fromReviewUri(uri);
 		let matchedFiles = fileChanges.filter(fileChange => {
 			if (fileChange instanceof RemoteFileChangeNode) {
@@ -275,7 +275,7 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		}
 	}
 
-	private findMatchedFileByUri(document: vscode.TextDocument): GitFileChangeNode | undefined {
+	private findMatchedFileByUri(document: vscode.TextDocument): GitFileChange | undefined {
 		const uri = document.uri;
 
 		let fileName: string;
@@ -295,7 +295,7 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		}
 
 		const fileChangesToSearch = isOutdated ? this._obsoleteFileChanges : this._localFileChanges;
-		const matchedFiles = gitFileChangeNodeFilter(fileChangesToSearch).filter(fileChange => {
+		const matchedFiles = fileChangesToSearch.filter(fileChange => {
 			if (uri.scheme === 'review' || uri.scheme === 'pr') {
 				return fileChange.fileName === fileName;
 			} else {
@@ -673,7 +673,7 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		for (let file in fileCommentGroups) {
 			let fileComments: Comment[] = fileCommentGroups[file];
 
-			let matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === file);
+			let matchedFiles = this._localFileChanges.filter(fileChange => fileChange.fileName === file);
 
 			if (matchedFiles && matchedFiles.length) {
 				ret = [...ret, ...workspaceLocalCommentsToCommentThreads(this._repository, matchedFiles[0], fileComments, collapsibleState)];
@@ -726,23 +726,23 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 export class ReviewWorkspaceCommentsPRovider implements vscode.WorkspaceCommentProvider {
 	constructor(
 		private _repository: Repository,
-		private _localFileChanges: GitFileChangeNode[],
-		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
+		private _localFileChanges: GitFileChange[],
+		private _obsoleteFileChanges: GitFileChange[]) {
 	}
 
 	onDidChangeCommentThreads = _onDidChangeWorkspaceCommentThreads.event;
 
 	async provideWorkspaceComments(token: vscode.CancellationToken) {
-		const comments = await Promise.all(gitFileChangeNodeFilter(this._localFileChanges).map(async fileChange => {
+		const comments = await Promise.all(this._localFileChanges.map(async fileChange => {
 			return workspaceLocalCommentsToCommentThreads(this._repository, fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
 		}));
-		const outdatedComments = gitFileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
+		const outdatedComments = this._obsoleteFileChanges.map(fileChange => {
 			return this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
 		});
 		return [...comments, ...outdatedComments].reduce((prev, curr) => prev.concat(curr), []);
 	}
 
-	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
+	private outdatedCommentsToCommentThreads(fileChange: GitFileChange, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
 		if (!fileComments || !fileComments.length) {
 			return [];
 		}

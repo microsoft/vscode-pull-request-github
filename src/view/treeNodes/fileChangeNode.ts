@@ -131,6 +131,21 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 }
 
+export class GitFileChange {
+	constructor(
+		public readonly pullRequest: PullRequestModel,
+		public readonly status: GitChangeType,
+		public readonly fileName: string,
+		public readonly blobUrl: string | undefined,
+		public readonly filePath: vscode.Uri,
+		public readonly parentFilePath: vscode.Uri,
+		public readonly isPartial: boolean,
+		public readonly diffHunks: DiffHunk[],
+		public comments: Comment[] = [],
+		public readonly sha?: string,
+	) { }
+}
+
 /**
  * File change node whose content can be resolved by git commit sha.
  */
@@ -145,7 +160,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public opts: vscode.TextDocumentShowOptions;
 
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNode,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -158,7 +173,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string,
 	) {
 		super();
-		this.contextValue = `filechange:${GitChangeType[status]}`;
+		this.contextValue = `filechange:active:${GitChangeType[status]}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;

@@ -148,11 +148,6 @@
           "id": "pr",
           "name": "GitHub Pull Requests",
           "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
-        },
-        {
-          "id": "prStatus",
-          "name": "Changes In Pull Request",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
         }
       ],
       "scm": [
@@ -160,11 +155,6 @@
           "id": "pr",
           "name": "GitHub Pull Requests",
           "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
-        },
-        {
-          "id": "prStatus",
-          "name": "Changes In Pull Request",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
         }
       ]
     },
@@ -382,11 +372,6 @@
           "command": "pr.refreshList",
           "when": "view == pr",
           "group": "navigation"
-        },
-        {
-          "command": "pr.refreshChanges",
-          "when": "view == prStatus",
-          "group": "navigation"
         }
       ],
       "view/item/context": [
@@ -412,26 +397,26 @@
         },
         {
           "command": "pr.openFileInGitHub",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
+          "when": "view == pr && viewItem =~ /filechange/"
         },
         {
           "command": "pr.copyCommitHash",
-          "when": "view == prStatus && viewItem =~ /commit/"
+          "when": "view == pr && viewItem =~ /commit/"
         },
         {
           "command": "pr.openDescriptionToTheSide",
           "group": "inline",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /description/"
+          "when": "view == pr && viewItem =~ /description/"
         },
         {
           "command": "review.openFile",
           "group": "inline",
-          "when": "config.git.openDiffOnClick && view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "config.git.openDiffOnClick && view == pr && viewItem =~ /filechange:active(?!:DELETE)/"
         },
         {
           "command": "pr.openDiffView",
           "group": "inline",
-          "when": "!config.git.openDiffOnClick && view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "!config.git.openDiffOnClick && view == pr && viewItem =~ /filechange:active(?!:DELETE)/"
         }
       ],
       "editor/title": [

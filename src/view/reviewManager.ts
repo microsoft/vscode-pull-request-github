@@ -12,10 +12,9 @@ import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes, Branch } from '../git/api';
-import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
-import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
+import { GitFileChange, GitFileChangeNode } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { PRNode } from './treeNodes/pullRequestNode';
@@ -33,15 +32,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _disposables: vscode.Disposable[];
 
 	private _comments: Comment[] = [];
-	private _localFileChanges: (GitFileChangeNode)[] = [];
-	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewDocumentCommentProvider: ReviewDocumentCommentProvider;
 
-	private _prsTreeDataProvider: PullRequestsTreeDataProvider;
-	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
+	public prsTreeDataProvider: PullRequestsTreeDataProvider;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
 	private _previousRepositoryState: {
@@ -63,7 +59,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	constructor(
-		private _context: vscode.ExtensionContext,
 		onShouldReload: vscode.Event<any>,
 		private _repository: Repository,
 		private _prManager: PullRequestManager,
@@ -78,8 +73,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.registerCommands();
 		this.registerListeners();
 
-		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(onShouldReload, _prManager, this._telemetry);
-		this._disposables.push(this._prsTreeDataProvider);
+		this.prsTreeDataProvider = new PullRequestsTreeDataProvider(onShouldReload, _prManager, this._telemetry);
+		this._disposables.push(this.prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 
 		this._previousRepositoryState = {
@@ -129,7 +124,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			this.updateComments();
 			PullRequestOverviewPanel.refresh();
-			this.prFileChangesProvider.refresh();
 		}));
 
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
@@ -138,7 +132,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 
 			PullRequestOverviewPanel.refresh();
-			this._prsTreeDataProvider.refresh(prNode);
+			this.prsTreeDataProvider.refresh(prNode);
 		}));
 	}
 
@@ -187,15 +181,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	static get instance() {
 		return ReviewManager._instance;
-	}
-
-	get prFileChangesProvider() {
-		if (!this._prFileChangesProvider) {
-			this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._context);
-			this._disposables.push(this._prFileChangesProvider);
-		}
-
-		return this._prFileChangesProvider;
 	}
 
 	get statusBarItem() {
@@ -280,7 +265,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._lastCommitSha = pr.head.sha;
 
 		await this.getPullRequestData(pr);
-		await this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, pr, this._localFileChanges, this._comments);
 
 		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
@@ -331,8 +315,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return Promise.resolve(void 0);
 	}
 
-	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: Comment[]): Promise<GitFileChangeNode[]> {
-		let nodes: GitFileChangeNode[] = [];
+	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: Comment[]): Promise<GitFileChange[]> {
+		let nodes: GitFileChange[] = [];
 		const mergeBase = pr.mergeBase || pr.base.sha;
 		const headSha = pr.head.sha;
 
@@ -355,16 +339,15 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			const filePath = nodePath.resolve(this._repository.rootUri.fsPath, change.fileName);
 			const uri = vscode.Uri.file(filePath);
-			let changedItem = new GitFileChangeNode(
-				this.prFileChangesProvider.view,
+			let changedItem = new GitFileChange(
 				pr,
 				change.status,
 				change.fileName,
 				change.blobUrl,
 				change.status === GitChangeType.DELETE ?
-					toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
-					toDiffViewFileUri(uri, change.fileName, undefined, pr.head.sha, false, { base: false }),
-				toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : mergeBase, false, { base: true }),
+					toReviewUri(uri, undefined, '', false, { base: false }) :
+					toDiffViewFileUri(uri, change.fileName, pr.head.sha, false, { base: false }),
+				toReviewUri(uri, change.fileName, change.status === GitChangeType.ADD ? '' : mergeBase, false, { base: true }),
 				isPartial,
 				diffHunks,
 				activeComments.filter(comment => comment.path === change.fileName),
@@ -379,6 +362,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private async getPullRequestData(pr: PullRequestModel): Promise<void> {
 		try {
 			this._comments = await this._prManager.getPullRequestComments(pr);
+			this._prManager.activeComments = this._comments;
 			let activeComments = this._comments.filter(comment => comment.position);
 			let outdatedComments = this._comments.filter(comment => !comment.position);
 
@@ -386,10 +370,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const mergeBase = pr.mergeBase || pr.base.sha;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase!);
-			this._localFileChanges = await this.getLocalChangeNodes(pr, contentChanges, activeComments);
+			this._prManager.activeFileChanges = await this.getLocalChangeNodes(pr, contentChanges, activeComments);
 
 			let commitsGroup = groupBy(outdatedComments, comment => comment.originalCommitId!);
-			this._obsoleteFileChanges = [];
+			const obsoleteFileChanges = [];
 			for (let commit in commitsGroup) {
 				let commentsForCommit = commitsGroup[commit];
 				let commentsForFile = groupBy(commentsForCommit, comment => comment.path!);
@@ -406,23 +390,24 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 					const oldComments = commentsForFile[fileName];
 					const uri = vscode.Uri.parse(nodePath.join(`commit~${commit.substr(0, 8)}`, fileName));
-					const obsoleteFileChange = new GitFileChangeNode(
-						this.prFileChangesProvider.view,
+					const obsoleteFileChange = new GitFileChange(
 						pr,
 						GitChangeType.MODIFY,
 						fileName,
 						undefined,
-						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: false }),
-						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: true }),
+						toReviewUri(uri, fileName, oldComments[0].originalCommitId!, true, { base: false }),
+						toReviewUri(uri, fileName, oldComments[0].originalCommitId!, true, { base: true }),
 						false,
 						diffHunks,
 						oldComments,
 						commit
 					);
 
-					this._obsoleteFileChanges.push(obsoleteFileChange);
+					obsoleteFileChanges.push(obsoleteFileChange);
 				}
 			}
+
+			this._prManager.activeOutdatedFileChanges = obsoleteFileChanges;
 
 			return Promise.resolve(void 0);
 		} catch (e) {
@@ -455,8 +440,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private registerCommentProvider() {
 		this._reviewDocumentCommentProvider = new ReviewDocumentCommentProvider(this._prManager,
 			this._repository,
-			this._localFileChanges,
-			this._obsoleteFileChanges,
+			this._prManager.activeFileChanges!,
+			this._prManager.activeOutdatedFileChanges!,
 			this._comments);
 
 		this._localToDispose.push(this._reviewDocumentCommentProvider);
@@ -470,8 +455,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._localToDispose.push(vscode.workspace.registerWorkspaceCommentProvider(new ReviewWorkspaceCommentsPRovider(
 			this._repository,
-			this._localFileChanges,
-			this._obsoleteFileChanges)));
+			this._prManager.activeFileChanges!,
+			this._prManager.activeOutdatedFileChanges!)));
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
@@ -706,10 +691,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 				this._statusBarItem.hide();
 			}
 
-			if (this._prFileChangesProvider) {
-				this.prFileChangesProvider.hide();
-			}
-
 			// Ensure file explorer decorations are removed. When switching to a different PR branch,
 			// comments are recalculated when getting the data and the change decoration fired then,
 			// so comments only needs to be emptied in this case.
@@ -722,9 +703,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
 		let { path, commit } = fromReviewUri(uri);
-		let changedItems = gitFileChangeNodeFilter(this._localFileChanges)
+		let changedItems = this._prManager.activeFileChanges!
 			.filter(change => change.fileName === path)
-			.filter(fileChange => fileChange.sha === commit || (fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit);
+			.filter(fileChange => fileChange.sha === commit || `${fileChange.sha}^` === commit);
 
 		if (changedItems.length) {
 			let changedItem = changedItems[0];
@@ -733,9 +714,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return ret.reduce((prev, curr) => prev.concat(...curr), []).join('\n');
 		}
 
-		changedItems = gitFileChangeNodeFilter(this._obsoleteFileChanges)
+		changedItems = this._prManager.activeOutdatedFileChanges!
 			.filter(change => change.fileName === path)
-			.filter(fileChange => fileChange.sha === commit || (fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit);
+			.filter(fileChange => fileChange.sha === commit || `${fileChange.sha}^` === commit);
 
 		if (changedItems.length) {
 			// it's from obsolete file changes, which means the content is in complete.

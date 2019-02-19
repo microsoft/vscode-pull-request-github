@@ -13,18 +13,19 @@ import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, formatError } from '../../common/utils';
 import { DescriptionNode } from './descriptionNode';
-import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
+import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChange } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
 import { PullRequestManager, onDidSubmitReview } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { convertToVSCodeComment } from '../../github/utils';
+import { CommitsNode } from './commitsCategoryNode';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
 	prNumber: number,
-	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[],
+	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChange)[],
 	inDraftMode: boolean) {
 	const params = fromPRUri(document.uri);
 
@@ -311,10 +312,14 @@ export class PRNode extends TreeNode {
 				this._fileChanges = fileChanges;
 			}
 
-			let result = [new DescriptionNode(this, 'Description', {
-				light: Resource.icons.light.Description,
-				dark: Resource.icons.dark.Description
-			}, this.pullRequestModel), ...this._fileChanges];
+			let result = [
+				new DescriptionNode(this, 'Description', {
+					light: Resource.icons.light.Description,
+					dark: Resource.icons.dark.Description
+				}, this.pullRequestModel),
+				...this._fileChanges,
+				new CommitsNode(this, this._prManager, this.pullRequestModel, comments)
+			];
 
 			this.childrenDisposables = result;
 			return result;

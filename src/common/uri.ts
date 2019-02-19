@@ -11,7 +11,6 @@ import { PullRequestModel } from '../github/pullRequestModel';
 
 export interface ReviewUriParams {
 	path: string;
-	ref?: string;
 	commit?: string;
 	base: boolean;
 	isOutdated: boolean;
@@ -43,10 +42,9 @@ export interface GitUriOptions {
 	base: boolean;
 }
 
-export function toDiffViewFileUri(uri: Uri, filePath: string | undefined, ref: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
+export function toDiffViewFileUri(uri: Uri, filePath: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
 	const params: ReviewUriParams = {
 		path: filePath ? filePath : uri.path,
-		ref,
 		commit: commit,
 		base: options.base,
 		isOutdated
@@ -67,10 +65,9 @@ export function toDiffViewFileUri(uri: Uri, filePath: string | undefined, ref: s
 // As a mitigation for extensions like ESLint showing warnings and errors
 // for git URIs, let's change the file extension of these uris to .git,
 // when `replaceFileExtension` is true.
-export function toReviewUri(uri: Uri, filePath: string | undefined, ref: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
+export function toReviewUri(uri: Uri, filePath: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
 	const params: ReviewUriParams = {
 		path: filePath ? filePath : uri.path,
-		ref,
 		commit: commit,
 		base: options.base,
 		isOutdated

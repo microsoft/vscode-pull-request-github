@@ -11,6 +11,7 @@ import { formatError } from '../../common/utils';
 import { AuthenticationError } from '../../common/authentication';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { ActivePRNode } from './activePullRequestNode';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -171,7 +172,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this, this._prManager, prItem, this._type === PRType.LocalPullRequest));
+			let nodes: TreeNode[] = this.prs.map(prItem =>
+				prItem.equals(this._prManager.activePullRequest)
+				? new ActivePRNode(this, this._prManager, this._type === PRType.LocalPullRequest)
+				: new PRNode(this, this._prManager, prItem, this._type === PRType.LocalPullRequest));
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
 			} else if (hasUnsearchedRepositories) {

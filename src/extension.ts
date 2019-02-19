@@ -48,7 +48,7 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
 	const prManager = new PullRequestManager(repository, telemetry);
-	const reviewManager = new ReviewManager(context, Keychain.onDidChange, repository, prManager, telemetry);
+	const reviewManager = new ReviewManager(Keychain.onDidChange, repository, prManager, telemetry);
 	registerCommands(context, prManager, reviewManager, telemetry);
 
 	git.repositories.forEach(repo => {

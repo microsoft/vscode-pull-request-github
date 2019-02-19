@@ -22,6 +22,7 @@ import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse } from './graphql';
+import { GitFileChange } from '../view/treeNodes/fileChangeNode';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -98,6 +99,9 @@ export const onDidSubmitReview: vscode.Event<Comment[]> = _onDidSubmitReview.eve
 export class PullRequestManager {
 	static ID = 'PullRequestManager';
 	private _activePullRequest?: PullRequestModel;
+	public activeFileChanges?: GitFileChange[];
+	public activeOutdatedFileChanges?: GitFileChange[];
+	public activeComments?: Comment[];
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
