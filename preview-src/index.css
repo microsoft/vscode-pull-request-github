@@ -239,6 +239,11 @@ body .hidden {
 	display: none !important;
 }
 
+body .hidden-focusable {
+	height: 0;
+	overflow: hidden;
+}
+
 button {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
@@ -383,11 +388,7 @@ body .overview-title .button-group button {
 }
 
 .section-item .login {
-	width: 100%;
-}
-
-.section-item .placeholder {
-	width: 16px;
+	width: 114px;
 	flex-shrink: 0;
 }
 
@@ -400,7 +401,6 @@ body .overview-title .button-group button {
 }
 
 .section-item {
-	margin-right: 8px;
 	margin-bottom: 8px;
 	display: flex;
 	align-items: center;
@@ -412,7 +412,7 @@ body .overview-title .button-group button {
 }
 
 .label {
-	padding: 2px 6px;
+	padding: 2px 0 2px 6px;
 	height: 16px;
 	border-radius: 2px;
 	background: var(--vscode-badge-background);
@@ -933,6 +933,10 @@ code {
 		flex-wrap: wrap;
 	}
 
+	.section-item {
+		margin-right: 8px;
+	}
+
 	.section-item button {
 		display: block !important;
 	}
@@ -952,10 +956,7 @@ code {
 	}
 
 	.section-item .login {
+		width: auto;
 		margin-right: 4px;
-	}
-
-	.section-item .placeholder {
-		display: none !important;
 	}
 }
