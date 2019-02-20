@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNode';
-// import { FilesCategoryNode } from './filesCategoryNode';
 import { CommitsNode } from './commitsCategoryNode';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { DescriptionNode } from './descriptionNode';
@@ -23,7 +22,7 @@ export class ActivePRNode extends TreeNode {
 		this.parent = parent;
 		this._pullRequestManager = prManager;
 		this._isLocal = local;
-		this._fileNodes = this._pullRequestManager.activeFileChanges!.map(change => new GitFileChangeNode(
+		this._fileNodes = (this._pullRequestManager.activeFileChanges || []).map(change => new GitFileChangeNode(
 			this,
 			this._pullRequestManager.activePullRequest!,
 			change.status, change.fileName, change.blobUrl, change.filePath,
@@ -62,7 +61,6 @@ export class ActivePRNode extends TreeNode {
 				light: Resource.icons.light.Description,
 				dark: Resource.icons.dark.Description
 			}, this._pullRequestManager.activePullRequest!),
-			// new FilesCategoryNode(this, this._fileNodes),
 			...this._fileNodes,
 			new CommitsNode(this, this._pullRequestManager, this._pullRequestManager.activePullRequest!, this._pullRequestManager.activeComments!)
 		];

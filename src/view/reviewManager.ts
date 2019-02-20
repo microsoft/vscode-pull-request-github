@@ -703,7 +703,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
 		let { path, commit } = fromReviewUri(uri);
-		let changedItems = this._prManager.activeFileChanges!
+		let changedItems = (this._prManager.activeFileChanges || [])
 			.filter(change => change.fileName === path)
 			.filter(fileChange => fileChange.sha === commit || `${fileChange.sha}^` === commit);
 
@@ -714,7 +714,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return ret.reduce((prev, curr) => prev.concat(...curr), []).join('\n');
 		}
 
-		changedItems = this._prManager.activeOutdatedFileChanges!
+		changedItems = (this._prManager.activeOutdatedFileChanges || [])
 			.filter(change => change.fileName === path)
 			.filter(fileChange => fileChange.sha === commit || `${fileChange.sha}^` === commit);
 
