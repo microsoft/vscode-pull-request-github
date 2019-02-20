@@ -282,34 +282,29 @@ export class PRNode extends TreeNode {
 				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(this.pullRequestModel.prNumber, this.provideDocumentContent.bind(this));
 			}
 
-			// The review manager will register a document comment's provider, so the node does not need to
-			if (!this.pullRequestModel.equals(this._prManager.activePullRequest)) {
-				if (this._documentCommentsProvider) {
-					// diff comments
-					await this.updateComments(comments, fileChanges);
-					this._fileChanges = fileChanges;
-				} else {
-					this._fileChanges = fileChanges;
-					this._onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
-					await this.pullRequestModel.githubRepository.ensureCommentsProvider();
-					this._documentCommentsProvider = this.pullRequestModel.githubRepository.commentsProvider.registerDocumentCommentProvider(this.pullRequestModel, {
-						onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
-						provideDocumentComments: this.provideDocumentComments.bind(this),
-						createNewCommentThread: this.createNewCommentThread.bind(this),
-						replyToCommentThread: this.replyToCommentThread.bind(this),
-						editComment: this.editComment.bind(this),
-						deleteComment: this.deleteComment.bind(this),
-						startDraft: this.startDraft.bind(this),
-						finishDraft: this.finishDraft.bind(this),
-						deleteDraft: this.deleteDraft.bind(this)
-					});
-
-					this._disposables.push(onDidSubmitReview(_ => {
-						this.updateCommentPendingState();
-					}));
-				}
+			if (this._documentCommentsProvider) {
+				// diff comments
+				await this.updateComments(comments, fileChanges);
+				this._fileChanges = fileChanges;
 			} else {
 				this._fileChanges = fileChanges;
+				this._onDidChangeCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
+				await this.pullRequestModel.githubRepository.ensureCommentsProvider();
+				this._documentCommentsProvider = this.pullRequestModel.githubRepository.commentsProvider.registerDocumentCommentProvider(this.pullRequestModel, {
+					onDidChangeCommentThreads: this._onDidChangeCommentThreads.event,
+					provideDocumentComments: this.provideDocumentComments.bind(this),
+					createNewCommentThread: this.createNewCommentThread.bind(this),
+					replyToCommentThread: this.replyToCommentThread.bind(this),
+					editComment: this.editComment.bind(this),
+					deleteComment: this.deleteComment.bind(this),
+					startDraft: this.startDraft.bind(this),
+					finishDraft: this.finishDraft.bind(this),
+					deleteDraft: this.deleteDraft.bind(this)
+				});
+
+				this._disposables.push(onDidSubmitReview(_ => {
+					this.updateCommentPendingState();
+				}));
 			}
 
 			let result = [
@@ -360,8 +355,6 @@ export class PRNode extends TreeNode {
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
-
 		const {
 			title,
 			prNumber,
@@ -372,11 +365,9 @@ export class PRNode extends TreeNode {
 			login,
 		} = author;
 
-		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
-		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
 		const formattedPRNumber = prNumber.toString();
-		const label = `${labelPrefix}${title}`;
-		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by @${login}`;
+		const label = title;
+		const tooltip = `${title} (#${formattedPRNumber}) by @${login}`;
 		const description = `#${formattedPRNumber} by @${login}`;
 
 		return {
@@ -384,7 +375,7 @@ export class PRNode extends TreeNode {
 			tooltip,
 			description,
 			collapsibleState: 1,
-			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
+			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + ':nonactive',
 			iconPath: this.pullRequestModel.userAvatarUri
 		};
 	}
