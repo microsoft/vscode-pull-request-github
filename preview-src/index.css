@@ -937,8 +937,9 @@ code {
 		margin-right: 8px;
 	}
 
-	.section-item button {
-		display: block !important;
+	body .hidden-focusable {
+		height: auto;
+		overflow: initial;
 	}
 
 	.section-header button {
