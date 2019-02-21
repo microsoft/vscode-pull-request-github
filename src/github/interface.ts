@@ -72,7 +72,6 @@ export interface PullRequest {
 	base?: IGitHubRef;
 	user: IAccount;
 	labels: ILabel[];
-	reviewRequests: IAccount[];
 	merged: boolean;
 	mergeable?: boolean;
 	nodeId: string;

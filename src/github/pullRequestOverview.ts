@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel } from './interface';
+import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../git/api';
@@ -135,13 +135,13 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private parseReviewers(pullRequestModel: PullRequestModel, timelineEvents: TimelineEvent[]): ReviewState[] {
+	private parseReviewers(requestedReviewers: IAccount[], timelineEvents: TimelineEvent[], author: IAccount): ReviewState[] {
 		const reviewEvents = timelineEvents.filter(isReviewEvent);
 		let reviewers: ReviewState[] = [];
 		const seen = new Map<string, boolean>();
 
 		// Do not show the author in the reviewer list
-		seen.set(pullRequestModel.author.login, true);
+		seen.set(author.login, true);
 
 		for (let i = reviewEvents.length -1; i >= 0; i--) {
 			const reviewer = reviewEvents[i].user;
@@ -154,7 +154,7 @@ export class PullRequestOverviewPanel {
 			}
 		}
 
-		pullRequestModel.prItem.reviewRequests.forEach(request => {
+		requestedReviewers.forEach(request => {
 			reviewers.push({
 				reviewer: request,
 				state: 'REQUESTED'
@@ -195,9 +195,10 @@ export class PullRequestOverviewPanel {
 			),
 			this._pullRequestManager.getTimelineEvents(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-			this._pullRequestManager.getStatusChecks(pullRequestModel)
+			this._pullRequestManager.getStatusChecks(pullRequestModel),
+			this._pullRequestManager.getReviewRequests(pullRequestModel)
 		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch, status] = result;
+			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
@@ -230,7 +231,7 @@ export class PullRequestOverviewPanel {
 					canEdit: canEdit,
 					status: status,
 					mergeable: this._pullRequest.prItem.mergeable,
-					reviewers: this.parseReviewers(this._pullRequest, timelineEvents),
+					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
 					defaultMergeMethod,
 					supportsGraphQl
 				}

@@ -20,7 +20,7 @@ import { Repository, RefType, UpstreamRef } from '../git/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse } from './graphql';
 const queries = require('./queries.gql');
 
@@ -609,6 +609,17 @@ export class PullRequestManager {
 		});
 
 		return result.data;
+	}
+
+	async getReviewRequests(pullRequest: PullRequestModel): Promise<IAccount[]> {
+		const { remote, octokit } = await pullRequest.githubRepository.ensure();
+		const result = await octokit.pullRequests.getReviewRequests({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber
+		});
+
+		return result.data.users.map(user => convertRESTUserToAccount(user));
 	}
 
 	async getPullRequestComments(pullRequest: PullRequestModel): Promise<Comment[]> {
