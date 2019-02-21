@@ -25,6 +25,7 @@ import { GitErrorCodes } from './git/api';
 import { Comment } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
+import { convertToVSCodeComment } from './github/utils';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -332,6 +333,82 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
 		if (await prManager.authenticate()) {
 			vscode.commands.executeCommand('pr.refreshList');
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate() && commentControl.widget) {
+			let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+			const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
+
+			commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!)];
+			commentControl.widget.input = '';
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate() && commentControl.widget) {
+			await prManager.startReview(pullRequestModel);
+
+			let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+			const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
+
+			commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!)];
+			commentControl.widget.input = '';
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate() && commentControl.widget) {
+			if (commentControl.widget.input) {
+				let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
+
+				commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!)];
+				commentControl.widget.input = '';
+			}
+
+			await prManager.submitReview(pullRequestModel);
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate() && commentControl.widget) {
+			await prManager.submitReview(pullRequestModel);
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel, comment: vscode.Comment) => {
+		if (await prManager.authenticate() && commentControl.widget) {
+			let rawComment = commentControl.widget.commentThread.comments.find(cmt => cmt.commentId === comment.commentId);
+
+			if (rawComment) {
+				rawComment = convertToVSCodeComment(await prManager.editReviewComment(pullRequestModel, (rawComment as (vscode.Comment & { _rawComment: Comment }))._rawComment, commentControl.widget.input));
+				let newComments = commentControl.widget.commentThread.comments.map(cmt => {
+					if (cmt.commentId === rawComment!.commentId) {
+						return rawComment!;
+					}
+
+					return cmt;
+				});
+				commentControl.widget.commentThread.comments = newComments;
+			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel, comment: vscode.Comment) => {
+		if (await prManager.authenticate() && commentControl.widget) {
+			await prManager.deleteReviewComment(pullRequestModel, comment.commentId);
+			const index = commentControl.widget.commentThread.comments.findIndex(c => c.commentId === comment.commentId);
+			if (index > -1) {
+				commentControl.widget.commentThread.comments.splice(index, 1);
+				commentControl.widget.commentThread.comments = commentControl.widget.commentThread.comments;
+			}
+
+			let inDraftMode = await prManager.inDraftMode(pullRequestModel);
+			if (inDraftMode !== pullRequestModel.inDraftMode) {
+				pullRequestModel.inDraftMode = inDraftMode;
+			}
 		}
 	}));
 }

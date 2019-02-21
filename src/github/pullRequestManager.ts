@@ -775,6 +775,8 @@ export class PullRequestManager {
 
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
+		pullRequest.inDraftMode = false;
+
 		return {
 			deletedReviewId: databaseId,
 			deletedReviewComments: comments.nodes.map(parseGraphQLComment)
@@ -795,11 +797,15 @@ export class PullRequestManager {
 			Logger.appendLine(`Failed to start review: ${e.message}`);
 		});
 
+		pullRequest.inDraftMode = true;
+
 		return;
 	}
 
 	async inDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
-		return !!await this.getPendingReviewId(pullRequest);
+		let inDraftMode = !!await this.getPendingReviewId(pullRequest);
+		pullRequest.inDraftMode = inDraftMode;
+		return inDraftMode;
 	}
 
 	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | undefined> {
@@ -1198,6 +1204,8 @@ export class PullRequestManager {
 		} else {
 			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
 		}
+
+		pullRequest.inDraftMode = false;
 	}
 
 	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<void> {

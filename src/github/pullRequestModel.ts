@@ -53,6 +53,20 @@ export class PullRequestModel {
 		return undefined;
 	}
 
+	private _inDraftMode: boolean = false;
+
+	public get inDraftMode(): boolean {
+		return this._inDraftMode;
+	}
+
+	public set inDraftMode(inDraftMode: boolean) {
+		this._inDraftMode = inDraftMode;
+		this._onDidChangeDraftMode.fire(this._inDraftMode);
+	}
+
+	private _onDidChangeDraftMode: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
+	public onDidChangeDraftMode = this._onDidChangeDraftMode.event;
+
 	public get body(): string {
 		if (this.prItem) {
 			return this.prItem.body;

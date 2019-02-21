@@ -461,7 +461,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._localToDispose.push(this._reviewDocumentCommentProvider);
 
-		this._localToDispose.push(vscode.workspace.registerDocumentCommentProvider(this._reviewDocumentCommentProvider));
+		// this._localToDispose.push(vscode.workspace.registerDocumentCommentProvider(this._reviewDocumentCommentProvider));
 
 		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeComments(comments => {
 			this._comments = comments;

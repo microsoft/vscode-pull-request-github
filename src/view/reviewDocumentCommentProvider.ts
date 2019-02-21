@@ -6,16 +6,82 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { Comment } from '../common/comment';
-import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getDiffLineByPosition, getZeroBased } from '../common/diffPositionMapping';
+import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, getPositionInDiff } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../git/api';
 import { onDidSubmitReview, PullRequestManager } from '../github/pullRequestManager';
-import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { providePRDocumentComments, getCommentingRanges } from './treeNodes/pullRequestNode';
+import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode, InMemFileChangeNode } from './treeNodes/fileChangeNode';
+import { getCommentingRanges } from './treeNodes/pullRequestNode';
 import { convertToVSCodeComment, getReactionGroup, parseGraphQLReaction } from '../github/utils';
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
+
+export function providePRDocumentComments(
+	document: vscode.TextDocument,
+	prNumber: number,
+	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[],
+	inDraftMode: boolean) {
+	const params = fromPRUri(document.uri);
+
+	if (!params || params.prNumber !== prNumber) {
+		return;
+	}
+
+	const isBase = params.isBase;
+	const fileChange = fileChanges.find(change => change.fileName === params.fileName);
+	if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
+		return;
+	}
+
+	// Partial file change indicates that the file content is only the diff, so the entire
+	// document can be commented on.
+	const commentingRanges = fileChange.isPartial
+		? [new vscode.Range(0, 0, document.lineCount, 0)]
+		: getCommentingRanges(fileChange.diffHunks, isBase);
+
+	const matchingComments = fileChange.comments;
+	if (!matchingComments || !matchingComments.length) {
+		return {
+			threads: [],
+			commentingRanges,
+			inDraftMode
+		};
+	}
+
+	let sections = groupBy(matchingComments, comment => String(comment.position));
+	let threads: vscode.CommentThread[] = [];
+
+	for (let i in sections) {
+		let comments = sections[i];
+
+		const firstComment = comments[0];
+		let commentAbsolutePosition = fileChange.isPartial
+			? getPositionInDiff(firstComment, fileChange.diffHunks, isBase)
+			: getAbsolutePosition(firstComment, fileChange.diffHunks, isBase);
+
+		if (commentAbsolutePosition < 0) {
+			continue;
+		}
+
+		const pos = new vscode.Position(getZeroBased(commentAbsolutePosition), 0);
+		const range = new vscode.Range(pos, pos);
+
+		threads.push({
+			threadId: firstComment.id.toString(),
+			resource: document.uri,
+			range,
+			comments: comments.map(comment => convertToVSCodeComment(comment)),
+			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
+		});
+	}
+
+	return {
+		threads,
+		commentingRanges,
+		inDraftMode
+	};
+}
 
 const _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
@@ -76,28 +142,31 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 	public finishDraftLabel = 'Submit Review';
 	public reactionGroup? = getReactionGroup();
 
+	private _commentControl?: vscode.CommentControl;
+
 	constructor(
 		private _prManager: PullRequestManager,
 		private _repository: Repository,
 		private _localFileChanges: GitFileChangeNode[],
 		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		private _comments: Comment[]) {
-		const supportsGraphQL = _prManager.activePullRequest!.githubRepository.supportsGraphQl;
-		if (supportsGraphQL) {
-			this._localToDispose.push(onDidSubmitReview(submittedComments => {
-				this.updateCommentPendingState(submittedComments);
-			}));
-		}
+		// const supportsGraphQL = _prManager.activePullRequest!.githubRepository.supportsGraphQl;
+		// if (supportsGraphQL) {
+		// 	this._localToDispose.push(onDidSubmitReview(submittedComments => {
+		// 		this.updateCommentPendingState(submittedComments);
+		// 	}));
+		// }
 
-		this.startDraft = supportsGraphQL ? this.startDraft.bind(this) : undefined;
-		this.deleteDraft = supportsGraphQL ? this.deleteDraft.bind(this) : undefined;
-		this.finishDraft = supportsGraphQL ? this.finishDraft.bind(this) : undefined;
+		// this.startDraft = supportsGraphQL ? this.startDraft.bind(this) : undefined;
+		// this.deleteDraft = supportsGraphQL ? this.deleteDraft.bind(this) : undefined;
+		// this.finishDraft = supportsGraphQL ? this.finishDraft.bind(this) : undefined;
 
-		if (!supportsGraphQL) {
-			this.reactionGroup = undefined;
-		}
-		this.deleteReaction = supportsGraphQL ? this.deleteReaction.bind(this) : undefined;
-		this.addReaction = supportsGraphQL ? this.addReaction.bind(this) : undefined;
+		// if (!supportsGraphQL) {
+		// 	this.reactionGroup = undefined;
+		// }
+		// this.deleteReaction = supportsGraphQL ? this.deleteReaction.bind(this) : undefined;
+		// this.addReaction = supportsGraphQL ? this.addReaction.bind(this) : undefined;
+		this._commentControl = vscode.comment.createCommentControl(`review-${_prManager.activePullRequest!.prNumber}`, _prManager.activePullRequest!.title);
 	}
 
 	async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | undefined> {

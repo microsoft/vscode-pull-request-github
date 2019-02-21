@@ -13,8 +13,9 @@ import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
 
-export function convertToVSCodeComment(comment: Comment, command?: vscode.Command): vscode.Comment {
+export function convertToVSCodeComment(comment: Comment, command?: vscode.Command): vscode.Comment & { _rawComment: Comment } {
 	return {
+		_rawComment: comment,
 		commentId: comment.id.toString(),
 		body: new vscode.MarkdownString(comment.body),
 		command: command,
