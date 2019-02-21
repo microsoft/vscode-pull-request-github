@@ -496,6 +496,7 @@ export class PullRequestOverviewPanel {
 				<title>Pull Request #${number}</title>
 			</head>
 			<body>
+				<div id="main"></div>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 				<div id="title" class="title"></div>
 				<div id="timeline-events" class="discussion" aria-live="polite"></div>

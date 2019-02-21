@@ -12,6 +12,7 @@ import md from './mdRenderer';
 const emoji = require('node-emoji');
 import { getMessageHandler } from './message';
 import { getState, setState, PullRequest, updateState } from './cache';
+import { main } from './app';
 
 window.onload = () => {
 	const pullRequest = getState();
@@ -32,6 +33,8 @@ const messageHandler = getMessageHandler(message => {
 			break;
 		case 'pr.update-checkout-status':
 			updateCheckoutButton(message.isCurrentlyCheckedOut);
+			updateState({ isCurrentlyCheckedOut: message.isCurrentlyCheckedOut });
+			renderPullRequest(getState());
 			break;
 		case 'pr.enable-exit':
 			(<HTMLButtonElement>document.getElementById(ElementIds.CheckoutDefaultBranch)).disabled = false;
@@ -44,6 +47,7 @@ const messageHandler = getMessageHandler(message => {
 });
 
 function renderPullRequest(pr: PullRequest): void {
+	main(pr);
 	renderTimelineEvents(pr);
 	setTitleHTML(pr);
 	setTextArea();
