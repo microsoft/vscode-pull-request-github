@@ -430,7 +430,7 @@ body .overview-title .button-group button {
 
 .comment-container.commit,
 .comment-container.merged {
-	padding-left: 16px;
+	padding: 16px 0 0 12px;
 	box-sizing: border-box
 }
 
