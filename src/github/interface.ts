@@ -24,6 +24,11 @@ export enum PullRequestStateEnum {
 	Closed,
 }
 
+export interface ReviewState {
+	reviewer: IAccount;
+	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
+}
+
 export interface IAccount {
 	login: string;
 	name?: string;
@@ -67,6 +72,7 @@ export interface PullRequest {
 	base?: IGitHubRef;
 	user: IAccount;
 	labels?: ILabel[];
+	reviewRequests: IAccount[];
 	merged: boolean;
 	mergeable?: boolean;
 	nodeId: string;

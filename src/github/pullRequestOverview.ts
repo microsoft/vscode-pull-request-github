@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { PullRequestStateEnum, ReviewEvent } from './interface';
+import { PullRequestStateEnum, ReviewEvent, ReviewState } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../git/api';
@@ -18,6 +18,7 @@ import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { PullRequestManager } from './pullRequestManager';
 import { PullRequestModel } from './pullRequestModel';
+import { TimelineEvent, isReviewEvent } from '../common/timelineEvent';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -133,6 +134,38 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
+	private parseReviews(pullRequestModel: PullRequestModel, timelineEvents: TimelineEvent[]): ReviewState[] {
+		const reviewEvents = timelineEvents.filter(isReviewEvent);
+		let reviewers: ReviewState[] = [];
+		const seen = new Map<string, boolean>();
+
+		// Do not show the author in the reviewer list
+		seen.set(pullRequestModel.author.login, true);
+
+		for (let i = reviewEvents.length -1; i >= 0; i--) {
+			const reviewer = reviewEvents[i].user;
+			if (!seen.get(reviewer.login)) {
+				seen.set(reviewer.login, true);
+				reviewers.push({
+					reviewer: reviewer,
+					state: reviewEvents[i].state
+				});
+			}
+		}
+
+		pullRequestModel.prItem.reviewRequests.forEach(request => {
+			reviewers.push({
+				reviewer: request,
+				state: 'REQUESTED'
+			});
+		});
+
+		// Alphabetize reviewers
+		reviewers = reviewers.sort((a, b) => a.reviewer.login > b.reviewer.login ? -1 : 1);
+
+		return reviewers;
+	}
+
 	public async update(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
 		this._descriptionNode = descriptionNode;
 		this._postMessage({
@@ -185,6 +218,7 @@ export class PullRequestOverviewPanel {
 					canEdit: canEdit,
 					status: status,
 					mergeable: this._pullRequest.prItem.mergeable,
+					reviewers: this.parseReviews(this._pullRequest, timelineEvents),
 					defaultMergeMethod,
 					supportsGraphQl
 				}
@@ -498,9 +532,16 @@ export class PullRequestOverviewPanel {
 			<body>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 				<div id="title" class="title"></div>
-				<div id="timeline-events" class="discussion" aria-live="polite"></div>
-				<div id="status-checks"></div>
-				<div id="comment-form" class="comment-form"></div>
+				<div id="sidebar">
+					<div id="reviewers" class="section"></div>
+					<div id="labels" class="section"></div>
+				</div>
+				<div id="main">
+					<div id="description"></div>
+					<div id="timeline-events" class="discussion" aria-live="polite"></div>
+					<div id="status-checks"></div>
+					<div id="comment-form" class="comment-form"></div>
+				</div>
 			</body>
 			</html>`;
 	}

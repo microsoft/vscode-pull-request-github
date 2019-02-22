@@ -21,6 +21,19 @@ fragment Merged on MergedEvent {
 	url
 }
 
+fragment Ref on Ref {
+	name
+	repository {
+		owner {
+			login
+		}
+		url
+	}
+	target {
+		oid
+	}
+}
+
 fragment Comment on IssueComment {
 	id
 	databaseId
@@ -208,28 +221,26 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			}
 			createdAt
 			updatedAt
-			headRef {
-				name
-				repository {
-					owner {
-						login
+			reviewRequests(first: 100) {
+				nodes {
+					requestedReviewer {
+						...on User {
+							login
+							url
+							avatarUrl
+						}
 					}
-					url
-				}
-				target {
-					oid
 				}
 			}
+			headRef {
+				...Ref
+			}
 			baseRef {
-				name
-				repository {
-					owner {
-						login
-					}
-					url
-				}
-				target {
-					oid
+				...Ref
+			}
+			labels(first: 50) {
+				nodes {
+					name
 				}
 			}
 			merged

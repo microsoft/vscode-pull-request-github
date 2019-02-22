@@ -46,7 +46,7 @@ export interface ReviewEvent {
 	htmlUrl: string;
 	user: IAccount;
 	authorAssociation: string;
-	state: string;
+	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
 	id: number;
 }
 

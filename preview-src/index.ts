@@ -7,9 +7,8 @@ import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
 import { EventType, isReviewEvent } from '../src/common/timelineEvent';
 import { PullRequestStateEnum } from '../src/github/interface';
-import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds } from './pullRequestOverviewRenderer';
-import md from './mdRenderer';
-const emoji = require('node-emoji');
+import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds, renderUserIcon } from './pullRequestOverviewRenderer';
+
 import { getMessageHandler } from './message';
 import { getState, setState, PullRequest, updateState } from './cache';
 
@@ -48,6 +47,8 @@ function renderPullRequest(pr: PullRequest): void {
 	setTitleHTML(pr);
 	setTextArea();
 	renderStatusChecks(pr, messageHandler);
+	renderReviewers(pr);
+	renderLabels(pr);
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
@@ -61,6 +62,55 @@ function renderTimelineEvents(pr: PullRequest): void {
 		.map(event => renderTimelineEvent(event, messageHandler, pr))
 		.filter(event => event !== undefined)
 		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
+}
+
+function renderSection(containerId: string, label: string, renderItems: () => HTMLElement[]): void {
+	const container = document.getElementById(containerId);
+	container.innerHTML = '';
+
+	const sectionLabel = document.createElement('div');
+	sectionLabel.className = 'section-header';
+
+	const sectionText = document.createElement('div');
+	sectionText.textContent = label;
+
+	const sectionContent = document.createElement('div');
+	sectionContent.className = 'section-content';
+
+	sectionLabel.appendChild(sectionText);
+
+	container.appendChild(sectionLabel);
+	container.appendChild(sectionContent);
+
+	const items = renderItems();
+	items.forEach(item => sectionContent.appendChild(item));
+}
+
+function renderReviewers(pr: PullRequest): void {
+	renderSection('reviewers', 'Reviewers', (): HTMLElement[] => {
+		return pr.reviewers.map(reviewer => {
+			const reviewerElement = document.createElement('div');
+			reviewerElement.classList.add('section-item');
+			const userIcon = renderUserIcon(reviewer.reviewer.url, reviewer.reviewer.avatarUrl);
+			reviewerElement.appendChild(userIcon);
+			const userName = document.createElement('span');
+			reviewerElement.appendChild(userName);
+			userName.textContent = reviewer.reviewer.login;
+
+			return reviewerElement;
+		});
+	});
+}
+
+function renderLabels(pr: PullRequest): void {
+	renderSection('labels', 'Labels', (): HTMLElement[] => {
+		return pr.labels.map(label => {
+			const labelElement = document.createElement('div');
+			labelElement.textContent = label;
+			labelElement.classList.add('label', 'section-item');
+			return labelElement;
+		});
+	});
 }
 
 function setTitleHTML(pr: PullRequest): void {
@@ -85,8 +135,7 @@ function setTitleHTML(pr: PullRequest): void {
 	const title = renderTitle(pr);
 	(document.getElementById('overview-title')! as any).prepend(title);
 
-	const description = renderDescription(pr);
-	document.getElementById('details')!.appendChild(description);
+	renderDescription(pr);
 }
 
 function renderTitle(pr: PullRequest): HTMLElement {
@@ -145,57 +194,28 @@ function renderTitle(pr: PullRequest): HTMLElement {
 	return titleContainer;
 }
 
-function renderDescription(pr: PullRequest): HTMLElement {
-	const commentContainer = document.createElement('div');
-	commentContainer.classList.add('description-container');
-
-	const commentHeader = document.createElement('div');
-	commentHeader.classList.add('description-header');
-
-	const commentBody = document.createElement('div');
-	commentBody.className = 'comment-body';
-	commentBody.innerHTML = pr.bodyHTML ?
-		pr.bodyHTML :
-		pr.body
-			? md.render(emoji.emojify(pr.body))
-			: '<p><i>No description provided.</i></p>';
-
-	if (pr.labels.length) {
-		const line = document.createElement('div');
-		line.classList.add('line');
-
-		line.innerHTML = `<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
-			<path fill-rule="evenodd" d="M7.685 1.72a2.49 2.49 0 0 0-1.76-.726H3.48A2.5 2.5 0 0 0 .994 3.48v2.456c0 .656.269 1.292.726 1.76l6.024 6.024a.99.99 0 0 0 1.402 0l4.563-4.563a.99.99 0 0 0 0-1.402L7.685 1.72zM2.366 7.048a1.54 1.54 0 0 1-.467-1.123V3.48c0-.874.716-1.58 1.58-1.58h2.456c.418 0 .825.159 1.123.467l6.104 6.094-4.702 4.702-6.094-6.114zm.626-4.066h1.989v1.989H2.982V2.982h.01z" />
-			</svg>
-			${pr.labels.map(label => `<span class="label">${label}</span>`).join('')}`;
-
-		commentContainer.appendChild(line);
-	}
-
-	commentContainer.appendChild(commentHeader);
-	commentContainer.appendChild(commentBody);
-
-	if (pr.canEdit) {
-		function updateDescription(text: string) {
+function renderDescription(pr: PullRequest): void {
+	const descriptionNode = document.getElementById('description');
+	descriptionNode.innerHTML = '';
+	const bodyHTML = !pr.body ? '<i>No description provided</i>' : pr.bodyHTML;
+	const descriptionElement = renderComment({
+		htmlUrl: pr.url,
+		body: pr.body,
+		bodyHTML: bodyHTML,
+		user: pr.author,
+		event: EventType.Commented,
+		canEdit: pr.canEdit,
+		canDelete: false,
+		id: pr.number,
+		createdAt: pr.createdAt
+	}, messageHandler, undefined, {
+		handler: (text: string) => {
 			pr.body = text;
 			updateState({ body: text });
+		},
+		command: 'pr.edit-description' });
 
-			if (!text) {
-				commentBody.innerHTML = `<p><i>No description provided.</i></p>`;
-			}
-		}
-
-		const actionsBar = new ActionsBar(commentContainer, { body: pr.body, id: pr.number.toString() }, commentBody, messageHandler, updateDescription, 'pr.edit-description');
-		const renderedActionsBar = actionsBar.render();
-		actionsBar.registerActionBarListeners();
-		commentHeader.appendChild(renderedActionsBar);
-
-		if (pr.pendingCommentDrafts && pr.pendingCommentDrafts[pr.number]) {
-			actionsBar.startEdit(pr.pendingCommentDrafts[pr.number]);
-		}
-	}
-
-	return commentContainer;
+	descriptionNode.appendChild(descriptionElement);
 }
 
 function addEventListeners(pr: PullRequest): void {

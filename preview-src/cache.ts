@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { PullRequestStateEnum, IAccount } from '../src/github/interface';
+import { PullRequestStateEnum, IAccount, ReviewState } from '../src/github/interface';
 import { TimelineEvent } from '../src/common/timelineEvent';
 import { ReposGetCombinedStatusForRefResponse } from '@octokit/rest';
 
@@ -12,7 +12,7 @@ export interface PullRequest {
 	number: number;
 	title: string;
 	url: string;
-	createdAt: Date;
+	createdAt: string;
 	body: string;
 	bodyHTML?: string;
 	author: IAccount;
@@ -31,6 +31,7 @@ export interface PullRequest {
 	mergeable: boolean;
 	defaultMergeMethod: string;
 	supportsGraphQl: boolean;
+	reviewers: ReviewState[];
 }
 
 export function getState(): PullRequest {
