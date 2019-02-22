@@ -19,7 +19,6 @@ export class PullRequestModel {
 	public createdAt: string;
 	public updatedAt: string;
 	public localBranchName?: string;
-	public labels: string[];
 	public mergeBase?: string;
 
 	public get isOpen(): boolean {
@@ -75,7 +74,6 @@ export class PullRequestModel {
 		this.bodyHTML = prItem.bodyHTML;
 		this.html_url = prItem.url;
 		this.author = prItem.user;
-		this.labels = (prItem.labels || []).map(label => label.name);
 
 		if (prItem.state.toLowerCase() === 'open') {
 			this.state = PullRequestStateEnum.Open;

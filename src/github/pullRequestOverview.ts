@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { PullRequestStateEnum, ReviewEvent, ReviewState } from './interface';
+import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../git/api';
@@ -48,6 +48,7 @@ export class PullRequestOverviewPanel {
 	private _pullRequest: PullRequestModel;
 	private _pullRequestManager: PullRequestManager;
 	private _scrollPosition = { x: 0, y: 0 };
+	private _existingReviewers: ReviewState[];
 
 	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		let activeColumn = toTheSide ?
@@ -96,7 +97,7 @@ export class PullRequestOverviewPanel {
 
 		// Listen for changes to panel visibility, if the webview comes into view resubmit data
 		this._panel.onDidChangeViewState(e => {
-			if (e.webviewPanel.visible) {
+			if (e.webviewPanel.visible && this._pullRequest) {
 				this.update(this._pullRequest, this._descriptionNode);
 			}
 		}, this, this._disposables);
@@ -134,13 +135,13 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private parseReviews(pullRequestModel: PullRequestModel, timelineEvents: TimelineEvent[]): ReviewState[] {
+	private parseReviewers(requestedReviewers: IAccount[], timelineEvents: TimelineEvent[], author: IAccount): ReviewState[] {
 		const reviewEvents = timelineEvents.filter(isReviewEvent);
 		let reviewers: ReviewState[] = [];
 		const seen = new Map<string, boolean>();
 
 		// Do not show the author in the reviewer list
-		seen.set(pullRequestModel.author.login, true);
+		seen.set(author.login, true);
 
 		for (let i = reviewEvents.length -1; i >= 0; i--) {
 			const reviewer = reviewEvents[i].user;
@@ -153,16 +154,27 @@ export class PullRequestOverviewPanel {
 			}
 		}
 
-		pullRequestModel.prItem.reviewRequests.forEach(request => {
+		requestedReviewers.forEach(request => {
 			reviewers.push({
 				reviewer: request,
 				state: 'REQUESTED'
 			});
 		});
 
-		// Alphabetize reviewers
-		reviewers = reviewers.sort((a, b) => a.reviewer.login > b.reviewer.login ? -1 : 1);
+		// Put completed reviews before review requests and alphabetize each section
+		reviewers = reviewers.sort((a, b) => {
+			if (a.state === 'REQUESTED' && b.state !== 'REQUESTED') {
+				return 1;
+			}
 
+			if (b.state === 'REQUESTED' && a.state !== 'REQUESTED') {
+				return -1;
+			}
+
+			return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
+		});
+
+		this._existingReviewers = reviewers;
 		return reviewers;
 	}
 
@@ -183,9 +195,10 @@ export class PullRequestOverviewPanel {
 			),
 			this._pullRequestManager.getTimelineEvents(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-			this._pullRequestManager.getStatusChecks(pullRequestModel)
+			this._pullRequestManager.getStatusChecks(pullRequestModel),
+			this._pullRequestManager.getReviewRequests(pullRequestModel)
 		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch, status] = result;
+			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
@@ -207,7 +220,7 @@ export class PullRequestOverviewPanel {
 					createdAt: this._pullRequest.createdAt,
 					body: this._pullRequest.body,
 					bodyHTML: this._pullRequest.bodyHTML,
-					labels: this._pullRequest.labels,
+					labels: this._pullRequest.prItem.labels,
 					author: this._pullRequest.author,
 					state: this._pullRequest.state,
 					events: timelineEvents,
@@ -218,7 +231,7 @@ export class PullRequestOverviewPanel {
 					canEdit: canEdit,
 					status: status,
 					mergeable: this._pullRequest.prItem.mergeable,
-					reviewers: this.parseReviews(this._pullRequest, timelineEvents),
+					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
 					defaultMergeMethod,
 					supportsGraphQl
 				}
@@ -289,6 +302,106 @@ export class PullRequestOverviewPanel {
 			case 'pr.refresh':
 				this.refreshPanel();
 				return;
+			case 'pr.add-reviewers':
+				return this.addReviewers(message);
+			case 'pr.remove-reviewer':
+				return this.removeReviewer(message);
+			case 'pr.add-labels':
+				return this.addLabels(message);
+			case 'pr.remove-label':
+				return this.removeLabel(message);
+		}
+	}
+
+	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
+		try {
+			const allMentionableUsers = await this._pullRequestManager.getMentionableUsers();
+			const mentionableUsers = allMentionableUsers[this._pullRequest.remote.remoteName];
+			const newReviewers = mentionableUsers
+				.filter(user =>
+					!this._existingReviewers.some(reviewer => reviewer.reviewer.login === user.login)
+					&& user.login !== this._pullRequest.author.login);
+
+			const reviewersToAdd = await vscode.window.showQuickPick(newReviewers.map(reviewer => {
+				return {
+					label: reviewer.login,
+					details: reviewer.name
+				};
+			}), {
+				canPickMany: true
+			});
+
+			if (reviewersToAdd) {
+				await this._pullRequestManager.requestReview(this._pullRequest, reviewersToAdd.map(r => r.label));
+				const addedReviewers: ReviewState[] = reviewersToAdd.map(reviewer => {
+					return {
+						reviewer: newReviewers.find(r => r.login === reviewer.label)!,
+						state: 'REQUESTED'
+					};
+				});
+
+				this._existingReviewers = this._existingReviewers.concat(addedReviewers);
+				this._replyMessage(message, {
+					added: addedReviewers
+				});
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
+		try {
+			await this._pullRequestManager.deleteRequestedReview(this._pullRequest, message.args);
+
+			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
+			this._existingReviewers.splice(index, 1);
+
+			this._replyMessage(message, { });
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async addLabels(message: IRequestMessage<void>): Promise<void> {
+		try {
+			const allLabels = await this._pullRequestManager.getLabels(this._pullRequest);
+			const newLabels = allLabels
+				.filter(l => !this._pullRequest.prItem.labels.some(label => label.name === l.name));
+
+			const labelsToAdd = await vscode.window.showQuickPick(newLabels.map(label => {
+				return {
+					label: label.name
+				};
+			}), {
+				canPickMany: true
+			});
+
+			if (labelsToAdd) {
+				await this._pullRequestManager.addLabels(this._pullRequest, labelsToAdd.map(r => r.label));
+				const addedLabels: ILabel[] = labelsToAdd.map(label =>  newLabels.find(l => l.name === label.label)!);
+
+				this._pullRequest.prItem.labels = this._pullRequest.prItem.labels.concat(...addedLabels);
+
+				this._replyMessage(message, {
+					added: addedLabels
+				});
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
+		try {
+			await this._pullRequestManager.removeLabel(this._pullRequest, message.args);
+
+			const index = this._pullRequest.prItem.labels.findIndex(label => label.name === message.args);
+			this._pullRequest.prItem.labels.splice(index, 1);
+
+			this._replyMessage(message, { });
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
 

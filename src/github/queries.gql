@@ -221,17 +221,6 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			}
 			createdAt
 			updatedAt
-			reviewRequests(first: 100) {
-				nodes {
-					requestedReviewer {
-						...on User {
-							login
-							url
-							avatarUrl
-						}
-					}
-				}
-			}
 			headRef {
 				...Ref
 			}

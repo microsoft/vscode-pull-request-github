@@ -11,7 +11,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -20,7 +20,7 @@ import { Repository, RefType, UpstreamRef } from '../git/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse } from './graphql';
 const queries = require('./queries.gql');
 
@@ -500,6 +500,22 @@ export class PullRequestManager {
 		});
 	}
 
+	async getLabels(pullRequest: PullRequestModel): Promise<ILabel[]> {
+		const { remote, octokit } = await pullRequest.githubRepository.ensure();
+
+		const result = await octokit.issues.getLabels({
+			owner: remote.owner,
+			repo: remote.repositoryName
+		});
+
+		return result.data.map(label => {
+			return {
+				name: label.name,
+				color: label.color
+			};
+		});
+	}
+
 	async deleteLocalPullRequest(pullRequest: PullRequestModel, force?: boolean): Promise<void> {
 		if (!pullRequest.localBranchName) {
 			return;
@@ -593,6 +609,17 @@ export class PullRequestManager {
 		});
 
 		return result.data;
+	}
+
+	async getReviewRequests(pullRequest: PullRequestModel): Promise<IAccount[]> {
+		const { remote, octokit } = await pullRequest.githubRepository.ensure();
+		const result = await octokit.pullRequests.getReviewRequests({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber
+		});
+
+		return result.data.users.map(user => convertRESTUserToAccount(user));
 	}
 
 	async getPullRequestComments(pullRequest: PullRequestModel): Promise<Comment[]> {
@@ -1247,6 +1274,51 @@ export class PullRequestManager {
 
 		Logger.debug(`Fetch file changes and merge base of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 		return data.files;
+	}
+
+	/**
+	 * Add reviewers to a pull request
+	 * @param pullRequest The pull request
+	 * @param reviewers A list of GitHub logins
+	 */
+	async requestReview(pullRequest: PullRequestModel, reviewers: string[]): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.pullRequests.createReviewRequest({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			reviewers
+		});
+	}
+
+	async deleteRequestedReview(pullRequest: PullRequestModel, reviewer: string): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.pullRequests.deleteReviewRequest({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			reviewers: [ reviewer ]
+		});
+	}
+
+	async addLabels(pullRequest: PullRequestModel, labels: string[]): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.issues.addLabels({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			labels
+		});
+	}
+
+	async removeLabel(pullRequest: PullRequestModel, label: string): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.issues.removeLabel({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			name: label
+		});
 	}
 
 	async getPullRequestRepositoryDefaultBranch(pullRequest: PullRequestModel): Promise<string> {
