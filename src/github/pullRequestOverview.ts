@@ -381,7 +381,7 @@ export class PullRequestOverviewPanel {
 				await this._pullRequestManager.addLabels(this._pullRequest, labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label =>  newLabels.find(l => l.name === label.label)!);
 
-				this._pullRequest.prItem.labels.concat(...addedLabels);
+				this._pullRequest.prItem.labels = this._pullRequest.prItem.labels.concat(...addedLabels);
 
 				this._replyMessage(message, {
 					added: addedLabels

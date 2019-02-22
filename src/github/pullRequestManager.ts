@@ -1303,7 +1303,7 @@ export class PullRequestManager {
 
 	async addLabels(pullRequest: PullRequestModel, labels: string[]): Promise<void> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		octokit.issues.addLabels({
+		await octokit.issues.addLabels({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -1313,7 +1313,7 @@ export class PullRequestManager {
 
 	async removeLabel(pullRequest: PullRequestModel, label: string): Promise<void> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		octokit.issues.removeLabel({
+		await octokit.issues.removeLabel({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
