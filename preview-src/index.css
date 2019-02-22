@@ -834,11 +834,10 @@ code {
 }
 
 .diff .diffHeader .outdatedLabel {
-	border: 1px solid rgba(27,31,35,.15);
+	border: 1px solid var(--vscode-editorOverviewRuler-findMatchForeground);
 	box-shadow: none;
-	color: #586069;
+	color: var(--vscode-editorOverviewRuler-findMatchForeground);
 	padding: 2px 4px;
-	background-color: #fff5b1;
 	margin-left: 5px;
 	border-radius: 2px;
 	line-height: 1;
