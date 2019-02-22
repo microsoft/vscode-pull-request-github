@@ -263,6 +263,12 @@ export class PRNode extends TreeNode {
 				this.childrenDisposables.forEach(dp => dp.dispose());
 			}
 
+			for (let fileName in this._fileChangeCommentThreads) {
+				this._fileChangeCommentThreads[fileName].forEach(thread => {
+					thread.dispose!();
+				});
+			}
+
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
 			const mergeBase = this.pullRequestModel.mergeBase;
@@ -308,12 +314,14 @@ export class PRNode extends TreeNode {
 			// The review manager will register a document comment's provider, so the node does not need to
 			if (!this.pullRequestModel.equals(this._prManager.activePullRequest)) {
 				const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
-				if (this._commentControl) {
-					await this.updateComments(comments, fileChanges);
+				// if (this._commentControl) {
+				// 	await this.updateComments(comments, fileChanges);
+				// 	this._fileChanges = fileChanges;
+				// } else {
 					this._fileChanges = fileChanges;
-				} else {
-					this._fileChanges = fileChanges;
-					this._commentControl = vscode.comment.createCommentControl(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
+					if (!this._commentControl) { // todo incremental update
+						this._commentControl = vscode.comment.createCommentControl(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
+					}
 
 					this._fileChanges.forEach(fileChange => {
 						if (fileChange instanceof InMemFileChangeNode) {
@@ -335,7 +343,7 @@ export class PRNode extends TreeNode {
 							});
 						}
 					}));
-				}
+				// }
 			} else {
 				this._fileChanges = fileChanges;
 			}
@@ -370,7 +378,7 @@ export class PRNode extends TreeNode {
 				command: 'pr.finishReview',
 				arguments: [
 					this._commentControl,
-					this.pullRequestModel
+					this.pullRequestModel,
 				]
 			});
 

@@ -10,7 +10,7 @@ import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToD
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../git/api';
-import { onDidSubmitReview, PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode, InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { getCommentingRanges } from './treeNodes/pullRequestNode';
 import { convertToVSCodeComment, getReactionGroup, parseGraphQLReaction } from '../github/utils';

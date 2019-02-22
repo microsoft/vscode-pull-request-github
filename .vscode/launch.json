@@ -5,9 +5,8 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"name": "Launch Extension",
-			"runtimeExecutable": "/Users/penlv/code/vscode/scripts/code.sh",
-			"trace": true,
-			"args": [
+			"runtimeExecutable": "${execPath}",
+				"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],

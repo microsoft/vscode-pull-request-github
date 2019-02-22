@@ -289,7 +289,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 			return fileChange.status === GitChangeType.DELETE
 				? vscode.commands.executeCommand('vscode.diff', fileChange.parentFilePath, emptyFileUri, `${fileChange.fileName}`, { preserveFocus: true })
-				: vscode.commands.executeCommand('vscode.diff',  emptyFileUri, fileChange.parentFilePath, `${fileChange.fileName}`, { preserveFocus: true });
+				: vscode.commands.executeCommand('vscode.diff', emptyFileUri, fileChange.parentFilePath, `${fileChange.fileName}`, { preserveFocus: true });
 		}
 
 		// Show the file change in a diff view.
@@ -374,7 +374,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
 		if (await prManager.authenticate() && commentControl.widget) {
-			await prManager.submitReview(pullRequestModel);
+			/* const { deletedReviewId, deletedReviewComments } =  */await prManager.deleteReview(pullRequestModel);
+			if (commentControl.widget.input) {
+				commentControl.widget.input = '';
+			}
 		}
 	}));
 
@@ -386,6 +389,24 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				rawComment = convertToVSCodeComment(await prManager.editReviewComment(pullRequestModel, (rawComment as (vscode.Comment & { _rawComment: Comment }))._rawComment, commentControl.widget.input));
 				let newComments = commentControl.widget.commentThread.comments.map(cmt => {
 					if (cmt.commentId === rawComment!.commentId) {
+						rawComment!.editCommand = {
+							title: 'Edit Comment',
+							command: 'pr.editComment',
+							arguments: [
+								commentControl,
+								pullRequestModel,
+								rawComment
+							]
+						};
+						rawComment!.deleteCommand = {
+							title: 'Delete Comment',
+							command: 'pr.deleteComment',
+							arguments: [
+								commentControl,
+								pullRequestModel,
+								rawComment!
+							]
+						};
 						return rawComment!;
 					}
 

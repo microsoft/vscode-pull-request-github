@@ -793,6 +793,7 @@ declare module 'vscode' {
 		 * Whether the thread should be collapsed or expanded when opening the document. Defaults to Collapsed.
 		 */
 		collapsibleState?: CommentThreadCollapsibleState;
+		dispose?(): void;
 	}
 
 	/**
