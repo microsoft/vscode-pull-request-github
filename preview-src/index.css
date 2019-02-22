@@ -430,7 +430,7 @@ body .overview-title .button-group button {
 
 .comment-container.commit,
 .comment-container.merged {
-	padding-left: 16px;
+	padding: 16px 0 0 12px;
 	box-sizing: border-box
 }
 
@@ -834,11 +834,11 @@ code {
 }
 
 .diff .diffHeader .outdatedLabel {
-	border: 1px solid rgba(27,31,35,.15);
+	border-radius: 3px;
 	box-shadow: none;
-	color: #586069;
-	padding: 2px 4px;
-	background-color: #fff5b1;
+	color: var(--vscode-badge-foreground);
+	background: var(--vscode-badge-background);
+	padding: 2px 6px;
 	margin-left: 5px;
 	border-radius: 2px;
 	line-height: 1;
