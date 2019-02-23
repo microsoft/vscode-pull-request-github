@@ -978,7 +978,7 @@ class ReviewNode {
 				command: buttonAction,
 				args: commentingArea.value
 			}).then(message => {
-				// No-op, page is refreshed
+				appendReview(message.value, this._messageHandler);
 			}, err => {
 				// Handle error
 				submitButton.disabled = false;
@@ -996,6 +996,44 @@ class ReviewNode {
 			}
 		});
 	}
+}
+
+export function appendReview(review: ReviewEvent, messageHandler: MessageHandler): void {
+	const state = getState();
+
+	let events = state.events;
+	if (state.supportsGraphQl) {
+		events = events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
+		events.forEach(event => {
+			if (isReviewEvent(event)) {
+				event.comments.forEach(c => c.isDraft = false);
+			}
+		});
+	}
+
+	events.push(review);
+	updateState({ events: events });
+
+	renderTimelineEvents(state, messageHandler);
+
+	clearTextArea();
+}
+
+export function clearTextArea() {
+	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
+	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
+	(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
+
+	updateState({ pendingCommentText: undefined });
+}
+
+export function renderTimelineEvents(pr: PullRequest, messageHandler: MessageHandler): void {
+	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
+	timelineElement.innerHTML = '';
+	pr.events
+		.map(event => renderTimelineEvent(event, messageHandler, pr))
+		.filter(event => event !== undefined)
+		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
 
 export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler, state: PullRequest): HTMLElement | undefined {

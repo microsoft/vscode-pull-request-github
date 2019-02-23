@@ -18,6 +18,7 @@ declare namespace Github {
 	export type PullRequestsGetCommentsResponseItem = REST.PullRequestsGetCommentsResponseItem;
 	export type PullRequestsEditCommentResponse = REST.PullRequestsEditCommentResponse;
 	export type PullRequestsGetResponseHeadRepo = REST.PullRequestsGetResponseHeadRepo;
+	export type PullRequestsCreateReviewResponse = REST.PullRequestsCreateReviewResponse;
 }
 // Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem
 
