@@ -338,11 +338,45 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
 		if (await prManager.authenticate() && commentControl.widget) {
-			let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-			const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
+			if (commentControl.widget.commentThread.comments.length) {
+				let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
 
-			commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!)];
-			commentControl.widget.input = '';
+				commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!)];
+				commentControl.widget.input = '';
+			} else {
+				// create new comment
+				let input = commentControl.widget.input;
+				let fakeComment: vscode.Comment = {
+					isDraft: false,
+					commentId: 'fale1',
+					body: new vscode.MarkdownString(input),
+					userName: 'rebornix'
+				};
+
+				commentControl.widget.commentThread.comments = [fakeComment];
+				let commands = [];
+				commands.push({
+					title: 'Start Review',
+					command: 'pr.startReview',
+					arguments: [
+						commentControl,
+						pullRequestModel
+					]
+				});
+
+				commands.push({
+					title: 'Add Comment',
+					command: 'pr.replyComment',
+					arguments: [
+						commentControl,
+						pullRequestModel
+					]
+				});
+
+				commentControl.widget.commentThread.acceptInputCommands = commands;
+				commentControl.widget.input = '';
+			}
 		}
 	}));
 
@@ -430,6 +464,30 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			if (inDraftMode !== pullRequestModel.inDraftMode) {
 				pullRequestModel.inDraftMode = inDraftMode;
 			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.createNewCommentThread', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate() && commentControl.activeCommentingRange && vscode.window.activeTextEditor) {
+			let commands = [];
+			commands.push({
+				title: 'Start Review',
+				command: 'pr.startReview',
+				arguments: [
+					commentControl,
+					pullRequestModel
+				]
+			});
+
+			commands.push({
+				title: 'Add Comment',
+				command: 'pr.replyComment',
+				arguments: [
+					commentControl,
+					pullRequestModel
+				]
+			});
+			commentControl.createCommentThread('', vscode.window.activeTextEditor!.document.uri, commentControl.activeCommentingRange, [], commands, vscode.CommentThreadCollapsibleState.Expanded);
 		}
 	}));
 }

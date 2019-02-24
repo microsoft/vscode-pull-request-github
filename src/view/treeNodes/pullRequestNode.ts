@@ -332,6 +332,11 @@ export class PRNode extends TreeNode {
 								[...(leftComments ? leftComments.threads : []), ...(rightComments ? rightComments.threads : [])],
 								inDraftMode
 							);
+
+							this.creaetCommentingRanges(
+								fileChange.filePath,
+								[...(leftComments ? leftComments.commentingRanges : []), ...(rightComments ? rightComments.commentingRanges : [])],
+								inDraftMode);
 						}
 					});
 
@@ -411,6 +416,17 @@ export class PRNode extends TreeNode {
 		}
 
 		return commands;
+	}
+
+	creaetCommentingRanges(filePath: vscode.Uri, ranges: vscode.Range[], inDraftMode: boolean) {
+		this._commentControl!.createCommentingRanges(filePath, ranges, {
+			title: 'Create New Command Thread',
+			command: 'pr.createNewCommentThread',
+			arguments: [
+				this._commentControl,
+				this.pullRequestModel
+			]
+		});
 	}
 
 	createCommentThread(fileName: string, commentThreads: vscode.CommentThread[], inDraftMode: boolean) {

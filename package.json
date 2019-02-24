@@ -322,6 +322,11 @@
           "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.createNewCommentThread",
+        "title": "Create New Comment Thread",
+        "category": "GitHub Pull Requests"
+    },
+      {
         "command": "pr.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "GitHub Pull Requests"

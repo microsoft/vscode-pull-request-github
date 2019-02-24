@@ -943,12 +943,17 @@ declare module 'vscode' {
 		 * Comment thread in this Comment Widget
 		 */
 		commentThread: CommentThread;
-
 		/*
 		 * Textarea content in the comment widget.
 		 * There is only one active input box in a comment widget.
 		 */
 		input: string;
+	}
+
+	export interface CommentingRanges {
+		readonly resource: Uri;
+		ranges: Range[];
+		newCommentThreadCommand: Command;
 	}
 
 	export interface CommentControl {
@@ -958,7 +963,12 @@ declare module 'vscode' {
 	 	 * The active (focused) comment widget.
 	 	 */
 		readonly widget?: CommentWidget;
+	/**
+	 * The active range users attempt to create comments against.
+	 */
+	readonly activeCommentingRange?: Range;
 		createCommentThread(id: string, resource: Uri, range: Range, comments: Comment[], acceptInputCommands: Command[], collapsibleState?: CommentThreadCollapsibleState): CommentThread;
+		createCommentingRanges(resource: Uri, ranges: Range[], newCommentThreadCommand: Command): CommentingRanges;
 		dispose(): void;
 	}
 
