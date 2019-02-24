@@ -6,12 +6,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType, DiffHunk } from '../../common/diffHunk';
-import { mapHeadLineToDiffHunkPosition, getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
+import { getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
 import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
-import { groupBy, formatError } from '../../common/utils';
+import { groupBy } from '../../common/utils';
 import { DescriptionNode } from './descriptionNode';
 import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
@@ -163,78 +163,39 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 	return threads;
 }
 
-function getRemovedCommentThreads(oldCommentThreads: vscode.CommentThread[], newCommentThreads: vscode.CommentThread[]) {
-	let removed: vscode.CommentThread[] = [];
-	oldCommentThreads.forEach(thread => {
-		// No current threads match old thread, it has been removed
-		const matchingThreads = newCommentThreads.filter(newThread => newThread.threadId === thread.threadId);
-		if (matchingThreads.length === 0) {
-			removed.push(thread);
+function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vscode.Comment[]): boolean {
+	return oldComments.some(oldComment => {
+		const matchingComment = newComments.filter(newComment => newComment.commentId === oldComment.commentId);
+		if (matchingComment.length !== 1) {
+			return true;
 		}
-	});
 
-	return removed;
-}
+		if (matchingComment[0].body.value !== oldComment.body.value) {
+			return true;
+		}
 
-function getAddedOrUpdatedCommentThreads(oldCommentThreads: vscode.CommentThread[], newCommentThreads: vscode.CommentThread[]) {
-	let added: vscode.CommentThread[] = [];
-	let changed: vscode.CommentThread[] = [];
-
-	function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vscode.Comment[]): boolean {
-		return oldComments.some(oldComment => {
-			const matchingComment = newComments.filter(newComment => newComment.commentId === oldComment.commentId);
-			if (matchingComment.length !== 1) {
-				return true;
-			}
-
-			if (matchingComment[0].body.value !== oldComment.body.value) {
-				return true;
-			}
-
-			if (!matchingComment[0].commentReactions && !oldComment.commentReactions) {
-				// no comment reactions
-				return false;
-			}
-
-			if (!matchingComment[0].commentReactions || !oldComment.commentReactions) {
-				return true;
-			}
-
-			if (matchingComment[0].commentReactions!.length !== oldComment.commentReactions!.length) {
-				return true;
-			}
-
-			for (let i = 0; i < matchingComment[0].commentReactions!.length; i++) {
-				if (matchingComment[0].commentReactions![i].label !== oldComment.commentReactions![i].label ||
-					matchingComment[0].commentReactions![i].hasReacted !== oldComment.commentReactions![i].hasReacted) {
-					return true;
-				}
-			}
-
+		if (!matchingComment[0].commentReactions && !oldComment.commentReactions) {
+			// no comment reactions
 			return false;
-		});
-	}
+		}
 
-	newCommentThreads.forEach(thread => {
-		const matchingCommentThread = oldCommentThreads.filter(oldComment => oldComment.threadId === thread.threadId);
+		if (!matchingComment[0].commentReactions || !oldComment.commentReactions) {
+			return true;
+		}
 
-		// No old threads match this thread, it is new
-		if (matchingCommentThread.length === 0) {
-			added.push(thread);
-			if (thread.resource.scheme === 'file') {
-				thread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
+		if (matchingComment[0].commentReactions!.length !== oldComment.commentReactions!.length) {
+			return true;
+		}
+
+		for (let i = 0; i < matchingComment[0].commentReactions!.length; i++) {
+			if (matchingComment[0].commentReactions![i].label !== oldComment.commentReactions![i].label ||
+				matchingComment[0].commentReactions![i].hasReacted !== oldComment.commentReactions![i].hasReacted) {
+				return true;
 			}
 		}
 
-		// Check if comment has been updated
-		matchingCommentThread.forEach(match => {
-			if (match.comments.length !== thread.comments.length || commentsEditedInThread(matchingCommentThread[0].comments, thread.comments)) {
-				changed.push(thread);
-			}
-		});
+		return false;
 	});
-
-	return [added, changed];
 }
 
 export class PRNode extends TreeNode {
@@ -314,14 +275,13 @@ export class PRNode extends TreeNode {
 			// The review manager will register a document comment's provider, so the node does not need to
 			if (!this.pullRequestModel.equals(this._prManager.activePullRequest)) {
 				const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
-				// if (this._commentControl) {
-				// 	await this.updateComments(comments, fileChanges);
-				// 	this._fileChanges = fileChanges;
-				// } else {
 					this._fileChanges = fileChanges;
-					if (!this._commentControl) { // todo incremental update
-						this._commentControl = vscode.comment.createCommentControl(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
+					if (this._commentControl) {
+						await this.updateComments(fileChanges);
+						this._fileChanges = fileChanges;
 					}
+
+					this._commentControl = vscode.comment.createCommentControl(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
 
 					this._fileChanges.forEach(fileChange => {
 						if (fileChange instanceof InMemFileChangeNode) {
@@ -506,14 +466,8 @@ export class PRNode extends TreeNode {
 		};
 	}
 
-	private async updateComments(comments: Comment[], fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[]): Promise<void> {
-		if (!this._onDidChangeCommentThreads) {
-			return;
-		}
-
-		let added: vscode.CommentThread[] = [];
-		let removed: vscode.CommentThread[] = [];
-		let changed: vscode.CommentThread[] = [];
+	private async updateComments(fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[]): Promise<void> {
+		const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
 
 		for (let i = 0; i < this._fileChanges.length; i++) {
 			let oldFileChange = this._fileChanges[i];
@@ -528,34 +482,51 @@ export class PRNode extends TreeNode {
 				continue;
 			}
 
-			let oldLeftSideCommentThreads = commentsToCommentThreads(oldFileChange, oldFileChange.comments, true);
-			let newLeftSideCommentThreads = commentsToCommentThreads(newFileChange, newFileChange.comments, true);
+			let oldLeftSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource === (oldFileChange as InMemFileChangeNode).parentFilePath);
+			let newLeftSideCommentThreads = provideDocumentComments(this._commentControl!, this.pullRequestModel, newFileChange.parentFilePath, true, newFileChange, inDraftMode);
 
-			removed.push(...getRemovedCommentThreads(oldLeftSideCommentThreads, newLeftSideCommentThreads));
-			let leftSideAddedOrUpdated = getAddedOrUpdatedCommentThreads(oldLeftSideCommentThreads, newLeftSideCommentThreads);
-			added.push(...leftSideAddedOrUpdated[0]);
-			changed.push(...leftSideAddedOrUpdated[1]);
+			this.updateFileChangeCommentThreads(oldLeftSideCommentThreads, newLeftSideCommentThreads ? newLeftSideCommentThreads.threads : [], newFileChange, inDraftMode);
 
-			let oldRightSideCommentThreads = commentsToCommentThreads(oldFileChange, oldFileChange.comments, false);
-			let newRightSideCommentThreads = commentsToCommentThreads(newFileChange, newFileChange.comments, false);
+			let oldRightSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource === (oldFileChange as InMemFileChangeNode).filePath);
+			let newRightSideCommentThreads = provideDocumentComments(this._commentControl!, this.pullRequestModel, newFileChange.filePath, true, newFileChange, inDraftMode);
 
-			removed.push(...getRemovedCommentThreads(oldRightSideCommentThreads, newRightSideCommentThreads));
-			let rightSideAddedOrUpdated = getAddedOrUpdatedCommentThreads(oldRightSideCommentThreads, newRightSideCommentThreads);
-			added.push(...rightSideAddedOrUpdated[0]);
-			changed.push(...rightSideAddedOrUpdated[1]);
-		}
-
-		if (added.length || removed.length || changed.length) {
-			this._onDidChangeCommentThreads.fire({
-				added: added,
-				removed: removed,
-				changed: changed,
-				inDraftMode: await this._prManager.inDraftMode(this.pullRequestModel)
-			});
-			// this._onDidChangeDecorations.fire();
+			this.updateFileChangeCommentThreads(oldRightSideCommentThreads, newRightSideCommentThreads ? newRightSideCommentThreads.threads : [], newFileChange, inDraftMode);
 		}
 
 		return;
+	}
+
+	private updateFileChangeCommentThreads(oldCommentThreads: vscode.CommentThread[], newCommentThreads: vscode.CommentThread[], newFileChange: InMemFileChangeNode, inDraftMode: boolean) {
+// remove
+		oldCommentThreads.forEach(thread => {
+			// No current threads match old thread, it has been removed
+			const matchingThreads = newCommentThreads && newCommentThreads.filter(newThread => newThread.threadId === thread.threadId);
+			if (matchingThreads !== undefined) {
+				thread.dispose!();
+			}
+		});
+
+		if (newCommentThreads) {
+			let added: vscode.CommentThread[] = [];
+			newCommentThreads.forEach(thread => {
+				const matchingCommentThread = oldCommentThreads.filter(oldComment => oldComment.threadId === thread.threadId);
+
+				if (matchingCommentThread.length === 0) {
+					added.push(thread);
+					if (thread.resource.scheme === 'file') {
+						thread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
+					}
+				}
+
+				matchingCommentThread.forEach(match => {
+					if (match.comments.length !== thread.comments.length || commentsEditedInThread(matchingCommentThread[0].comments, thread.comments)) {
+						match.comments = thread.comments;
+					}
+				});
+			});
+
+			this.createCommentThread(newFileChange.fileName, added, inDraftMode);
+		}
 	}
 
 	private async provideDocumentContent(uri: vscode.Uri): Promise<string> {
@@ -642,55 +613,6 @@ export class PRNode extends TreeNode {
 		}
 
 		return fileChange;
-	}
-
-	private async createNewCommentThread(document: vscode.TextDocument, range: vscode.Range, text: string) {
-		try {
-			let uri = document.uri;
-			let params = fromPRUri(uri);
-
-			if (params && params.prNumber !== this.pullRequestModel.prNumber) {
-				return null;
-			}
-
-			const fileChange = this.findMatchingFileNode(uri);
-
-			let isBase = !!(params && params.isBase);
-			let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', range.start.line + 1, isBase);
-
-			if (position < 0) {
-				throw new Error('Comment position cannot be negative');
-			}
-
-			// there is no thread Id, which means it's a new thread
-			const rawComment = await this._prManager.createComment(this.pullRequestModel, text, params!.fileName, position);
-			const comment = convertToVSCodeComment(rawComment!);
-
-			fileChange.comments.push(rawComment!);
-
-			let commentThread: vscode.CommentThread = {
-				threadId: comment.commentId,
-				resource: uri,
-				range: range,
-				comments: [comment]
-			};
-
-			return commentThread;
-		} catch (e) {
-			throw new Error(formatError(e));
-		}
-	}
-
-	private calculateChangedAndRemovedThreads(changed: vscode.CommentThread[], removed: vscode.CommentThread[], fileChange: InMemFileChangeNode, deletedComments: Comment[], isBase: boolean): void {
-		const oldCommentThreads = commentsToCommentThreads(fileChange, fileChange.comments, isBase);
-		oldCommentThreads.forEach(thread => {
-			thread.comments = thread.comments.filter(comment => !deletedComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
-			if (!thread.comments.length) {
-				removed.push(thread);
-			} else {
-				changed.push(thread);
-			}
-		});
 	}
 
 	async addReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
