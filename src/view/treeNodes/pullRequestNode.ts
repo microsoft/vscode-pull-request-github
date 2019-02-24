@@ -224,12 +224,6 @@ export class PRNode extends TreeNode {
 				this.childrenDisposables.forEach(dp => dp.dispose());
 			}
 
-			for (let fileName in this._fileChangeCommentThreads) {
-				this._fileChangeCommentThreads[fileName].forEach(thread => {
-					thread.dispose!();
-				});
-			}
-
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
 			const mergeBase = this.pullRequestModel.mergeBase;
@@ -482,12 +476,12 @@ export class PRNode extends TreeNode {
 				continue;
 			}
 
-			let oldLeftSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource === (oldFileChange as InMemFileChangeNode).parentFilePath);
+			let oldLeftSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource.toString() === (oldFileChange as InMemFileChangeNode).parentFilePath.toString());
 			let newLeftSideCommentThreads = provideDocumentComments(this._commentControl!, this.pullRequestModel, newFileChange.parentFilePath, true, newFileChange, inDraftMode);
 
 			this.updateFileChangeCommentThreads(oldLeftSideCommentThreads, newLeftSideCommentThreads ? newLeftSideCommentThreads.threads : [], newFileChange, inDraftMode);
 
-			let oldRightSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource === (oldFileChange as InMemFileChangeNode).filePath);
+			let oldRightSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource.toString() === (oldFileChange as InMemFileChangeNode).filePath.toString());
 			let newRightSideCommentThreads = provideDocumentComments(this._commentControl!, this.pullRequestModel, newFileChange.filePath, true, newFileChange, inDraftMode);
 
 			this.updateFileChangeCommentThreads(oldRightSideCommentThreads, newRightSideCommentThreads ? newRightSideCommentThreads.threads : [], newFileChange, inDraftMode);
@@ -506,7 +500,7 @@ export class PRNode extends TreeNode {
 			}
 		});
 
-		if (newCommentThreads) {
+		if (newCommentThreads && newCommentThreads.length) {
 			let added: vscode.CommentThread[] = [];
 			newCommentThreads.forEach(thread => {
 				const matchingCommentThread = oldCommentThreads.filter(oldComment => oldComment.threadId === thread.threadId);
@@ -525,7 +519,9 @@ export class PRNode extends TreeNode {
 				});
 			});
 
-			this.createCommentThread(newFileChange.fileName, added, inDraftMode);
+			if (added.length) {
+				this.createCommentThread(newFileChange.fileName, added, inDraftMode);
+			}
 		}
 	}
 
