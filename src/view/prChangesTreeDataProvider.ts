@@ -34,7 +34,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	constructor(private _context: vscode.ExtensionContext) {
 		super(() => this.dispose());
-		this._view = vscode.window.createTreeView('prStatus', {
+		const treeId = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('showInSCM') ? 'prStatus:scm' : 'prStatus:github';
+		this._view = vscode.window.createTreeView(treeId, {
 			treeDataProvider: this,
 			showCollapseAll: true
 		});

@@ -90,7 +90,7 @@ export class Protocol {
 	}
 
 	getRepositoryName(path: string) {
-		let normalized = path.replace('\\', '/');
+		let normalized = path.replace(/\\/g, '/');
 		if (normalized.endsWith('/')) {
 			normalized = normalized.substr(0, normalized.length - 1);
 		}
@@ -104,7 +104,7 @@ export class Protocol {
 	}
 
 	getOwnerName(path: string) {
-		let normalized = path.replace('\\', '/');
+		let normalized = path.replace(/\\/g, '/');
 		if (normalized.endsWith('/')) {
 			normalized = normalized.substr(0, normalized.length - 1);
 		}

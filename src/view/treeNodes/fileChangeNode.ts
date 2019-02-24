@@ -83,7 +83,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.contextValue = 'filechange';
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
-		this.iconPath = this.iconPath = vscode.ThemeIcon.File;
+		this.iconPath = vscode.ThemeIcon.File;
 		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, status);
 
 		this.opts = {

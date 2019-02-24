@@ -3,6 +3,28 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+body {
+	display: grid;
+	grid-template-columns: 670px auto;
+}
+
+#title {
+	grid-column-start: 1;
+	grid-column-end: 3;
+	grid-row: 1;
+}
+
+#main {
+	grid-column: 1;
+	grid-row: 2;
+}
+
+#sidebar {
+	grid-column: 2;
+	grid-row: 2;
+	padding-left: 12px;
+}
+
 a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
@@ -14,7 +36,9 @@ a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
  .title {
 	display: flex;
 	align-items: flex-start;
-	margin-top: 20px;
+	margin: 20px 0;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
 .title .pr-number {
@@ -206,13 +230,18 @@ body .comment-container .comment-body > p:last-child, .comment-container .review
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 1024px;
+	max-width: 900px;
 	padding: 0 32px;
 	box-sizing: border-box;
 }
 
 body .hidden {
 	display: none !important;
+}
+
+body .hidden-focusable {
+	height: 0;
+	overflow: hidden;
 }
 
 button {
@@ -293,19 +322,10 @@ body button.checkedOut svg {
 	width: 100%;
 }
 
-.description-container {
-	padding: 12px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
-}
-
 .subtitle {
 	display: flex;
 	align-items: center;
 	margin-top: 8px;
-	padding: 6px;
-	background: var(--vscode-list-inactiveSelectionBackground);
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
-	border-bottom: none;
 }
 
 .subtitle .avatar {
@@ -336,17 +356,68 @@ body .overview-title .button-group button {
 	margin-right: 12px;
 }
 
-.label {
-	padding: 4px 6px;
-	font-size: 12px;
-	font-weight: 600;
-	line-height: 15px;
-	border-radius: 2px;
-	margin-right: 8px;
+.section {
+	padding-bottom: 20px;
+}
+
+.section-header {
+	padding-bottom: 8px;
+	display: flex;
+}
+
+.section button {
+	margin-left: auto;
+	padding: 0;
+	background: transparent;
+}
+
+.section button:hover, .section button:focus {
+	background: transparent;
+}
+
+.section svg {
+	fill: var(--vscode-foreground);
+	width: 14px;
+	height: 14px;
+	display: block;
+	margin-right: 0;
+}
+
+.section-item .avatar-container {
+	flex-shrink: 0;
+}
+
+.section-item .login {
+	width: 114px;
+	flex-shrink: 0;
+}
+
+.vscode-dark .section svg path {
+	fill: #C5C5C5;
+}
+
+.vscode-light .section svg path {
+	fill: #424242;
+}
+
+.section-item {
 	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+}
+
+.section-item img.avatar {
+	width: 18px;
+	height: 18px;
+}
+
+.label {
+	padding: 2px 0 2px 6px;
+	height: 16px;
+	border-radius: 2px;
 	background: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
-	box-shadow: inset 0 -1px 0 rgba(27,31,35,0.12);
+	white-space: nowrap;
 }
 
 .commit svg {
@@ -359,7 +430,7 @@ body .overview-title .button-group button {
 
 .comment-container.commit,
 .comment-container.merged {
-	padding-left: 16px;
+	padding: 16px 0 0 12px;
 	box-sizing: border-box
 }
 
@@ -424,6 +495,10 @@ body .overview-title .button-group button {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
+}
+
+#description .comment-container {
+	padding-top: 0px;
 }
 
 .comment-container {
@@ -557,12 +632,6 @@ body .comment-form .form-actions button {
 
 .details .comment-body {
 	padding: 19px 0;
-}
-
-.details .comment-body:empty::after {
-	opacity: .9;
-	font-style: italic;
-	content: "No description provided."
 }
 
 blockquote {
@@ -704,10 +773,6 @@ code {
 	border-color: var(--vscode-panel-border);
 }
 
-.vscode-high-contrast .description-container {
-	border-color: var(--vscode-panel-border);
-}
-
 .vscode-high-contrast .comment-container .comment-body, .vscode-high-contrast .review-comment-container .review-body {
 	border-color: var(--vscode-panel-border);
 }
@@ -769,11 +834,11 @@ code {
 }
 
 .diff .diffHeader .outdatedLabel {
-	border: 1px solid rgba(27,31,35,.15);
+	border-radius: 3px;
 	box-shadow: none;
-	color: #586069;
-	padding: 2px 4px;
-	background-color: #fff5b1;
+	color: var(--vscode-badge-foreground);
+	background: var(--vscode-badge-background);
+	padding: 2px 6px;
 	margin-left: 5px;
 	border-radius: 2px;
 	line-height: 1;
@@ -849,4 +914,50 @@ code {
 
 .vscode-high-contrast .diff .diffLine.delete {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
+}
+
+@media (max-width: 900px) {
+	body {
+		display: block;
+	}
+
+	#sidebar {
+		display: grid;
+		column-gap: 20px;
+		grid-template-columns: 50% 50%;
+		padding: 0;
+	}
+
+	.section-content {
+		display: flex;
+		flex-wrap: wrap;
+	}
+
+	.section-item {
+		margin-right: 8px;
+	}
+
+	body .hidden-focusable {
+		height: auto;
+		overflow: initial;
+	}
+
+	.section-header button {
+		margin-left: 8px;
+	}
+
+	.section-item.reviewer {
+		border: 1px solid var(--vscode-badge-background);
+		border-radius: 3px;
+		padding: 2px 6px;
+	}
+
+	.section-item .avatar {
+		border-radius: 3px
+	}
+
+	.section-item .login {
+		width: auto;
+		margin-right: 4px;
+	}
 }

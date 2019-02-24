@@ -300,7 +300,7 @@ function getDefaultDescriptionText(mergeMethod: string, pr: PullRequest) {
 	return mergeMethod === 'merge' ? pr.title : '';
 }
 
-function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
+export function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
 	const iconContainer: HTMLDivElement = document.createElement('div');
 	iconContainer.className = 'avatar-container';
 
@@ -553,7 +553,11 @@ class CommentNode {
 
 	constructor(private _comment: Comment | CommentEvent,
 		private _messageHandler: MessageHandler,
-		private _review?: ReviewNode) { }
+		private _review?: ReviewNode,
+		private _customEdit?: {
+			handler: (e: string) => void;
+			command: string;
+		}) { }
 
 	render(): HTMLElement {
 		this._commentContainer.classList.add('comment-container', 'comment');
@@ -603,7 +607,14 @@ class CommentNode {
 		this._commentBody.innerHTML  = this._comment.bodyHTML ? this._comment.bodyHTML :  md.render(emoji.emojify(this._comment.body));
 
 		if (this._comment.canEdit || this._comment.canDelete) {
-			this._actionsBar = new ActionsBar(this._commentContainer, this._comment as Comment, this._commentBody, this._messageHandler, (e) => { }, 'pr.edit-comment', 'pr.delete-comment', this._review);
+			this._actionsBar = new ActionsBar(this._commentContainer,
+				this._comment as Comment,
+				this._commentBody,
+				this._messageHandler,
+				this._customEdit && this._customEdit.handler,
+				this._comment.canEdit ? this._customEdit && this._customEdit.command || 'pr.edit-comment' : undefined,
+				this._comment.canDelete ? 'pr.delete-comment' : undefined,
+				this._review);
 			const actionBarElement = this._actionsBar.render();
 			this._actionsBar.registerActionBarListeners();
 			commentHeader.appendChild(actionBarElement);
@@ -637,8 +648,15 @@ class CommentNode {
 	}
 }
 
-export function renderComment(comment: Comment | CommentEvent, messageHandler: MessageHandler, review?: ReviewNode): HTMLElement {
-	const node = new CommentNode(comment, messageHandler, review);
+export function renderComment(
+	comment: Comment | CommentEvent,
+	messageHandler: MessageHandler,
+	review?: ReviewNode,
+	customEdit?: {
+		handler: (e: string) => void
+		command: string
+	}) : HTMLElement {
+	const node = new CommentNode(comment, messageHandler, review, customEdit);
 	const { pendingCommentDrafts } = getState();
 	const rendered = node.render();
 
@@ -741,8 +759,6 @@ function getDiffChangeClass(type: DiffChangeType) {
 			return 'add';
 		case DiffChangeType.Delete:
 			return 'delete';
-		case DiffChangeType.Context:
-			return 'context';
 		case DiffChangeType.Context:
 			return 'context';
 		default:
@@ -962,7 +978,7 @@ class ReviewNode {
 				command: buttonAction,
 				args: commentingArea.value
 			}).then(message => {
-				// No-op, page is refreshed
+				appendReview(message.value, this._messageHandler);
 			}, err => {
 				// Handle error
 				submitButton.disabled = false;
@@ -980,6 +996,44 @@ class ReviewNode {
 			}
 		});
 	}
+}
+
+export function appendReview(review: ReviewEvent, messageHandler: MessageHandler): void {
+	const state = getState();
+
+	let events = state.events;
+	if (state.supportsGraphQl) {
+		events = events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
+		events.forEach(event => {
+			if (isReviewEvent(event)) {
+				event.comments.forEach(c => c.isDraft = false);
+			}
+		});
+	}
+
+	events.push(review);
+	updateState({ events: events });
+
+	renderTimelineEvents(state, messageHandler);
+
+	clearTextArea();
+}
+
+export function clearTextArea() {
+	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
+	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
+	(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
+
+	updateState({ pendingCommentText: undefined });
+}
+
+export function renderTimelineEvents(pr: PullRequest, messageHandler: MessageHandler): void {
+	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
+	timelineElement.innerHTML = '';
+	pr.events
+		.map(event => renderTimelineEvent(event, messageHandler, pr))
+		.filter(event => event !== undefined)
+		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
 }
 
 export function renderTimelineEvent(timelineEvent: TimelineEvent, messageHandler: MessageHandler, state: PullRequest): HTMLElement | undefined {

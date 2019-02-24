@@ -85,6 +85,20 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 	return item;
 }
 
+export function convertRESTReviewEvent(review: Octokit.PullRequestsCreateReviewResponse): Common.ReviewEvent {
+	return {
+		event: Common.EventType.Reviewed,
+		comments: [],
+		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
+		body: review.body,
+		htmlUrl: review.html_url,
+		user: convertRESTUserToAccount(review.user),
+		authorAssociation: review.user.type,
+		state: review.state as 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING',
+		id: review.id
+	};
+}
+
 export function parseCommentDiffHunk(comment: Comment): DiffHunk[] {
 	let diffHunks = [];
 	let diffHunkReader = parseDiffHunk(comment.diffHunk);
@@ -244,7 +258,22 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		merged: graphQLPullRequest.merged,
 		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
 		nodeId: graphQLPullRequest.id,
-		labels: []
+		labels: graphQLPullRequest.labels.nodes
+	};
+}
+
+export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview): Common.ReviewEvent {
+	return {
+		event: Common.EventType.Reviewed,
+		comments: review.comments.nodes.map(parseGraphQLComment).filter(c => !c.inReplyToId),
+		submittedAt: review.submittedAt,
+		body: review.body,
+		bodyHTML: review.bodyHTML,
+		htmlUrl: review.url,
+		user: review.author,
+		authorAssociation: review.authorAssociation,
+		state: review.state,
+		id: review.databaseId
 	};
 }
 

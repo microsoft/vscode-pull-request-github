@@ -145,24 +145,24 @@
     "views": {
       "github-pull-requests": [
         {
-          "id": "pr",
+          "id": "pr:github",
           "name": "GitHub Pull Requests",
           "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
         },
         {
-          "id": "prStatus",
+          "id": "prStatus:github",
           "name": "Changes In Pull Request",
           "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
         }
       ],
       "scm": [
         {
-          "id": "pr",
+          "id": "pr:scm",
           "name": "GitHub Pull Requests",
           "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
         },
         {
-          "id": "prStatus",
+          "id": "prStatus:scm",
           "name": "Changes In Pull Request",
           "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
         }
