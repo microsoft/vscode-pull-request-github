@@ -90,12 +90,15 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
 		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry,
-		private _type: PRType
+		private _type: PRType,
+		firstLoad: boolean
 	) {
 		super();
 
 		this.prs = [];
-		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+		this.collapsibleState = firstLoad && !!_prManager.activePullRequest && _type === PRType.LocalPullRequest
+			? vscode.TreeItemCollapsibleState.Expanded
+			: vscode.TreeItemCollapsibleState.Collapsed;
 		switch (_type) {
 			case PRType.All:
 				this.label = 'All';

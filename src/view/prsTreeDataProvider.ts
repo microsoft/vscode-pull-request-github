@@ -19,6 +19,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _disposables: vscode.Disposable[];
 	private _childrenDisposables: vscode.Disposable[];
 	private _view: vscode.TreeView<TreeNode>;
+	private _firstLoad = true;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -68,14 +69,15 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 
 			let result = [
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.LocalPullRequest),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.RequestReview),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.AssignedToMe),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Mine),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.All)
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.LocalPullRequest, this._firstLoad),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.RequestReview, this._firstLoad),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.AssignedToMe, this._firstLoad),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Mine, this._firstLoad),
+				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.All, this._firstLoad)
 			];
 
 			this._childrenDisposables = result;
+			this._firstLoad = false;
 			return Promise.resolve(result);
 		}
 		if (this._prManager.repository.state.remotes.length === 0) {
