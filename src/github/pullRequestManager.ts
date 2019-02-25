@@ -11,7 +11,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -1325,6 +1325,11 @@ export class PullRequestManager {
 	async getPullRequestRepositoryDefaultBranch(pullRequest: PullRequestModel): Promise<string> {
 		const branch = await pullRequest.githubRepository.getDefaultBranch();
 		return branch;
+	}
+
+	async getPullRequestRepositoryMergeMethodsAvailability(pullRequest: PullRequestModel): Promise<MergeMethodsAvailability> {
+		const mergeOptions = await pullRequest.githubRepository.getMergeMethodsAvailability();
+		return mergeOptions;
 	}
 
 	async fullfillPullRequestMissingInfo(pullRequest: PullRequestModel): Promise<void> {

@@ -5,7 +5,7 @@
 
 import { dateFromNow } from '../src/common/utils';
 import { TimelineEvent, CommitEvent, ReviewEvent, CommentEvent, isCommentEvent, isReviewEvent, isCommitEvent, isMergedEvent, MergedEvent } from '../src/common/timelineEvent';
-import { PullRequestStateEnum } from '../src/github/interface';
+import { PullRequestStateEnum, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
 import md from './mdRenderer';
 import { MessageHandler } from './message';
 import { getState, updateState, PullRequest } from './cache';
@@ -206,11 +206,7 @@ function renderMerge(pr: PullRequest, messageHandler: MessageHandler, container:
 	const mergeText = document.createElement('div');
 	mergeText.textContent = 'using method';
 	const mergeSelector = document.createElement('select');
-	mergeSelector.innerHTML = `
-		<option value="merge">Create Merge Commit</option>
-		<option value="squash">Squash and Merge</option>
-		<option value="rebase">Rebase and Merge</option>`;
-
+	mergeSelector.innerHTML = getMergeOptions(pr.mergeMethodsAvailability);
 	mergeSelector.value = pr.defaultMergeMethod;
 
 	mergeSelectorContainer.appendChild(mergeButton);
@@ -283,6 +279,33 @@ function renderMerge(pr: PullRequest, messageHandler: MessageHandler, container:
 	mergeContainer.appendChild(mergeSelectorContainer);
 	mergeContainer.appendChild(mergeInputsContainer);
 	mergeContainer.appendChild(mergeActionsContainer);
+}
+
+function getMergeOptions(methodAvailability: MergeMethodsAvailability): string {
+	const methods: MergeMethod[] = ['merge', 'squash', 'rebase'];
+
+	const options = methods.map(method => {
+		let optionText: string = '';
+		switch (method) {
+			case 'merge':
+				optionText = 'Create Merge Commit';
+				break;
+			case 'squash':
+				optionText = 'Squash and Merge';
+				break;
+			case 'rebase':
+				optionText = 'Rebase and Merge';
+				break;
+		}
+
+		return `
+			<option value=${method}${methodAvailability[method] ? '' : ' disabled'}>
+				${optionText}${methodAvailability[method] ? '' : ' (not enabled)'}
+			</option>
+		`;
+	});
+
+	return options.join('');
 }
 
 function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {

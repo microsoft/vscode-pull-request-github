@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { PullRequestStateEnum, IAccount, ReviewState, ILabel } from '../src/github/interface';
+import { PullRequestStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
 import { TimelineEvent } from '../src/common/timelineEvent';
 import { ReposGetCombinedStatusForRefResponse } from '@octokit/rest';
 
@@ -29,7 +29,8 @@ export interface PullRequest {
 	pendingCommentDrafts?: { [key: string]: string; };
 	status: ReposGetCombinedStatusForRefResponse;
 	mergeable: boolean;
-	defaultMergeMethod: string;
+	defaultMergeMethod: MergeMethod;
+	mergeMethodsAvailability: MergeMethodsAvailability;
 	supportsGraphQl: boolean;
 	reviewers: ReviewState[];
 }
