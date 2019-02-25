@@ -6,7 +6,7 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
-import { toReviewUri, fromReviewUri, ReviewUriParams, toDiffViewFileUri } from '../common/uri';
+import { toReviewUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
@@ -24,7 +24,7 @@ import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { ReviewDocumentCommentProvider, ReviewWorkspaceCommentsPRovider } from './reviewDocumentCommentProvider';
+import { ReviewDocumentCommentProvider } from './reviewDocumentCommentProvider';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -380,7 +380,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				change.blobUrl,
 				change.status === GitChangeType.DELETE ?
 					toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
-					toDiffViewFileUri(uri, change.fileName, undefined, pr.head.sha, false, { base: false }),
+					uri,
 				toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : mergeBase, false, { base: true }),
 				isPartial,
 				diffHunks,
@@ -477,18 +477,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._comments);
 
 		this._localToDispose.push(this._reviewDocumentCommentProvider);
-
-		// this._localToDispose.push(vscode.workspace.registerDocumentCommentProvider(this._reviewDocumentCommentProvider));
-
 		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeComments(comments => {
 			this._comments = comments;
 			this._onDidChangeDecorations.fire();
 		}));
-
-		this._localToDispose.push(vscode.workspace.registerWorkspaceCommentProvider(new ReviewWorkspaceCommentsPRovider(
-			this._repository,
-			this._localFileChanges,
-			this._obsoleteFileChanges)));
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {

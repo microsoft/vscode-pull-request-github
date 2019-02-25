@@ -20,6 +20,7 @@ import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { convertToVSCodeComment } from '../../github/utils';
+import { getCommentThreadCommands, getEditCommand, getDeleteCommand } from '../../github/commands';
 
 export function provideDocumentComments(
 	control: vscode.CommentControl,
@@ -74,27 +75,11 @@ export function provideDocumentComments(
 				let vscodeComment = convertToVSCodeComment(comment);
 
 				if (vscodeComment.canEdit) {
-					vscodeComment.editCommand = {
-						title: 'Edit Comment',
-						command: 'pr.editComment',
-						arguments: [
-							control,
-							pullRequestModel,
-							vscodeComment
-						]
-					};
+					vscodeComment.editCommand = getEditCommand(control, pullRequestModel, vscodeComment);
 				}
 
 				if (vscodeComment.canDelete) {
-					vscodeComment.deleteCommand = {
-						title: 'Delete Comment',
-						command: 'pr.deleteComment',
-						arguments: [
-							control,
-							pullRequestModel,
-							vscodeComment
-						]
-					};
+					vscodeComment.deleteCommand = getDeleteCommand(control, pullRequestModel, vscodeComment);
 				}
 
 				return vscodeComment;
@@ -287,7 +272,7 @@ export class PRNode extends TreeNode {
 								inDraftMode
 							);
 
-							this.creaetCommentingRanges(
+							this.createCommentingRanges(
 								fileChange.filePath,
 								[...(leftComments ? leftComments.commentingRanges : []), ...(rightComments ? rightComments.commentingRanges : [])],
 								inDraftMode);
@@ -295,7 +280,7 @@ export class PRNode extends TreeNode {
 					});
 
 					this._disposables.push(this.pullRequestModel.onDidChangeDraftMode(newDraftMode => {
-						let commands = this.getCommands(newDraftMode);
+						let commands = getCommentThreadCommands(this._commentControl!, this.pullRequestModel, newDraftMode);
 						for (let fileName in this._fileChangeCommentThreads) {
 							this._fileChangeCommentThreads[fileName].forEach(thread => {
 								thread.acceptInputCommands = commands;
@@ -320,59 +305,7 @@ export class PRNode extends TreeNode {
 		}
 	}
 
-	getCommands(isDraftMode: boolean): vscode.Command[] {
-		let commands: vscode.Command[] = [];
-		if (isDraftMode) {
-			commands.push({
-				title: 'Delete Review',
-				command: 'pr.deleteReview',
-				arguments: [
-					this._commentControl,
-					this.pullRequestModel
-				]
-			});
-
-			commands.push({
-				title: 'Finish Review',
-				command: 'pr.finishReview',
-				arguments: [
-					this._commentControl,
-					this.pullRequestModel,
-				]
-			});
-
-			commands.push({
-				title: 'Add Review Comment',
-				command: 'pr.replyComment',
-				arguments: [
-					this._commentControl,
-					this.pullRequestModel
-				]
-			});
-		} else {
-			commands.push({
-				title: 'Start Review',
-				command: 'pr.startReview',
-				arguments: [
-					this._commentControl,
-					this.pullRequestModel
-				]
-			});
-
-			commands.push({
-				title: 'Reply Comment',
-				command: 'pr.replyComment',
-				arguments: [
-					this._commentControl,
-					this.pullRequestModel
-				]
-			});
-		}
-
-		return commands;
-	}
-
-	creaetCommentingRanges(filePath: vscode.Uri, ranges: vscode.Range[], inDraftMode: boolean) {
+	createCommentingRanges(filePath: vscode.Uri, ranges: vscode.Range[], inDraftMode: boolean) {
 		this._commentControl!.createCommentingRanges(filePath, ranges, {
 			title: 'Create New Command Thread',
 			command: 'pr.createNewCommentThread',
@@ -384,7 +317,7 @@ export class PRNode extends TreeNode {
 	}
 
 	createCommentThread(fileName: string, commentThreads: vscode.CommentThread[], inDraftMode: boolean) {
-		let commands = this.getCommands(inDraftMode);
+		let commands = getCommentThreadCommands(this._commentControl!, this.pullRequestModel, inDraftMode);
 		let threads: vscode.CommentThread[] = [];
 		commentThreads.forEach(thread => {
 			threads.push(this._commentControl!.createCommentThread(
