@@ -375,39 +375,39 @@
       "view/title": [
         {
           "command": "pr.create",
-          "when": "view == pr",
+          "when": "view =~ /pr/",
           "group": "navigation"
         },
         {
           "command": "pr.refreshList",
-          "when": "view == pr",
+          "when": "view =~ /pr/",
           "group": "navigation"
         },
         {
           "command": "pr.refreshChanges",
-          "when": "view == prStatus",
+          "when": "view =~ /pr/Status",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "pr.pick",
-          "when": "view == pr && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+          "when": "view =~ /pr/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "pr.refreshPullRequest",
-          "when": "view == pr && viewItem =~ /pullrequest|description/",
+          "when": "view =~ /pr/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "view == pr && viewItem =~ /pullrequest|description/",
+          "when": "view =~ /pr/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
         {
           "command": "pr.deleteLocalBranch",
-          "when": "view == pr && viewItem =~ /pullrequest:local:nonactive/",
+          "when": "view =~ /pr/ && viewItem =~ /pullrequest:local:nonactive/",
           "group": "pullrequest@4"
         },
         {
@@ -416,7 +416,7 @@
         },
         {
           "command": "pr.copyCommitHash",
-          "when": "view == prStatus && viewItem =~ /commit/"
+          "when": "view =~ /prStatus/ && viewItem =~ /commit/"
         },
         {
           "command": "pr.openDescriptionToTheSide",
@@ -426,12 +426,12 @@
         {
           "command": "review.openFile",
           "group": "inline",
-          "when": "config.git.openDiffOnClick && view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "config.git.openDiffOnClick && view =~ /pr/Status && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
           "command": "pr.openDiffView",
           "group": "inline",
-          "when": "!config.git.openDiffOnClick && view == prStatus && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "!config.git.openDiffOnClick && view =~ /pr/Status && viewItem =~ /filechange(?!:DELETE)/"
         }
       ],
       "editor/title": [
