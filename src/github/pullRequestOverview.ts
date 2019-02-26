@@ -325,10 +325,11 @@ export class PullRequestOverviewPanel {
 			const reviewersToAdd = await vscode.window.showQuickPick(newReviewers.map(reviewer => {
 				return {
 					label: reviewer.login,
-					details: reviewer.name
+					description: reviewer.name
 				};
 			}), {
-				canPickMany: true
+				canPickMany: true,
+				matchOnDescription: true
 			});
 
 			if (reviewersToAdd) {
