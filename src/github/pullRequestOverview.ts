@@ -365,17 +365,19 @@ export class PullRequestOverviewPanel {
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const allLabels = await this._pullRequestManager.getLabels(this._pullRequest);
-			const newLabels = allLabels
-				.filter(l => !this._pullRequest.prItem.labels.some(label => label.name === l.name));
+			let newLabels: ILabel[] = [];
+			async function getLabelOptions(prManager: PullRequestManager, pr: PullRequestModel): Promise<vscode.QuickPickItem[]> {
+				const allLabels = await prManager.getLabels(pr);
+				newLabels = allLabels.filter(l => !pr.prItem.labels.some(label => label.name === l.name));
 
-			const labelsToAdd = await vscode.window.showQuickPick(newLabels.map(label => {
-				return {
-					label: label.name
-				};
-			}), {
-				canPickMany: true
-			});
+				return newLabels.map(label => {
+					return {
+						label: label.name
+					};
+				});
+			}
+
+			const labelsToAdd = await vscode.window.showQuickPick(await getLabelOptions(this._pullRequestManager, this._pullRequest), { canPickMany: true });
 
 			if (labelsToAdd) {
 				await this._pullRequestManager.addLabels(this._pullRequest, labelsToAdd.map(r => r.label));
