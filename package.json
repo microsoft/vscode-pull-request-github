@@ -241,7 +241,7 @@
         "command": "pr.openDescription",
         "title": "View Pull Request Description",
         "category": "GitHub Pull Requests",
-        "when": "github:inReaMode"
+        "when": "github:inReviewMode"
       },
       {
         "command": "pr.openDescriptionToTheSide",
@@ -432,6 +432,7 @@
         },
         {
           "command": "pr.refreshPullRequest",
+          "when": "view =~ /pr/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
