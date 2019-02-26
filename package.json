@@ -385,7 +385,7 @@
         },
         {
           "command": "pr.refreshChanges",
-          "when": "view =~ /pr/Status",
+          "when": "view =~ /prStatus/",
           "group": "navigation"
         }
       ],
@@ -426,12 +426,12 @@
         {
           "command": "review.openFile",
           "group": "inline",
-          "when": "config.git.openDiffOnClick && view =~ /pr/Status && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
           "command": "pr.openDiffView",
           "group": "inline",
-          "when": "!config.git.openDiffOnClick && view =~ /pr/Status && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "!config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
         }
       ],
       "editor/title": [
