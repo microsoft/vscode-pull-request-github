@@ -22,7 +22,7 @@ body {
 #sidebar {
 	grid-column: 2;
 	grid-row: 2;
-	padding-left: 12px;
+	padding-left: 20px;
 }
 
 a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
@@ -230,7 +230,7 @@ body .comment-container .comment-body > p:last-child, .comment-container .review
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 900px;
+	max-width: 925px;
 	padding: 0 32px;
 	box-sizing: border-box;
 }
@@ -916,7 +916,7 @@ code {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 925px) {
 	body {
 		display: block;
 	}
