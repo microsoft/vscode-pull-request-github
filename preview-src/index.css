@@ -89,11 +89,7 @@ body .comment-container .avatar-container img.avatar {
 body img.avatar {
 	width: 24px;
 	height: 24px;
-	overflow: hidden;
-	line-height: 1;
 	vertical-align: middle;
-	margin-right: 8px;
-	flex-shrink: 0;
 }
 
 body a.avatar-link:focus {
@@ -369,6 +365,10 @@ body .overview-title .button-group button {
 	margin-left: auto;
 	padding: 0;
 	background: transparent;
+}
+
+.section .avatar-link {
+	margin-right: 8px;
 }
 
 .section button:hover, .section button:focus {
