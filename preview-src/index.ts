@@ -125,18 +125,18 @@ function getReviewStateElement(state: string): HTMLElement {
 function renderDeleteButton(label: string, command: string, args: any, update: () => void): HTMLElement {
 	const deleteButton = document.createElement('button');
 	deleteButton.innerHTML = deleteIcon;
-	deleteButton.className = 'hidden-focusable';
+	deleteButton.children[0].classList.add('hidden-focusable');
 	deleteButton.title = `Remove ${label}`;
 	deleteButton.addEventListener('click', () => {
 		messageHandler.postMessage({ command, args }).then(_ => update());
 	});
 
 	deleteButton.addEventListener('focus', () => {
-		deleteButton.classList.remove('hidden-focusable');
+		deleteButton.children[0].classList.remove('hidden-focusable');
 	});
 
 	deleteButton.addEventListener('blur', () => {
-		deleteButton.classList.add('hidden-focusable');
+		deleteButton.children[0].classList.add('hidden-focusable');
 	});
 
 	return deleteButton;
@@ -175,12 +175,12 @@ function renderReviewers(pr: PullRequest): void {
 					reviewerElement.appendChild(deleteButton);
 
 					reviewerElement.addEventListener('mouseover', () => {
-						deleteButton.classList.remove('hidden-focusable');
+						deleteButton.children[0].classList.remove('hidden-focusable');
 					});
 
 					reviewerElement.addEventListener('mouseout', () => {
 						if (document.activeElement !== deleteButton) {
-							deleteButton.classList.add('hidden-focusable');
+							deleteButton.children[0].classList.add('hidden-focusable');
 						}
 					});
 				}
@@ -211,12 +211,12 @@ function renderLabels(pr: PullRequest): void {
 				});
 				labelElement.appendChild(deleteButton);
 				labelElement.addEventListener('mouseover', () => {
-					deleteButton.classList.remove('hidden-focusable');
+					deleteButton.children[0].classList.remove('hidden-focusable');
 				});
 
 				labelElement.addEventListener('mouseout', () => {
 					if (document.activeElement !== deleteButton) {
-						deleteButton.classList.add('hidden-focusable');
+						deleteButton.children[0].classList.add('hidden-focusable');
 					}
 				});
 
