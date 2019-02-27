@@ -20,7 +20,7 @@ import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { convertToVSCodeComment } from '../../github/utils';
-import { getCommentThreadCommands, getEditCommand, getDeleteCommand } from '../../github/commands';
+import { getCommentThreadCommands } from '../../github/commands';
 
 export function provideDocumentComments(
 	control: vscode.CommentControl,
@@ -72,16 +72,7 @@ export function provideDocumentComments(
 			resource: uri,
 			range,
 			comments: comments.map(comment => {
-				let vscodeComment = convertToVSCodeComment(comment);
-
-				if (vscodeComment.canEdit) {
-					vscodeComment.editCommand = getEditCommand(control, pullRequestModel, vscodeComment);
-				}
-
-				if (vscodeComment.canDelete) {
-					vscodeComment.deleteCommand = getDeleteCommand(control, pullRequestModel, vscodeComment);
-				}
-
+				let vscodeComment = convertToVSCodeComment(comment, undefined, control, pullRequestModel);
 				return vscodeComment;
 			}),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
@@ -140,7 +131,7 @@ function commentsToCommentThreads(fileChange: InMemFileChangeNode, comments: Com
 			threadId: firstComment.id.toString(),
 			resource: isBase ? fileChange.parentFilePath : fileChange.filePath,
 			range,
-			comments: commentGroup.map(comment => convertToVSCodeComment(comment)),
+			comments: commentGroup.map(comment => convertToVSCodeComment(comment, undefined, undefined, undefined)),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 		});
 	}

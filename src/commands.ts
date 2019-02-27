@@ -26,6 +26,7 @@ import { Comment } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 import { convertToVSCodeComment } from './github/utils';
+import { getEditCommand } from './github/commands';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -342,7 +343,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
 
-				commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!)];
+				commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!, undefined, undefined, undefined)];
 				commentControl.widget.input = '';
 			} else {
 				// create new comment
@@ -387,7 +388,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 			const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
 
-			commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!)];
+			commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!, undefined, undefined, undefined)];
 			commentControl.widget.input = '';
 		}
 	}));
@@ -398,7 +399,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
 
-				commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!)];
+				commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!, undefined, undefined, undefined)];
 				commentControl.widget.input = '';
 			}
 
@@ -420,18 +421,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			let rawComment = commentControl.widget.commentThread.comments.find(cmt => cmt.commentId === comment.commentId);
 
 			if (rawComment) {
-				rawComment = convertToVSCodeComment(await prManager.editReviewComment(pullRequestModel, (rawComment as (vscode.Comment & { _rawComment: Comment }))._rawComment, commentControl.widget.input));
+				rawComment = convertToVSCodeComment(await prManager.editReviewComment(pullRequestModel, (rawComment as (vscode.Comment & { _rawComment: Comment }))._rawComment, commentControl.widget.input), undefined, commentControl, pullRequestModel);
 				let newComments = commentControl.widget.commentThread.comments.map(cmt => {
 					if (cmt.commentId === rawComment!.commentId) {
-						rawComment!.editCommand = {
-							title: 'Edit Comment',
-							command: 'pr.editComment',
-							arguments: [
-								commentControl,
-								pullRequestModel,
-								rawComment
-							]
-						};
+						rawComment!.editCommand = getEditCommand(commentControl, pullRequestModel, rawComment!);
 						rawComment!.deleteCommand = {
 							title: 'Delete Comment',
 							command: 'pr.deleteComment',

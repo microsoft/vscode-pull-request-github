@@ -17,7 +17,7 @@ import { convertToVSCodeComment, getReactionGroup, parseGraphQLReaction } from '
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { getCommentThreadCommands, getEditCommand, getDeleteCommand } from '../github/commands';
+import { getCommentThreadCommands } from '../github/commands';
 
 export function providePRDocumentComments(
 	document: vscode.TextDocument,
@@ -73,7 +73,7 @@ export function providePRDocumentComments(
 			threadId: firstComment.id.toString(),
 			resource: document.uri,
 			range,
-			comments: comments.map(comment => convertToVSCodeComment(comment)),
+			comments: comments.map(comment => convertToVSCodeComment(comment, undefined, undefined, undefined)),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 		});
 	}
@@ -124,16 +124,7 @@ function workspaceLocalCommentsToCommentThreads(control: vscode.CommentControl, 
 			resource: newUri,
 			range,
 			comments: comments.map(comment => {
-				let vscodeComment = convertToVSCodeComment(comment, command);
-
-				if (vscodeComment.canEdit) {
-					vscodeComment.editCommand = getEditCommand(control, pullRequestModel, vscodeComment);
-				}
-
-				if (vscodeComment.canDelete) {
-					vscodeComment.deleteCommand = getDeleteCommand(control, pullRequestModel, vscodeComment);
-				}
-
+				let vscodeComment = convertToVSCodeComment(comment, command, control, pullRequestModel);
 				return vscodeComment;
 			}),
 			collapsibleState
@@ -363,31 +354,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 						arguments: [
 							fileChange
 						]
-					});
-
-					if (vscodeComment.canEdit) {
-						vscodeComment.editCommand = {
-							title: 'Edit Comment',
-							command: 'pr.editComment',
-							arguments: [
-								this._commentControl,
-								this._prManager.activePullRequest!,
-								vscodeComment
-							]
-						};
-					}
-
-					if (vscodeComment.canDelete) {
-						vscodeComment.deleteCommand = {
-							title: 'Delete Comment',
-							command: 'pr.deleteComment',
-							arguments: [
-								this._commentControl,
-								this._prManager.activePullRequest!,
-								vscodeComment
-							]
-						};
-					}
+					}, this._commentControl!, this._prManager.activePullRequest!);
 
 					return vscodeComment;
 				}),
@@ -487,16 +454,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 				resource: vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, firstComment.path!)),
 				range,
 				comments: commentGroup.map(comment => {
-					let vscodeComment = convertToVSCodeComment(comment);
-
-					if (vscodeComment.canEdit) {
-						vscodeComment.editCommand = getEditCommand(this._commentControl!, this._prManager.activePullRequest!, vscodeComment);
-					}
-
-					if (vscodeComment.canDelete) {
-						vscodeComment.deleteCommand = getDeleteCommand(this._commentControl!, this._prManager.activePullRequest!, vscodeComment);
-					}
-
+					let vscodeComment = convertToVSCodeComment(comment, undefined, this._commentControl!, this._prManager.activePullRequest!);
 					return vscodeComment;
 				}),
 				collapsibleState: vscode.CommentThreadCollapsibleState.Expanded

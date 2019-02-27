@@ -12,9 +12,11 @@ import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
+import { PullRequestModel } from './pullRequestModel';
+import { getEditCommand, getDeleteCommand } from './commands';
 
-export function convertToVSCodeComment(comment: Comment, command?: vscode.Command): vscode.Comment & { _rawComment: Comment } {
-	return {
+export function convertToVSCodeComment(comment: Comment, command: vscode.Command | undefined, commentControl: vscode.CommentControl | undefined, pullRequestModel: PullRequestModel | undefined): vscode.Comment & { _rawComment: Comment } {
+	let vscodeComment: vscode.Comment & { _rawComment: Comment } = {
 		_rawComment: comment,
 		commentId: comment.id.toString(),
 		body: new vscode.MarkdownString(comment.body),
@@ -28,6 +30,18 @@ export function convertToVSCodeComment(comment: Comment, command?: vscode.Comman
 			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : []
 	};
+
+	if (commentControl && pullRequestModel) {
+		if (comment.canEdit) {
+			vscodeComment.editCommand = getEditCommand(commentControl, pullRequestModel, vscodeComment);
+		}
+
+		if (comment.canDelete) {
+			vscodeComment.deleteCommand = getDeleteCommand(commentControl, pullRequestModel, vscodeComment);
+		}
+	}
+
+	return vscodeComment;
 }
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
