@@ -503,17 +503,29 @@ export class PullRequestManager {
 	async getLabels(pullRequest: PullRequestModel): Promise<ILabel[]> {
 		const { remote, octokit } = await pullRequest.githubRepository.ensure();
 
-		const result = await octokit.issues.getLabels({
-			owner: remote.owner,
-			repo: remote.repositoryName
-		});
+		let hasNextPage = false;
+		let page = 1;
+		let results: ILabel[] = [];
 
-		return result.data.map(label => {
-			return {
-				name: label.name,
-				color: label.color
-			};
-		});
+		do {
+			const result = await octokit.issues.getLabels({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				page
+			});
+
+			results = results.concat(result.data.map(label => {
+				return {
+					name: label.name,
+					color: label.color
+				};
+			}));
+
+			hasNextPage = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
+			page += 1;
+		} while (hasNextPage);
+
+		return results;
 	}
 
 	async deleteLocalPullRequest(pullRequest: PullRequestModel, force?: boolean): Promise<void> {

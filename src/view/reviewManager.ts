@@ -370,8 +370,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 			}
 
-			const filePath = nodePath.resolve(this._repository.rootUri.fsPath, change.fileName);
-			const uri = vscode.Uri.file(filePath);
+			const filePath = nodePath.resolve(this._repository.rootUri.fsPath, change.fileName).replace(/\\/g, '/');
+			const uri = this._repository.rootUri.with({ path: filePath });
+
 			let changedItem = new GitFileChangeNode(
 				this.prFileChangesProvider.view,
 				pr,

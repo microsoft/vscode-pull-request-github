@@ -22,7 +22,7 @@ body {
 #sidebar {
 	grid-column: 2;
 	grid-row: 2;
-	padding-left: 12px;
+	padding-left: 20px;
 }
 
 a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
@@ -89,11 +89,7 @@ body .comment-container .avatar-container img.avatar {
 body img.avatar {
 	width: 24px;
 	height: 24px;
-	overflow: hidden;
-	line-height: 1;
 	vertical-align: middle;
-	margin-right: 8px;
-	flex-shrink: 0;
 }
 
 body a.avatar-link:focus {
@@ -230,7 +226,7 @@ body .comment-container .comment-body > p:last-child, .comment-container .review
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 900px;
+	max-width: 925px;
 	padding: 0 32px;
 	box-sizing: border-box;
 }
@@ -369,6 +365,10 @@ body .overview-title .button-group button {
 	margin-left: auto;
 	padding: 0;
 	background: transparent;
+}
+
+.section .avatar-link {
+	margin-right: 8px;
 }
 
 .section button:hover, .section button:focus {
@@ -916,7 +916,7 @@ code {
 	border: 1px dashed var(--vscode-diffEditor-removedTextBorder);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 925px) {
 	body {
 		display: block;
 	}
