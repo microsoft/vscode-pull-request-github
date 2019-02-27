@@ -236,7 +236,7 @@ body .hidden {
 }
 
 body .hidden-focusable {
-	height: 0;
+	height: 0 !important;
 	overflow: hidden;
 }
 
@@ -388,7 +388,7 @@ body .overview-title .button-group button {
 }
 
 .section-item .login {
-	width: 114px;
+	width: 129px;
 	flex-shrink: 0;
 }
 
@@ -938,7 +938,7 @@ code {
 	}
 
 	body .hidden-focusable {
-		height: auto;
+		height: initial;
 		overflow: initial;
 	}
 
