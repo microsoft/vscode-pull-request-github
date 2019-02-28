@@ -328,7 +328,7 @@ function getDefaultDescriptionText(mergeMethod: string, pr: PullRequest) {
 	return mergeMethod === 'merge' ? pr.title : '';
 }
 
-export function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
+function renderUserIcon(iconLink: string, iconSrc: string): HTMLElement {
 	const iconContainer: HTMLDivElement = document.createElement('div');
 	iconContainer.className = 'avatar-container';
 
