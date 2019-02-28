@@ -606,10 +606,26 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
+	private updateReviewers(review?: CommonReviewEvent): void {
+		if (review) {
+			const existingReviewer = this._existingReviewers.find(reviewer => review.user.login === reviewer.reviewer.login);
+			if (existingReviewer) {
+				existingReviewer.state = review.state;
+			} else {
+				this._existingReviewers.push({
+					reviewer: review.user,
+					state: review.state
+				});
+			}
+		}
+	}
+
 	private approvePullRequest(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<CommonReviewEvent>('pr.approve', this._pullRequest, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
@@ -620,8 +636,10 @@ export class PullRequestOverviewPanel {
 
 	private requestChanges(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<CommonReviewEvent>('pr.requestChanges', this._pullRequest, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
@@ -631,8 +649,10 @@ export class PullRequestOverviewPanel {
 
 	private submitReview(message: IRequestMessage<string>): void {
 		this._pullRequestManager.submitReview(this._pullRequest, ReviewEvent.Comment, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
