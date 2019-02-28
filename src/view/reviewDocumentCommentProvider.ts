@@ -6,84 +6,18 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { Comment } from '../common/comment';
-import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, getPositionInDiff } from '../common/diffPositionMapping';
+import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, mapCommentThreadsToHead } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../git/api';
 import { PullRequestManager } from '../github/pullRequestManager';
-import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode, InMemFileChangeNode } from './treeNodes/fileChangeNode';
+import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRequestNode';
 import { convertToVSCodeComment, getReactionGroup, parseGraphQLReaction } from '../github/utils';
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { getCommentThreadCommands } from '../github/commands';
-
-export function providePRDocumentComments(
-	document: vscode.TextDocument,
-	prNumber: number,
-	fileChanges: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[],
-	inDraftMode: boolean) {
-	const params = fromPRUri(document.uri);
-
-	if (!params || params.prNumber !== prNumber) {
-		return;
-	}
-
-	const isBase = params.isBase;
-	const fileChange = fileChanges.find(change => change.fileName === params.fileName);
-	if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
-		return;
-	}
-
-	// Partial file change indicates that the file content is only the diff, so the entire
-	// document can be commented on.
-	const commentingRanges = fileChange.isPartial
-		? [new vscode.Range(0, 0, document.lineCount, 0)]
-		: getCommentingRanges(fileChange.diffHunks, isBase);
-
-	const matchingComments = fileChange.comments;
-	if (!matchingComments || !matchingComments.length) {
-		return {
-			threads: [],
-			commentingRanges,
-			inDraftMode
-		};
-	}
-
-	let sections = groupBy(matchingComments, comment => String(comment.position));
-	let threads: vscode.CommentThread[] = [];
-
-	for (let i in sections) {
-		let comments = sections[i];
-
-		const firstComment = comments[0];
-		let commentAbsolutePosition = fileChange.isPartial
-			? getPositionInDiff(firstComment, fileChange.diffHunks, isBase)
-			: getAbsolutePosition(firstComment, fileChange.diffHunks, isBase);
-
-		if (commentAbsolutePosition < 0) {
-			continue;
-		}
-
-		const pos = new vscode.Position(getZeroBased(commentAbsolutePosition), 0);
-		const range = new vscode.Range(pos, pos);
-
-		threads.push({
-			threadId: firstComment.id.toString(),
-			resource: document.uri,
-			range,
-			comments: comments.map(comment => convertToVSCodeComment(comment, undefined, undefined, undefined)),
-			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
-		});
-	}
-
-	return {
-		threads,
-		commentingRanges,
-		inDraftMode
-	};
-}
 
 const _onDidChangeWorkspaceCommentThreads = new vscode.EventEmitter<vscode.CommentThreadChangedEvent>();
 
@@ -283,8 +217,32 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 			return;
 		}
 
-		if (editor.document.uri.scheme !== 'review') {
-			// todo, update comment thread range if the document is local and dirty.
+		if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme) {
+			// local files
+			let matchedFiles = this._localFileChanges.filter(fileChange => fileChange.fileName === editor.document.uri.path);
+
+			if (matchedFiles && !matchedFiles.length) {
+				return;
+			}
+
+			let commentThreads = this._workspaceFileChangeCommentThreads[editor.document.uri.path];
+
+			const headCommitSha = this._prManager.activePullRequest!.head.sha;
+			let contentDiff: string;
+			if (editor.document.isDirty) {
+				const documentText = editor.document.getText();
+				const details = await this._repository.getObjectDetails(headCommitSha, editor.document.uri.path);
+				const idAtLastCommit = details.object;
+				const idOfCurrentText = await this._repository.hashObject(documentText);
+
+				// git diff <blobid> <blobid>
+				contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
+			} else {
+				// git diff sha -- fileName
+				contentDiff = await this._repository.diffWith(headCommitSha, editor.document.uri.path);
+			}
+
+			mapCommentThreadsToHead(matchedFiles[0].diffHunks, contentDiff, commentThreads);
 			return;
 		}
 
@@ -364,35 +322,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 
 		return ret;
 	}
-
-	// async provideDocumentComments(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CommentInfo | undefined> {
-	// 	if (document.uri.scheme === 'pr') {
-	// 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
-	// 		const prNumber = this._prManager.activePullRequest && this._prManager.activePullRequest.prNumber;
-	// 		return providePRDocumentComments(document, prNumber!, this._localFileChanges, inDraftMode);
-	// 	}
-
-	// 	let query: ReviewUriParams | undefined;
-
-	// 	try {
-	// 		query = fromReviewUri(document.uri);
-	// 	} catch (e) { }
-
-	// 	if (query) {
-	// 		return this.provideCommentInfoForReviewUri(document, query);
-	// 	}
-
-	// 	const currentWorkspace = vscode.workspace.getWorkspaceFolder(document.uri);
-	// 	if (!currentWorkspace) {
-	// 		return;
-	// 	}
-
-	// 	if (document.uri.scheme === currentWorkspace.uri.scheme) {
-	// 		return this.provideCommentInfoForFileUri(document, currentWorkspace);
-	// 	}
-
-	// 	return;
-	// }
 
 	private provideCommentInfoForReviewUri(document: vscode.TextDocument, query: ReviewUriParams, inDraftMode: boolean): vscode.CommentInfo | undefined {
 		const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
