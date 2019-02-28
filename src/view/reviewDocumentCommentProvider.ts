@@ -527,7 +527,7 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		const removed: vscode.CommentThread[] = [];
 		const changed: vscode.CommentThread[] = [];
 
-		const oldCommentThreads = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
+		const oldCommentThreads = await this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
 		oldCommentThreads.forEach(thread => {
 			thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
 			if (!thread.comments.length) {
@@ -580,8 +580,8 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 		let removed: vscode.CommentThread[] = [];
 		let changed: vscode.CommentThread[] = [];
 
-		const oldCommentThreads = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
-		const newCommentThreads = this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded);
+		const oldCommentThreads = await this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
+		const newCommentThreads = await this.allCommentsToCommentThreads(comments, vscode.CommentThreadCollapsibleState.Expanded);
 
 		oldCommentThreads.forEach(thread => {
 			// No current threads match old thread, it has been removed
@@ -670,13 +670,14 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 
 	}
 
-	private allCommentsToCommentThreads(comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
+	private async allCommentsToCommentThreads(comments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): Promise<vscode.CommentThread[]> {
 		if (!comments || !comments.length) {
 			return [];
 		}
 
 		let fileCommentGroups = groupBy(comments, comment => comment.path!);
 		let ret: vscode.CommentThread[] = [];
+		const headCommitSha = this._prManager.activePullRequest!.head.sha;
 
 		for (let file in fileCommentGroups) {
 			let fileComments: Comment[] = fileCommentGroups[file];
@@ -684,13 +685,16 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 			let matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === file);
 
 			if (matchedFiles && matchedFiles.length) {
+				let matchedFile = matchedFiles[0];
+				let contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
+				fileComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, fileComments);
 				ret = [...ret, ...workspaceLocalCommentsToCommentThreads(this._repository, matchedFiles[0], fileComments, collapsibleState)];
 			}
 		}
 		return ret;
 	}
 
-	private updateCommentPendingState(submittedComments: Comment[]) {
+	private async updateCommentPendingState(submittedComments: Comment[]) {
 		this._comments.forEach(comment => {
 			comment.isDraft = false;
 		});
@@ -711,7 +715,7 @@ export class ReviewDocumentCommentProvider implements vscode.DocumentCommentProv
 			doc => doc.uri.scheme === 'file'
 				? vscode.workspace.asRelativePath(doc.uri.path)
 				: doc.uri.path[0] === '/' ? doc.uri.path.slice(1) : doc.uri.path);
-		const changed = this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
+		const changed = await this.allCommentsToCommentThreads(this._comments, vscode.CommentThreadCollapsibleState.Expanded);
 		let i = changed.length; while (i-- > 0) {
 			const thread = changed[i];
 			const docsForThread = open[vscode.workspace.asRelativePath(thread.resource)];
