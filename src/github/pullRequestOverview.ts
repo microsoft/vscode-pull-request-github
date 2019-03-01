@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount } from './interface';
+import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../git/api';
@@ -196,9 +196,10 @@ export class PullRequestOverviewPanel {
 			this._pullRequestManager.getTimelineEvents(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			this._pullRequestManager.getStatusChecks(pullRequestModel),
-			this._pullRequestManager.getReviewRequests(pullRequestModel)
+			this._pullRequestManager.getReviewRequests(pullRequestModel),
+			this._pullRequestManager.getPullRequestRepositoryMergeMethodsAvailability(pullRequestModel),
 		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers] = result;
+			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, mergeMethodsAvailability] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
@@ -208,8 +209,9 @@ export class PullRequestOverviewPanel {
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
-			const defaultMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<string>('defaultMergeMethod');
+			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const supportsGraphQl = pullRequestModel.githubRepository.supportsGraphQl;
+			const defaultMergeMethod = getDetaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
 			this._postMessage({
 				command: 'pr.initialize',
@@ -232,6 +234,7 @@ export class PullRequestOverviewPanel {
 					status: status,
 					mergeable: this._pullRequest.prItem.mergeable,
 					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
+					mergeMethodsAvailability,
 					defaultMergeMethod,
 					supportsGraphQl
 				}
@@ -676,4 +679,14 @@ function getNonce() {
 		text += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
 	return text;
+}
+
+function getDetaultMergeMethod(methodsAvailability: MergeMethodsAvailability, userPreferred: MergeMethod | undefined): MergeMethod {
+	// Use default merge method specified by user if it is avaialbe
+	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
+		return userPreferred;
+	}
+	const methods: MergeMethod[] = ['merge', 'squash', 'rebase'];
+	// GitHub requires to have at leas one merge method to be enabled; use first available as default
+	return methods.find(method => methodsAvailability[method])!;
 }

@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { PRType, IGitHubRepository, IAccount } from './interface';
+import { PRType, IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -175,6 +175,32 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		}
 
 		return 'master';
+	}
+
+	async getMergeMethodsAvailability(): Promise<MergeMethodsAvailability> {
+		try {
+			Logger.debug(`Fetch available merge methods - enter`, GitHubRepository.ID);
+			const { octokit, remote } = await this.ensure();
+			const { data } = await octokit.repos.get({
+				owner: remote.owner,
+				repo: remote.repositoryName
+			});
+			Logger.debug(`Fetch available merge methods - done`, GitHubRepository.ID);
+
+			return {
+				merge: data.allow_merge_commit,
+				squash: data.allow_squash_merge,
+				rebase: data.allow_rebase_merge
+			};
+		} catch (e) {
+			Logger.appendLine(`GitHubRepository> Fetching available merge methods failed: ${e}`);
+		}
+
+		return {
+			merge: true,
+			squash: true,
+			rebase: true
+		};
 	}
 
 	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData | undefined> {

@@ -102,6 +102,12 @@ export interface IPullRequestEditData {
 	title?: string;
 }
 
+export type MergeMethod = 'merge' | 'squash' | 'rebase';
+
+export type MergeMethodsAvailability = {
+	[method in MergeMethod]: boolean;
+};
+
 export interface ITelemetry {
 	on(action: 'startup'): Promise<void>;
 	on(action: 'authSuccess'): Promise<void>;
