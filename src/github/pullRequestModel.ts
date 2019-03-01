@@ -21,6 +21,7 @@ export class PullRequestModel {
 	public localBranchName?: string;
 	public labels: string[];
 	public mergeBase?: string;
+	public mergeable?: boolean;
 
 	public get isOpen(): boolean {
 		return this.state === PullRequestStateEnum.Open;
@@ -89,6 +90,8 @@ export class PullRequestModel {
 
 		this.createdAt = prItem.createdAt;
 		this.updatedAt = prItem.updatedAt ? prItem.updatedAt : this.createdAt;
+
+		this.mergeable = prItem.mergeable;
 
 		this.head = new GitHubRef(prItem.head!.ref, prItem.head!.label, prItem.head!.sha, prItem.head!.repo.cloneUrl);
 		this.base = new GitHubRef(prItem.base!.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
