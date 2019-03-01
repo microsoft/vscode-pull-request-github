@@ -142,7 +142,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 
 			let threads: vscode.CommentThread[] = [];
 			allFileChangeWorkspaceCommentThreads.forEach(thread => {
-				console.log('create comment thread ', thread.threadId);
 				threads.push(this._commentControl!.createCommentThread(
 					thread.threadId,
 					thread.resource,
@@ -733,7 +732,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 
 	public dispose() {
 		this._commentControl = undefined;
-		console.log('dispose');
 		this._localToDispose.forEach(d => d.dispose());
 	}
 }
