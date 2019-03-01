@@ -245,7 +245,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 			this._validateStatusInProgress = this.validateState();
 			return this._validateStatusInProgress;
 		} else {
-			return this._validateStatusInProgress.then(_ => this._validateStatusInProgress = this.validateState());
+			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
+				return await this.validateState();
+			});
 		}
 	}
 
