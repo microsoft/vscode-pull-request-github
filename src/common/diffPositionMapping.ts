@@ -184,13 +184,12 @@ export function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string
 
 			const diffLine = getDiffLineByPosition(diffHunks, comment._rawComment.position || comment._rawComment.originalPosition!);
 			if (diffLine) {
-					const positionInPr = diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber;
-					const newPosition = getZeroBased(mapOldPositionToNew(localDiff, positionInPr));
-					const range = new vscode.Range(newPosition, 0, newPosition, 0);
+				const positionInPr = diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber;
+				const newPosition = getZeroBased(mapOldPositionToNew(localDiff, positionInPr));
+				const range = new vscode.Range(newPosition, 0, newPosition, 0);
 
-					thread.range = range;
-				}
+				thread.range = range;
 			}
-		});
-	}
+		}
+	});
 }

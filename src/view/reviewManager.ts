@@ -344,8 +344,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 		}
 
-		const comments = await this._prManager.getPullRequestComments(this._prManager.activePullRequest);
-		this._reviewDocumentCommentProvider.updateComments(comments);
+		await this.getPullRequestData(pr);
+		await this._reviewDocumentCommentProvider.update(this._localFileChanges, this._obsoleteFileChanges, this._comments);
 
 		return Promise.resolve(void 0);
 	}
