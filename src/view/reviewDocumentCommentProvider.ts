@@ -111,18 +111,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 
 			const headCommitSha = this._prManager.activePullRequest!.head.sha;
 			let contentDiff: string;
-			// if (document.isDirty) {
-			// 	const documentText = document.getText();
-			// 	const details = await this._repository.getObjectDetails(headCommitSha, matchedFile.fileName);
-			// 	const idAtLastCommit = details.object;
-			// 	const idOfCurrentText = await this._repository.hashObject(documentText);
-
-			// 	// git diff <blobid> <blobid>
-			// 	contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
-			// } else {
-				// git diff sha -- fileName
-				contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
-			// }
+			contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
 
 			matchingComments = matchedFile.comments;
 			matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
