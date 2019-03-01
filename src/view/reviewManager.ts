@@ -303,7 +303,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
-		this.registerCommentProvider();
+		await this.registerCommentProvider();
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = 'pr.openDescription';
@@ -472,12 +472,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return undefined;
 	}
 
-	private registerCommentProvider() {
+	private async registerCommentProvider() {
 		this._reviewDocumentCommentProvider = new ReviewDocumentCommentProvider(this._prManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
 			this._comments);
+
+		await this._reviewDocumentCommentProvider.initialize();
 
 		this._localToDispose.push(this._reviewDocumentCommentProvider);
 		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeComments(comments => {
