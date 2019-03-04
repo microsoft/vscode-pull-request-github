@@ -342,9 +342,6 @@ fragment ActorParts on Actor {
   login
   url
   avatarUrl
-  ... on User {
-    name
-  }
 }
 fragment PageInfoParts on PageInfo {
   hasNextPage
@@ -352,12 +349,10 @@ fragment PageInfoParts on PageInfo {
 }
 fragment RefParts on Ref {
   name
-  prefix
   target {
-    oid
-    commitResourcePath
+    sha: oid
   }
-  repository {
+  repo: repository {
     url
     owner {
       login
@@ -365,29 +360,28 @@ fragment RefParts on Ref {
     name
   }
 }
-query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String){
+query GetPullRequests($owner: String!, $name: String!, $first: Int!, $after: String){
   repository(owner: $owner, name: $name) {
     pullRequests(first: $first, after: $after, states: OPEN) {
       nodes {
+		nodeId: id
         number
         title
-        bodyHTML
         url
         author {
           ...ActorParts
         }
-        labels(first: 100) {
-          nodes {
-            name
-          }
-          pageInfo {
-            ...PageInfoParts
-          }
-        }
         state
-        assignees(first: 100) {
+        assignees(first: 30) {
           nodes {
             ...ActorParts
+          }
+        }
+				reviewRequests(first: 30) {
+          nodes {
+            requestedReviewer {
+              ...ActorParts
+            }
           }
         }
         createdAt

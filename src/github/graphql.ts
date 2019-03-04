@@ -1,3 +1,5 @@
+import { IAccount } from "./interface";
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -300,4 +302,66 @@ export interface RateLimit {
 	cost: number;
 	remaining: number;
 	resetAt: string;
+}
+
+export interface PullRequestListItem {
+	nodeId: string;
+	number: number;
+	title: string;
+	url: string;
+	author: {
+		login: string;
+		url: string;
+		avatarUrl: string;
+	};
+	state: string;
+	assignees: {
+		nodes: IAccount[];
+	};
+	reviewRequests: {
+		nodes: [{
+			requestedReviewer: IAccount;
+		}];
+	};
+	createdAt: string;
+	updatedAt: string;
+	merged: boolean;
+	headRef: {
+		name: string;
+		target: {
+			sha: string;
+		};
+		repo: {
+			url: string;
+			owner: {
+				login: string;
+			};
+			name: string;
+		};
+	};
+	baseRef: {
+		name: string;
+		target: {
+			sha: string;
+		};
+		repo: {
+			url: string;
+			owner: {
+				login: string;
+			};
+			name: string;
+		};
+	};
+}
+
+export interface PullRequestListResponse {
+	repository: {
+		pullRequests: {
+			nodes: PullRequestListItem[];
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			};
+		};
+	};
 }
