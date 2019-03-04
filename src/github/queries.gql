@@ -337,3 +337,72 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 		resetAt
 	}
 }
+
+fragment ActorParts on Actor {
+  login
+  url
+  avatarUrl
+  ... on User {
+    name
+  }
+}
+fragment PageInfoParts on PageInfo {
+  hasNextPage
+  endCursor
+}
+fragment RefParts on Ref {
+  name
+  prefix
+  target {
+    oid
+    commitResourcePath
+  }
+  repository {
+    url
+    owner {
+      login
+    }
+    name
+  }
+}
+query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String){
+  repository(owner: $owner, name: $name) {
+    pullRequests(first: $first, after: $after, states: OPEN) {
+      nodes {
+        number
+        title
+        bodyHTML
+        url
+        author {
+          ...ActorParts
+        }
+        labels(first: 100) {
+          nodes {
+            name
+          }
+          pageInfo {
+            ...PageInfoParts
+          }
+        }
+        state
+        assignees(first: 100) {
+          nodes {
+            ...ActorParts
+          }
+        }
+        createdAt
+        updatedAt
+        merged
+        headRef {
+          ...RefParts
+        }
+        baseRef {
+          ...RefParts
+        }
+      }
+      pageInfo {
+        ...PageInfoParts
+      }
+    }
+  }
+}
