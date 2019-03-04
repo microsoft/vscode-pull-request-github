@@ -340,64 +340,64 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 }
 
 fragment ActorParts on Actor {
-  login
-  url
-  avatarUrl
+	login
+	url
+	avatarUrl
 }
 fragment PageInfoParts on PageInfo {
-  hasNextPage
-  endCursor
+	hasNextPage
+	endCursor
 }
 fragment RefParts on Ref {
-  name
-  target {
-    sha: oid
-  }
-  repo: repository {
-    url
-    owner {
-      login
-    }
-    name
-  }
+	name
+	target {
+		sha: oid
+	}
+	repo: repository {
+		url
+		owner {
+			login
+		}
+		name
+	}
 }
 query GetPullRequests($owner: String!, $name: String!, $first: Int!, $after: String){
-  repository(owner: $owner, name: $name) {
-    pullRequests(first: $first, after: $after, states: OPEN) {
-      nodes {
-		nodeId: id
-        number
-        title
-        url
-        author {
-          ...ActorParts
-        }
-        state
-        assignees(first: 30) {
-          nodes {
-            ...ActorParts
-          }
-        }
+	repository(owner: $owner, name: $name) {
+		pullRequests(first: $first, after: $after, states: OPEN) {
+			nodes {
+				nodeId: id
+				number
+				title
+				url
+				author {
+					...ActorParts
+				}
+				state
+				assignees(first: 30) {
+					nodes {
+						...ActorParts
+					}
+				}
 				reviewRequests(first: 30) {
-          nodes {
-            requestedReviewer {
-              ...ActorParts
-            }
-          }
-        }
-        createdAt
-        updatedAt
-        merged
-        headRef {
-          ...RefParts
-        }
-        baseRef {
-          ...RefParts
-        }
-      }
-      pageInfo {
-        ...PageInfoParts
-      }
-    }
-  }
+					nodes {
+						requestedReviewer {
+							...ActorParts
+						}
+					}
+				}
+				createdAt
+				updatedAt
+				merged
+				headRef {
+					...RefParts
+				}
+				baseRef {
+					...RefParts
+				}
+			}
+			pageInfo {
+				...PageInfoParts
+			}
+		}
+	}
 }
