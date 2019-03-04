@@ -169,6 +169,16 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 				await this.initializeCommentThreadsForEditor(editor);
 			}
 		}));
+
+		this._localToDispose.push(this._prManager.activePullRequest!.onDidChangeDraftMode(newDraftMode => {
+			let commands = getCommentThreadCommands(this._commentControl!, this._prManager.activePullRequest!, newDraftMode);
+
+			[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads, this._prDocumentCommentThreads, this._reviewDocumentCommentThreads].forEach(commentThreadMap => {
+				for (let fileName in commentThreadMap) {
+					commentThreadMap[fileName].forEach(thread => thread.acceptInputCommands = commands);
+				}
+			});
+		}));
 	}
 
 	async initializeCommentThreadsForEditor(editor: vscode.TextEditor) {
