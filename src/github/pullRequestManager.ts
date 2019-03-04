@@ -637,6 +637,7 @@ export class PullRequestManager {
 								repo: {cloneUrl: pullRequestItem.headRef.repo.url },
 								sha: pullRequestItem.baseRef.target.sha
 							},
+							labels: [],
 							body: '',
 							createdAt: pullRequestItem.createdAt,
 							updatedAt: pullRequestItem.updatedAt,
