@@ -173,7 +173,6 @@ export class PullRequestOverviewPanel {
 				const reviewer = reviewers.find(r => r.reviewer.login === request.login);
 				reviewer!.state = 'REQUESTED';
 			}
-
 		});
 
 		// Put completed reviews before review requests and alphabetize each section
