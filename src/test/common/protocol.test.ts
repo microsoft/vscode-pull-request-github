@@ -53,7 +53,7 @@ describe('Protocol', () => {
 			{ uri: 'ssh://git@github.com/Microsoft/vscode', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'ssh://github.com:Microsoft/vscode.git', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'ssh://git@github.com:433/Microsoft/vscode', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
-			{ uri: 'ssh://user@git.server.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server.org', expectedOwner: null, expectedRepositoryName: 'project' }
+			{ uri: 'ssh://user@git.server.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server.org', expectedOwner: '', expectedRepositoryName: 'project' }
 
 		].forEach(testRemote)
 	);
@@ -63,8 +63,8 @@ describe('Protocol', () => {
 			{ uri: 'git@github.com:Microsoft/vscode', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'git@github.com:Microsoft/vscode.git', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'github.com:Microsoft/vscode.git', expectedType: ProtocolType.SSH, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
-			{ uri: 'user@git.server.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server.org', expectedOwner: null, expectedRepositoryName: 'project' },
-			{ uri: 'git.server2.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server2.org', expectedOwner: null, expectedRepositoryName: 'project' }
+			{ uri: 'user@git.server.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server.org', expectedOwner: '', expectedRepositoryName: 'project' },
+			{ uri: 'git.server2.org:project.git', expectedType: ProtocolType.SSH, expectedHost: 'git.server2.org', expectedOwner: '', expectedRepositoryName: 'project' }
 		].forEach(testRemote)
 	);
 
