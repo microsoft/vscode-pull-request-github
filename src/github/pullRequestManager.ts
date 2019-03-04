@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, PullRequestListItem } from './graphql';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -601,19 +601,22 @@ export class PullRequestManager {
 				let pullRequestItems = pullRequestResponseData.repository.pullRequests.nodes;
 
 				if (type !== PRType.All) {
+
+					let pullRequestFilter: (item: PullRequestListItem) => boolean;
+
 					if (type === PRType.Mine) {
-						pullRequestItems = pullRequestItems.filter(pr => pr.author.login === currentUserLogin);
+						pullRequestFilter = pr => pr.author.login === currentUserLogin;
 					} else if (type === PRType.RequestReview) {
-						pullRequestItems = pullRequestItems
-							.filter(pr => pr.reviewRequests.nodes
-								.findIndex(reviewRequest => reviewRequest.requestedReviewer.login === currentUserLogin) !== -1);
+						pullRequestFilter = pr => pr.reviewRequests.nodes
+							.findIndex(reviewRequest => reviewRequest.requestedReviewer.login === currentUserLogin) !== -1;
 					} else if (type === PRType.AssignedToMe) {
-						pullRequestItems = pullRequestItems
-							.filter(pr => pr.assignees.nodes
-								.findIndex(asignee => asignee.login === currentUserLogin) !== -1);
+						pullRequestFilter = pr => pr.assignees.nodes
+							.findIndex(asignee => asignee.login === currentUserLogin) !== -1;
 					} else {
 						throw new Error('Unexpected pull request filter');
 					}
+
+					pullRequestItems = pullRequestItems.filter(pullRequestFilter);
 				}
 
 				const pullRequests: PullRequestModel[] = pullRequestItems.map(pullRequestItem => {
