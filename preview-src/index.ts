@@ -6,12 +6,19 @@ import './index.css';
 import * as debounce from 'debounce';
 import { dateFromNow } from '../src/common/utils';
 import { EventType, isReviewEvent } from '../src/common/timelineEvent';
-import { PullRequestStateEnum } from '../src/github/interface';
-import { renderTimelineEvent, getStatus, renderComment, renderReview, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds } from './pullRequestOverviewRenderer';
-import md from './mdRenderer';
-const emoji = require('node-emoji');
+import { PullRequestStateEnum, ReviewState, ILabel } from '../src/github/interface';
+import { getStatus, renderComment, ActionsBar, renderStatusChecks, updatePullRequestState, ElementIds, renderUserIcon, appendReview, clearTextArea, renderTimelineEvents } from './pullRequestOverviewRenderer';
+
 import { getMessageHandler } from './message';
 import { getState, setState, PullRequest, updateState } from './cache';
+
+const plusIcon = require('../resources/icons/plus.svg');
+const deleteIcon = require('../resources/icons/delete.svg');
+
+const pendingIcon = require('../resources/icons/dot.svg');
+const checkIcon = require('../resources/icons/check.svg');
+const commentIcon = require('../resources/icons/comment.svg');
+const diffIcon = require('../resources/icons/diff.svg');
 
 window.onload = () => {
 	const pullRequest = getState();
@@ -44,23 +51,178 @@ const messageHandler = getMessageHandler(message => {
 });
 
 function renderPullRequest(pr: PullRequest): void {
-	renderTimelineEvents(pr);
+	renderTimelineEvents(pr, messageHandler);
 	setTitleHTML(pr);
 	setTextArea();
 	renderStatusChecks(pr, messageHandler);
+	renderReviewers(pr);
+	renderLabels(pr);
 	updateCheckoutButton(pr.isCurrentlyCheckedOut);
 	updatePullRequestState(pr.state);
 
 	addEventListeners(pr);
 }
 
-function renderTimelineEvents(pr: PullRequest): void {
-	const timelineElement = document.getElementById(ElementIds.TimelineEvents)!;
-	timelineElement.innerHTML = '';
-	pr.events
-		.map(event => renderTimelineEvent(event, messageHandler, pr))
-		.filter(event => event !== undefined)
-		.forEach(renderedEvent => timelineElement.appendChild(renderedEvent as HTMLElement));
+function renderSection(containerId: string, label: string, addCommand: string, renderItems: (newItems?: any[]) => HTMLElement[]): void {
+	const container = document.getElementById(containerId);
+	container.innerHTML = '';
+
+	const sectionLabel = document.createElement('div');
+	sectionLabel.className = 'section-header';
+
+	const sectionText = document.createElement('div');
+	sectionText.textContent = label;
+	sectionLabel.appendChild(sectionText);
+
+	const addButton = document.createElement('button');
+	addButton.innerHTML = plusIcon;
+	addButton.title = `Add ${label}`;
+	addButton.addEventListener('click', () => {
+		messageHandler.postMessage({
+			command: addCommand
+		}).then(message => {
+			const updatedItems = renderItems(message.added);
+			sectionContent.innerHTML = '';
+			updatedItems.forEach(item => sectionContent.appendChild(item));
+		});
+	});
+	sectionLabel.appendChild(addButton);
+
+	const sectionContent = document.createElement('div');
+	sectionContent.className = 'section-content';
+
+	container.appendChild(sectionLabel);
+	container.appendChild(sectionContent);
+
+	const items = renderItems();
+	items.forEach(item => sectionContent.appendChild(item));
+}
+
+function getReviewStateElement(state: string): HTMLElement {
+	const reviewState = document.createElement('div');
+
+	switch (state) {
+		case 'REQUESTED':
+			reviewState.innerHTML = pendingIcon;
+			reviewState.title = 'Awaiting requested review';
+			break;
+		case 'COMMENTED':
+			reviewState.innerHTML = commentIcon;
+			reviewState.title = 'Left review comments';
+			break;
+		case 'APPROVED':
+			reviewState.innerHTML = checkIcon;
+			reviewState.title = 'Approved these changes';
+			break;
+		case 'CHANGES_REQUESTED':
+			reviewState.innerHTML = diffIcon;
+			reviewState.title = 'Requested changes';
+			break;
+	}
+	return reviewState;
+}
+
+function renderDeleteButton(label: string, command: string, args: any, update: () => void): HTMLElement {
+	const deleteButton = document.createElement('button');
+	deleteButton.innerHTML = deleteIcon;
+	deleteButton.children[0].classList.add('hidden-focusable');
+	deleteButton.title = `Remove ${label}`;
+	deleteButton.addEventListener('click', () => {
+		messageHandler.postMessage({ command, args }).then(_ => update());
+	});
+
+	deleteButton.addEventListener('focus', () => {
+		deleteButton.children[0].classList.remove('hidden-focusable');
+	});
+
+	deleteButton.addEventListener('blur', () => {
+		deleteButton.children[0].classList.add('hidden-focusable');
+	});
+
+	return deleteButton;
+}
+
+function renderReviewers(pr: PullRequest): void {
+	renderSection('reviewers', 'Reviewers',
+		'pr.add-reviewers',
+		(newItems?: ReviewState[]): HTMLElement[] => {
+			if (newItems) {
+				pr.reviewers = pr.reviewers.concat(newItems);
+				updateState({ reviewers: pr.reviewers });
+			}
+
+			return pr.reviewers.map((reviewer, i) => {
+				const reviewerElement = document.createElement('div');
+				reviewerElement.classList.add('section-item', 'reviewer');
+
+				const userIcon = renderUserIcon(reviewer.reviewer.url, reviewer.reviewer.avatarUrl);
+				reviewerElement.appendChild(userIcon);
+
+				const userName = document.createElement('div');
+				userName.className = 'login';
+				reviewerElement.appendChild(userName);
+				userName.textContent = reviewer.reviewer.login;
+
+				const reviewState = getReviewStateElement(reviewer.state);
+				reviewerElement.appendChild(reviewState);
+
+				if (reviewer.state === 'REQUESTED') {
+					const deleteButton = renderDeleteButton('reviewer', 'pr.remove-reviewer', reviewer.reviewer.login, () => {
+						pr.reviewers.splice(i, 1);
+						updateState({ reviewers: pr.reviewers });
+						reviewerElement.remove();
+					});
+					reviewerElement.appendChild(deleteButton);
+
+					reviewerElement.addEventListener('mouseover', () => {
+						deleteButton.children[0].classList.remove('hidden-focusable');
+					});
+
+					reviewerElement.addEventListener('mouseout', () => {
+						if (document.activeElement !== deleteButton) {
+							deleteButton.children[0].classList.add('hidden-focusable');
+						}
+					});
+				}
+
+				return reviewerElement;
+			});
+	});
+}
+
+function renderLabels(pr: PullRequest): void {
+	renderSection('labels', 'Labels',
+		'pr.add-labels',
+		(newItems?: ILabel[]): HTMLElement[] => {
+			if (newItems) {
+				pr.labels = pr.labels.concat(newItems);
+				updateState({ labels: pr.labels });
+			}
+
+			return pr.labels.map((label, i) => {
+				const labelElement = document.createElement('div');
+				labelElement.textContent = label.name;
+				labelElement.classList.add('label', 'section-item');
+
+				const deleteButton = renderDeleteButton('label', 'pr.remove-label', label.name, () => {
+					pr.labels.splice(i, 1);
+					updateState({ labels: pr.labels });
+					labelElement.remove();
+				});
+				labelElement.appendChild(deleteButton);
+				labelElement.addEventListener('mouseover', () => {
+					deleteButton.children[0].classList.remove('hidden-focusable');
+				});
+
+				labelElement.addEventListener('mouseout', () => {
+					if (document.activeElement !== deleteButton) {
+						deleteButton.children[0].classList.add('hidden-focusable');
+					}
+				});
+
+				return labelElement;
+			});
+		});
 }
 
 function setTitleHTML(pr: PullRequest): void {
@@ -85,8 +247,7 @@ function setTitleHTML(pr: PullRequest): void {
 	const title = renderTitle(pr);
 	(document.getElementById('overview-title')! as any).prepend(title);
 
-	const description = renderDescription(pr);
-	document.getElementById('details')!.appendChild(description);
+	renderDescription(pr);
 }
 
 function renderTitle(pr: PullRequest): HTMLElement {
@@ -145,57 +306,28 @@ function renderTitle(pr: PullRequest): HTMLElement {
 	return titleContainer;
 }
 
-function renderDescription(pr: PullRequest): HTMLElement {
-	const commentContainer = document.createElement('div');
-	commentContainer.classList.add('description-container');
-
-	const commentHeader = document.createElement('div');
-	commentHeader.classList.add('description-header');
-
-	const commentBody = document.createElement('div');
-	commentBody.className = 'comment-body';
-	commentBody.innerHTML = pr.bodyHTML ?
-		pr.bodyHTML :
-		pr.body
-			? md.render(emoji.emojify(pr.body))
-			: '<p><i>No description provided.</i></p>';
-
-	if (pr.labels.length) {
-		const line = document.createElement('div');
-		line.classList.add('line');
-
-		line.innerHTML = `<svg class="octicon octicon-tag" viewBox="0 0 14 16" version="1.1" width="14" height="16">
-			<path fill-rule="evenodd" d="M7.685 1.72a2.49 2.49 0 0 0-1.76-.726H3.48A2.5 2.5 0 0 0 .994 3.48v2.456c0 .656.269 1.292.726 1.76l6.024 6.024a.99.99 0 0 0 1.402 0l4.563-4.563a.99.99 0 0 0 0-1.402L7.685 1.72zM2.366 7.048a1.54 1.54 0 0 1-.467-1.123V3.48c0-.874.716-1.58 1.58-1.58h2.456c.418 0 .825.159 1.123.467l6.104 6.094-4.702 4.702-6.094-6.114zm.626-4.066h1.989v1.989H2.982V2.982h.01z" />
-			</svg>
-			${pr.labels.map(label => `<span class="label">${label}</span>`).join('')}`;
-
-		commentContainer.appendChild(line);
-	}
-
-	commentContainer.appendChild(commentHeader);
-	commentContainer.appendChild(commentBody);
-
-	if (pr.canEdit) {
-		function updateDescription(text: string) {
+function renderDescription(pr: PullRequest): void {
+	const descriptionNode = document.getElementById('description');
+	descriptionNode.innerHTML = '';
+	const bodyHTML = !pr.body ? '<i>No description provided</i>' : pr.bodyHTML;
+	const descriptionElement = renderComment({
+		htmlUrl: pr.url,
+		body: pr.body,
+		bodyHTML: bodyHTML,
+		user: pr.author,
+		event: EventType.Commented,
+		canEdit: pr.canEdit,
+		canDelete: false,
+		id: pr.number,
+		createdAt: pr.createdAt
+	}, messageHandler, undefined, {
+		handler: (text: string) => {
 			pr.body = text;
 			updateState({ body: text });
+		},
+		command: 'pr.edit-description' });
 
-			if (!text) {
-				commentBody.innerHTML = `<p><i>No description provided.</i></p>`;
-			}
-		}
-
-		const actionsBar = new ActionsBar(commentContainer, { body: pr.body, id: pr.number.toString() }, commentBody, messageHandler, updateDescription, 'pr.edit-description');
-		const renderedActionsBar = actionsBar.render();
-		actionsBar.registerActionBarListeners();
-		commentHeader.appendChild(renderedActionsBar);
-
-		if (pr.pendingCommentDrafts && pr.pendingCommentDrafts[pr.number]) {
-			actionsBar.startEdit(pr.pendingCommentDrafts[pr.number]);
-		}
-	}
-
-	return commentContainer;
+	descriptionNode.appendChild(descriptionElement);
 }
 
 function addEventListeners(pr: PullRequest): void {
@@ -250,7 +382,7 @@ function addEventListeners(pr: PullRequest): void {
 				args: inputBox.value
 			}).then(message => {
 				// succeed
-				appendReview(message.value);
+				appendReview(message.value, messageHandler);
 			}, err => {
 				// enable approve button
 				(<HTMLButtonElement>document.getElementById(ElementIds.Approve)).disabled = false;
@@ -267,7 +399,7 @@ function addEventListeners(pr: PullRequest): void {
 				command: 'pr.request-changes',
 				args: inputBox.value
 			}).then(message => {
-				appendReview(message.value);
+				appendReview(message.value, messageHandler);
 			}, err => {
 				(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = false;
 			});
@@ -293,14 +425,6 @@ function addEventListeners(pr: PullRequest): void {
 	}, 200);
 }
 
-function clearTextArea() {
-	(<HTMLTextAreaElement>document.getElementById(ElementIds.CommentTextArea)!).value = '';
-	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
-	(<HTMLButtonElement>document.getElementById(ElementIds.RequestChanges)).disabled = true;
-
-	updateState({ pendingCommentText: undefined });
-}
-
 async function submitComment() {
 	(<HTMLButtonElement>document.getElementById(ElementIds.Reply)).disabled = true;
 	const result = await messageHandler.postMessage({
@@ -309,20 +433,6 @@ async function submitComment() {
 	});
 
 	appendComment(result.value);
-}
-
-function appendReview(review: any): void {
-	review.event = EventType.Reviewed;
-	const pullRequest = getState();
-	let events = pullRequest.events;
-	events.push(review);
-	updateState({ events: events });
-
-	const newReview = renderReview(review, messageHandler, pullRequest.supportsGraphQl);
-	if (newReview) {
-		document.getElementById(ElementIds.TimelineEvents)!.appendChild(newReview);
-	}
-	clearTextArea();
 }
 
 function appendComment(comment: any) {

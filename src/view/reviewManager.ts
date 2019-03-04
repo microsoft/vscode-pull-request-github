@@ -41,7 +41,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _reviewDocumentCommentProvider: ReviewDocumentCommentProvider;
 
 	private _prsTreeDataProvider: PullRequestsTreeDataProvider;
-	private _prFileChangesProvider: PullRequestChangesTreeDataProvider;
+	private _prFileChangesProvider: PullRequestChangesTreeDataProvider | undefined;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
 	private _previousRepositoryState: {
@@ -64,7 +64,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	constructor(
 		private _context: vscode.ExtensionContext,
-		onShouldReload: vscode.Event<any>,
+		private _onShouldReload: vscode.Event<any>,
 		private _repository: Repository,
 		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry
@@ -78,7 +78,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.registerCommands();
 		this.registerListeners();
 
-		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(onShouldReload, _prManager, this._telemetry);
+		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(_onShouldReload, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 
@@ -143,6 +143,23 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private registerListeners(): void {
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
+				if (this._prFileChangesProvider) {
+					this._prFileChangesProvider.dispose();
+					this._prFileChangesProvider = undefined;
+
+					if (this._prManager.activePullRequest) {
+						this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, this._prManager.activePullRequest, this._localFileChanges, this._comments);
+					}
+				}
+
+				this._prsTreeDataProvider.dispose();
+				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._onShouldReload, this._prManager, this._telemetry);
+				this._disposables.push(this._prsTreeDataProvider);
+			}
+		}));
+
 		this._disposables.push(this._repository.state.onDidChange(e => {
 			const oldHead = this._previousRepositoryState.HEAD;
 			const newHead = this._repository.state.HEAD;
@@ -353,8 +370,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 			}
 
-			const filePath = nodePath.resolve(this._repository.rootUri.fsPath, change.fileName);
-			const uri = vscode.Uri.file(filePath);
+			const filePath = nodePath.resolve(this._repository.rootUri.fsPath, change.fileName).replace(/\\/g, '/');
+			const uri = this._repository.rootUri.with({ path: filePath });
+
 			let changedItem = new GitFileChangeNode(
 				this.prFileChangesProvider.view,
 				pr,
