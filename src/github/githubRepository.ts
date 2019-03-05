@@ -218,7 +218,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			} else if (type === PRType.AssignedToMe) {
 				filter += ` assignee:${currentUserLogin}`;
 			} else {
-				throw new Error('Unexpected pull request filter');
+				throw new Error('Unexpected pull request filter: ' + PRType[type]);
 			}
 		}
 
