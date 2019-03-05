@@ -135,8 +135,17 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
+	/**
+	 * Create a list of reviewers composed of people who have already left reviews on the PR, and
+	 * those that have had a review requested of them. If a reviewer has left multiple reviews, the
+	 * state should be the state of their most recent review, or 'REQUESTED' if they have an outstanding
+	 * review request.
+	 * @param requestedReviewers The list of reviewers that are requested for this pull request
+	 * @param timelineEvents All timeline events for the pull request
+	 * @param author The author of the pull request
+	 */
 	private parseReviewers(requestedReviewers: IAccount[], timelineEvents: TimelineEvent[], author: IAccount): ReviewState[] {
-		const reviewEvents = timelineEvents.filter(isReviewEvent);
+		const reviewEvents = timelineEvents.filter(isReviewEvent).filter(event => event.state !== 'PENDING');
 		let reviewers: ReviewState[] = [];
 		const seen = new Map<string, boolean>();
 
@@ -155,10 +164,15 @@ export class PullRequestOverviewPanel {
 		}
 
 		requestedReviewers.forEach(request => {
-			reviewers.push({
-				reviewer: request,
-				state: 'REQUESTED'
-			});
+			if (!seen.get(request.login)) {
+				reviewers.push({
+					reviewer: request,
+					state: 'REQUESTED'
+				});
+			} else {
+				const reviewer = reviewers.find(r => r.reviewer.login === request.login);
+				reviewer!.state = 'REQUESTED';
+			}
 		});
 
 		// Put completed reviews before review requests and alphabetize each section
@@ -592,10 +606,26 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
+	private updateReviewers(review?: CommonReviewEvent): void {
+		if (review) {
+			const existingReviewer = this._existingReviewers.find(reviewer => review.user.login === reviewer.reviewer.login);
+			if (existingReviewer) {
+				existingReviewer.state = review.state;
+			} else {
+				this._existingReviewers.push({
+					reviewer: review.user,
+					state: review.state
+				});
+			}
+		}
+	}
+
 	private approvePullRequest(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<CommonReviewEvent>('pr.approve', this._pullRequest, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
@@ -606,8 +636,10 @@ export class PullRequestOverviewPanel {
 
 	private requestChanges(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<CommonReviewEvent>('pr.requestChanges', this._pullRequest, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
@@ -617,8 +649,10 @@ export class PullRequestOverviewPanel {
 
 	private submitReview(message: IRequestMessage<string>): void {
 		this._pullRequestManager.submitReview(this._pullRequest, ReviewEvent.Comment, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
