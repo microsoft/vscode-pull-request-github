@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IGitHubRepository, IAccount, MergeMethodsAvailability, PRType } from './interface';
+import { PRType, IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
