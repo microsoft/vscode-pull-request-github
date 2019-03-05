@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, PullRequestListItem } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse } from './graphql';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -584,44 +584,23 @@ export class PullRequestManager {
 			const githubRepository = githubRepositories[i];
 
 			const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString())!;
-			const pullRequestResponseData = await githubRepository.getPullRequestsGraphQL(pageInformation.endCursor);
-			const { remote, octokit } = await githubRepository.ensure();
-			const currentUser = octokit && (octokit as any).currentUser;
-			const currentUserLogin: string = currentUser.login;
+			const pullRequestResponseData = await githubRepository.getPullRequestsGraphQL(type, pageInformation.endCursor);
+			const { remote } = await githubRepository.ensure();
 
 			if(!!pullRequestResponseData) {
-				pageInformation.hasMorePages = pullRequestResponseData.repository.pullRequests.pageInfo.hasNextPage;
-				pageInformation.endCursor = pullRequestResponseData.repository.pullRequests.pageInfo.endCursor;
+				pageInformation.hasMorePages = pullRequestResponseData.search.pageInfo.hasNextPage;
+				pageInformation.endCursor = pullRequestResponseData.search.pageInfo.endCursor;
 			} else {
 				pageInformation.hasMorePages = false;
 				pageInformation.endCursor = null;
 			}
 
-			if (pullRequestResponseData && pullRequestResponseData.repository.pullRequests.nodes.length) {
-				let pullRequestItems = pullRequestResponseData.repository.pullRequests.nodes;
-
-				if (type !== PRType.All) {
-
-					let pullRequestFilter: (item: PullRequestListItem) => boolean;
-
-					if (type === PRType.Mine) {
-						pullRequestFilter = pr => pr.author.login === currentUserLogin;
-					} else if (type === PRType.RequestReview) {
-						pullRequestFilter = pr => pr.reviewRequests.nodes
-							.findIndex(reviewRequest => reviewRequest.requestedReviewer.login === currentUserLogin) !== -1;
-					} else if (type === PRType.AssignedToMe) {
-						pullRequestFilter = pr => pr.assignees.nodes
-							.findIndex(asignee => asignee.login === currentUserLogin) !== -1;
-					} else {
-						throw new Error('Unexpected pull request filter');
-					}
-
-					pullRequestItems = pullRequestItems.filter(pullRequestFilter);
-				}
+			if (pullRequestResponseData && pullRequestResponseData.search.nodes.length) {
+				let pullRequestItems = pullRequestResponseData.search.nodes;
 
 				const pullRequests: PullRequestModel[] = pullRequestItems.map(pullRequestItem => {
 						let assignee: IAccount | undefined;
-						if(!!pullRequestItem.assignees.nodes && pullRequestItem.assignees.nodes.length) 						{
+						if(!!pullRequestItem.assignees.nodes && pullRequestItem.assignees.nodes.length) {
 							assignee = pullRequestItem.assignees.nodes[0];
 						}
 
@@ -629,16 +608,16 @@ export class PullRequestManager {
 							url: pullRequestItem.url,
 							assignee,
 							base: {
-								label: `${pullRequestItem.baseRef.repo.owner}:${pullRequestItem.baseRef.name}`,
+								label: `${pullRequestItem.baseRef.repository.owner}:${pullRequestItem.baseRef.name}`,
 								ref: pullRequestItem.baseRef.name,
-								repo: {cloneUrl: pullRequestItem.baseRef.repo.url },
-								sha: pullRequestItem.baseRef.target.sha
+								repo: {cloneUrl: pullRequestItem.baseRef.repository.url },
+								sha: pullRequestItem.baseRef.target.oid
 							},
 							head: {
-								label: `${pullRequestItem.headRef.repo.owner}:${pullRequestItem.headRef.name}`,
+								label: `${pullRequestItem.headRef.repository.owner}:${pullRequestItem.headRef.name}`,
 								ref: pullRequestItem.headRef.name,
-								repo: {cloneUrl: pullRequestItem.headRef.repo.url },
-								sha: pullRequestItem.baseRef.target.sha
+								repo: {cloneUrl: pullRequestItem.headRef.repository.url },
+								sha: pullRequestItem.baseRef.target.oid
 							},
 							labels: [],
 							body: '',

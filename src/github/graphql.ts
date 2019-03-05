@@ -1,4 +1,4 @@
-import { IAccount } from "./interface";
+import { IAccount } from './interface';
 
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
@@ -318,59 +318,24 @@ export interface PullRequestListItem {
 	number: number;
 	title: string;
 	url: string;
-	author: {
-		login: string;
-		url: string;
-		avatarUrl: string;
-	};
+	author: IAccount;
 	state: string;
 	assignees: {
 		nodes: IAccount[];
 	};
-	reviewRequests: {
-		nodes: [{
-			requestedReviewer: IAccount;
-		}];
-	};
 	createdAt: string;
 	updatedAt: string;
 	merged: boolean;
-	headRef: {
-		name: string;
-		target: {
-			sha: string;
-		};
-		repo: {
-			url: string;
-			owner: {
-				login: string;
-			};
-			name: string;
-		};
-	};
-	baseRef: {
-		name: string;
-		target: {
-			sha: string;
-		};
-		repo: {
-			url: string;
-			owner: {
-				login: string;
-			};
-			name: string;
-		};
-	};
+	headRef: Ref;
+	baseRef: Ref;
 }
 
 export interface PullRequestListResponse {
-	repository: {
-		pullRequests: {
-			nodes: PullRequestListItem[];
-			pageInfo: {
-				hasNextPage: boolean;
-				endCursor: string;
-			};
+	search: {
+		nodes: PullRequestListItem[];
+		pageInfo: {
+			hasNextPage: boolean;
+			endCursor: string;
 		};
 	};
 }

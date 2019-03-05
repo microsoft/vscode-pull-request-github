@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';
+import { IGitHubRepository, IAccount, MergeMethodsAvailability, PRType } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -203,17 +203,31 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		};
 	}
 
-	async getPullRequestsGraphQL(nextCursor?: string|null):Promise<PullRequestListResponse|undefined> {
-		const { remote, query } = await this.ensure();
+	async getPullRequestsGraphQL(type: PRType, nextCursor?: string|null):Promise<PullRequestListResponse|undefined> {
+		const { remote, query, octokit } = await this.ensure();
+		const currentUser = octokit && (octokit as any).currentUser;
+		const currentUserLogin: string = currentUser.login;
+
+		let filter = `type:pr is:open repo:${remote.owner}/${remote.repositoryName}`;
+
+		if (type !== PRType.All) {
+			if (type === PRType.Mine) {
+				filter += ` author:${currentUserLogin}`;
+			} else if (type === PRType.RequestReview) {
+				filter += ` review-requested:${currentUserLogin}`;
+			} else if (type === PRType.AssignedToMe) {
+				filter += ` assignee:${currentUserLogin}`;
+			} else {
+				throw new Error('Unexpected pull request filter');
+			}
+		}
 
 		const variables : {
-			owner: string;
-			name: string;
+			query: string;
 			first: number;
-			after?: string
+			after?: string;
 		} = {
-			owner: remote.owner,
-			name: remote.repositoryName,
+			query: filter,
 			first: 30
 		};
 
