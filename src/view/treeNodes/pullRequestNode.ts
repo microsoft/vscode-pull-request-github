@@ -589,6 +589,10 @@ export class PRNode extends TreeNode {
 			this._inMemPRContentProvider.dispose();
 		}
 
+		if (this._commentControl) {
+			this._commentControl.dispose();
+		}
+
 		this._disposables.forEach(d => d.dispose());
 	}
 }
