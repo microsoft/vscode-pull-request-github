@@ -13,9 +13,9 @@ import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
 import { PullRequestModel } from './pullRequestModel';
-import { getEditCommand, getDeleteCommand } from './commands';
+import { getEditCommand, getDeleteCommand, getCommentThreadCommands } from './commands';
 
-export function convertToVSCodeComment(comment: Comment, command: vscode.Command | undefined, commentControl: vscode.CommentControl | undefined, pullRequestModel: PullRequestModel | undefined): vscode.Comment & { _rawComment: Comment } {
+export function convertToVSCodeComment(comment: Comment, command: vscode.Command | undefined): vscode.Comment & { _rawComment: Comment } {
 	let vscodeComment: vscode.Comment & { _rawComment: Comment } = {
 		_rawComment: comment,
 		commentId: comment.id.toString(),
@@ -31,17 +31,44 @@ export function convertToVSCodeComment(comment: Comment, command: vscode.Command
 		}) : []
 	};
 
-	if (commentControl && pullRequestModel) {
+	return vscodeComment;
+}
+
+export function createVSCodeCommentThread(thread: vscode.CommentThread, commentController: vscode.CommentController, pullRequestModel: PullRequestModel, inDraftMode: boolean) {
+	let vscodeThread = commentController.createCommentThread(
+		thread.threadId,
+		thread.resource,
+		thread.range!
+	);
+
+	thread.comments.forEach(comment => {
 		if (comment.canEdit) {
-			vscodeComment.editCommand = getEditCommand(commentControl, pullRequestModel, vscodeComment);
+			comment.editCommand = getEditCommand(commentController, vscodeThread, pullRequestModel, comment);
+
+		}
+		if (comment.canDelete) {
+			comment.deleteCommand = getDeleteCommand(commentController, vscodeThread, pullRequestModel, comment);
+		}
+	});
+
+	vscodeThread.comments = thread.comments;
+
+	let commands = getCommentThreadCommands(commentController, vscodeThread, pullRequestModel, inDraftMode);
+	vscodeThread.acceptInputCommands = commands;
+	vscodeThread.collapsibleState = thread.collapsibleState;
+	return vscodeThread;
+}
+
+export function fillInCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) {
+	if (commentControl && pullRequestModel) {
+		if (vscodeComment.canEdit) {
+			vscodeComment.editCommand = getEditCommand(commentControl, thread, pullRequestModel, vscodeComment);
 		}
 
-		if (comment.canDelete) {
-			vscodeComment.deleteCommand = getDeleteCommand(commentControl, pullRequestModel, vscodeComment);
+		if (vscodeComment.canDelete) {
+			vscodeComment.deleteCommand = getDeleteCommand(commentControl, thread, pullRequestModel, vscodeComment);
 		}
 	}
-
-	return vscodeComment;
 }
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {

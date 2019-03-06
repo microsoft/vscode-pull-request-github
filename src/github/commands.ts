@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PullRequestModel } from './pullRequestModel';
-export function getCommentThreadCommands(commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel, inDraftMode: boolean): vscode.Command[] {
+export function getCommentThreadCommands(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, inDraftMode: boolean): vscode.Command[] {
 	let commands: vscode.Command[] = [];
 	if (inDraftMode) {
 		commands.push({
@@ -13,6 +13,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControl, 
 			command: 'pr.deleteReview',
 			arguments: [
 				commentControl,
+				thread,
 				pullRequestModel
 			]
 		});
@@ -22,7 +23,8 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControl, 
 			command: 'pr.finishReview',
 			arguments: [
 				commentControl,
-				pullRequestModel,
+				thread,
+				pullRequestModel
 			]
 		});
 
@@ -31,6 +33,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControl, 
 			command: 'pr.replyComment',
 			arguments: [
 				commentControl,
+				thread,
 				pullRequestModel
 			]
 		});
@@ -40,6 +43,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControl, 
 			command: 'pr.startReview',
 			arguments: [
 				commentControl,
+				thread,
 				pullRequestModel
 			]
 		});
@@ -49,6 +53,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControl, 
 			command: 'pr.replyComment',
 			arguments: [
 				commentControl,
+				thread,
 				pullRequestModel
 			]
 		});
@@ -57,24 +62,26 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControl, 
 	return commands;
 }
 
-export function getEditCommand(commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel, vscodeComment: vscode.Comment): vscode.Command {
+export function getEditCommand(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, vscodeComment: vscode.Comment): vscode.Command {
 	return {
 		title: 'Edit Comment',
 		command: 'pr.editComment',
 		arguments: [
 			commentControl,
+			thread,
 			pullRequestModel,
 			vscodeComment
 		]
 	};
 }
 
-export function getDeleteCommand(commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel, vscodeComment: vscode.Comment): vscode.Command {
+export function getDeleteCommand(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, vscodeComment: vscode.Comment): vscode.Command {
 	return {
 		title: 'Delete Comment',
 		command: 'pr.deleteComment',
 		arguments: [
 			commentControl,
+			thread,
 			pullRequestModel,
 			vscodeComment
 		]

@@ -12,7 +12,6 @@ import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
-import { PRDocumentCommentProvider, PRDocumentCommentProviderGraphQL } from '../view/prDocumentCommentProvider';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
 const queries = require('./queries.gql');
@@ -33,8 +32,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	private _metadata: any;
 	private _toDispose: vscode.Disposable[] = [];
 
-	public commentsProvider: PRDocumentCommentProvider | PRDocumentCommentProviderGraphQL;
-
 	public get hub(): GitHub {
 		if (!this._hub) {
 			if (!this._initialized) {
@@ -44,21 +41,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			}
 		}
 		return this._hub;
-	}
-
-	public async ensureCommentsProvider(): Promise<void> {
-		try {
-			if (this.commentsProvider) {
-				return;
-			}
-
-			await this.ensure();
-			this.commentsProvider = this.supportsGraphQl ? new PRDocumentCommentProviderGraphQL() : new PRDocumentCommentProvider();
-			this._toDispose.push(vscode.workspace.registerDocumentCommentProvider(this.commentsProvider));
-		} catch (e) {
-			console.log(e);
-		}
-
 	}
 
 	dispose() {

@@ -1,3 +1,5 @@
+import { CancellationToken } from 'vscode';
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -31,12 +33,27 @@ declare module 'vscode' {
 		resolve(authority: string): ResolvedAuthority | Thenable<ResolvedAuthority>;
 	}
 
+	export interface ResourceLabelFormatter {
+		scheme: string;
+		authority?: string;
+		formatting: ResourceLabelFormatting;
+	}
+
+	export interface ResourceLabelFormatting {
+		label: string; // myLabel:/${path}
+		separator: '/' | '\\' | '';
+		tildify?: boolean;
+		normalizeDriveLetter?: boolean;
+		workspaceSuffix?: string;
+		authorityPrefix?: string;
+	}
+
 	export namespace workspace {
 		export function registerRemoteAuthorityResolver(authorityPrefix: string, resolver: RemoteAuthorityResolver): Disposable;
+		export function registerResourceLabelFormatter(formatter: ResourceLabelFormatter): Disposable;
 	}
 
 	//#endregion
-
 
 	// #region Joh - code insets
 
@@ -64,7 +81,6 @@ declare module 'vscode' {
 	}
 
 	//#endregion
-
 
 	//#region Joh - selection range provider
 
@@ -120,6 +136,7 @@ declare module 'vscode' {
 	//#region Joh - read/write in chunks
 
 	export interface FileSystemProvider {
+		seperator?: '/' | '\\';
 		open?(resource: Uri, options: { create: boolean }): number | Thenable<number>;
 		close?(fd: number): void | Thenable<void>;
 		read?(fd: number, pos: number, data: Uint8Array, offset: number, length: number): number | Thenable<number>;
@@ -781,7 +798,7 @@ declare module 'vscode' {
 		 * The range the comment thread is located within the document. The thread icon will be shown
 		 * at the first line of the range.
 		 */
-		range: Range | null;
+		range: Range;
 
 		/**
 		 * The ordered comments of the thread.
@@ -830,6 +847,8 @@ declare module 'vscode' {
 		 *
 		 * This will be treated as false if the comment is provided by a `WorkspaceCommentProvider`, or
 		 * if it is provided by a `DocumentCommentProvider` and  no `editComment` method is given.
+		 *
+		 * DEPRECATED, use editCommand
 		 */
 		canEdit?: boolean;
 
@@ -838,6 +857,8 @@ declare module 'vscode' {
 		 *
 		 * This will be treated as false if the comment is provided by a `WorkspaceCommentProvider`, or
 		 * if it is provided by a `DocumentCommentProvider` and  no `deleteComment` method is given.
+		 *
+		 * DEPRECATED, use deleteCommand
 		 */
 		canDelete?: boolean;
 
@@ -845,6 +866,7 @@ declare module 'vscode' {
 		 * The command to be executed if the comment is selected in the Comments Panel
 		 */
 		command?: Command;
+
 		editCommand?: Command;
 		deleteCommand?: Command;
 
@@ -871,7 +893,7 @@ declare module 'vscode' {
 		/**
 		 * Changed draft mode
 		 */
-		readonly inDraftMode?: boolean;
+		readonly inDraftMode: boolean;
 	}
 
 	interface CommentReaction {
@@ -881,21 +903,24 @@ declare module 'vscode' {
 		readonly hasReacted?: boolean;
 	}
 
+	/**
+	 * DEPRECATED
+	 */
 	interface DocumentCommentProvider {
 		/**
 		 * Provide the commenting ranges and comment threads for the given document. The comments are displayed within the editor.
 		 */
-		provideDocumentComments(document: TextDocument, token: CancellationToken): Promise<CommentInfo | undefined>;
+		provideDocumentComments(document: TextDocument, token: CancellationToken): Promise<CommentInfo>;
 
 		/**
 		 * Called when a user adds a new comment thread in the document at the specified range, with body text.
 		 */
-		createNewCommentThread(document: TextDocument, range: Range, text: string, token: CancellationToken): Promise<CommentThread | undefined>;
+		createNewCommentThread(document: TextDocument, range: Range, text: string, token: CancellationToken): Promise<CommentThread>;
 
 		/**
 		 * Called when a user replies to a new comment thread in the document at the specified range, with body text.
 		 */
-		replyToCommentThread(document: TextDocument, range: Range, commentThread: CommentThread, text: string, token: CancellationToken): Promise<CommentThread | undefined>;
+		replyToCommentThread(document: TextDocument, range: Range, commentThread: CommentThread, text: string, token: CancellationToken): Promise<CommentThread>;
 
 		/**
 		 * Called when a user edits the comment body to the be new text.
@@ -925,6 +950,9 @@ declare module 'vscode' {
 		onDidChangeCommentThreads: Event<CommentThreadChangedEvent>;
 	}
 
+	/**
+	 * DEPRECATED
+	 */
 	interface WorkspaceCommentProvider {
 		/**
 		 * Provide all comments for the workspace. Comments are shown within the comments panel. Selecting a comment
@@ -938,46 +966,49 @@ declare module 'vscode' {
 		onDidChangeCommentThreads: Event<CommentThreadChangedEvent>;
 	}
 
-	export interface CommentWidget {
-		/*
-		 * Comment thread in this Comment Widget
+	export interface CommentInputBox {
+
+		/**
+		 * Setter and getter for the contents of the input box.
 		 */
-		commentThread: CommentThread;
-		/*
-		 * Textarea content in the comment widget.
-		 * There is only one active input box in a comment widget.
-		 */
-		input: string;
+		value: string;
 	}
 
-	export interface CommentingRanges {
-		readonly resource: Uri;
-		ranges: Range[];
-		newCommentThreadCommand: Command;
-	}
-
-	export interface CommentControl {
+	export interface CommentController {
 		readonly id: string;
 		readonly label: string;
 		/**
-	 	 * The active (focused) comment widget.
-	 	 */
-		readonly widget?: CommentWidget;
-	/**
-	 * The active range users attempt to create comments against.
-	 */
-	readonly activeCommentingRange?: Range;
-		createCommentThread(id: string, resource: Uri, range: Range, comments: Comment[], acceptInputCommands: Command[], collapsibleState?: CommentThreadCollapsibleState): CommentThread;
-		createCommentingRanges(resource: Uri, ranges: Range[], newCommentThreadCommand: Command): CommentingRanges;
+		 * The active (focused) comment input box.
+		 */
+		readonly inputBox?: CommentInputBox;
+		createCommentThread(id: string, resource: Uri, range: Range): CommentThread;
+		/**
+		 * Provide a list [ranges](#Range) which support commenting to any given resource uri.
+		 *
+		 * @param uri The uri of the resource open in a text editor.
+		 * @param callback, a handler called when users attempt to create a new comment thread, either from the gutter or command palette
+		 * @param token A cancellation token.
+		 * @return A thenable that resolves to a list of commenting ranges or null and undefined if the provider
+		 * does not want to participate or was cancelled.
+		 */
+		registerCommentingRangeProvider(provider: (document: TextDocument, token: CancellationToken) => ProviderResult<Range[]>, callback: (document: TextDocument, range: Range) => void): void;
 		dispose(): void;
 	}
 
 	namespace comment {
-		export function createCommentControl(id: string, label: string): CommentControl;
+		export function createCommentController(id: string, label: string): CommentController;
 	}
 
 	namespace workspace {
+		/**
+		 * DEPRECATED
+		 * Use vscode.comment.createCommentController instead.
+		 */
 		export function registerDocumentCommentProvider(provider: DocumentCommentProvider): Disposable;
+		/**
+		 * DEPRECATED
+		 * Use vscode.comment.createCommentController instead and we don't differentiate document comments and workspace comments anymore.
+		 */
 		export function registerWorkspaceCommentProvider(provider: WorkspaceCommentProvider): Disposable;
 	}
 

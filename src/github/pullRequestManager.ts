@@ -92,9 +92,6 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
-const _onDidSubmitReview = new vscode.EventEmitter<Comment[]>();
-export const onDidSubmitReview: vscode.Event<Comment[]> = _onDidSubmitReview.event;
-
 export class PullRequestManager {
 	static ID = 'PullRequestManager';
 	private _activePullRequest?: PullRequestModel;
@@ -1240,14 +1237,11 @@ export class PullRequestManager {
 				}
 			});
 
-			const submittedComments = data!.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
-			_onDidSubmitReview.fire(submittedComments);
+			pullRequest.inDraftMode = false;
 			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview);
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
 		}
-
-		pullRequest.inDraftMode = false;
 	}
 
 	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<CommonReviewEvent> {

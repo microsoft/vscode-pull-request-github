@@ -337,17 +337,17 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate() && commentControl.widget) {
-			if (commentControl.widget.commentThread.comments.length) {
-				let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate() && commentControl.inputBox) {
+			if (thread.comments.length) {
+				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.inputBox.value, comment._rawComment);
 
-				commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!, undefined, undefined, undefined)];
-				commentControl.widget.input = '';
+				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				commentControl.inputBox.value = '';
 			} else {
 				// create new comment
-				let input = commentControl.widget.input;
+				let input = commentControl.inputBox.value;
 				let fakeComment: vscode.Comment = {
 					isDraft: false,
 					commentId: 'fale1',
@@ -355,13 +355,14 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 					userName: 'rebornix'
 				};
 
-				commentControl.widget.commentThread.comments = [fakeComment];
+				thread.comments = [fakeComment];
 				let commands = [];
 				commands.push({
 					title: 'Start Review',
 					command: 'pr.startReview',
 					arguments: [
 						commentControl,
+						thread,
 						pullRequestModel
 					]
 				});
@@ -371,65 +372,107 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 					command: 'pr.replyComment',
 					arguments: [
 						commentControl,
+						thread,
 						pullRequestModel
 					]
 				});
 
-				commentControl.widget.commentThread.acceptInputCommands = commands;
-				commentControl.widget.input = '';
+				thread.acceptInputCommands = commands;
+				commentControl.inputBox.value = '';
 			}
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate() && commentControl.widget) {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate()) {
 			await prManager.startReview(pullRequestModel);
 
-			let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-			const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
+			if (thread.comments.length) {
+				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.inputBox ? commentControl.inputBox.value : '', comment._rawComment);
 
-			commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!, undefined, undefined, undefined)];
-			commentControl.widget.input = '';
+				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+			} else {
+				// create new comment
+				let input = commentControl.inputBox!.value;
+				let fakeComment: vscode.Comment = {
+					isDraft: false,
+					commentId: 'fale1',
+					body: new vscode.MarkdownString(input),
+					userName: 'rebornix'
+				};
+
+				thread.comments = [fakeComment];
+				let commands = [];
+				commands.push({
+					title: 'Start Review',
+					command: 'pr.startReview',
+					arguments: [
+						commentControl,
+						thread,
+						pullRequestModel
+					]
+				});
+
+				commands.push({
+					title: 'Add Comment',
+					command: 'pr.replyComment',
+					arguments: [
+						commentControl,
+						thread,
+						pullRequestModel
+					]
+				});
+
+				thread.acceptInputCommands = commands;
+			}
+
+			if (commentControl.inputBox) {
+				commentControl.inputBox.value = '';
+			}
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate() && commentControl.widget) {
-			if (commentControl.widget.input) {
-				let comment = commentControl.widget.commentThread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.widget.input, comment._rawComment);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate()) {
+			if (commentControl.inputBox) {
+				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.inputBox.value, comment._rawComment);
 
-				commentControl.widget.commentThread.comments = [...commentControl.widget.commentThread.comments, convertToVSCodeComment(rawComment!, undefined, undefined, undefined)];
-				commentControl.widget.input = '';
+				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				commentControl.inputBox.value = '';
 			}
 
 			await prManager.submitReview(pullRequestModel);
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate() && commentControl.widget) {
-			/* const { deletedReviewId, deletedReviewComments } =  */await prManager.deleteReview(pullRequestModel);
-			if (commentControl.widget.input) {
-				commentControl.widget.input = '';
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
+		if (await prManager.authenticate()) {
+			const { deletedReviewId, deletedReviewComments } = await prManager.deleteReview(pullRequestModel);
+			if (commentControl.inputBox && commentControl.inputBox!.value) {
+				commentControl.inputBox!.value = '';
 			}
+
+			reviewManager.deleteReview(deletedReviewId, deletedReviewComments);
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel, comment: vscode.Comment) => {
-		if (await prManager.authenticate() && commentControl.widget) {
-			let rawComment = commentControl.widget.commentThread.comments.find(cmt => cmt.commentId === comment.commentId);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, comment: vscode.Comment) => {
+		if (await prManager.authenticate() && commentControl.inputBox) {
+			let rawComment = thread.comments.find(cmt => cmt.commentId === comment.commentId);
 
 			if (rawComment) {
-				rawComment = convertToVSCodeComment(await prManager.editReviewComment(pullRequestModel, (rawComment as (vscode.Comment & { _rawComment: Comment }))._rawComment, commentControl.widget.input), undefined, commentControl, pullRequestModel);
-				let newComments = commentControl.widget.commentThread.comments.map(cmt => {
+				rawComment = convertToVSCodeComment(await prManager.editReviewComment(pullRequestModel, (rawComment as (vscode.Comment & { _rawComment: Comment }))._rawComment, commentControl.inputBox!.value), undefined);
+				let newComments = thread.comments.map(cmt => {
 					if (cmt.commentId === rawComment!.commentId) {
-						rawComment!.editCommand = getEditCommand(commentControl, pullRequestModel, rawComment!);
+						rawComment!.editCommand = getEditCommand(commentControl, thread, pullRequestModel, rawComment!);
 						rawComment!.deleteCommand = {
 							title: 'Delete Comment',
 							command: 'pr.deleteComment',
 							arguments: [
 								commentControl,
+								thread,
 								pullRequestModel,
 								rawComment!
 							]
@@ -439,48 +482,24 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 					return cmt;
 				});
-				commentControl.widget.commentThread.comments = newComments;
+				thread.comments = newComments;
 			}
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel, comment: vscode.Comment) => {
-		if (await prManager.authenticate() && commentControl.widget) {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, comment: vscode.Comment) => {
+		if (await prManager.authenticate()) {
 			await prManager.deleteReviewComment(pullRequestModel, comment.commentId);
-			const index = commentControl.widget.commentThread.comments.findIndex(c => c.commentId === comment.commentId);
+			const index = thread.comments.findIndex(c => c.commentId === comment.commentId);
 			if (index > -1) {
-				commentControl.widget.commentThread.comments.splice(index, 1);
-				commentControl.widget.commentThread.comments = commentControl.widget.commentThread.comments;
+				thread.comments.splice(index, 1);
+				thread.comments = thread.comments;
 			}
 
 			let inDraftMode = await prManager.inDraftMode(pullRequestModel);
 			if (inDraftMode !== pullRequestModel.inDraftMode) {
 				pullRequestModel.inDraftMode = inDraftMode;
 			}
-		}
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.createNewCommentThread', async (commentControl: vscode.CommentControl, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate() && commentControl.activeCommentingRange && vscode.window.activeTextEditor) {
-			let commands = [];
-			commands.push({
-				title: 'Start Review',
-				command: 'pr.startReview',
-				arguments: [
-					commentControl,
-					pullRequestModel
-				]
-			});
-
-			commands.push({
-				title: 'Add Comment',
-				command: 'pr.replyComment',
-				arguments: [
-					commentControl,
-					pullRequestModel
-				]
-			});
-			commentControl.createCommentThread('', vscode.window.activeTextEditor!.document.uri, commentControl.activeCommentingRange, [], commands, vscode.CommentThreadCollapsibleState.Expanded);
 		}
 	}));
 }
