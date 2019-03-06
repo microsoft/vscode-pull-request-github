@@ -52,8 +52,10 @@ export function init(ctx: GlobalStateContext, keychain: Keytar = systemKeychain)
 
 export async function getToken(host: string, { storage = defaultStorage, keychain = defaultKeychain } = {}): Promise<string | null | undefined> {
 	host = toCanonical(host);
-	const token = keychain!.getPassword(SERVICE_ID, toCanonical(host))
-		.catch(() => storage!.get(keyFor(host)));
+	const token = keychain!.getPassword(SERVICE_ID, host)
+		.catch(() => {
+			return storage!.get(keyFor(host));
+		});
 
 	// While we're transitioning everything out of configuration and into local storage, it's possible
 	// that we end up in a state where a host is not in the hosts list (perhaps because it was removed
