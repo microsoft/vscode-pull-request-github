@@ -26,6 +26,7 @@ export function convertToVSCodeComment(comment: Comment, command: vscode.Command
 		canEdit: comment.canEdit,
 		canDelete: comment.canDelete,
 		isDraft: !!comment.isDraft,
+		label: !!comment.isDraft ? 'Draft' : undefined,
 		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
 			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : []
@@ -56,6 +57,7 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	let commands = getCommentThreadCommands(commentController, vscodeThread, pullRequestModel, inDraftMode);
 	vscodeThread.acceptInputCommands = commands;
 	vscodeThread.collapsibleState = thread.collapsibleState;
+	vscodeThread.label = 'my conversation';
 	return vscodeThread;
 }
 
