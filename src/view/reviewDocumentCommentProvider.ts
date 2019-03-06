@@ -160,6 +160,11 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 					commentThreadMap[fileName].forEach(thread => {
 						let commands = getCommentThreadCommands(this._commentController!, thread, this._prManager.activePullRequest!, newDraftMode);
 						thread.acceptInputCommands = commands;
+						thread.comments = thread.comments.map(comment => {
+							comment.label = newDraftMode ? 'Draft' : undefined;
+							comment.isDraft = newDraftMode;
+							return comment;
+						});
 					});
 				}
 			});
