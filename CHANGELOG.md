@@ -17,8 +17,8 @@
 the SCM viewlet where it was before. By default, the tree is shown in the GitHub viewlet.
 
 **Thank You**
-- Disable not available merge methods [#946](https://github.com/Microsoft/vscode-pull-request-github/pull/946)
-- Fix LGTM.com alerts [#948](https://github.com/Microsoft/vscode-pull-request-github/pull/948) by samlanning
+- Disable not available merge methods [#946](https://github.com/Microsoft/vscode-pull-request-github/pull/946) by @IllusionMH
+- Fix LGTM.com alerts [#948](https://github.com/Microsoft/vscode-pull-request-github/pull/948) by @samlanning
 
 0.4.0
 
