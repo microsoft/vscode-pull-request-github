@@ -367,7 +367,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 					]
 				});
 
-				commands.push({
+				thread.acceptInputCommand = {
 					title: 'Add Comment',
 					command: 'pr.replyComment',
 					arguments: [
@@ -375,9 +375,9 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 						thread,
 						pullRequestModel
 					]
-				});
+				};
 
-				thread.acceptInputCommands = commands;
+				thread.additionalCommands = commands;
 				commentControl.inputBox.value = '';
 			}
 		}
@@ -414,7 +414,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 					]
 				});
 
-				commands.push({
+				thread.acceptInputCommand = {
 					title: 'Add Comment',
 					command: 'pr.replyComment',
 					arguments: [
@@ -422,9 +422,9 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 						thread,
 						pullRequestModel
 					]
-				});
+				};
 
-				thread.acceptInputCommands = commands;
+				thread.additionalCommands = commands;
 			}
 
 			if (commentControl.inputBox) {

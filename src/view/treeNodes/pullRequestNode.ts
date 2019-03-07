@@ -246,7 +246,8 @@ export class PRNode extends TreeNode {
 						for (let fileName in this._fileChangeCommentThreads) {
 							this._fileChangeCommentThreads[fileName].forEach(thread => {
 								let commands = getCommentThreadCommands(this._commentControl!, thread, this.pullRequestModel, newDraftMode);
-								thread.acceptInputCommands = commands;
+								thread.acceptInputCommand = commands.acceptInputCommand;
+								thread.additionalCommands = commands.additionalCommands;
 							});
 						}
 					}));
@@ -284,7 +285,8 @@ export class PRNode extends TreeNode {
 				]
 			});
 
-			commands.push({
+			thread.additionalCommands = commands;
+			thread.acceptInputCommand = {
 				title: 'Add Comment',
 				command: 'pr.replyComment',
 				arguments: [
@@ -292,9 +294,7 @@ export class PRNode extends TreeNode {
 					thread,
 					this._prManager.activePullRequest!
 				]
-			});
-
-			thread.acceptInputCommands = commands;
+			};
 		}
 	}
 

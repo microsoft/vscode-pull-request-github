@@ -159,7 +159,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 				for (let fileName in commentThreadMap) {
 					commentThreadMap[fileName].forEach(thread => {
 						let commands = getCommentThreadCommands(this._commentController!, thread, this._prManager.activePullRequest!, newDraftMode);
-						thread.acceptInputCommands = commands;
+						thread.acceptInputCommand = commands.acceptInputCommand;
+						thread.additionalCommands = commands.additionalCommands;
 						thread.comments = thread.comments.map(comment => {
 							comment.label = newDraftMode ? 'Draft' : undefined;
 							comment.isDraft = newDraftMode;
@@ -272,7 +273,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 				]
 			});
 
-			commands.push({
+			thread.additionalCommands = commands;
+			thread.acceptInputCommand = {
 				title: 'Add Comment',
 				command: 'pr.replyComment',
 				arguments: [
@@ -280,9 +282,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 					thread,
 					this._prManager.activePullRequest!
 				]
-			});
-
-			thread.acceptInputCommands = commands;
+			};
 		}
 	}
 
@@ -657,7 +657,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 					matchedFileCommentThread.range = matchedFileCommentThread.range;
 					matchedFileCommentThread.comments = matchedFileCommentThread.comments;
 					let commands = getCommentThreadCommands(this._commentController!, matchedFileCommentThread, this._prManager.activePullRequest!, inDraftMode);
-					matchedFileCommentThread.acceptInputCommands = commands;
+					matchedFileCommentThread.acceptInputCommand = commands.acceptInputCommand;
+					matchedFileCommentThread.additionalCommands = commands.additionalCommands;
 					resultThreads.push(matchedFileCommentThread);
 				} else {
 					thread.dispose!();
@@ -685,7 +686,9 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 					vscodeThread.comments = localFileCommentThread.comments;
 
 					let commands = getCommentThreadCommands(this._commentController!, vscodeThread, this._prManager.activePullRequest!, inDraftMode);
-					vscodeThread.acceptInputCommands = commands;
+					vscodeThread.acceptInputCommand = commands.acceptInputCommand;
+					vscodeThread.additionalCommands = commands.additionalCommands;
+
 					vscodeThread.collapsibleState = localFileCommentThread.collapsibleState;
 
 					resultThreads.push(vscodeThread);
@@ -729,7 +732,9 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;
 					matchedThread[0].comments = thread.comments;
-					matchedThread[0].acceptInputCommands = commands;
+					matchedThread[0].acceptInputCommand = commands.acceptInputCommand;
+					matchedThread[0].additionalCommands = commands.additionalCommands;
+
 				} else {
 					// create new thread
 					resultThreads.push(createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode));

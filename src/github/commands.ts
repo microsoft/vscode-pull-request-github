@@ -5,8 +5,9 @@
 
 import * as vscode from 'vscode';
 import { PullRequestModel } from './pullRequestModel';
-export function getCommentThreadCommands(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, inDraftMode: boolean): vscode.Command[] {
+export function getCommentThreadCommands(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, inDraftMode: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
 	let commands: vscode.Command[] = [];
+	let acceptInputCommand: vscode.Command;
 	if (inDraftMode) {
 		commands.push({
 			title: 'Delete Review',
@@ -28,7 +29,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			]
 		});
 
-		commands.push({
+		acceptInputCommand = {
 			title: 'Add Review Comment',
 			command: 'pr.replyComment',
 			arguments: [
@@ -36,7 +37,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 				thread,
 				pullRequestModel
 			]
-		});
+		};
 	} else {
 		commands.push({
 			title: 'Start Review',
@@ -48,7 +49,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			]
 		});
 
-		commands.push({
+		acceptInputCommand = {
 			title: 'Reply Comment',
 			command: 'pr.replyComment',
 			arguments: [
@@ -56,10 +57,13 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 				thread,
 				pullRequestModel
 			]
-		});
+		};
 	}
 
-	return commands;
+	return {
+		acceptInputCommand: acceptInputCommand,
+		additionalCommands: commands
+	};
 }
 
 export function getEditCommand(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, vscodeComment: vscode.Comment): vscode.Command {
