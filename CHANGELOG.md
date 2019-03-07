@@ -1,3 +1,25 @@
+0.5.0
+
+**Breaking Changes**
+
+- From 0.5.0, you at least need VSCode 1.32 to install and run the extension.
+
+**Changes**
+- Add support for reacting to comments [#46](https://github.com/Microsoft/vscode-pull-request-github/issues/46)
+- Display reviewers on the description page, and support adding and removing them [#412](https://github.com/Microsoft/vscode-pull-request-github/issues/412)
+- Support adding and removing labels from the description page [#933](https://github.com/Microsoft/vscode-pull-request-github/issues/933)
+- Fix [#936](https://github.com/Microsoft/vscode-pull-request-github/issues/936), pending review not correctly detected in "Changes in Pull Request" tree
+- Fix [#929](https://github.com/Microsoft/vscode-pull-request-github/issues/929), description textarea not cleared when approving or requesting changes
+- Fix [#912](https://github.com/Microsoft/vscode-pull-request-github/issues/912), approving the PR scrolls to the top of the page
+
+**New settings**
+- `githubPullRequests.showInSCM` can be used to configure where the `GitHub Pull Requests` tree is shown, either the new GitHub viewlet or
+the SCM viewlet where it was before. By default, the tree is shown in the GitHub viewlet.
+
+**Thank You**
+- Disable not available merge methods [#946](https://github.com/Microsoft/vscode-pull-request-github/pull/946) by @IllusionMH
+- Fix LGTM.com alerts [#948](https://github.com/Microsoft/vscode-pull-request-github/pull/948) by @samlanning
+
 0.4.0
 
 **Breaking Changes**
