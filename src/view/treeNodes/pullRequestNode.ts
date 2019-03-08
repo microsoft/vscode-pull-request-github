@@ -284,10 +284,8 @@ export class PRNode extends TreeNode implements CommentHandler {
 				title: 'Start Review',
 				command: 'pr.startReview',
 				arguments: [
-					this._commentController!,
-					thread,
-					this._prManager.activePullRequest!,
-					this
+					this,
+					thread
 				]
 			});
 
@@ -296,16 +294,14 @@ export class PRNode extends TreeNode implements CommentHandler {
 				title: 'Add Comment',
 				command: 'pr.replyComment',
 				arguments: [
-					this._commentController!,
-					thread,
-					this._prManager.activePullRequest!,
-					this
+					this,
+					thread
 				]
 			};
 		}
 	}
 
-	public async updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void> {
+	private async updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void> {
 		try {
 			let uri = thread.resource;
 			let params = fromPRUri(uri);
@@ -583,6 +579,23 @@ export class PRNode extends TreeNode implements CommentHandler {
 		return fileChange;
 	}
 
+	public async createOrReplyComment(thread: vscode.CommentThread) {
+		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
+			if (thread.comments.length) {
+				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox.value, comment._rawComment);
+
+				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				this.commentController!.inputBox.value = '';
+			} else {
+				// create new comment thread
+				let input = this.commentController!.inputBox.value;
+				await this.updateCommentThreadRoot(thread, input);
+				this.commentController!.inputBox.value = '';
+			}
+		}
+	}
+
 	public async editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {
 		if (await this._prManager.authenticate() && this._commentController!.inputBox) {
 			const fileChange = this.findMatchingFileNode(thread.resource);
@@ -665,6 +678,27 @@ export class PRNode extends TreeNode implements CommentHandler {
 				// Remove deleted comments from the file change's comment list
 				matchingFileChange.comments = matchingFileChange.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
 			}
+		}
+	}
+
+	public async startReview(thread: vscode.CommentThread): Promise<void> {
+		await this._prManager.startReview(this.pullRequestModel);
+
+		if (thread.comments.length) {
+			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox ? this.commentController!.inputBox.value : '', comment._rawComment);
+
+			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+		} else {
+			// create new comment thread
+
+			if (this.commentController!.inputBox && this.commentController!.inputBox.value) {
+				await this.updateCommentThreadRoot(thread, this.commentController!.inputBox.value);
+			}
+		}
+
+		if (this.commentController!.inputBox) {
+			this.commentController!.inputBox.value = '';
 		}
 	}
 

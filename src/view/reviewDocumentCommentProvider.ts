@@ -264,10 +264,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				title: 'Start Review',
 				command: 'pr.startReview',
 				arguments: [
-					this._commentController!,
-					thread,
-					this._prManager.activePullRequest!,
-					this
+					this,
+					thread
 				]
 			});
 
@@ -276,16 +274,14 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				title: 'Add Comment',
 				command: 'pr.replyComment',
 				arguments: [
-					this._commentController!,
-					thread,
-					this._prManager.activePullRequest!,
-					this
+					this,
+					thread
 				]
 			};
 		}
 	}
 
-	async updateCommentThreadRoot(thread: vscode.CommentThread, text: string) {
+	private async updateCommentThreadRoot(thread: vscode.CommentThread, text: string) {
 		const uri = thread.resource;
 		const matchedFile = this.findMatchedFileByUri(uri);
 		const query = uri.query === '' ? undefined : fromReviewUri(uri);
@@ -598,6 +594,27 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
+	public async startReview(thread: vscode.CommentThread) {
+		await this._prManager.startReview(this._prManager.activePullRequest!);
+
+		if (thread.comments.length) {
+			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox ? this.commentController!.inputBox.value : '', comment._rawComment);
+
+			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+		} else {
+			// create new comment thread
+
+			if (this.commentController!.inputBox && this.commentController!.inputBox.value) {
+				await this.updateCommentThreadRoot(thread, this.commentController!.inputBox.value);
+			}
+		}
+
+		if (this.commentController!.inputBox) {
+			this.commentController!.inputBox.value = '';
+		}
+	}
+
 	public async finishReview(thread: vscode.CommentThread) {
 		if (this.commentController!.inputBox) {
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
@@ -635,6 +652,23 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				}
 			}
 		});
+	}
+
+	async createOrReplyComment(thread: vscode.CommentThread) {
+		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
+			if (thread.comments.length) {
+				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+				const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox.value, comment._rawComment);
+
+				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				this.commentController!.inputBox.value = '';
+			} else {
+				// create new comment thread
+				let input = this.commentController!.inputBox.value;
+				await this.updateCommentThreadRoot(thread, input);
+				this.commentController!.inputBox.value = '';
+			}
+		}
 	}
 
 	async editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {

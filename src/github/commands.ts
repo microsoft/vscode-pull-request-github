@@ -32,10 +32,8 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			title: 'Add Review Comment',
 			command: 'pr.replyComment',
 			arguments: [
-				commentControl,
-				thread,
-				pullRequestModel,
-				node
+				node,
+				thread
 			]
 		};
 	} else {
@@ -44,9 +42,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			command: 'pr.startReview',
 			arguments: [
 				node,
-				commentControl,
-				thread,
-				pullRequestModel
+				thread
 			]
 		});
 
@@ -55,9 +51,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			command: 'pr.replyComment',
 			arguments: [
 				node,
-				commentControl,
-				thread,
-				pullRequestModel,
+				thread
 			]
 		};
 	}

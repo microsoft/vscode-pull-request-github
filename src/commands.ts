@@ -25,7 +25,6 @@ import { GitErrorCodes } from './git/api';
 import { Comment, CommentHandler } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
-import { convertToVSCodeComment } from './github/utils';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -336,44 +335,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (node: CommentHandler, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate() && commentControl.inputBox) {
-			if (thread.comments.length) {
-				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.inputBox.value, comment._rawComment);
-
-				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
-				commentControl.inputBox.value = '';
-			} else {
-				// create new comment thread
-				let input = commentControl.inputBox.value;
-				await node.updateCommentThreadRoot(thread, input);
-				commentControl.inputBox.value = '';
-			}
-		}
+	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (node: CommentHandler, thread: vscode.CommentThread) => {
+		node.createOrReplyComment(thread);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (node: CommentHandler, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate()) {
-			await prManager.startReview(pullRequestModel);
-
-			if (thread.comments.length) {
-				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.inputBox ? commentControl.inputBox.value : '', comment._rawComment);
-
-				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
-			} else {
-				// create new comment thread
-
-				if (commentControl.inputBox && commentControl.inputBox.value) {
-					await node.updateCommentThreadRoot(thread, commentControl.inputBox.value);
-				}
-			}
-
-			if (commentControl.inputBox) {
-				commentControl.inputBox.value = '';
-			}
-		}
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (node: CommentHandler, thread: vscode.CommentThread) => {
+		node.startReview(thread);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (node: CommentHandler, thread: vscode.CommentThread) => {
