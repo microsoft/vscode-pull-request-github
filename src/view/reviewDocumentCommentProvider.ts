@@ -5,7 +5,7 @@
 
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
-import { Comment, CommentInfo } from '../common/comment';
+import { Comment, CommentInfo, CommentHandler } from '../common/comment';
 import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, mapCommentThreadsToHead, mapHeadLineToDiffHunkPosition } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
@@ -64,14 +64,11 @@ function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChan
 
 	return ret;
 }
-export class ReviewDocumentCommentProvider implements vscode.Disposable {
+export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler {
 	private _localToDispose: vscode.Disposable[] = [];
 	private _onDidChangeComments = new vscode.EventEmitter<Comment[]>();
 	public onDidChangeComments = this._onDidChangeComments.event;
 
-	public startDraftLabel = 'Start Review';
-	public deleteDraftLabel = 'Delete Review';
-	public finishDraftLabel = 'Submit Review';
 	public reactionGroup? = getReactionGroup();
 
 	private _commentController?: vscode.CommentController;
@@ -180,7 +177,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 
 				if (matchedFileChanges.length) {
 					const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
-					let commentThreads = provideDocumentComments(editor.document.uri, params.isBase, matchedFileChanges[0], inDraftMode);
+					let commentThreads = provideDocumentComments(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments, inDraftMode);
 
 					if (commentThreads) {
 						let newThreads: vscode.CommentThread[] = [];
@@ -618,6 +615,98 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 		});
 	}
 
+	async editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {
+		try {
+			if (!await this._prManager.authenticate() || !this._commentController!.inputBox) {
+				return;
+			}
+
+			if (!this._prManager.activePullRequest) {
+				throw new Error('Unable to find active pull request');
+			}
+
+			const matchedFile = this.findMatchedFileByUri(thread.resource);
+			if (!matchedFile) {
+				throw new Error('Unable to find matching file');
+			}
+
+			const rawComment = matchedFile.comments.find(c => c.id === Number(comment.commentId));
+			if (!rawComment) {
+				throw new Error('Unable to find comment');
+			}
+
+			const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, rawComment, this._commentController!.inputBox.value);
+
+			// Update the cached comments of the file
+			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
+			if (matchingCommentIndex > -1) {
+				matchedFile.comments.splice(matchingCommentIndex, 1, editedComment);
+			}
+
+			// Also update this._comments
+			const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);
+			if (indexInAllComments > -1) {
+				this._comments.splice(indexInAllComments, 1, editedComment);
+			}
+
+			const vscodeComment = convertToVSCodeComment(editedComment, undefined);
+
+			let newComments = thread.comments.map(cmt => {
+				if (cmt.commentId === vscodeComment.commentId) {
+					vscodeComment.editCommand = getEditCommand(this._commentController!, thread, vscodeComment, this);
+					vscodeComment.deleteCommand = getDeleteCommand(this._commentController!, thread, vscodeComment, this);
+					return vscodeComment;
+				}
+
+				return cmt;
+			});
+			thread.comments = newComments;
+
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
+	async deleteComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {
+		try {
+			if (!this._prManager.activePullRequest) {
+				throw new Error('Unable to find active pull request');
+			}
+
+			const matchedFile = this.findMatchedFileByUri(thread.resource);
+			if (!matchedFile) {
+				throw new Error('Unable to find matching file');
+			}
+
+			await this._prManager.deleteReviewComment(this._prManager.activePullRequest, comment.commentId);
+			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
+			if (matchingCommentIndex > -1) {
+				matchedFile.comments.splice(matchingCommentIndex, 1);
+			}
+
+			const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);
+			if (indexInAllComments > -1) {
+				this._comments.splice(indexInAllComments, 1);
+			}
+
+			const index = thread.comments.findIndex(c => c.commentId === comment.commentId);
+			if (index > -1) {
+				thread.comments.splice(index, 1);
+				thread.comments = thread.comments;
+			}
+
+			// todo: update all related threads.
+
+			let inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
+			if (inDraftMode !== this._prManager.activePullRequest!.inDraftMode) {
+				this._prManager.activePullRequest!.inDraftMode = inDraftMode;
+			}
+
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
 	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: Comment[]): Promise<void> {
 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 		// _workspaceFileChangeCommentThreads
@@ -709,11 +798,11 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable {
 						let patchedComment = comment as vscode.Comment & { _rawComment: Comment };
 
 						if (patchedComment._rawComment.canEdit) {
-							comment.editCommand = getEditCommand(this._commentController!, vscodeThread, this._prManager.activePullRequest!, comment);
+							comment.editCommand = getEditCommand(this._commentController!, vscodeThread, comment, this);
 
 						}
 						if (patchedComment._rawComment.canDelete) {
-							comment.deleteCommand = getDeleteCommand(this._commentController!, vscodeThread, this._prManager.activePullRequest!, comment);
+							comment.deleteCommand = getDeleteCommand(this._commentController!, vscodeThread, comment, this);
 						}
 					});
 

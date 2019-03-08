@@ -50,3 +50,9 @@ export interface CommentInfo {
 	 */
 	commentingRanges?: vscode.Range[];
 }
+
+export interface CommentHandler {
+	editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
+	deleteComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
+	updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void>;
+}

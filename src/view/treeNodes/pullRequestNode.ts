@@ -16,16 +16,17 @@ import { DescriptionNode } from './descriptionNode';
 import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
-import { Comment } from '../../common/comment';
+import { Comment, CommentHandler } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { convertToVSCodeComment, createVSCodeCommentThread } from '../../github/utils';
-import { getCommentThreadCommands } from '../../github/commands';
+import { getCommentThreadCommands, getEditCommand, getDeleteCommand } from '../../github/commands';
 
 export function provideDocumentComments(
 	uri: vscode.Uri,
 	isBase: boolean,
 	fileChange: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode),
+	matchingComments: Comment[],
 	inDraftMode: boolean) {
 
 	if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
@@ -38,7 +39,6 @@ export function provideDocumentComments(
 		? [new vscode.Range(0, 0, 0, 0)]
 		: getCommentingRanges(fileChange.diffHunks, isBase);
 
-	const matchingComments = fileChange.comments;
 	if (!matchingComments || !matchingComments.length) {
 		return {
 			threads: [],
@@ -141,7 +141,7 @@ function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vsco
 	});
 }
 
-export class PRNode extends TreeNode {
+export class PRNode extends TreeNode implements CommentHandler {
 	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _fileChangeCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
@@ -232,8 +232,8 @@ export class PRNode extends TreeNode {
 
 					this._fileChanges.forEach(fileChange => {
 						if (fileChange instanceof InMemFileChangeNode) {
-							let leftComments = provideDocumentComments(fileChange.parentFilePath, true, fileChange, inDraftMode);
-							let rightComments = provideDocumentComments(fileChange.filePath, false, fileChange, inDraftMode);
+							let leftComments = provideDocumentComments(fileChange.parentFilePath, true, fileChange, fileChange.comments, inDraftMode);
+							let rightComments = provideDocumentComments(fileChange.filePath, false, fileChange, fileChange.comments, inDraftMode);
 							this.createCommentThread(
 								fileChange.fileName,
 								[...(leftComments ? leftComments.threads : []), ...(rightComments ? rightComments.threads : [])],
@@ -300,13 +300,13 @@ export class PRNode extends TreeNode {
 		}
 	}
 
-	public async updateCommentThreadRoot(thread: vscode.CommentThread, text: string) {
+	public async updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void> {
 		try {
 			let uri = thread.resource;
 			let params = fromPRUri(uri);
 
 			if (params && params.prNumber !== this.pullRequestModel.prNumber) {
-				return null;
+				return;
 			}
 
 			const fileChange = this._fileChanges.find(change => change.fileName === params!.fileName);
@@ -444,12 +444,12 @@ export class PRNode extends TreeNode {
 			}
 
 			let oldLeftSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource.toString() === (oldFileChange as InMemFileChangeNode).parentFilePath.toString());
-			let newLeftSideCommentThreads = provideDocumentComments(newFileChange.parentFilePath, true, newFileChange, inDraftMode);
+			let newLeftSideCommentThreads = provideDocumentComments(newFileChange.parentFilePath, true, newFileChange, newFileChange.comments, inDraftMode);
 
 			this.updateFileChangeCommentThreads(oldLeftSideCommentThreads, newLeftSideCommentThreads ? newLeftSideCommentThreads.threads : [], newFileChange, inDraftMode);
 
 			let oldRightSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource.toString() === (oldFileChange as InMemFileChangeNode).filePath.toString());
-			let newRightSideCommentThreads = provideDocumentComments(newFileChange.filePath, true, newFileChange, inDraftMode);
+			let newRightSideCommentThreads = provideDocumentComments(newFileChange.filePath, true, newFileChange, newFileChange.comments, inDraftMode);
 
 			this.updateFileChangeCommentThreads(oldRightSideCommentThreads, newRightSideCommentThreads ? newRightSideCommentThreads.threads : [], newFileChange, inDraftMode);
 		}
@@ -556,6 +556,77 @@ export class PRNode extends TreeNode {
 		}
 		Logger.appendLine(`PR> can not find content for document ${uri.toString()}`);
 		return '';
+	}
+
+	private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {
+		const params = fromPRUri(uri);
+
+		if (!params) {
+			throw new Error(`${uri.toString()} is not valid PR document`);
+		}
+
+		const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
+
+		if (!fileChange) {
+			throw new Error('No matching file found');
+		}
+
+		if (fileChange instanceof RemoteFileChangeNode) {
+			throw new Error('Comments not supported on remote file changes');
+		}
+
+		return fileChange;
+	}
+
+	public async editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {
+		if (await this._prManager.authenticate() && this._commentControl!.inputBox) {
+			const fileChange = this.findMatchingFileNode(thread.resource);
+			const existingComment = fileChange.comments.find(c => c.id.toString() === comment.commentId);
+			if (!existingComment) {
+				throw new Error('Unable to find comment');
+			}
+
+			const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, existingComment, this._commentControl!.inputBox.value);
+
+			const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
+			if (index > -1) {
+				fileChange.comments.splice(index, 1, rawComment);
+			}
+
+			const vscodeComment = convertToVSCodeComment(rawComment, undefined);
+
+			let newComments = thread.comments.map(cmt => {
+				if (cmt.commentId === vscodeComment.commentId) {
+					vscodeComment.editCommand = getEditCommand(this._commentControl!, thread, vscodeComment, this);
+					vscodeComment.deleteCommand = getDeleteCommand(this._commentControl!, thread, vscodeComment, this);
+					return vscodeComment;
+				}
+
+				return cmt;
+			});
+			thread.comments = newComments;
+		}
+	}
+
+	public async deleteComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {
+		const fileChange = this.findMatchingFileNode(thread.resource);
+
+		await this._prManager.deleteReviewComment(this.pullRequestModel, comment.commentId);
+		let index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
+		if (index > -1) {
+			fileChange.comments.splice(index, 1);
+		}
+
+		index = thread.comments.findIndex(c => c.commentId === comment.commentId);
+		if (index > -1) {
+			thread.comments.splice(index, 1);
+			thread.comments = thread.comments;
+		}
+
+		let inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
+		if (inDraftMode !== this.pullRequestModel.inDraftMode) {
+			this.pullRequestModel.inDraftMode = inDraftMode;
+		}
 	}
 
 	// private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {

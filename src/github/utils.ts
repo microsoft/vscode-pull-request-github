@@ -44,11 +44,11 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	thread.comments.forEach(comment => {
 		let patchedComment = comment as vscode.Comment & { _rawComment: Comment };
 		if (patchedComment._rawComment.canEdit) {
-			patchedComment.editCommand = getEditCommand(commentController, vscodeThread, pullRequestModel, comment);
+			patchedComment.editCommand = getEditCommand(commentController, vscodeThread, comment, node);
 
 		}
 		if (patchedComment._rawComment.canDelete) {
-			patchedComment.deleteCommand = getDeleteCommand(commentController, vscodeThread, pullRequestModel, comment);
+			patchedComment.deleteCommand = getDeleteCommand(commentController, vscodeThread, comment, node);
 		}
 	});
 
@@ -62,16 +62,16 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	return vscodeThread;
 }
 
-export function fillInCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) {
+export function fillInCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) {
 	if (commentControl && pullRequestModel) {
 		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: Comment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
 
 		if (patchedComment.canEdit) {
-			patchedComment.editCommand = getEditCommand(commentControl, thread, pullRequestModel, vscodeComment);
+			patchedComment.editCommand = getEditCommand(commentControl, thread, vscodeComment, node);
 		}
 
 		if (patchedComment.canDelete) {
-			patchedComment.deleteCommand = getDeleteCommand(commentControl, thread, pullRequestModel, vscodeComment);
+			patchedComment.deleteCommand = getDeleteCommand(commentControl, thread, vscodeComment, node);
 		}
 	}
 }
