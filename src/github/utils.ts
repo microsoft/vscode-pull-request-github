@@ -44,11 +44,11 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	thread.comments.forEach(comment => {
 		let patchedComment = comment as vscode.Comment & { _rawComment: Comment };
 		if (patchedComment._rawComment.canEdit) {
-			patchedComment.editCommand = getEditCommand(commentController, vscodeThread, comment, node);
+			patchedComment.editCommand = getEditCommand(vscodeThread, comment, node);
 
 		}
 		if (patchedComment._rawComment.canDelete) {
-			patchedComment.deleteCommand = getDeleteCommand(commentController, vscodeThread, comment, node);
+			patchedComment.deleteCommand = getDeleteCommand(vscodeThread, comment, node);
 		}
 	});
 
@@ -67,11 +67,11 @@ export function fillInCommentCommands(vscodeComment: vscode.Comment, commentCont
 		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: Comment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
 
 		if (patchedComment.canEdit) {
-			patchedComment.editCommand = getEditCommand(commentControl, thread, vscodeComment, node);
+			patchedComment.editCommand = getEditCommand(thread, vscodeComment, node);
 		}
 
 		if (patchedComment.canDelete) {
-			patchedComment.deleteCommand = getDeleteCommand(commentControl, thread, vscodeComment, node);
+			patchedComment.deleteCommand = getDeleteCommand(thread, vscodeComment, node);
 		}
 	}
 }

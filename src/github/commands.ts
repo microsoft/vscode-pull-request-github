@@ -71,12 +71,11 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 	};
 }
 
-export function getEditCommand(commentControl: vscode.CommentController, thread: vscode.CommentThread, vscodeComment: vscode.Comment, node: PRNode | ReviewDocumentCommentProvider): vscode.Command {
+export function getEditCommand(thread: vscode.CommentThread, vscodeComment: vscode.Comment, node: PRNode | ReviewDocumentCommentProvider): vscode.Command {
 	return {
 		title: 'Edit Comment',
 		command: 'pr.editComment',
 		arguments: [
-			commentControl,
 			thread,
 			vscodeComment,
 			node
@@ -84,12 +83,11 @@ export function getEditCommand(commentControl: vscode.CommentController, thread:
 	};
 }
 
-export function getDeleteCommand(commentControl: vscode.CommentController, thread: vscode.CommentThread, vscodeComment: vscode.Comment, node: PRNode | ReviewDocumentCommentProvider): vscode.Command {
+export function getDeleteCommand(thread: vscode.CommentThread, vscodeComment: vscode.Comment, node: PRNode | ReviewDocumentCommentProvider): vscode.Command {
 	return {
 		title: 'Delete Comment',
 		command: 'pr.deleteComment',
 		arguments: [
-			commentControl,
 			thread,
 			vscodeComment,
 			node

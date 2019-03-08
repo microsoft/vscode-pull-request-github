@@ -145,7 +145,12 @@ export class PRNode extends TreeNode implements CommentHandler {
 	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _fileChangeCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
-	private _commentControl?: vscode.CommentController;
+	private _commentController?: vscode.CommentController;
+
+	public get commentController(): vscode.CommentController | undefined {
+		return this._commentController;
+	}
+
 	private _disposables: vscode.Disposable[] = [];
 
 	private _inMemPRContentProvider?: vscode.Disposable;
@@ -222,13 +227,13 @@ export class PRNode extends TreeNode implements CommentHandler {
 			if (!this.pullRequestModel.equals(this._prManager.activePullRequest)) {
 				const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
 					this._fileChanges = fileChanges;
-					if (this._commentControl) {
+					if (this._commentController) {
 						await this.updateComments(fileChanges);
 						this._fileChanges = fileChanges;
 					}
 
-					this._commentControl = vscode.comment.createCommentController(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
-					this._commentControl.registerCommentingRangeProvider(this.provideCommentingRanges.bind(this), this.createNewCommentWidgetCallback.bind(this));
+					this._commentController = vscode.comment.createCommentController(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
+					this._commentController.registerCommentingRangeProvider(this.provideCommentingRanges.bind(this), this.createNewCommentWidgetCallback.bind(this));
 
 					this._fileChanges.forEach(fileChange => {
 						if (fileChange instanceof InMemFileChangeNode) {
@@ -245,7 +250,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 					this._disposables.push(this.pullRequestModel.onDidChangeDraftMode(newDraftMode => {
 						for (let fileName in this._fileChangeCommentThreads) {
 							this._fileChangeCommentThreads[fileName].forEach(thread => {
-								let commands = getCommentThreadCommands(this._commentControl!, thread, this.pullRequestModel, newDraftMode, this);
+								let commands = getCommentThreadCommands(this._commentController!, thread, this.pullRequestModel, newDraftMode, this);
 								thread.acceptInputCommand = commands.acceptInputCommand;
 								thread.additionalCommands = commands.additionalCommands;
 							});
@@ -271,7 +276,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 
 	async createNewCommentWidgetCallback(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
 		if (await this._prManager.authenticate()) {
-			let thread = this._commentControl!.createCommentThread('', document.uri, range);
+			let thread = this._commentController!.createCommentThread('', document.uri, range);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
 
 			let commands = [];
@@ -279,7 +284,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 				title: 'Start Review',
 				command: 'pr.startReview',
 				arguments: [
-					this._commentControl!,
+					this._commentController!,
 					thread,
 					this._prManager.activePullRequest!,
 					this
@@ -291,7 +296,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 				title: 'Add Comment',
 				command: 'pr.replyComment',
 				arguments: [
-					this._commentControl!,
+					this._commentController!,
 					thread,
 					this._prManager.activePullRequest!,
 					this
@@ -329,7 +334,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 			thread.comments = [comment];
 
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
-			const commands = getCommentThreadCommands(this._commentControl!, thread, this.pullRequestModel, inDraftMode, this);
+			const commands = getCommentThreadCommands(this._commentController!, thread, this.pullRequestModel, inDraftMode, this);
 
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
@@ -361,7 +366,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 	createCommentThread(fileName: string, commentThreads: vscode.CommentThread[], inDraftMode: boolean) {
 		let threads: vscode.CommentThread[] = [];
 		commentThreads.forEach(thread => {
-			threads.push(createVSCodeCommentThread(thread, this._commentControl! , this.pullRequestModel, inDraftMode, this));
+			threads.push(createVSCodeCommentThread(thread, this._commentController! , this.pullRequestModel, inDraftMode, this));
 		});
 
 		this._fileChangeCommentThreads[fileName] = threads;
@@ -579,14 +584,14 @@ export class PRNode extends TreeNode implements CommentHandler {
 	}
 
 	public async editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {
-		if (await this._prManager.authenticate() && this._commentControl!.inputBox) {
+		if (await this._prManager.authenticate() && this._commentController!.inputBox) {
 			const fileChange = this.findMatchingFileNode(thread.resource);
 			const existingComment = fileChange.comments.find(c => c.id.toString() === comment.commentId);
 			if (!existingComment) {
 				throw new Error('Unable to find comment');
 			}
 
-			const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, existingComment, this._commentControl!.inputBox.value);
+			const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, existingComment, this._commentController!.inputBox.value);
 
 			const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 			if (index > -1) {
@@ -597,8 +602,8 @@ export class PRNode extends TreeNode implements CommentHandler {
 
 			let newComments = thread.comments.map(cmt => {
 				if (cmt.commentId === vscodeComment.commentId) {
-					vscodeComment.editCommand = getEditCommand(this._commentControl!, thread, vscodeComment, this);
-					vscodeComment.deleteCommand = getDeleteCommand(this._commentControl!, thread, vscodeComment, this);
+					vscodeComment.editCommand = getEditCommand(thread, vscodeComment, this);
+					vscodeComment.deleteCommand = getDeleteCommand(thread, vscodeComment, this);
 					return vscodeComment;
 				}
 
@@ -700,8 +705,8 @@ export class PRNode extends TreeNode implements CommentHandler {
 			this._inMemPRContentProvider.dispose();
 		}
 
-		if (this._commentControl) {
-			this._commentControl.dispose();
+		if (this._commentController) {
+			this._commentController.dispose();
 		}
 
 		this._disposables.forEach(d => d.dispose());

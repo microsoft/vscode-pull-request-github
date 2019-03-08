@@ -72,6 +72,11 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	public reactionGroup? = getReactionGroup();
 
 	private _commentController?: vscode.CommentController;
+
+	public get commentController(): vscode.CommentController | undefined {
+		return this._commentController;
+	}
+
 	private _workspaceFileChangeCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
 	private _obsoleteFileChangeCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
 	private _reviewDocumentCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
@@ -653,8 +658,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 			let newComments = thread.comments.map(cmt => {
 				if (cmt.commentId === vscodeComment.commentId) {
-					vscodeComment.editCommand = getEditCommand(this._commentController!, thread, vscodeComment, this);
-					vscodeComment.deleteCommand = getDeleteCommand(this._commentController!, thread, vscodeComment, this);
+					vscodeComment.editCommand = getEditCommand(thread, vscodeComment, this);
+					vscodeComment.deleteCommand = getDeleteCommand(thread, vscodeComment, this);
 					return vscodeComment;
 				}
 
@@ -798,11 +803,11 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 						let patchedComment = comment as vscode.Comment & { _rawComment: Comment };
 
 						if (patchedComment._rawComment.canEdit) {
-							comment.editCommand = getEditCommand(this._commentController!, vscodeThread, comment, this);
+							comment.editCommand = getEditCommand(vscodeThread, comment, this);
 
 						}
 						if (patchedComment._rawComment.canDelete) {
-							comment.deleteCommand = getDeleteCommand(this._commentController!, vscodeThread, comment, this);
+							comment.deleteCommand = getDeleteCommand(vscodeThread, comment, this);
 						}
 					});
 

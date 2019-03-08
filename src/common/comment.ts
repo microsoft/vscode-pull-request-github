@@ -52,6 +52,7 @@ export interface CommentInfo {
 }
 
 export interface CommentHandler {
+	commentController?: vscode.CommentController;
 	editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
 	deleteComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
 	updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void>;
