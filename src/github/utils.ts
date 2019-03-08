@@ -22,10 +22,7 @@ export function convertToVSCodeComment(comment: Comment, command: vscode.Command
 		body: new vscode.MarkdownString(comment.body),
 		command: command,
 		userName: comment.user!.login,
-		gravatar: comment.user!.avatarUrl,
-		canEdit: comment.canEdit,
-		canDelete: comment.canDelete,
-		isDraft: !!comment.isDraft,
+		userIconPath: vscode.Uri.parse(comment.user!.avatarUrl),
 		label: !!comment.isDraft ? 'Draft' : undefined,
 		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
 			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
@@ -43,12 +40,13 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	);
 
 	thread.comments.forEach(comment => {
-		if (comment.canEdit) {
-			comment.editCommand = getEditCommand(commentController, vscodeThread, pullRequestModel, comment);
+		let patchedComment = comment as vscode.Comment & { _rawComment: Comment };
+		if (patchedComment._rawComment.canEdit) {
+			patchedComment.editCommand = getEditCommand(commentController, vscodeThread, pullRequestModel, comment);
 
 		}
-		if (comment.canDelete) {
-			comment.deleteCommand = getDeleteCommand(commentController, vscodeThread, pullRequestModel, comment);
+		if (patchedComment._rawComment.canDelete) {
+			patchedComment.deleteCommand = getDeleteCommand(commentController, vscodeThread, pullRequestModel, comment);
 		}
 	});
 
@@ -64,12 +62,14 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 
 export function fillInCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) {
 	if (commentControl && pullRequestModel) {
-		if (vscodeComment.canEdit) {
-			vscodeComment.editCommand = getEditCommand(commentControl, thread, pullRequestModel, vscodeComment);
+		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: Comment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
+
+		if (patchedComment.canEdit) {
+			patchedComment.editCommand = getEditCommand(commentControl, thread, pullRequestModel, vscodeComment);
 		}
 
-		if (vscodeComment.canDelete) {
-			vscodeComment.deleteCommand = getDeleteCommand(commentControl, thread, pullRequestModel, vscodeComment);
+		if (patchedComment.canDelete) {
+			patchedComment.deleteCommand = getDeleteCommand(commentControl, thread, pullRequestModel, vscodeComment);
 		}
 	}
 }

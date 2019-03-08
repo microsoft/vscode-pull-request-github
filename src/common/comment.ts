@@ -38,3 +38,15 @@ export interface Comment {
 	graphNodeId: string;
 	reactions?: Reaction[];
 }
+
+export interface CommentInfo {
+	/**
+	 * All of the comment threads associated with the document.
+	 */
+	threads: vscode.CommentThread[];
+
+	/**
+	 * The ranges of the document which support commenting.
+	 */
+	commentingRanges?: vscode.Range[];
+}

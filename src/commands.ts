@@ -349,7 +349,6 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				// create new comment
 				let input = commentControl.inputBox.value;
 				let fakeComment: vscode.Comment = {
-					isDraft: false,
 					commentId: 'fale1',
 					body: new vscode.MarkdownString(input),
 					userName: 'rebornix'
@@ -396,7 +395,6 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				// create new comment
 				let input = commentControl.inputBox!.value;
 				let fakeComment: vscode.Comment = {
-					isDraft: false,
 					commentId: 'fale1',
 					body: new vscode.MarkdownString(input),
 					userName: 'rebornix'

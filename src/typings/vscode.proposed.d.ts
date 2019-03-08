@@ -749,24 +749,6 @@ declare module 'vscode' {
 	/**
 	 * Comments provider related APIs are still in early stages, they may be changed significantly during our API experiments.
 	 */
-
-	interface CommentInfo {
-		/**
-		 * All of the comment threads associated with the document.
-		 */
-		threads: CommentThread[];
-
-		/**
-		 * The ranges of the document which support commenting.
-		 */
-		commentingRanges?: Range[];
-
-		/**
-		 * If it's in draft mode or not
-		 */
-		inDraftMode?: boolean;
-	}
-
 	export enum CommentThreadCollapsibleState {
 		/**
 		 * Determines an item is collapsed
@@ -781,7 +763,7 @@ declare module 'vscode' {
 	/**
 	 * A collection of comments representing a conversation at a particular range in a document.
 	 */
-	interface CommentThread {
+	export interface CommentThread {
 		/**
 		 * A unique identifier of the comment thread.
 		 */
@@ -853,62 +835,13 @@ declare module 'vscode' {
 		userIconPath?: Uri;
 
 		/**
-		 * @deprecated Use userIconPath instead. The avatar src of the user who created the comment
-		 */
-		gravatar?: string;
-
-		/**
-		 * Whether the current user has permission to edit the comment.
-		 *
-		 * This will be treated as false if the comment is provided by a `WorkspaceCommentProvider`, or
-		 * if it is provided by a `DocumentCommentProvider` and  no `editComment` method is given.
-		 *
-		 * DEPRECATED, use editCommand
-		 */
-		canEdit?: boolean;
-
-		/**
-		 * Whether the current user has permission to delete the comment.
-		 *
-		 * This will be treated as false if the comment is provided by a `WorkspaceCommentProvider`, or
-		 * if it is provided by a `DocumentCommentProvider` and  no `deleteComment` method is given.
-		 *
-		 * DEPRECATED, use deleteCommand
-		 */
-		canDelete?: boolean;
-
-		/**
 		 * The command to be executed if the comment is selected in the Comments Panel
 		 */
 		command?: Command;
 
 		editCommand?: Command;
 		deleteCommand?: Command;
-
-		isDraft?: boolean;
 		commentReactions?: CommentReaction[];
-	}
-
-	export interface CommentThreadChangedEvent {
-		/**
-		 * Added comment threads.
-		 */
-		readonly added: CommentThread[];
-
-		/**
-		 * Removed comment threads.
-		 */
-		readonly removed: CommentThread[];
-
-		/**
-		 * Changed comment threads.
-		 */
-		readonly changed: CommentThread[];
-
-		/**
-		 * Changed draft mode
-		 */
-		readonly inDraftMode: boolean;
 	}
 
 	interface CommentReaction {
@@ -916,69 +849,6 @@ declare module 'vscode' {
 		readonly iconPath?: string | Uri;
 		count?: number;
 		readonly hasReacted?: boolean;
-	}
-
-	/**
-	 * DEPRECATED
-	 */
-	interface DocumentCommentProvider {
-		/**
-		 * Provide the commenting ranges and comment threads for the given document. The comments are displayed within the editor.
-		 */
-		provideDocumentComments(document: TextDocument, token: CancellationToken): Promise<CommentInfo>;
-
-		/**
-		 * Called when a user adds a new comment thread in the document at the specified range, with body text.
-		 */
-		createNewCommentThread(document: TextDocument, range: Range, text: string, token: CancellationToken): Promise<CommentThread>;
-
-		/**
-		 * Called when a user replies to a new comment thread in the document at the specified range, with body text.
-		 */
-		replyToCommentThread(document: TextDocument, range: Range, commentThread: CommentThread, text: string, token: CancellationToken): Promise<CommentThread>;
-
-		/**
-		 * Called when a user edits the comment body to the be new text.
-		 */
-		editComment?(document: TextDocument, comment: Comment, text: string, token: CancellationToken): Promise<void>;
-
-		/**
-		 * Called when a user deletes the comment.
-		 */
-		deleteComment?(document: TextDocument, comment: Comment, token: CancellationToken): Promise<void>;
-
-		startDraft?(document: TextDocument, token: CancellationToken): Promise<void>;
-		deleteDraft?(document: TextDocument, token: CancellationToken): Promise<void>;
-		finishDraft?(document: TextDocument, token: CancellationToken): Promise<void>;
-
-		startDraftLabel?: string;
-		deleteDraftLabel?: string;
-		finishDraftLabel?: string;
-
-		addReaction?(document: TextDocument, comment: Comment, reaction: CommentReaction): Promise<void>;
-		deleteReaction?(document: TextDocument, comment: Comment, reaction: CommentReaction): Promise<void>;
-		reactionGroup?: CommentReaction[];
-
-		/**
-		 * Notify of updates to comment threads.
-		 */
-		onDidChangeCommentThreads: Event<CommentThreadChangedEvent>;
-	}
-
-	/**
-	 * DEPRECATED
-	 */
-	interface WorkspaceCommentProvider {
-		/**
-		 * Provide all comments for the workspace. Comments are shown within the comments panel. Selecting a comment
-		 * from the panel runs the comment's command.
-		 */
-		provideWorkspaceComments(token: CancellationToken): Promise<CommentThread[]>;
-
-		/**
-		 * Notify of updates to comment threads.
-		 */
-		onDidChangeCommentThreads: Event<CommentThreadChangedEvent>;
 	}
 
 	export interface CommentInputBox {
@@ -1012,19 +882,6 @@ declare module 'vscode' {
 
 	namespace comment {
 		export function createCommentController(id: string, label: string): CommentController;
-	}
-
-	namespace workspace {
-		/**
-		 * DEPRECATED
-		 * Use vscode.comment.createCommentController instead.
-		 */
-		export function registerDocumentCommentProvider(provider: DocumentCommentProvider): Disposable;
-		/**
-		 * DEPRECATED
-		 * Use vscode.comment.createCommentController instead and we don't differentiate document comments and workspace comments anymore.
-		 */
-		export function registerWorkspaceCommentProvider(provider: WorkspaceCommentProvider): Disposable;
 	}
 
 	//#endregion
