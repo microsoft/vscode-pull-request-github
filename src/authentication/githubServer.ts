@@ -13,7 +13,8 @@ import { onDidChange as onKeychainDidChange, toCanonical, listHosts } from './ke
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: { [key: string]: boolean } = {'write:discussion': true};
 
-const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
+// const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
+const AUTH_RELAY_SERVER = 'https://client-auth-staging-14a768b.herokuapp.com';
 const CALLBACK_PATH = '/did-authenticate';
 const CALLBACK_URI = vscode.version.endsWith('-insider')
 	? `vscode-insiders://${EXTENSION_ID}${CALLBACK_PATH}`

@@ -7,11 +7,14 @@ import md from './mdRenderer';
 export const Overview = (pr: PullRequest) =>
 	<>
 		<Details {...pr} />
+		<Timeline events={pr.events} />
 		<hr/>
 	</>;
 
 const Avatar = ({ for: author }: { for: PullRequest['author'] }) =>
-	<img className='avatar' src={author.avatarUrl} alt='' />;
+	<a className='avatar-link' href={author.url}>
+		<img className='avatar' src={author.avatarUrl} alt='' />
+	</a>;
 
 const AuthorLink = ({ for: author, text=author.login }: { for: PullRequest['author'], text?: string }) =>
 	<a href={author.url}>{text}</a>;
@@ -81,10 +84,53 @@ type MarkdownProps = { src: string } & Record<string, any>;
 const Markdown = ({ src, ...others }: MarkdownProps) =>
 	<div dangerouslySetInnerHTML={{ __html: md.render(emoji.emojify(src)) }} {...others} />;
 
-// const commentBody = document.createElement('div');
-// commentBody.className = 'comment-body';
-// commentBody.innerHTML = pr.bodyHTML ?
-// 	pr.bodyHTML :
-// 	pr.body
-// 		? md.render(emoji.emojify(pr.body))
-// 		: '<p><i>No description provided.</i></p>';
+import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent } from '../src/common/timelineEvent';
+const Timeline = ({ events }: { events: TimelineEvent[] }) =>
+	<>{
+		events.map(event =>
+			// TODO: Maybe make TimelineEvent a tagged union type?
+			isCommitEvent(event)
+				? <Commit key={event.id} {...event} />
+				:
+			isReviewEvent(event)
+				? <Review key={event.id} {...event} />
+				:
+			isCommentEvent(event)
+				? <Comment key={event.id} {...event} />
+				:
+			isMergedEvent(event)
+				? <Merged key={event.id} {...event} />
+				:
+			isAssignEvent(event)
+				? <Assign key={event.id} {...event} />
+				: null
+		)
+	}</>;
+
+const commitIconSvg = require('../resources/icons/commit_icon.svg');
+// const mergeIconSvg = require('../resources/icons/merge_icon.svg');
+// const editIcon = require('../resources/icons/edit.svg');
+// const deleteIcon = require('../resources/icons/delete.svg');
+// const checkIcon = require('../resources/icons/check.svg');
+// const dotIcon = require('../resources/icons/dot.svg');
+
+const Icon = ({ src }: { src: string }) =>
+	<span dangerouslySetInnerHTML={{ __html: src }} />;
+
+const Commit = (event: CommitEvent) =>
+	<div className='comment-container commit'>
+		<div className='commit-message'>
+			<Icon src={commitIconSvg} />
+			<div className='avatar-container'>
+				<Avatar for={event.author} />
+			</div>
+			<AuthorLink for={event.author} />
+			<div className='message'>{event.message}</div>
+		</div>
+		<a className='sha' href={event.url}>{event.sha}</a>
+	</div>;
+
+const Review = (event: ReviewEvent) => <h1>Review: {event.id}</h1>;
+const Comment = (event: CommentEvent) => <h1>Comment: {event.id}</h1>;
+const Merged = (event: MergedEvent) => <h1>Merged: {event.id}</h1>;
+const Assign = (event: AssignEvent) => <h1>Assign: {event.id}</h1>;
