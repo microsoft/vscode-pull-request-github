@@ -594,6 +594,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
+	// #region Review
 	public async startReview(thread: vscode.CommentThread) {
 		await this._prManager.startReview(this._prManager.activePullRequest!);
 
@@ -654,6 +655,9 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		});
 	}
 
+	// #endregion
+
+	// #region Comment
 	async createOrReplyComment(thread: vscode.CommentThread) {
 		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
 			if (thread.comments.length) {
@@ -762,6 +766,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			throw new Error(formatError(e));
 		}
 	}
+
+	// #endregion
 
 	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: Comment[]): Promise<void> {
 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
@@ -932,6 +938,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
+	// #region Reactions
 	public async addReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
 		await this.editReaction(document, comment, reaction, true);
 	}
@@ -982,6 +989,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			throw new Error(formatError(e));
 		}
 	}
+
+	// #endregion
 	public dispose() {
 		if (this._commentController) {
 			this._commentController.dispose();

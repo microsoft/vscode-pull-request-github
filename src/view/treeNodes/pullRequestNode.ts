@@ -459,7 +459,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 	}
 
 	private updateFileChangeCommentThreads(oldCommentThreads: vscode.CommentThread[], newCommentThreads: vscode.CommentThread[], newFileChange: InMemFileChangeNode, inDraftMode: boolean) {
-// remove
+		// remove
 		oldCommentThreads.forEach(thread => {
 			// No current threads match old thread, it has been removed
 			const matchingThreads = newCommentThreads && newCommentThreads.filter(newThread => newThread.threadId === thread.threadId);
@@ -579,6 +579,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 		return fileChange;
 	}
 
+	// #region comment
 	public async createOrReplyComment(thread: vscode.CommentThread) {
 		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
 			if (thread.comments.length) {
@@ -646,41 +647,9 @@ export class PRNode extends TreeNode implements CommentHandler {
 			this.pullRequestModel.inDraftMode = inDraftMode;
 		}
 	}
+	// #endregion
 
-	public async deleteReview(): Promise<void> {
-		const { deletedReviewId, deletedReviewComments } = await this._prManager.deleteReview(this.pullRequestModel);
-
-		// Group comments by file and then position to create threads.
-		const commentsByPath = groupBy(deletedReviewComments, comment => comment.path || '');
-
-		for (let filePath in commentsByPath) {
-			const matchingFileChange = this._fileChanges.find(fileChange => fileChange.fileName === filePath);
-
-			if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
-				if (this._fileChangeCommentThreads[matchingFileChange.fileName]) {
-					let threads: vscode.CommentThread[] = [];
-
-					this._fileChangeCommentThreads[matchingFileChange.fileName].forEach(thread => {
-						thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
-						if (!thread.comments.length) {
-							thread.dispose!();
-						} else {
-							threads.push(thread);
-						}
-					});
-
-					if (threads.length) {
-						this._fileChangeCommentThreads[matchingFileChange.fileName] = threads;
-					} else {
-						delete this._fileChangeCommentThreads[matchingFileChange.fileName];
-					}
-				}
-				// Remove deleted comments from the file change's comment list
-				matchingFileChange.comments = matchingFileChange.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
-			}
-		}
-	}
-
+	// #region Review
 	public async startReview(thread: vscode.CommentThread): Promise<void> {
 		await this._prManager.startReview(this.pullRequestModel);
 
@@ -717,6 +686,42 @@ export class PRNode extends TreeNode implements CommentHandler {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
 	}
+
+	public async deleteReview(): Promise<void> {
+		const { deletedReviewId, deletedReviewComments } = await this._prManager.deleteReview(this.pullRequestModel);
+
+		// Group comments by file and then position to create threads.
+		const commentsByPath = groupBy(deletedReviewComments, comment => comment.path || '');
+
+		for (let filePath in commentsByPath) {
+			const matchingFileChange = this._fileChanges.find(fileChange => fileChange.fileName === filePath);
+
+			if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
+				if (this._fileChangeCommentThreads[matchingFileChange.fileName]) {
+					let threads: vscode.CommentThread[] = [];
+
+					this._fileChangeCommentThreads[matchingFileChange.fileName].forEach(thread => {
+						thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+						if (!thread.comments.length) {
+							thread.dispose!();
+						} else {
+							threads.push(thread);
+						}
+					});
+
+					if (threads.length) {
+						this._fileChangeCommentThreads[matchingFileChange.fileName] = threads;
+					} else {
+						delete this._fileChangeCommentThreads[matchingFileChange.fileName];
+					}
+				}
+				// Remove deleted comments from the file change's comment list
+				matchingFileChange.comments = matchingFileChange.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
+			}
+		}
+	}
+
+	// #endregion
 
 	// private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {
 	// 	const params = fromPRUri(uri);
