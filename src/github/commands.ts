@@ -15,9 +15,7 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			title: 'Delete Review',
 			command: 'pr.deleteReview',
 			arguments: [
-				commentControl,
-				thread,
-				pullRequestModel
+				node
 			]
 		});
 
@@ -25,9 +23,8 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			title: 'Finish Review',
 			command: 'pr.finishReview',
 			arguments: [
-				commentControl,
-				thread,
-				pullRequestModel
+				node,
+				thread
 			]
 		});
 
@@ -46,10 +43,10 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			title: 'Start Review',
 			command: 'pr.startReview',
 			arguments: [
+				node,
 				commentControl,
 				thread,
-				pullRequestModel,
-				node
+				pullRequestModel
 			]
 		});
 
@@ -57,10 +54,10 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			title: 'Reply Comment',
 			command: 'pr.replyComment',
 			arguments: [
+				node,
 				commentControl,
 				thread,
 				pullRequestModel,
-				node
 			]
 		};
 	}
@@ -76,9 +73,9 @@ export function getEditCommand(thread: vscode.CommentThread, vscodeComment: vsco
 		title: 'Edit Comment',
 		command: 'pr.editComment',
 		arguments: [
+			node,
 			thread,
-			vscodeComment,
-			node
+			vscodeComment
 		]
 	};
 }
@@ -88,9 +85,9 @@ export function getDeleteCommand(thread: vscode.CommentThread, vscodeComment: vs
 		title: 'Delete Comment',
 		command: 'pr.deleteComment',
 		arguments: [
+			node,
 			thread,
-			vscodeComment,
-			node
+			vscodeComment
 		]
 	};
 }

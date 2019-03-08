@@ -598,7 +598,24 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
-	async deleteReview(deletedReviewId: number, deletedReviewComments: Comment[]) {
+	public async finishReview(thread: vscode.CommentThread) {
+		if (this.commentController!.inputBox) {
+			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
+			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox.value, comment._rawComment);
+
+			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+			this.commentController!.inputBox.value = '';
+		}
+
+		await this._prManager.submitReview(this._prManager.activePullRequest!);
+	}
+
+	async deleteReview(): Promise<void> {
+		const { deletedReviewComments } = await this._prManager.deleteReview(this._prManager.activePullRequest!);
+		if (this.commentController!.inputBox && this.commentController!.inputBox!.value) {
+			this.commentController!.inputBox!.value = '';
+		}
+
 		[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads, this._prDocumentCommentThreads, this._reviewDocumentCommentThreads].forEach(commentThreadMap => {
 			for (let fileName in commentThreadMap) {
 				let threads: vscode.CommentThread[] = [];

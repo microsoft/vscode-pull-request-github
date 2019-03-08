@@ -734,12 +734,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 	}
 
-	async deleteReview(deletedReviewId: number, deletedReviewComments: Comment[]) {
-		if (this._reviewDocumentCommentProvider) {
-			return this._reviewDocumentCommentProvider.deleteReview(deletedReviewId, deletedReviewComments);
-		}
-	}
-
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
 		let { path, commit } = fromReviewUri(uri);
 		let changedItems = gitFileChangeNodeFilter(this._localFileChanges)

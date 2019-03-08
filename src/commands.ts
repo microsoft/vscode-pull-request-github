@@ -336,7 +336,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: CommentHandler) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (node: CommentHandler, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
 		if (await prManager.authenticate() && commentControl.inputBox) {
 			if (thread.comments.length) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
@@ -353,7 +353,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: CommentHandler) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (node: CommentHandler, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
 		if (await prManager.authenticate()) {
 			await prManager.startReview(pullRequestModel);
 
@@ -376,36 +376,19 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate()) {
-			if (commentControl.inputBox) {
-				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-				const rawComment = await prManager.createCommentReply(pullRequestModel, commentControl.inputBox.value, comment._rawComment);
-
-				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
-				commentControl.inputBox.value = '';
-			}
-
-			await prManager.submitReview(pullRequestModel);
-		}
+	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (node: CommentHandler, thread: vscode.CommentThread) => {
+		await node.finishReview(thread);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
-		if (await prManager.authenticate()) {
-			const { deletedReviewId, deletedReviewComments } = await prManager.deleteReview(pullRequestModel);
-			if (commentControl.inputBox && commentControl.inputBox!.value) {
-				commentControl.inputBox!.value = '';
-			}
-
-			reviewManager.deleteReview(deletedReviewId, deletedReviewComments);
-		}
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (node: CommentHandler) => {
+		await node.deleteReview();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (thread: vscode.CommentThread, comment: vscode.Comment, node: CommentHandler) => {
-			await node.editComment(thread, comment);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (node: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+		await node.editComment(thread, comment);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (thread: vscode.CommentThread, comment: vscode.Comment, node: CommentHandler) => {
-			node.deleteComment(thread, comment);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (node: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+		await node.deleteComment(thread, comment);
 	}));
 }
