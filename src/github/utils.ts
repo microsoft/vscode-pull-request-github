@@ -14,6 +14,8 @@ import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
 import { PullRequestModel } from './pullRequestModel';
 import { getEditCommand, getDeleteCommand, getCommentThreadCommands } from './commands';
+import { PRNode } from '../view/treeNodes/pullRequestNode';
+import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 
 export function convertToVSCodeComment(comment: Comment, command: vscode.Command | undefined): vscode.Comment & { _rawComment: Comment } {
 	let vscodeComment: vscode.Comment & { _rawComment: Comment } = {
@@ -32,7 +34,7 @@ export function convertToVSCodeComment(comment: Comment, command: vscode.Command
 	return vscodeComment;
 }
 
-export function createVSCodeCommentThread(thread: vscode.CommentThread, commentController: vscode.CommentController, pullRequestModel: PullRequestModel, inDraftMode: boolean) {
+export function createVSCodeCommentThread(thread: vscode.CommentThread, commentController: vscode.CommentController, pullRequestModel: PullRequestModel, inDraftMode: boolean, node: PRNode | ReviewDocumentCommentProvider) {
 	let vscodeThread = commentController.createCommentThread(
 		thread.threadId,
 		thread.resource,
@@ -52,7 +54,7 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 
 	vscodeThread.comments = thread.comments;
 
-	let commands = getCommentThreadCommands(commentController, vscodeThread, pullRequestModel, inDraftMode);
+	let commands = getCommentThreadCommands(commentController, vscodeThread, pullRequestModel, inDraftMode, node);
 	vscodeThread.acceptInputCommand = commands.acceptInputCommand;
 	vscodeThread.additionalCommands = commands.additionalCommands;
 	vscodeThread.collapsibleState = thread.collapsibleState;

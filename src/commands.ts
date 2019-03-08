@@ -27,6 +27,7 @@ import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 import { convertToVSCodeComment } from './github/utils';
 import { getEditCommand } from './github/commands';
+import { ReviewDocumentCommentProvider } from './view/reviewDocumentCommentProvider';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -337,7 +338,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) => {
 		if (await prManager.authenticate() && commentControl.inputBox) {
 			if (thread.comments.length) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
@@ -346,43 +347,15 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
 				commentControl.inputBox.value = '';
 			} else {
-				// create new comment
+				// create new comment thread
 				let input = commentControl.inputBox.value;
-				let fakeComment: vscode.Comment = {
-					commentId: 'fale1',
-					body: new vscode.MarkdownString(input),
-					userName: 'rebornix'
-				};
-
-				thread.comments = [fakeComment];
-				let commands = [];
-				commands.push({
-					title: 'Start Review',
-					command: 'pr.startReview',
-					arguments: [
-						commentControl,
-						thread,
-						pullRequestModel
-					]
-				});
-
-				thread.acceptInputCommand = {
-					title: 'Add Comment',
-					command: 'pr.replyComment',
-					arguments: [
-						commentControl,
-						thread,
-						pullRequestModel
-					]
-				};
-
-				thread.additionalCommands = commands;
+				await node.updateCommentThreadRoot(thread, input);
 				commentControl.inputBox.value = '';
 			}
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) => {
 		if (await prManager.authenticate()) {
 			await prManager.startReview(pullRequestModel);
 
@@ -392,37 +365,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
 			} else {
-				// create new comment
-				let input = commentControl.inputBox!.value;
-				let fakeComment: vscode.Comment = {
-					commentId: 'fale1',
-					body: new vscode.MarkdownString(input),
-					userName: 'rebornix'
-				};
+				// create new comment thread
 
-				thread.comments = [fakeComment];
-				let commands = [];
-				commands.push({
-					title: 'Start Review',
-					command: 'pr.startReview',
-					arguments: [
-						commentControl,
-						thread,
-						pullRequestModel
-					]
-				});
-
-				thread.acceptInputCommand = {
-					title: 'Add Comment',
-					command: 'pr.replyComment',
-					arguments: [
-						commentControl,
-						thread,
-						pullRequestModel
-					]
-				};
-
-				thread.additionalCommands = commands;
+				if (commentControl.inputBox && commentControl.inputBox.value) {
+					await node.updateCommentThreadRoot(thread, commentControl.inputBox.value);
+				}
 			}
 
 			if (commentControl.inputBox) {

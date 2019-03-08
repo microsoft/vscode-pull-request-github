@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType, DiffHunk } from '../../common/diffHunk';
-import { getZeroBased, getAbsolutePosition, getPositionInDiff } from '../../common/diffPositionMapping';
+import { getZeroBased, getAbsolutePosition, getPositionInDiff, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
 import { Resource } from '../../common/resources';
@@ -245,7 +245,7 @@ export class PRNode extends TreeNode {
 					this._disposables.push(this.pullRequestModel.onDidChangeDraftMode(newDraftMode => {
 						for (let fileName in this._fileChangeCommentThreads) {
 							this._fileChangeCommentThreads[fileName].forEach(thread => {
-								let commands = getCommentThreadCommands(this._commentControl!, thread, this.pullRequestModel, newDraftMode);
+								let commands = getCommentThreadCommands(this._commentControl!, thread, this.pullRequestModel, newDraftMode, this);
 								thread.acceptInputCommand = commands.acceptInputCommand;
 								thread.additionalCommands = commands.additionalCommands;
 							});
@@ -281,7 +281,8 @@ export class PRNode extends TreeNode {
 				arguments: [
 					this._commentControl!,
 					thread,
-					this._prManager.activePullRequest!
+					this._prManager.activePullRequest!,
+					this
 				]
 			});
 
@@ -292,9 +293,48 @@ export class PRNode extends TreeNode {
 				arguments: [
 					this._commentControl!,
 					thread,
-					this._prManager.activePullRequest!
+					this._prManager.activePullRequest!,
+					this
 				]
 			};
+		}
+	}
+
+	public async updateCommentThreadRoot(thread: vscode.CommentThread, text: string) {
+		try {
+			let uri = thread.resource;
+			let params = fromPRUri(uri);
+
+			if (params && params.prNumber !== this.pullRequestModel.prNumber) {
+				return null;
+			}
+
+			const fileChange = this._fileChanges.find(change => change.fileName === params!.fileName);
+
+			if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
+				return;
+			}
+
+			let isBase = !!(params && params.isBase);
+			let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', thread.range.start.line + 1, isBase);
+
+			if (position < 0) {
+				throw new Error('Comment position cannot be negative');
+			}
+
+			// there is no thread Id, which means it's a new thread
+			const rawComment = await this._prManager.createComment(this.pullRequestModel, text, params!.fileName, position);
+			const comment = convertToVSCodeComment(rawComment!, undefined);
+			fileChange.comments.push(rawComment!);
+			thread.comments = [comment];
+
+			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
+			const commands = getCommentThreadCommands(this._commentControl!, thread, this.pullRequestModel, inDraftMode, this);
+
+			thread.acceptInputCommand = commands.acceptInputCommand;
+			thread.additionalCommands = commands.additionalCommands;
+		} catch (e) {
+			Logger.appendLine(e);
 		}
 	}
 
@@ -321,7 +361,7 @@ export class PRNode extends TreeNode {
 	createCommentThread(fileName: string, commentThreads: vscode.CommentThread[], inDraftMode: boolean) {
 		let threads: vscode.CommentThread[] = [];
 		commentThreads.forEach(thread => {
-			threads.push(createVSCodeCommentThread(thread, this._commentControl! , this.pullRequestModel, inDraftMode));
+			threads.push(createVSCodeCommentThread(thread, this._commentControl! , this.pullRequestModel, inDraftMode, this));
 		});
 
 		this._fileChangeCommentThreads[fileName] = threads;

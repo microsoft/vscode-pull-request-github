@@ -5,7 +5,9 @@
 
 import * as vscode from 'vscode';
 import { PullRequestModel } from './pullRequestModel';
-export function getCommentThreadCommands(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, inDraftMode: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
+import { PRNode } from '../view/treeNodes/pullRequestNode';
+import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
+export function getCommentThreadCommands(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, inDraftMode: boolean, node: PRNode | ReviewDocumentCommentProvider): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
 	let commands: vscode.Command[] = [];
 	let acceptInputCommand: vscode.Command;
 	if (inDraftMode) {
@@ -35,7 +37,8 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			arguments: [
 				commentControl,
 				thread,
-				pullRequestModel
+				pullRequestModel,
+				node
 			]
 		};
 	} else {
@@ -45,7 +48,8 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			arguments: [
 				commentControl,
 				thread,
-				pullRequestModel
+				pullRequestModel,
+				node
 			]
 		});
 
@@ -55,7 +59,8 @@ export function getCommentThreadCommands(commentControl: vscode.CommentControlle
 			arguments: [
 				commentControl,
 				thread,
-				pullRequestModel
+				pullRequestModel,
+				node
 			]
 		};
 	}
