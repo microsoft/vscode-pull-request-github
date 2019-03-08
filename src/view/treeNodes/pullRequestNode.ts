@@ -69,10 +69,7 @@ export function provideDocumentComments(
 			threadId: firstComment.id.toString(),
 			resource: uri,
 			range,
-			comments: comments.map(comment => {
-				let vscodeComment = convertToVSCodeComment(comment, undefined);
-				return vscodeComment;
-			}),
+			comments: comments.map(comment => convertToVSCodeComment(comment, undefined)),
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 		});
 	}
@@ -226,37 +223,36 @@ export class PRNode extends TreeNode implements CommentHandler {
 			// The review manager will register a document comment's provider, so the node does not need to
 			if (!this.pullRequestModel.equals(this._prManager.activePullRequest)) {
 				const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
+				this._fileChanges = fileChanges;
+				if (this._commentController) {
+					await this.updateComments(fileChanges);
 					this._fileChanges = fileChanges;
-					if (this._commentController) {
-						await this.updateComments(fileChanges);
-						this._fileChanges = fileChanges;
+				}
+
+				this._commentController = vscode.comment.createCommentController(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
+				this._commentController.registerCommentingRangeProvider(this.provideCommentingRanges.bind(this), this.createNewCommentWidgetCallback.bind(this));
+
+				this._fileChanges.forEach(fileChange => {
+					if (fileChange instanceof InMemFileChangeNode) {
+						let leftComments = provideDocumentComments(fileChange.parentFilePath, true, fileChange, fileChange.comments, inDraftMode);
+						let rightComments = provideDocumentComments(fileChange.filePath, false, fileChange, fileChange.comments, inDraftMode);
+						this.createCommentThread(
+							fileChange.fileName,
+							[...(leftComments ? leftComments.threads : []), ...(rightComments ? rightComments.threads : [])],
+							inDraftMode
+						);
 					}
+				});
 
-					this._commentController = vscode.comment.createCommentController(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
-					this._commentController.registerCommentingRangeProvider(this.provideCommentingRanges.bind(this), this.createNewCommentWidgetCallback.bind(this));
-
-					this._fileChanges.forEach(fileChange => {
-						if (fileChange instanceof InMemFileChangeNode) {
-							let leftComments = provideDocumentComments(fileChange.parentFilePath, true, fileChange, fileChange.comments, inDraftMode);
-							let rightComments = provideDocumentComments(fileChange.filePath, false, fileChange, fileChange.comments, inDraftMode);
-							this.createCommentThread(
-								fileChange.fileName,
-								[...(leftComments ? leftComments.threads : []), ...(rightComments ? rightComments.threads : [])],
-								inDraftMode
-							);
-						}
-					});
-
-					this._disposables.push(this.pullRequestModel.onDidChangeDraftMode(newDraftMode => {
-						for (let fileName in this._fileChangeCommentThreads) {
-							this._fileChangeCommentThreads[fileName].forEach(thread => {
-								let commands = getCommentThreadCommands(this._commentController!, thread, this.pullRequestModel, newDraftMode, this);
-								thread.acceptInputCommand = commands.acceptInputCommand;
-								thread.additionalCommands = commands.additionalCommands;
-							});
-						}
-					}));
-				// }
+				this._disposables.push(this.pullRequestModel.onDidChangeDraftMode(newDraftMode => {
+					for (let fileName in this._fileChangeCommentThreads) {
+						this._fileChangeCommentThreads[fileName].forEach(thread => {
+							let commands = getCommentThreadCommands(this._commentController!, thread, this.pullRequestModel, newDraftMode, this);
+							thread.acceptInputCommand = commands.acceptInputCommand;
+							thread.additionalCommands = commands.additionalCommands;
+						});
+					}
+				}));
 			} else {
 				this._fileChanges = fileChanges;
 			}
