@@ -557,26 +557,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return '';
 	}
 
-	private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {
-		const params = fromPRUri(uri);
-
-		if (!params) {
-			throw new Error(`${uri.toString()} is not valid PR document`);
-		}
-
-		const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
-
-		if (!fileChange) {
-			throw new Error('No matching file found');
-		}
-
-		if (fileChange instanceof RemoteFileChangeNode) {
-			throw new Error('Comments not supported on remote file changes');
-		}
-
-		return fileChange;
-	}
-
 	// #region comment
 	public async createOrReplyComment(thread: vscode.CommentThread) {
 		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
@@ -704,27 +684,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	// #endregion
-
-	// private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {
-	// 	const params = fromPRUri(uri);
-
-	// 	if (!params) {
-	// 		throw new Error(`${uri.toString()} is not valid PR document`);
-	// 	}
-
-	// 	const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
-
-	// 	if (!fileChange) {
-	// 		throw new Error('No matching file found');
-	// 	}
-
-	// 	if (fileChange instanceof RemoteFileChangeNode) {
-	// 		throw new Error('Comments not supported on remote file changes');
-	// 	}
-
-	// 	return fileChange;
-	// }
-
 	// async addReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
 	// 	const fileChange = this.findMatchingFileNode(document.uri);
 	// 	if (!fileChange) {
