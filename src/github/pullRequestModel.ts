@@ -59,8 +59,10 @@ export class PullRequestModel {
 	}
 
 	public set inDraftMode(inDraftMode: boolean) {
-		this._inDraftMode = inDraftMode;
-		this._onDidChangeDraftMode.fire(this._inDraftMode);
+		if (this._inDraftMode !== inDraftMode) {
+			this._inDraftMode = inDraftMode;
+			this._onDidChangeDraftMode.fire(this._inDraftMode);
+		}
 	}
 
 	private _onDidChangeDraftMode: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();

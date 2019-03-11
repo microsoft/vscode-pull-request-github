@@ -842,7 +842,10 @@ export class PullRequestManager {
 
 	async inDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
 		let inDraftMode = !!await this.getPendingReviewId(pullRequest);
-		pullRequest.inDraftMode = inDraftMode;
+		if (inDraftMode !== pullRequest.inDraftMode) {
+			pullRequest.inDraftMode = inDraftMode;
+		}
+
 		return inDraftMode;
 	}
 
