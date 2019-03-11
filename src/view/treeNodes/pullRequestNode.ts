@@ -138,7 +138,7 @@ function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vsco
 	});
 }
 
-export class PRNode extends TreeNode implements CommentHandler {
+export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory {
 	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _fileChangeCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
@@ -230,7 +230,8 @@ export class PRNode extends TreeNode implements CommentHandler {
 				}
 
 				this._commentController = vscode.comment.createCommentController(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
-				this._commentController.registerCommentingRangeProvider(this.provideCommentingRanges.bind(this), this.createNewCommentWidgetCallback.bind(this));
+				this._commentController.commentingRangeProvider = this;
+				this._commentController.emptyCommentThreadFactory = this;
 
 				this._fileChanges.forEach(fileChange => {
 					if (fileChange instanceof InMemFileChangeNode) {
@@ -270,7 +271,7 @@ export class PRNode extends TreeNode implements CommentHandler {
 		}
 	}
 
-	async createNewCommentWidgetCallback(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
+	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
 		if (await this._prManager.authenticate()) {
 			let thread = this._commentController!.createCommentThread('', document.uri, range);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;

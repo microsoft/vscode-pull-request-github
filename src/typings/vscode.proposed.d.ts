@@ -859,24 +859,49 @@ declare module 'vscode' {
 		value: string;
 	}
 
-	export interface CommentController {
-		readonly id: string;
-		readonly label: string;
+	export interface CommentingRangeProvider {
+		provideCommentingRanges(document: TextDocument, token: CancellationToken): ProviderResult<Range[]>;
+	}
+
+	export interface EmptyCommentThreadFactory {
 		/**
-		 * The active (focused) comment input box.
+		 * The method `createEmptyCommentThread` is called when users attempt to create new comment thread from the gutter or command palette.
+		 * Extensions still need to call `createCommentThread` inside this call when appropriate.
+		 */
+		createEmptyCommentThread(document: TextDocument, range: Range): ProviderResult<void>;
+	}
+
+	export interface CommentController {
+		/**
+		 * The id of this comment controller.
+		 */
+		readonly id: string;
+
+		/**
+		 * The human-readable label of this comment controller.
+		 */
+		readonly label: string;
+
+		/**
+		 * The active (focused) [comment input box](#CommentInputBox).
 		 */
 		readonly inputBox?: CommentInputBox;
 		createCommentThread(id: string, resource: Uri, range: Range): CommentThread;
+
 		/**
+		 * Optional commenting range provider.
 		 * Provide a list [ranges](#Range) which support commenting to any given resource uri.
-		 *
-		 * @param uri The uri of the resource open in a text editor.
-		 * @param callback, a handler called when users attempt to create a new comment thread, either from the gutter or command palette
-		 * @param token A cancellation token.
-		 * @return A thenable that resolves to a list of commenting ranges or null and undefined if the provider
-		 * does not want to participate or was cancelled.
 		 */
-		registerCommentingRangeProvider(provider: (document: TextDocument, token: CancellationToken) => ProviderResult<Range[]>, callback: (document: TextDocument, range: Range) => void): void;
+		commentingRangeProvider?: CommentingRangeProvider;
+
+		/**
+		 * Optional new comment thread factory.
+		 */
+		emptyCommentThreadFactory: EmptyCommentThreadFactory;
+
+		/**
+		 * Dispose this comment controller.
+		 */
 		dispose(): void;
 	}
 

@@ -64,7 +64,7 @@ function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChan
 
 	return ret;
 }
-export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler {
+export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory {
 	private _localToDispose: vscode.Disposable[] = [];
 	private _onDidChangeComments = new vscode.EventEmitter<Comment[]>();
 	public onDidChangeComments = this._onDidChangeComments.event;
@@ -89,7 +89,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		private _comments: Comment[]) {
 		this._commentController = vscode.comment.createCommentController(`review-${_prManager.activePullRequest!.prNumber}`, _prManager.activePullRequest!.title);
-		this._commentController.registerCommentingRangeProvider(this.provideCommentingRanges.bind(this), this.createNewCommentWidgetCallback.bind(this));
+		this._commentController.commentingRangeProvider = this;
+		this._commentController.emptyCommentThreadFactory = this;
 		this._localToDispose.push(this._commentController);
 	}
 
@@ -254,7 +255,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
-	async createNewCommentWidgetCallback(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
+	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
 		if (await this._prManager.authenticate()) {
 			let thread = this._commentController!.createCommentThread('', document.uri, range);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
