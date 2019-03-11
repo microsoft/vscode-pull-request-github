@@ -76,7 +76,6 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
 
-		public comments: Comment[] = [],
 		public readonly sha?: string
 	) {
 		super();
@@ -84,14 +83,17 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
-		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, status);
 
 		this.opts = {
 			preserveFocus: true
 		};
+	}
 
-		if (this.comments && this.comments.length) {
-			let sortedActiveComments = this.comments.filter(comment => comment.position).sort((a, b) => {
+	update(comments: Comment[]) {
+		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, this.status);
+
+		if (comments && comments.length) {
+			let sortedActiveComments = comments.filter(comment => comment.position).sort((a, b) => {
 				return a.position! - b.position!;
 			});
 
