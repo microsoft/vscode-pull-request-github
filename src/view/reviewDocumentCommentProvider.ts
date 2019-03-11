@@ -149,41 +149,34 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	async initializeDocumentCommentThreadsAndListeners() {
 		this._localToDispose.push(vscode.window.onDidChangeVisibleTextEditors(async e => {
 			// remove comment threads in `pr/reivew` documents if there are no longer visible
+			let prEditors = vscode.window.visibleTextEditors.filter(editor => {
+				if (editor.document.uri.scheme !== 'pr') {
+					return false;
+				}
+
+				const params = fromPRUri(editor.document.uri);
+				return !!params && params.prNumber === this._prManager.activePullRequest!.prNumber;
+			});
+
 			for (let fileName in this._prDocumentCommentThreads) {
 				let threads = this._prDocumentCommentThreads[fileName];
 
-				let originalVisible = vscode.window.visibleTextEditors.find(editor => {
-					if (editor.document.uri.scheme !== 'pr') {
-						return false;
-					}
-
+				let originalEditor = prEditors.find(editor => {
 					const params = fromPRUri(editor.document.uri);
-					if (params && params.prNumber === this._prManager.activePullRequest!.prNumber && params.fileName === fileName && params.isBase) {
-						return true;
-					}
-
-					return false;
+					return !!params && params.fileName === fileName && params.isBase;
 				});
 
-				if (!originalVisible && threads.original) {
+				if (!originalEditor && threads.original) {
 					threads.original.forEach(thread => thread.dispose!());
 					this._prDocumentCommentThreads[fileName].original = undefined;
 				}
 
-				let modifiedVisible = vscode.window.visibleTextEditors.find(editor => {
-					if (editor.document.uri.scheme !== 'pr') {
-						return false;
-					}
-
+				let modifiedEditor = prEditors.find(editor => {
 					const params = fromPRUri(editor.document.uri);
-					if (params && params.prNumber === this._prManager.activePullRequest!.prNumber && params.fileName === fileName && !params.isBase) {
-						return true;
-					}
-
-					return false;
+					return !!params && params.fileName === fileName && !params.isBase;
 				});
 
-				if (!modifiedVisible && threads.modified) {
+				if (!modifiedEditor && threads.modified) {
 					threads.modified.forEach(thread => thread.dispose!());
 					this._prDocumentCommentThreads[fileName].modified = undefined;
 				}
@@ -236,7 +229,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				}
 			});
 
-
 			for (let fileName in this._prDocumentCommentThreads) {
 				[...this._prDocumentCommentThreads[fileName].original || [], ...this._prDocumentCommentThreads[fileName].modified || []].forEach(thread => {
 					let commands = getCommentThreadCommands(this._commentController!, thread, this._prManager.activePullRequest!, newDraftMode, this);
@@ -248,7 +240,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 					});
 				});
 			}
-
 		}));
 	}
 
