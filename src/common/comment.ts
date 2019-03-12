@@ -39,18 +39,6 @@ export interface Comment {
 	reactions?: Reaction[];
 }
 
-export interface CommentInfo {
-	/**
-	 * All of the comment threads associated with the document.
-	 */
-	threads: vscode.CommentThread[];
-
-	/**
-	 * The ranges of the document which support commenting.
-	 */
-	commentingRanges?: vscode.Range[];
-}
-
 export interface CommentHandler {
 	commentController?: vscode.CommentController;
 	startReview(thread: vscode.CommentThread): Promise<void>;
