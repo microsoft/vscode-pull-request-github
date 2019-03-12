@@ -54,7 +54,7 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 
 	vscodeThread.comments = thread.comments;
 
-	let commands = getCommentThreadCommands(commentController, vscodeThread, pullRequestModel, inDraftMode, node);
+	let commands = getCommentThreadCommands(vscodeThread, inDraftMode, node);
 	vscodeThread.acceptInputCommand = commands.acceptInputCommand;
 	vscodeThread.additionalCommands = commands.additionalCommands;
 	vscodeThread.collapsibleState = thread.collapsibleState;

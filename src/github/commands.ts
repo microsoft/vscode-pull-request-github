@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestModel } from './pullRequestModel';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
-export function getCommentThreadCommands(commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, inDraftMode: boolean, node: PRNode | ReviewDocumentCommentProvider): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
+import { CommentHandler } from '../common/comment';
+export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMode: boolean, node: CommentHandler): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
 	let commands: vscode.Command[] = [];
 	let acceptInputCommand: vscode.Command;
 	if (inDraftMode) {

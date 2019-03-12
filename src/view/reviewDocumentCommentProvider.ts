@@ -204,7 +204,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads, this._reviewDocumentCommentThreads].forEach(commentThreadMap => {
 				for (let fileName in commentThreadMap) {
 					commentThreadMap[fileName].forEach(thread => {
-						let commands = getCommentThreadCommands(this._commentController!, thread, this._prManager.activePullRequest!, newDraftMode, this);
+						let commands = getCommentThreadCommands(thread, newDraftMode, this);
 						thread.acceptInputCommand = commands.acceptInputCommand;
 						thread.additionalCommands = commands.additionalCommands;
 						thread.comments = thread.comments.map(comment => {
@@ -217,7 +217,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 			for (let fileName in this._prDocumentCommentThreads) {
 				[...this._prDocumentCommentThreads[fileName].original || [], ...this._prDocumentCommentThreads[fileName].modified || []].forEach(thread => {
-					let commands = getCommentThreadCommands(this._commentController!, thread, this._prManager.activePullRequest!, newDraftMode, this);
+					let commands = getCommentThreadCommands(thread, newDraftMode, this);
 					thread.acceptInputCommand = commands.acceptInputCommand;
 					thread.additionalCommands = commands.additionalCommands;
 					thread.comments = thread.comments.map(comment => {
@@ -379,7 +379,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 		thread.comments = [comment];
 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
-		const commands = getCommentThreadCommands(this._commentController!, thread, this._prManager.activePullRequest!, inDraftMode, this);
+		const commands = getCommentThreadCommands(thread, inDraftMode, this);
 
 		thread.acceptInputCommand = commands.acceptInputCommand;
 		thread.additionalCommands = commands.additionalCommands;
@@ -936,7 +936,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				let matchedThread = existingCommentThreads.filter(existingThread => existingThread.threadId === thread.threadId);
 
 				if (matchedThread.length) {
-					let commands = getCommentThreadCommands(this._commentController!, matchedThread[0], this._prManager.activePullRequest!, inDraftMode, this);
+					let commands = getCommentThreadCommands(matchedThread[0], inDraftMode, this);
 					// update
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;

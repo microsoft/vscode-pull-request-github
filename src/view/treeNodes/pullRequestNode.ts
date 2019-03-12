@@ -249,7 +249,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				this._disposables.push(this.pullRequestModel.onDidChangeDraftMode(newDraftMode => {
 					for (let fileName in this._fileChangeCommentThreads) {
 						this._fileChangeCommentThreads[fileName].forEach(thread => {
-							let commands = getCommentThreadCommands(this._commentController!, thread, this.pullRequestModel, newDraftMode, this);
+							let commands = getCommentThreadCommands(thread, newDraftMode, this);
 							thread.acceptInputCommand = commands.acceptInputCommand;
 							thread.additionalCommands = commands.additionalCommands;
 						});
@@ -390,7 +390,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			thread.comments = [comment];
 
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
-			const commands = getCommentThreadCommands(this._commentController!, thread, this.pullRequestModel, inDraftMode, this);
+			const commands = getCommentThreadCommands(thread, inDraftMode, this);
 
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
