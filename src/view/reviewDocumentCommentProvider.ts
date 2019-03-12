@@ -6,7 +6,7 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { Comment, CommentHandler } from '../common/comment';
-import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, mapCommentThreadsToHead, mapHeadLineToDiffHunkPosition } from '../common/diffPositionMapping';
+import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, mapHeadLineToDiffHunkPosition } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../git/api';
@@ -17,6 +17,7 @@ import { convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createV
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand } from '../github/commands';
+import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 
 function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
 	if (!fileChange) {
@@ -63,6 +64,23 @@ function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChan
 	}
 
 	return ret;
+}
+
+function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, commentThreads: vscode.CommentThread[]) {
+	commentThreads.forEach(thread => {
+		if (thread.comments && thread.comments.length) {
+			let comment = thread.comments[0] as vscode.Comment & { _rawComment: Comment };
+
+			const diffLine = getDiffLineByPosition(diffHunks, comment._rawComment.position || comment._rawComment.originalPosition!);
+			if (diffLine) {
+				const positionInPr = diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber;
+				const newPosition = getZeroBased(mapOldPositionToNew(localDiff, positionInPr));
+				const range = new vscode.Range(newPosition, 0, newPosition, 0);
+
+				thread.range = range;
+			}
+		}
+	});
 }
 export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory {
 	private _localToDispose: vscode.Disposable[] = [];

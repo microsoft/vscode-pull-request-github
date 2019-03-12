@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import { DiffLine, DiffHunk, parseDiffHunk, DiffChangeType } from './diffHunk';
 import { Comment } from './comment';
 
@@ -175,21 +174,4 @@ export function mapCommentsToHead(diffHunks: DiffHunk[], localDiff: string, comm
 	}
 
 	return comments;
-}
-
-export function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, commentThreads: vscode.CommentThread[]) {
-	commentThreads.forEach(thread => {
-		if (thread.comments && thread.comments.length) {
-			let comment = thread.comments[0] as vscode.Comment & { _rawComment: Comment };
-
-			const diffLine = getDiffLineByPosition(diffHunks, comment._rawComment.position || comment._rawComment.originalPosition!);
-			if (diffLine) {
-				const positionInPr = diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber;
-				const newPosition = getZeroBased(mapOldPositionToNew(localDiff, positionInPr));
-				const range = new vscode.Range(newPosition, 0, newPosition, 0);
-
-				thread.range = range;
-			}
-		}
-	});
 }
