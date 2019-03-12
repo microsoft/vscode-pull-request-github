@@ -257,7 +257,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				if (matchedFileChanges.length) {
 					const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 
-					let documentComments = provideDocumentComments(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments, inDraftMode);
+					let documentComments = provideDocumentComments(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
 					let newThreads: vscode.CommentThread[] = [];
 					if (documentComments) {
 						documentComments.threads.forEach(thread => {

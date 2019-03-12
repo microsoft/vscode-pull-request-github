@@ -26,8 +26,7 @@ export function provideDocumentComments(
 	uri: vscode.Uri,
 	isBase: boolean,
 	fileChange: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode),
-	matchingComments: Comment[],
-	inDraftMode: boolean) {
+	matchingComments: Comment[]) {
 
 	if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
 		return;
@@ -42,8 +41,7 @@ export function provideDocumentComments(
 	if (!matchingComments || !matchingComments.length) {
 		return {
 			threads: [],
-			commentingRanges,
-			inDraftMode
+			commentingRanges
 		};
 	}
 
@@ -76,8 +74,7 @@ export function provideDocumentComments(
 
 	return {
 		threads,
-		commentingRanges,
-		inDraftMode
+		commentingRanges
 	};
 }
 
@@ -236,8 +233,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				this._fileChanges.forEach(fileChange => {
 					if (fileChange instanceof InMemFileChangeNode) {
-						let leftComments = provideDocumentComments(fileChange.parentFilePath, true, fileChange, comments.filter(comment => comment.path === fileChange.fileName && comment.position !== null), inDraftMode);
-						let rightComments = provideDocumentComments(fileChange.filePath, false, fileChange, comments.filter(comment => comment.path === fileChange.fileName && comment.position !== null), inDraftMode);
+						let leftComments = provideDocumentComments(fileChange.parentFilePath, true, fileChange, comments.filter(comment => comment.path === fileChange.fileName && comment.position !== null));
+						let rightComments = provideDocumentComments(fileChange.filePath, false, fileChange, comments.filter(comment => comment.path === fileChange.fileName && comment.position !== null));
 						this.createCommentThread(
 							fileChange.fileName,
 							[...(leftComments ? leftComments.threads : []), ...(rightComments ? rightComments.threads : [])],
@@ -453,12 +450,12 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			let newComments = comments.filter(comment => comment.path === newFileChange.fileName && comment.position !== null);
 
 			let oldLeftSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource.toString() === (oldFileChange as InMemFileChangeNode).parentFilePath.toString());
-			let newLeftSideCommentThreads = provideDocumentComments(newFileChange.parentFilePath, true, newFileChange, newComments, inDraftMode);
+			let newLeftSideCommentThreads = provideDocumentComments(newFileChange.parentFilePath, true, newFileChange, newComments);
 
 			this.updateFileChangeCommentThreads(oldLeftSideCommentThreads, newLeftSideCommentThreads ? newLeftSideCommentThreads.threads : [], newFileChange, inDraftMode);
 
 			let oldRightSideCommentThreads = this._fileChangeCommentThreads[oldFileChange.fileName].filter(thread => thread.resource.toString() === (oldFileChange as InMemFileChangeNode).filePath.toString());
-			let newRightSideCommentThreads = provideDocumentComments(newFileChange.filePath, true, newFileChange, newComments, inDraftMode);
+			let newRightSideCommentThreads = provideDocumentComments(newFileChange.filePath, true, newFileChange, newComments);
 
 			this.updateFileChangeCommentThreads(oldRightSideCommentThreads, newRightSideCommentThreads ? newRightSideCommentThreads.threads : [], newFileChange, inDraftMode);
 		}
