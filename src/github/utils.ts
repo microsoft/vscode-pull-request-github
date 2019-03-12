@@ -22,7 +22,7 @@ export function convertToVSCodeComment(comment: Comment, command: vscode.Command
 		_rawComment: comment,
 		commentId: comment.id.toString(),
 		body: new vscode.MarkdownString(comment.body),
-		command: command,
+		selectCommand: command,
 		userName: comment.user!.login,
 		userIconPath: vscode.Uri.parse(comment.user!.avatarUrl),
 		label: !!comment.isDraft ? 'Pending' : undefined,

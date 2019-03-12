@@ -837,7 +837,7 @@ declare module 'vscode' {
 		/**
 		 * The command to be executed if the comment is selected in the Comments Panel
 		 */
-		command?: Command;
+		selectCommand?: Command;
 
 		editCommand?: Command;
 		deleteCommand?: Command;
