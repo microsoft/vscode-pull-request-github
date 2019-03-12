@@ -400,6 +400,30 @@
         {
           "command": "pr.copyCommitHash",
           "when": "false"
+        },
+        {
+          "command": "pr.replyComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.startReview",
+          "when": "false"
+        },
+        {
+          "command": "pr.deleteReview",
+          "when": "false"
+        },
+        {
+          "command": "pr.editComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.deleteComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.finishReview",
+          "when": "false"
         }
       ],
       "view/title": [
