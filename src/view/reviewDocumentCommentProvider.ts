@@ -302,20 +302,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			let commentThreads = this._workspaceFileChangeCommentThreads[fileName];
 
 			const headCommitSha = this._prManager.activePullRequest!.head.sha;
-			let contentDiff: string;
-			if (editor.document.isDirty) {
-				const documentText = editor.document.getText();
-				const details = await this._repository.getObjectDetails(headCommitSha, fileName);
-				const idAtLastCommit = details.object;
-				const idOfCurrentText = await this._repository.hashObject(documentText);
-
-				// git diff <blobid> <blobid>
-				contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
-			} else {
-				// git diff sha -- fileName
-				contentDiff = await this._repository.diffWith(headCommitSha, fileName);
-			}
-
+			let contentDiff = await this.getContentDiff(editor.document, headCommitSha, fileName);
 			mapCommentThreadsToHead(matchedFiles[0].diffHunks, contentDiff, commentThreads);
 			return;
 		}
@@ -463,21 +450,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			const headCommitSha = this._prManager.activePullRequest!.head.sha;
 			if (matchedFiles && matchedFiles.length) {
 				matchedFile = matchedFiles[0];
-
-				let contentDiff: string;
-				if (document.isDirty) {
-					const documentText = document.getText();
-					const details = await this._repository.getObjectDetails(headCommitSha, matchedFile.fileName);
-					const idAtLastCommit = details.object;
-					const idOfCurrentText = await this._repository.hashObject(documentText);
-
-					// git diff <blobid> <blobid>
-					contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
-				} else {
-					// git diff sha -- fileName
-					contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
-				}
-
+				let contentDiff = await this.getContentDiff(document, headCommitSha, matchedFile.fileName);
 				let diffHunks = matchedFile.diffHunks;
 
 				for (let i = 0; i < diffHunks.length; i++) {
@@ -494,6 +467,24 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 
 		return;
+	}
+
+	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string) {
+		let contentDiff: string;
+		if (document.isDirty) {
+			const documentText = document.getText();
+			const details = await this._repository.getObjectDetails(headCommitSha, fileName);
+			const idAtLastCommit = details.object;
+			const idOfCurrentText = await this._repository.hashObject(documentText);
+
+			// git diff <blobid> <blobid>
+			contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
+		} else {
+			// git diff sha -- fileName
+			contentDiff = await this._repository.diffWith(headCommitSha, fileName);
+		}
+
+		return contentDiff;
 	}
 
 	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
