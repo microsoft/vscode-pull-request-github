@@ -171,6 +171,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		super();
 	}
 
+	// #region Tree
 	async getChildren(): Promise<TreeNode[]> {
 		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.prNumber}`, PRNode.ID);
 		try {
@@ -271,6 +272,69 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 	}
 
+	async revealComment(comment: Comment) {
+		let fileChange = this._fileChanges.find(fc => {
+			if (fc.fileName !== comment.path) {
+				return false;
+			}
+
+			if (fc.pullRequest.head.sha !== comment.commitId) {
+				return false;
+			}
+
+			return true;
+		});
+
+		if (fileChange) {
+			await this.reveal(fileChange, { focus: true });
+			if (!fileChange.command.arguments) {
+				return;
+			}
+			if (fileChange instanceof InMemFileChangeNode) {
+				let lineNumber = fileChange.getCommentPosition(comment);
+				const opts = fileChange.opts;
+				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
+				fileChange.opts = opts;
+				await vscode.commands.executeCommand(fileChange.command.command, fileChange);
+			} else {
+				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments!);
+			}
+		}
+	}
+
+	getTreeItem(): vscode.TreeItem {
+		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
+
+		const {
+			title,
+			prNumber,
+			author,
+		} = this.pullRequestModel;
+
+		const {
+			login,
+		} = author;
+
+		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
+		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
+		const formattedPRNumber = prNumber.toString();
+		const label = `${labelPrefix}${title}`;
+		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by @${login}`;
+		const description = `#${formattedPRNumber} by @${login}`;
+
+		return {
+			label,
+			tooltip,
+			description,
+			collapsibleState: 1,
+			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
+			iconPath: this.pullRequestModel.userAvatarUri
+		};
+	}
+
+	// #endregion
+
+	// #region New Comment Thread
 	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
 		if (await this._prManager.authenticate()) {
 			let thread = this._commentController!.createCommentThread('', document.uri, range);
@@ -355,6 +419,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 	}
 
+	// #endregion
+
+	// #region Helper
 	createCommentThread(fileName: string, commentThreads: vscode.CommentThread[], inDraftMode: boolean) {
 		let threads: vscode.CommentThread[] = [];
 		commentThreads.forEach(thread => {
@@ -364,66 +431,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		this._fileChangeCommentThreads[fileName] = threads;
 	}
 
-	async revealComment(comment: Comment) {
-		let fileChange = this._fileChanges.find(fc => {
-			if (fc.fileName !== comment.path) {
-				return false;
-			}
+	// #endregion
 
-			if (fc.pullRequest.head.sha !== comment.commitId) {
-				return false;
-			}
-
-			return true;
-		});
-
-		if (fileChange) {
-			await this.reveal(fileChange, { focus: true });
-			if (!fileChange.command.arguments) {
-				return;
-			}
-			if (fileChange instanceof InMemFileChangeNode) {
-				let lineNumber = fileChange.getCommentPosition(comment);
-				const opts = fileChange.opts;
-				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				fileChange.opts = opts;
-				await vscode.commands.executeCommand(fileChange.command.command, fileChange);
-			} else {
-				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments!);
-			}
-		}
-	}
-
-	getTreeItem(): vscode.TreeItem {
-		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
-
-		const {
-			title,
-			prNumber,
-			author,
-		} = this.pullRequestModel;
-
-		const {
-			login,
-		} = author;
-
-		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
-		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
-		const formattedPRNumber = prNumber.toString();
-		const label = `${labelPrefix}${title}`;
-		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by @${login}`;
-		const description = `#${formattedPRNumber} by @${login}`;
-
-		return {
-			label,
-			tooltip,
-			description,
-			collapsibleState: 1,
-			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
-			iconPath: this.pullRequestModel.userAvatarUri
-		};
-	}
-
+	// #region Incremental updates
 	private async updateComments(fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[], comments: Comment[]): Promise<void> {
 		const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
 
@@ -491,6 +501,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 	}
 
+	// #endregion
+
+	// #region Document Content Provider
 	private async provideDocumentContent(uri: vscode.Uri): Promise<string> {
 		let params = fromPRUri(uri);
 		if (!params) {
@@ -556,6 +569,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		Logger.appendLine(`PR> can not find content for document ${uri.toString()}`);
 		return '';
 	}
+
+	// #endregion
 
 	// #region comment
 	public async createOrReplyComment(thread: vscode.CommentThread) {
@@ -684,6 +699,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	// #endregion
+
 	// async addReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
 	// 	const fileChange = this.findMatchingFileNode(document.uri);
 	// 	if (!fileChange) {
