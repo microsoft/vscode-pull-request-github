@@ -335,27 +335,27 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (node: CommentHandler, thread: vscode.CommentThread) => {
-		node.createOrReplyComment(thread);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		handler.createOrReplyComment(thread);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (node: CommentHandler, thread: vscode.CommentThread) => {
-		node.startReview(thread);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		handler.startReview(thread);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (node: CommentHandler, thread: vscode.CommentThread) => {
-		await node.finishReview(thread);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		await handler.finishReview(thread);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (node: CommentHandler) => {
-		await node.deleteReview();
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (handler: CommentHandler) => {
+		await handler.deleteReview();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (node: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
-		await node.editComment(thread, comment);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+		await handler.editComment(thread, comment);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (node: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
-		await node.deleteComment(thread, comment);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+		await handler.deleteComment(thread, comment);
 	}));
 }
