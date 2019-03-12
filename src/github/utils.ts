@@ -25,7 +25,7 @@ export function convertToVSCodeComment(comment: Comment, command: vscode.Command
 		command: command,
 		userName: comment.user!.login,
 		userIconPath: vscode.Uri.parse(comment.user!.avatarUrl),
-		label: !!comment.isDraft ? 'Draft' : undefined,
+		label: !!comment.isDraft ? 'Pending' : undefined,
 		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
 			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : []
