@@ -64,7 +64,7 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 
 	vscodeThread.comments = thread.comments;
 
-	let commands = getCommentThreadCommands(vscodeThread, inDraftMode, node);
+	let commands = getCommentThreadCommands(vscodeThread, inDraftMode, node, pullRequestModel.githubRepository.supportsGraphQl);
 	vscodeThread.acceptInputCommand = commands.acceptInputCommand;
 	vscodeThread.additionalCommands = commands.additionalCommands;
 	vscodeThread.collapsibleState = thread.collapsibleState;
