@@ -19,7 +19,7 @@ import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment, CommentHandler } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { convertToVSCodeComment, createVSCodeCommentThread } from '../../github/utils';
+import { convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction } from '../../github/utils';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand } from '../../github/commands';
 
 export function provideDocumentComments(
@@ -135,7 +135,7 @@ function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vsco
 	});
 }
 
-export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory {
+export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory, vscode.CommentReactionProvider {
 	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _fileChangeCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
@@ -154,6 +154,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	public get command():vscode.Command {
 		return this._command;
 	}
+
+	public availableReactions: vscode.CommentReaction[] = getReactionGroup();
 
 	public set command(newCommand: vscode.Command) {
 		this._command = newCommand;
@@ -230,6 +232,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				this._commentController = vscode.comment.createCommentController(String(this.pullRequestModel.prNumber), this.pullRequestModel.title);
 				this._commentController.commentingRangeProvider = this;
 				this._commentController.emptyCommentThreadFactory = this;
+				this._commentController.reactionProvider = this;
 
 				this._fileChanges.forEach(fileChange => {
 					if (fileChange instanceof InMemFileChangeNode) {
@@ -697,49 +700,55 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	// #endregion
 
-	// async addReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
-	// 	const fileChange = this.findMatchingFileNode(document.uri);
-	// 	if (!fileChange) {
-	// 		throw new Error('Unable to find matching file');
-	// 	}
+	// #region Reaction
+	async toggleReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void> {
+		if (document.uri.scheme !== 'pr') {
+			return;
+		}
 
-	// 	let matchedRawComment = fileChange.comments.find(cmt => String(cmt.id) === comment.commentId);
+		const params = fromPRUri(document.uri);
 
-	// 	if (!matchedRawComment) {
-	// 		throw new Error('Unable to find matching comment');
-	// 	}
+		if (!params) {
+			return;
+		}
 
-	// 	await this._prManager.addCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
-	// 	const params = fromPRUri(document.uri);
-	// 	let comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
-	// 	let changedCommentThreads = commentsToCommentThreads(fileChange, comments.filter(cmt => cmt.path === fileChange.fileName && cmt.position !== null), params!.isBase);
+		if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label)) {
+			// add reaction
+			const matchedRawComment = (comment as (vscode.Comment & { _rawComment: Comment }))._rawComment;
+			let result = await this._prManager.addCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
+			let reactionGroups = result.addReaction.subject.reactionGroups;
+			comment.commentReactions = parseGraphQLReaction(reactionGroups).map(ret => {
+				return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
+			});
+		} else {
+			const matchedRawComment = (comment as (vscode.Comment & { _rawComment: Comment }))._rawComment;
+			let result = await this._prManager.deleteCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
+			let reactionGroups = result.removeReaction.subject.reactionGroups;
+			comment.commentReactions = parseGraphQLReaction(reactionGroups).map(ret => {
+				return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
+			});
+		}
 
-		// this._onDidChangeCommentThreads.fire({
-		// 	added: [],
-		// 	changed: changedCommentThreads,
-		// 	removed: []
-		// });
-	// }
+		if (this._fileChangeCommentThreads[params.fileName]) {
+			this._fileChangeCommentThreads[params.fileName].forEach(thread => {
+				if (!thread.comments) {
+					return;
+				}
 
-	// async deleteReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
-	// 	const fileChange = this.findMatchingFileNode(document.uri);
-	// 	let matchedRawComment = fileChange.comments.find(cmt => String(cmt.id) === comment.commentId);
+				if (thread.comments.find(cmt => cmt.commentId === comment.commentId)) {
+					thread.comments = thread.comments.map(cmt => {
+						if (cmt.commentId === comment.commentId) {
+							cmt.commentReactions = comment.commentReactions;
+						}
 
-	// 	if (!matchedRawComment) {
-	// 		throw new Error('Unable to find matching comment');
-	// 	}
+						return cmt;
+					});
+				}
+			});
+		}
+	}
 
-	// 	await this._prManager.deleteCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
-	// 	const params = fromPRUri(document.uri);
-	// 	let comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
-	// 	let changedCommentThreads = commentsToCommentThreads(fileChange, comments.filter(cmt => cmt.path === fileChange.fileName && cmt.position !== null), params!.isBase);
-
-		// this._onDidChangeCommentThreads.fire({
-		// 	added: [],
-		// 	changed: changedCommentThreads,
-		// 	removed: []
-		// });
-	// }
+	// #endregion
 
 	dispose(): void {
 		super.dispose();

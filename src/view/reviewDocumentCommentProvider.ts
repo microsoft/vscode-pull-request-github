@@ -82,12 +82,12 @@ function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, comme
 		}
 	});
 }
-export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory {
+export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory, vscode.CommentReactionProvider {
 	private _localToDispose: vscode.Disposable[] = [];
 	private _onDidChangeComments = new vscode.EventEmitter<Comment[]>();
 	public onDidChangeComments = this._onDidChangeComments.event;
 
-	public reactionGroup? = getReactionGroup();
+	public availableReactions = getReactionGroup();
 
 	private _commentController?: vscode.CommentController;
 
@@ -109,6 +109,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		this._commentController = vscode.comment.createCommentController(`review-${_prManager.activePullRequest!.prNumber}`, _prManager.activePullRequest!.title);
 		this._commentController.commentingRangeProvider = this;
 		this._commentController.emptyCommentThreadFactory = this;
+		this._commentController.commentingRangeProvider = this;
 		this._localToDispose.push(this._commentController);
 	}
 

@@ -812,7 +812,7 @@ declare module 'vscode' {
 	/**
 	 * A comment is displayed within the editor or the Comments Panel, depending on how it is provided.
 	 */
-	interface Comment {
+	export interface Comment {
 		/**
 		 * The id of the comment
 		 */
@@ -871,6 +871,11 @@ declare module 'vscode' {
 		createEmptyCommentThread(document: TextDocument, range: Range): ProviderResult<void>;
 	}
 
+	export interface CommentReactionProvider {
+		availableReactions: CommentReaction[];
+		toggleReaction?(document: TextDocument, comment: Comment, reaction: CommentReaction): Promise<void>;
+	}
+
 	export interface CommentController {
 		/**
 		 * The id of this comment controller.
@@ -898,6 +903,11 @@ declare module 'vscode' {
 		 * Optional new comment thread factory.
 		 */
 		emptyCommentThreadFactory: EmptyCommentThreadFactory;
+
+		/**
+		 * Optional reaction provider
+		 */
+		reactionProvider?: CommentReactionProvider;
 
 		/**
 		 * Dispose this comment controller.
