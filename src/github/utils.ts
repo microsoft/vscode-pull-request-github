@@ -17,6 +17,16 @@ import { getEditCommand, getDeleteCommand, getCommentThreadCommands } from './co
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 
+export interface CommentHandler {
+	commentController?: vscode.CommentController;
+	startReview(thread: vscode.CommentThread): Promise<void>;
+	finishReview(thread: vscode.CommentThread): Promise<void>;
+	deleteReview(): Promise<void>;
+	createOrReplyComment(thread: vscode.CommentThread): Promise<void>;
+	editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
+	deleteComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
+}
+
 export function convertToVSCodeComment(comment: Comment, command: vscode.Command | undefined): vscode.Comment & { _rawComment: Comment } {
 	let vscodeComment: vscode.Comment & { _rawComment: Comment } = {
 		_rawComment: comment,

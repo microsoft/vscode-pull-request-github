@@ -16,10 +16,10 @@ import { DescriptionNode } from './descriptionNode';
 import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
-import { Comment, CommentHandler } from '../../common/comment';
+import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction } from '../../github/utils';
+import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction } from '../../github/utils';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand } from '../../github/commands';
 
 export function provideDocumentComments(
