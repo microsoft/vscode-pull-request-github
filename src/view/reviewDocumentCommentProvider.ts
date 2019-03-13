@@ -114,12 +114,12 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	}
 
 	// #region initialize
-	async initialize() {
+	async initialize(): Promise<void> {
 		await this.initializeWorkspaceCommentThreads();
 		await this.initializeDocumentCommentThreadsAndListeners();
 	}
 
-	async initializeWorkspaceCommentThreads() {
+	async initializeWorkspaceCommentThreads(): Promise<void> {
 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 		this._localFileChanges.forEach(async matchedFile => {
 			let matchingComments: Comment[] = [];
@@ -151,7 +151,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		});
 	}
 
-	async initializeDocumentCommentThreadsAndListeners() {
+	async initializeDocumentCommentThreadsAndListeners(): Promise<void> {
 		this._localToDispose.push(vscode.window.onDidChangeVisibleTextEditors(async e => {
 			// remove comment threads in `pr/reivew` documents if there are no longer visible
 			let prEditors = vscode.window.visibleTextEditors.filter(editor => {
@@ -245,7 +245,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}));
 	}
 
-	async updateCommentThreadsForEditor(editor: vscode.TextEditor) {
+	async updateCommentThreadsForEditor(editor: vscode.TextEditor): Promise<void> {
 		if (editor.document.uri.scheme === 'pr') {
 			const params = fromPRUri(editor.document.uri);
 
@@ -371,7 +371,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
-	private async updateCommentThreadRoot(thread: vscode.CommentThread, text: string) {
+	private async updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void> {
 		const uri = thread.resource;
 		const matchedFile = this.findMatchedFileByUri(uri);
 		const query = uri.query === '' ? undefined : fromReviewUri(uri);
@@ -483,7 +483,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Helper
-	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string) {
+	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string): Promise<string> {
 		let contentDiff: string;
 		if (document.isDirty) {
 			const documentText = document.getText();
@@ -692,7 +692,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Review
-	public async startReview(thread: vscode.CommentThread) {
+	public async startReview(thread: vscode.CommentThread): Promise<void> {
 		await this._prManager.startReview(this._prManager.activePullRequest!);
 
 		if (thread.comments.length) {
@@ -713,7 +713,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
-	public async finishReview(thread: vscode.CommentThread) {
+	public async finishReview(thread: vscode.CommentThread): Promise<void> {
 		if (this.commentController!.inputBox) {
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox.value, comment._rawComment);
@@ -798,7 +798,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Comment
-	async createOrReplyComment(thread: vscode.CommentThread) {
+	async createOrReplyComment(thread: vscode.CommentThread): Promise<void> {
 		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
 			if (thread.comments.length) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
@@ -932,7 +932,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
-	private async updateFileChangeCommentThreads(fileChanges: GitFileChangeNode[], fileName: string, inDraftMode: boolean) {
+	private async updateFileChangeCommentThreads(fileChanges: GitFileChangeNode[], fileName: string, inDraftMode: boolean): Promise<void> {
 		let matchedFileChanges = fileChanges.filter(fileChange => fileChange.fileName === fileName);
 
 		if (matchedFileChanges.length === 0) {
