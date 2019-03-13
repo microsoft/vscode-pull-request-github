@@ -198,12 +198,9 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 						return false;
 					}
 
-					try {
-						const params = fromReviewUri(editor.document.uri);
-						if (params && params.path === fileName) {
-							return true;
-						}
-					} catch (e) { }
+					if (fileName === editor.document.uri.toString()) {
+						return true;
+					}
 
 					return false;
 				});
@@ -214,7 +211,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				}
 			}
 
-			for (let editor of e) {
+			for (let editor of e.filter(ed => ed.document.uri.scheme !== 'comment')) {
 				await this.updateCommentThreadsForEditor(editor);
 			}
 		}));
@@ -319,11 +316,16 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			return;
 		}
 
+		this._reviewDocumentCommentThreads[reviewUriString] = [];
+
 		try {
 			query = fromReviewUri(editor.document.uri);
 		} catch (e) { }
 
 		if (query) {
+			if (query.base && this._prManager.activePullRequest!.mergeBase && query.commit === this._prManager.activePullRequest!.mergeBase!) {
+				return;
+			}
 			const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 			let reviewCommentThreads = this.provideCommentsForReviewUri(editor.document, query);
 
@@ -550,7 +552,10 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			const isBase = query.base;
 			matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile!.diffHunks, isBase); });
 
-			return  workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded);
+			return  workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded).map(thread => {
+				thread.resource = document.uri;
+				return thread;
+			});
 		}
 
 		const matchedObsoleteFile = this.findMatchedFileChangeForReviewDiffView(this._obsoleteFileChanges, document.uri);
@@ -595,7 +600,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 			ret.push({
 				threadId: String(firstComment.id),
-				resource: vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, firstComment.path!)),
+				resource: document.uri,
 				range,
 				comments: commentGroup.map(comment => {
 					let vscodeComment = convertToVSCodeComment(comment, undefined);
@@ -983,15 +988,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Reactions
-	public async addReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
-		await this.editReaction(document, comment, reaction, true);
-	}
-
-	public async deleteReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction) {
-		await this.editReaction(document, comment, reaction, false);
-	}
-
-	private async editReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction, addReaction: boolean) {
+	async toggleReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void> {
 		try {
 			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
@@ -1008,7 +1005,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			}
 
 			let reactionGroups: ReactionGroup[] = [];
-			if (addReaction) {
+			if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label)) {
 				let result = await this._prManager.addCommentReaction(this._prManager.activePullRequest, rawComment.graphNodeId, reaction);
 				reactionGroups = result.addReaction.subject.reactionGroups;
 			} else {
@@ -1021,13 +1018,28 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			if (matchingCommentIndex > -1) {
 				let editedComment = matchedFile.comments[matchingCommentIndex];
 				editedComment.reactions = parseGraphQLReaction(reactionGroups);
-				// const changedThreads = workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchedFile.comments.filter(c => c.position === editedComment.position), vscode.CommentThreadCollapsibleState.Expanded);
+				const vscodeCommentReactions = editedComment.reactions.map(ret => {
+					return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
+				});
 
-				// this._onDidChangeDocumentCommentThreads.fire({
-				// 	added: [],
-				// 	changed: changedThreads,
-				// 	removed: []
-				// });
+				const fileName = matchedFile.fileName;
+				const modifiedThreads = [
+					...(this._prDocumentCommentThreads[fileName].original || []),
+					...(this._prDocumentCommentThreads[fileName].modified || []),
+					...(this._reviewDocumentCommentThreads[fileName] || []),
+					...(this._workspaceFileChangeCommentThreads[fileName] || []),
+					...(this._obsoleteFileChangeCommentThreads[fileName] || [])
+				].filter(td => !!td.comments.find(cmt => cmt.commentId === comment.commentId));
+
+				modifiedThreads.forEach(thread => {
+					thread.comments = thread.comments.map(cmt => {
+						if (cmt.commentId === comment.commentId) {
+							cmt.commentReactions = vscodeCommentReactions;
+						}
+
+						return cmt;
+					});
+				});
 			}
 		} catch (e) {
 			throw new Error(formatError(e));
