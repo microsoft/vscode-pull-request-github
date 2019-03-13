@@ -559,18 +559,18 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	// #region comment
 	public async createOrReplyComment(thread: vscode.CommentThread) {
-		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
+		if (await this._prManager.authenticate() && this.commentController!.inputBox !== undefined) {
 			if (thread.comments.length) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox.value, comment._rawComment);
+				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
 
 				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
-				this.commentController!.inputBox.value = '';
+				this.commentController!.inputBox!.value = '';
 			} else {
 				// create new comment thread
-				let input = this.commentController!.inputBox.value;
+				let input = this.commentController!.inputBox!.value;
 				await this.updateCommentThreadRoot(thread, input);
-				this.commentController!.inputBox.value = '';
+				this.commentController!.inputBox!.value = '';
 			}
 		}
 	}
@@ -582,7 +582,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				throw new Error('Unable to find comment');
 			}
 
-			const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, existingComment, this._commentController!.inputBox.value);
+			const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, existingComment, this._commentController!.inputBox!.value);
 			const vscodeComment = convertToVSCodeComment(rawComment, undefined);
 
 			let newComments = thread.comments.map(cmt => {
@@ -619,30 +619,30 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		if (thread.comments.length) {
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox ? this.commentController!.inputBox.value : '', comment._rawComment);
+			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox ? this.commentController!.inputBox!.value : '', comment._rawComment);
 
 			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
 		} else {
 			// create new comment thread
 
-			if (this.commentController!.inputBox && this.commentController!.inputBox.value) {
-				await this.updateCommentThreadRoot(thread, this.commentController!.inputBox.value);
+			if (this.commentController!.inputBox && this.commentController!.inputBox!.value) {
+				await this.updateCommentThreadRoot(thread, this.commentController!.inputBox!.value);
 			}
 		}
 
 		if (this.commentController!.inputBox) {
-			this.commentController!.inputBox.value = '';
+			this.commentController!.inputBox!.value = '';
 		}
 	}
 
 	public async finishReview(thread: vscode.CommentThread): Promise<void> {
 		try {
-			if (this.commentController!.inputBox) {
+			if (this.commentController && this.commentController!.inputBox) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox.value, comment._rawComment);
+				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
 
 				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
-				this.commentController!.inputBox.value = '';
+				this.commentController!.inputBox!.value = '';
 			}
 
 			await this._prManager.submitReview(this.pullRequestModel);

@@ -683,29 +683,29 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 		if (thread.comments.length) {
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox ? this.commentController!.inputBox.value : '', comment._rawComment);
+			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox ? this.commentController!.inputBox!.value : '', comment._rawComment);
 
 			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
 		} else {
 			// create new comment thread
 
-			if (this.commentController!.inputBox && this.commentController!.inputBox.value) {
-				await this.updateCommentThreadRoot(thread, this.commentController!.inputBox.value);
+			if (this.commentController!.inputBox && this.commentController!.inputBox!.value) {
+				await this.updateCommentThreadRoot(thread, this.commentController!.inputBox!.value);
 			}
 		}
 
 		if (this.commentController!.inputBox) {
-			this.commentController!.inputBox.value = '';
+			this.commentController!.inputBox!.value = '';
 		}
 	}
 
 	public async finishReview(thread: vscode.CommentThread): Promise<void> {
 		if (this.commentController!.inputBox) {
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox.value, comment._rawComment);
+			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
 
 			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
-			this.commentController!.inputBox.value = '';
+			this.commentController!.inputBox!.value = '';
 		}
 
 		await this._prManager.submitReview(this._prManager.activePullRequest!);
@@ -788,15 +788,15 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
 			if (thread.comments.length) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-				const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox.value, comment._rawComment);
+				const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
 
 				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
-				this.commentController!.inputBox.value = '';
+				this.commentController!.inputBox!.value = '';
 			} else {
 				// create new comment thread
-				let input = this.commentController!.inputBox.value;
+				let input = this.commentController!.inputBox!.value;
 				await this.updateCommentThreadRoot(thread, input);
-				this.commentController!.inputBox.value = '';
+				this.commentController!.inputBox!.value = '';
 			}
 		}
 	}
@@ -821,7 +821,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				throw new Error('Unable to find comment');
 			}
 
-			const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, rawComment, this._commentController!.inputBox.value);
+			const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, rawComment, this._commentController!.inputBox!.value);
 
 			// Update the cached comments of the file
 			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
