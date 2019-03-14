@@ -5,14 +5,6 @@
 
 import { Uri, Event, Disposable } from 'vscode';
 
-export interface Git {
-	readonly path: string;
-}
-
-export interface InputBox {
-	value: string;
-}
-
 export const enum RefType {
 	Head,
 	RemoteHead,
@@ -113,7 +105,6 @@ export interface RepositoryUIState {
 export interface Repository {
 
 	readonly rootUri: Uri;
-	readonly inputBox: InputBox;
 	readonly state: RepositoryState;
 	readonly ui: RepositoryUIState;
 
@@ -122,37 +113,22 @@ export interface Repository {
 	setConfig(key: string, value: string): Promise<string>;
 
 	getObjectDetails(treeish: string, path: string): Promise<{ mode: string, object: string, size: number }>;
-	detectObjectType(object: string): Promise<{ mimetype: string, encoding?: string }>;
-	buffer(ref: string, path: string): Promise<Buffer>;
 	show(ref: string, path: string): Promise<string>;
 	getCommit(ref: string): Promise<Commit>;
-
-	clean(paths: string[]): Promise<void>;
-
 	apply(patch: string, reverse?: boolean): Promise<void>;
 	diff(cached?: boolean): Promise<string>;
-	diffWithHEAD(path: string): Promise<string>;
 	diffWith(ref: string, path: string): Promise<string>;
-	diffIndexWithHEAD(path: string): Promise<string>;
-	diffIndexWith(ref: string, path: string): Promise<string>;
 	diffBlobs(object1: string, object2: string): Promise<string>;
 	diffBetween(ref1: string, ref2: string, path: string): Promise<string>;
-
 	hashObject(data: string): Promise<string>;
-
 	createBranch(name: string, checkout: boolean, ref?: string): Promise<void>;
 	deleteBranch(name: string, force?: boolean): Promise<void>;
 	getBranch(name: string): Promise<Branch>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
-
-	getMergeBase(ref1: string, ref2: string): Promise<string>;
-
 	status(): Promise<void>;
 	checkout(treeish: string): Promise<void>;
-
 	addRemote(name: string, url: string): Promise<void>;
 	removeRemote(name: string): Promise<void>;
-
 	fetch(remote?: string, ref?: string, depth?: number): Promise<void>;
 	pull(unshallow?: boolean): Promise<void>;
 	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
