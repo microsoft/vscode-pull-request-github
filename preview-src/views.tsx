@@ -19,12 +19,13 @@ const Avatar = ({ for: author }: { for: PullRequest['author'] }) =>
 const AuthorLink = ({ for: author, text=author.login }: { for: PullRequest['author'], text?: string }) =>
 	<a href={author.url}>{text}</a>;
 
+const nbsp = String.fromCharCode(0xa0)
 const Spaced = ({ children }) => {
 	const count = React.Children.count(children);
 	return React.createElement(React.Fragment, {
 		children: React.Children.map(children, (c, i) =>
 			typeof c === 'string'
-				? `${i > 0 ? ' ' : ''}${c}${i < count - 1 ? ' ' : ''}`
+				? `${i > 0 ? nbsp : ''}${c}${i < count - 1 ? nbsp : ''}`
 				: c
 		)
 	});
@@ -130,7 +131,43 @@ const Commit = (event: CommitEvent) =>
 		<a className='sha' href={event.url}>{event.sha}</a>
 	</div>;
 
-const Review = (event: ReviewEvent) => <h1>Review: {event.id}</h1>;
+const association = ({ authorAssociation }: ReviewEvent,
+	format=(assoc: string) => `(${assoc.toLowerCase()})`) =>
+	(authorAssociation && authorAssociation !== 'NONE')
+		? format(authorAssociation)
+		: null;
+const TotallySpaced = ({ children }) => {
+	const count = React.Children.count(children);
+	const out = React.createElement(React.Fragment, {
+		children: React.Children.map(children, child => [child, ' '])
+			.reduce((all, one) => all.concat(one), [])
+		// React.Children.map(children, (c, i) =>
+		// 	typeof c === 'string'
+		// 		? `${i > 0 ? ' ' : ''}${c}${i < count - 1 ? ' ' : ''}`
+		// 		: c
+		// )
+	});
+	console.log('TotallySpaced, bro=', out)
+	return out
+};
+
+const Review = (event: ReviewEvent) =>
+	<>
+		<h1>Review: {event.id}</h1>
+		<div className='comment-container comment'>
+			<div className='review-comment-container'>
+				<div className='review-comment-header'>
+					<Spaced>
+						<Avatar for={event.user} />
+						<AuthorLink for={event.user} />{association(event)}
+						reviewed
+						<a className='timestamp' href={event.htmlUrl}>{dateFromNow(event.submittedAt)}</a>
+					</Spaced>
+				</div>
+			</div>
+		</div>
+	</>;
+
 const Comment = (event: CommentEvent) => <h1>Comment: {event.id}</h1>;
 const Merged = (event: MergedEvent) => <h1>Merged: {event.id}</h1>;
 const Assign = (event: AssignEvent) => <h1>Assign: {event.id}</h1>;
