@@ -704,7 +704,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			if (pullRequestModel) {
 				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.prNumber} Created` });
 				await this.updateState();
-				await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
+				await vscode.commands.executeCommand('pr.openDescription');
 				progress.report({ increment: 30 });
 			} else {
 				// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
