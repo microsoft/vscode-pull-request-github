@@ -12,7 +12,9 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 		let ret: Repository[] = [];
 
 		this._providers.forEach(provider => {
-			ret.push(...provider.repositories);
+			if (provider.repositories) {
+				ret.push(...provider.repositories);
+			}
 		});
 
 		return ret;
@@ -40,10 +42,12 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 		let foldersMap = TernarySearchTree.forPaths<IGit>();
 
 		this._providers.forEach(provider => {
-			let repositories = provider.repositories;
+			if (provider.repositories) {
+				let repositories = provider.repositories;
 
-			for (const repository of repositories) {
-				foldersMap.set(repository.rootUri.toString(), provider);
+				for (const repository of repositories) {
+					foldersMap.set(repository.rootUri.toString(), provider);
+				}
 			}
 		});
 
