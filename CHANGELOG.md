@@ -1,3 +1,8 @@
+0.5.1
+
+**Changes**
+- Fix description not displaying after creating a pull request [#1041](https://github.com/Microsoft/vscode-pull-request-github/pull/1041)
+
 0.5.0
 
 **Breaking Changes**
