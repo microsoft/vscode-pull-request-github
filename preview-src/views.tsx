@@ -63,21 +63,34 @@ export const Header = ({ state, title, head, base, url, createdAt, author, isCur
 			</span>
 			<span className='created-at'>
 				<Spaced>
-					Created
-					<a href={url} className='timestamp'>{dateFromNow(createdAt)}</a>
+					Created <Timestamp date={createdAt} href={url} />
 				</Spaced>
 			</span>
 		</div>
 	</>;
 
-const Description = ({ bodyHTML, body }: PullRequest) =>
-	<div className='description-container'>{
-		bodyHTML
-			? <div className='comment-body'
-				dangerouslySetInnerHTML={ {__html: bodyHTML }} />
-			:
-			<Markdown className='comment-body' src={body} />
-	}</div>;
+const Timestamp = ({
+	date,
+	href,
+}: {
+	date: Date | string,
+	href: string
+}) => <a href={href} className='timestamp'>{dateFromNow(date)}</a>;
+
+interface Embodied {
+	bodyHTML?: string;
+	body?: string;
+}
+
+const CommentBody = ({ bodyHTML, body }: Embodied) =>
+	bodyHTML
+	? <div className='comment-body'
+		dangerouslySetInnerHTML={ {__html: bodyHTML }} />
+	:
+	<Markdown className='comment-body' src={body} />;
+
+const Description = (pr: PullRequest) =>
+	<div className='description-container'><CommentBody {...pr} /></div>;
 
 const emoji = require('node-emoji');
 
@@ -152,37 +165,37 @@ const groupCommentsByPath = (comments: Comment[]) =>
 
 const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
-	return <>
-		<h1>Review: {event.id}</h1>
-		<div className='comment-container comment'>
-			<div className='review-comment-container'>
-				<div className='review-comment-header'>
-					<Spaced>
-						<Avatar for={event.user} />
-						<AuthorLink for={event.user} />{association(event)}
-						reviewed
-						<a className='timestamp' href={event.htmlUrl}>{dateFromNow(event.submittedAt)}</a>
-					</Spaced>
-				</div>
-				<div className='comment-body review-comment-body'>{
-					Object.entries(comments)
-						.map(
-							([key, thread]) =>
-								<div className='diff-container'>
-									<Diff key={key} hunks={thread[0].diffHunks} path={thread[0].path} />
-									...comments...
-								</div>
-						)
-				}</div>
+	return <div className='comment-container comment'>
+		<div className='review-comment-container'>
+			<div className='review-comment-header'>
+				<Spaced>
+					<Avatar for={event.user} />
+					<AuthorLink for={event.user} />{association(event)}
+					reviewed
+					<Timestamp href={event.htmlUrl} date={event.submittedAt} />
+				</Spaced>
 			</div>
+			<div className='comment-body review-comment-body'>{
+				Object.entries(comments)
+					.map(
+						([key, thread]) =>
+							<div className='diff-container'>
+								<Diff key={key}
+									hunks={thread[0].diffHunks}
+									outdated={thread[0].position === null}
+									path={thread[0].path} />
+								{thread.map(c => <CommentView {...c} />)}
+							</div>
+					)
+			}</div>
 		</div>
-	</>;
+	</div>;
 };
 
-const Diff = ({ hunks, path }: { hunks: DiffHunk[], path: string }) =>
+const Diff = ({ hunks, path, outdated=false }: { hunks: DiffHunk[], outdated: boolean, path: string }) =>
 	<div className='diff'>
 		<div className='diffHeader'>
-			<span className='diffPath'>{path}</span>
+			<span className={`diffPath ${outdated ? 'outdated' : ''}`}>{path}</span>
 		</div>
 		{hunks.map(hunk => <Hunk hunk={hunk} />)}
 	</div>;
@@ -208,7 +221,6 @@ const LineNumber = ({ num }: { num: number }) =>
 // 	</div>
 // }
 
-
 const CommentEventView = (event: CommentEvent) => <h1>Comment: {event.id}</h1>;
 const MergedEventView = (event: MergedEvent) => <h1>Merged: {event.id}</h1>;
 const AssignEventView = (event: AssignEvent) => <h1>Assign: {event.id}</h1>;
@@ -232,3 +244,18 @@ export function getDiffChangeType(text: string) {
 
 const getDiffChangeClass = (type: DiffChangeType) =>
 	DiffChangeType[type].toLowerCase();
+
+const CommentView = ({ user, htmlUrl, createdAt, bodyHTML, body }: Comment) =>
+	<div className='comment-container comment review-comment'>
+		<div className='review-comment-container'>
+			<div className='review-comment-header'>
+				<Spaced>
+					<Avatar for={user} />
+					<AuthorLink for={user} />
+					commented
+					<Timestamp href={htmlUrl} date={createdAt} />
+				</Spaced>
+			</div>
+			<CommentBody bodyHTML={bodyHTML} body={body} />
+		</div>
+	</div>;
