@@ -5,12 +5,12 @@
 
 import * as vscode from 'vscode';
 import { LiveShare, SharedService } from 'vsls/vscode.js';
-import { Model } from './model';
 import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
+import { API } from '../api/api';
 export class VSLSHost implements vscode.Disposable {
 	private _sharedService?: SharedService;
 	private _disposables: vscode.Disposable[];
-	constructor(private _api: LiveShare, private _model: Model) {
+	constructor(private _api: LiveShare, private _model: API) {
 		this._disposables = [];
 	}
 
@@ -27,7 +27,13 @@ export class VSLSHost implements vscode.Disposable {
 		let workspaceFolderPath = args[1];
 		let workspaceFolderUri = vscode.Uri.parse(workspaceFolderPath);
 		let localWorkSpaceFolderUri = this._api.convertSharedUriToLocal(workspaceFolderUri);
-		let localRepository: any = this._model.repositories.filter(repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString())[0];
+		let gitProvider = this._model.getGitProvider(localWorkSpaceFolderUri);
+
+		if (!gitProvider) {
+			return;
+		}
+
+		let localRepository: any = gitProvider.repositories.filter(repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString())[0];
 		if (localRepository) {
 			let commandArgs = args.slice(2);
 			if (type === VSLS_REPOSITORY_INITIALIZATION_NAME) {

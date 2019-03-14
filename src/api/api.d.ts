@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, SourceControlInputBox, Event, CancellationToken } from 'vscode';
+import { Uri, Event, Disposable } from 'vscode';
 
 export interface Git {
 	readonly path: string;
@@ -13,7 +13,7 @@ export interface InputBox {
 	value: string;
 }
 
-export enum RefType {
+export const enum RefType {
 	Head,
 	RemoteHead,
 	Tag
@@ -159,31 +159,6 @@ export interface Repository {
 	blame(path: string): Promise<string>;
 }
 
-export interface API {
-	readonly git: Git;
-	readonly repositories: Repository[];
-	readonly onDidOpenRepository: Event<Repository>;
-	readonly onDidCloseRepository: Event<Repository>;
-}
-
-export interface GitExtension {
-
-	readonly enabled: boolean;
-	readonly onDidChangeEnablement: Event<boolean>;
-
-	/**
-	 * Returns a specific API version.
-	 *
-	 * Throws error if git extension is disabled. You can listed to the
-	 * [GitExtension.onDidChangeEnablement](#GitExtension.onDidChangeEnablement) event
-	 * to know when the extension becomes enabled/disabled.
-	 *
-	 * @param version Version number.
-	 * @returns API instance
-	 */
-	getAPI(version: 1): API;
-}
-
 export const enum GitErrorCodes {
 	BadConfigFile = 'BadConfigFile',
 	AuthenticationFailed = 'AuthenticationFailed',
@@ -217,4 +192,22 @@ export const enum GitErrorCodes {
 	CantLockRef = 'CantLockRef',
 	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
 	PatchDoesNotApply = 'PatchDoesNotApply'
+}
+
+export interface IGit extends Disposable {
+	readonly repositories: Repository[];
+	readonly onDidOpenRepository: Event<Repository>;
+	readonly onDidCloseRepository: Event<Repository>;
+}
+
+export interface API {
+	registerGitProvider(provider: IGit): void;
+
+	/**
+	 * Returns the [git provider](#IGit) that contains a given uri.
+	 *
+	 * @param uri An uri.
+	 * @return A git provider or `undefined`
+	 */
+	getGitProvider(uri: Uri): IGit | undefined;
 }

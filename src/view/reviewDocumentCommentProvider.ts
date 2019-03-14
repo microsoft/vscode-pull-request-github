@@ -9,7 +9,7 @@ import { Comment } from '../common/comment';
 import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapHeadLineToDiffHunkPosition, mapOldPositionToNew, getDiffLineByPosition, getZeroBased } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
-import { Repository } from '../git/api';
+import { Repository } from '../api/api';
 import { onDidSubmitReview, PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { providePRDocumentComments, getCommentingRanges } from './treeNodes/pullRequestNode';

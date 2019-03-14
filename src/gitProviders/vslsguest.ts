@@ -5,19 +5,28 @@
 
 import * as vscode from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
-import { Model } from './model';
 import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
 import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
+import { Repository, IGit } from '../api/api';
 
-export class VSLSGuest implements vscode.Disposable {
+export class VSLSGuest implements IGit, vscode.Disposable {
+	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
+	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
+	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
+	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
+	private _openRepositories: Repository[] = [];
+	get repositories(): Repository[] {
+		return this._openRepositories;
+	}
+
 	private _sharedServiceProxy?: SharedServiceProxy;
 	private _disposables: vscode.Disposable[];
-	constructor(private _api: LiveShare, private _model: Model) {
+	constructor(private _liveShareAPI: LiveShare) {
 		this._disposables = [];
 	}
 
 	public async initialize() {
-		this._sharedServiceProxy = await this._api.getSharedService(VSLS_GIT_PR_SESSION_NAME) || undefined;
+		this._sharedServiceProxy = await this._liveShareAPI.getSharedService(VSLS_GIT_PR_SESSION_NAME) || undefined;
 
 		if (!this._sharedServiceProxy) {
 			return;
@@ -61,7 +70,7 @@ export class VSLSGuest implements vscode.Disposable {
 	}
 
 	public async openVSLSRepository(folder: vscode.WorkspaceFolder): Promise<void> {
-		let existingRepository = this._model.getRepository(folder);
+		let existingRepository = this.getRepository(folder);
 		if (existingRepository) {
 			return;
 		}
@@ -69,16 +78,30 @@ export class VSLSGuest implements vscode.Disposable {
 		const repositoryProxyHandler = new LiveShareRepositoryProxyHandler();
 		const repository = new Proxy(liveShareRepository, repositoryProxyHandler);
 		await repository.initialize();
-		this._model.openRepository(repository);
+		this.openRepository(repository);
 	}
 
 	public async closeVSLSRepository(folder: vscode.WorkspaceFolder): Promise<void> {
-		let existingRepository = this._model.getRepository(folder);
+		let existingRepository = this.getRepository(folder);
 		if (!existingRepository) {
 			return;
 		}
 
-		this._model.closeRepository(existingRepository);
+		this.closeRepository(existingRepository);
+	}
+
+	public openRepository(repository: Repository) {
+		this._openRepositories.push(repository);
+		this._onDidOpenRepository.fire(repository);
+	}
+
+	public closeRepository(repository: Repository) {
+		this._openRepositories = this._openRepositories.filter(e => e !== repository);
+		this._onDidCloseRepository.fire(repository);
+	}
+
+	public getRepository(folder: vscode.WorkspaceFolder): Repository {
+		return this._openRepositories.filter(repository => (repository as any).workspaceFolder === folder)[0];
 	}
 
 	public dispose() {
