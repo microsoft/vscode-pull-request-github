@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { API } from '../api/api';
-import { LiveShareGitProvider } from './vsls';
+import { LiveShareManager } from './vsls';
 import { BuiltinGitProvider } from './builtinGit';
 
 export function registerBuiltinGitProvider(apiImpl: API): vscode.Disposable {
@@ -15,6 +15,6 @@ export function registerBuiltinGitProvider(apiImpl: API): vscode.Disposable {
 }
 
 export function registerLiveShareGitProvider(apiImpl: API): vscode.Disposable {
-	let liveShareGitProvider = new LiveShareGitProvider(apiImpl);
+	let liveShareGitProvider = new LiveShareManager(apiImpl);
 	return liveShareGitProvider;
 }

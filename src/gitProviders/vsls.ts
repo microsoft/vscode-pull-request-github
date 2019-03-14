@@ -32,7 +32,7 @@ async function getVSLSApi() {
 	return extensionApi.getApi(liveShareApiVersion);
 }
 
-export class LiveShareGitProvider implements vscode.Disposable {
+export class LiveShareManager implements vscode.Disposable {
 	private _liveShareAPI?: LiveShare;
 	private _host?: VSLSHost;
 	private _guest?: VSLSGuest;
