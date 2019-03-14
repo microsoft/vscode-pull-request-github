@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { LiveShare } from 'vsls/vscode.js';
 import { VSLSGuest } from './vslsguest';
 import { VSLSHost } from './vslshost';
-import { IGit, Repository, API } from '../api/api';
+import { Repository, API } from '../api/api';
 
 /**
  * Should be removed once we fix the webpack bundling issue.
@@ -32,12 +32,8 @@ async function getVSLSApi() {
 	return extensionApi.getApi(liveShareApiVersion);
 }
 
-export class LiveShareGitProvider implements IGit, vscode.Disposable {
-	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
-	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
-	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
-	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
-	private _api?: LiveShare;
+export class LiveShareGitProvider implements vscode.Disposable {
+	private _liveShareAPI?: LiveShare;
 	private _host?: VSLSHost;
 	private _guest?: VSLSGuest;
 	private _openRepositories: Repository[] = [];
@@ -48,24 +44,24 @@ export class LiveShareGitProvider implements IGit, vscode.Disposable {
 	private _disposables: vscode.Disposable[];
 
 	constructor(
-		private _apiImpl: API
+		private _api: API
 	) {
 		this._disposables = [];
 		this.initilize();
 	}
 
 	public async initilize() {
-		if (!this._api) {
-			this._api = await getVSLSApi();
+		if (!this._liveShareAPI) {
+			this._liveShareAPI = await getVSLSApi();
 		}
 
-		if (!this._api) {
+		if (!this._liveShareAPI) {
 			return;
 		}
 
-		this._disposables.push(this._api.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
-		if (this._api!.session) {
-			this._onDidChangeSession(this._api!.session);
+		this._disposables.push(this._liveShareAPI.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
+		if (this._liveShareAPI!.session) {
+			this._onDidChangeSession(this._liveShareAPI!.session);
 		}
 	}
 
@@ -79,20 +75,20 @@ export class LiveShareGitProvider implements IGit, vscode.Disposable {
 		}
 
 		if (session.role === 1 /* Role.Host */) {
-			this._host = new VSLSHost(this._api!, this._apiImpl);
+			this._host = new VSLSHost(this._liveShareAPI!, this._api);
 			await this._host.initialize();
 			return;
 		}
 
 		if (session.role === 2 /* Role.Guest */) {
-			this._guest = new VSLSGuest(this._api!);
+			this._guest = new VSLSGuest(this._liveShareAPI!);
 			await this._guest.initialize();
-			this._apiImpl.registerGitProvider(this._guest);
+			this._api.registerGitProvider(this._guest);
 		}
 	}
 
 	public dispose() {
-		this._api = undefined;
+		this._liveShareAPI = undefined;
 
 		if (this._host) {
 			this._host.dispose();
