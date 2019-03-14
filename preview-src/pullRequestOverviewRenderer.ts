@@ -856,7 +856,8 @@ class ReviewNode {
 		if (this._review.comments) {
 			const commentBody: HTMLDivElement = document.createElement('div');
 			commentBody.classList.add('comment-body', 'review-comment-body');
-			let groups = groupBy(this._review.comments, comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`));
+			let groups = groupBy(this._review.comments,
+				comment => comment.path + ':' + (comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`));
 
 			for (let path in groups) {
 				let comments = groups[path];

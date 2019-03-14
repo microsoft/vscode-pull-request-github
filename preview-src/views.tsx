@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { dateFromNow } from '../src/common/utils';
+import { Comment } from '../src/common/comment';
 import { getStatus } from './pullRequestOverviewRenderer';
 import { PullRequest } from './cache';
 import md from './mdRenderer';
@@ -91,19 +92,19 @@ const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 		events.map(event =>
 			// TODO: Maybe make TimelineEvent a tagged union type?
 			isCommitEvent(event)
-				? <Commit key={event.id} {...event} />
+				? <CommitEventView key={event.id} {...event} />
 				:
 			isReviewEvent(event)
-				? <Review key={event.id} {...event} />
+				? <ReviewEventView key={event.id} {...event} />
 				:
 			isCommentEvent(event)
-				? <Comment key={event.id} {...event} />
+				? <CommentEventView key={event.id} {...event} />
 				:
 			isMergedEvent(event)
-				? <Merged key={event.id} {...event} />
+				? <MergedEventView key={event.id} {...event} />
 				:
 			isAssignEvent(event)
-				? <Assign key={event.id} {...event} />
+				? <AssignEventView key={event.id} {...event} />
 				: null
 		)
 	}</>;
@@ -118,7 +119,7 @@ const commitIconSvg = require('../resources/icons/commit_icon.svg');
 const Icon = ({ src }: { src: string }) =>
 	<span dangerouslySetInnerHTML={{ __html: src }} />;
 
-const Commit = (event: CommitEvent) =>
+const CommitEventView = (event: CommitEvent) =>
 	<div className='comment-container commit'>
 		<div className='commit-message'>
 			<Icon src={commitIconSvg} />
@@ -136,23 +137,22 @@ const association = ({ authorAssociation }: ReviewEvent,
 	(authorAssociation && authorAssociation !== 'NONE')
 		? format(authorAssociation)
 		: null;
-const TotallySpaced = ({ children }) => {
-	const count = React.Children.count(children);
-	const out = React.createElement(React.Fragment, {
-		children: React.Children.map(children, child => [child, ' '])
-			.reduce((all, one) => all.concat(one), [])
-		// React.Children.map(children, (c, i) =>
-		// 	typeof c === 'string'
-		// 		? `${i > 0 ? ' ' : ''}${c}${i < count - 1 ? ' ' : ''}`
-		// 		: c
-		// )
-	});
-	console.log('TotallySpaced, bro=', out)
-	return out
-};
 
-const Review = (event: ReviewEvent) =>
-	<>
+import { groupBy } from 'lodash';
+import { DiffHunk, DiffLine } from '../src/common/diffHunk';
+
+const positionKey = (comment: Comment) =>
+	comment.position !== null
+		? `pos:${comment.position}`
+		: `ori:${comment.originalPosition}`;
+
+const groupCommentsByPath = (comments: Comment[]) =>
+	groupBy(comments,
+		comment => comment.path + ':' + positionKey(comment));
+
+const ReviewEventView = (event: ReviewEvent) => {
+	const comments = groupCommentsByPath(event.comments);
+	return <>
 		<h1>Review: {event.id}</h1>
 		<div className='comment-container comment'>
 			<div className='review-comment-container'>
@@ -164,10 +164,71 @@ const Review = (event: ReviewEvent) =>
 						<a className='timestamp' href={event.htmlUrl}>{dateFromNow(event.submittedAt)}</a>
 					</Spaced>
 				</div>
+				<div className='comment-body review-comment-body'>{
+					Object.entries(comments)
+						.map(
+							([key, thread]) =>
+								<div className='diff-container'>
+									<Diff key={key} hunks={thread[0].diffHunks} path={thread[0].path} />
+									...comments...
+								</div>
+						)
+				}</div>
 			</div>
 		</div>
 	</>;
+};
 
-const Comment = (event: CommentEvent) => <h1>Comment: {event.id}</h1>;
-const Merged = (event: MergedEvent) => <h1>Merged: {event.id}</h1>;
-const Assign = (event: AssignEvent) => <h1>Assign: {event.id}</h1>;
+const Diff = ({ hunks, path }: { hunks: DiffHunk[], path: string }) =>
+	<div className='diff'>
+		<div className='diffHeader'>
+			<span className='diffPath'>{path}</span>
+		</div>
+		{hunks.map(hunk => <Hunk hunk={hunk} />)}
+	</div>;
+
+const Hunk = ({ hunk, maxLines=4 }: {hunk: DiffHunk, maxLines?: number }) => <>{
+	hunk.diffLines.slice(-maxLines)
+		.map(line =>
+			<div key={keyForDiffLine(line)} className={`diffLine ${getDiffChangeClass(line.type)}`}>
+				<LineNumber num={line.oldLineNumber} />
+				<LineNumber num={line.newLineNumber} />
+				<span className='lineContent'>{(line as any)._raw}</span>
+			</div>)
+}</>;
+
+const keyForDiffLine = (diffLine: DiffLine) =>
+	`${diffLine.oldLineNumber}->${diffLine.newLineNumber}`;
+
+const LineNumber = ({ num }: { num: number }) =>
+	<span className='lineNumber'>{num > 0 ? num : ' '}</span>;
+// const ReviewComment = (c: Comment) => {
+// 	return <div className='comment-body review-comment-body'>
+
+// 	</div>
+// }
+
+
+const CommentEventView = (event: CommentEvent) => <h1>Comment: {event.id}</h1>;
+const MergedEventView = (event: MergedEvent) => <h1>Merged: {event.id}</h1>;
+const AssignEventView = (event: AssignEvent) => <h1>Assign: {event.id}</h1>;
+
+export enum DiffChangeType {
+	Context,
+	Add,
+	Delete,
+	Control
+}
+
+export function getDiffChangeType(text: string) {
+	let c = text[0];
+	switch (c) {
+		case ' ': return DiffChangeType.Context;
+		case '+': return DiffChangeType.Add;
+		case '-': return DiffChangeType.Delete;
+		default: return DiffChangeType.Control;
+	}
+}
+
+const getDiffChangeClass = (type: DiffChangeType) =>
+	DiffChangeType[type].toLowerCase();
