@@ -14,6 +14,7 @@ import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
+import { PRDocumentCommentProvider } from '../view/prDocumentCommentProvider';
 const queries = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -31,6 +32,8 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	private _initialized: boolean;
 	private _metadata: any;
 	private _toDispose: vscode.Disposable[] = [];
+	public commentsController?: vscode.CommentController;
+	public commentsProvider?: PRDocumentCommentProvider;
 
 	public get hub(): GitHub {
 		if (!this._hub) {
@@ -41,6 +44,22 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			}
 		}
 		return this._hub;
+	}
+
+	public async ensureCommentsController(): Promise<void> {
+		try {
+			if (this.commentsController) {
+				return;
+			}
+
+			await this.ensure();
+			this.commentsController = vscode.comment.createCommentController(`github-pull-request-${this.remote.normalizedHost}`, `GitHub Pull Request for ${this.remote.normalizedHost}`);
+			this.commentsProvider = new PRDocumentCommentProvider(this.commentsController);
+			this._toDispose.push(this.commentsController);
+			this._toDispose.push(this.commentsProvider);
+		} catch (e) {
+			console.log(e);
+		}
 	}
 
 	dispose() {
