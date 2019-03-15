@@ -87,11 +87,11 @@ export function fillInCommentCommands(vscodeComment: vscode.Comment, commentCont
 	if (commentControl && pullRequestModel) {
 		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: Comment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
 
-		if (patchedComment.canEdit) {
+		if (patchedComment._rawComment.canEdit) {
 			patchedComment.editCommand = getEditCommand(thread, vscodeComment, node);
 		}
 
-		if (patchedComment.canDelete) {
+		if (patchedComment._rawComment.canDelete) {
 			patchedComment.deleteCommand = getDeleteCommand(thread, vscodeComment, node);
 		}
 	}
