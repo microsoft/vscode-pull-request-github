@@ -902,7 +902,7 @@ declare module 'vscode' {
 		/**
 		 * Optional new comment thread factory.
 		 */
-		emptyCommentThreadFactory: EmptyCommentThreadFactory;
+		emptyCommentThreadFactory?: EmptyCommentThreadFactory;
 
 		/**
 		 * Optional reaction provider

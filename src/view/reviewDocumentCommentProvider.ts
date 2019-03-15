@@ -55,10 +55,7 @@ function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChan
 			threadId: firstComment.id.toString(),
 			resource: newUri,
 			range,
-			comments: comments.map(comment => {
-				let vscodeComment = convertToVSCodeComment(comment, command);
-				return vscodeComment;
-			}),
+			comments: comments.map(comment => convertToVSCodeComment(comment, command)),
 			collapsibleState
 		});
 	}
@@ -128,25 +125,13 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			matchingComments = matchedFile.comments;
 			matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
 
-			let allFileChangeWorkspaceCommentThreads = workspaceLocalCommentsToCommentThreads(
-				this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Expanded);
-
-			let threads: vscode.CommentThread[] = [];
-			allFileChangeWorkspaceCommentThreads.forEach(thread => {
-				threads.push(createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
-			});
-
+			let threads = workspaceLocalCommentsToCommentThreads(
+				this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
 			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threads;
 		});
 
 		gitFileChangeNodeFilter(this._obsoleteFileChanges).forEach(fileChange => {
-			let allFileChangeWorkspaceCommentThreads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded);
-
-			let threads: vscode.CommentThread[] = [];
-			allFileChangeWorkspaceCommentThreads.forEach(thread => {
-				threads.push(createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
-			});
-
+			let threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
 			this._obsoleteFileChangeCommentThreads[fileChange.fileName] = threads;
 		});
 	}
@@ -224,7 +209,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 						thread.acceptInputCommand = commands.acceptInputCommand;
 						thread.additionalCommands = commands.additionalCommands;
 						thread.comments = thread.comments.map(comment => {
-							comment.label = newDraftMode ? 'Draft' : undefined;
+							comment.label = newDraftMode ? 'Pending' : undefined;
 							return comment;
 						});
 					});

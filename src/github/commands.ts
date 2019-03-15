@@ -8,13 +8,13 @@ import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 import { CommentHandler } from './utils';
 
-export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDraftMode: boolean, node: CommentHandler, supportGraphQL: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
+export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDraftMode: boolean, handler: CommentHandler, supportGraphQL: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
 	let commands: vscode.Command[] = [];
 	let acceptInputCommand = {
 		title: 'Reply Comment',
 		command: 'pr.replyComment',
 		arguments: [
-			node,
+			handler,
 			thread
 		]
 	};
@@ -25,7 +25,7 @@ export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDr
 				title: 'Delete Review',
 				command: 'pr.deleteReview',
 				arguments: [
-					node
+					handler
 				]
 			});
 
@@ -33,7 +33,7 @@ export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDr
 				title: 'Finish Review',
 				command: 'pr.finishReview',
 				arguments: [
-					node,
+					handler,
 					thread
 				]
 			});
@@ -42,7 +42,7 @@ export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDr
 				title: 'Start Review',
 				command: 'pr.startReview',
 				arguments: [
-					node,
+					handler,
 					thread
 				]
 			});
