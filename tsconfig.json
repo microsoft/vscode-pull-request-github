@@ -5,6 +5,8 @@
 		"outDir": "out",
 		"noUnusedLocals": true,
 		"lib": [
+			"dom",
+			"esnext.asynciterable",
 			"es6"
 		],
 		"sourceMap": true,

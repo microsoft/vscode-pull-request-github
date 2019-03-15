@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as Github from '@octokit/rest';
-import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount } from './interface';
+import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../git/api';
@@ -135,8 +135,17 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
+	/**
+	 * Create a list of reviewers composed of people who have already left reviews on the PR, and
+	 * those that have had a review requested of them. If a reviewer has left multiple reviews, the
+	 * state should be the state of their most recent review, or 'REQUESTED' if they have an outstanding
+	 * review request.
+	 * @param requestedReviewers The list of reviewers that are requested for this pull request
+	 * @param timelineEvents All timeline events for the pull request
+	 * @param author The author of the pull request
+	 */
 	private parseReviewers(requestedReviewers: IAccount[], timelineEvents: TimelineEvent[], author: IAccount): ReviewState[] {
-		const reviewEvents = timelineEvents.filter(isReviewEvent);
+		const reviewEvents = timelineEvents.filter(isReviewEvent).filter(event => event.state !== 'PENDING');
 		let reviewers: ReviewState[] = [];
 		const seen = new Map<string, boolean>();
 
@@ -155,10 +164,15 @@ export class PullRequestOverviewPanel {
 		}
 
 		requestedReviewers.forEach(request => {
-			reviewers.push({
-				reviewer: request,
-				state: 'REQUESTED'
-			});
+			if (!seen.get(request.login)) {
+				reviewers.push({
+					reviewer: request,
+					state: 'REQUESTED'
+				});
+			} else {
+				const reviewer = reviewers.find(r => r.reviewer.login === request.login);
+				reviewer!.state = 'REQUESTED';
+			}
 		});
 
 		// Put completed reviews before review requests and alphabetize each section
@@ -196,9 +210,10 @@ export class PullRequestOverviewPanel {
 			this._pullRequestManager.getTimelineEvents(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			this._pullRequestManager.getStatusChecks(pullRequestModel),
-			this._pullRequestManager.getReviewRequests(pullRequestModel)
+			this._pullRequestManager.getReviewRequests(pullRequestModel),
+			this._pullRequestManager.getPullRequestRepositoryMergeMethodsAvailability(pullRequestModel),
 		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers] = result;
+			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, mergeMethodsAvailability] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
@@ -208,8 +223,9 @@ export class PullRequestOverviewPanel {
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
-			const defaultMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<string>('defaultMergeMethod');
+			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const supportsGraphQl = pullRequestModel.githubRepository.supportsGraphQl;
+			const defaultMergeMethod = getDetaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
 			this._postMessage({
 				command: 'pr.initialize',
@@ -232,6 +248,7 @@ export class PullRequestOverviewPanel {
 					status: status,
 					mergeable: this._pullRequest.prItem.mergeable,
 					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
+					mergeMethodsAvailability,
 					defaultMergeMethod,
 					supportsGraphQl
 				}
@@ -589,10 +606,26 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
+	private updateReviewers(review?: CommonReviewEvent): void {
+		if (review) {
+			const existingReviewer = this._existingReviewers.find(reviewer => review.user.login === reviewer.reviewer.login);
+			if (existingReviewer) {
+				existingReviewer.state = review.state;
+			} else {
+				this._existingReviewers.push({
+					reviewer: review.user,
+					state: review.state
+				});
+			}
+		}
+	}
+
 	private approvePullRequest(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<CommonReviewEvent>('pr.approve', this._pullRequest, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
@@ -603,8 +636,10 @@ export class PullRequestOverviewPanel {
 
 	private requestChanges(message: IRequestMessage<string>): void {
 		vscode.commands.executeCommand<CommonReviewEvent>('pr.requestChanges', this._pullRequest, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
@@ -614,8 +649,10 @@ export class PullRequestOverviewPanel {
 
 	private submitReview(message: IRequestMessage<string>): void {
 		this._pullRequestManager.submitReview(this._pullRequest, ReviewEvent.Comment, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
-				value: review
+				review: review,
+				reviewers: this._existingReviewers
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
@@ -676,4 +713,14 @@ function getNonce() {
 		text += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
 	return text;
+}
+
+function getDetaultMergeMethod(methodsAvailability: MergeMethodsAvailability, userPreferred: MergeMethod | undefined): MergeMethod {
+	// Use default merge method specified by user if it is avaialbe
+	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
+		return userPreferred;
+	}
+	const methods: MergeMethod[] = ['merge', 'squash', 'rebase'];
+	// GitHub requires to have at leas one merge method to be enabled; use first available as default
+	return methods.find(method => methodsAvailability[method])!;
 }
