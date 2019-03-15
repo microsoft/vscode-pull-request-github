@@ -19,7 +19,7 @@ import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel } from '../../github/utils';
+import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, fillInCommentCommands } from '../../github/utils';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand, getEmptyCommentThreadCommands } from '../../github/commands';
 
 export function provideDocumentComments(
@@ -361,8 +361,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			// there is no thread Id, which means it's a new thread
 			const rawComment = await this._prManager.createComment(this.pullRequestModel, text, params!.fileName, position);
-			const comment = convertToVSCodeComment(rawComment!, undefined);
-			thread.comments = [comment];
+			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
+			fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
+			thread.comments = [vscodeComment];
 			updateCommentThreadLabel(thread);
 
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
@@ -581,8 +582,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			if (thread.comments.length) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
-
-				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
+				fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
+				thread.comments = [...thread.comments, vscodeComment];
 				updateCommentThreadLabel(thread);
 				this.commentController!.inputBox!.value = '';
 			} else {
@@ -641,8 +643,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (thread.comments.length) {
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox ? this.commentController!.inputBox!.value : '', comment._rawComment);
-
-			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
+			fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
+			thread.comments = [...thread.comments, vscodeComment];
 			updateCommentThreadLabel(thread);
 		} else {
 			// create new comment thread
@@ -662,8 +665,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			if (this.commentController && this.commentController!.inputBox) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
-
-				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
+				fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
+				thread.comments = [...thread.comments, vscodeComment];
 				updateCommentThreadLabel(thread);
 				this.commentController!.inputBox!.value = '';
 			}

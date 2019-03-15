@@ -11,7 +11,7 @@ import { CommentHandler } from './utils';
 export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDraftMode: boolean, handler: CommentHandler, supportGraphQL: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
 	let commands: vscode.Command[] = [];
 	let acceptInputCommand = {
-		title: 'Reply Comment',
+		title: inDraftMode ? 'Add Review Comment' : 'Add Comment',
 		command: 'pr.replyComment',
 		arguments: [
 			handler,
