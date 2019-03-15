@@ -205,9 +205,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads, this._reviewDocumentCommentThreads].forEach(commentThreadMap => {
 				for (let fileName in commentThreadMap) {
 					commentThreadMap[fileName].forEach(thread => {
-						let commands = getCommentThreadCommands(thread, newDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
-						thread.acceptInputCommand = commands.acceptInputCommand;
-						thread.additionalCommands = commands.additionalCommands;
+						this.updateCommentThreadCommands(thread, newDraftMode);
 						thread.comments = thread.comments.map(comment => {
 							comment.label = newDraftMode ? 'Pending' : undefined;
 							return comment;
@@ -218,11 +216,9 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 			for (let fileName in this._prDocumentCommentThreads) {
 				[...this._prDocumentCommentThreads[fileName].original || [], ...this._prDocumentCommentThreads[fileName].modified || []].forEach(thread => {
-					let commands = getCommentThreadCommands(thread, newDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
-					thread.acceptInputCommand = commands.acceptInputCommand;
-					thread.additionalCommands = commands.additionalCommands;
+					this.updateCommentThreadCommands(thread, newDraftMode);
 					thread.comments = thread.comments.map(comment => {
-						comment.label = newDraftMode ? 'Draft' : undefined;
+						comment.label = newDraftMode ? 'Pending' : undefined;
 						return comment;
 					});
 				});
@@ -371,11 +367,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 		thread.comments = [comment];
 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
-		const commands = getCommentThreadCommands(thread, inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
-
-		thread.acceptInputCommand = commands.acceptInputCommand;
-		thread.additionalCommands = commands.additionalCommands;
-
+		this.updateCommentThreadCommands(thread, inDraftMode);
 		matchedFile.comments.push(rawComment!);
 		this._comments.push(rawComment!);
 		this._onDidChangeComments.fire(this._comments);
@@ -454,6 +446,13 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Helper
+
+	private updateCommentThreadCommands(thread: vscode.CommentThread, newDraftMode: boolean) {
+		let commands = getCommentThreadCommands(thread, newDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
+		thread.acceptInputCommand = commands.acceptInputCommand;
+		thread.additionalCommands = commands.additionalCommands;
+	}
+
 	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string): Promise<string> {
 		let contentDiff: string;
 		if (document.isDirty) {
