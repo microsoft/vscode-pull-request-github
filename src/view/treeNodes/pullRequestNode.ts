@@ -243,6 +243,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				await this.updateComments(fileChanges, comments);
 				this._fileChanges = fileChanges;
 			} else {
+				await this.pullRequestModel.githubRepository.ensureCommentsProvider();
+				this.pullRequestModel.githubRepository.commentsProvider!.clearCommentThreadCache(this.pullRequestModel.prNumber);
 				this._fileChanges = fileChanges;
 			}
 

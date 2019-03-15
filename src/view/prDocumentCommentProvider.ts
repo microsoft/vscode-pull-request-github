@@ -76,6 +76,16 @@ export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider
 		};
 	}
 
+	public clearCommentThreadCache(prNumber: number) {
+		if (this._prDocumentCommentThreadMap[prNumber]) {
+			for (let fileName in this._prDocumentCommentThreadMap[prNumber]) {
+				this._prDocumentCommentThreadMap[prNumber][fileName].forEach(thread => thread.dispose!());
+			}
+
+			this._prDocumentCommentThreadMap[prNumber] = {};
+		}
+	}
+
 	dispose() {
 		this._prDocumentCommentProviders = {};
 		this._prDocumentCommentThreadMap = {};
