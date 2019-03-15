@@ -225,7 +225,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			// The review manager will register a document comment's provider, so the node does not need to
 			if (!this.pullRequestModel.equals(this._prManager.activePullRequest)) {
 				if (!this._prDocumentCommentProvider || !this._commentController) {
-					await this.pullRequestModel.githubRepository.ensureCommentsController();
+					await this.pullRequestModel.githubRepository.ensureCommentsProvider();
 					this._commentController = this.pullRequestModel.githubRepository.commentsController!;
 					this._prDocumentCommentProvider = this.pullRequestModel.githubRepository.commentsProvider!.registerDocumentCommentProvider(this.pullRequestModel.prNumber, this);
 

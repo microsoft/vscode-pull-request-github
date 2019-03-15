@@ -12,9 +12,9 @@ import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
+import { PRDocumentCommentProvider } from '../view/prDocumentCommentProvider';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
-import { PRDocumentCommentProvider } from '../view/prDocumentCommentProvider';
 const queries = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -46,9 +46,9 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		return this._hub;
 	}
 
-	public async ensureCommentsController(): Promise<void> {
+	public async ensureCommentsProvider(): Promise<void> {
 		try {
-			if (this.commentsController) {
+			if (this.commentsProvider) {
 				return;
 			}
 
@@ -60,6 +60,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		} catch (e) {
 			console.log(e);
 		}
+
 	}
 
 	dispose() {
