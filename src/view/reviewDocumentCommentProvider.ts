@@ -13,7 +13,7 @@ import { Repository } from '../git/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRequestNode';
-import { CommentHandler, convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread } from '../github/utils';
+import { CommentHandler, convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel } from '../github/utils';
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand, getEmptyCommentThreadCommands } from '../github/commands';
@@ -210,6 +210,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 							comment.label = newDraftMode ? 'Pending' : undefined;
 							return comment;
 						});
+						updateCommentThreadLabel(thread);
 					});
 				}
 			});
@@ -221,6 +222,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 						comment.label = newDraftMode ? 'Pending' : undefined;
 						return comment;
 					});
+					updateCommentThreadLabel(thread);
 				});
 			}
 		}));
@@ -328,13 +330,14 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
 		if (await this._prManager.authenticate()) {
 			const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
-			let thread = this._commentController!.createCommentThread('', document.uri, range);
+			let thread = this._commentController!.createCommentThread('', document.uri, range, []);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
 
 			let commands = getEmptyCommentThreadCommands(thread, inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
 
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
+			updateCommentThreadLabel(thread);
 		}
 	}
 
@@ -366,6 +369,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		const comment = convertToVSCodeComment(rawComment!, undefined);
 
 		thread.comments = [comment];
+		updateCommentThreadLabel(thread);
 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 		this.updateCommentThreadCommands(thread, inDraftMode);
 		matchedFile.comments.push(rawComment!);
@@ -670,6 +674,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox ? this.commentController!.inputBox!.value : '', comment._rawComment);
 
 			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+			updateCommentThreadLabel(thread);
 		} else {
 			// create new comment thread
 
@@ -689,6 +694,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
 
 			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+			updateCommentThreadLabel(thread);
 			this.commentController!.inputBox!.value = '';
 		}
 
@@ -706,6 +712,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				let threads: vscode.CommentThread[] = [];
 				commentThreadMap[fileName].forEach(thread => {
 					thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+					updateCommentThreadLabel(thread);
 					if (!thread.comments.length) {
 						thread.dispose!();
 					} else {
@@ -728,6 +735,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 					this._prDocumentCommentThreads[fileName].original!.forEach(thread => {
 						thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+						updateCommentThreadLabel(thread);
 						if (!thread.comments.length) {
 							thread.dispose!();
 						} else {
@@ -747,6 +755,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 					this._prDocumentCommentThreads[fileName].modified!.forEach(thread => {
 						thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+						updateCommentThreadLabel(thread);
 						if (!thread.comments.length) {
 							thread.dispose!();
 						} else {
@@ -775,6 +784,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
 
 				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				updateCommentThreadLabel(thread);
 				this.commentController!.inputBox!.value = '';
 			} else {
 				// create new comment thread
@@ -831,6 +841,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				return cmt;
 			});
 			thread.comments = newComments;
+			updateCommentThreadLabel(thread);
 
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -863,6 +874,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			if (index > -1) {
 				thread.comments.splice(index, 1);
 				thread.comments = thread.comments;
+				updateCommentThreadLabel(thread);
 			}
 
 			// todo: update all related threads.
@@ -935,6 +947,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;
 					matchedThread[0].comments = thread.comments;
+					updateCommentThreadLabel(thread);
 					matchedThread[0].acceptInputCommand = commands.acceptInputCommand;
 					matchedThread[0].additionalCommands = commands.additionalCommands;
 
@@ -1009,6 +1022,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 						return cmt;
 					});
+					updateCommentThreadLabel(thread);
 				});
 			}
 		} catch (e) {

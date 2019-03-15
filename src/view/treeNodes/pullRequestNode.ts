@@ -19,7 +19,7 @@ import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction } from '../../github/utils';
+import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel } from '../../github/utils';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand, getEmptyCommentThreadCommands } from '../../github/commands';
 
 export function provideDocumentComments(
@@ -338,12 +338,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
 		if (await this._prManager.authenticate()) {
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
-			let thread = this._commentController!.createCommentThread('', document.uri, range);
+			let thread = this._commentController!.createCommentThread('', document.uri, range, []);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
 			let commands = getEmptyCommentThreadCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
 
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
+			updateCommentThreadLabel(thread);
 		}
 	}
 
@@ -373,6 +374,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			const rawComment = await this._prManager.createComment(this.pullRequestModel, text, params!.fileName, position);
 			const comment = convertToVSCodeComment(rawComment!, undefined);
 			thread.comments = [comment];
+			updateCommentThreadLabel(thread);
 
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
 			const commands = getCommentThreadCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
@@ -476,6 +478,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				matchingCommentThread.forEach(match => {
 					if (match.comments.length !== thread.comments.length || commentsEditedInThread(matchingCommentThread[0].comments, thread.comments)) {
 						match.comments = thread.comments;
+						updateCommentThreadLabel(match);
 					}
 				});
 			});
@@ -565,6 +568,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
 
 				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				updateCommentThreadLabel(thread);
 				this.commentController!.inputBox!.value = '';
 			} else {
 				// create new comment thread
@@ -595,6 +599,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				return cmt;
 			});
 			thread.comments = newComments;
+			updateCommentThreadLabel(thread);
 		}
 	}
 
@@ -604,6 +609,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (index > -1) {
 			thread.comments.splice(index, 1);
 			thread.comments = thread.comments;
+			updateCommentThreadLabel(thread);
 		}
 
 		let inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
@@ -622,6 +628,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox ? this.commentController!.inputBox!.value : '', comment._rawComment);
 
 			thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+			updateCommentThreadLabel(thread);
 		} else {
 			// create new comment thread
 
@@ -642,6 +649,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
 
 				thread.comments = [...thread.comments, convertToVSCodeComment(rawComment!, undefined)];
+				updateCommentThreadLabel(thread);
 				this.commentController!.inputBox!.value = '';
 			}
 
@@ -666,6 +674,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 					this._fileChangeCommentThreads[matchingFileChange.fileName].forEach(thread => {
 						thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+						updateCommentThreadLabel(thread);
 						if (!thread.comments.length) {
 							thread.dispose!();
 						} else {
@@ -728,6 +737,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 						return cmt;
 					});
+					updateCommentThreadLabel(thread);
 				}
 			});
 		}

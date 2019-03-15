@@ -16,6 +16,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { getEditCommand, getDeleteCommand, getCommentThreadCommands } from './commands';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
+import { uniqBy } from '../common/utils';
 
 export interface CommentHandler {
 	commentController?: vscode.CommentController;
@@ -48,7 +49,8 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	let vscodeThread = commentController.createCommentThread(
 		thread.threadId,
 		thread.resource,
-		thread.range!
+		thread.range!,
+		[]
 	);
 
 	thread.comments.forEach(comment => {
@@ -63,13 +65,22 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	});
 
 	vscodeThread.comments = thread.comments;
+	updateCommentThreadLabel(vscodeThread);
 
 	let commands = getCommentThreadCommands(vscodeThread, inDraftMode, node, pullRequestModel.githubRepository.supportsGraphQl);
 	vscodeThread.acceptInputCommand = commands.acceptInputCommand;
 	vscodeThread.additionalCommands = commands.additionalCommands;
 	vscodeThread.collapsibleState = thread.collapsibleState;
-	vscodeThread.label = 'my conversation';
 	return vscodeThread;
+}
+
+export function updateCommentThreadLabel(thread: vscode.CommentThread) {
+	if (thread.comments.length) {
+		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.userName).map(comment => `@${comment.userName}`).join(', ');
+		thread.label = `Participants: ${participantsList}`;
+	} else {
+		thread.label = 'Start discussion';
+	}
 }
 
 export function fillInCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) {
