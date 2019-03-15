@@ -83,6 +83,20 @@ export function updateCommentThreadLabel(thread: vscode.CommentThread) {
 	}
 }
 
+export function updateCommentReviewState(thread: vscode.CommentThread, newDraftMode: boolean) {
+	if (newDraftMode) {
+		return;
+	}
+
+	thread.comments = thread.comments.map(comment => {
+		let patchedComment = comment as (vscode.Comment & { _rawComment: Comment });
+		patchedComment._rawComment.isDraft = false;
+		patchedComment.label = undefined;
+
+		return patchedComment;
+	});
+}
+
 export function fillInCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) {
 	if (commentControl && pullRequestModel) {
 		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: Comment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };

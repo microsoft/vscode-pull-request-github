@@ -13,7 +13,7 @@ import { Repository } from '../git/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRequestNode';
-import { CommentHandler, convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, fillInCommentCommands } from '../github/utils';
+import { CommentHandler, convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, fillInCommentCommands, updateCommentReviewState } from '../github/utils';
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand, getEmptyCommentThreadCommands } from '../github/commands';
@@ -206,10 +206,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				for (let fileName in commentThreadMap) {
 					commentThreadMap[fileName].forEach(thread => {
 						this.updateCommentThreadCommands(thread, newDraftMode);
-						thread.comments = thread.comments.map(comment => {
-							comment.label = newDraftMode ? 'Pending' : undefined;
-							return comment;
-						});
+						updateCommentReviewState(thread, newDraftMode);
 						updateCommentThreadLabel(thread);
 					});
 				}

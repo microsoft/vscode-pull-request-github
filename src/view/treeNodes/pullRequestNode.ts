@@ -19,7 +19,7 @@ import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, fillInCommentCommands } from '../../github/utils';
+import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, fillInCommentCommands, updateCommentReviewState } from '../../github/utils';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand, getEmptyCommentThreadCommands } from '../../github/commands';
 
 export function provideDocumentComments(
@@ -235,6 +235,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 								let commands = getCommentThreadCommands(thread, newDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
 								thread.acceptInputCommand = commands.acceptInputCommand;
 								thread.additionalCommands = commands.additionalCommands;
+								updateCommentThreadLabel(thread);
+								updateCommentReviewState(thread, newDraftMode);
 							});
 						}
 					}));
