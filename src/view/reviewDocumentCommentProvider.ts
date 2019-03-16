@@ -106,7 +106,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		this._commentController = vscode.comment.createCommentController(`review-${_prManager.activePullRequest!.prNumber}`, _prManager.activePullRequest!.title);
 		this._commentController.commentingRangeProvider = this;
 		this._commentController.emptyCommentThreadFactory = this;
-		this._commentController.commentingRangeProvider = this;
+		this._commentController.reactionProvider = this;
 		this._localToDispose.push(this._commentController);
 	}
 
@@ -1022,8 +1022,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 				const fileName = matchedFile.fileName;
 				const modifiedThreads = [
-					...(this._prDocumentCommentThreads[fileName].original || []),
-					...(this._prDocumentCommentThreads[fileName].modified || []),
+					...(this._prDocumentCommentThreads[fileName] ? this._prDocumentCommentThreads[fileName].original || [] : []),
+					...(this._prDocumentCommentThreads[fileName] ? this._prDocumentCommentThreads[fileName].modified || []: []),
 					...(this._reviewDocumentCommentThreads[fileName] || []),
 					...(this._workspaceFileChangeCommentThreads[fileName] || []),
 					...(this._obsoleteFileChangeCommentThreads[fileName] || [])
