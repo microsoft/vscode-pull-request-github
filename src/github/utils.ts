@@ -76,6 +76,12 @@ export function updateCommentThreadLabel(thread: vscode.CommentThread) {
 	}
 }
 
+export function updateCommentReactions(comment: vscode.Comment, reactions: Reaction[]) {
+	comment.commentReactions = reactions.map(ret => {
+		return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
+	});
+}
+
 export function updateCommentReviewState(thread: vscode.CommentThread, newDraftMode: boolean) {
 	if (newDraftMode) {
 		return;

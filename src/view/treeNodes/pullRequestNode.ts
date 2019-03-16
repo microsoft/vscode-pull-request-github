@@ -19,7 +19,7 @@ import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, fillInCommentCommands, updateCommentReviewState } from '../../github/utils';
+import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, fillInCommentCommands, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
 import { getCommentThreadCommands, getEmptyCommentThreadCommands } from '../../github/commands';
 
 export function provideDocumentComments(
@@ -828,17 +828,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			let result = await this._prManager.addCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
 			let reactionGroups = result.addReaction.subject.reactionGroups;
 			fileChange.comments[commentIndex].reactions = parseGraphQLReaction(reactionGroups);
-			comment.commentReactions = fileChange.comments[commentIndex].reactions!.map(ret => {
-				return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
-			});
+			updateCommentReactions(comment, fileChange.comments[commentIndex].reactions!);
 		} else {
 			const matchedRawComment = (comment as (vscode.Comment & { _rawComment: Comment }))._rawComment;
 			let result = await this._prManager.deleteCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
 			let reactionGroups = result.removeReaction.subject.reactionGroups;
 			fileChange.comments[commentIndex].reactions = parseGraphQLReaction(reactionGroups);
-			comment.commentReactions = fileChange.comments[commentIndex].reactions!.map(ret => {
-				return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
-			});
+			updateCommentReactions(comment, fileChange.comments[commentIndex].reactions!);
 		}
 
 		if (this._prDocumentCommentProvider!.commentThreadCache[params.fileName]) {
@@ -848,13 +844,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 
 				if (thread.comments.find(cmt => cmt.commentId === comment.commentId)) {
-					this.updateCommentThreadComments(thread, thread.comments.map(cmt => {
-						if (cmt.commentId === comment.commentId) {
-							cmt.commentReactions = comment.commentReactions;
-						}
-
-						return cmt;
-					}));
+					this.updateCommentThreadComments(thread, thread.comments);
 				}
 			});
 		}
