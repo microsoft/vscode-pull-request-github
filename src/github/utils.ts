@@ -50,14 +50,14 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 		thread.threadId,
 		thread.resource,
 		thread.range!,
-		[]
+		thread.comments
 	);
 
-	thread.comments.forEach(comment => {
+	vscodeThread.comments = vscodeThread.comments.map(comment => {
 		fillInCommentCommands(comment, commentController, vscodeThread, pullRequestModel, node);
+		return comment;
 	});
 
-	vscodeThread.comments = thread.comments;
 	updateCommentThreadLabel(vscodeThread);
 
 	let commands = getCommentThreadCommands(vscodeThread, inDraftMode, node, pullRequestModel.githubRepository.supportsGraphQl);
