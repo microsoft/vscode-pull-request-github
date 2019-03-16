@@ -345,7 +345,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		await this.getPullRequestData(pr);
-		await this._reviewDocumentCommentProvider.update(this._localFileChanges, this._obsoleteFileChanges, this._comments);
+		await this._reviewDocumentCommentProvider.update(this._localFileChanges, this._obsoleteFileChanges);
 
 		return Promise.resolve(void 0);
 	}

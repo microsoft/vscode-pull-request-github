@@ -341,10 +341,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	private async updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void> {
 		try {
-			let uri = thread.resource;
-			let params = fromPRUri(uri);
+			const uri = thread.resource;
+			const params = fromPRUri(uri);
 
-			if (params && params.prNumber !== this.pullRequestModel.prNumber) {
+			if (!params || params.prNumber !== this.pullRequestModel.prNumber) {
 				return;
 			}
 
@@ -354,8 +354,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				return;
 			}
 
-			let isBase = !!(params && params.isBase);
-			let position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', thread.range.start.line + 1, isBase);
+			const isBase = !!(params && params.isBase);
+			const position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', thread.range.start.line + 1, isBase);
 
 			if (position < 0) {
 				throw new Error('Comment position cannot be negative');
@@ -373,6 +373,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
+
+			let existingThreads = this._prDocumentCommentProvider!.commentThreadCache[params.fileName];
+			if (existingThreads) {
+				this._prDocumentCommentProvider!.commentThreadCache[params.fileName] = [...existingThreads, thread];
+			} else {
+				this._prDocumentCommentProvider!.commentThreadCache[params.fileName] = [thread];
+			}
 		} catch (e) {
 			Logger.appendLine(e);
 		}
@@ -626,9 +633,20 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		await this._prManager.deleteReviewComment(this.pullRequestModel, comment.commentId);
 		const index = thread.comments.findIndex(c => c.commentId === comment.commentId);
 		if (index > -1) {
-			thread.comments.splice(index, 1);
-			thread.comments = thread.comments;
-			updateCommentThreadLabel(thread);
+			if (thread.comments.length === 1) {
+				let rawComment = (comment as vscode.Comment & { _rawComment: Comment })._rawComment;
+
+				if (rawComment.path) {
+					let threadIndex = this._prDocumentCommentProvider!.commentThreadCache[rawComment.path].findIndex(cachedThread => cachedThread.threadId === thread.threadId);
+					this._prDocumentCommentProvider!.commentThreadCache[rawComment.path].splice(threadIndex, 1);
+				}
+
+				thread.dispose!();
+			} else {
+				thread.comments.splice(index, 1);
+				thread.comments = thread.comments;
+				updateCommentThreadLabel(thread);
+			}
 		}
 
 		let inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);

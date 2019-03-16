@@ -54,14 +54,7 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	);
 
 	thread.comments.forEach(comment => {
-		let patchedComment = comment as vscode.Comment & { _rawComment: Comment };
-		if (patchedComment._rawComment.canEdit) {
-			patchedComment.editCommand = getEditCommand(vscodeThread, comment, node);
-
-		}
-		if (patchedComment._rawComment.canDelete) {
-			patchedComment.deleteCommand = getDeleteCommand(vscodeThread, comment, node);
-		}
+		fillInCommentCommands(comment, commentController, vscodeThread, pullRequestModel, node);
 	});
 
 	vscodeThread.comments = thread.comments;

@@ -372,6 +372,12 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		this.updateCommentThreadCommands(thread, inDraftMode);
 		matchedFile.comments.push(rawComment!);
 		this._comments.push(rawComment!);
+
+		if (this.commentController!.inputBox) {
+			this.commentController!.inputBox!.value = '';
+		}
+
+		await this.update(this._localFileChanges, this._obsoleteFileChanges);
 		this._onDidChangeComments.fire(this._comments);
 	}
 
@@ -874,17 +880,21 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 			const index = thread.comments.findIndex(c => c.commentId === comment.commentId);
 			if (index > -1) {
-				thread.comments.splice(index, 1);
-				thread.comments = thread.comments;
-				updateCommentThreadLabel(thread);
+				if (thread.comments.length === 1) {
+					thread.dispose!();
+				} else {
+					thread.comments.splice(index, 1);
+					thread.comments = thread.comments;
+					updateCommentThreadLabel(thread);
+				}
 			}
-
-			// todo: update all related threads.
 
 			let inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 			if (inDraftMode !== this._prManager.activePullRequest!.inDraftMode) {
 				this._prManager.activePullRequest!.inDraftMode = inDraftMode;
 			}
+
+			this.update(this._localFileChanges, this._obsoleteFileChanges);
 
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -894,7 +904,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Incremental update comments
-	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: Comment[]): Promise<void> {
+	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]): Promise<void> {
 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 		// _workspaceFileChangeCommentThreads
 		for (let fileName in this._workspaceFileChangeCommentThreads) {
@@ -948,7 +958,10 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 					// update
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;
-					matchedThread[0].comments = thread.comments;
+					matchedThread[0].comments = thread.comments.map(comment => {
+						fillInCommentCommands(comment, this.commentController!, matchedThread[0], this._prManager.activePullRequest!, this);
+						return comment;
+					});
 					updateCommentThreadLabel(thread);
 					matchedThread[0].acceptInputCommand = commands.acceptInputCommand;
 					matchedThread[0].additionalCommands = commands.additionalCommands;
