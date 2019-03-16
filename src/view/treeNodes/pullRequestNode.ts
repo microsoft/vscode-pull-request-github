@@ -139,12 +139,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _commentController?: vscode.CommentController;
-	private _prDocumentCommentProvider?: vscode.Disposable & { commentThreadCache: { [key: string]: vscode.CommentThread[] } };
-
 	public get commentController(): vscode.CommentController | undefined {
 		return this._commentController;
 	}
 
+	private _prDocumentCommentProvider?: vscode.Disposable & { commentThreadCache: { [key: string]: vscode.CommentThread[] } };
 	private _disposables: vscode.Disposable[] = [];
 
 	private _inMemPRContentProvider?: vscode.Disposable;
@@ -155,11 +154,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return this._command;
 	}
 
-	public availableReactions: vscode.CommentReaction[] = getReactionGroup();
-
 	public set command(newCommand: vscode.Command) {
 		this._command = newCommand;
 	}
+
+	public availableReactions: vscode.CommentReaction[] = getReactionGroup();
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
@@ -168,7 +167,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		private _isLocal: boolean
 	) {
 		super();
-
 		this._fileChanges = [];
 	}
 
@@ -212,7 +210,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					change.isPartial,
 					change.patch,
 					change.diffHunks,
-					comments.filter(comment => comment.path === change.fileName && comment.position !== null)
+					comments.filter(comment => comment.path === change.fileName && comment.position !== null),
 				);
 
 				return changedItem;
@@ -415,6 +413,43 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	// #endregion
 
+	// #region Helper
+	private createCommentThread(fileName: string, commentThreads: vscode.CommentThread[], inDraftMode: boolean) {
+		let threads: vscode.CommentThread[] = [];
+		commentThreads.forEach(thread => {
+			threads.push(createVSCodeCommentThread(thread, this._commentController! , this.pullRequestModel, inDraftMode, this));
+		});
+
+		this._prDocumentCommentProvider!.commentThreadCache[fileName] = threads;
+	}
+
+	private updateCommentThreadComments(thread: vscode.CommentThread, newComments: vscode.Comment[]) {
+		thread.comments = newComments;
+		updateCommentThreadLabel(thread);
+	}
+
+	private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {
+		const params = fromPRUri(uri);
+
+		if (!params) {
+			throw new Error(`${uri.toString()} is not valid PR document`);
+		}
+
+		const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
+
+		if (!fileChange) {
+			throw new Error('No matching file found');
+		}
+
+		if (fileChange instanceof RemoteFileChangeNode) {
+			throw new Error('Comments not supported on remote file changes');
+		}
+
+		return fileChange;
+	}
+
+		// #endregion
+
 	// #region New Comment Thread
 	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
 		if (await this._prManager.authenticate()) {
@@ -455,8 +490,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			const rawComment = await this._prManager.createComment(this.pullRequestModel, text, params!.fileName, position);
 			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
 			fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
-			thread.comments = [vscodeComment];
-			updateCommentThreadLabel(thread);
+			this.updateCommentThreadComments(thread, [vscodeComment]);
 
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
 			const commands = getCommentThreadCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
@@ -493,38 +527,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			return commentingRanges;
 		}
-	}
-
-	// #endregion
-
-	// #region Helper
-	private createCommentThread(fileName: string, commentThreads: vscode.CommentThread[], inDraftMode: boolean) {
-		let threads: vscode.CommentThread[] = [];
-		commentThreads.forEach(thread => {
-			threads.push(createVSCodeCommentThread(thread, this._commentController! , this.pullRequestModel, inDraftMode, this));
-		});
-
-		this._prDocumentCommentProvider!.commentThreadCache[fileName] = threads;
-	}
-
-	private findMatchingFileNode(uri: vscode.Uri): InMemFileChangeNode {
-		const params = fromPRUri(uri);
-
-		if (!params) {
-			throw new Error(`${uri.toString()} is not valid PR document`);
-		}
-
-		const fileChange = this._fileChanges.find(change => change.fileName === params.fileName);
-
-		if (!fileChange) {
-			throw new Error('No matching file found');
-		}
-
-		if (fileChange instanceof RemoteFileChangeNode) {
-			throw new Error('Comments not supported on remote file changes');
-		}
-
-		return fileChange;
 	}
 
 	// #endregion
@@ -652,8 +654,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
 				fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
-				thread.comments = [...thread.comments, vscodeComment];
-				updateCommentThreadLabel(thread);
+				this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment])
 				this.commentController!.inputBox!.value = '';
 			} else {
 				// create new comment thread
@@ -666,6 +667,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	public async editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {
 		if (await this._prManager.authenticate() && this._commentController!.inputBox) {
+			const fileChange = this.findMatchingFileNode(thread.resource);
 			const existingComment = (comment as (vscode.Comment & { _rawComment: Comment }))._rawComment;
 			if (!existingComment) {
 				throw new Error('Unable to find comment');
@@ -673,7 +675,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, existingComment, this._commentController!.inputBox!.value);
 
-			const fileChange = this.findMatchingFileNode(thread.resource);
 			const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 			if (index > -1) {
 				fileChange.comments.splice(index, 1, rawComment);
@@ -690,8 +691,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				return cmt;
 			});
-			thread.comments = newComments;
-			updateCommentThreadLabel(thread);
+			this.updateCommentThreadComments(thread, newComments);
 		}
 	}
 
@@ -716,8 +716,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				thread.dispose!();
 			} else {
 				thread.comments.splice(index, 1);
-				thread.comments = thread.comments;
-				updateCommentThreadLabel(thread);
+				this.updateCommentThreadComments(thread, thread.comments);
 			}
 		}
 
@@ -744,8 +743,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
 			fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
-			thread.comments = [...thread.comments, vscodeComment];
-			updateCommentThreadLabel(thread);
+			this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment]);
 		} else {
 			// create new comment thread
 
@@ -773,8 +771,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
 				fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
-				thread.comments = [...thread.comments, vscodeComment];
-				updateCommentThreadLabel(thread);
+				this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment]);
 				this.commentController!.inputBox!.value = '';
 			}
 
@@ -799,8 +796,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					let threads: vscode.CommentThread[] = [];
 
 					this._prDocumentCommentProvider!.commentThreadCache[matchingFileChange.fileName].forEach(thread => {
-						thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
-						updateCommentThreadLabel(thread);
+						this.updateCommentThreadComments(thread, thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId)));
 						if (!thread.comments.length) {
 							thread.dispose!();
 						} else {
@@ -865,14 +861,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 
 				if (thread.comments.find(cmt => cmt.commentId === comment.commentId)) {
-					thread.comments = thread.comments.map(cmt => {
+					this.updateCommentThreadComments(thread, thread.comments.map(cmt => {
 						if (cmt.commentId === comment.commentId) {
 							cmt.commentReactions = comment.commentReactions;
 						}
 
 						return cmt;
-					});
-					updateCommentThreadLabel(thread);
+					}));
 				}
 			});
 		}
