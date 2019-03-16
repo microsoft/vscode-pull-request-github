@@ -54,7 +54,7 @@ export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDr
 		additionalCommands: commands
 	};
 }
-export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMode: boolean, node: CommentHandler, supportGraphQL: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
+export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMode: boolean, handler: CommentHandler, supportGraphQL: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
 	let commands: vscode.Command[] = [];
 	let acceptInputCommand: vscode.Command;
 	if (!supportGraphQL) {
@@ -62,7 +62,7 @@ export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMo
 			title: 'Reply Comment',
 			command: 'pr.replyComment',
 			arguments: [
-				node,
+				handler,
 				thread
 			]
 		};
@@ -74,7 +74,7 @@ export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMo
 				title: 'Delete Review',
 				command: 'pr.deleteReview',
 				arguments: [
-					node
+					handler
 				]
 			});
 
@@ -82,7 +82,7 @@ export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMo
 				title: 'Finish Review',
 				command: 'pr.finishReview',
 				arguments: [
-					node,
+					handler,
 					thread
 				]
 			});
@@ -91,7 +91,7 @@ export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMo
 				title: 'Add Review Comment',
 				command: 'pr.replyComment',
 				arguments: [
-					node,
+					handler,
 					thread
 				]
 			};
@@ -100,7 +100,7 @@ export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMo
 				title: 'Start Review',
 				command: 'pr.startReview',
 				arguments: [
-					node,
+					handler,
 					thread
 				]
 			});
@@ -109,7 +109,7 @@ export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMo
 				title: 'Reply Comment',
 				command: 'pr.replyComment',
 				arguments: [
-					node,
+					handler,
 					thread
 				]
 			};
