@@ -75,7 +75,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly isPartial: boolean,
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
-
+		public comments: Comment[],
 		public readonly sha?: string
 	) {
 		super();
@@ -83,10 +83,10 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
-
 		this.opts = {
 			preserveFocus: true
 		};
+		this.update(this.comments);
 	}
 
 	update(comments: Comment[]) {

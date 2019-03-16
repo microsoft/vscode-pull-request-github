@@ -53,7 +53,7 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 		thread.comments
 	);
 
-	vscodeThread.comments = vscodeThread.comments.map(comment => {
+	vscodeThread.comments = thread.comments.map(comment => {
 		fillInCommentCommands(comment, commentController, vscodeThread, pullRequestModel, node);
 		return comment;
 	});
