@@ -54,7 +54,7 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 	);
 
 	vscodeThread.comments = thread.comments.map(comment => {
-		fillInCommentCommands(comment, commentController, vscodeThread, pullRequestModel, node);
+		updateCommentCommands(comment, commentController, vscodeThread, pullRequestModel, node);
 		return comment;
 	});
 
@@ -96,7 +96,7 @@ export function updateCommentReviewState(thread: vscode.CommentThread, newDraftM
 	});
 }
 
-export function fillInCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) {
+export function updateCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) {
 	if (commentControl && pullRequestModel) {
 		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: Comment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
 

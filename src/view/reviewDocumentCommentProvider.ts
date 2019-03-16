@@ -13,7 +13,7 @@ import { Repository } from '../git/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRequestNode';
-import { CommentHandler, convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, fillInCommentCommands, updateCommentReviewState } from '../github/utils';
+import { CommentHandler, convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, updateCommentCommands, updateCommentReviewState } from '../github/utils';
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
 import { getCommentThreadCommands, getEditCommand, getDeleteCommand, getEmptyCommentThreadCommands } from '../github/commands';
@@ -364,7 +364,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		// there is no thread Id, which means it's a new thread
 		const rawComment = await this._prManager.createComment(this._prManager.activePullRequest!, text, matchedFile.fileName, position);
 		const comment = convertToVSCodeComment(rawComment!, undefined);
-		fillInCommentCommands(comment, this._commentController!, thread, this._prManager.activePullRequest!, this);
+		updateCommentCommands(comment, this._commentController!, thread, this._prManager.activePullRequest!, this);
 
 		thread.comments = [comment];
 		updateCommentThreadLabel(thread);
@@ -678,7 +678,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox ? this.commentController!.inputBox!.value : '', comment._rawComment);
 
 			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
-			fillInCommentCommands(vscodeComment,this.commentController!, thread, this._prManager.activePullRequest!, this);
+			updateCommentCommands(vscodeComment,this.commentController!, thread, this._prManager.activePullRequest!, this);
 			thread.comments = [...thread.comments, vscodeComment];
 			updateCommentThreadLabel(thread);
 		} else {
@@ -699,7 +699,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
 			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
-			fillInCommentCommands(vscodeComment, this.commentController!, thread, this._prManager.activePullRequest!, this);
+			updateCommentCommands(vscodeComment, this.commentController!, thread, this._prManager.activePullRequest!, this);
 			thread.comments = [...thread.comments, ];
 			updateCommentThreadLabel(thread);
 			this.commentController!.inputBox!.value = '';
@@ -790,7 +790,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 				const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
 				const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
-				fillInCommentCommands(vscodeComment, this.commentController!, thread, this._prManager.activePullRequest!, this);
+				updateCommentCommands(vscodeComment, this.commentController!, thread, this._prManager.activePullRequest!, this);
 				thread.comments = [...thread.comments, vscodeComment];
 				updateCommentThreadLabel(thread);
 				this.commentController!.inputBox!.value = '';
@@ -959,7 +959,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;
 					matchedThread[0].comments = thread.comments.map(comment => {
-						fillInCommentCommands(comment, this.commentController!, matchedThread[0], this._prManager.activePullRequest!, this);
+						updateCommentCommands(comment, this.commentController!, matchedThread[0], this._prManager.activePullRequest!, this);
 						return comment;
 					});
 					updateCommentThreadLabel(thread);
