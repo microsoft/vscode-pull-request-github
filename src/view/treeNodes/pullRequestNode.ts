@@ -20,7 +20,7 @@ import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, fillInCommentCommands, updateCommentReviewState } from '../../github/utils';
-import { getCommentThreadCommands, getEditCommand, getDeleteCommand, getEmptyCommentThreadCommands } from '../../github/commands';
+import { getCommentThreadCommands, getEmptyCommentThreadCommands } from '../../github/commands';
 
 export function provideDocumentComments(
 	uri: vscode.Uri,
@@ -241,7 +241,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 								let commands = getCommentThreadCommands(thread, newDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
 								thread.acceptInputCommand = commands.acceptInputCommand;
 								thread.additionalCommands = commands.additionalCommands;
-								updateCommentThreadLabel(thread);
 								updateCommentReviewState(thread, newDraftMode);
 							});
 						}
@@ -455,12 +454,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (await this._prManager.authenticate()) {
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
 			let thread = this._commentController!.createCommentThread('', document.uri, range, []);
+			updateCommentThreadLabel(thread);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
 			let commands = getEmptyCommentThreadCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
-
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
-			updateCommentThreadLabel(thread);
 		}
 	}
 
@@ -556,8 +554,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				matchingCommentThread.forEach(match => {
 					if (match.comments.length !== thread.comments.length || commentsEditedInThread(matchingCommentThread[0].comments, thread.comments)) {
-						match.comments = thread.comments;
-						updateCommentThreadLabel(match);
+						this.updateCommentThreadComments(match, thread.comments);
 					}
 				});
 			});
@@ -647,14 +644,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
 
 				const fileChange = this.findMatchingFileNode(thread.resource);
-				const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
-				if (index > -1) {
-					fileChange.comments.push(rawComment!);
-				}
+				fileChange.comments.push(rawComment!);
 
 				const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
 				fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
-				this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment])
+				this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment]);
 				this.commentController!.inputBox!.value = '';
 			} else {
 				// create new comment thread
@@ -681,17 +675,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 
 			const vscodeComment = convertToVSCodeComment(rawComment, undefined);
-
-			let newComments = thread.comments.map(cmt => {
-				if (cmt.commentId === vscodeComment.commentId) {
-					vscodeComment.editCommand = getEditCommand(thread, vscodeComment, this);
-					vscodeComment.deleteCommand = getDeleteCommand(thread, vscodeComment, this);
-					return vscodeComment;
-				}
-
-				return cmt;
-			});
-			this.updateCommentThreadComments(thread, newComments);
+			fillInCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
+			const vscodeCommentIndex = thread.comments.findIndex(c => c.commentId === vscodeComment.commentId);
+			thread.comments.splice(vscodeCommentIndex, 1, vscodeComment);
+			this.updateCommentThreadComments(thread, thread.comments);
 		}
 	}
 
