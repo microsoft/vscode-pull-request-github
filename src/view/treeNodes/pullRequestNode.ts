@@ -230,11 +230,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					this._prDocumentCommentProvider = this.pullRequestModel.githubRepository.commentsProvider!.registerDocumentCommentProvider(this.pullRequestModel.prNumber, this);
 
 					this._disposables.push(this.pullRequestModel.onDidChangeDraftMode(newDraftMode => {
-						this._fileChanges.forEach(fileChange => {
-							if (fileChange instanceof InMemFileChangeNode) {
-								fileChange.comments.forEach(c => c.isDraft = newDraftMode);
-							}
-						});
+						if (!newDraftMode) {
+							this._fileChanges.forEach(fileChange => {
+								if (fileChange instanceof InMemFileChangeNode) {
+									fileChange.comments.forEach(c => c.isDraft = newDraftMode);
+								}
+							});
+						}
 
 						for (let fileName in this._prDocumentCommentProvider!.commentThreadCache) {
 							this._prDocumentCommentProvider!.commentThreadCache[fileName].forEach(thread => {
@@ -783,7 +785,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	public async deleteReview(): Promise<void> {
-		const { deletedReviewComments } = await this._prManager.deleteReview(this.pullRequestModel);
+		const { deletedReviewId, deletedReviewComments } = await this._prManager.deleteReview(this.pullRequestModel);
 
 		// Group comments by file and then position to create threads.
 		const commentsByPath = groupBy(deletedReviewComments, comment => comment.path || '');
@@ -792,6 +794,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			const matchingFileChange = this._fileChanges.find(fileChange => fileChange.fileName === filePath);
 
 			if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
+				matchingFileChange.comments = matchingFileChange.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
 				if (this._prDocumentCommentProvider!.commentThreadCache[matchingFileChange.fileName]) {
 					let threads: vscode.CommentThread[] = [];
 
