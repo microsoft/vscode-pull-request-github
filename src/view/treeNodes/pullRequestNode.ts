@@ -746,7 +746,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	public async finishReview(thread: vscode.CommentThread): Promise<void> {
 		try {
-			if (this.commentController && this.commentController!.inputBox) {
+			if (this.commentController && this.commentController!.inputBox && this.commentController!.inputBox.value) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
 

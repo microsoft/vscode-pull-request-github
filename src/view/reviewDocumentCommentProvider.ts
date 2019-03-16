@@ -695,12 +695,12 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	}
 
 	public async finishReview(thread: vscode.CommentThread): Promise<void> {
-		if (this.commentController!.inputBox) {
+		if (this.commentController!.inputBox && this.commentController!.inputBox.value) {
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
 			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
 			updateCommentCommands(vscodeComment, this.commentController!, thread, this._prManager.activePullRequest!, this);
-			thread.comments = [...thread.comments, ];
+			thread.comments = [...thread.comments, vscodeComment];
 			updateCommentThreadLabel(thread);
 			this.commentController!.inputBox!.value = '';
 		}
