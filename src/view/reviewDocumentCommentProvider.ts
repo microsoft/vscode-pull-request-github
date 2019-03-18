@@ -1003,7 +1003,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			}
 
 			let reactionGroups: ReactionGroup[] = [];
-			if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label)) {
+			if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label && !!ret.hasReacted)) {
 				let result = await this._prManager.addCommentReaction(this._prManager.activePullRequest, rawComment.graphNodeId, reaction);
 				reactionGroups = result.addReaction.subject.reactionGroups;
 			} else {

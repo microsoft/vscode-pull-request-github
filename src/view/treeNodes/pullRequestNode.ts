@@ -822,7 +822,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return;
 		}
 
-		if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label)) {
+		if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label && !!ret.hasReacted)) {
 			// add reaction
 			const matchedRawComment = (comment as (vscode.Comment & { _rawComment: Comment }))._rawComment;
 			let result = await this._prManager.addCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
