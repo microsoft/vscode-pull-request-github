@@ -78,3 +78,13 @@ export function getDeleteCommand(thread: vscode.CommentThread, vscodeComment: vs
 		]
 	};
 }
+
+export function getDeleteThreadCommand(thread: vscode.CommentThread): vscode.Command {
+	return {
+		title: 'Delete Thread',
+		command: 'pr.deleteThread',
+		arguments: [
+			thread
+		]
+	};
+}

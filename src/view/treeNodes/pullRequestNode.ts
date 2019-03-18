@@ -20,7 +20,7 @@ import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, updateCommentCommands, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
-import { getAcceptInputCommands } from '../../github/commands';
+import { getAcceptInputCommands, getDeleteThreadCommand } from '../../github/commands';
 
 export function provideDocumentComments(
 	uri: vscode.Uri,
@@ -459,6 +459,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			let commands = getAcceptInputCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
+			thread.deleteCommand = getDeleteThreadCommand(thread);
 		}
 	}
 

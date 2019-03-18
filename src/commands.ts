@@ -359,4 +359,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
 		await handler.deleteComment(thread, comment);
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteThread', async (thread: vscode.CommentThread) => {
+		thread.dispose!();
+	}));
 }

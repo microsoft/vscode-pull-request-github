@@ -16,7 +16,7 @@ import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRe
 import { CommentHandler, convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, updateCommentCommands, updateCommentReviewState } from '../github/utils';
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
-import { getAcceptInputCommands, getEditCommand, getDeleteCommand } from '../github/commands';
+import { getAcceptInputCommands, getEditCommand, getDeleteCommand, getDeleteThreadCommand } from '../github/commands';
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 
 function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
@@ -334,6 +334,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
+			thread.deleteCommand = getDeleteThreadCommand(thread);
 			updateCommentThreadLabel(thread);
 		}
 	}
