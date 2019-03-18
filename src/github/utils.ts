@@ -13,7 +13,7 @@ import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
 import { PullRequestModel } from './pullRequestModel';
-import { getEditCommand, getDeleteCommand, getCommentThreadCommands } from './commands';
+import { getEditCommand, getDeleteCommand, getAcceptInputCommands } from './commands';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 import { uniqBy } from '../common/utils';
@@ -60,7 +60,7 @@ export function createVSCodeCommentThread(thread: vscode.CommentThread, commentC
 
 	updateCommentThreadLabel(vscodeThread);
 
-	let commands = getCommentThreadCommands(vscodeThread, inDraftMode, node, pullRequestModel.githubRepository.supportsGraphQl);
+	let commands = getAcceptInputCommands(vscodeThread, inDraftMode, node, pullRequestModel.githubRepository.supportsGraphQl);
 	vscodeThread.acceptInputCommand = commands.acceptInputCommand;
 	vscodeThread.additionalCommands = commands.additionalCommands;
 	vscodeThread.collapsibleState = thread.collapsibleState;

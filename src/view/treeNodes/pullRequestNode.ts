@@ -20,7 +20,7 @@ import { Comment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { CommentHandler, convertToVSCodeComment, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, updateCommentCommands, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
-import { getCommentThreadCommands, getEmptyCommentThreadCommands } from '../../github/commands';
+import { getAcceptInputCommands } from '../../github/commands';
 
 export function provideDocumentComments(
 	uri: vscode.Uri,
@@ -238,7 +238,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 						for (let fileName in this._prDocumentCommentProvider!.commentThreadCache) {
 							this._prDocumentCommentProvider!.commentThreadCache[fileName].forEach(thread => {
-								let commands = getCommentThreadCommands(thread, newDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
+								let commands = getAcceptInputCommands(thread, newDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
 								thread.acceptInputCommand = commands.acceptInputCommand;
 								thread.additionalCommands = commands.additionalCommands;
 								updateCommentReviewState(thread, newDraftMode);
@@ -456,7 +456,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			let thread = this._commentController!.createCommentThread('', document.uri, range, []);
 			updateCommentThreadLabel(thread);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-			let commands = getEmptyCommentThreadCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
+			let commands = getAcceptInputCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
 		}
@@ -491,7 +491,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			this.updateCommentThreadComments(thread, [vscodeComment]);
 
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
-			const commands = getCommentThreadCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
+			const commands = getAcceptInputCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
 
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
@@ -746,7 +746,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	public async finishReview(thread: vscode.CommentThread): Promise<void> {
 		try {
-			if (this.commentController && this.commentController!.inputBox && this.commentController!.inputBox.value) {
+			if (this.commentController && this.commentController.inputBox && this.commentController.inputBox && this.commentController.inputBox.value) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 				const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, this.commentController!.inputBox!.value, comment._rawComment);
 

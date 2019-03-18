@@ -16,7 +16,7 @@ import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRe
 import { CommentHandler, convertToVSCodeComment, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, updateCommentCommands, updateCommentReviewState } from '../github/utils';
 import { GitChangeType } from '../common/file';
 import { ReactionGroup } from '../github/graphql';
-import { getCommentThreadCommands, getEditCommand, getDeleteCommand, getEmptyCommentThreadCommands } from '../github/commands';
+import { getAcceptInputCommands, getEditCommand, getDeleteCommand } from '../github/commands';
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 
 function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: Comment[], collapsibleState: vscode.CommentThreadCollapsibleState): vscode.CommentThread[] {
@@ -330,7 +330,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			let thread = this._commentController!.createCommentThread('', document.uri, range, []);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
 
-			let commands = getEmptyCommentThreadCommands(thread, inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
+			let commands = getAcceptInputCommands(thread, inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
 
 			thread.acceptInputCommand = commands.acceptInputCommand;
 			thread.additionalCommands = commands.additionalCommands;
@@ -456,7 +456,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #region Helper
 
 	private updateCommentThreadCommands(thread: vscode.CommentThread, newDraftMode: boolean) {
-		let commands = getCommentThreadCommands(thread, newDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
+		let commands = getAcceptInputCommands(thread, newDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
 		thread.acceptInputCommand = commands.acceptInputCommand;
 		thread.additionalCommands = commands.additionalCommands;
 	}
@@ -695,7 +695,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	}
 
 	public async finishReview(thread: vscode.CommentThread): Promise<void> {
-		if (this.commentController!.inputBox && this.commentController!.inputBox.value) {
+		if (this.commentController && this.commentController.inputBox && this.commentController.inputBox.value) {
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
 			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
@@ -954,7 +954,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				let matchedThread = existingCommentThreads.filter(existingThread => existingThread.threadId === thread.threadId);
 
 				if (matchedThread.length) {
-					let commands = getCommentThreadCommands(matchedThread[0], inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
+					let commands = getAcceptInputCommands(matchedThread[0], inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
 					// update
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;

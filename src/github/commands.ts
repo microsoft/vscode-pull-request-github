@@ -8,7 +8,7 @@ import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 import { CommentHandler } from './utils';
 
-export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDraftMode: boolean, handler: CommentHandler, supportGraphQL: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
+export function getAcceptInputCommands(thread: vscode.CommentThread, inDraftMode: boolean, handler: CommentHandler, supportGraphQL: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
 	let commands: vscode.Command[] = [];
 	let acceptInputCommand = {
 		title: inDraftMode ? 'Add Review Comment' : 'Add Comment',
@@ -54,92 +54,25 @@ export function getEmptyCommentThreadCommands(thread: vscode.CommentThread, inDr
 		additionalCommands: commands
 	};
 }
-export function getCommentThreadCommands(thread: vscode.CommentThread, inDraftMode: boolean, handler: CommentHandler, supportGraphQL: boolean): { acceptInputCommand: vscode.Command, additionalCommands: vscode.Command[] } {
-	let commands: vscode.Command[] = [];
-	let acceptInputCommand: vscode.Command;
-	if (!supportGraphQL) {
-		acceptInputCommand = {
-			title: 'Reply Comment',
-			command: 'pr.replyComment',
-			arguments: [
-				handler,
-				thread
-			]
-		};
-		commands = [];
-	} else {
 
-		if (inDraftMode) {
-			commands.push({
-				title: 'Delete Review',
-				command: 'pr.deleteReview',
-				arguments: [
-					handler
-				]
-			});
-
-			commands.push({
-				title: 'Finish Review',
-				command: 'pr.finishReview',
-				arguments: [
-					handler,
-					thread
-				]
-			});
-
-			acceptInputCommand = {
-				title: 'Add Review Comment',
-				command: 'pr.replyComment',
-				arguments: [
-					handler,
-					thread
-				]
-			};
-		} else {
-			commands.push({
-				title: 'Start Review',
-				command: 'pr.startReview',
-				arguments: [
-					handler,
-					thread
-				]
-			});
-
-			acceptInputCommand = {
-				title: 'Reply Comment',
-				command: 'pr.replyComment',
-				arguments: [
-					handler,
-					thread
-				]
-			};
-		}
-	}
-
-	return {
-		acceptInputCommand: acceptInputCommand,
-		additionalCommands: commands
-	};
-}
-
-export function getEditCommand(thread: vscode.CommentThread, vscodeComment: vscode.Comment, node: PRNode | ReviewDocumentCommentProvider): vscode.Command {
+export function getEditCommand(thread: vscode.CommentThread, vscodeComment: vscode.Comment, handler: PRNode | ReviewDocumentCommentProvider): vscode.Command {
 	return {
 		title: 'Edit Comment',
 		command: 'pr.editComment',
 		arguments: [
-			node,
+			handler,
 			thread,
 			vscodeComment
 		]
 	};
 }
 
-export function getDeleteCommand(thread: vscode.CommentThread, vscodeComment: vscode.Comment, node: PRNode | ReviewDocumentCommentProvider): vscode.Command {
+export function getDeleteCommand(thread: vscode.CommentThread, vscodeComment: vscode.Comment, handler: PRNode | ReviewDocumentCommentProvider): vscode.Command {
 	return {
 		title: 'Delete Comment',
 		command: 'pr.deleteComment',
 		arguments: [
-			node,
+			handler,
 			thread,
 			vscodeComment
 		]

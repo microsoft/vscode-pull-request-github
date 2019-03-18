@@ -6,7 +6,7 @@
 			"request": "launch",
 			"name": "Launch Extension",
 			"runtimeExecutable": "${execPath}",
-				"args": [
+			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
