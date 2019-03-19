@@ -92,9 +92,6 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
-const _onDidSubmitReview = new vscode.EventEmitter<Comment[]>();
-export const onDidSubmitReview: vscode.Event<Comment[]> = _onDidSubmitReview.event;
-
 export class PullRequestManager {
 	static ID = 'PullRequestManager';
 	private _activePullRequest?: PullRequestModel;
@@ -655,7 +652,9 @@ export class PullRequestManager {
 
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
-				.reduce((prev: any, curr: any) => prev.concat(curr), []);
+				.reduce((prev: any, curr: any) => prev.concat(curr), [])
+				.sort((a: Comment, b: Comment) => { return a.isDraft ? 1 : 0; });
+
 			return comments;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
@@ -814,6 +813,8 @@ export class PullRequestManager {
 
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
+		pullRequest.inDraftMode = false;
+
 		return {
 			deletedReviewId: databaseId,
 			deletedReviewComments: comments.nodes.map(parseGraphQLComment)
@@ -834,11 +835,18 @@ export class PullRequestManager {
 			Logger.appendLine(`Failed to start review: ${e.message}`);
 		});
 
+		pullRequest.inDraftMode = true;
+
 		return;
 	}
 
 	async inDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
-		return !!await this.getPendingReviewId(pullRequest);
+		let inDraftMode = !!await this.getPendingReviewId(pullRequest);
+		if (inDraftMode !== pullRequest.inDraftMode) {
+			pullRequest.inDraftMode = inDraftMode;
+		}
+
+		return inDraftMode;
 	}
 
 	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | undefined> {
@@ -1232,8 +1240,7 @@ export class PullRequestManager {
 				}
 			});
 
-			const submittedComments = data!.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
-			_onDidSubmitReview.fire(submittedComments);
+			pullRequest.inDraftMode = false;
 			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview);
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);

@@ -40,35 +40,36 @@ class CommonGitAPI implements API, vscode.Disposable {
 	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
-	private _api?: LiveShare;
+	private _liveShare?: LiveShare;
 	private _host?: VSLSHost;
 	private _guest?: VSLSGuest;
 	get repositories(): Repository[] {
 		return this._model.repositories;
 	}
+	private _model: Model;
 	private _disposables: vscode.Disposable[];
 
 	constructor(
-		private _model: Model
 	) {
+		this._model = new Model();
 		this._disposables = [];
 		this._disposables.push(this._model.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
 		this._disposables.push(this._model.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
-		this.initilize();
+		this.initilizeLiveShare();
 	}
 
-	public async initilize() {
-		if (!this._api) {
-			this._api = await getVSLSApi();
+	public async initilizeLiveShare() {
+		if (!this._liveShare) {
+			this._liveShare = await getVSLSApi();
 		}
 
-		if (!this._api) {
+		if (!this._liveShare) {
 			return;
 		}
 
-		this._disposables.push(this._api.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
-		if (this._api!.session) {
-			this._onDidChangeSession(this._api!.session);
+		this._disposables.push(this._liveShare.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
+		if (this._liveShare!.session) {
+			this._onDidChangeSession(this._liveShare!.session);
 		}
 	}
 
@@ -82,19 +83,19 @@ class CommonGitAPI implements API, vscode.Disposable {
 		}
 
 		if (session.role === 1 /* Role.Host */) {
-			this._host = new VSLSHost(this._api!, this._model);
+			this._host = new VSLSHost(this._liveShare!, this._model);
 			await this._host.initialize();
 			return;
 		}
 
 		if (session.role === 2 /* Role.Guest */) {
-			this._guest = new VSLSGuest(this._api!, this._model);
+			this._guest = new VSLSGuest(this._liveShare!, this._model);
 			await this._guest.initialize();
 		}
 	}
 
 	public dispose() {
-		this._api = undefined;
+		this._liveShare = undefined;
 		if (this._model) {
 			this._model.dispose();
 		}
@@ -112,7 +113,7 @@ class CommonGitAPI implements API, vscode.Disposable {
 	}
 }
 
-const api = new CommonGitAPI(new Model());
+const api = new CommonGitAPI();
 
 export function getAPI(): CommonGitAPI {
 	return api;

@@ -24,7 +24,7 @@ import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { ReviewDocumentCommentProvider, ReviewWorkspaceCommentsPRovider } from './reviewDocumentCommentProvider';
+import { ReviewDocumentCommentProvider } from './reviewDocumentCommentProvider';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -303,7 +303,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
-		this.registerCommentProvider();
+		await this.registerCommentProvider();
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = 'pr.openDescription';
@@ -344,8 +344,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 			}
 		}
 
-		const comments = await this._prManager.getPullRequestComments(this._prManager.activePullRequest);
-		this._reviewDocumentCommentProvider.updateComments(comments);
+		await this.getPullRequestData(pr);
+		await this._reviewDocumentCommentProvider.update(this._localFileChanges, this._obsoleteFileChanges);
 
 		return Promise.resolve(void 0);
 	}
@@ -472,26 +472,20 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return undefined;
 	}
 
-	private registerCommentProvider() {
+	private async registerCommentProvider() {
 		this._reviewDocumentCommentProvider = new ReviewDocumentCommentProvider(this._prManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
 			this._comments);
 
+		await this._reviewDocumentCommentProvider.initialize();
+
 		this._localToDispose.push(this._reviewDocumentCommentProvider);
-
-		this._localToDispose.push(vscode.workspace.registerDocumentCommentProvider(this._reviewDocumentCommentProvider));
-
 		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeComments(comments => {
 			this._comments = comments;
 			this._onDidChangeDecorations.fire();
 		}));
-
-		this._localToDispose.push(vscode.workspace.registerWorkspaceCommentProvider(new ReviewWorkspaceCommentsPRovider(
-			this._repository,
-			this._localFileChanges,
-			this._obsoleteFileChanges)));
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {

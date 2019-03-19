@@ -292,6 +292,36 @@
         "category": "GitHub Pull Requests"
       },
       {
+          "command": "pr.replyComment",
+          "title": "Reply Comment",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.startReview",
+          "title": "Start Review",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.deleteReview",
+          "title": "Delete Review",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.editComment",
+          "title": "Edit Comment",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.deleteComment",
+          "title": "Delete Comment",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.finishReview",
+          "title": "Finish Review",
+          "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "GitHub Pull Requests"
@@ -369,6 +399,30 @@
         },
         {
           "command": "pr.copyCommitHash",
+          "when": "false"
+        },
+        {
+          "command": "pr.replyComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.startReview",
+          "when": "false"
+        },
+        {
+          "command": "pr.deleteReview",
+          "when": "false"
+        },
+        {
+          "command": "pr.editComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.deleteComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.finishReview",
           "when": "false"
         }
       ],

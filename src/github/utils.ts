@@ -12,21 +12,102 @@ import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
+import { PullRequestModel } from './pullRequestModel';
+import { getEditCommand, getDeleteCommand, getAcceptInputCommands } from './commands';
+import { PRNode } from '../view/treeNodes/pullRequestNode';
+import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
+import { uniqBy } from '../common/utils';
 
-export function convertToVSCodeComment(comment: Comment, command?: vscode.Command): vscode.Comment {
-	return {
+export interface CommentHandler {
+	commentController?: vscode.CommentController;
+	startReview(thread: vscode.CommentThread): Promise<void>;
+	finishReview(thread: vscode.CommentThread): Promise<void>;
+	deleteReview(): Promise<void>;
+	createOrReplyComment(thread: vscode.CommentThread): Promise<void>;
+	editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
+	deleteComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
+}
+
+export function convertToVSCodeComment(comment: Comment, command: vscode.Command | undefined): vscode.Comment & { _rawComment: Comment } {
+	let vscodeComment: vscode.Comment & { _rawComment: Comment } = {
+		_rawComment: comment,
 		commentId: comment.id.toString(),
 		body: new vscode.MarkdownString(comment.body),
-		command: command,
+		selectCommand: command,
 		userName: comment.user!.login,
-		gravatar: comment.user!.avatarUrl,
-		canEdit: comment.canEdit,
-		canDelete: comment.canDelete,
-		isDraft: !!comment.isDraft,
+		userIconPath: vscode.Uri.parse(comment.user!.avatarUrl),
+		label: !!comment.isDraft ? 'Pending' : undefined,
 		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
 			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : []
 	};
+
+	return vscodeComment;
+}
+
+export function createVSCodeCommentThread(thread: vscode.CommentThread, commentController: vscode.CommentController, pullRequestModel: PullRequestModel, inDraftMode: boolean, node: PRNode | ReviewDocumentCommentProvider) {
+	let vscodeThread = commentController.createCommentThread(
+		thread.threadId,
+		thread.resource,
+		thread.range!,
+		thread.comments
+	);
+
+	vscodeThread.comments = thread.comments.map(comment => {
+		updateCommentCommands(comment, commentController, vscodeThread, pullRequestModel, node);
+		return comment;
+	});
+
+	updateCommentThreadLabel(vscodeThread);
+
+	let commands = getAcceptInputCommands(vscodeThread, inDraftMode, node, pullRequestModel.githubRepository.supportsGraphQl);
+	vscodeThread.acceptInputCommand = commands.acceptInputCommand;
+	vscodeThread.additionalCommands = commands.additionalCommands;
+	vscodeThread.collapsibleState = thread.collapsibleState;
+	return vscodeThread;
+}
+
+export function updateCommentThreadLabel(thread: vscode.CommentThread) {
+	if (thread.comments.length) {
+		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.userName).map(comment => `@${comment.userName}`).join(', ');
+		thread.label = `Participants: ${participantsList}`;
+	} else {
+		thread.label = 'Start discussion';
+	}
+}
+
+export function updateCommentReactions(comment: vscode.Comment, reactions: Reaction[]) {
+	comment.commentReactions = reactions.map(ret => {
+		return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
+	});
+}
+
+export function updateCommentReviewState(thread: vscode.CommentThread, newDraftMode: boolean) {
+	if (newDraftMode) {
+		return;
+	}
+
+	thread.comments = thread.comments.map(comment => {
+		let patchedComment = comment as (vscode.Comment & { _rawComment: Comment });
+		patchedComment._rawComment.isDraft = false;
+		patchedComment.label = undefined;
+
+		return patchedComment;
+	});
+}
+
+export function updateCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) {
+	if (commentControl && pullRequestModel) {
+		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: Comment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
+
+		if (patchedComment._rawComment.canEdit) {
+			patchedComment.editCommand = getEditCommand(thread, vscodeComment, node);
+		}
+
+		if (patchedComment._rawComment.canDelete) {
+			patchedComment.deleteCommand = getDeleteCommand(thread, vscodeComment, node);
+		}
+	}
 }
 
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
