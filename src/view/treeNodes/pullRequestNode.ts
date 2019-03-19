@@ -453,7 +453,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
 		if (await this._prManager.authenticate()) {
 			const inDraftMode = await this._prManager.inDraftMode(this.pullRequestModel);
-			let thread = this._commentController!.createCommentThread('', document.uri, range, []);
+			// threadIds must be unique, otherwise they will collide when vscode saves pending comment text. Assumes
+			// that only one empty thread can be created per line.
+			const threadId = document.uri.toString() + range.start.line;
+			const thread = this._commentController!.createCommentThread(threadId, document.uri, range, []);
 			updateCommentThreadLabel(thread);
 			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
 			let commands = getAcceptInputCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
