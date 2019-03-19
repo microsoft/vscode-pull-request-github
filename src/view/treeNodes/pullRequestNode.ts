@@ -487,6 +487,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			// there is no thread Id, which means it's a new thread
 			const rawComment = await this._prManager.createComment(this.pullRequestModel, text, params!.fileName, position);
+			fileChange.comments.push(rawComment!);
 			const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
 			updateCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
 			this.updateCommentThreadComments(thread, [vscodeComment]);
