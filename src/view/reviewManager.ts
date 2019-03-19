@@ -6,7 +6,7 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
-import { toReviewUri, fromReviewUri, ReviewUriParams } from '../common/uri';
+import { toReviewUri, fromReviewUri, ReviewUriParams, toDiffViewFileUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { Comment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
@@ -383,7 +383,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				change.blobUrl,
 				change.status === GitChangeType.DELETE ?
 					toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
-					uri,
+					toDiffViewFileUri(uri, change.fileName, undefined, pr.head.sha, false, { base: false }),
 				toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : mergeBase, false, { base: true }),
 				isPartial,
 				diffHunks,

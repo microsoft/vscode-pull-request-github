@@ -303,9 +303,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		} catch (e) { }
 
 		if (query) {
-			if (query.base && this._prManager.activePullRequest!.mergeBase && query.commit === this._prManager.activePullRequest!.mergeBase!) {
-				return;
-			}
 			const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 			let reviewCommentThreads = this.provideCommentsForReviewUri(editor.document, query);
 
