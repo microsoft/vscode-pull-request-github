@@ -19,6 +19,7 @@ import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { PullRequestManager } from './pullRequestManager';
 import { PullRequestModel } from './pullRequestModel';
 import { TimelineEvent, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
+import { platform } from 'os';
 
 interface IRequestMessage<T> {
 	req: string;
@@ -688,7 +689,7 @@ export class PullRequestOverviewPanel {
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<title>Pull Request #${number}</title>
 			</head>
-			<body>
+			<body class="${process.platform}">
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 				<div id="title" class="title"></div>
 				<div id="sidebar">
