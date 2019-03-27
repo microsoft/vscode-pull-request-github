@@ -36,6 +36,10 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 		this._providers.push(provider);
 		this._disposables.push(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
 		this._disposables.push(provider.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
+
+		provider.repositories.forEach(repository => {
+			this._onDidCloseRepository.fire(repository);
+		});
 	}
 
 	getGitProvider(uri: vscode.Uri): IGit | undefined {
