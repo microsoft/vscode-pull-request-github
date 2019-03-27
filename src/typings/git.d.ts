@@ -13,7 +13,7 @@ export interface InputBox {
 	value: string;
 }
 
-export enum RefType {
+export const enum RefType {
 	Head,
 	RemoteHead,
 	Tag
@@ -56,7 +56,7 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
-export enum Status {
+export const enum Status {
 	INDEX_MODIFIED,
 	INDEX_ADDED,
 	INDEX_DELETED,
