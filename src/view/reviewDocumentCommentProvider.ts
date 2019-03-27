@@ -126,7 +126,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
 
 			let threads = workspaceLocalCommentsToCommentThreads(
-				this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
+				this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed).map(thread => createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
 			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threads;
 		});
 
