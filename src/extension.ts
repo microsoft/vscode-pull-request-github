@@ -82,7 +82,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 
 	telemetry = new Telemetry(context);
 	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
-	// context.subscriptions.push(registerLiveShareGitProvider(apiImpl));
+	context.subscriptions.push(registerLiveShareGitProvider(apiImpl));
 	context.subscriptions.push(apiImpl);
 
 	Logger.appendLine('Looking for git repository');
