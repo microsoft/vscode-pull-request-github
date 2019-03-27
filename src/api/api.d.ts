@@ -108,7 +108,35 @@ export interface Repository {
 	readonly state: RepositoryState;
 	readonly ui: RepositoryUIState;
 
+	/**
+	 * GH PR saves pull request related information to git config when users checkout a pull request.
+	 * There are two mandatory config for a branch
+	 * 1. `remote`, which refers to the related github repository
+	 * 2. `github-pr-owner-number`, which refers to the related pull request
+	 *
+	 * There is one optional config for a remote
+	 * 1. `github-pr-remote`, which indicates if the remote is created particularly for GH PR review. By default, GH PR won't load pull requests from remotes created by itself (`github-pr-remote=true`).
+	 *
+	 * Sample config:
+	 * ```git
+	 * [remote "pr"]
+	 * url = https://github.com/pr/vscode-pull-request-github
+	 * fetch = +refs/heads/*:refs/remotes/pr/*
+	 * github-pr-remote = true
+	 * [branch "fix-123"]
+	 * remote = pr
+	 * merge = refs/heads/fix-123
+	 * github-pr-owner-number = "Microsoft#vscode-pull-request-github#123"
+	 * ```
+	 */
 	getConfigs(): Promise<{ key: string; value: string; }[]>;
+	
+	/**
+	 * Git providers are recommended to implement a minimal key value lookup for git config but you can only provide config for following keys to activate GH PR successfully
+	 * 1. `branch.${branchName}.github-pr-owner-number`
+	 * 2. `remote.${remoteName}.github-pr-remote`
+	 * 3. `branch.${branchName}.remote`
+	 */
 	getConfig(key: string): Promise<string>;
 	setConfig(key: string, value: string): Promise<string>;
 
