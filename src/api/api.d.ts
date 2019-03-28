@@ -130,7 +130,7 @@ export interface Repository {
 	 * ```
 	 */
 	getConfigs(): Promise<{ key: string; value: string; }[]>;
-	
+
 	/**
 	 * Git providers are recommended to implement a minimal key value lookup for git config but you can only provide config for following keys to activate GH PR successfully
 	 * 1. `branch.${branchName}.github-pr-owner-number`
