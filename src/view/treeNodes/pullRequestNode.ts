@@ -249,6 +249,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				this._fileChanges = fileChanges;
 				await this.refreshExistingPREditors(vscode.window.visibleTextEditors, true);
+
+				this._disposables.push(vscode.window.onDidChangeVisibleTextEditors(async e => {
+					// Create Comment Threads when the editor is visible
+					// Dispose when the editor is invisible and remove them from the cache map
+					// Comment Threads in cache map is updated only when users trigger refresh
+					await this.refreshExistingPREditors(e, false);
+				}));
 			} else {
 				await this.pullRequestModel.githubRepository.ensureCommentsProvider();
 				this.pullRequestModel.githubRepository.commentsProvider!.clearCommentThreadCache(this.pullRequestModel.prNumber);
@@ -261,13 +268,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}, this.pullRequestModel), ...this._fileChanges];
 
 			this.childrenDisposables = result;
-
-			this._disposables.push(vscode.window.onDidChangeVisibleTextEditors(async e => {
-				// Create Comment Threads when the editor is visible
-				// Dispose when the editor is invisible and remove them from the cache map
-				// Comment Threads in cache map is updated only when users trigger refresh
-				await this.refreshExistingPREditors(e, false);
-			}));
 			return result;
 		} catch (e) {
 			Logger.appendLine(e);
