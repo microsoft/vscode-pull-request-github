@@ -558,7 +558,7 @@ body .comment-form {
 	margin-right: 0;
 }
 
-textarea, input {
+textarea, input[type='text'] {
 	display: block;
 	box-sizing: border-box;
 	padding: 10px;
@@ -581,6 +581,10 @@ select {
 	background-color: var(--vscode-dropdown-background);
 	color: var(--vscode-dropdown-foreground);
 	border: 1px solid transparent;
+}
+
+.task-list-item {
+	list-style-type: none;
 }
 
 #status-checks textarea {
@@ -845,6 +849,18 @@ code {
 	font-size: 12px;
 }
 
+.win32 .diff .diffLine {
+	font-family: Consolas, Inconsolata, "Courier New", monospace;
+}
+
+.darwin .diff .diffLine {
+	font-family: Monaco, Menlo, Inconsolata, "Courier New", monospace;
+}
+
+.linux .diff .diffLine {
+	font-family: "Droid Sans Mono", Inconsolata, "Courier New", monospace, "Droid Sans Fallback";
+}
+
 .diff .diffLine.add {
 	background-color: var(--vscode-diffEditor-insertedTextBackground);
 }
@@ -865,6 +881,7 @@ code {
 	vertical-align: top;
 	box-sizing: border-box;
 	display: inline-block;
+	font-family: var(--vscode-editor-font-family);
 }
 
 .github-checkbox {

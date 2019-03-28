@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.32.0"
@@ -292,6 +292,36 @@
         "category": "GitHub Pull Requests"
       },
       {
+          "command": "pr.replyComment",
+          "title": "Reply Comment",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.startReview",
+          "title": "Start Review",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.deleteReview",
+          "title": "Delete Review",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.editComment",
+          "title": "Edit Comment",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.deleteComment",
+          "title": "Delete Comment",
+          "category": "GitHub Pull Requests"
+      },
+      {
+          "command": "pr.finishReview",
+          "title": "Finish Review",
+          "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "GitHub Pull Requests"
@@ -370,17 +400,41 @@
         {
           "command": "pr.copyCommitHash",
           "when": "false"
+        },
+        {
+          "command": "pr.replyComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.startReview",
+          "when": "false"
+        },
+        {
+          "command": "pr.deleteReview",
+          "when": "false"
+        },
+        {
+          "command": "pr.editComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.deleteComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.finishReview",
+          "when": "false"
         }
       ],
       "view/title": [
         {
           "command": "pr.create",
-          "when": "view =~ /pr/",
+          "when": "view =~ /pr:/",
           "group": "navigation"
         },
         {
           "command": "pr.refreshList",
-          "when": "view =~ /pr/",
+          "when": "view =~ /pr:/",
           "group": "navigation"
         },
         {
@@ -392,22 +446,22 @@
       "view/item/context": [
         {
           "command": "pr.pick",
-          "when": "view =~ /pr/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+          "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "pr.refreshPullRequest",
-          "when": "view =~ /pr/ && viewItem =~ /pullrequest|description/",
+          "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "view =~ /pr/ && viewItem =~ /pullrequest|description/",
+          "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
         {
           "command": "pr.deleteLocalBranch",
-          "when": "view =~ /pr/ && viewItem =~ /pullrequest:local:nonactive/",
+          "when": "view =~ /pr:/ && viewItem =~ /pullrequest:local:nonactive/",
           "group": "pullrequest@4"
         },
         {
