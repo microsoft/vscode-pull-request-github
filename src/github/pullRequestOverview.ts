@@ -688,7 +688,7 @@ export class PullRequestOverviewPanel {
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<title>Pull Request #${number}</title>
 			</head>
-			<body>
+			<body class="${process.platform}">
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 				<div id="title" class="title"></div>
 				<div id="sidebar">
