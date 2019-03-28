@@ -209,6 +209,9 @@ export interface IGit extends Disposable {
 }
 
 export interface API {
+	/**
+	 * Register a [git provider](#IGit)
+	 */
 	registerGitProvider(provider: IGit): void;
 
 	/**
