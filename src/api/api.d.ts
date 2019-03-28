@@ -138,6 +138,10 @@ export interface Repository {
 	 * 3. `branch.${branchName}.remote`
 	 */
 	getConfig(key: string): Promise<string>;
+
+	/**
+	 * The counterpart of `getConfig`
+	 */
 	setConfig(key: string, value: string): Promise<string>;
 
 	getObjectDetails(treeish: string, path: string): Promise<{ mode: string, object: string, size: number }>;
