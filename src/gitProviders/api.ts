@@ -15,6 +15,6 @@ export function registerBuiltinGitProvider(apiImpl: API): vscode.Disposable {
 }
 
 export function registerLiveShareGitProvider(apiImpl: API): vscode.Disposable {
-	let liveShareGitProvider = new LiveShareManager(apiImpl);
-	return liveShareGitProvider;
+	let liveShareManager = new LiveShareManager(apiImpl);
+	return liveShareManager;
 }
