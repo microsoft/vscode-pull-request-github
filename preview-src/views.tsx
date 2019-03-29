@@ -4,6 +4,7 @@ import { Comment } from '../src/common/comment';
 import { getStatus } from './pullRequestOverviewRenderer';
 import { PullRequest } from './cache';
 import md from './mdRenderer';
+import Context from './actions';
 
 export const Overview = (pr: PullRequest) =>
 	<>
@@ -20,7 +21,7 @@ const Avatar = ({ for: author }: { for: PullRequest['author'] }) =>
 const AuthorLink = ({ for: author, text=author.login }: { for: PullRequest['author'], text?: string }) =>
 	<a href={author.url}>{text}</a>;
 
-const nbsp = String.fromCharCode(0xa0)
+const nbsp = String.fromCharCode(0xa0);
 const Spaced = ({ children }) => {
 	const count = React.Children.count(children);
 	return React.createElement(React.Fragment, {
@@ -43,11 +44,7 @@ export const Header = ({ state, title, head, base, url, createdAt, author, isCur
 		<div className='overview-title'>
 			<h2>{title}</h2>
 			<div className='button-group'>
-				{
-					isCurrentlyCheckedOut
-						? <button aria-live='polite'>Exit Review Mode</button>
-						: <button aria-live='polite'>Checkout</button>
-				}
+				<CheckoutButtons />
 				<button>Refresh</button>
 			</div>
 		</div>
@@ -68,6 +65,20 @@ export const Header = ({ state, title, head, base, url, createdAt, author, isCur
 			</span>
 		</div>
 	</>;
+
+const CheckoutButtons = () => {
+	const pr = useContext(Context);
+	console.log('pr=', pr);
+	if (!pr) { return; }
+	if (pr.pr.isCurrentlyCheckedOut) {
+		return <>
+			<button aria-live='polite' className='checkedOut' disabled>Checked Out</button>
+			<button aria-live='polite' onClick={() => pr.exitReviewMode()}>Exit Review Mode</button>
+		</>;
+	} else {
+		return <button aria-live='polite' onClick={() => pr.checkout()}>Checkout</button>;
+	}
+};
 
 const Timestamp = ({
 	date,
@@ -142,7 +153,7 @@ const CommitEventView = (event: CommitEvent) =>
 			<AuthorLink for={event.author} />
 			<div className='message'>{event.message}</div>
 		</div>
-		<a className='sha' href={event.url}>{event.sha}</a>
+		<a className='sha' href={event.url}>{event.sha.slice(0, 7)}</a>
 	</div>;
 
 const association = ({ authorAssociation }: ReviewEvent,
@@ -153,6 +164,7 @@ const association = ({ authorAssociation }: ReviewEvent,
 
 import { groupBy } from 'lodash';
 import { DiffHunk, DiffLine } from '../src/common/diffHunk';
+import { useContext } from 'react';
 
 const positionKey = (comment: Comment) =>
 	comment.position !== null
