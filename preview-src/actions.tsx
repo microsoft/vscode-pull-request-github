@@ -1,12 +1,12 @@
 import * as React from 'react';
 
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
-import { PullRequest } from './cache';
+import { PullRequest, getState, setState } from './cache';
 
 export class PRContext {
 	constructor(
-		public pr: PullRequest = null,
+		public pr: PullRequest = getState(),
 		public onchange: ((ctx: PullRequest) => void) | null = null,
 		private _handler: MessageHandler = null) {
 		if (!_handler) {
@@ -35,14 +35,13 @@ export class PRContext {
 
 	setPR(pr: PullRequest) {
 		this.pr = pr;
+		setState(this.pr);
 		if (this.onchange) { this.onchange(this.pr); }
 		return this;
 	}
 
 	updatePR(pr: Partial<PullRequest>) {
-		this.pr = {...this.pr, ...pr }
-		if (this.onchange) { this.onchange(this.pr); }
-		return this;
+		return this.setPR({...this.pr, ...pr });
 	}
 
 	private postMessage(message: any) {
