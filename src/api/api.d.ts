@@ -202,7 +202,7 @@ export const enum GitErrorCodes {
 	PatchDoesNotApply = 'PatchDoesNotApply'
 }
 
-export interface IGit extends Disposable {
+export interface IGit {
 	readonly repositories: Repository[];
 	readonly onDidOpenRepository: Event<Repository>;
 	readonly onDidCloseRepository: Event<Repository>;
@@ -212,7 +212,7 @@ export interface API {
 	/**
 	 * Register a [git provider](#IGit)
 	 */
-	registerGitProvider(provider: IGit): void;
+	registerGitProvider(provider: IGit): Disposable;
 
 	/**
 	 * Returns the [git provider](#IGit) that contains a given uri.

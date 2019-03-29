@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { LiveShare } from 'vsls/vscode.js';
 import { VSLSGuest } from './vslsguest';
 import { VSLSHost } from './vslshost';
-import { Repository, API } from '../api/api';
+import { API } from '../api/api';
 
 /**
  * Should be removed once we fix the webpack bundling issue.
@@ -36,17 +36,14 @@ export class LiveShareManager implements vscode.Disposable {
 	private _liveShareAPI?: LiveShare;
 	private _host?: VSLSHost;
 	private _guest?: VSLSGuest;
-	private _openRepositories: Repository[] = [];
-
-	get repositories(): Repository[] {
-		return this._openRepositories;
-	}
-	private _disposables: vscode.Disposable[];
+	private _localDisposables: vscode.Disposable[];
+	private _globalDisposables: vscode.Disposable[];
 
 	constructor(
 		private _api: API
 	) {
-		this._disposables = [];
+		this._localDisposables = [];
+		this._globalDisposables = [];
 		this.initilize();
 	}
 
@@ -59,46 +56,33 @@ export class LiveShareManager implements vscode.Disposable {
 			return;
 		}
 
-		this._disposables.push(this._liveShareAPI.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
+		this._globalDisposables.push(this._liveShareAPI.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
 		if (this._liveShareAPI!.session) {
 			this._onDidChangeSession(this._liveShareAPI!.session);
 		}
 	}
 
 	private async _onDidChangeSession(session: any) {
-		if (this._host) {
-			this._host.dispose();
-		}
-
-		if (this._guest) {
-			this._guest.dispose();
-		}
+		this._localDisposables.forEach(disposable => disposable.dispose());
 
 		if (session.role === 1 /* Role.Host */) {
 			this._host = new VSLSHost(this._liveShareAPI!, this._api);
+			this._localDisposables.push(this._host);
 			await this._host.initialize();
 			return;
 		}
 
 		if (session.role === 2 /* Role.Guest */) {
 			this._guest = new VSLSGuest(this._liveShareAPI!);
+			this._localDisposables.push(this._guest);
 			await this._guest.initialize();
-			this._api.registerGitProvider(this._guest);
+			this._localDisposables.push(this._api.registerGitProvider(this._guest));
 		}
 	}
 
 	public dispose() {
 		this._liveShareAPI = undefined;
-
-		if (this._host) {
-			this._host.dispose();
-		}
-
-		if (this._guest) {
-			this._guest.dispose();
-		}
-
-		this._disposables.forEach(d => d.dispose());
-		this._disposables = [];
+		this._localDisposables.forEach(d => d.dispose());
+		this._globalDisposables.forEach(d => d.dispose());
 	}
 }

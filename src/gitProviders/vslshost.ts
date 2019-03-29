@@ -10,12 +10,12 @@ import { API } from '../api/api';
 export class VSLSHost implements vscode.Disposable {
 	private _sharedService?: SharedService;
 	private _disposables: vscode.Disposable[];
-	constructor(private _api: LiveShare, private _model: API) {
+	constructor(private _liveShareAPI: LiveShare, private _api: API) {
 		this._disposables = [];
 	}
 
 	public async initialize() {
-		this._sharedService = await this._api!.shareService(VSLS_GIT_PR_SESSION_NAME) || undefined;
+		this._sharedService = await this._liveShareAPI!.shareService(VSLS_GIT_PR_SESSION_NAME) || undefined;
 
 		if (this._sharedService) {
 			this._sharedService.onRequest(VSLS_REQUEST_NAME, this._gitHandler.bind(this));
@@ -26,8 +26,8 @@ export class VSLSHost implements vscode.Disposable {
 		let type = args[0];
 		let workspaceFolderPath = args[1];
 		let workspaceFolderUri = vscode.Uri.parse(workspaceFolderPath);
-		let localWorkSpaceFolderUri = this._api.convertSharedUriToLocal(workspaceFolderUri);
-		let gitProvider = this._model.getGitProvider(localWorkSpaceFolderUri);
+		let localWorkSpaceFolderUri = this._liveShareAPI.convertSharedUriToLocal(workspaceFolderUri);
+		let gitProvider = this._api.getGitProvider(localWorkSpaceFolderUri);
 
 		if (!gitProvider) {
 			return;
@@ -55,7 +55,7 @@ export class VSLSHost implements vscode.Disposable {
 			if (type === 'show') {
 				let path = commandArgs[1];
 				let vslsFileUri = workspaceFolderUri.with({path: path});
-				let localFileUri = this._api.convertSharedUriToLocal(vslsFileUri);
+				let localFileUri = this._liveShareAPI.convertSharedUriToLocal(vslsFileUri);
 				commandArgs[1] = localFileUri.fsPath;
 
 				return localRepository[type](...commandArgs);

@@ -5,9 +5,12 @@
 
 import * as vscode from 'vscode';
 import { API, IGit, Repository } from './api';
-import { TernarySearchTree } from './map';
+import { TernarySearchTree } from '../common/utils';
 
 export class ApiImpl implements API, IGit, vscode.Disposable {
+	private static _handlePool: number = 0;
+	private _providers = new Map<number, IGit>();
+
 	public get repositories(): Repository[] {
 		let ret: Repository[] = [];
 
@@ -25,21 +28,32 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
 
-	private _providers: IGit[];
 	private _disposables: vscode.Disposable[];
 	constructor() {
-		this._providers = [];
 		this._disposables = [];
 	}
 
-	registerGitProvider(provider: IGit): void {
-		this._providers.push(provider);
+	registerGitProvider(provider: IGit): vscode.Disposable {
+		const handler = this._nextHandle();
+		this._providers.set(handler, provider);
+
 		this._disposables.push(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
 		this._disposables.push(provider.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
 
 		provider.repositories.forEach(repository => {
-			this._onDidCloseRepository.fire(repository);
+			this._onDidOpenRepository.fire(repository);
 		});
+
+		return {
+			dispose: () => {
+				if (provider && provider.repositories) {
+					provider.repositories.forEach(repository => {
+						this._onDidCloseRepository.fire(repository);
+					});
+				}
+				this._providers.delete(handler);
+			}
+		};
 	}
 
 	getGitProvider(uri: vscode.Uri): IGit | undefined {
@@ -56,6 +70,10 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 		});
 
 		return foldersMap.findSubstr(uri.toString());
+	}
+
+	private _nextHandle(): number {
+		return ApiImpl._handlePool++;
 	}
 
 	dispose() {
