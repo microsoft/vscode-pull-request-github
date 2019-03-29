@@ -339,6 +339,36 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
+	private addToCommentThreadCache(thread: vscode.CommentThread): void {
+		const uri = thread.resource;
+		switch (uri.scheme) {
+			case 'pr':
+				const params = fromPRUri(uri);
+				if (params) {
+					const documentCommentThreads = this._prDocumentCommentThreads[params.fileName];
+					if (documentCommentThreads) {
+						if (params.isBase && documentCommentThreads.original) {
+							documentCommentThreads.original.push(thread);
+						} else if (!params.isBase && documentCommentThreads.modified) {
+							documentCommentThreads.modified.push(thread);
+						}
+					}
+				}
+				return;
+
+			case 'review':
+				const fileName = uri.toString();
+				const reviewCommentThreads = this._reviewDocumentCommentThreads[fileName];
+				if (reviewCommentThreads) {
+					reviewCommentThreads.push(thread);
+				}
+				return;
+
+			default:
+				return;
+		}
+	}
+
 	private async updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void> {
 		const uri = thread.resource;
 		const matchedFile = this.findMatchedFileByUri(uri);
@@ -368,6 +398,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		updateCommentCommands(comment, this._commentController!, thread, this._prManager.activePullRequest!, this);
 
 		thread.comments = [comment];
+		this.addToCommentThreadCache(thread);
 		updateCommentThreadLabel(thread);
 		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
 		this.updateCommentThreadCommands(thread, inDraftMode);
