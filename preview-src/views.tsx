@@ -170,7 +170,7 @@ const association = ({ authorAssociation }: ReviewEvent,
 
 import { groupBy } from 'lodash';
 import { DiffHunk, DiffLine } from '../src/common/diffHunk';
-import { useContext, useReducer } from 'react';
+import { useContext, useReducer, useRef, useState } from 'react';
 import { PullRequestStateEnum } from '../src/github/interface';
 
 const positionKey = (comment: Comment) =>
@@ -279,7 +279,8 @@ const CommentView = ({ user, htmlUrl, createdAt, bodyHTML, body }: Partial<Comme
 		</div>
 	</div>;
 
-const StatusChecks = ({ state, status }: PullRequest) => {
+const StatusChecks = (pr: PullRequest) => {
+	const { state, status, mergeable } = pr;
 	const [showDetails, toggleDetails] = useReducer(show => !show, false);
 
 	return <div id='status-checks'>{
@@ -289,20 +290,72 @@ const StatusChecks = ({ state, status }: PullRequest) => {
 		state === PullRequestStateEnum.Closed
 			? 'This pull request is closed'
 			:
-		<div className='status-section'>
-			<div className='status-item'>
-				<StateIcon state={status.state} />
-				<div>{getSummaryLabel(status.statuses)}</div>
-				<a aria-role='button' onClick={toggleDetails}>{
-					showDetails ? 'Hide' : 'Show'
-				}</a>
-			</div>
-			{showDetails ?
-				<StatusCheckDetails statuses={status.statuses} />
-				: null}
-		</div>
+			<>
+				<div className='status-section'>
+					<div className='status-item'>
+						<StateIcon state={status.state} />
+						<div>{getSummaryLabel(status.statuses)}</div>
+						<a aria-role='button' onClick={toggleDetails}>{
+							showDetails ? 'Hide' : 'Show'
+						}</a>
+					</div>
+					{showDetails ?
+						<StatusCheckDetails statuses={status.statuses} />
+						: null}
+				</div>
+				<MergeStatus mergeable={mergeable} />
+				{ mergeable ? <Merge {...pr} /> : null}
+			</>
 	}</div>;
 };
+
+const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) =>
+	<div className='status-item status-section'>
+		<Icon src={mergeable ? checkIcon : deleteIcon} />
+		<div>{
+			mergeable
+				? 'This branch has no conflicts with the base branch'
+				: 'This branch has conflicts that must be resolved'
+		}</div>
+	</div>;
+
+const Merge = (pr: PullRequest) => {
+	const select = useRef<HTMLSelectElement>();
+	const [ selectedMethod, selectMethod ] = useState<string | null>(null);
+
+	return <div className='merge-select-container'>{
+		selectedMethod
+			? <button onClick={() => selectMethod(null)}>Cancel {MERGE_METHODS[selectedMethod]}</button>
+			:
+			<>
+				<button onClick={() => selectMethod(select.current.value)}>Merge Pull Request</button>
+				{nbsp}using method{nbsp}
+				<MergeSelect ref={select} {...pr} />
+			</>
+	}</div>;
+};
+
+const MERGE_METHODS = {
+	merge: 'Create Merge Commit',
+	squash: 'Squash and Merge',
+	rebase: 'Rebase and Merge',
+};
+
+type MergeSelectProps =
+	Pick<PullRequest, 'mergeMethodsAvailability'> &
+	Pick<PullRequest, 'defaultMergeMethod'>;
+
+const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>((
+	{ defaultMergeMethod, mergeMethodsAvailability: avail }: MergeSelectProps,
+	ref) =>
+	<select ref={ref} defaultValue={defaultMergeMethod}>{
+		Object.entries(MERGE_METHODS)
+			.map(([method, text]) =>
+				<option key={method} value={method} disabled={!avail[method]}>
+					{text}{!avail[method] ? '(not enabled)' : null}
+				</option>
+			)
+}</select>);
 
 const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 	<div>{
@@ -370,15 +423,13 @@ function getSummaryLabel(statuses: any[]) {
 	return statusPhrases.join(' and ');
 }
 
-function StateIcon({ state }: { state: string }) {
-	return <span dangerouslySetInnerHTML={{
-		__html:
-			state === 'success'
-				? checkIcon
-				:
-			state === 'failure'
-				? deleteIcon
-				:
-				pendingIcon
-	}}/>;
-}
+const StateIcon = ({ state }: { state: string }) =>
+	<Icon src={
+		state === 'success'
+			? checkIcon
+			:
+		state === 'failure'
+			? deleteIcon
+			:
+			pendingIcon
+	}/>;
