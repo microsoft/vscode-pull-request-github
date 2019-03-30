@@ -6,10 +6,23 @@ import { PullRequest } from './cache';
 import md from './mdRenderer';
 import Context from './actions';
 
+const commitIconSvg = require('../resources/icons/commit_icon.svg');
+const mergeIconSvg = require('../resources/icons/merge_icon.svg');
+const editIcon = require('../resources/icons/edit.svg');
+const checkIcon = require('../resources/icons/check.svg');
+
+const plusIcon = require('../resources/icons/plus.svg');
+const deleteIcon = require('../resources/icons/delete.svg');
+
+const pendingIcon = require('../resources/icons/dot.svg');
+const commentIcon = require('../resources/icons/comment.svg');
+const diffIcon = require('../resources/icons/diff.svg');
+
 export const Overview = (pr: PullRequest) =>
 	<>
 		<Details {...pr} />
 		<Timeline events={pr.events} />
+		<StatusChecks {...pr} />
 		<hr/>
 	</>;
 
@@ -133,13 +146,6 @@ const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 		)
 	}</>;
 
-const commitIconSvg = require('../resources/icons/commit_icon.svg');
-// const mergeIconSvg = require('../resources/icons/merge_icon.svg');
-// const editIcon = require('../resources/icons/edit.svg');
-// const deleteIcon = require('../resources/icons/delete.svg');
-// const checkIcon = require('../resources/icons/check.svg');
-// const dotIcon = require('../resources/icons/dot.svg');
-
 const Icon = ({ src }: { src: string }) =>
 	<span dangerouslySetInnerHTML={{ __html: src }} />;
 
@@ -165,6 +171,7 @@ const association = ({ authorAssociation }: ReviewEvent,
 import { groupBy } from 'lodash';
 import { DiffHunk, DiffLine } from '../src/common/diffHunk';
 import { useContext } from 'react';
+import { PullRequestStateEnum } from '../src/github/interface';
 
 const positionKey = (comment: Comment) =>
 	comment.position !== null
@@ -233,7 +240,7 @@ const LineNumber = ({ num }: { num: number }) =>
 // 	</div>
 // }
 
-const CommentEventView = (event: CommentEvent) => <h1>Comment: {event.id}</h1>;
+const CommentEventView = (event: CommentEvent) => <CommentView {...event} />;
 const MergedEventView = (event: MergedEvent) => <h1>Merged: {event.id}</h1>;
 const AssignEventView = (event: AssignEvent) => <h1>Assign: {event.id}</h1>;
 
@@ -257,7 +264,7 @@ export function getDiffChangeType(text: string) {
 const getDiffChangeClass = (type: DiffChangeType) =>
 	DiffChangeType[type].toLowerCase();
 
-const CommentView = ({ user, htmlUrl, createdAt, bodyHTML, body }: Comment) =>
+const CommentView = ({ user, htmlUrl, createdAt, bodyHTML, body }: Partial<Comment>) =>
 	<div className='comment-container comment review-comment'>
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
@@ -271,3 +278,62 @@ const CommentView = ({ user, htmlUrl, createdAt, bodyHTML, body }: Comment) =>
 			<CommentBody bodyHTML={bodyHTML} body={body} />
 		</div>
 	</div>;
+
+const StatusChecks = ({ state, status }: PullRequest) =>
+	<div id='status-checks'>{
+		state === PullRequestStateEnum.Merged
+			? 'Pull request successfully merged'
+			:
+		state === PullRequestStateEnum.Closed
+			? 'This pull request is closed'
+			:
+		<div className='status-section'>
+			<div className='status-item'>
+				<StateIcon state={status.state} />
+				<div>{getSummaryLabel(status.statuses)}</div>
+			</div>
+		</div>
+	}</div>;
+
+function getSummaryLabel(statuses: any[]) {
+	const statusTypes = groupBy(statuses, (status: any) => status.state);
+	let statusPhrases = [];
+	for (let statusType of Object.keys(statusTypes)) {
+		const numOfType = statusTypes[statusType].length;
+		let statusAdjective = '';
+
+		switch (statusType) {
+			case 'success':
+				statusAdjective = 'successful';
+				break;
+			case 'failure':
+				statusAdjective = 'failed';
+				break;
+			default:
+				statusAdjective = 'pending';
+		}
+
+		const status = numOfType > 1
+			? `${numOfType} ${statusAdjective} checks`
+			: `${numOfType} ${statusAdjective} check`;
+
+		statusPhrases.push(status);
+	}
+
+	console.log('statuses:', statuses);
+	console.log('status text:', statusPhrases.join(' and '));
+	return statusPhrases.join(' and ');
+}
+
+function StateIcon({ state }: { state: string }) {
+	return <div dangerouslySetInnerHTML={{
+		__html:
+			state === 'success'
+				? checkIcon
+				:
+			state === 'failure'
+				? deleteIcon
+				:
+				pendingIcon
+	}}/>;
+}
