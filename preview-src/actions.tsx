@@ -1,5 +1,3 @@
-import * as React from 'react';
-
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState } from './cache';
@@ -20,9 +18,7 @@ export class PRContext {
 	}
 
 	public async exitReviewMode(this: PRContext): Promise<void> {
-		console.log('Exit', this.pr, this.pr && this.pr.repositoryDefaultBranch, this.postMessage);
 		if (!this.pr) { return; }
-		console.log(this.pr.repositoryDefaultBranch);
 		return this.postMessage({
 			command: 'pr.checkout-default-branch',
 			args: this.pr.repositoryDefaultBranch,
