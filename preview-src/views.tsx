@@ -26,7 +26,7 @@ export const Overview = (pr: PullRequest) =>
 		<hr/>
 	</>;
 
-const Avatar = ({ for: author }: { for: PullRequest['author'] }) =>
+const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> }) =>
 	<a className='avatar-link' href={author.url}>
 		<img className='avatar' src={author.avatarUrl} alt='' />
 	</a>;
@@ -170,7 +170,7 @@ const association = ({ authorAssociation }: ReviewEvent,
 
 import { groupBy } from 'lodash';
 import { DiffHunk, DiffLine } from '../src/common/diffHunk';
-import { useContext } from 'react';
+import { useContext, useReducer } from 'react';
 import { PullRequestStateEnum } from '../src/github/interface';
 
 const positionKey = (comment: Comment) =>
@@ -279,8 +279,10 @@ const CommentView = ({ user, htmlUrl, createdAt, bodyHTML, body }: Partial<Comme
 		</div>
 	</div>;
 
-const StatusChecks = ({ state, status }: PullRequest) =>
-	<div id='status-checks'>{
+const StatusChecks = ({ state, status }: PullRequest) => {
+	const [showDetails, toggleDetails] = useReducer(show => !show, false);
+
+	return <div id='status-checks'>{
 		state === PullRequestStateEnum.Merged
 			? 'Pull request successfully merged'
 			:
@@ -291,9 +293,52 @@ const StatusChecks = ({ state, status }: PullRequest) =>
 			<div className='status-item'>
 				<StateIcon state={status.state} />
 				<div>{getSummaryLabel(status.statuses)}</div>
+				<a aria-role='button' onClick={toggleDetails}>{
+					showDetails ? 'Hide' : 'Show'
+				}</a>
 			</div>
+			{showDetails ?
+				<StatusCheckDetails statuses={status.statuses} />
+				: null}
 		</div>
 	}</div>;
+};
+
+const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
+	<div>{
+		statuses.map(s =>
+			<div key={s.id} className='status-check'>
+				<StateIcon state={s.state} />
+				<Avatar for={{ avatarUrl: s.avatar_url, url: s.url }} />
+				<span className='status-check-detail-text'>{s.context} — {s.description}</span>
+				<a href={s.target_url}>Details</a>
+			</div>
+		)
+	}</div>;
+
+// const x = () => {
+		// const statusElement: HTMLDivElement = document.createElement('div');
+		// statusElement.className = 'status-check';
+
+		// const state: HTMLSpanElement = document.createElement('span');
+		// state.innerHTML = getStateIcon(s.state);
+
+		// statusElement.appendChild(state);
+
+		// const statusIcon = renderUserIcon(s.target_url, s.avatar_url);
+		// statusElement.appendChild(statusIcon);
+
+		// const statusDescription = document.createElement('span');
+		// statusDescription.textContent = `${s.context} - ${s.description}`;
+		// statusElement.appendChild(statusDescription);
+
+	// 	const detailsLink = document.createElement('a');
+	// 	detailsLink.textContent = 'Details';
+	// 	detailsLink.href = s.target_url;
+	// 	statusElement.appendChild(detailsLink);
+
+	// 	statusList.appendChild(statusElement);
+	// })
 
 function getSummaryLabel(statuses: any[]) {
 	const statusTypes = groupBy(statuses, (status: any) => status.state);
@@ -326,7 +371,7 @@ function getSummaryLabel(statuses: any[]) {
 }
 
 function StateIcon({ state }: { state: string }) {
-	return <div dangerouslySetInnerHTML={{
+	return <span dangerouslySetInnerHTML={{
 		__html:
 			state === 'success'
 				? checkIcon

@@ -157,6 +157,10 @@ body .comment-container .review-comment-header {
 	display: flex;
 }
 
+.status-check-detail-text {
+	margin-left: 0.7em;
+}
+
 #confirm-merge {
 	margin-left: auto;
 }
