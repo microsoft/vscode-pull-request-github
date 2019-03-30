@@ -323,17 +323,41 @@ const Merge = (pr: PullRequest) => {
 	const select = useRef<HTMLSelectElement>();
 	const [ selectedMethod, selectMethod ] = useState<string | null>(null);
 
-	return <div className='merge-select-container'>{
-		selectedMethod
-			? <button onClick={() => selectMethod(null)}>Cancel {MERGE_METHODS[selectedMethod]}</button>
-			:
-			<>
-				<button onClick={() => selectMethod(select.current.value)}>Merge Pull Request</button>
-				{nbsp}using method{nbsp}
-				<MergeSelect ref={select} {...pr} />
-			</>
-	}</div>;
+	if (selectedMethod) {
+		return <ConfirmMerge pr={pr} method={selectedMethod} cancel={() => selectMethod(null)} />
+	}
+
+	return  <div className='merge-select-container'>
+		<button onClick={() => selectMethod(select.current.value)}>Merge Pull Request</button>
+		{nbsp}using method{nbsp}
+		<MergeSelect ref={select} {...pr} />
+	</div>;
 };
+
+const ConfirmMerge = ({pr, method, cancel}: {pr: PullRequest, method: string, cancel: () => void}) =>
+	<>
+		<input type='text' name='title' defaultValue={getDefaultTitleText(method, pr)} />
+		<textarea name='description' defaultValue={getDefaultDescriptionText(method, pr)} />
+		<div className='form-actions'>
+			<button className='secondary' onClick={cancel}>Cancel</button>
+			<button id='confirm-merge'>{MERGE_METHODS[method]}</button>
+		</div>
+	</>;
+
+function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
+	switch (mergeMethod) {
+		case 'merge':
+			return `Merge pull request #${pr.number} from ${pr.head}`;
+		case 'squash':
+			return pr.title;
+		default:
+			return '';
+	}
+}
+
+function getDefaultDescriptionText(mergeMethod: string, pr: PullRequest) {
+	return mergeMethod === 'merge' ? pr.title : '';
+}
 
 const MERGE_METHODS = {
 	merge: 'Create Merge Commit',
