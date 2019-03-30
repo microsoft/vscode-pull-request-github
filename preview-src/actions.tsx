@@ -1,6 +1,7 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState } from './cache';
+import { MergeMethod } from '../src/github/interface';
 
 export class PRContext {
 	constructor(
@@ -13,11 +14,10 @@ export class PRContext {
 		}
 	}
 
-	public checkout(this: PRContext): Promise<void> {
-		return this.postMessage({ command: 'pr.checkout' });
-	}
+	public checkout = () =>
+		this.postMessage({ command: 'pr.checkout' })
 
-	public async exitReviewMode(this: PRContext): Promise<void> {
+	public exitReviewMode = async () => {
 		if (!this.pr) { return; }
 		return this.postMessage({
 			command: 'pr.checkout-default-branch',
@@ -25,9 +25,11 @@ export class PRContext {
 		});
 	}
 
-	public refresh() {
-		return this.postMessage({ command: 'pr.refresh' });
-	}
+	public refresh = () =>
+		this.postMessage({ command: 'pr.refresh' })
+
+	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
+		this.postMessage({ command: 'pr.merge', args	})
 
 	setPR(pr: PullRequest) {
 		this.pr = pr;

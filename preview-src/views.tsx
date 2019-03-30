@@ -4,7 +4,7 @@ import { Comment } from '../src/common/comment';
 import { getStatus } from './pullRequestOverviewRenderer';
 import { PullRequest } from './cache';
 import md from './mdRenderer';
-import Context from './actions';
+import PullRequestContext, { PRContext } from './actions';
 
 const commitIconSvg = require('../resources/icons/commit_icon.svg');
 const mergeIconSvg = require('../resources/icons/merge_icon.svg');
@@ -80,12 +80,11 @@ export const Header = ({ state, title, head, base, url, createdAt, author, isCur
 	</>;
 
 const CheckoutButtons = () => {
-	const pr = useContext(Context);
-	console.log('pr=', pr);
-	if (!pr) { return; }
-	if (pr.pr.isCurrentlyCheckedOut) {
+	const ctx = useContext(PullRequestContext);
+	if (!ctx) { return; }
+	if (ctx.pr.isCurrentlyCheckedOut) {
 		return <>
-			<button aria-live='polite' className='checkedOut' disabled>Checked Out</button>
+			<button aria-live='polite' className='checkedOut' disabled><Icon src={checkIcon} /> Checked Out</button>
 			<button aria-live='polite' onClick={() => pr.exitReviewMode()}>Exit Review Mode</button>
 		</>;
 	} else {
@@ -171,7 +170,7 @@ const association = ({ authorAssociation }: ReviewEvent,
 import { groupBy } from 'lodash';
 import { DiffHunk, DiffLine } from '../src/common/diffHunk';
 import { useContext, useReducer, useRef, useState } from 'react';
-import { PullRequestStateEnum } from '../src/github/interface';
+import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';
 
 const positionKey = (comment: Comment) =>
 	comment.position !== null
@@ -321,28 +320,41 @@ const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) =>
 
 const Merge = (pr: PullRequest) => {
 	const select = useRef<HTMLSelectElement>();
-	const [ selectedMethod, selectMethod ] = useState<string | null>(null);
+	const [ selectedMethod, selectMethod ] = useState<MergeMethod | null>(null);
 
 	if (selectedMethod) {
-		return <ConfirmMerge pr={pr} method={selectedMethod} cancel={() => selectMethod(null)} />
+		return <ConfirmMerge pr={pr} method={selectedMethod} cancel={() => selectMethod(null)} />;
 	}
 
-	return  <div className='merge-select-container'>
-		<button onClick={() => selectMethod(select.current.value)}>Merge Pull Request</button>
+	return <div className='merge-select-container'>
+		<button onClick={() => selectMethod(select.current.value as MergeMethod)}>Merge Pull Request</button>
 		{nbsp}using method{nbsp}
 		<MergeSelect ref={select} {...pr} />
 	</div>;
 };
 
-const ConfirmMerge = ({pr, method, cancel}: {pr: PullRequest, method: string, cancel: () => void}) =>
-	<>
+function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMethod, cancel: () => void}) {
+	const { merge } = useContext(PullRequestContext);
+
+	return <form onSubmit={
+		event => {
+			event.preventDefault();
+			const {title, description}: any = event.target;
+			merge({
+				title: title.value,
+				description: description.value,
+				method,
+			});
+		}
+	}>
 		<input type='text' name='title' defaultValue={getDefaultTitleText(method, pr)} />
 		<textarea name='description' defaultValue={getDefaultDescriptionText(method, pr)} />
 		<div className='form-actions'>
 			<button className='secondary' onClick={cancel}>Cancel</button>
-			<button id='confirm-merge'>{MERGE_METHODS[method]}</button>
+			<input type='submit' id='confirm-merge' value={MERGE_METHODS[method]} />
 		</div>
-	</>;
+	</form>;
+}
 
 function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
 	switch (mergeMethod) {
@@ -392,30 +404,6 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 			</div>
 		)
 	}</div>;
-
-// const x = () => {
-		// const statusElement: HTMLDivElement = document.createElement('div');
-		// statusElement.className = 'status-check';
-
-		// const state: HTMLSpanElement = document.createElement('span');
-		// state.innerHTML = getStateIcon(s.state);
-
-		// statusElement.appendChild(state);
-
-		// const statusIcon = renderUserIcon(s.target_url, s.avatar_url);
-		// statusElement.appendChild(statusIcon);
-
-		// const statusDescription = document.createElement('span');
-		// statusDescription.textContent = `${s.context} - ${s.description}`;
-		// statusElement.appendChild(statusDescription);
-
-	// 	const detailsLink = document.createElement('a');
-	// 	detailsLink.textContent = 'Details';
-	// 	detailsLink.href = s.target_url;
-	// 	statusElement.appendChild(detailsLink);
-
-	// 	statusList.appendChild(statusElement);
-	// })
 
 function getSummaryLabel(statuses: any[]) {
 	const statusTypes = groupBy(statuses, (status: any) => status.state);
