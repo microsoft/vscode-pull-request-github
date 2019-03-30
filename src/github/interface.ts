@@ -24,6 +24,11 @@ export enum PullRequestStateEnum {
 	Closed,
 }
 
+export interface ReviewState {
+	reviewer: IAccount;
+	state: string;
+}
+
 export interface IAccount {
 	login: string;
 	name?: string;
@@ -66,7 +71,7 @@ export interface PullRequest {
 	head?: IGitHubRef;
 	base?: IGitHubRef;
 	user: IAccount;
-	labels?: ILabel[];
+	labels: ILabel[];
 	merged: boolean;
 	mergeable?: boolean;
 	nodeId: string;
@@ -96,6 +101,12 @@ export interface IPullRequestEditData {
 	body?: string;
 	title?: string;
 }
+
+export type MergeMethod = 'merge' | 'squash' | 'rebase';
+
+export type MergeMethodsAvailability = {
+	[method in MergeMethod]: boolean;
+};
 
 export interface ITelemetry {
 	on(action: 'startup'): Promise<void>;

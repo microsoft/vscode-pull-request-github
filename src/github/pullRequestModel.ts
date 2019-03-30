@@ -19,7 +19,6 @@ export class PullRequestModel {
 	public createdAt: string;
 	public updatedAt: string;
 	public localBranchName?: string;
-	public labels: string[];
 	public mergeBase?: string;
 
 	public get isOpen(): boolean {
@@ -53,6 +52,22 @@ export class PullRequestModel {
 		return undefined;
 	}
 
+	private _inDraftMode: boolean = false;
+
+	public get inDraftMode(): boolean {
+		return this._inDraftMode;
+	}
+
+	public set inDraftMode(inDraftMode: boolean) {
+		if (this._inDraftMode !== inDraftMode) {
+			this._inDraftMode = inDraftMode;
+			this._onDidChangeDraftMode.fire(this._inDraftMode);
+		}
+	}
+
+	private _onDidChangeDraftMode: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
+	public onDidChangeDraftMode = this._onDidChangeDraftMode.event;
+
 	public get body(): string {
 		if (this.prItem) {
 			return this.prItem.body;
@@ -75,7 +90,6 @@ export class PullRequestModel {
 		this.bodyHTML = prItem.bodyHTML;
 		this.html_url = prItem.url;
 		this.author = prItem.user;
-		this.labels = (prItem.labels || []).map(label => label.name);
 
 		if (prItem.state.toLowerCase() === 'open') {
 			this.state = PullRequestStateEnum.Open;

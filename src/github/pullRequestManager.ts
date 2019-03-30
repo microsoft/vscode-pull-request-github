@@ -11,7 +11,7 @@ import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -20,7 +20,7 @@ import { Repository, RefType, UpstreamRef } from '../git/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse } from './graphql';
 const queries = require('./queries.gql');
 
@@ -91,9 +91,6 @@ interface NewCommentPosition {
 interface ReplyCommentPosition {
 	inReplyTo: string;
 }
-
-const _onDidSubmitReview = new vscode.EventEmitter<Comment[]>();
-export const onDidSubmitReview: vscode.Event<Comment[]> = _onDidSubmitReview.event;
 
 export class PullRequestManager {
 	static ID = 'PullRequestManager';
@@ -500,6 +497,34 @@ export class PullRequestManager {
 		});
 	}
 
+	async getLabels(pullRequest: PullRequestModel): Promise<ILabel[]> {
+		const { remote, octokit } = await pullRequest.githubRepository.ensure();
+
+		let hasNextPage = false;
+		let page = 1;
+		let results: ILabel[] = [];
+
+		do {
+			const result = await octokit.issues.getLabels({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				page
+			});
+
+			results = results.concat(result.data.map(label => {
+				return {
+					name: label.name,
+					color: label.color
+				};
+			}));
+
+			hasNextPage = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
+			page += 1;
+		} while (hasNextPage);
+
+		return results;
+	}
+
 	async deleteLocalPullRequest(pullRequest: PullRequestModel, force?: boolean): Promise<void> {
 		if (!pullRequest.localBranchName) {
 			return;
@@ -595,6 +620,17 @@ export class PullRequestManager {
 		return result.data;
 	}
 
+	async getReviewRequests(pullRequest: PullRequestModel): Promise<IAccount[]> {
+		const { remote, octokit } = await pullRequest.githubRepository.ensure();
+		const result = await octokit.pullRequests.getReviewRequests({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber
+		});
+
+		return result.data.users.map(user => convertRESTUserToAccount(user));
+	}
+
 	async getPullRequestComments(pullRequest: PullRequestModel): Promise<Comment[]> {
 		const { supportsGraphQl } = pullRequest.githubRepository;
 		return supportsGraphQl
@@ -616,7 +652,9 @@ export class PullRequestManager {
 
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
-				.reduce((prev: any, curr: any) => prev.concat(curr), []);
+				.reduce((prev: any, curr: any) => prev.concat(curr), [])
+				.sort((a: Comment, b: Comment) => { return a.isDraft ? 1 : 0; });
+
 			return comments;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
@@ -775,6 +813,8 @@ export class PullRequestManager {
 
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
+		pullRequest.inDraftMode = false;
+
 		return {
 			deletedReviewId: databaseId,
 			deletedReviewComments: comments.nodes.map(parseGraphQLComment)
@@ -795,11 +835,18 @@ export class PullRequestManager {
 			Logger.appendLine(`Failed to start review: ${e.message}`);
 		});
 
+		pullRequest.inDraftMode = true;
+
 		return;
 	}
 
 	async inDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
-		return !!await this.getPendingReviewId(pullRequest);
+		let inDraftMode = !!await this.getPendingReviewId(pullRequest);
+		if (inDraftMode !== pullRequest.inDraftMode) {
+			pullRequest.inDraftMode = inDraftMode;
+		}
+
+		return inDraftMode;
 	}
 
 	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | undefined> {
@@ -1165,10 +1212,10 @@ export class PullRequestManager {
 			});
 	}
 
-	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<void> {
+	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<CommonReviewEvent> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
-		await octokit.pullRequests.createReview({
+		const { data } = await octokit.pullRequests.createReview({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -1176,10 +1223,10 @@ export class PullRequestManager {
 			body: message,
 		});
 
-		return;
+		return convertRESTReviewEvent(data);
 	}
 
-	public async submitReview(pullRequest: PullRequestModel, event?: ReviewEvent, body?: string): Promise<void> {
+	public async submitReview(pullRequest: PullRequestModel, event?: ReviewEvent, body?: string): Promise<CommonReviewEvent> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
@@ -1193,15 +1240,15 @@ export class PullRequestManager {
 				}
 			});
 
-			const submittedComments = data!.submitPullRequestReview.pullRequestReview.comments.nodes.map(parseGraphQLComment);
-			_onDidSubmitReview.fire(submittedComments);
+			pullRequest.inDraftMode = false;
+			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview);
 		} else {
-			Logger.appendLine(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
+			throw new Error(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
 		}
 	}
 
-	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<void> {
-		const action: Promise<void> = await this.getPendingReviewId(pullRequest)
+	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<CommonReviewEvent> {
+		const action: Promise<CommonReviewEvent> = await this.getPendingReviewId(pullRequest)
 			? this.submitReview(pullRequest, ReviewEvent.RequestChanges, message)
 			: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
 
@@ -1212,8 +1259,8 @@ export class PullRequestManager {
 			});
 	}
 
-	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<void> {
-		const action: Promise<void> = await this.getPendingReviewId(pullRequest)
+	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<CommonReviewEvent> {
+		const action: Promise<CommonReviewEvent> = await this.getPendingReviewId(pullRequest)
 			? this.submitReview(pullRequest, ReviewEvent.Approve, message)
 			: this.createReview(pullRequest, ReviewEvent.Approve, message);
 
@@ -1249,9 +1296,59 @@ export class PullRequestManager {
 		return data.files;
 	}
 
+	/**
+	 * Add reviewers to a pull request
+	 * @param pullRequest The pull request
+	 * @param reviewers A list of GitHub logins
+	 */
+	async requestReview(pullRequest: PullRequestModel, reviewers: string[]): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.pullRequests.createReviewRequest({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			reviewers
+		});
+	}
+
+	async deleteRequestedReview(pullRequest: PullRequestModel, reviewer: string): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.pullRequests.deleteReviewRequest({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			reviewers: [ reviewer ]
+		});
+	}
+
+	async addLabels(pullRequest: PullRequestModel, labels: string[]): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.issues.addLabels({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			labels
+		});
+	}
+
+	async removeLabel(pullRequest: PullRequestModel, label: string): Promise<void> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		await octokit.issues.removeLabel({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			number: pullRequest.prNumber,
+			name: label
+		});
+	}
+
 	async getPullRequestRepositoryDefaultBranch(pullRequest: PullRequestModel): Promise<string> {
 		const branch = await pullRequest.githubRepository.getDefaultBranch();
 		return branch;
+	}
+
+	async getPullRequestRepositoryMergeMethodsAvailability(pullRequest: PullRequestModel): Promise<MergeMethodsAvailability> {
+		const mergeOptions = await pullRequest.githubRepository.getMergeMethodsAvailability();
+		return mergeOptions;
 	}
 
 	async fullfillPullRequestMissingInfo(pullRequest: PullRequestModel): Promise<void> {

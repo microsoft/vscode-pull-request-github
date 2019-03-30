@@ -201,7 +201,6 @@ export class CredentialStore {
 		await graphql.query({ query: gql `query { viewer { login } }` })
 			.then(result => {
 				Logger.appendLine(`${baseUrl}: GraphQL support detected`);
-				Logger.appendLine(JSON.stringify(result, null, 2));
 			})
 			.catch(err => {
 				Logger.appendLine(`${baseUrl}: GraphQL not supported (${err.message})`);

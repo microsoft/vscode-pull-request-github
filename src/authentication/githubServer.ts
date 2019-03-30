@@ -62,9 +62,11 @@ export class GitHubManager {
 
 			get.end();
 			get.on('error', err => {
+				Logger.appendLine(`No response from host ${host}: ${err.message}`, 'GitHubServer');
 				resolve(false);
 			});
 		}).then(isGitHub => {
+			Logger.debug(`Host ${host} is associated with GitHub: ${isGitHub}`, 'GitHubServer');
 			this._servers.set(host.authority, isGitHub);
 			return isGitHub;
 		});
