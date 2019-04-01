@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { Comment } from '../src/common/comment';
 import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent } from '../src/common/timelineEvent';
-import { commitIcon } from './icon';
+import { commitIcon, mergeIcon } from './icon';
 import { Avatar, AuthorLink } from './user';
 import { groupBy } from '../src/common/utils';
 import { Spaced } from './space';
@@ -34,7 +34,7 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 
 export default Timeline;
 
-export const CommitEventView = (event: CommitEvent) =>
+const CommitEventView = (event: CommitEvent) =>
 	<div className='comment-container commit'>
 		<div className='commit-message'>
 			{commitIcon}
@@ -93,5 +93,25 @@ const ReviewEventView = (event: ReviewEvent) => {
 };
 
 const CommentEventView = (event: CommentEvent) => <CommentView {...event} />;
-const MergedEventView = (event: MergedEvent) => <h1>Merged: {event.id}</h1>;
-const AssignEventView = (event: AssignEvent) => <h1>Assign: {event.id}</h1>;
+
+const MergedEventView = (event: MergedEvent) =>
+	<div className='comment-container commit'>
+		<div className='commit-message'>
+			{mergeIcon}
+			<div className='avatar-container'>
+				<Avatar for={event.user} />
+			</div>
+			<AuthorLink for={event.user} />
+			<div className='message'>
+				merged commit
+				<a className='sha' href={event.commitUrl}>{event.sha.substr(0, 7)}</a>
+				into
+				{event.mergeRef}
+			</div>
+		</div>
+		<Timestamp href={event.url} date={event.createdAt} />
+	</div>;
+
+// TODO: We should show these, but the pre-React overview page didn't. Add
+// support in a separate PR.
+const AssignEventView = (event: AssignEvent) => null;
