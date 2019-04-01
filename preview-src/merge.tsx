@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { PullRequest } from './cache';
-import PullRequestContext from './actions';
+import PullRequestContext from './context';
 import { groupBy } from 'lodash';
 import { useContext, useReducer, useRef, useState } from 'react';
 import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';

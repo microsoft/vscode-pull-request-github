@@ -5,7 +5,7 @@ import { PullRequest } from './cache';
 import { getStatus } from './pullRequestOverviewRenderer';
 import { Avatar, AuthorLink } from './user';
 import { Spaced } from './space';
-import PullRequestContext from './actions';
+import PullRequestContext from './context';
 import { checkIcon } from './icon';
 import Timestamp from './timestamp';
 

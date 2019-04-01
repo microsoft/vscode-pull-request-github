@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useContext, useState, useEffect } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './views';
-import PRContext from './actions';
+import PRContext from './context';
 import { PullRequest } from './cache';
 
 export function main() {

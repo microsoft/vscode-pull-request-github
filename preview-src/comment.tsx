@@ -7,7 +7,7 @@ import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
 import { Comment } from '../src/common/comment';
 import { PullRequest } from './cache';
-import PullRequestContext from './actions';
+import PullRequestContext from './context';
 
 export const CommentView = ({ user, htmlUrl, createdAt, bodyHTML, body }: Partial<Comment>) =>
 	<div className='comment-container comment review-comment'>
