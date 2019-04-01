@@ -68,5 +68,5 @@ export class PRContext {
 	public static instance = new PRContext();
 }
 
-const Context = createContext<PRContext>(PRContext.instance);
-export default Context;
+const PullRequestContext = createContext<PRContext>(PRContext.instance);
+export default PullRequestContext;
