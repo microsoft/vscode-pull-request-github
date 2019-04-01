@@ -80,15 +80,14 @@ export const Header = ({ state, title, head, base, url, createdAt, author, isCur
 	</>;
 
 const CheckoutButtons = () => {
-	const ctx = useContext(PullRequestContext);
-	if (!ctx) { return; }
-	if (ctx.pr.isCurrentlyCheckedOut) {
+	const { pr, exitReviewMode, checkout } = useContext(PullRequestContext);
+	if (pr.isCurrentlyCheckedOut) {
 		return <>
 			<button aria-live='polite' className='checkedOut' disabled><Icon src={checkIcon} /> Checked Out</button>
-			<button aria-live='polite' onClick={() => pr.exitReviewMode()}>Exit Review Mode</button>
+			<button aria-live='polite' onClick={exitReviewMode}>Exit Review Mode</button>
 		</>;
 	} else {
-		return <button aria-live='polite' onClick={() => pr.checkout()}>Checkout</button>;
+		return <button aria-live='polite' onClick={checkout}>Checkout</button>;
 	}
 };
 
@@ -233,11 +232,6 @@ const keyForDiffLine = (diffLine: DiffLine) =>
 
 const LineNumber = ({ num }: { num: number }) =>
 	<span className='lineNumber'>{num > 0 ? num : ' '}</span>;
-// const ReviewComment = (c: Comment) => {
-// 	return <div className='comment-body review-comment-body'>
-
-// 	</div>
-// }
 
 const CommentEventView = (event: CommentEvent) => <CommentView {...event} />;
 const MergedEventView = (event: MergedEvent) => <h1>Merged: {event.id}</h1>;
@@ -430,8 +424,6 @@ function getSummaryLabel(statuses: any[]) {
 		statusPhrases.push(status);
 	}
 
-	console.log('statuses:', statuses);
-	console.log('status text:', statusPhrases.join(' and '));
 	return statusPhrases.join(' and ');
 }
 

@@ -43,6 +43,7 @@ export class PRContext {
 	}
 
 	private postMessage(message: any) {
+		console.log('sending', message);
 		return this._handler.postMessage(message);
 	}
 

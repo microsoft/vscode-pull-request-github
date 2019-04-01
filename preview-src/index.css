@@ -244,7 +244,7 @@ body .hidden-focusable {
 	overflow: hidden;
 }
 
-button {
+button, input[type=submit] {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	border-radius: 0px;
