@@ -23,7 +23,7 @@ export const Overview = (pr: PullRequest) =>
 		<Details {...pr} />
 		<Timeline events={pr.events} />
 		<StatusChecks {...pr} />
-		<hr/>
+		<AddComment {...pr} />
 	</>;
 
 const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> }) =>
@@ -437,3 +437,33 @@ const StateIcon = ({ state }: { state: string }) =>
 			:
 			pendingIcon
 	}/>;
+
+function AddComment({ pendingCommentText }: PullRequest) {
+	const { updatePR, comment } = useContext(PullRequestContext);
+	return <form id='comment-form' className='comment-form' onSubmit={onSubmit}>
+		<textarea id='comment-textarea'
+			name='body'
+			onInput={({ target }) =>
+				updatePR({ pendingCommentText: (target as any).value })}
+			value={pendingCommentText}
+			placeholder='Leave a comment' />
+		<div className='form-actions'>
+			<button id='close' className='secondary'>Close Pull Request</button>
+			<button id='request-changes'
+				disabled={!!pendingCommentText}
+				className='secondary'>Request Changes</button>
+			<button id='approve'
+				className='secondary'>Approve</button>
+			<input id='reply'
+				value='Comment'
+				type='submit'
+				className='reply-button'
+				disabled={!!pendingCommentText} />
+		</div>
+	</form>;
+
+	function onSubmit(evt) {
+		evt.preventDefault();
+		comment((evt.target as any).body.value);
+	}
+}

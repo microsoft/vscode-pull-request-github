@@ -31,16 +31,18 @@ export class PRContext {
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
 		this.postMessage({ command: 'pr.merge', args	})
 
-	setPR(pr: PullRequest) {
+	public comment = (args: string) =>
+		this.postMessage({ command: 'pr.comment', args})
+
+	setPR = (pr: PullRequest) => {
 		this.pr = pr;
 		setState(this.pr);
 		if (this.onchange) { this.onchange(this.pr); }
 		return this;
 	}
 
-	updatePR(pr: Partial<PullRequest>) {
-		return this.setPR({...this.pr, ...pr });
-	}
+	updatePR = (pr: Partial<PullRequest>) =>
+		this.setPR({...this.pr, ...pr })
 
 	private postMessage(message: any) {
 		console.log('sending', message);
