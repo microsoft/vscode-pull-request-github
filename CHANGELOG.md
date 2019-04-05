@@ -1,3 +1,19 @@
+0.6.0
+
+**Breaking Changes**
+
+**Changes**
+- Introduce new comment provider API [#972](https://github.com/Microsoft/vscode-pull-request-github/pull/972)
+- Fix rendering of checkboxes on description page [#1038](https://github.com/Microsoft/vscode-pull-request-github/issues/1038)
+- Fix [#1082](https://github.com/Microsoft/vscode-pull-request-github/issues/1082) to make sure commands are scoped to the correct tree
+- Fix [#291](https://github.com/Microsoft/vscode-pull-request-github/issues/291) to use monospace font for code blocks on description page
+
+**New Settings**
+
+**Thank You**
+
+
+
 0.5.1
 
 **Changes**
