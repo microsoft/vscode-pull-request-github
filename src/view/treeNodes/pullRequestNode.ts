@@ -135,7 +135,7 @@ function commentsEditedInThread(oldComments: vscode.Comment[], newComments: vsco
 	});
 }
 
-export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory, vscode.CommentReactionProvider {
+export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, vscode.CommentReactionProvider {
 	static ID = 'PRNode';
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _commentController?: vscode.CommentController;

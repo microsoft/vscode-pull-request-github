@@ -8,16 +8,15 @@ import * as vscode from 'vscode';
 import { fromPRUri } from '../common/uri';
 import { getReactionGroup } from '../github/utils';
 
-export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory, vscode.CommentReactionProvider, vscode.Disposable {
+export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider, vscode.CommentReactionProvider, vscode.Disposable {
 	availableReactions: vscode.CommentReaction[] = getReactionGroup();
-	private _prDocumentCommentProviders: {[key: number]: vscode.CommentingRangeProvider & vscode.EmptyCommentThreadFactory & vscode.CommentReactionProvider } = {};
+	private _prDocumentCommentProviders: {[key: number]: vscode.CommentingRangeProvider & vscode.CommentReactionProvider } = {};
 	private _prDocumentCommentThreadMap: {[key: number]: { [key: string]: vscode.CommentThread[] } } = {};
 
 	constructor(
 		public commentsController: vscode.CommentController
 	) {
 		this.commentsController.commentingRangeProvider = this;
-		this.commentsController.emptyCommentThreadFactory = this;
 		this.commentsController.reactionProvider = this;
 	}
 
@@ -60,7 +59,7 @@ export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider
 		return toggleReaction(document, comment, reaction);
 	}
 
-	public registerDocumentCommentProvider(prNumber: number, provider: vscode.CommentingRangeProvider & vscode.EmptyCommentThreadFactory & vscode.CommentReactionProvider) {
+	public registerDocumentCommentProvider(prNumber: number, provider: vscode.CommentingRangeProvider & vscode.CommentReactionProvider) {
 		this._prDocumentCommentProviders[prNumber] = provider;
 		if (!this._prDocumentCommentThreadMap[prNumber]) {
 			this._prDocumentCommentThreadMap[prNumber] = {};

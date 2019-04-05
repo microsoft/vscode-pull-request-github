@@ -79,7 +79,7 @@ function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, comme
 		}
 	});
 }
-export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory, vscode.CommentReactionProvider {
+export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.CommentReactionProvider {
 	private _localToDispose: vscode.Disposable[] = [];
 	private _onDidChangeComments = new vscode.EventEmitter<Comment[]>();
 	public onDidChangeComments = this._onDidChangeComments.event;
@@ -103,9 +103,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		private _localFileChanges: GitFileChangeNode[],
 		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		private _comments: Comment[]) {
-		this._commentController = vscode.comment.createCommentController(`review-${_prManager.activePullRequest!.prNumber}`, _prManager.activePullRequest!.title);
+		this._commentController = vscode.comment.createCommentController(`review-${_prManager.activePullRequest!.prNumber}`, 'GitHub Pull Request');
 		this._commentController.commentingRangeProvider = this;
-		this._commentController.emptyCommentThreadFactory = this;
 		this._commentController.reactionProvider = this;
 		this._localToDispose.push(this._commentController);
 	}
