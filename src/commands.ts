@@ -21,7 +21,7 @@ import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
-import { GitErrorCodes } from './git/api';
+import { GitErrorCodes } from './api/api';
 import { Comment } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
