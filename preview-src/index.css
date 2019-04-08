@@ -153,8 +153,12 @@ body .comment-container .review-comment-header {
 	margin-left: 15px;
 }
 
-.status-item, #status-checks .form-actions {
+.status-item, .form-actions {
 	display: flex;
+}
+
+.form-actions > input[type=submit] {
+	margin-left: auto;
 }
 
 .status-check-detail-text {
@@ -624,7 +628,7 @@ textarea:focus {
 	margin-right: 0 !important;
 }
 
-body .comment-form .form-actions {
+.form-actions {
 	padding-top: 10px;
 	margin-bottom: 10px;
 	display: flex;
@@ -992,3 +996,18 @@ code {
 .push-right {
 	margin-left: auto;
 }
+
+.action-bar {
+	position: absolute;
+	display: flex;
+	justify-content: space-between;
+	z-index: 100;
+	top: 9px;
+	right: 9px;
+}
+
+.action-bar > button {
+	margin-left: 4px;
+	margin-right: 4px;
+}
+

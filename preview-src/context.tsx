@@ -39,6 +39,12 @@ export class PRContext {
 	public addLabels = () =>
 		this.postMessage({ command: 'pr.add-labels' })
 
+	public deleteComment = (args: { id: string }) =>
+		this.postMessage({ command: 'pr.delete-comment', args })
+
+	public editComment = (args: {id: string, body: string}) =>
+		this.postMessage({ command: 'pr.edit-comment', args })
+
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;
 		setState(this.pr);

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 
 import Markdown from './markdown';
 import { Spaced } from './space';
@@ -8,21 +8,69 @@ import Timestamp from './timestamp';
 import { Comment } from '../src/common/comment';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
+import { editIcon, deleteIcon } from './icon';
 
-export const CommentView = ({ user, htmlUrl, createdAt, bodyHTML, body }: Partial<Comment>) =>
-	<div className='comment-container comment review-comment'>
+export function CommentView({ id, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body }: Partial<Comment & PullRequest>) {
+	const [ bodyMd, setBodyMd ] = useState(body);
+	const { deleteComment, editComment } = useContext(PullRequestContext);
+	const [inEditMode, setEditMode] = useState(false);
+	const [showActionBar, setShowActionBar] = useState(false);
+
+	if (inEditMode) {
+		return <EditComment body={body}
+			onCancel={
+				() => setEditMode(false)
+			}
+			onSave={
+				edited => {
+					editComment({ id: String(id), body: edited });
+					setBodyMd(edited);
+					console.log('bodyHTML=', bodyHTML, 'bodyMd=', edited)
+					setEditMode(false);
+				}
+			} />;
+	}
+
+	return <div className='comment-container comment review-comment'
+		onMouseEnter={() => setShowActionBar(true)}
+		onMouseLeave={() => setShowActionBar(false)}
+	>
+		{ ((canEdit || canDelete) && showActionBar)
+				? <div className='action-bar comment-actions'>
+						{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
+						{canDelete ? <button onClick={() => deleteComment({ id: String(id) })}>{deleteIcon}</button> : null}
+					</div>
+				: null
+		}
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
 				<Spaced>
-					<Avatar for={user} />
-					<AuthorLink for={user} />
+					<Avatar for={user || author} />
+					<AuthorLink for={user || author} />
 					commented
 					<Timestamp href={htmlUrl} date={createdAt} />
 				</Spaced>
 			</div>
-			<CommentBody bodyHTML={bodyHTML} body={body} />
+			<CommentBody bodyHTML={bodyHTML} body={bodyMd} />
 		</div>
 	</div>;
+}
+
+function EditComment({ body, onCancel, onSave }: { body: string, onCancel: () => void, onSave: (body: string) => void}) {
+	return <form onSubmit={
+		event => {
+			event.preventDefault();
+			const { markdown }: any = event.target;
+			onSave(markdown.value);
+		}
+	}>
+		<textarea name='markdown' defaultValue={body} />
+		<div className='form-actions'>
+			<button className='secondary' onClick={onCancel}>Cancel</button>
+			<input type='submit' value='Save' />
+		</div>
+	</form>;
+}
 
 export interface Embodied {
 	bodyHTML?: string;
@@ -30,11 +78,10 @@ export interface Embodied {
 }
 
 export const CommentBody = ({ bodyHTML, body }: Embodied) =>
-	bodyHTML
-	? <div className='comment-body'
-		dangerouslySetInnerHTML={ {__html: bodyHTML }} />
-	:
-	<Markdown className='comment-body' src={body} />;
+	body
+		? <Markdown className='comment-body' src={body} />
+		: <div className='comment-body'
+					dangerouslySetInnerHTML={ {__html: bodyHTML }} />;
 
 export function AddComment({ pendingCommentText }: PullRequest) {
 		const { updatePR, comment } = useContext(PullRequestContext);
