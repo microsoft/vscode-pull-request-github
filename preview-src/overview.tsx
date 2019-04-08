@@ -5,17 +5,25 @@ import { Header } from './header';
 import { AddComment, CommentBody } from './comment';
 import Timeline from './timeline';
 import StatusChecks from './merge';
+import Sidebar from './sidebar';
 
 export const Overview = (pr: PullRequest) =>
 	<>
-		<div className='details'>
-			<Header {...pr} />
-			<Description {...pr} />
+		<div id='title' className='title'>
+			<div className='details'>
+				<Header {...pr} />
+			</div>
 		</div>
-		<Timeline events={pr.events} />
-		<StatusChecks {...pr} />
-		<AddComment {...pr} />
+		<Sidebar {...pr} />
+		<div id='main'>
+			<Description {...pr} />
+			<Timeline events={pr.events} />
+			<StatusChecks {...pr} />
+			<AddComment {...pr} />
+		</div>
 	</>;
 
 const Description = (pr: PullRequest) =>
-	<div className='description-container'><CommentBody {...pr} /></div>;
+	<div id='description'>
+		<CommentBody {...pr} />
+	</div>;

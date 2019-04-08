@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-body {
+#app {
 	display: grid;
 	grid-template-columns: 670px auto;
 }
@@ -938,7 +938,7 @@ code {
 }
 
 @media (max-width: 925px) {
-	body {
+	#app {
 		display: block;
 	}
 
@@ -981,4 +981,14 @@ code {
 		width: auto;
 		margin-right: 4px;
 	}
+}
+
+.icon {
+	width: 1em;
+	height: 1em;
+	font-size: 16px;
+}
+
+.push-right {
+	margin-left: auto;
 }

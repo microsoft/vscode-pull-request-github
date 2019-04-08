@@ -5,7 +5,7 @@ import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEv
 import { commitIcon, mergeIcon } from './icon';
 import { Avatar, AuthorLink } from './user';
 import { groupBy } from '../src/common/utils';
-import { Spaced } from './space';
+import { Spaced, nbsp } from './space';
 import Timestamp from './timestamp';
 import { CommentView } from './comment';
 import Diff from './diff';
@@ -37,14 +37,14 @@ export default Timeline;
 const CommitEventView = (event: CommitEvent) =>
 	<div className='comment-container commit'>
 		<div className='commit-message'>
-			{commitIcon}
+			{commitIcon}{nbsp}
 			<div className='avatar-container'>
 				<Avatar for={event.author} />
 			</div>
 			<AuthorLink for={event.author} />
 			<div className='message'>{event.message}</div>
 		</div>
-		<a className='sha' href={event.url}>{event.sha.slice(0, 7)}</a>
+		<a className='sha' href={event.htmlUrl}>{event.sha.slice(0, 7)}</a>
 	</div>;
 
 const association = (
@@ -97,7 +97,7 @@ const CommentEventView = (event: CommentEvent) => <CommentView {...event} />;
 const MergedEventView = (event: MergedEvent) =>
 	<div className='comment-container commit'>
 		<div className='commit-message'>
-			{mergeIcon}
+			{mergeIcon}{nbsp}
 			<div className='avatar-container'>
 				<Avatar for={event.user} />
 			</div>

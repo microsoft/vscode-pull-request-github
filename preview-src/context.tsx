@@ -9,7 +9,6 @@ export class PRContext {
 		public onchange: ((ctx: PullRequest) => void) | null = null,
 		private _handler: MessageHandler = null) {
 		if (!_handler) {
-			console.log('init message handler', this.handleMessage);
 			this._handler = getMessageHandler(this.handleMessage);
 		}
 	}
@@ -33,6 +32,12 @@ export class PRContext {
 
 	public comment = (args: string) =>
 		this.postMessage({ command: 'pr.comment', args})
+
+	public addReviewers = () =>
+		this.postMessage({ command: 'pr.add-reviewers' })
+
+	public addLabels = () =>
+		this.postMessage({ command: 'pr.add-labels' })
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;

@@ -9,10 +9,10 @@ import PullRequestContext from './context';
 import { checkIcon } from './icon';
 import Timestamp from './timestamp';
 
-export const Header = ({ state, title, head, base, url, createdAt, author, isCurrentlyCheckedOut }: PullRequest) =>
+export const Header = ({ state, title, number, head, base, url, createdAt, author, }: PullRequest) =>
 <>
 	<div className='overview-title'>
-		<h2>{title}</h2>
+		<h2>{title} (<a href={url}>#{number}</a>)</h2>
 		<div className='button-group'>
 			<CheckoutButtons />
 			<button>Refresh</button>

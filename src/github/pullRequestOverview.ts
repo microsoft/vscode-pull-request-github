@@ -689,17 +689,7 @@ export class PullRequestOverviewPanel {
 				<title>Pull Request #${number}</title>
 			</head>
 			<body class="${process.platform}">
-				<div id="title" class="title"></div>
-				<div id="sidebar">
-					<div id="reviewers" class="section"></div>
-					<div id="labels" class="section"></div>
-				</div>
-				<div id="main">
-					<div id="description"></div>
-					<div id="timeline-events" class="discussion" aria-live="polite"></div>
-					<div id="status-checks"></div>
-					<div id="comment-form" class="comment-form"></div>
-				</div>
+				<div id=app></div>
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;

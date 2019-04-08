@@ -8,7 +8,7 @@ import { PullRequest } from './cache';
 export function main() {
 	render(
 		<Root>{pr => <Overview {...pr} />}</Root>
-	, document.getElementById('main'));
+	, document.getElementById('app'));
 }
 
 function Root({ children }) {

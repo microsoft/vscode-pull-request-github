@@ -4,4 +4,4 @@
  *--------------------------------------------------------------------------------------------*/
 import './index.css';
 import { main } from './app';
-main();
+addEventListener('load', main);
