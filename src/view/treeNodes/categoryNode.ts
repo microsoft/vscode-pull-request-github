@@ -16,7 +16,11 @@ export enum PRCategoryActionType {
 	Empty,
 	More,
 	TryOtherRemotes,
-	Login
+	Login,
+	NoRemotes,
+	NoGitRepositories,
+	NoOpenFolder,
+	ConfigureRemotes
 }
 
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
@@ -62,6 +66,15 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					command: 'pr.signinAndRefreshList',
 					arguments: []
 				};
+				break;
+			case PRCategoryActionType.NoRemotes:
+				this.label = 'No GitHub repositories found.';
+				break;
+			case PRCategoryActionType.NoGitRepositories:
+				this.label = 'No git repositories found.';
+				break;
+			case PRCategoryActionType.NoOpenFolder:
+				this.label = 'You have not yet opened a folder';
 				break;
 			default:
 				break;

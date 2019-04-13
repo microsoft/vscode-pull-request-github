@@ -40,7 +40,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewDocumentCommentProvider: ReviewDocumentCommentProvider;
 
-	private _prsTreeDataProvider: PullRequestsTreeDataProvider;
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider | undefined;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
@@ -64,9 +63,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	constructor(
 		private _context: vscode.ExtensionContext,
-		private _onShouldReload: vscode.Event<any>,
 		private _repository: Repository,
 		private _prManager: PullRequestManager,
+		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
 		private _telemetry: ITelemetry
 	) {
 		this._switchingToReviewMode = false;
@@ -78,7 +77,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.registerCommands();
 		this.registerListeners();
 
-		this._prsTreeDataProvider = new PullRequestsTreeDataProvider(_onShouldReload, _prManager, this._telemetry);
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 
@@ -155,7 +153,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 
 				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._onShouldReload, this._prManager, this._telemetry);
+				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
+				this._prsTreeDataProvider.initialize(this._prManager);
 				this._disposables.push(this._prsTreeDataProvider);
 			}
 		}));
