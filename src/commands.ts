@@ -337,26 +337,32 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		telemetry.on('pr.replyComment');
 		handler.createOrReplyComment(thread);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		telemetry.on('pr.startReview');
 		handler.startReview(thread);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		telemetry.on('pr.finishReview');
 		await handler.finishReview(thread);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (handler: CommentHandler) => {
+		telemetry.on('pr.deleteReview');
 		await handler.deleteReview();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+		telemetry.on('pr.editComment');
 		await handler.editComment(thread, comment);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+		telemetry.on('pr.deleteComment');
 		await handler.deleteComment(thread, comment);
 	}));
 
