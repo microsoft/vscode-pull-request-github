@@ -367,6 +367,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteThread', async (thread: vscode.CommentThread) => {
+		telemetry.on('pr.deleteThread');
 		thread.dispose!();
 	}));
 }
