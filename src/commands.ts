@@ -177,8 +177,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 
 		if (error) {
+			telemetry.on('pr.deleteLocalPullRequest.failure');
 			await vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${error}`);
 		} else {
+			telemetry.on('pr.deleteLocalPullRequest.success');
 			// fire and forget
 			vscode.commands.executeCommand('pr.refreshList');
 		}
