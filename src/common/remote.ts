@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Protocol } from './protocol';
-import { Repository } from '../git/api';
+import { Repository } from '../api/api';
 
 export class Remote {
 	public get host(): string {

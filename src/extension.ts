@@ -12,12 +12,14 @@ import { registerCommands } from './commands';
 import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
 import { formatError, onceEvent } from './common/utils';
-import { API as GitAPI, Repository, getAPI } from './git/api';
+import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { Telemetry } from './common/telemetry';
 import { handler as uriHandler } from './common/uri';
 import { ITelemetry } from './github/interface';
 import * as Keychain from './authentication/keychain';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
+import { ApiImpl } from './api/api1';
+import { Repository } from './api/api';
 
 // fetch.promise polyfill
 const fetch = require('node-fetch');
@@ -26,7 +28,7 @@ fetch.Promise = PolyfillPromise;
 
 let telemetry: ITelemetry;
 
-async function init(context: vscode.ExtensionContext, git: GitAPI, repository: Repository): Promise<void> {
+async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: Repository): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
@@ -73,22 +75,26 @@ async function init(context: vscode.ExtensionContext, git: GitAPI, repository: R
 	telemetry.on('startup');
 }
 
-export async function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext): Promise<ApiImpl> {
 	// initialize resources
 	Resource.initialize(context);
+	const apiImpl = new ApiImpl();
 
 	telemetry = new Telemetry(context);
-	const git = getAPI();
-	context.subscriptions.push(git);
+	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
+	context.subscriptions.push(registerLiveShareGitProvider(apiImpl));
+	context.subscriptions.push(apiImpl);
 
 	Logger.appendLine('Looking for git repository');
-	const firstRepository = git.repositories[0];
+	const firstRepository = apiImpl.repositories[0];
 
 	if (firstRepository) {
-		await init(context, git, firstRepository);
+		await init(context, apiImpl, firstRepository);
 	} else {
-		onceEvent(git.onDidOpenRepository)(r => init(context, git, r));
+		onceEvent(apiImpl.onDidOpenRepository)(r => init(context, apiImpl, r));
 	}
+
+	return apiImpl;
 }
 
 export async function deactivate() {

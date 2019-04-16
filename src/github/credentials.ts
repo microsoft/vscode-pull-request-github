@@ -40,7 +40,7 @@ export class CredentialStore {
 			if (!uriOrToken) { return; }
 			try {
 				const uri = vscode.Uri.parse(uriOrToken);
-				if (!uri.scheme) { throw new Error; }
+				if (!uri.scheme || uri.scheme === 'file') { throw new Error; }
 				uriHandler.handleUri(uri);
 			} catch (error) {
 				// If it doesn't look like a URI, treat it as a token.
@@ -201,7 +201,6 @@ export class CredentialStore {
 		await graphql.query({ query: gql `query { viewer { login } }` })
 			.then(result => {
 				Logger.appendLine(`${baseUrl}: GraphQL support detected`);
-				Logger.appendLine(JSON.stringify(result, null, 2));
 			})
 			.catch(err => {
 				Logger.appendLine(`${baseUrl}: GraphQL not supported (${err.message})`);
@@ -247,8 +246,11 @@ export class CredentialStore {
 
 	private didEndLogin(authority: string): void {
 		const status = this._authenticationStatusBarItems.get(authority)!;
-		status.text = `$(mark-github) Signed in to ${authority}`;
-		status.command = undefined;
+
+		if (status) {
+			status.text = `$(mark-github) Signed in to ${authority}`;
+			status.command = undefined;
+		}
 	}
 
 	private async updateAuthenticationStatusBar(remote: Remote): Promise<void> {

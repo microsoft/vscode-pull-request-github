@@ -21,10 +21,11 @@ import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
-import { GitErrorCodes } from './git/api';
+import { GitErrorCodes } from './api/api';
 import { Comment } from './common/comment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
+import { CommentHandler } from './github/utils';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -288,7 +289,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 			return fileChange.status === GitChangeType.DELETE
 				? vscode.commands.executeCommand('vscode.diff', fileChange.parentFilePath, emptyFileUri, `${fileChange.fileName}`, { preserveFocus: true })
-				: vscode.commands.executeCommand('vscode.diff',  emptyFileUri, fileChange.parentFilePath, `${fileChange.fileName}`, { preserveFocus: true });
+				: vscode.commands.executeCommand('vscode.diff', emptyFileUri, fileChange.parentFilePath, `${fileChange.fileName}`, { preserveFocus: true });
 		}
 
 		// Show the file change in a diff view.
@@ -333,5 +334,33 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		if (await prManager.authenticate()) {
 			vscode.commands.executeCommand('pr.refreshList');
 		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		handler.createOrReplyComment(thread);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		handler.startReview(thread);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+		await handler.finishReview(thread);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (handler: CommentHandler) => {
+		await handler.deleteReview();
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+		await handler.editComment(thread, comment);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+		await handler.deleteComment(thread, comment);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteThread', async (thread: vscode.CommentThread) => {
+		thread.dispose!();
 	}));
 }
