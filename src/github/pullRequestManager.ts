@@ -80,8 +80,8 @@ export class BadUpstreamError extends Error {
 	}
 }
 
-const SETTINGS_NAMESPACE = 'githubPullRequests';
-const REMOTES_SETTING = 'remotes';
+export const SETTINGS_NAMESPACE = 'githubPullRequests';
+export const REMOTES_SETTING = 'remotes';
 
 interface NewCommentPosition {
 	path: string;
@@ -366,7 +366,6 @@ export class PullRequestManager {
 		} else {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
 			Logger.appendLine('No GitHub remotes found');
-			return;
 		}
 
 		let serverAuthPromises = [];

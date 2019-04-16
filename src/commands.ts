@@ -336,6 +336,13 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.configureRemotes', async () => {
+		const { name, publisher } = require('../package.json') as { name: string, publisher: string };
+		const extensionId = `${publisher}.${name}`;
+
+		return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (handler: CommentHandler, thread: vscode.CommentThread) => {
 		handler.createOrReplyComment(thread);
 	}));

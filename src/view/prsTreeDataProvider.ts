@@ -9,7 +9,7 @@ import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './
 import { PRType, ITelemetry } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING } from '../github/pullRequestManager';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
@@ -79,6 +79,14 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		if (!this._prManager.getGitHubRemotes().length) {
+			const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+			if (remotesSetting) {
+				return Promise.resolve([
+					new PRCategoryActionNode(this._view, PRCategoryActionType.NoMatchingRemotes),
+					new PRCategoryActionNode(this._view, PRCategoryActionType.ConfigureRemotes)
+				]);
+			}
+
 			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.NoRemotes)]);
 		}
 

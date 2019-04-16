@@ -325,6 +325,11 @@
         "command": "pr.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.configureRemotes",
+        "title": "Configure Remotes...",
+        "category": "GitHub Pull Requests"
       }
     ],
     "menus": {

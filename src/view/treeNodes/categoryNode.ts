@@ -20,6 +20,7 @@ export enum PRCategoryActionType {
 	NoRemotes,
 	NoGitRepositories,
 	NoOpenFolder,
+	NoMatchingRemotes,
 	ConfigureRemotes
 }
 
@@ -74,7 +75,18 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'No git repositories found.';
 				break;
 			case PRCategoryActionType.NoOpenFolder:
-				this.label = 'You have not yet opened a folder';
+				this.label = 'You have not yet opened a folder.';
+				break;
+			case PRCategoryActionType.NoMatchingRemotes:
+					this.label = 'No remotes match the current setting.';
+					break;
+			case PRCategoryActionType.ConfigureRemotes:
+				this.label = 'Configure remotes...';
+				this.command = {
+					title: 'Configure remotes',
+					command: 'pr.configureRemotes',
+					arguments: []
+				};
 				break;
 			default:
 				break;
