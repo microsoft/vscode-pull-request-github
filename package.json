@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.34.0"
@@ -292,34 +292,34 @@
         "category": "GitHub Pull Requests"
       },
       {
-          "command": "pr.replyComment",
-          "title": "Reply Comment",
-          "category": "GitHub Pull Requests"
+        "command": "pr.replyComment",
+        "title": "Reply Comment",
+        "category": "GitHub Pull Requests"
       },
       {
-          "command": "pr.startReview",
-          "title": "Start Review",
-          "category": "GitHub Pull Requests"
+        "command": "pr.startReview",
+        "title": "Start Review",
+        "category": "GitHub Pull Requests"
       },
       {
-          "command": "pr.deleteReview",
-          "title": "Delete Review",
-          "category": "GitHub Pull Requests"
+        "command": "pr.deleteReview",
+        "title": "Delete Review",
+        "category": "GitHub Pull Requests"
       },
       {
-          "command": "pr.editComment",
-          "title": "Edit Comment",
-          "category": "GitHub Pull Requests"
+        "command": "pr.editComment",
+        "title": "Edit Comment",
+        "category": "GitHub Pull Requests"
       },
       {
-          "command": "pr.deleteComment",
-          "title": "Delete Comment",
-          "category": "GitHub Pull Requests"
+        "command": "pr.deleteComment",
+        "title": "Delete Comment",
+        "category": "GitHub Pull Requests"
       },
       {
-          "command": "pr.finishReview",
-          "title": "Finish Review",
-          "category": "GitHub Pull Requests"
+        "command": "pr.finishReview",
+        "title": "Finish Review",
+        "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.signinAndRefreshList",
