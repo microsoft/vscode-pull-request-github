@@ -407,6 +407,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			collapsibleState: 1,
 			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
 			iconPath: this.pullRequestModel.userAvatarUri
+				? this.pullRequestModel.userAvatarUri
+				: { light: Resource.icons.light.Avatar, dark: Resource.icons.dark.Avatar }
 		};
 	}
 

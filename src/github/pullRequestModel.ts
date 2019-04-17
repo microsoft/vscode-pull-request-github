@@ -28,25 +28,27 @@ export class PullRequestModel {
 		return this.state === PullRequestStateEnum.Merged;
 	}
 
-	public get userAvatar(): string {
-		if (this.prItem) {
+	public get userAvatar(): string | undefined {
+		if (this.prItem && this.prItem.user.avatarUrl) {
 			return this.prItem.user.avatarUrl;
 		}
 
-		return '';
+		return undefined;
 	}
 	public get userAvatarUri(): vscode.Uri | undefined {
 		if (this.prItem) {
 			let key = this.userAvatar;
-			let gravatar = vscode.Uri.parse(`${key}&s=${64}`);
+			if (key) {
+				let uri = vscode.Uri.parse(`${key}&s=${64}`);
 
-			// hack, to ensure queries are not wrongly encoded.
-			const originalToStringFn = gravatar.toString;
-			gravatar.toString = function (skipEncoding?: boolean | undefined) {
-				return originalToStringFn.call(gravatar, true);
-			};
+				// hack, to ensure queries are not wrongly encoded.
+				const originalToStringFn = uri.toString;
+				uri.toString = function (skipEncoding?: boolean | undefined) {
+					return originalToStringFn.call(uri, true);
+				};
 
-			return gravatar;
+				return uri;
+			}
 		}
 
 		return undefined;

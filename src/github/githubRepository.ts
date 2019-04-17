@@ -16,6 +16,7 @@ import { PRDocumentCommentProvider } from '../view/prDocumentCommentProvider';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
 const queries = require('./queries.gql');
+import axois, { AxiosResponse } from 'axios';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -30,6 +31,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	static ID = 'GitHubRepository';
 	private _hub: GitHub | undefined;
 	private _initialized: boolean;
+	private _repositoryReturnsAvatar: boolean|null = null;
 	private _metadata: any;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
@@ -206,7 +208,26 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	}
 
 	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData | undefined> {
-		return prType === PRType.All ? this.getAllPullRequests(page) : this.getPullRequestsForCategory(prType, page);
+		return await (prType === PRType.All ? this.getAllPullRequests(page) : this.getPullRequestsForCategory(prType, page));
+	}
+
+	private async testRepositoryReturnsAvatarUrl(avatarUrl: string): Promise<boolean> {
+
+		let response: AxiosResponse | null = null;
+
+		try {
+			response  = await axois({method: 'get', url: avatarUrl, maxRedirects: 0});
+		} catch (err) {
+			if(err && err instanceof Error) {
+				response = (<any> err).response as AxiosResponse;
+			}
+		}
+
+		if(response && response.status === 200) {
+			return true;
+		}
+
+		return false;
 	}
 
 	private async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
@@ -221,6 +242,13 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			});
 
 			const hasMorePages = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
+
+			if(result && result.data.length > 0) {
+				if(this._repositoryReturnsAvatar === null) {
+					this._repositoryReturnsAvatar = await this.testRepositoryReturnsAvatarUrl(result.data[0].user.avatar_url);
+				}
+			}
+
 			const pullRequests = result.data
 				.map(
 					pullRequest => {
@@ -232,6 +260,10 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 						}
 
 						const item = convertRESTPullRequestToRawPullRequest(pullRequest);
+						if(!this._repositoryReturnsAvatar) {
+							item.user.avatarUrl = null;
+						}
+
 						return new PullRequestModel(this, this.remote, item);
 					}
 				)
@@ -278,15 +310,28 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			});
 
 			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
-			const pullRequests = await Promise.all(promises).then(values => {
-				return values.map(item => {
-					if (!item.data.head.repo) {
-						Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
-						return null;
-					}
-					return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(item.data));
-				}).filter(item => item !== null) as PullRequestModel[];
-			});
+			const pullRequestResponses = await Promise.all(promises);
+
+			if(pullRequestResponses && pullRequestResponses.length > 0) {
+				if(this._repositoryReturnsAvatar === null) {
+					this._repositoryReturnsAvatar = await this.testRepositoryReturnsAvatarUrl(pullRequestResponses[0].data.user.avatar_url);
+				}
+			}
+
+			const pullRequests = pullRequestResponses.map(response => {
+				if (!response.data.head.repo) {
+					Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
+					return null;
+				}
+
+				const item = convertRESTPullRequestToRawPullRequest(response.data);
+				if(!this._repositoryReturnsAvatar) {
+					item.user.avatarUrl = null;
+				}
+
+				return new PullRequestModel(this, this.remote, item);
+			}).filter(item => item !== null) as PullRequestModel[];
+
 			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - done`, GitHubRepository.ID);
 
 			return {
