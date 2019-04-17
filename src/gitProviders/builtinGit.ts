@@ -25,7 +25,7 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 		this._gitAPI = gitExtension.getAPI(1);
 		this._disposables = [];
 		this._disposables.push(this._gitAPI.onDidCloseRepository(e => this._onDidCloseRepository.fire(e as any)));
-		this._disposables.push(this._gitAPI.onDidOpenRepository(e => this._onDidCloseRepository.fire(e as any)));
+		this._disposables.push(this._gitAPI.onDidOpenRepository(e => this._onDidOpenRepository.fire(e as any)));
 	}
 
 	dispose() {
