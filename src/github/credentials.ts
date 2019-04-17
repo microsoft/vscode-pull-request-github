@@ -201,9 +201,11 @@ export class CredentialStore {
 		await graphql.query({ query: gql `query { viewer { login } }` })
 			.then(result => {
 				Logger.appendLine(`${baseUrl}: GraphQL support detected`);
+				this._telemetry.on('auth.graphql.supported');
 			})
 			.catch(err => {
 				Logger.appendLine(`${baseUrl}: GraphQL not supported (${err.message})`);
+				this._telemetry.on('auth.graphql.unsupported');
 				supportsGraphQL = false;
 			});
 
