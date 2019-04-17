@@ -1,3 +1,8 @@
+0.6.1
+
+**Bug fixes**
+- Fix git onDidOpenRepository eventing [#1122](https://github.com/Microsoft/vscode-pull-request-github/pull/1122)
+
 0.6.0
 
 **Changes**
