@@ -29,7 +29,7 @@ export class PullRequestModel {
 	}
 
 	public get userAvatar(): string | undefined {
-		if (this.prItem && this.prItem.user.avatarUrl) {
+		if (this.prItem && this._repositoryReturnsAvatar) {
 			return this.prItem.user.avatarUrl;
 		}
 
@@ -82,7 +82,7 @@ export class PullRequestModel {
 	public head: GitHubRef;
 	public base: GitHubRef;
 
-	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest) {
+	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest, private _repositoryReturnsAvatar: boolean) {
 		this.update(prItem);
 	}
 
