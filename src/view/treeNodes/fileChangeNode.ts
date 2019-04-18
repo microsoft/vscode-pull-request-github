@@ -10,7 +10,7 @@ import { GitChangeType } from '../../common/file';
 import { TreeNode } from './treeNode';
 import { Comment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
-import { toFileChangeNodeUri } from '../../common/uri';
+import { toResourceUri } from '../../common/uri';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
 /**
@@ -34,7 +34,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
-		this.resourceUri = toFileChangeNodeUri(vscode.Uri.parse(this.blobUrl), false, status);
+		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), false, status);
 
 		this.command = {
 			title: 'show remote file',
@@ -90,7 +90,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	update(comments: Comment[]) {
-		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, this.status);
+		this.resourceUri = toResourceUri(this.filePath, comments.length > 0, this.status);
 
 		if (comments && comments.length) {
 			let sortedActiveComments = comments.filter(comment => comment.position).sort((a, b) => {
@@ -164,7 +164,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
-		this.resourceUri = toFileChangeNodeUri(this.filePath, comments.length > 0, status);
+		this.resourceUri = toResourceUri(this.filePath, comments.length > 0, status);
 
 		this.opts = {
 			preserveFocus: true

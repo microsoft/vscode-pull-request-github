@@ -94,14 +94,13 @@ export interface FileChangeNodeUriParams {
 	status?: GitChangeType;
 }
 
-export function toFileChangeNodeUri(uri: Uri, hasComments: boolean, status: GitChangeType) {
+export function toResourceUri(uri: Uri, hasComments: boolean, status: GitChangeType) {
 	const params = {
 		hasComments: hasComments,
 		status: status
 	};
 
 	return uri.with({
-		scheme: 'file',
 		query: JSON.stringify(params)
 	});
 }

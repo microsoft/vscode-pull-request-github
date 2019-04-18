@@ -8,14 +8,8 @@ import { IHostConfiguration } from './configuration';
 function getNodeModule<T>(moduleName: string): T | undefined {
 	const vscodeRequire = eval('require');
 	try {
-		return vscodeRequire(`${vscode.env.appRoot}/node_modules.asar/${moduleName}`);
+		return vscodeRequire('keytar');
 	} catch (err) {
-		// Not in ASAR.
-	}
-	try {
-		return vscodeRequire(`${vscode.env.appRoot}/node_modules/${moduleName}`);
-	} catch (err) {
-		// Not available.
 	}
 	return undefined;
 }

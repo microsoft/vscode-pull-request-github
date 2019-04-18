@@ -9,7 +9,7 @@ import { Comment } from '../common/comment';
 import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, mapHeadLineToDiffHunkPosition } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
-import { Repository } from '../git/api';
+import { Repository } from '../api/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRequestNode';
@@ -179,6 +179,12 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			for (let fileName in this._reviewDocumentCommentThreads) {
 				let threads = this._reviewDocumentCommentThreads[fileName];
 				let visible = vscode.window.visibleTextEditors.find(editor => {
+					if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme && editor.document.uri.query) {
+						if (fileName === editor.document.uri.toString()) {
+							return true;
+						}
+					}
+
 					if (editor.document.uri.scheme !== 'review') {
 						return false;
 					}
@@ -272,7 +278,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			return;
 		}
 
-		if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme) {
+		if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme && !editor.document.uri.query) {
 			let fileName = vscode.workspace.asRelativePath(editor.document.uri.path);
 			// local files
 			let matchedFiles = this._localFileChanges.filter(fileChange => fileChange.fileName === fileName);
