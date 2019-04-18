@@ -1050,7 +1050,8 @@ export class PullRequestManager {
 			// Create PR
 			let { data } = await repo.octokit.pullRequests.create(params);
 			const item = convertRESTPullRequestToRawPullRequest(data);
-			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
+			const repoReturnsAvatar = await repo.ensureRepositoryReturnsAvatar(item.user.avatarUrl);
+			const pullRequestModel = new PullRequestModel(repo, repo.remote, item, repoReturnsAvatar);
 
 			const branchNameSeparatorIndex = params.head.indexOf(':');
 			const branchName = params.head.slice(branchNameSeparatorIndex + 1);
