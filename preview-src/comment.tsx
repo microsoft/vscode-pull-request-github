@@ -25,7 +25,6 @@ export function CommentView({ id, canEdit, canDelete, user, author, htmlUrl, cre
 				edited => {
 					editComment({ id: String(id), body: edited });
 					setBodyMd(edited);
-					console.log('bodyHTML=', bodyHTML, 'bodyMd=', edited)
 					setEditMode(false);
 				}
 			} />;
@@ -80,8 +79,12 @@ export interface Embodied {
 export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 	body
 		? <Markdown className='comment-body' src={body} />
-		: <div className='comment-body'
-					dangerouslySetInnerHTML={ {__html: bodyHTML }} />;
+		:
+	bodyHTML
+		? <div className='comment-body'
+				dangerouslySetInnerHTML={ {__html: bodyHTML }} />
+		:
+	<>No description provided.</>;
 
 export function AddComment({ pendingCommentText }: PullRequest) {
 		const { updatePR, comment } = useContext(PullRequestContext);

@@ -16,16 +16,11 @@ export const Overview = (pr: PullRequest) =>
 		</div>
 		<Sidebar {...pr} />
 		<div id='main'>
-			{/* <CommentView {...pr} /> */}
-			<Description {...pr} />
+			<div id='description'>
+				<CommentView {...pr} />
+			</div>
 			<Timeline events={pr.events} />
 			<StatusChecks {...pr} />
 			<AddComment {...pr} />
 		</div>
 	</>;
-
-const Description = (pr: PullRequest) =>
-	<div id='description'>
-		<CommentView {...pr} />
-		{/* <CommentBody {...pr} /> */}
-	</div>;

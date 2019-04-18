@@ -16,6 +16,7 @@ function Root({ children }) {
 	const [pr, setPR] = useState<PullRequest>(ctx.pr);
 	useEffect(() => {
 		ctx.onchange = setPR;
+		setPR(ctx.pr);
 	}, []);
 	return pr ? children(pr) : 'Loading...';
 }

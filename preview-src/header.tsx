@@ -9,32 +9,34 @@ import PullRequestContext from './context';
 import { checkIcon } from './icon';
 import Timestamp from './timestamp';
 
-export const Header = ({ state, title, number, head, base, url, createdAt, author, }: PullRequest) =>
-<>
-	<div className='overview-title'>
-		<h2>{title} (<a href={url}>#{number}</a>)</h2>
-		<div className='button-group'>
-			<CheckoutButtons />
-			<button>Refresh</button>
+export function Header({ state, title, number, head, base, url, createdAt, author, }: PullRequest) {
+	const { refresh } = useContext(PullRequestContext);
+	return <>
+		<div className='overview-title'>
+			<h2>{title} (<a href={url}>#{number}</a>)</h2>
+			<div className='button-group'>
+				<CheckoutButtons />
+				<button onClick={refresh}>Refresh</button>
+			</div>
 		</div>
-	</div>
-	<div className='subtitle'>
-		<div id='status'>{getStatus(state)}</div>
-		<Avatar for={author} />
-		<span className='author'>
-			<Spaced>
-				<AuthorLink for={author} /> wants to merge changes
-				from <code>{head}</code>
-				to <code>{base}</code>
-			</Spaced>.
-		</span>
-		<span className='created-at'>
-			<Spaced>
-				Created <Timestamp date={createdAt} href={url} />
-			</Spaced>
-		</span>
-	</div>
-</>;
+		<div className='subtitle'>
+			<div id='status'>{getStatus(state)}</div>
+			<Avatar for={author} />
+			<span className='author'>
+				<Spaced>
+					<AuthorLink for={author} /> wants to merge changes
+					from <code>{head}</code>
+					to <code>{base}</code>
+				</Spaced>.
+			</span>
+			<span className='created-at'>
+				<Spaced>
+					Created <Timestamp date={createdAt} href={url} />
+				</Spaced>
+			</span>
+		</div>
+	</>;
+}
 
 const CheckoutButtons = () => {
 	const { pr, exitReviewMode, checkout } = useContext(PullRequestContext);
