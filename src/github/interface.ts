@@ -32,7 +32,7 @@ export interface ReviewState {
 export interface IAccount {
 	login: string;
 	name?: string;
-	avatarUrl: string;
+	avatarUrl?: string;
 	url: string;
 }
 

@@ -82,13 +82,18 @@ body .comment-container .avatar-container a {
 	display: flex;
 }
 
-body .comment-container .avatar-container img.avatar {
+body .comment-container .avatar-container img.avatar,
+body .comment-container .avatar-container .avatar-icon svg {
 	margin-right: 0;
 }
 
-body img.avatar {
+body img.avatar,
+body span.avatar-icon svg {
 	width: 24px;
 	height: 24px;
+}
+
+body img.avatar {
 	vertical-align: middle;
 }
 
@@ -332,7 +337,8 @@ body button.checkedOut svg {
 	margin-top: 8px;
 }
 
-.subtitle .avatar {
+.subtitle .avatar,
+.subtitle .avatar-icon svg {
 	margin-right: 8px;
 }
 
@@ -470,7 +476,11 @@ body .overview-title .button-group button {
 }
 
 .commit .avatar-container .avatar,
-.merged .avatar-container .avatar {
+.commit .avatar-container .avatar-icon,
+.commit .avatar-container .avatar-icon svg,
+.merged .avatar-container .avatar,
+.merged .avatar-container .avatar-icon,
+.merged .avatar-container .avatar-icon svg {
 	width: 18px;
 	height: 18px;
 }
