@@ -221,6 +221,13 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			});
 
 			const hasMorePages = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
+			if (!result.data) {
+				return {
+					pullRequests: [],
+					hasMorePages: false,
+				};
+			}
+
 			const pullRequests = result.data
 				.map(
 					pullRequest => {
