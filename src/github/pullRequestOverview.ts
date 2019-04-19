@@ -237,7 +237,12 @@ export class PullRequestOverviewPanel {
 					body: this._pullRequest.body,
 					bodyHTML: this._pullRequest.bodyHTML,
 					labels: this._pullRequest.prItem.labels,
-					author: this._pullRequest.author,
+					author:{
+						login: this._pullRequest.author.login,
+						name: this._pullRequest.author.name,
+						avatarUrl: this._pullRequest.userAvatar,
+						url: this._pullRequest.author.url
+					},
 					state: this._pullRequest.state,
 					events: timelineEvents,
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,

@@ -9,7 +9,7 @@ import * as Github from '@octokit/rest';
 import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
+import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent, isAssignEvent, isCommentEvent, isMergedEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
@@ -733,6 +733,7 @@ export class PullRequestManager {
 				ret = data.repository.pullRequest.timeline.edges.map((edge: any) => edge.node);
 				let events = parseGraphQLTimelineEvents(ret);
 				await this.addReviewTimelineEventComments(pullRequest, events);
+
 				return events;
 			} catch (e) {
 				console.log(e);
@@ -747,6 +748,37 @@ export class PullRequestManager {
 			})).data;
 			Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 			return convertRESTTimelineEvents(await this.parseRESTTimelineEvents(pullRequest, remote, ret));
+		}
+	}
+
+	private async ensureTimelineEventAvatars(githubRepository: GitHubRepository, events: TimelineEvent[]): Promise<void>{
+		if (!events.length) {
+			return;
+		}
+
+		let firstAvatarUrl: string | undefined =
+			events.map(event => {
+				if(isCommitEvent(event)){
+					return event.author.avatarUrl;
+				} else if(isReviewEvent(event) || isAssignEvent(event) || isCommentEvent(event) || isMergedEvent(event)){
+					return event.user.avatarUrl;
+				}
+			})
+			.find(avatarUrl => !!avatarUrl)
+
+		let repositoryReturnsAvatar = null;
+		if (firstAvatarUrl) {
+			repositoryReturnsAvatar = await githubRepository.ensureRepositoryReturnsAvatar(firstAvatarUrl);
+		}
+
+		if(repositoryReturnsAvatar === false) {
+			events.forEach(event => {
+				if(isCommitEvent(event)){
+					event.author.avatarUrl = undefined;
+				} else  if(isReviewEvent(event) || isAssignEvent(event) || isCommentEvent(event) || isMergedEvent(event)){
+					event.user.avatarUrl = undefined;
+				}
+			});
 		}
 	}
 
@@ -1050,7 +1082,7 @@ export class PullRequestManager {
 			// Create PR
 			let { data } = await repo.octokit.pullRequests.create(params);
 			const item = convertRESTPullRequestToRawPullRequest(data);
-			const repoReturnsAvatar = await repo.ensureRepositoryReturnsAvatar(item.user.avatarUrl);
+			const repoReturnsAvatar = await repo.ensureRepositoryReturnsAvatar(item.user.avatarUrl!);
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item, repoReturnsAvatar);
 
 			const branchNameSeparatorIndex = params.head.indexOf(':');
@@ -1481,6 +1513,8 @@ export class PullRequestManager {
 			// Ensures that pending comments made in reply to other reviews are included for the pending review
 			pendingReview.comments = reviewComments.filter(c => c.isDraft);
 		}
+
+		await this.ensureTimelineEventAvatars(pullRequest.githubRepository, events);
 	}
 
 	private async fixCommitAttribution(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
@@ -1513,12 +1547,14 @@ export class PullRequestManager {
 			}
 		});
 
-		return Promise.all([
+		await Promise.all([
 			this.addReviewTimelineEventComments(pullRequest, events),
 			this.fixCommitAttribution(pullRequest, events)
-		]).then(_ => {
-			return events;
-		});
+		]);
+
+		this.ensureTimelineEventAvatars(pullRequest.githubRepository, events);
+
+		return events;
 	}
 }
 

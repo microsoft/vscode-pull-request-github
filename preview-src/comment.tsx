@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 
 import Markdown from './markdown';
 import { Spaced } from './space';
@@ -15,6 +15,12 @@ export function CommentView({ id, canEdit, canDelete, user, author, htmlUrl, cre
 	const { deleteComment, editComment } = useContext(PullRequestContext);
 	const [inEditMode, setEditMode] = useState(false);
 	const [showActionBar, setShowActionBar] = useState(false);
+
+	useEffect(() => {
+		if (body !== bodyMd) {
+			setBodyMd(body);
+		}
+	}, [body]);
 
 	if (inEditMode) {
 		return <EditComment body={body}
@@ -84,7 +90,7 @@ export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 		? <div className='comment-body'
 				dangerouslySetInnerHTML={ {__html: bodyHTML }} />
 		:
-	<>No description provided.</>;
+	<div className='comment-body'><em>No description provided.</em></div>;
 
 export function AddComment({ pendingCommentText }: PullRequest) {
 		const { updatePR, comment } = useContext(PullRequestContext);

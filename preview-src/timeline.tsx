@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useContext, useRef } from 'react';
 
 import { Comment } from '../src/common/comment';
 import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent } from '../src/common/timelineEvent';
@@ -9,6 +10,7 @@ import { Spaced, nbsp } from './space';
 import Timestamp from './timestamp';
 import { CommentView } from './comment';
 import Diff from './diff';
+import PullRequestContext from './context';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 	<>{
@@ -71,8 +73,12 @@ const ReviewEventView = (event: ReviewEvent) => {
 				<Spaced>
 					<Avatar for={event.user} />
 					<AuthorLink for={event.user} />{association(event)}
-					reviewed
-					<Timestamp href={event.htmlUrl} date={event.submittedAt} />
+					{ event.state === 'PENDING'
+						? <em>review pending</em>
+						: <>
+								reviewed{nbsp}
+								<Timestamp href={event.htmlUrl} date={event.submittedAt} />
+						</> }
 				</Spaced>
 			</div>
 			<div className='comment-body review-comment-body'>{
@@ -88,9 +94,30 @@ const ReviewEventView = (event: ReviewEvent) => {
 							</div>
 					)
 			}</div>
+			{
+				event.state === 'PENDING' ?
+					<AddReviewSummaryComment />
+				: null
+			}
 		</div>
 	</div>;
 };
+
+function AddReviewSummaryComment() {
+	const { requestChanges, approve, submit } = useContext(PullRequestContext);
+	const comment = useRef<HTMLTextAreaElement>();
+	return <div className='comment-form'>
+		<textarea ref={comment} placeholder='Leave a review summary comment'></textarea>
+		<div className='form-actions'>
+			<button id='request-changes'
+				onClick={() => requestChanges(comment.current.value)}>Request Changes</button>
+			<button id='approve'
+				onClick={() => approve(comment.current.value)}>Approve</button>
+			<button id='submit'
+				onClick={() => submit(comment.current.value)}>Submit</button>
+		</div>
+	</div>;
+}
 
 const CommentEventView = (event: CommentEvent) => <CommentView {...event} />;
 

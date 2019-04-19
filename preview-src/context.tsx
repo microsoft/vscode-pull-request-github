@@ -45,6 +45,15 @@ export class PRContext {
 	public editComment = (args: {id: string, body: string}) =>
 		this.postMessage({ command: 'pr.edit-comment', args })
 
+	public requestChanges = (body: string) =>
+		this.postMessage({ command: 'pr.request-changes', args: body })
+
+	public approve = (body: string) =>
+		this.postMessage({ command: 'pr.approve', args: body })
+
+	public submit = (body: string) =>
+		this.postMessage({ command: 'pr.submit', args: body })
+
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;
 		setState(this.pr);
