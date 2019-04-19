@@ -87,6 +87,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 						([key, thread]) =>
 							<div className='diff-container'>
 								<Diff key={key}
+									comment={thread[0]}
 									hunks={thread[0].diffHunks}
 									outdated={thread[0].position === null}
 									path={thread[0].path} />

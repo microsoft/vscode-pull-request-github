@@ -52,8 +52,14 @@ export function CommentView({ id, canEdit, canDelete, user, author, htmlUrl, cre
 				<Spaced>
 					<Avatar for={user || author} />
 					<AuthorLink for={user || author} />
-					commented
-					<Timestamp href={htmlUrl} date={createdAt} />
+					{
+						createdAt
+							? <>
+									commented
+									<Timestamp href={htmlUrl} date={createdAt} />
+								</>
+							: <em>pending</em>
+					}
 				</Spaced>
 			</div>
 			<CommentBody bodyHTML={bodyHTML} body={bodyMd} />

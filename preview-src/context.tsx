@@ -2,6 +2,7 @@ import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState } from './cache';
 import { MergeMethod } from '../src/github/interface';
+import { Comment } from '../src/common/comment';
 
 export class PRContext {
 	constructor(
@@ -53,6 +54,9 @@ export class PRContext {
 
 	public submit = (body: string) =>
 		this.postMessage({ command: 'pr.submit', args: body })
+
+	public openDiff = (comment: Comment) =>
+		this.postMessage({ command: 'pr.open-diff', args: { comment } })
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;
