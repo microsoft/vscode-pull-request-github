@@ -20,18 +20,23 @@ export const StatusChecks = (pr: PullRequest) => {
 			? 'This pull request is closed'
 			:
 			<>
-				<div className='status-section'>
-					<div className='status-item'>
-						<StateIcon state={status.state} />
-						<div>{getSummaryLabel(status.statuses)}</div>
-						<a aria-role='button' onClick={toggleDetails}>{
-							showDetails ? 'Hide' : 'Show'
-						}</a>
-					</div>
-					{showDetails ?
-						<StatusCheckDetails statuses={status.statuses} />
-						: null}
-				</div>
+				{ status.statuses.length
+					? <>
+							<div className='status-section'>
+								<div className='status-item'>
+									<StateIcon state={status.state} />
+									<div>{getSummaryLabel(status.statuses)}</div>
+									<a aria-role='button' onClick={toggleDetails}>{
+										showDetails ? 'Hide' : 'Show'
+									}</a>
+								</div>
+								{showDetails ?
+									<StatusCheckDetails statuses={status.statuses} />
+									: null}
+							</div>
+						</>
+					: null
+				}
 				<MergeStatus mergeable={mergeable} />
 				{ mergeable ? <Merge {...pr} /> : null}
 			</>
