@@ -1,8 +1,9 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
-import { PullRequest, getState, setState } from './cache';
+import { PullRequest, getState, setState, updateState } from './cache';
 import { MergeMethod } from '../src/github/interface';
 import { Comment } from '../src/common/comment';
+import { EventType, ReviewEvent, isReviewEvent } from '../src/common/timelineEvent';
 
 export class PRContext {
 	constructor(
@@ -31,8 +32,15 @@ export class PRContext {
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
 		this.postMessage({ command: 'pr.merge', args	})
 
-	public comment = (args: string) =>
-		this.postMessage({ command: 'pr.comment', args})
+	public comment = async (args: string) => {
+		const result = await this.postMessage({ command: 'pr.comment', args});
+		const newComment = result.value;
+		newComment.event = EventType.Commented;
+		this.updatePR({
+			events: [...this.pr.events, newComment],
+			pendingCommentText: '',
+		});
+	}
 
 	public addReviewers = () =>
 		this.postMessage({ command: 'pr.add-reviewers' })
@@ -40,20 +48,60 @@ export class PRContext {
 	public addLabels = () =>
 		this.postMessage({ command: 'pr.add-labels' })
 
-	public deleteComment = (args: { id: string }) =>
-		this.postMessage({ command: 'pr.delete-comment', args })
+	public deleteComment = async (args: { id: number, pullRequestReviewId?: number }) => {
+		await this.postMessage({ command: 'pr.delete-comment', args });
+		const { pr } = this;
+		const { id, pullRequestReviewId } = args;
+		if (!pullRequestReviewId) {
+			this.updatePR({
+				events: pr.events.filter(e => e.id !== id)
+			});
+			return;
+		}
+		const index = pr.events.findIndex(e => e.id === pullRequestReviewId);
+		if (index === -1) {
+			console.error('Could not find review:', pullRequestReviewId);
+			return;
+		}
+		const review: ReviewEvent = pr.events[index] as ReviewEvent;
+		if (!review.comments) {
+			console.error('No comments to delete for review:', pullRequestReviewId, review);
+			return;
+		}
+		this.pr.events.splice(index, 1, {
+			...review,
+			comments: review.comments.filter(c => c.id !== id)
+		});
+		this.updatePR(this.pr);
+	}
 
-	public editComment = (args: {id: string, body: string}) =>
+	public editComment = (args: {id: number, pullRequestReviewId?: number, body: string}) =>
 		this.postMessage({ command: 'pr.edit-comment', args })
 
-	public requestChanges = (body: string) =>
-		this.postMessage({ command: 'pr.request-changes', args: body })
+	public requestChanges = async (body: string) =>
+		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }))
 
-	public approve = (body: string) =>
-		this.postMessage({ command: 'pr.approve', args: body })
+	public approve = async (body: string) =>
+		this.appendReview(await this.postMessage({ command: 'pr.approve', args: body }))
 
-	public submit = (body: string) =>
-		this.postMessage({ command: 'pr.submit', args: body })
+	public submit = async (body: string) =>
+		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
+
+	private appendReview({ review, reviewers }: any) {
+		const state = this.pr;
+		let events = state.events;
+		if (state.supportsGraphQl) {
+			events = events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
+			events.forEach(event => {
+				if (isReviewEvent(event)) {
+					event.comments.forEach(c => c.isDraft = false);
+				}
+			});
+		}
+		state.reviewers = reviewers;
+		state.events = [...state.events, review];
+		this.updatePR(state);
+	}
 
 	public openDiff = (comment: Comment) =>
 		this.postMessage({ command: 'pr.open-diff', args: { comment } })
@@ -65,8 +113,12 @@ export class PRContext {
 		return this;
 	}
 
-	updatePR = (pr: Partial<PullRequest>) =>
-		this.setPR({...this.pr, ...pr })
+	updatePR = (pr: Partial<PullRequest>) => {
+		updateState(pr);
+		this.pr = { ...this.pr, ...pr };
+		if (this.onchange) { this.onchange(this.pr); }
+		return this;
+	}
 
 	private postMessage(message: any) {
 		console.log('sending', message);

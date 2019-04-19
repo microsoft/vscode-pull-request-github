@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useContext, useState, useEffect } from 'react';
 
 import Markdown from './markdown';
-import { Spaced } from './space';
+import { Spaced, nbsp } from './space';
 import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
 import { Comment } from '../src/common/comment';
@@ -10,7 +10,9 @@ import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { editIcon, deleteIcon } from './icon';
 
-export function CommentView({ id, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body }: Partial<Comment & PullRequest>) {
+export type Props = Partial<Comment & PullRequest>;
+
+export function CommentView({ id, pullRequestReviewId, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body, }: Props) {
 	const [ bodyMd, setBodyMd ] = useState(body);
 	const { deleteComment, editComment } = useContext(PullRequestContext);
 	const [inEditMode, setEditMode] = useState(false);
@@ -29,7 +31,7 @@ export function CommentView({ id, canEdit, canDelete, user, author, htmlUrl, cre
 			}
 			onSave={
 				edited => {
-					editComment({ id: String(id), body: edited });
+					editComment({ id, pullRequestReviewId, body: edited });
 					setBodyMd(edited);
 					setEditMode(false);
 				}
@@ -40,13 +42,6 @@ export function CommentView({ id, canEdit, canDelete, user, author, htmlUrl, cre
 		onMouseEnter={() => setShowActionBar(true)}
 		onMouseLeave={() => setShowActionBar(false)}
 	>
-		{ ((canEdit || canDelete) && showActionBar)
-				? <div className='action-bar comment-actions'>
-						{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
-						{canDelete ? <button onClick={() => deleteComment({ id: String(id) })}>{deleteIcon}</button> : null}
-					</div>
-				: null
-		}
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
 				<Spaced>
@@ -55,12 +50,19 @@ export function CommentView({ id, canEdit, canDelete, user, author, htmlUrl, cre
 					{
 						createdAt
 							? <>
-									commented
+									commented{nbsp}
 									<Timestamp href={htmlUrl} date={createdAt} />
 								</>
 							: <em>pending</em>
 					}
 				</Spaced>
+				{ ((canEdit || canDelete) && showActionBar)
+					? <div className='action-bar comment-actions'>
+							{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
+							{canDelete ? <button onClick={() => deleteComment({ id, pullRequestReviewId })}>{deleteIcon}</button> : null}
+						</div>
+					: null
+				}
 			</div>
 			<CommentBody bodyHTML={bodyHTML} body={bodyMd} />
 		</div>
@@ -118,12 +120,13 @@ export function AddComment({ pendingCommentText }: PullRequest) {
 					value='Comment'
 					type='submit'
 					className='reply-button'
-					disabled={!!pendingCommentText} />
+					disabled={!pendingCommentText} />
 			</div>
 		</form>;
 
 		function onSubmit(evt) {
 			evt.preventDefault();
+			console.log('commenting:', (evt.target as any).body.value);
 			comment((evt.target as any).body.value);
 		}
 	}

@@ -91,7 +91,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 									hunks={thread[0].diffHunks}
 									outdated={thread[0].position === null}
 									path={thread[0].path} />
-								{thread.map(c => <CommentView {...c} />)}
+								{thread.map(c => <CommentView {...c} pullRequestReviewId={event.id} />)}
 							</div>
 					)
 			}</div>

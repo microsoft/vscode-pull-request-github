@@ -114,6 +114,7 @@ body .comment-container.review {
 }
 
 body .comment-container .review-comment-header {
+	position: relative;
 	display: flex;
 	width: 100%;
 	box-sizing: border-box;
