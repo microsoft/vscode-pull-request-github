@@ -170,12 +170,10 @@ function getSummaryLabel(statuses: any[]) {
 	return statusPhrases.join(' and ');
 }
 
-const StateIcon = ({ state }: { state: string }) =>
-	state === 'success'
-		? checkIcon
-		:
-	state === 'failure'
-		? deleteIcon
-		:
-		pendingIcon
-		;
+function StateIcon({ state }: { state: string }) {
+	switch (state) {
+	case 'success': return checkIcon;
+	case 'failure': return deleteIcon;
+	}
+	return pendingIcon;
+}
