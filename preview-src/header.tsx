@@ -2,12 +2,12 @@ import * as React from 'react';
 import { useContext } from 'react';
 
 import { PullRequest } from './cache';
-import { getStatus } from './pullRequestOverviewRenderer';
 import { Avatar, AuthorLink } from './user';
 import { Spaced } from './space';
 import PullRequestContext from './context';
 import { checkIcon } from './icon';
 import Timestamp from './timestamp';
+import { PullRequestStateEnum } from '../src/github/interface';
 
 export function Header({ state, title, number, head, base, url, createdAt, author, }: PullRequest) {
 	const { refresh } = useContext(PullRequestContext);
@@ -49,3 +49,13 @@ const CheckoutButtons = () => {
 		return <button aria-live='polite' onClick={checkout}>Checkout</button>;
 	}
 };
+
+export function getStatus(state: PullRequestStateEnum) {
+	if (state === PullRequestStateEnum.Merged) {
+		return 'Merged';
+	} else if (state === PullRequestStateEnum.Open) {
+		return 'Open';
+	} else {
+		return 'Closed';
+	}
+}
