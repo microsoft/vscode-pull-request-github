@@ -221,6 +221,16 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			});
 
 			const hasMorePages = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
+			if (!result.data) {
+				// We really don't expect this to happen, but it seems to (see #574).
+				// Log a warning and return an empty set.
+				Logger.appendLine(`Warning: no result data for ${remote.owner}/${remote.repositoryName} Status: ${result.status}`);
+				return {
+					pullRequests: [],
+					hasMorePages: false,
+				};
+			}
+
 			const pullRequests = result.data
 				.map(
 					pullRequest => {
