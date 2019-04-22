@@ -12,7 +12,8 @@ import { editIcon, deleteIcon } from './icon';
 
 export type Props = Partial<Comment & PullRequest>;
 
-export function CommentView({ id, pullRequestReviewId, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body, }: Props) {
+export function CommentView(comment: Props) {
+	const { id, pullRequestReviewId, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body, } = comment;
 	const [ bodyMd, setBodyMd ] = useState(body);
 	const { deleteComment, editComment } = useContext(PullRequestContext);
 	const [inEditMode, setEditMode] = useState(false);
@@ -30,9 +31,9 @@ export function CommentView({ id, pullRequestReviewId, canEdit, canDelete, user,
 				() => setEditMode(false)
 			}
 			onSave={
-				edited => {
-					editComment({ id, pullRequestReviewId, body: edited });
-					setBodyMd(edited);
+				text => {
+					editComment({ comment: comment as Comment, text });
+					setBodyMd(text);
 					setEditMode(false);
 				}
 			} />;
