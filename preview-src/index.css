@@ -267,12 +267,12 @@ button, input[type=submit] {
 	user-select: none;
 }
 
-button:focus {
+button:focus, input[type=submit]:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
 }
 
-button:hover:enabled, button:focus:enabled {
+button:hover:enabled, button:focus:enabled, input[type=submit]:focus:enabled {
 	background-color: var(--vscode-button-hoverBackground);
 	cursor: pointer;
 }
@@ -291,6 +291,7 @@ body button.checkedOut {
 body button.secondary,
 body button.secondary:hover {
 	-webkit-filter: grayscale(100%);
+	filter: grayscale(100%);
 }
 
 body button svg {

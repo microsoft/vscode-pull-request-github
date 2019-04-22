@@ -75,10 +75,8 @@ export class PRContext {
 		this.updatePR(this.pr);
 	}
 
-	public editComment = async (args: {comment: Comment, text: string}) => {
-		console.log('editing', args);
-		console.log(await this.postMessage({ command: 'pr.edit-comment', args }));
-	}
+	public editComment = (args: {comment: Comment, text: string}) =>
+		this.postMessage({ command: 'pr.edit-comment', args });
 
 	public requestChanges = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }))
