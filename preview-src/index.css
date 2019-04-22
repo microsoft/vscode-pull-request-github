@@ -1023,3 +1023,8 @@ code {
 	margin-right: 4px;
 }
 
+
+.remove-item {
+	height: 12px;
+	cursor: pointer;
+}

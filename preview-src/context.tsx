@@ -1,7 +1,7 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
-import { MergeMethod } from '../src/github/interface';
+import { MergeMethod, ReviewState } from '../src/github/interface';
 import { Comment } from '../src/common/comment';
 import { EventType, ReviewEvent, isReviewEvent } from '../src/common/timelineEvent';
 
@@ -86,6 +86,18 @@ export class PRContext {
 
 	public submit = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
+
+	public removeReviewer = async (review: ReviewState) => {
+		await this.postMessage({ command: 'pr.remove-reviewer', args: review });
+		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== review.reviewer.login);
+		this.updatePR({ reviewers });
+	}
+
+	public removeLabel = async (label: string) => {
+		await this.postMessage({ command: 'pr.remove-reviewer', args: label });
+		const labels = this.pr.labels.filter(r => r.name !== label);
+		this.updatePR({ labels });
+	}
 
 	private appendReview({ review, reviewers }: any) {
 		const state = this.pr;

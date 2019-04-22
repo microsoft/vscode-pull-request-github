@@ -1,9 +1,11 @@
 import * as React from 'react';
-import { cloneElement, useContext } from 'react';
+import { cloneElement, useContext, useState } from 'react';
 import { PullRequest } from './cache';
 import { Avatar, AuthorLink } from './user';
-import { pendingIcon, commentIcon, checkIcon, diffIcon, plusIcon } from './icon';
+import { pendingIcon, commentIcon, checkIcon, diffIcon, plusIcon, deleteIcon } from './icon';
 import PullRequestContext from './context';
+import { ReviewState, ILabel } from '../src/github/interface';
+import { nbsp } from './space';
 
 export default function Sidebar({ reviewers, labels }: PullRequest) {
 	const { addReviewers, addLabels } = useContext(PullRequestContext);
@@ -14,12 +16,8 @@ export default function Sidebar({ reviewers, labels }: PullRequest) {
 				<button title='Add Reviewers' onClick={addReviewers}>{plusIcon}</button>
 			</div>
 			{
-				reviewers.map(({ reviewer, state }) =>
-					<div className='section-item reviewer'>
-						<Avatar for={reviewer} />
-						<AuthorLink for={reviewer} />
-						{REVIEW_STATE[state]}
-					</div>
+				reviewers.map(state =>
+					<Reviewer key={state.reviewer.login} {...state} />
 				)
 			}
 		</div>
@@ -29,13 +27,35 @@ export default function Sidebar({ reviewers, labels }: PullRequest) {
 				<button title='Add Labels' onClick={addLabels}>{plusIcon}</button>
 			</div>
 			{
-				labels.map(({ name }) =>
-					<div className='section-item label'>
-						{name}
-					</div>
-				)
+				labels.map(label => <Label key={label.name} {...label} />)
 			}
 		</div>
+	</div>;
+}
+
+function Reviewer(reviewState: ReviewState) {
+	const	{ reviewer, state } = reviewState;
+	const [ showDelete, setShowDelete ] = useState(false);
+	const { removeReviewer } = useContext(PullRequestContext);
+	return <div className='section-item reviewer'
+		onMouseEnter={() => setShowDelete(true)}
+		onMouseLeave={() => setShowDelete(false)}>
+		<Avatar for={reviewer} />
+		<AuthorLink for={reviewer} />
+		{ showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState)}>{deleteIcon}️</a></> : null}
+		{REVIEW_STATE[state]}
+	</div>;
+}
+
+function Label(label: ILabel) {
+	const { name } = label;
+	const [ showDelete, setShowDelete ] = useState(false);
+	const { removeLabel } = useContext(PullRequestContext);
+	return <div className='section-item label'
+		onMouseEnter={() => setShowDelete(true)}
+		onMouseLeave={() => setShowDelete(false)}>
+		{name}
+		{ showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeLabel(name)}>{deleteIcon}️</a>{nbsp}</> : null}
 	</div>;
 }
 
