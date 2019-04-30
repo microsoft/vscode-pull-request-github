@@ -31,7 +31,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	static ID = 'GitHubRepository';
 	private _hub: GitHub | undefined;
 	private _initialized: boolean;
-	private _repositoryReturnsAvatar: boolean|null;
+	private _repositoryReturnsAvatar: boolean | null;
 	private _metadata: any;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
@@ -213,7 +213,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	}
 
 	public async ensureRepositoryReturnsAvatar(testAvatarUrl: string): Promise<boolean> {
-		if(this._repositoryReturnsAvatar === null) {
+		if (this._repositoryReturnsAvatar === null) {
 			let response: AxiosResponse | null = null;
 
 			try {
@@ -224,7 +224,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 				}
 			}
 
-			if(response && response.status === 200) {
+			if (response && response.status === 200) {
 				this._repositoryReturnsAvatar = true;
 			}
 
@@ -248,7 +248,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			const hasMorePages = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
 
 			let repoReturnsAvatar: boolean = true;
-			if(result && result.data.length > 0) {
+			if (result && result.data.length > 0) {
 				repoReturnsAvatar = await this.ensureRepositoryReturnsAvatar(result.data[0].user.avatar_url);
 			}
 
@@ -323,7 +323,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			const pullRequestResponses = await Promise.all(promises);
 
 			let repoReturnsAvatar = true;
-			if(pullRequestResponses && pullRequestResponses.length > 0) {
+			if (pullRequestResponses && pullRequestResponses.length > 0) {
 				repoReturnsAvatar = await this.ensureRepositoryReturnsAvatar(pullRequestResponses[0].data.user.avatar_url);
 			}
 
