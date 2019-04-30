@@ -26,7 +26,7 @@ export function CommentView(comment: Props) {
 	}, [body]);
 
 	if (inEditMode) {
-		return <EditComment body={body}
+		return <EditComment body={bodyMd}
 			onCancel={
 				() => setEditMode(false)
 			}

@@ -751,20 +751,20 @@ export class PullRequestManager {
 		}
 	}
 
-	private async ensureTimelineEventAvatars(githubRepository: GitHubRepository, events: TimelineEvent[]): Promise<void>{
+	private async ensureTimelineEventAvatars(githubRepository: GitHubRepository, events: TimelineEvent[]): Promise<void> {
 		if (!events.length) {
 			return;
 		}
 
 		let firstAvatarUrl: string | undefined =
 			events.map(event => {
-				if(isCommitEvent(event)){
+				if (isCommitEvent(event)) {
 					return event.author.avatarUrl;
-				} else if(isReviewEvent(event) || isAssignEvent(event) || isCommentEvent(event) || isMergedEvent(event)){
+				} else if(isReviewEvent(event) || isAssignEvent(event) || isCommentEvent(event) || isMergedEvent(event)) {
 					return event.user.avatarUrl;
 				}
 			})
-			.find(avatarUrl => !!avatarUrl)
+			.find(avatarUrl => !!avatarUrl);
 
 		let repositoryReturnsAvatar = null;
 		if (firstAvatarUrl) {
@@ -773,9 +773,9 @@ export class PullRequestManager {
 
 		if(repositoryReturnsAvatar === false) {
 			events.forEach(event => {
-				if(isCommitEvent(event)){
+				if (isCommitEvent(event)) {
 					event.author.avatarUrl = undefined;
-				} else  if(isReviewEvent(event) || isAssignEvent(event) || isCommentEvent(event) || isMergedEvent(event)){
+				} else  if(isReviewEvent(event) || isAssignEvent(event) || isCommentEvent(event) || isMergedEvent(event)) {
 					event.user.avatarUrl = undefined;
 				}
 			});

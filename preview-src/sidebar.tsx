@@ -38,8 +38,8 @@ function Reviewer(reviewState: ReviewState) {
 	const [ showDelete, setShowDelete ] = useState(false);
 	const { removeReviewer } = useContext(PullRequestContext);
 	return <div className='section-item reviewer'
-		onMouseEnter={() => setShowDelete(true)}
-		onMouseLeave={() => setShowDelete(false)}>
+		onMouseEnter={state === 'REQUESTED' ? () => setShowDelete(true) : null}
+		onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}>
 		<Avatar for={reviewer} />
 		<AuthorLink for={reviewer} />
 		{ showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState)}>{deleteIcon}️</a></> : null}
