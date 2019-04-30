@@ -15,6 +15,9 @@ export class PRContext {
 		}
 	}
 
+	public setTitle = (title: string) =>
+		this.postMessage({ command: 'pr.edit-title', args: { text: title } })
+
 	public checkout = () =>
 		this.postMessage({ command: 'pr.checkout' })
 

@@ -127,7 +127,6 @@ export function AddComment({ pendingCommentText }: PullRequest) {
 
 		function onSubmit(evt) {
 			evt.preventDefault();
-			console.log('commenting:', (evt.target as any).body.value);
 			comment((evt.target as any).body.value);
 		}
 	}

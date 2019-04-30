@@ -1028,3 +1028,7 @@ code {
 	height: 12px;
 	cursor: pointer;
 }
+
+.pull-request-title {
+	position: relative;
+}
