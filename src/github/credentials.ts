@@ -36,7 +36,7 @@ export class CredentialStore {
 		this._octokits = new Map<string, GitHub>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 		vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
-			const uriOrToken = await vscode.window.showInputBox({ prompt: 'Token' });
+			const uriOrToken = await vscode.window.showInputBox({ prompt: 'Token', ignoreFocusOut: true });
 			if (!uriOrToken) { return; }
 			try {
 				const uri = vscode.Uri.parse(uriOrToken);
@@ -44,7 +44,7 @@ export class CredentialStore {
 				uriHandler.handleUri(uri);
 			} catch (error) {
 				// If it doesn't look like a URI, treat it as a token.
-				const host = await vscode.window.showInputBox({ prompt: 'Server', placeHolder: 'github.com' });
+				const host = await vscode.window.showInputBox({ prompt: 'Server', ignoreFocusOut: true, placeHolder: 'github.com' });
 				if (!host) { return; }
 				setToken(host, uriOrToken);
 			}
