@@ -252,6 +252,16 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 				repoReturnsAvatar = await this.ensureRepositoryReturnsAvatar(result.data[0].user.avatar_url);
 			}
 
+			if (!result.data) {
+				// We really don't expect this to happen, but it seems to (see #574).
+				// Log a warning and return an empty set.
+				Logger.appendLine(`Warning: no result data for ${remote.owner}/${remote.repositoryName} Status: ${result.status}`);
+				return {
+					pullRequests: [],
+					hasMorePages: false,
+				};
+			}
+
 			const pullRequests = result.data
 				.map(
 					pullRequest => {

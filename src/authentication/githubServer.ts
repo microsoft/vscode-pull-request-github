@@ -15,9 +15,7 @@ const GHE_OPTIONAL_SCOPES: { [key: string]: boolean } = {'write:discussion': tru
 
 const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
 const CALLBACK_PATH = '/did-authenticate';
-const CALLBACK_URI = vscode.version.endsWith('-insider')
-	? `vscode-insiders://${EXTENSION_ID}${CALLBACK_PATH}`
-	: `vscode://${EXTENSION_ID}${CALLBACK_PATH}`;
+const CALLBACK_URI = `${vscode.env.uriScheme}://${EXTENSION_ID}${CALLBACK_PATH}`;
 const MAX_TOKEN_RESPONSE_AGE = 5 * (1000 * 60 /* minutes in ms */);
 
 export class GitHubManager {
