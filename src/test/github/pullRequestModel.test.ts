@@ -171,19 +171,19 @@ const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseIt
 
 describe('PullRequestModel', () => {
 	it('should return `state` properly as `open`', () => {
-		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr));
+		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr), true);
 
 		assert.equal(open.state, PullRequestStateEnum.Open);
 	});
 
 	it('should return `state` properly as `closed`', () => {
-		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest({ ...pr, state: 'closed' }));
+		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest({ ...pr, state: 'closed' }), true);
 
 		assert.equal(open.state, PullRequestStateEnum.Closed);
 	});
 
 	it('should return `state` properly as `merged`', () => {
-		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest({ ...pr, merged: true, state: 'closed' }));
+		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest({ ...pr, merged: true, state: 'closed' }), true);
 
 		assert.equal(open.state, PullRequestStateEnum.Merged);
 	});
