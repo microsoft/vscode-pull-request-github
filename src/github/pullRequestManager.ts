@@ -97,6 +97,7 @@ export class PullRequestManager {
 	private _activePullRequest?: PullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
+	private _allGitHubRemotes: Remote[] = [];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _gitBlameCache: { [key: string]: string } = {};
@@ -350,7 +351,7 @@ export class PullRequestManager {
 		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
-		const allGitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
+		this._allGitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
 				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
@@ -358,7 +359,7 @@ export class PullRequestManager {
 				return [];
 			});
 
-		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
@@ -442,6 +443,10 @@ export class PullRequestManager {
 		});
 	}
 
+	/**
+	 * Returns the remotes that are currently active, which is those that are important by convention (origin, upstream),
+	 * or the remotes configured by the setting githubPullRequests.remotes
+	 */
 	getGitHubRemotes(): Remote[] {
 		const githubRepositories = this._githubRepositories;
 
@@ -450,6 +455,13 @@ export class PullRequestManager {
 		}
 
 		return githubRepositories.map(repository => repository.remote);
+	}
+
+	/**
+	 * Returns all remotes from the repository.
+	 */
+	getAllGitHubRemotes(): Remote[] {
+		return this._allGitHubRemotes;
 	}
 
 	async authenticate(): Promise<boolean> {
@@ -1407,11 +1419,11 @@ export class PullRequestManager {
 	}
 
 	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel): Promise<boolean> {
-		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, this._githubRepositories, pullRequest);
+		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest);
 	}
 
 	async fetchAndCheckout(pullRequest: PullRequestModel): Promise<void> {
-		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._githubRepositories, pullRequest);
+		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest);
 	}
 
 	async checkout(branchName: string): Promise<void> {
