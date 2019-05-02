@@ -31,10 +31,13 @@ export function CommentView(comment: Props) {
 				() => setEditMode(false)
 			}
 			onSave={
-				text => {
-					editComment({ comment: comment as Comment, text });
-					setBodyMd(text);
-					setEditMode(false);
+				async text => {
+					try {
+						await editComment({ comment: comment as Comment, text });
+						setBodyMd(text);
+					} finally {
+						setEditMode(false);
+					}
 				}
 			} />;
 	}
