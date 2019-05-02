@@ -492,12 +492,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	public async switch(pr: PullRequestModel): Promise<void> {
 		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - start`);
-		this.switchingToReviewMode = true;
-		await this._prManager.fullfillPullRequestMissingInfo(pr);
-
 		this.statusBarItem.text = '$(sync~spin) Switching to Review Mode';
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
+		this.switchingToReviewMode = true;
 
 		try {
 			const didLocalCheckout = await this._prManager.checkoutExistingPullRequestBranch(pr);
@@ -522,10 +520,22 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
-		this._telemetry.on('pr.checkout');
-		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - done`, ReviewManager.ID);
-		this.switchingToReviewMode = false;
-		await this._repository.status();
+		try {
+			this.statusBarItem.text = `$(sync~spin) Fetching additional data: pr/${pr.prNumber}`;
+			this.statusBarItem.command = undefined;
+			this.statusBarItem.show();
+
+			await this._prManager.fullfillPullRequestMissingInfo(pr);
+
+			this._telemetry.on('pr.checkout');
+			Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - done`, ReviewManager.ID);
+		} finally {
+			this.switchingToReviewMode = false;
+			this.statusBarItem.text = `Pull Request #${pr.prNumber}`;
+			this.statusBarItem.command = undefined;
+			this.statusBarItem.show();
+			await this._repository.status();
+		}
 	}
 
 	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
