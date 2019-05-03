@@ -647,7 +647,8 @@ textarea:focus {
 	display: flex;
 }
 
-body button:disabled {
+body button:disabled,
+input[type=submit]:disabled {
 	opacity: 0.4;
 }
 

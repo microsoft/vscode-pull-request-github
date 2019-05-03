@@ -140,7 +140,7 @@ export function AddComment({ pendingCommentText }: PullRequest) {
 			<div className='form-actions'>
 				<button id='close' className='secondary'>Close Pull Request</button>
 				<button id='request-changes'
-					disabled={!!pendingCommentText}
+					disabled={!pendingCommentText}
 					className='secondary'>Request Changes</button>
 				<button id='approve'
 					className='secondary'>Approve</button>
