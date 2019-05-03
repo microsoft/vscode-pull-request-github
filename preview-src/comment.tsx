@@ -16,7 +16,8 @@ export function CommentView(comment: Props) {
 	const { id, pullRequestReviewId, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body, } = comment;
 	const [ bodyMd, setBodyMd ] = useState(body);
 	const { deleteComment, editComment, pr } = useContext(PullRequestContext);
-	const [inEditMode, setEditMode] = useState(!!(pr.pendingCommentDrafts && pr.pendingCommentDrafts[id]));
+	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
+	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
 
 	useEffect(() => {
@@ -27,7 +28,7 @@ export function CommentView(comment: Props) {
 
 	if (inEditMode) {
 		return <EditComment id={id}
-			body={bodyMd}
+			body={currentDraft || body}
 			onCancel={
 				() => setEditMode(false)
 			}
@@ -80,8 +81,10 @@ function EditComment({ id, body, onCancel, onSave }: { id: number, body: string,
 	useEffect(() => {
 		const interval = setInterval(
 			() => {
-				console.log(JSON.stringify(draftComment.current))
-				draftComment.current.dirty && updateDraft(id, draftComment.current.body)
+				if (draftComment.current.dirty) {
+					updateDraft(id, draftComment.current.body);
+					draftComment.current.dirty = false;
+				}
 			},
 			500);
 		return () => clearInterval(interval);
