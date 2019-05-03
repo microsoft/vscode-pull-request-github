@@ -79,7 +79,15 @@ export class PRContext {
 	}
 
 	public editComment = (args: {comment: Comment, text: string}) =>
-		this.postMessage({ command: 'pr.edit-comment', args });
+		this.postMessage({ command: 'pr.edit-comment', args })
+
+	public updateDraft = (id: number, body: string) => {
+		let pullRequest = getState();
+		const pendingCommentDrafts = pullRequest.pendingCommentDrafts || Object.create(null);
+		if (body === pendingCommentDrafts[id]) { return; }
+		pendingCommentDrafts[id] = body;
+		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
+	}
 
 	public requestChanges = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }))

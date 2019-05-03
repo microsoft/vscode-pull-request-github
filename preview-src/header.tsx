@@ -10,15 +10,8 @@ import Timestamp from './timestamp';
 import { PullRequestStateEnum } from '../src/github/interface';
 
 export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, }: PullRequest) {
-	const { refresh } = useContext(PullRequestContext);
 	return <>
-		<div className='overview-title'>
-			<Title {...{title, number, url, canEdit}} />
-			<div className='button-group'>
-				<CheckoutButtons {...{isCurrentlyCheckedOut}} />
-				<button onClick={refresh}>Refresh</button>
-			</div>
-		</div>
+		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut}} />
 		<div className='subtitle'>
 			<div id='status'>{getStatus(state)}</div>
 			<Avatar for={author} />
@@ -38,44 +31,56 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 	</>;
 }
 
-function Title({ title, number, url, canEdit }: Partial<PullRequest>) {
+function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<PullRequest>) {
 	const [ inEditMode, setEditMode ] = useState(false);
 	const [ showActionBar, setShowActionBar ] = useState(false);
-	const { setTitle } = useContext(PullRequestContext);
-	if (inEditMode) {
-		return <form
-				className='editing-form'
-				onSubmit={
-					async evt => {
-						evt.preventDefault();
-						try {
-							await setTitle((evt.target as any).text.value);
-						} finally {
-							setEditMode(false);
+	const [ currentTitle, setCurrentTitle ] = useState(title);
+	const { setTitle, refresh } = useContext(PullRequestContext);
+	const editableTitle =
+		inEditMode
+			?
+				<form
+					className='editing-form title-editing-form'
+					onSubmit={
+						async evt => {
+							evt.preventDefault();
+							try {
+								const txt = (evt.target as any).text.value;
+								await setTitle(txt);
+								setCurrentTitle(txt);
+							} finally {
+								setEditMode(false);
+							}
 						}
 					}
-				}
-			>
-			<textarea name='text'></textarea>
-			<div className='form-actions'>
-				<button>Cancel</button>
-				<input type='submit' value='Update' />
-			</div>
-		</form>;
-	}
-	return <h2 className='pull-request-title'
-			onMouseEnter={() => setShowActionBar(true)}
-			onMouseLeave={() => setShowActionBar(false)}
-		>
-		{title} (<a href={url}>#{number}</a>)
+				>
+				<textarea name='text' defaultValue={currentTitle}></textarea>
+				<div className='form-actions'>
+					<button className='secondary'>Cancel</button>
+					<input type='submit' value='Update' />
+				</div>
+			</form>
+		:
+			<h2>
+				{currentTitle} (<a href={url}>#{number}</a>)
+			</h2>;
+
+	return <div className='overview-title'
+		onMouseEnter={() => setShowActionBar(true)}
+		onMouseLeave={() => setShowActionBar(false)}>
+		{editableTitle}
 		{
-			(canEdit && showActionBar)
-				? <div className='action-bar comment-actions'>
+			(canEdit && showActionBar && !inEditMode)
+				? <div className='flex-action-bar comment-actions'>
 						{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
 					</div>
 				: null
 		}
-	</h2>;
+		<div className='button-group'>
+			<CheckoutButtons {...{isCurrentlyCheckedOut}} />
+			<button onClick={refresh}>Refresh</button>
+		</div>
+	</div>;
 }
 
 const CheckoutButtons = ({ isCurrentlyCheckedOut }) => {

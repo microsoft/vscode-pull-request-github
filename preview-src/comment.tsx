@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect, useRef } from 'react';
 
 import Markdown from './markdown';
 import { Spaced, nbsp } from './space';
@@ -15,8 +15,8 @@ export type Props = Partial<Comment & PullRequest>;
 export function CommentView(comment: Props) {
 	const { id, pullRequestReviewId, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body, } = comment;
 	const [ bodyMd, setBodyMd ] = useState(body);
-	const { deleteComment, editComment } = useContext(PullRequestContext);
-	const [inEditMode, setEditMode] = useState(false);
+	const { deleteComment, editComment, pr } = useContext(PullRequestContext);
+	const [inEditMode, setEditMode] = useState(!!(pr.pendingCommentDrafts && pr.pendingCommentDrafts[id]));
 	const [showActionBar, setShowActionBar] = useState(false);
 
 	useEffect(() => {
@@ -26,7 +26,8 @@ export function CommentView(comment: Props) {
 	}, [body]);
 
 	if (inEditMode) {
-		return <EditComment body={bodyMd}
+		return <EditComment id={id}
+			body={bodyMd}
 			onCancel={
 				() => setEditMode(false)
 			}
@@ -73,7 +74,18 @@ export function CommentView(comment: Props) {
 	</div>;
 }
 
-function EditComment({ body, onCancel, onSave }: { body: string, onCancel: () => void, onSave: (body: string) => void}) {
+function EditComment({ id, body, onCancel, onSave }: { id: number, body: string, onCancel: () => void, onSave: (body: string) => void}) {
+	const draftComment = useRef<{body: string, dirty: boolean}>({ body, dirty: false });
+	const { updateDraft } = useContext(PullRequestContext);
+	useEffect(() => {
+		const interval = setInterval(
+			() => {
+				console.log(JSON.stringify(draftComment.current))
+				draftComment.current.dirty && updateDraft(id, draftComment.current.body)
+			},
+			500);
+		return () => clearInterval(interval);
+	});
 	return <form onSubmit={
 		event => {
 			event.preventDefault();
@@ -81,7 +93,16 @@ function EditComment({ body, onCancel, onSave }: { body: string, onCancel: () =>
 			onSave(markdown.value);
 		}
 	}>
-		<textarea name='markdown' defaultValue={body} />
+		<textarea
+			name='markdown'
+			defaultValue={body}
+			onInput={
+				e => {
+					draftComment.current.body = (e.target as any).value;
+					draftComment.current.dirty = true;
+				}
+			}
+		/>
 		<div className='form-actions'>
 			<button className='secondary' onClick={onCancel}>Cancel</button>
 			<input type='submit' value='Save' />

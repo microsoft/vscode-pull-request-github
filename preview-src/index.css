@@ -312,6 +312,7 @@ body button.checkedOut svg {
 
 .overview-title {
 	display: flex;
+	position: relative;
 }
 
 .overview-title h2 {
@@ -1018,7 +1019,15 @@ code {
 	right: 9px;
 }
 
-.action-bar > button {
+.flex-action-bar {
+	display: flex;
+	justify-content: space-between;
+	z-index: 100;
+	margin-left: 9px;
+}
+
+.action-bar > button,
+.flex-action-bar > button {
 	margin-left: 4px;
 	margin-right: 4px;
 }
@@ -1029,6 +1038,11 @@ code {
 	cursor: pointer;
 }
 
-.pull-request-title {
-	position: relative;
+.title-editing-form {
+	min-width: 30%;
+}
+
+.title-editing-form > .form-actions > button {
+	margin-left: 0;
+	margin-right: 9px;
 }
