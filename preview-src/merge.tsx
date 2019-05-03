@@ -10,7 +10,8 @@ import { nbsp } from './space';
 
 export const StatusChecks = (pr: PullRequest) => {
 	const { state, status, mergeable } = pr;
-	const [showDetails, toggleDetails] = useReducer(show => !show, false);
+	const [showDetails, toggleDetails] = useReducer(show => !show,
+		status.statuses.some(s => s.state === 'failure'));
 
 	return <div id='status-checks'>{
 		state === PullRequestStateEnum.Merged
