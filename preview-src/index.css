@@ -115,6 +115,7 @@ body .comment-container.review {
 	width: 100%;
 	display: flex;
 	flex-direction: column;
+	position: relative;
 }
 
 body .comment-container .review-comment-header {

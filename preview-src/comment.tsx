@@ -10,7 +10,9 @@ import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { editIcon, deleteIcon } from './icon';
 
-export type Props = Partial<Comment & PullRequest>;
+export type Props = Partial<Comment & PullRequest> & {
+	headerInEditMode?: boolean
+};
 
 export function CommentView(comment: Props) {
 	const { id, pullRequestReviewId, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body, } = comment;
@@ -26,27 +28,70 @@ export function CommentView(comment: Props) {
 		}
 	}, [body]);
 
-	if (inEditMode) {
-		return <EditComment id={id}
-			body={currentDraft || body}
-			onCancel={
-				() => setEditMode(false)
+	const header =
+		<Spaced>
+			<Avatar for={user || author} />
+			<AuthorLink for={user || author} />
+			{
+				createdAt
+					? <>
+							commented{nbsp}
+							<Timestamp href={htmlUrl} date={createdAt} />
+						</>
+					: <em>pending</em>
 			}
-			onSave={
-				async text => {
-					try {
-						await editComment({ comment: comment as Comment, text });
-						setBodyMd(text);
-					} finally {
-						setEditMode(false);
-					}
+		</Spaced>;
+
+	if (inEditMode) {
+		return React.cloneElement(
+				comment.headerInEditMode
+					? <CommentBox for={comment} /> : <></>, {}, [
+			<EditComment id={id}
+				body={currentDraft || body}
+				onCancel={
+					() => setEditMode(false)
 				}
-			} />;
+				onSave={
+					async text => {
+						try {
+							await editComment({ comment: comment as Comment, text });
+							setBodyMd(text);
+						} finally {
+							setEditMode(false);
+						}
+					}
+				} />
+			]);
 	}
 
-	return <div className='comment-container comment review-comment'
+	return <CommentBox
+		for={comment}
 		onMouseEnter={() => setShowActionBar(true)}
 		onMouseLeave={() => setShowActionBar(false)}
+	>{ ((canEdit || canDelete) && showActionBar)
+		? <div className='action-bar comment-actions'>
+				{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
+				{canDelete ? <button onClick={() => deleteComment({ id, pullRequestReviewId })}>{deleteIcon}</button> : null}
+			</div>
+		: null
+	}
+			<CommentBody bodyHTML={bodyHTML} body={bodyMd} />
+		</CommentBox>;
+}
+
+type CommentBoxProps = {
+	for: Partial<Comment & PullRequest>
+	header?: React.ReactChild
+	onMouseEnter?: any
+	onMouseLeave?: any
+	children?: any
+};
+
+function CommentBox({
+	for: { user, author, createdAt, htmlUrl },
+	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
+	return <div className='comment-container comment review-comment'
+		{...{onMouseEnter, onMouseLeave}}
 	>
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
@@ -62,15 +107,8 @@ export function CommentView(comment: Props) {
 							: <em>pending</em>
 					}
 				</Spaced>
-				{ ((canEdit || canDelete) && showActionBar)
-					? <div className='action-bar comment-actions'>
-							{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
-							{canDelete ? <button onClick={() => deleteComment({ id, pullRequestReviewId })}>{deleteIcon}</button> : null}
-						</div>
-					: null
-				}
 			</div>
-			<CommentBody bodyHTML={bodyHTML} body={bodyMd} />
+			{children}
 		</div>
 	</div>;
 }

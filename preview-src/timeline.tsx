@@ -120,7 +120,7 @@ function AddReviewSummaryComment() {
 	</div>;
 }
 
-const CommentEventView = (event: CommentEvent) => <CommentView {...event} />;
+const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode {...event} />;
 
 const MergedEventView = (event: MergedEvent) =>
 	<div className='comment-container commit'>
