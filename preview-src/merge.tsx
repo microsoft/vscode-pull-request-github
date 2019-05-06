@@ -2,7 +2,7 @@ import * as React from 'react';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { groupBy } from 'lodash';
-import { useContext, useReducer, useRef, useState } from 'react';
+import { useContext, useReducer, useRef, useState, useEffect } from 'react';
 import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';
 import { checkIcon, deleteIcon, pendingIcon } from './icon';
 import { Avatar, } from './user';
@@ -10,8 +10,17 @@ import { nbsp } from './space';
 
 export const StatusChecks = (pr: PullRequest) => {
 	const { state, status, mergeable } = pr;
-	const [showDetails, toggleDetails] = useReducer(show => !show,
-		status.statuses.some(s => s.state === 'failure'));
+	const [showDetails, toggleDetails] = useReducer(
+		show => !show,
+		status.statuses.some(s => s.state === 'failure')) as [boolean, () => void];
+
+	useEffect(() => {
+		if (status.statuses.some(s => s.state === 'failure')) {
+			if (!showDetails) { toggleDetails(); }
+		} else {
+			if (showDetails) { toggleDetails(); }
+		}
+	}, status.statuses);
 
 	return <div id='status-checks'>{
 		state === PullRequestStateEnum.Merged
