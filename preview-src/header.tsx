@@ -54,9 +54,10 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<P
 						}
 					}
 				>
-				<textarea name='text' defaultValue={currentTitle}></textarea>
+				<textarea name='text' style={{ width: '100%' }} defaultValue={currentTitle}></textarea>
 				<div className='form-actions'>
-					<button className='secondary'>Cancel</button>
+					<button className='secondary'
+						onClick={() => setEditMode(false)}>Cancel</button>
 					<input type='submit' value='Update' />
 				</div>
 			</form>

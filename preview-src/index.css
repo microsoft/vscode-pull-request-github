@@ -636,19 +636,18 @@ textarea:focus {
 	padding: 5px 0;
 }
 
-.editing-form .form-actions button {
-	margin-left: 5px;
-}
-
 .reply-button {
 	margin-left: auto;
 	margin-right: 0 !important;
 }
 
 .form-actions {
+	display: flex;
+}
+
+.main-comment-form > .form-actions {
 	padding-top: 10px;
 	margin-bottom: 10px;
-	display: flex;
 }
 
 body button:disabled,
@@ -1044,10 +1043,9 @@ code {
 }
 
 .title-editing-form {
-	min-width: 30%;
+	flex-grow: 1;
 }
 
-.title-editing-form > .form-actions > button {
+.title-editing-form > .form-actions {
 	margin-left: 0;
-	margin-right: 9px;
 }

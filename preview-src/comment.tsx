@@ -130,7 +130,7 @@ export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 
 export function AddComment({ pendingCommentText }: PullRequest) {
 		const { updatePR, comment } = useContext(PullRequestContext);
-		return <form id='comment-form' className='comment-form' onSubmit={onSubmit}>
+		return <form id='comment-form' className='comment-form main-comment-form' onSubmit={onSubmit}>
 			<textarea id='comment-textarea'
 				name='body'
 				onInput={({ target }) =>
