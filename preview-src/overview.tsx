@@ -17,7 +17,7 @@ export const Overview = (pr: PullRequest) =>
 		<Sidebar {...pr} />
 		<div id='main'>
 			<div id='description'>
-				<CommentView {...pr} />
+				<CommentView isPRDescription {...pr} />
 			</div>
 			<Timeline events={pr.events} />
 			<StatusChecks {...pr} />

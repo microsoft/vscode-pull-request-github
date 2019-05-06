@@ -12,12 +12,13 @@ import { editIcon, deleteIcon } from './icon';
 
 export type Props = Partial<Comment & PullRequest> & {
 	headerInEditMode?: boolean
+	isPRDescription?: boolean
 };
 
 export function CommentView(comment: Props) {
-	const { id, pullRequestReviewId, canEdit, canDelete, user, author, htmlUrl, createdAt, bodyHTML, body, } = comment;
+	const { id, pullRequestReviewId, canEdit, canDelete, bodyHTML, body, isPRDescription } = comment;
 	const [ bodyMd, setBodyMd ] = useState(body);
-	const { deleteComment, editComment, pr } = useContext(PullRequestContext);
+	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
@@ -27,20 +28,6 @@ export function CommentView(comment: Props) {
 			setBodyMd(body);
 		}
 	}, [body]);
-
-	const header =
-		<Spaced>
-			<Avatar for={user || author} />
-			<AuthorLink for={user || author} />
-			{
-				createdAt
-					? <>
-							commented{nbsp}
-							<Timestamp href={htmlUrl} date={createdAt} />
-						</>
-					: <em>pending</em>
-			}
-		</Spaced>;
 
 	if (inEditMode) {
 		return React.cloneElement(
@@ -54,7 +41,11 @@ export function CommentView(comment: Props) {
 				onSave={
 					async text => {
 						try {
-							await editComment({ comment: comment as Comment, text });
+							if (isPRDescription) {
+								await setDescription(text);
+							} else {
+								await editComment({ comment: comment as Comment, text });
+							}
 							setBodyMd(text);
 						} finally {
 							setEditMode(false);
@@ -88,8 +79,10 @@ type CommentBoxProps = {
 };
 
 function CommentBox({
-	for: { user, author, createdAt, htmlUrl },
+	for: comment,
 	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
+	const	{ user, author, createdAt, htmlUrl } = comment;
+	console.log('comment=', comment)
 	return <div className='comment-container comment review-comment'
 		{...{onMouseEnter, onMouseLeave}}
 	>
