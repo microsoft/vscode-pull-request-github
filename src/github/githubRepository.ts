@@ -227,8 +227,9 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			if (response && response.status === 200) {
 				this._repositoryReturnsAvatar = true;
 			}
-
-			this._repositoryReturnsAvatar = false;
+			else {
+				this._repositoryReturnsAvatar = false;
+			}
 		}
 
 		return this._repositoryReturnsAvatar;
