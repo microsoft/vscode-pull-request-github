@@ -93,6 +93,10 @@ body span.avatar-icon svg {
 	height: 24px;
 }
 
+.vscode-light .avatar-icon {
+	filter: invert(100%);
+}
+
 body img.avatar {
 	vertical-align: middle;
 }
