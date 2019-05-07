@@ -110,11 +110,11 @@ export function updateCommentCommands(vscodeComment: vscode.Comment, commentCont
 	}
 }
 
-export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser): IAccount {
+export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser, repositoryReturnsAvatar: boolean): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: user.avatar_url
+		avatarUrl: repositoryReturnsAvatar ? user.avatar_url : undefined
 	};
 }
 
@@ -212,7 +212,7 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 	};
 }
 
-export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse): Comment {
+export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse, repositoryReturnsAvatar: boolean): Comment {
 	let ret: Comment = {
 		url: comment.url,
 		id: comment.id,
@@ -223,7 +223,7 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		commitId: comment.commit_id,
 		originalPosition: comment.original_position,
 		originalCommitId: comment.original_commit_id,
-		user: convertRESTUserToAccount(comment.user),
+		user: convertRESTUserToAccount(comment.user, repositoryReturnsAvatar),
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,
