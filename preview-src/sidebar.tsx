@@ -42,7 +42,7 @@ function Reviewer(reviewState: ReviewState) {
 		onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}>
 		<Avatar for={reviewer} />
 		<AuthorLink for={reviewer} />
-		{ showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState)}>{deleteIcon}️</a></> : null}
+		{ showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.login)}>{deleteIcon}️</a></> : null}
 		{REVIEW_STATE[state]}
 	</div>;
 }

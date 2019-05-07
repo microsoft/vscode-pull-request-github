@@ -101,9 +101,9 @@ export class PRContext {
 	public submit = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
 
-	public removeReviewer = async (review: ReviewState) => {
-		await this.postMessage({ command: 'pr.remove-reviewer', args: review });
-		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== review.reviewer.login);
+	public removeReviewer = async (login: string) => {
+		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
+		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== login);
 		this.updatePR({ reviewers });
 	}
 
