@@ -342,3 +342,5 @@ package-lock.json
 package.insiders.json
 README.insiders.md
 src/constants.insiders.ts
+
+.devcontainer/
