@@ -36,7 +36,12 @@ export function CommentView(comment: Props) {
 			<EditComment id={id}
 				body={currentDraft || body}
 				onCancel={
-					() => setEditMode(false)
+					() => {
+						if (pr.pendingCommentDrafts) {
+							delete pr.pendingCommentDrafts[id];
+						}
+						setEditMode(false);
+					}
 				}
 				onSave={
 					async text => {
