@@ -9,7 +9,7 @@ import * as Github from '@octokit/rest';
 import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
+import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent, isAssignEvent, isCommentEvent, isMergedEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
@@ -620,14 +620,20 @@ export class PullRequestManager {
 	}
 
 	async getReviewRequests(pullRequest: PullRequestModel): Promise<IAccount[]> {
-		const { remote, octokit } = await pullRequest.githubRepository.ensure();
+		const githubRepository = pullRequest.githubRepository;
+		const { remote, octokit } = await githubRepository.ensure();
 		const result = await octokit.pullRequests.getReviewRequests({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber
 		});
 
-		return result.data.users.map(user => convertRESTUserToAccount(user));
+		let repositoryReturnsAvatar = true
+		if(result.data.users.length) {
+			repositoryReturnsAvatar = await githubRepository.ensureRepositoryReturnsAvatar(result.data.users[0].avatar_url);
+		}
+
+		return result.data.users.map(user => convertRESTUserToAccount(user, repositoryReturnsAvatar));
 	}
 
 	async getPullRequestComments(pullRequest: PullRequestModel): Promise<Comment[]> {
@@ -666,7 +672,8 @@ export class PullRequestManager {
 	 */
 	private async getPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { remote, octokit } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const githubRepository = (pullRequest as PullRequestModel).githubRepository;
+		const { remote, octokit } = await githubRepository.ensure();
 		const reviewData = await octokit.pullRequests.getComments({
 			owner: remote.owner,
 			repo: remote.repositoryName,
@@ -674,7 +681,13 @@ export class PullRequestManager {
 			per_page: 100
 		});
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
-		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(comment), remote));
+
+		let repositoryReturnsAvatar = true
+		if(reviewData.data.length) {
+			repositoryReturnsAvatar = await githubRepository.ensureRepositoryReturnsAvatar(reviewData.data[0].user.avatar_url);
+		}
+
+		const rawComments = reviewData.data.map(comment => this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(comment, repositoryReturnsAvatar), remote));
 		return rawComments;
 	}
 
@@ -732,6 +745,7 @@ export class PullRequestManager {
 				ret = data.repository.pullRequest.timeline.edges.map((edge: any) => edge.node);
 				let events = parseGraphQLTimelineEvents(ret);
 				await this.addReviewTimelineEventComments(pullRequest, events);
+
 				return events;
 			} catch (e) {
 				console.log(e);
@@ -746,6 +760,37 @@ export class PullRequestManager {
 			})).data;
 			Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 			return convertRESTTimelineEvents(await this.parseRESTTimelineEvents(pullRequest, remote, ret));
+		}
+	}
+
+	private async ensureTimelineEventAvatars(githubRepository: GitHubRepository, events: TimelineEvent[]): Promise<void> {
+		if (!events.length) {
+			return;
+		}
+
+		let firstAvatarUrl: string | undefined =
+			events.map(event => {
+				if (isCommitEvent(event)) {
+					return event.author.avatarUrl;
+				} else if(isReviewEvent(event) || isAssignEvent(event) || isCommentEvent(event) || isMergedEvent(event)) {
+					return event.user.avatarUrl;
+				}
+			})
+			.find(avatarUrl => !!avatarUrl);
+
+		let repositoryReturnsAvatar = null;
+		if (firstAvatarUrl) {
+			repositoryReturnsAvatar = await githubRepository.ensureRepositoryReturnsAvatar(firstAvatarUrl);
+		}
+
+		if(repositoryReturnsAvatar === false) {
+			events.forEach(event => {
+				if (isCommitEvent(event)) {
+					event.author.avatarUrl = undefined;
+				} else  if(isReviewEvent(event) || isAssignEvent(event) || isCommentEvent(event) || isMergedEvent(event)) {
+					event.user.avatarUrl = undefined;
+				}
+			});
 		}
 	}
 
@@ -783,7 +828,8 @@ export class PullRequestManager {
 			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.graphNodeId });
 		}
 
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		const githubRepository = pullRequest.githubRepository;
+		const { octokit, remote } = await githubRepository.ensure();
 
 		try {
 			let ret = await octokit.pullRequests.createCommentReply({
@@ -794,7 +840,9 @@ export class PullRequestManager {
 				in_reply_to: Number(reply_to.id)
 			});
 
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
+			const repositoryReturnsAvatar = await githubRepository.ensureRepositoryReturnsAvatar(ret.data.user.avatar_url);
+
+			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, repositoryReturnsAvatar), remote);
 		} catch (e) {
 			this.handleError(e);
 		}
@@ -934,7 +982,8 @@ export class PullRequestManager {
 			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path: commentPath, position });
 		}
 
-		const { octokit, remote } = await (pullRequest as PullRequestModel).githubRepository.ensure();
+		const githubRepository = (pullRequest as PullRequestModel).githubRepository;
+		const { octokit, remote } = await githubRepository.ensure();
 
 		try {
 			let ret = await octokit.pullRequests.createComment({
@@ -947,7 +996,9 @@ export class PullRequestManager {
 				position: position
 			});
 
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
+			const repositoryReturnsAvatar = await githubRepository.ensureRepositoryReturnsAvatar(ret.data.user.avatar_url);
+
+			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, repositoryReturnsAvatar), remote);
 		} catch (e) {
 			this.handleError(e);
 		}
@@ -1049,7 +1100,7 @@ export class PullRequestManager {
 			// Create PR
 			let { data } = await repo.octokit.pullRequests.create(params);
 			const item = convertRESTPullRequestToRawPullRequest(data);
-			const repoReturnsAvatar = await repo.ensureRepositoryReturnsAvatar(item.user.avatarUrl);
+			const repoReturnsAvatar = await repo.ensureRepositoryReturnsAvatar(item.user.avatarUrl!);
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item, repoReturnsAvatar);
 
 			const branchNameSeparatorIndex = params.head.indexOf(':');
@@ -1086,7 +1137,8 @@ export class PullRequestManager {
 				return this.editPendingReviewComment(pullRequest, comment.graphNodeId, text);
 			}
 
-			const { octokit, remote } = await pullRequest.githubRepository.ensure();
+			const githubRepository = pullRequest.githubRepository;
+			const { octokit, remote } = await githubRepository.ensure();
 
 			const ret = await octokit.pullRequests.editComment({
 				owner: remote.owner,
@@ -1095,7 +1147,9 @@ export class PullRequestManager {
 				comment_id: comment.id
 			});
 
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data), remote);
+			const repositoryReturnsAvatar = await githubRepository.ensureRepositoryReturnsAvatar(ret.data.user.avatar_url);
+
+			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, repositoryReturnsAvatar), remote);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -1480,6 +1534,8 @@ export class PullRequestManager {
 			// Ensures that pending comments made in reply to other reviews are included for the pending review
 			pendingReview.comments = reviewComments.filter(c => c.isDraft);
 		}
+
+		await this.ensureTimelineEventAvatars(pullRequest.githubRepository, events);
 	}
 
 	private async fixCommitAttribution(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
@@ -1512,12 +1568,14 @@ export class PullRequestManager {
 			}
 		});
 
-		return Promise.all([
+		await Promise.all([
 			this.addReviewTimelineEventComments(pullRequest, events),
 			this.fixCommitAttribution(pullRequest, events)
-		]).then(_ => {
-			return events;
-		});
+		]);
+
+		this.ensureTimelineEventAvatars(pullRequest.githubRepository, events);
+
+		return events;
 	}
 }
 

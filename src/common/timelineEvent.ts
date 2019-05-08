@@ -26,6 +26,7 @@ export interface Committer {
 }
 
 export interface CommentEvent {
+	id: number;
 	htmlUrl: string;
 	body: string;
 	bodyHTML?: string;
@@ -33,11 +34,11 @@ export interface CommentEvent {
 	event: EventType;
 	canEdit?: boolean;
 	canDelete?: boolean;
-	id: number;
 	createdAt: string;
 }
 
 export interface ReviewEvent {
+	id: number;
 	event: EventType;
 	comments: Comment[];
 	submittedAt: string;
@@ -47,10 +48,10 @@ export interface ReviewEvent {
 	user: IAccount;
 	authorAssociation: string;
 	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
-	id: number;
 }
 
 export interface CommitEvent {
+	id: number;
 	author: IAccount;
 	event: EventType;
 	sha: string;
@@ -61,6 +62,7 @@ export interface CommitEvent {
 }
 
 export interface MergedEvent {
+	id: number;
 	graphNodeId: string;
 	user: IAccount;
 	createdAt: string;
@@ -72,6 +74,7 @@ export interface MergedEvent {
 }
 
 export interface AssignEvent {
+	id: number;
 	event: EventType;
 	user: IAccount;
 	actor: IAccount;

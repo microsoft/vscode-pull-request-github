@@ -36,7 +36,7 @@ export class PullRequestModel {
 		return undefined;
 	}
 	public get userAvatarUri(): vscode.Uri | undefined {
-		if (this.prItem) {
+		if (this.prItem && this._repositoryReturnsAvatar) {
 			let key = this.userAvatar;
 			if (key) {
 				let uri = vscode.Uri.parse(`${key}&s=${64}`);

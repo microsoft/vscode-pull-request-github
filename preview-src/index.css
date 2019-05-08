@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-body {
+#app {
 	display: grid;
 	grid-template-columns: 670px auto;
 }
@@ -82,13 +82,22 @@ body .comment-container .avatar-container a {
 	display: flex;
 }
 
-body .comment-container .avatar-container img.avatar {
+body .comment-container .avatar-container img.avatar,
+body .comment-container .avatar-container .avatar-icon svg {
 	margin-right: 0;
 }
 
-body img.avatar {
+body img.avatar,
+body span.avatar-icon svg {
 	width: 24px;
 	height: 24px;
+}
+
+.vscode-light .avatar-icon {
+	filter: invert(100%);
+}
+
+body img.avatar {
 	vertical-align: middle;
 }
 
@@ -106,9 +115,11 @@ body .comment-container.review {
 	width: 100%;
 	display: flex;
 	flex-direction: column;
+	position: relative;
 }
 
 body .comment-container .review-comment-header {
+	position: relative;
 	display: flex;
 	width: 100%;
 	box-sizing: border-box;
@@ -153,8 +164,16 @@ body .comment-container .review-comment-header {
 	margin-left: 15px;
 }
 
-.status-item, #status-checks .form-actions {
+.status-item, .form-actions {
 	display: flex;
+}
+
+.form-actions > input[type=submit] {
+	margin-left: auto;
+}
+
+.status-check-detail-text {
+	margin-left: 0.7em;
 }
 
 #confirm-merge {
@@ -240,7 +259,7 @@ body .hidden-focusable {
 	overflow: hidden;
 }
 
-button {
+button, input[type=submit] {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	border-radius: 0px;
@@ -253,12 +272,12 @@ button {
 	user-select: none;
 }
 
-button:focus {
+button:focus, input[type=submit]:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
 }
 
-button:hover:enabled, button:focus:enabled {
+button:hover:enabled, button:focus:enabled, input[type=submit]:focus:enabled {
 	background-color: var(--vscode-button-hoverBackground);
 	cursor: pointer;
 }
@@ -277,6 +296,7 @@ body button.checkedOut {
 body button.secondary,
 body button.secondary:hover {
 	-webkit-filter: grayscale(100%);
+	filter: grayscale(100%);
 }
 
 body button svg {
@@ -297,6 +317,7 @@ body button.checkedOut svg {
 
 .overview-title {
 	display: flex;
+	position: relative;
 }
 
 .overview-title h2 {
@@ -324,7 +345,8 @@ body button.checkedOut svg {
 	margin-top: 8px;
 }
 
-.subtitle .avatar {
+.subtitle .avatar,
+.subtitle .avatar-icon svg {
 	margin-right: 8px;
 }
 
@@ -462,7 +484,11 @@ body .overview-title .button-group button {
 }
 
 .commit .avatar-container .avatar,
-.merged .avatar-container .avatar {
+.commit .avatar-container .avatar-icon,
+.commit .avatar-container .avatar-icon svg,
+.merged .avatar-container .avatar,
+.merged .avatar-container .avatar-icon,
+.merged .avatar-container .avatar-icon svg {
 	width: 18px;
 	height: 18px;
 }
@@ -611,22 +637,22 @@ textarea:focus {
 	padding: 5px 0;
 }
 
-.editing-form .form-actions button {
-	margin-left: 5px;
-}
-
 .reply-button {
 	margin-left: auto;
 	margin-right: 0 !important;
 }
 
-body .comment-form .form-actions {
-	padding-top: 10px;
-	margin-bottom: 10px;
+.form-actions {
 	display: flex;
 }
 
-body button:disabled {
+.main-comment-form > .form-actions {
+	padding-top: 10px;
+	margin-bottom: 10px;
+}
+
+body button:disabled,
+input[type=submit]:disabled {
 	opacity: 0.4;
 }
 
@@ -934,7 +960,7 @@ code {
 }
 
 @media (max-width: 925px) {
-	body {
+	#app {
 		display: block;
 	}
 
@@ -977,4 +1003,50 @@ code {
 		width: auto;
 		margin-right: 4px;
 	}
+}
+
+.icon {
+	width: 1em;
+	height: 1em;
+	font-size: 16px;
+}
+
+.push-right {
+	margin-left: auto;
+}
+
+.action-bar {
+	position: absolute;
+	display: flex;
+	justify-content: space-between;
+	z-index: 100;
+	top: 9px;
+	right: 9px;
+}
+
+.flex-action-bar {
+	display: flex;
+	justify-content: space-between;
+	z-index: 100;
+	margin-left: 9px;
+}
+
+.action-bar > button,
+.flex-action-bar > button {
+	margin-left: 4px;
+	margin-right: 4px;
+}
+
+
+.remove-item {
+	height: 12px;
+	cursor: pointer;
+}
+
+.title-editing-form {
+	flex-grow: 1;
+}
+
+.title-editing-form > .form-actions {
+	margin-left: 0;
 }
