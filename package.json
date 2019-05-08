@@ -147,24 +147,24 @@
         {
           "id": "pr:github",
           "name": "GitHub Pull Requests",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
+          "when": "!config.githubPullRequests.showInSCM && config.git.enabled"
         },
         {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
+          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode"
         }
       ],
       "scm": [
         {
           "id": "pr:scm",
           "name": "GitHub Pull Requests",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && workspaceFolderCount != 0"
+          "when": "config.githubPullRequests.showInSCM && config.git.enabled"
         },
         {
           "id": "prStatus:scm",
           "name": "Changes In Pull Request",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:hasGitHubRemotes && github:inReviewMode"
+          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode"
         }
       ]
     },
@@ -324,6 +324,11 @@
       {
         "command": "pr.signinAndRefreshList",
         "title": "Sign in and Refresh",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.configureRemotes",
+        "title": "Configure Remotes...",
         "category": "GitHub Pull Requests"
       }
     ],

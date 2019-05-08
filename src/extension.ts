@@ -18,6 +18,7 @@ import { handler as uriHandler } from './common/uri';
 import { ITelemetry } from './github/interface';
 import * as Keychain from './authentication/keychain';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
+import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ApiImpl } from './api/api1';
 import { Repository } from './api/api';
 
@@ -28,7 +29,7 @@ fetch.Promise = PolyfillPromise;
 
 let telemetry: ITelemetry;
 
-async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: Repository): Promise<void> {
+async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: Repository, tree: PullRequestsTreeDataProvider): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
@@ -41,6 +42,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 				if (repository) {
 					repository.status();
 				}
+				await tree.refresh();
 			} catch (e) {
 				vscode.window.showErrorMessage(formatError(e));
 			}
@@ -50,7 +52,8 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
 	const prManager = new PullRequestManager(repository, telemetry);
-	const reviewManager = new ReviewManager(context, Keychain.onDidChange, repository, prManager, telemetry);
+	const reviewManager = new ReviewManager(context, repository, prManager, tree, telemetry);
+	tree.initialize(prManager);
 	registerCommands(context, prManager, reviewManager, telemetry);
 
 	git.repositories.forEach(repo => {
@@ -88,10 +91,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	Logger.appendLine('Looking for git repository');
 	const firstRepository = apiImpl.repositories[0];
 
+	const prTree = new PullRequestsTreeDataProvider(telemetry);
+
 	if (firstRepository) {
-		await init(context, apiImpl, firstRepository);
+		await init(context, apiImpl, firstRepository, prTree);
 	} else {
-		onceEvent(apiImpl.onDidOpenRepository)(r => init(context, apiImpl, r));
+		onceEvent(apiImpl.onDidOpenRepository)(r => init(context, apiImpl, r, prTree));
 	}
 
 	return apiImpl;

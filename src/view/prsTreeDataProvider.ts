@@ -9,7 +9,7 @@ import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './
 import { PRType, ITelemetry } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING } from '../github/pullRequestManager';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
@@ -19,14 +19,14 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _disposables: vscode.Disposable[];
 	private _childrenDisposables: vscode.Disposable[];
 	private _view: vscode.TreeView<TreeNode>;
+	private _prManager: PullRequestManager;
+	private _initialized: boolean = false;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
 	constructor(
-		onShouldReload: vscode.Event<any>,
-		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry
 	) {
 		this._disposables = [];
@@ -48,10 +48,17 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		});
 
 		this._disposables.push(this._view);
-		this._disposables.push(onShouldReload(e => {
-			this._onDidChangeTreeData.fire();
-		}));
 		this._childrenDisposables = [];
+	}
+
+	initialize(prManager: PullRequestManager) {
+		if (this._initialized) {
+			throw new Error('Tree has already been initialized!');
+		}
+
+		this._initialized = true;
+		this._prManager = prManager;
+		this.refresh();
 	}
 
 	async refresh(node?: TreeNode) {
@@ -63,6 +70,26 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	}
 
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
+		if (!this._prManager) {
+			if (!vscode.workspace.workspaceFolders) {
+				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.NoOpenFolder)]);
+			} else {
+				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.NoGitRepositories)]);
+			}
+		}
+
+		if (!this._prManager.getGitHubRemotes().length) {
+			const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+			if (remotesSetting) {
+				return Promise.resolve([
+					new PRCategoryActionNode(this._view, PRCategoryActionType.NoMatchingRemotes),
+					new PRCategoryActionNode(this._view, PRCategoryActionType.ConfigureRemotes)
+				]);
+			}
+
+			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.NoRemotes)]);
+		}
+
 		if (!element) {
 			if (this._childrenDisposables && this._childrenDisposables.length) {
 				this._childrenDisposables.forEach(dispose => dispose.dispose());
