@@ -243,9 +243,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 							return null;
 						}
 
-						const item = convertRESTPullRequestToRawPullRequest(pullRequest, this);
-
-						return new PullRequestModel(this, this.remote, item);
+						return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
 					}
 				)
 				.filter(item => item !== null) as PullRequestModel[];
@@ -299,8 +297,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 					return null;
 				}
 
-				const item = convertRESTPullRequestToRawPullRequest(response.data, this);
-				return new PullRequestModel(this, this.remote, item);
+				return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(response.data, this));
 			}).filter(item => item !== null) as PullRequestModel[];
 
 			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - done`, GitHubRepository.ID);
@@ -336,7 +333,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 				});
 				Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data));
+				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
 			} else {
 				let { data } = await octokit.pullRequests.get({
 					owner: remote.owner,
@@ -350,8 +347,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 					return;
 				}
 
-				let item = convertRESTPullRequestToRawPullRequest(data, this);
-				return new PullRequestModel(this, remote, item);
+				return new PullRequestModel(this, remote, convertRESTPullRequestToRawPullRequest(data, this));
 			}
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
