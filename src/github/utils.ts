@@ -321,7 +321,15 @@ function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
 	}
 }
 
-export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse): PullRequest {
+function parseAuthor(author: {login: string, url: string, avatarUrl: string}, githubRepository: GitHubRepository): IAccount {
+	return {
+		login: author.login,
+		url: author.url,
+		avatarUrl: githubRepository.isGitHubDotCom ? author.avatarUrl : undefined
+	}
+}
+
+export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse, githubRepository: GitHubRepository): PullRequest {
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
 	return {
@@ -335,7 +343,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		updatedAt: graphQLPullRequest.updatedAt,
 		head: parseRef(graphQLPullRequest.headRef),
 		base: parseRef(graphQLPullRequest.baseRef),
-		user: graphQLPullRequest.author,
+		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
 		nodeId: graphQLPullRequest.id,
@@ -343,7 +351,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 	};
 }
 
-export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview): Common.ReviewEvent {
+export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
 		comments: review.comments.nodes.map(parseGraphQLComment).filter(c => !c.inReplyToId),
@@ -351,14 +359,14 @@ export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview): Common
 		body: review.body,
 		bodyHTML: review.bodyHTML,
 		htmlUrl: review.url,
-		user: review.author,
+		user: parseAuthor(review.author, githubRepository),
 		authorAssociation: review.authorAssociation,
 		state: review.state,
 		id: review.databaseId
 	};
 }
 
-export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent)[]): Common.TimelineEvent[] {
+export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent)[], githubRepository: GitHubRepository): Common.TimelineEvent[] {
 	let ret: Common.TimelineEvent[] = [];
 	events.forEach(event => {
 		let type = convertGraphQLEventType(event.__typename);
@@ -370,7 +378,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
-					user: commentEvent.author,
+					user: parseAuthor(commentEvent.author, githubRepository),
 					event: type,
 					canEdit: commentEvent.viewerCanUpdate,
 					canDelete: commentEvent.viewerCanDelete,
@@ -387,7 +395,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					body: reviewEvent.body,
 					bodyHTML: reviewEvent.bodyHTML,
 					htmlUrl: reviewEvent.url,
-					user: reviewEvent.author,
+					user: parseAuthor(reviewEvent.author, githubRepository),
 					authorAssociation: reviewEvent.authorAssociation,
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
@@ -398,7 +406,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 				ret.push({
 					event: type,
 					sha: commitEv.oid,
-					author: commitEv.author.user || { login: commitEv.committer.name, avatarUrl: commitEv.committer.avatarUrl },
+					author: commitEv.author.user ? parseAuthor(commitEv.author.user, githubRepository) : { login: commitEv.committer.name },
 					htmlUrl: commitEv.url,
 					message: commitEv.message
 				} as Common.CommitEvent);
@@ -408,7 +416,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 
 				ret.push({
 					event: type,
-					user: mergeEv.actor,
+					user: parseAuthor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
 					mergeRef: mergeEv.mergeRef.name,
 					sha: mergeEv.commit.oid,

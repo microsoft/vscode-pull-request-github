@@ -718,7 +718,8 @@ export class PullRequestManager {
 
 	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const { octokit, query, remote, supportsGraphQl } = await pullRequest.githubRepository.ensure();
+		const githubRepository = pullRequest.githubRepository;
+		const { octokit, query, remote, supportsGraphQl } = await githubRepository.ensure();
 
 		let ret = [];
 		if (supportsGraphQl) {
@@ -732,7 +733,7 @@ export class PullRequestManager {
 					}
 				});
 				ret = data.repository.pullRequest.timeline.edges.map((edge: any) => edge.node);
-				let events = parseGraphQLTimelineEvents(ret);
+				let events = parseGraphQLTimelineEvents(ret, githubRepository);
 				await this.addReviewTimelineEventComments(pullRequest, events);
 
 				return events;
@@ -1236,7 +1237,8 @@ export class PullRequestManager {
 
 	public async submitReview(pullRequest: PullRequestModel, event?: ReviewEvent, body?: string): Promise<CommonReviewEvent> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
-		const { mutate } = await pullRequest.githubRepository.ensure();
+		const githubRepository = pullRequest.githubRepository;
+		const { mutate } = await githubRepository.ensure();
 
 		if (pendingReviewId) {
 			const { data } = await mutate<SubmitReviewResponse>({
@@ -1249,7 +1251,7 @@ export class PullRequestManager {
 			});
 
 			pullRequest.inDraftMode = false;
-			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview);
+			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, githubRepository);
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
 		}
@@ -1501,7 +1503,10 @@ export class PullRequestManager {
 				const author = matchingCommits[0].author;
 				// There is not necessarily a GitHub account associated with the commit.
 				if (author !== null) {
-					commitEvent.author.avatarUrl = author.avatar_url;
+					if(pullRequest.githubRepository.isGitHubDotCom) {
+						commitEvent.author.avatarUrl = author.avatar_url;
+					}
+
 					commitEvent.author.login = author.login;
 					commitEvent.author.url = author.html_url;
 				}
