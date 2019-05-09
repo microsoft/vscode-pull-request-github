@@ -30,11 +30,11 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	static ID = 'GitHubRepository';
 	private _hub: GitHub | undefined;
 	private _initialized: boolean;
-	public readonly isGitHubDotCom: boolean;
 	private _metadata: any;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
 	public commentsProvider?: PRDocumentCommentProvider;
+	public readonly isGitHubDotCom: boolean;
 
 	public get hub(): GitHub {
 		if (!this._hub) {
