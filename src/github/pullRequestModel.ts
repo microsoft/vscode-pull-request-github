@@ -29,14 +29,14 @@ export class PullRequestModel {
 	}
 
 	public get userAvatar(): string | undefined {
-		if (this.prItem && this.githubRepository.isGitHubDotCom) {
+		if (this.prItem) {
 			return this.prItem.user.avatarUrl;
 		}
 
 		return undefined;
 	}
 	public get userAvatarUri(): vscode.Uri | undefined {
-		if (this.prItem && this.githubRepository.isGitHubDotCom) {
+		if (this.prItem) {
 			let key = this.userAvatar;
 			if (key) {
 				let uri = vscode.Uri.parse(`${key}&s=${64}`);
