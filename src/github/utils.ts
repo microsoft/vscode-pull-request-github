@@ -17,6 +17,7 @@ import { getEditCommand, getDeleteCommand, getAcceptInputCommands } from './comm
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 import { uniqBy } from '../common/utils';
+import { GitHubRepository } from './githubRepository';
 
 export interface CommentHandler {
 	commentController?: vscode.CommentController;
@@ -110,11 +111,11 @@ export function updateCommentCommands(vscodeComment: vscode.Comment, commentCont
 	}
 }
 
-export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser, repositoryReturnsAvatar: boolean): IAccount {
+export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser, githubRepository: GitHubRepository): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: repositoryReturnsAvatar ? user.avatar_url : undefined
+		avatarUrl: githubRepository.isGitHubDotCom ? user.avatar_url : undefined
 	};
 }
 
@@ -127,7 +128,7 @@ export function convertRESTHeadToIGitHubRef(head: Octokit.PullRequestsGetRespons
 	};
 }
 
-export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullRequestsCreateResponse | Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem): PullRequest {
+export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullRequestsCreateResponse | Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem, githubRepository: GitHubRepository): PullRequest {
 	let {
 		number,
 		body,
@@ -149,10 +150,10 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			body,
 			title,
 			url: html_url,
-			user: convertRESTUserToAccount(user),
+			user: convertRESTUserToAccount(user, githubRepository),
 			state,
 			merged: (pullRequest as Octokit.PullRequestsGetResponse).merged || false,
-			assignee: assignee ? convertRESTUserToAccount(assignee) : undefined,
+			assignee: assignee ? convertRESTUserToAccount(assignee, githubRepository) : undefined,
 			createdAt: created_at,
 			updatedAt: updated_at,
 			head: convertRESTHeadToIGitHubRef(head),
@@ -165,14 +166,14 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 	return item;
 }
 
-export function convertRESTReviewEvent(review: Octokit.PullRequestsCreateReviewResponse): Common.ReviewEvent {
+export function convertRESTReviewEvent(review: Octokit.PullRequestsCreateReviewResponse, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
 		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
 		body: review.body,
 		htmlUrl: review.html_url,
-		user: convertRESTUserToAccount(review.user),
+		user: convertRESTUserToAccount(review.user, githubRepository),
 		authorAssociation: review.user.type,
 		state: review.state as 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING',
 		id: review.id
@@ -193,7 +194,7 @@ export function parseCommentDiffHunk(comment: Comment): DiffHunk[] {
 	return diffHunks;
 }
 
-export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesEditCommentResponse): Comment {
+export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesEditCommentResponse, githubRepository: GitHubRepository): Comment {
 	return {
 		url: comment.url,
 		id: comment.id,
@@ -204,7 +205,7 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 		commitId: undefined,
 		originalPosition: undefined,
 		originalCommitId: undefined,
-		user: convertRESTUserToAccount(comment.user),
+		user: convertRESTUserToAccount(comment.user, githubRepository),
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,
@@ -212,7 +213,7 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 	};
 }
 
-export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse, repositoryReturnsAvatar: boolean): Comment {
+export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse, githubRepository: GitHubRepository): Comment {
 	let ret: Comment = {
 		url: comment.url,
 		id: comment.id,
@@ -223,7 +224,7 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		commitId: comment.commit_id,
 		originalPosition: comment.original_position,
 		originalCommitId: comment.original_commit_id,
-		user: convertRESTUserToAccount(comment.user, repositoryReturnsAvatar),
+		user: convertRESTUserToAccount(comment.user, githubRepository),
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,

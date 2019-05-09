@@ -16,7 +16,6 @@ import { PRDocumentCommentProvider } from '../view/prDocumentCommentProvider';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
 const queries = require('./queries.gql');
-import axois, { AxiosResponse } from 'axios';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -31,7 +30,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	static ID = 'GitHubRepository';
 	private _hub: GitHub | undefined;
 	private _initialized: boolean;
-	private _repositoryReturnsAvatar: boolean | null;
+	public readonly isGitHubDotCom: boolean;
 	private _metadata: any;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
@@ -74,7 +73,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	}
 
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
-		this._repositoryReturnsAvatar = remote.host.toLowerCase() === 'github.com' ? true : null;
+		this.isGitHubDotCom = remote.host.toLowerCase() === 'github.com';
 	}
 
 	get supportsGraphQl(): boolean {
@@ -212,29 +211,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		return await (prType === PRType.All ? this.getAllPullRequests(page) : this.getPullRequestsForCategory(prType, page));
 	}
 
-	public async ensureRepositoryReturnsAvatar(testAvatarUrl: string): Promise<boolean> {
-		if (this._repositoryReturnsAvatar === null) {
-			let response: AxiosResponse | null = null;
-
-			try {
-				response  = await axois({method: 'get', url: testAvatarUrl, maxRedirects: 0});
-			} catch (err) {
-				if(err && err instanceof Error) {
-					response = (<any> err).response as AxiosResponse;
-				}
-			}
-
-			if (response && response.status === 200) {
-				this._repositoryReturnsAvatar = true;
-			}
-			else {
-				this._repositoryReturnsAvatar = false;
-			}
-		}
-
-		return this._repositoryReturnsAvatar;
-	}
-
 	private async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
@@ -247,12 +223,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			});
 
 			const hasMorePages = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
-
-			let repoReturnsAvatar: boolean = true;
-			if (result && result.data.length > 0) {
-				repoReturnsAvatar = await this.ensureRepositoryReturnsAvatar(result.data[0].user.avatar_url);
-			}
-
 			if (!result.data) {
 				// We really don't expect this to happen, but it seems to (see #574).
 				// Log a warning and return an empty set.
@@ -273,9 +243,9 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 							return null;
 						}
 
-						const item = convertRESTPullRequestToRawPullRequest(pullRequest);
+						const item = convertRESTPullRequestToRawPullRequest(pullRequest, this);
 
-						return new PullRequestModel(this, this.remote, item, repoReturnsAvatar);
+						return new PullRequestModel(this, this.remote, item);
 					}
 				)
 				.filter(item => item !== null) as PullRequestModel[];
@@ -323,19 +293,14 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
 			const pullRequestResponses = await Promise.all(promises);
 
-			let repoReturnsAvatar = true;
-			if (pullRequestResponses && pullRequestResponses.length > 0) {
-				repoReturnsAvatar = await this.ensureRepositoryReturnsAvatar(pullRequestResponses[0].data.user.avatar_url);
-			}
-
 			const pullRequests = pullRequestResponses.map(response => {
 				if (!response.data.head.repo) {
 					Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 					return null;
 				}
 
-				const item = convertRESTPullRequestToRawPullRequest(response.data,);
-				return new PullRequestModel(this, this.remote, item, repoReturnsAvatar);
+				const item = convertRESTPullRequestToRawPullRequest(response.data, this);
+				return new PullRequestModel(this, this.remote, item);
 			}).filter(item => item !== null) as PullRequestModel[];
 
 			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - done`, GitHubRepository.ID);
@@ -371,9 +336,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 				});
 				Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-				const repoReturnsAvatar = await this.ensureRepositoryReturnsAvatar(data.repository.pullRequest.author.avatarUrl);
-
-				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data), repoReturnsAvatar);
+				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data));
 			} else {
 				let { data } = await octokit.pullRequests.get({
 					owner: remote.owner,
@@ -382,15 +345,13 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 				});
 				Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-				const repoReturnsAvatar = await this.ensureRepositoryReturnsAvatar(data.user.avatar_url);
-
 				if (!data.head.repo) {
 					Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
 					return;
 				}
 
-				let item = convertRESTPullRequestToRawPullRequest(data);
-				return new PullRequestModel(this, remote, item, repoReturnsAvatar);
+				let item = convertRESTPullRequestToRawPullRequest(data, this);
+				return new PullRequestModel(this, remote, item);
 			}
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
