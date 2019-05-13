@@ -326,7 +326,7 @@ function parseAuthor(author: {login: string, url: string, avatarUrl: string}, gi
 		login: author.login,
 		url: author.url,
 		avatarUrl: githubRepository.isGitHubDotCom ? author.avatarUrl : undefined
-	}
+	};
 }
 
 export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse, githubRepository: GitHubRepository): PullRequest {

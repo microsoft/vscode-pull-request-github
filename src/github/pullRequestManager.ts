@@ -1503,7 +1503,7 @@ export class PullRequestManager {
 				const author = matchingCommits[0].author;
 				// There is not necessarily a GitHub account associated with the commit.
 				if (author !== null) {
-					if(pullRequest.githubRepository.isGitHubDotCom) {
+					if (pullRequest.githubRepository.isGitHubDotCom) {
 						commitEvent.author.avatarUrl = author.avatar_url;
 					}
 
