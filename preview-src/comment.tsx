@@ -87,7 +87,6 @@ function CommentBox({
 	for: comment,
 	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const	{ user, author, createdAt, htmlUrl } = comment;
-	console.log('comment=', comment)
 	return <div className='comment-container comment review-comment'
 		{...{onMouseEnter, onMouseLeave}}
 	>
