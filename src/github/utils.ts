@@ -17,6 +17,7 @@ import { getEditCommand, getDeleteCommand, getAcceptInputCommands } from './comm
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 import { uniqBy } from '../common/utils';
+import { GitHubRepository } from './githubRepository';
 
 export interface CommentHandler {
 	commentController?: vscode.CommentController;
@@ -110,11 +111,11 @@ export function updateCommentCommands(vscodeComment: vscode.Comment, commentCont
 	}
 }
 
-export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser, repositoryReturnsAvatar: boolean): IAccount {
+export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser, githubRepository: GitHubRepository): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: repositoryReturnsAvatar ? user.avatar_url : undefined
+		avatarUrl: githubRepository.isGitHubDotCom ? user.avatar_url : undefined
 	};
 }
 
@@ -127,7 +128,7 @@ export function convertRESTHeadToIGitHubRef(head: Octokit.PullRequestsGetRespons
 	};
 }
 
-export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullRequestsCreateResponse | Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem): PullRequest {
+export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullRequestsCreateResponse | Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem, githubRepository: GitHubRepository): PullRequest {
 	let {
 		number,
 		body,
@@ -149,10 +150,10 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			body,
 			title,
 			url: html_url,
-			user: convertRESTUserToAccount(user),
+			user: convertRESTUserToAccount(user, githubRepository),
 			state,
 			merged: (pullRequest as Octokit.PullRequestsGetResponse).merged || false,
-			assignee: assignee ? convertRESTUserToAccount(assignee) : undefined,
+			assignee: assignee ? convertRESTUserToAccount(assignee, githubRepository) : undefined,
 			createdAt: created_at,
 			updatedAt: updated_at,
 			head: convertRESTHeadToIGitHubRef(head),
@@ -165,14 +166,14 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 	return item;
 }
 
-export function convertRESTReviewEvent(review: Octokit.PullRequestsCreateReviewResponse): Common.ReviewEvent {
+export function convertRESTReviewEvent(review: Octokit.PullRequestsCreateReviewResponse, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
 		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
 		body: review.body,
 		htmlUrl: review.html_url,
-		user: convertRESTUserToAccount(review.user),
+		user: convertRESTUserToAccount(review.user, githubRepository),
 		authorAssociation: review.user.type,
 		state: review.state as 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING',
 		id: review.id
@@ -193,7 +194,7 @@ export function parseCommentDiffHunk(comment: Comment): DiffHunk[] {
 	return diffHunks;
 }
 
-export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesEditCommentResponse): Comment {
+export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesEditCommentResponse, githubRepository: GitHubRepository): Comment {
 	return {
 		url: comment.url,
 		id: comment.id,
@@ -204,7 +205,7 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 		commitId: undefined,
 		originalPosition: undefined,
 		originalCommitId: undefined,
-		user: convertRESTUserToAccount(comment.user),
+		user: convertRESTUserToAccount(comment.user, githubRepository),
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,
@@ -212,7 +213,7 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 	};
 }
 
-export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse, repositoryReturnsAvatar: boolean): Comment {
+export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse, githubRepository: GitHubRepository): Comment {
 	let ret: Comment = {
 		url: comment.url,
 		id: comment.id,
@@ -223,7 +224,7 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		commitId: comment.commit_id,
 		originalPosition: comment.original_position,
 		originalCommitId: comment.original_commit_id,
-		user: convertRESTUserToAccount(comment.user, repositoryReturnsAvatar),
+		user: convertRESTUserToAccount(comment.user, githubRepository),
 		body: comment.body,
 		createdAt: comment.created_at,
 		htmlUrl: comment.html_url,
@@ -320,7 +321,15 @@ function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
 	}
 }
 
-export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse): PullRequest {
+function parseAuthor(author: {login: string, url: string, avatarUrl: string}, githubRepository: GitHubRepository): IAccount {
+	return {
+		login: author.login,
+		url: author.url,
+		avatarUrl: githubRepository.isGitHubDotCom ? author.avatarUrl : undefined
+	}
+}
+
+export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse, githubRepository: GitHubRepository): PullRequest {
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
 	return {
@@ -334,7 +343,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		updatedAt: graphQLPullRequest.updatedAt,
 		head: parseRef(graphQLPullRequest.headRef),
 		base: parseRef(graphQLPullRequest.baseRef),
-		user: graphQLPullRequest.author,
+		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
 		nodeId: graphQLPullRequest.id,
@@ -342,7 +351,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 	};
 }
 
-export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview): Common.ReviewEvent {
+export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
 		comments: review.comments.nodes.map(parseGraphQLComment).filter(c => !c.inReplyToId),
@@ -350,14 +359,14 @@ export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview): Common
 		body: review.body,
 		bodyHTML: review.bodyHTML,
 		htmlUrl: review.url,
-		user: review.author,
+		user: parseAuthor(review.author, githubRepository),
 		authorAssociation: review.authorAssociation,
 		state: review.state,
 		id: review.databaseId
 	};
 }
 
-export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent)[]): Common.TimelineEvent[] {
+export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent)[], githubRepository: GitHubRepository): Common.TimelineEvent[] {
 	let ret: Common.TimelineEvent[] = [];
 	events.forEach(event => {
 		let type = convertGraphQLEventType(event.__typename);
@@ -369,7 +378,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
-					user: commentEvent.author,
+					user: parseAuthor(commentEvent.author, githubRepository),
 					event: type,
 					canEdit: commentEvent.viewerCanUpdate,
 					canDelete: commentEvent.viewerCanDelete,
@@ -386,7 +395,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					body: reviewEvent.body,
 					bodyHTML: reviewEvent.bodyHTML,
 					htmlUrl: reviewEvent.url,
-					user: reviewEvent.author,
+					user: parseAuthor(reviewEvent.author, githubRepository),
 					authorAssociation: reviewEvent.authorAssociation,
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
@@ -397,7 +406,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 				ret.push({
 					event: type,
 					sha: commitEv.oid,
-					author: commitEv.author.user || { login: commitEv.committer.name, avatarUrl: commitEv.committer.avatarUrl },
+					author: commitEv.author.user ? parseAuthor(commitEv.author.user, githubRepository) : { login: commitEv.committer.name },
 					htmlUrl: commitEv.url,
 					message: commitEv.message
 				} as Common.CommitEvent);
@@ -407,7 +416,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 
 				ret.push({
 					event: type,
-					user: mergeEv.actor,
+					user: parseAuthor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
 					mergeRef: mergeEv.mergeRef.name,
 					sha: mergeEv.commit.oid,

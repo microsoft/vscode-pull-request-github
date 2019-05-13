@@ -29,14 +29,14 @@ export class PullRequestModel {
 	}
 
 	public get userAvatar(): string | undefined {
-		if (this.prItem && this._repositoryReturnsAvatar) {
+		if (this.prItem) {
 			return this.prItem.user.avatarUrl;
 		}
 
 		return undefined;
 	}
 	public get userAvatarUri(): vscode.Uri | undefined {
-		if (this.prItem && this._repositoryReturnsAvatar) {
+		if (this.prItem) {
 			let key = this.userAvatar;
 			if (key) {
 				let uri = vscode.Uri.parse(`${key}&s=${64}`);
@@ -82,7 +82,7 @@ export class PullRequestModel {
 	public head: GitHubRef;
 	public base: GitHubRef;
 
-	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest, private _repositoryReturnsAvatar: boolean) {
+	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest) {
 		this.update(prItem);
 	}
 
