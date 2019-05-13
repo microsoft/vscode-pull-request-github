@@ -555,7 +555,6 @@
     "@octokit/rest": "^15.15.1",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
-    "axios": "^0.18.0",
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
