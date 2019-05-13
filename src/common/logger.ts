@@ -23,7 +23,7 @@ class Log {
 	}
 
 	public appendLine(message: string, component?: string) {
-		switch(this._logLevel) {
+		switch (this._logLevel) {
 			case LogLevel.Off:
 				return;
 			case LogLevel.Debug:
@@ -53,7 +53,7 @@ class Log {
 
 	private getLogLevel() {
 		let logLevel = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
-		switch(logLevel) {
+		switch (logLevel) {
 			case 'debug':
 				this._logLevel = LogLevel.Debug;
 				break;

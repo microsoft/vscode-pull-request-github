@@ -166,7 +166,7 @@ export async function promiseFromEvent<T, U>(
 			try {
 				Promise.resolve(adapter(value, resolve, reject))
 					.catch(reject);
-			} catch(error) {
+			} catch (error) {
 				reject(error);
 			}
 		})
@@ -326,7 +326,6 @@ export class TernarySearchTree<E> {
 					node.left.segment = iter.value();
 				}
 				node = node.left;
-
 			} else if (val < 0) {
 				// right
 				if (!node.right) {
