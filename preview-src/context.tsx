@@ -1,7 +1,7 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
-import { MergeMethod, ReviewState } from '../src/github/interface';
+import { MergeMethod } from '../src/github/interface';
 import { Comment } from '../src/common/comment';
 import { EventType, ReviewEvent, isReviewEvent } from '../src/common/timelineEvent';
 
