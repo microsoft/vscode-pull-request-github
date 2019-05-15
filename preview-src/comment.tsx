@@ -7,7 +7,7 @@ import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
 import { Comment } from '../src/common/comment';
 import { PullRequest } from './cache';
-import PullRequestContext from './context';
+import PullRequestContext, { CommentCommand } from './context';
 import { editIcon, deleteIcon } from './icon';
 
 export type Props = Partial<Comment & PullRequest> & {
@@ -140,9 +140,8 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 	[draftComment]);
 
 	const submit = useCallback(
-		async (formElement: HTMLFormElement) => {
-			console.log('submitting');
-			const { markdown, submitButton }: FormInputSet = formElement;
+		async () => {
+			const { markdown, submitButton }: FormInputSet = form.current;
 			submitButton.disabled = true;
 			try {
 				await onSave(markdown.value);
@@ -150,15 +149,24 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 				submitButton.disabled = false;
 			}
 		},
-		[onSave]);
+		[form, onSave]);
+
+	const onSubmit = useCallback(
+		event => {
+			event.preventDefault();
+			submit();
+		},
+		[submit]
+	);
 
 	const onKeyDown = useCallback(
 		e => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-				submit(form.current);
+				e.preventDefault();
+				submit();
 			}
 		},
-		[form]
+		[submit]
 	);
 
 	const onInput = useCallback(
@@ -168,10 +176,7 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 		},
 		[draftComment]);
 
-	return <form ref={form} onSubmit={event => {
-		event.preventDefault();
-		submit(event.target as HTMLFormElement);
-	}}>
+	return <form ref={form} onSubmit={onSubmit}>
 		<textarea
 			name='markdown'
 			defaultValue={body}
@@ -201,49 +206,50 @@ export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 	<div className='comment-body'><em>No description provided.</em></div>;
 
 export function AddComment({ pendingCommentText }: PullRequest) {
-		const { updatePR, comment } = useContext(PullRequestContext);
-		const [ isBusy, setBusy ] = useState(false);
-		const onSubmit = useCallback(async evt => {
-			evt.preventDefault();
-			try {
-				setBusy(true);
-				await comment((evt.target as any).body.value);
-			} finally {
-				setBusy(false);
-			}
-		}, [comment]);
+	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
+	const [ isBusy, setBusy ] = useState(false);
+	const form = useRef<HTMLFormElement>();
 
-		const onClose = useCallback(async evt => {
-			evt.preventDefault();
+	const submit = useCallback(
+		async (command: (body: string) => Promise<any> = comment) => {
 			try {
 				setBusy(true);
-				await comment((evt.target as any).body.value);
+				const { body }: FormInputSet = form.current;
+				await command(body.value);
+				updatePR({ pendingCommentText: '' });
 			} finally {
 				setBusy(false);
 			}
-		}, [comment]);
+		},
+		[comment, updatePR, setBusy]);
 
-		const onRequestChanges = useCallback(async evt => {
-			evt.preventDefault();
-			try {
-				setBusy(true);
-				await comment((evt.target as any).body.value);
-			} finally {
-				setBusy(false);
-			}
-		}, [comment]);
+	const onSubmit = useCallback(
+		e => {
+			e.preventDefault();
+			submit();
+		},
+		[submit]);
 
-		const onApprove = useCallback(async evt => {
-			evt.preventDefault();
-			try {
-				setBusy(true);
-				await comment((evt.target as any).body.value);
-			} finally {
-				setBusy(false);
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				submit();
 			}
-		}, [comment]);
+		},
+		[submit]);
+
+	const onClick = useCallback(
+		e => {
+			e.preventDefault();
+			const command = e.target.dataset.command as CommentCommand;
+			submit({
+
+			});
+		},
+		[submit]);
 
 		return <form id='comment-form'
+			ref={form}
 			className='comment-form main-comment-form'
 			onSubmit={onSubmit}>
 			<textarea id='comment-textarea'
@@ -252,21 +258,25 @@ export function AddComment({ pendingCommentText }: PullRequest) {
 					({ target }) =>
 						updatePR({ pendingCommentText: (target as any).value })
 				}
+				onKeyDown={onKeyDown}
 				value={pendingCommentText}
 				placeholder='Leave a comment' />
 			<div className='form-actions'>
 				<button id='close'
 					className='secondary'
 					disabled={isBusy}
-					onClick={onClose}>Close Pull Request</button>
+					onClick={onClick}
+					data-command='close'>Close Pull Request</button>
 				<button id='request-changes'
 					disabled={isBusy || !pendingCommentText}
 					className='secondary'
-					onClick={onRequestChanges}>Request Changes</button>
+					onClick={onClick}
+					data-command='requestChanges'>Request Changes</button>
 				<button id='approve'
 					className='secondary'
 					disabled={isBusy}
-					onClick={onApprove}>Approve</button>
+					onClick={onClick}
+					data-command='approve'>Approve</button>
 				<input id='reply'
 					value='Comment'
 					type='submit'

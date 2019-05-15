@@ -3,7 +3,13 @@ import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
 import { MergeMethod } from '../src/github/interface';
 import { Comment } from '../src/common/comment';
-import { EventType, ReviewEvent, isReviewEvent } from '../src/common/timelineEvent';
+import { EventType, ReviewEvent, isReviewEvent, TimelineEvent } from '../src/common/timelineEvent';
+
+export type CommentCommand =
+	'pr.comment' |
+	'pr.close' |
+	'pr.approve' |
+	'pr.request-changes';
 
 export class PRContext {
 	constructor(
