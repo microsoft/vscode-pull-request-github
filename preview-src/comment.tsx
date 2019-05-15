@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useContext, useState, useEffect, useRef } from 'react';
+import { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 import Markdown from './markdown';
 import { Spaced, nbsp } from './space';
@@ -110,9 +110,22 @@ function CommentBox({
 	</div>;
 }
 
-function EditComment({ id, body, onCancel, onSave }: { id: number, body: string, onCancel: () => void, onSave: (body: string) => void}) {
-	const draftComment = useRef<{body: string, dirty: boolean}>({ body, dirty: false });
+type FormInputSet ={
+	[name: string]: HTMLInputElement | HTMLTextAreaElement
+}
+
+type EditCommentProps = {
+	id: number
+	body: string
+	onCancel: () => void
+	onSave: (body: string) => Promise<any>
+}
+
+function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 	const { updateDraft } = useContext(PullRequestContext);
+	const draftComment = useRef<{body: string, dirty: boolean}>({ body, dirty: false });
+	const form = useRef<HTMLFormElement>();
+
 	useEffect(() => {
 		const interval = setInterval(
 			() => {
@@ -123,27 +136,51 @@ function EditComment({ id, body, onCancel, onSave }: { id: number, body: string,
 			},
 			500);
 		return () => clearInterval(interval);
-	});
-	return <form onSubmit={
-		event => {
-			event.preventDefault();
-			const { markdown }: any = event.target;
-			onSave(markdown.value);
-		}
-	}>
+	},
+	[draftComment]);
+
+	const submit = useCallback(
+		async (formElement: HTMLFormElement) => {
+			console.log('submitting');
+			const { markdown, submitButton }: FormInputSet = formElement;
+			submitButton.disabled = true;
+			try {
+				await onSave(markdown.value);
+			} finally {
+				submitButton.disabled = false;
+			}
+		},
+		[onSave]);
+
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				submit(form.current);
+			}
+		},
+		[form]
+	);
+
+	const onInput = useCallback(
+		e => {
+			draftComment.current.body = (e.target as any).value;
+			draftComment.current.dirty = true;
+		},
+		[draftComment]);
+
+	return <form ref={form} onSubmit={event => {
+		event.preventDefault();
+		submit(event.target as HTMLFormElement);
+	}}>
 		<textarea
 			name='markdown'
 			defaultValue={body}
-			onInput={
-				e => {
-					draftComment.current.body = (e.target as any).value;
-					draftComment.current.dirty = true;
-				}
-			}
+			onKeyDown={onKeyDown}
+			onInput={onInput}
 		/>
 		<div className='form-actions'>
 			<button className='secondary' onClick={onCancel}>Cancel</button>
-			<input type='submit' value='Save' />
+			<input type='submit' name='submitButton' value='Save' />
 		</div>
 	</form>;
 }
