@@ -8,9 +8,10 @@ import { Avatar, AuthorLink } from './user';
 import { groupBy } from '../src/common/utils';
 import { Spaced, nbsp } from './space';
 import Timestamp from './timestamp';
-import { CommentView } from './comment';
+import { CommentView, CommentBody } from './comment';
 import Diff from './diff';
 import PullRequestContext from './context';
+import { ReviewState } from '../src/github/interface';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 	<>{
@@ -52,6 +53,9 @@ const CommitEventView = (event: CommitEvent) =>
 const association = (
 	{ authorAssociation }: ReviewEvent,
 	format=(assoc: string) => `(${assoc.toLowerCase()})`) =>
+		authorAssociation.toLowerCase() === 'user'
+			? format('you')
+			:
 		(authorAssociation && authorAssociation !== 'NONE')
 			? format(authorAssociation)
 			: null;
@@ -65,7 +69,18 @@ const groupCommentsByPath = (comments: Comment[]) =>
 	groupBy(comments,
 		comment => comment.path + ':' + positionKey(comment));
 
+const DESCRIPTORS = {
+	PENDING: 'will review',
+	COMMENTED: 'reviewed',
+	CHANGES_REQUESTED: 'requested changes',
+	APPROVED: 'approved',
+};
+
+const reviewDescriptor = (state: string) =>
+	DESCRIPTORS[state] || 'reviewed';
+
 const ReviewEventView = (event: ReviewEvent) => {
+	console.log(event)
 	const comments = groupCommentsByPath(event.comments);
 	return <div className='comment-container comment'>
 		<div className='review-comment-container'>
@@ -76,11 +91,16 @@ const ReviewEventView = (event: ReviewEvent) => {
 					{ event.state === 'PENDING'
 						? <em>review pending</em>
 						: <>
-								reviewed{nbsp}
+								{reviewDescriptor(event.state)}{nbsp}
 								<Timestamp href={event.htmlUrl} date={event.submittedAt} />
 						</> }
 				</Spaced>
 			</div>
+			{
+				event.state !== 'PENDING'
+					? <CommentBody body={event.body} />
+					: null
+			}
 			<div className='comment-body review-comment-body'>{
 				Object.entries(comments)
 					.map(

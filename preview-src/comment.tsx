@@ -243,10 +243,10 @@ export function AddComment({ pendingCommentText }: PullRequest) {
 			e.preventDefault();
 			const command = e.target.dataset.command as CommentCommand;
 			submit({
-
-			});
+				approve, requestChanges, close
+			}[command]);
 		},
-		[submit]);
+		[submit, approve, requestChanges, close]);
 
 		return <form id='comment-form'
 			ref={form}

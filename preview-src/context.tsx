@@ -3,13 +3,7 @@ import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
 import { MergeMethod } from '../src/github/interface';
 import { Comment } from '../src/common/comment';
-import { EventType, ReviewEvent, isReviewEvent, TimelineEvent } from '../src/common/timelineEvent';
-
-export type CommentCommand =
-	'pr.comment' |
-	'pr.close' |
-	'pr.approve' |
-	'pr.request-changes';
+import { EventType, ReviewEvent, isReviewEvent } from '../src/common/timelineEvent';
 
 export class PRContext {
 	constructor(
@@ -106,6 +100,9 @@ export class PRContext {
 
 	public submit = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
+
+	public close = async (body?: string) =>
+		this.appendReview(await this.postMessage({ command: 'pr.close', args: body }))
 
 	public removeReviewer = async (login: string) => {
 		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
