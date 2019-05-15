@@ -202,30 +202,76 @@ export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 
 export function AddComment({ pendingCommentText }: PullRequest) {
 		const { updatePR, comment } = useContext(PullRequestContext);
-		return <form id='comment-form' className='comment-form main-comment-form' onSubmit={onSubmit}>
+		const [ isBusy, setBusy ] = useState(false);
+		const onSubmit = useCallback(async evt => {
+			evt.preventDefault();
+			try {
+				setBusy(true);
+				await comment((evt.target as any).body.value);
+			} finally {
+				setBusy(false);
+			}
+		}, [comment]);
+
+		const onClose = useCallback(async evt => {
+			evt.preventDefault();
+			try {
+				setBusy(true);
+				await comment((evt.target as any).body.value);
+			} finally {
+				setBusy(false);
+			}
+		}, [comment]);
+
+		const onRequestChanges = useCallback(async evt => {
+			evt.preventDefault();
+			try {
+				setBusy(true);
+				await comment((evt.target as any).body.value);
+			} finally {
+				setBusy(false);
+			}
+		}, [comment]);
+
+		const onApprove = useCallback(async evt => {
+			evt.preventDefault();
+			try {
+				setBusy(true);
+				await comment((evt.target as any).body.value);
+			} finally {
+				setBusy(false);
+			}
+		}, [comment]);
+
+		return <form id='comment-form'
+			className='comment-form main-comment-form'
+			onSubmit={onSubmit}>
 			<textarea id='comment-textarea'
 				name='body'
-				onInput={({ target }) =>
-					updatePR({ pendingCommentText: (target as any).value })}
+				onInput={
+					({ target }) =>
+						updatePR({ pendingCommentText: (target as any).value })
+				}
 				value={pendingCommentText}
 				placeholder='Leave a comment' />
 			<div className='form-actions'>
-				<button id='close' className='secondary'>Close Pull Request</button>
+				<button id='close'
+					className='secondary'
+					disabled={isBusy}
+					onClick={onClose}>Close Pull Request</button>
 				<button id='request-changes'
-					disabled={!pendingCommentText}
-					className='secondary'>Request Changes</button>
+					disabled={isBusy || !pendingCommentText}
+					className='secondary'
+					onClick={onRequestChanges}>Request Changes</button>
 				<button id='approve'
-					className='secondary'>Approve</button>
+					className='secondary'
+					disabled={isBusy}
+					onClick={onApprove}>Approve</button>
 				<input id='reply'
 					value='Comment'
 					type='submit'
 					className='reply-button'
-					disabled={!pendingCommentText} />
+					disabled={isBusy || !pendingCommentText} />
 			</div>
 		</form>;
-
-		function onSubmit(evt) {
-			evt.preventDefault();
-			comment((evt.target as any).body.value);
-		}
 	}
