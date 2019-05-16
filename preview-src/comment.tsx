@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 import Markdown from './markdown';
 import { Spaced, nbsp } from './space';
@@ -7,7 +7,7 @@ import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
 import { Comment } from '../src/common/comment';
 import { PullRequest } from './cache';
-import PullRequestContext, { CommentCommand } from './context';
+import PullRequestContext from './context';
 import { editIcon, deleteIcon } from './icon';
 
 export type Props = Partial<Comment & PullRequest> & {
@@ -110,16 +110,16 @@ function CommentBox({
 	</div>;
 }
 
-type FormInputSet ={
+type FormInputSet = {
 	[name: string]: HTMLInputElement | HTMLTextAreaElement
-}
+};
 
 type EditCommentProps = {
 	id: number
 	body: string
 	onCancel: () => void
 	onSave: (body: string) => Promise<any>
-}
+};
 
 function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 	const { updateDraft } = useContext(PullRequestContext);
@@ -241,10 +241,8 @@ export function AddComment({ pendingCommentText }: PullRequest) {
 	const onClick = useCallback(
 		e => {
 			e.preventDefault();
-			const command = e.target.dataset.command as CommentCommand;
-			submit({
-				approve, requestChanges, close
-			}[command]);
+			const { command } = e.target.dataset;
+			submit({ approve, requestChanges, close }[command]);
 		},
 		[submit, approve, requestChanges, close]);
 

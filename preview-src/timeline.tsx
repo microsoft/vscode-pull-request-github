@@ -11,7 +11,6 @@ import Timestamp from './timestamp';
 import { CommentView, CommentBody } from './comment';
 import Diff from './diff';
 import PullRequestContext from './context';
-import { ReviewState } from '../src/github/interface';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 	<>{
@@ -80,7 +79,6 @@ const reviewDescriptor = (state: string) =>
 	DESCRIPTORS[state] || 'reviewed';
 
 const ReviewEventView = (event: ReviewEvent) => {
-	console.log(event)
 	const comments = groupCommentsByPath(event.comments);
 	return <div className='comment-container comment'>
 		<div className='review-comment-container'>
