@@ -8,6 +8,7 @@ import PullRequestContext from './context';
 import { checkIcon, editIcon } from './icon';
 import Timestamp from './timestamp';
 import { PullRequestStateEnum } from '../src/github/interface';
+import { useStateProp } from './hooks';
 
 export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, }: PullRequest) {
 	return <>
@@ -34,7 +35,7 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<PullRequest>) {
 	const [ inEditMode, setEditMode ] = useState(false);
 	const [ showActionBar, setShowActionBar ] = useState(false);
-	const [ currentTitle, setCurrentTitle ] = useState(title);
+	const [ currentTitle, setCurrentTitle ] = useStateProp(title);
 	const { setTitle, refresh } = useContext(PullRequestContext);
 	const editableTitle =
 		inEditMode

@@ -9,6 +9,7 @@ import { Comment } from '../src/common/comment';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { editIcon, deleteIcon } from './icon';
+import { useStateProp } from './hooks';
 
 export type Props = Partial<Comment & PullRequest> & {
 	headerInEditMode?: boolean
@@ -17,17 +18,11 @@ export type Props = Partial<Comment & PullRequest> & {
 
 export function CommentView(comment: Props) {
 	const { id, pullRequestReviewId, canEdit, canDelete, bodyHTML, body, isPRDescription } = comment;
-	const [ bodyMd, setBodyMd ] = useState(body);
+	const [ bodyMd, setBodyMd ] = useStateProp(body);
 	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
-
-	useEffect(() => {
-		if (body !== bodyMd) {
-			setBodyMd(body);
-		}
-	}, [body]);
 
 	if (inEditMode) {
 		return React.cloneElement(
