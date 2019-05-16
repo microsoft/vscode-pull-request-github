@@ -128,7 +128,11 @@ export class PRContext {
 			});
 		}
 		state.reviewers = reviewers;
-		state.events = [...state.events, review];
+		state.events = [
+			...state.events
+				.filter(e => isReviewEvent(e) ? e.state !== 'PENDING' : e),
+			review
+		];
 		this.updatePR(state);
 	}
 
