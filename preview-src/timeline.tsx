@@ -95,7 +95,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 				</Spaced>
 			</div>
 			{
-				event.state !== 'PENDING'
+				event.state !== 'PENDING' && event.body
 					? <CommentBody body={event.body} />
 					: null
 			}
