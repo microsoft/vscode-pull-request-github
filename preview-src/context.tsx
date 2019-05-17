@@ -101,6 +101,9 @@ export class PRContext {
 	public submit = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
 
+	public close = async (body?: string) =>
+		this.appendReview(await this.postMessage({ command: 'pr.close', args: body }))
+
 	public removeReviewer = async (login: string) => {
 		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
 		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== login);
@@ -125,7 +128,11 @@ export class PRContext {
 			});
 		}
 		state.reviewers = reviewers;
-		state.events = [...state.events, review];
+		state.events = [
+			...state.events
+				.filter(e => isReviewEvent(e) ? e.state !== 'PENDING' : e),
+			review
+		];
 		this.updatePR(state);
 	}
 
