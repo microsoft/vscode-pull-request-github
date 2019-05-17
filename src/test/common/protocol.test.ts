@@ -70,7 +70,7 @@ describe('Protocol', () => {
 
 	it('should handle local remotes', () =>
 		[
-			{ uri: '/opt/git/project.git', expectedType: ProtocolType.OTHER, expectedHost: '', expectedOwner: '', expectedRepositoryName: '' },
+			{ uri: '/opt/git/project.git', expectedType: ProtocolType.Local, expectedHost: '', expectedOwner: '', expectedRepositoryName: '' },
 			{ uri: 'file:///opt/git/project.git', expectedType: ProtocolType.Local, expectedHost: '', expectedOwner: '', expectedRepositoryName: '' }
 		].forEach(testRemote)
 	);
