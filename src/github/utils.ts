@@ -7,70 +7,52 @@
 import * as Octokit from '../common/octokit';
 import * as vscode from 'vscode';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
-import { Comment, Reaction } from '../common/comment';
+import { IComment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
 import { PullRequestModel } from './pullRequestModel';
-import { getEditCommand, getDeleteCommand, getAcceptInputCommands } from './commands';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 import { uniqBy } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
+import { GHPRCommentThread } from './prComment';
 
 export interface CommentHandler {
+	supportedSchemes: string[];
 	commentController?: vscode.CommentController;
-	startReview(thread: vscode.CommentThread): Promise<void>;
-	finishReview(thread: vscode.CommentThread): Promise<void>;
+	hasCommentThread(thread: vscode.CommentThread): boolean;
+	startReview(thread: vscode.CommentThread, input: string): Promise<void>;
+	finishReview(thread: vscode.CommentThread, input: string): Promise<void>;
 	deleteReview(): Promise<void>;
-	createOrReplyComment(thread: vscode.CommentThread): Promise<void>;
+	createOrReplyComment(thread: vscode.CommentThread, input: string): Promise<void>;
 	editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
 	deleteComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
 }
 
-export function convertToVSCodeComment(comment: Comment, command: vscode.Command | undefined): vscode.Comment & { _rawComment: Comment } {
-	let vscodeComment: vscode.Comment & { _rawComment: Comment } = {
-		_rawComment: comment,
-		commentId: comment.id.toString(),
-		body: new vscode.MarkdownString(comment.body),
-		selectCommand: command,
-		userName: comment.user!.login,
-		userIconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
-		label: !!comment.isDraft ? 'Pending' : undefined,
-		commentReactions: comment.reactions ? comment.reactions.map(reaction => {
-			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
-		}) : []
-	};
-
-	return vscodeComment;
-}
-
-export function createVSCodeCommentThread(thread: vscode.CommentThread, commentController: vscode.CommentController, pullRequestModel: PullRequestModel, inDraftMode: boolean, node: PRNode | ReviewDocumentCommentProvider) {
+export function createVSCodeCommentThread(thread: GHPRCommentThread, commentController: vscode.CommentController, pullRequestModel: PullRequestModel, inDraftMode: boolean, node: PRNode | ReviewDocumentCommentProvider) {
 	let vscodeThread = commentController.createCommentThread(
-		thread.threadId,
 		thread.resource,
 		thread.range!,
-		thread.comments
+		thread.comments as vscode.Comment[]
 	);
 
+	vscodeThread.threadId = thread.threadId;
+
 	vscodeThread.comments = thread.comments.map(comment => {
-		updateCommentCommands(comment, commentController, vscodeThread, pullRequestModel, node);
+		comment.parent = vscodeThread;
 		return comment;
 	});
 
 	updateCommentThreadLabel(vscodeThread);
-
-	let commands = getAcceptInputCommands(vscodeThread, inDraftMode, node, pullRequestModel.githubRepository.supportsGraphQl);
-	vscodeThread.acceptInputCommand = commands.acceptInputCommand;
-	vscodeThread.additionalCommands = commands.additionalCommands;
 	vscodeThread.collapsibleState = thread.collapsibleState;
 	return vscodeThread;
 }
 
 export function updateCommentThreadLabel(thread: vscode.CommentThread) {
 	if (thread.comments.length) {
-		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.userName).map(comment => `@${comment.userName}`).join(', ');
+		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name).map(comment => `@${comment.author.name}`).join(', ');
 		thread.label = `Participants: ${participantsList}`;
 	} else {
 		thread.label = 'Start discussion';
@@ -89,7 +71,7 @@ export function updateCommentReviewState(thread: vscode.CommentThread, newDraftM
 	}
 
 	thread.comments = thread.comments.map(comment => {
-		let patchedComment = comment as (vscode.Comment & { _rawComment: Comment });
+		let patchedComment = comment as (vscode.Comment & { _rawComment: IComment });
 		patchedComment._rawComment.isDraft = false;
 		patchedComment.label = undefined;
 
@@ -99,14 +81,14 @@ export function updateCommentReviewState(thread: vscode.CommentThread, newDraftM
 
 export function updateCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) {
 	if (commentControl && pullRequestModel) {
-		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: Comment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
+		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: IComment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
 
 		if (patchedComment._rawComment.canEdit) {
-			patchedComment.editCommand = getEditCommand(thread, vscodeComment, node);
+			// patchedComment.editCommand = getEditCommand(thread, vscodeComment, node);
 		}
 
 		if (patchedComment._rawComment.canDelete) {
-			patchedComment.deleteCommand = getDeleteCommand(thread, vscodeComment, node);
+			// patchedComment.deleteCommand = getDeleteCommand(thread, vscodeComment, node);
 		}
 	}
 }
@@ -180,7 +162,7 @@ export function convertRESTReviewEvent(review: Octokit.PullRequestsCreateReviewR
 	};
 }
 
-export function parseCommentDiffHunk(comment: Comment): DiffHunk[] {
+export function parseCommentDiffHunk(comment: IComment): DiffHunk[] {
 	let diffHunks = [];
 	let diffHunkReader = parseDiffHunk(comment.diffHunk);
 	let diffHunkIter = diffHunkReader.next();
@@ -194,7 +176,7 @@ export function parseCommentDiffHunk(comment: Comment): DiffHunk[] {
 	return diffHunks;
 }
 
-export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesEditCommentResponse, githubRepository: GitHubRepository): Comment {
+export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesEditCommentResponse, githubRepository: GitHubRepository): IComment {
 	return {
 		url: comment.url,
 		id: comment.id,
@@ -213,8 +195,8 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 	};
 }
 
-export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse, githubRepository: GitHubRepository): Comment {
-	let ret: Comment = {
+export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse, githubRepository: GitHubRepository): IComment {
+	let ret: IComment = {
 		url: comment.url,
 		id: comment.id,
 		pullRequestReviewId: comment.pull_request_review_id,
@@ -259,8 +241,8 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment): Comment {
-	const c: Comment = {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment): IComment {
+	const c: IComment = {
 		id: comment.databaseId,
 		url: comment.url,
 		body: comment.body,

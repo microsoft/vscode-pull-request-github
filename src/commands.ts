@@ -22,10 +22,11 @@ import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
-import { Comment } from './common/comment';
+import { IComment } from './common/comment';
+import { GHPRComment } from './github/prComment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
-import { CommentHandler } from './github/utils';
+import { resolveCommentHandler } from './commentThreadResolver';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -234,7 +235,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
-					let newComment: Comment | undefined = undefined;
+					let newComment: IComment | undefined = undefined;
 					if (message) {
 						newComment = await prManager.createIssueComment(pullRequest, message);
 					}
@@ -347,34 +348,90 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (handler: CommentHandler, thread: vscode.CommentThread) => {
-		telemetry.on('pr.replyComment');
-		handler.createOrReplyComment(thread);
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (reply: vscode.CommentReply) => {
 		telemetry.on('pr.startReview');
-		handler.startReview(thread);
+		let handler = resolveCommentHandler(reply.thread);
+
+		if (handler) {
+			handler.startReview(reply.thread, reply.text);
+		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (handler: CommentHandler, thread: vscode.CommentThread) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (reply: vscode.CommentReply) => {
 		telemetry.on('pr.finishReview');
-		await handler.finishReview(thread);
+		let handler = resolveCommentHandler(reply.thread);
+
+		if (handler) {
+			await handler.finishReview(reply.thread, reply.text);
+		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (handler: CommentHandler) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (thread: vscode.CommentThread) => {
 		telemetry.on('pr.deleteReview');
-		await handler.deleteReview();
+		let handler = resolveCommentHandler(thread);
+
+		if (handler) {
+			await handler.deleteReview();
+		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (reply: vscode.CommentReply) => {
+		telemetry.on('pr.replyComment');
+		let handler = resolveCommentHandler(reply.thread);
+
+		if (handler) {
+			handler.createOrReplyComment(reply.thread, reply.text);
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment) => {
 		telemetry.on('pr.editComment');
-		await handler.editComment(thread, comment);
+		if (comment.parent) {
+			comment.parent.comments = comment.parent.comments.map((cmt: GHPRComment) => {
+				if (cmt.commentId === comment.commentId) {
+					cmt.mode = vscode.CommentMode.Editing;
+				}
+
+				return cmt;
+			});
+		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (handler: CommentHandler, thread: vscode.CommentThread, comment: vscode.Comment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.cancelEditComment', async (comment: GHPRComment) => {
+		telemetry.on('pr.cancelEditComment');
+		if (comment.parent) {
+			comment.parent.comments = comment.parent.comments.map((cmt: GHPRComment) => {
+				if (cmt.commentId === comment.commentId) {
+					cmt.mode = vscode.CommentMode.Preview;
+					cmt.body = cmt._rawComment.body;
+				}
+
+				return cmt;
+			});
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.saveComment', async (comment: GHPRComment) => {
+		telemetry.on('pr.saveComment');
+		if (comment.parent) {
+			let handler = resolveCommentHandler(comment.parent);
+
+			if (handler) {
+				await handler.editComment(comment.parent, comment);
+			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (comment: GHPRComment) => {
 		telemetry.on('pr.deleteComment');
-		await handler.deleteComment(thread, comment);
+
+		if (comment.parent) {
+			let handler = resolveCommentHandler(comment.parent);
+
+			if (handler) {
+				await handler.deleteComment(comment.parent, comment);
+			}
+		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteThread', async (thread: vscode.CommentThread) => {

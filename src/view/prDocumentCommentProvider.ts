@@ -8,16 +8,15 @@ import * as vscode from 'vscode';
 import { fromPRUri } from '../common/uri';
 import { getReactionGroup } from '../github/utils';
 
-export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider, vscode.EmptyCommentThreadFactory, vscode.CommentReactionProvider, vscode.Disposable {
+export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider, vscode.CommentReactionProvider, vscode.Disposable {
 	availableReactions: vscode.CommentReaction[] = getReactionGroup();
-	private _prDocumentCommentProviders: {[key: number]: vscode.CommentingRangeProvider & vscode.EmptyCommentThreadFactory & vscode.CommentReactionProvider } = {};
+	private _prDocumentCommentProviders: {[key: number]: vscode.CommentingRangeProvider & vscode.CommentReactionProvider } = {};
 	private _prDocumentCommentThreadMap: {[key: number]: { [key: string]: vscode.CommentThread[] } } = {};
 
 	constructor(
 		public commentsController: vscode.CommentController
 	) {
 		this.commentsController.commentingRangeProvider = this;
-		this.commentsController.emptyCommentThreadFactory = this;
 		this.commentsController.reactionProvider = this;
 	}
 
@@ -34,19 +33,6 @@ export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider
 		return provideCommentingRanges(document, token);
 	}
 
-	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
-		let uri = document.uri;
-		let params = fromPRUri(uri);
-
-		if (!params || !this._prDocumentCommentProviders[params.prNumber]) {
-			return;
-		}
-
-		let createEmptyCommentThread = this._prDocumentCommentProviders[params.prNumber].createEmptyCommentThread.bind(this._prDocumentCommentProviders[params.prNumber]);
-
-		return createEmptyCommentThread(document, range);
-	}
-
 	async toggleReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void> {
 		let uri = document.uri;
 		let params = fromPRUri(uri);
@@ -60,7 +46,7 @@ export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider
 		return toggleReaction(document, comment, reaction);
 	}
 
-	public registerDocumentCommentProvider(prNumber: number, provider: vscode.CommentingRangeProvider & vscode.EmptyCommentThreadFactory & vscode.CommentReactionProvider) {
+	public registerDocumentCommentProvider(prNumber: number, provider: vscode.CommentingRangeProvider & vscode.CommentReactionProvider) {
 		this._prDocumentCommentProviders[prNumber] = provider;
 		if (!this._prDocumentCommentThreadMap[prNumber]) {
 			this._prDocumentCommentThreadMap[prNumber] = {};

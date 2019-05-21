@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useContext, useRef } from 'react';
 
-import { Comment } from '../src/common/comment';
+import { IComment } from '../src/common/comment';
 import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent } from '../src/common/timelineEvent';
 import { commitIcon, mergeIcon } from './icon';
 import { Avatar, AuthorLink } from './user';
@@ -59,12 +59,12 @@ const association = (
 			? format(authorAssociation)
 			: null;
 
-const positionKey = (comment: Comment) =>
+const positionKey = (comment: IComment) =>
 	comment.position !== null
 		? `pos:${comment.position}`
 		: `ori:${comment.originalPosition}`;
 
-const groupCommentsByPath = (comments: Comment[]) =>
+const groupCommentsByPath = (comments: IComment[]) =>
 	groupBy(comments,
 		comment => comment.path + ':' + positionKey(comment));
 

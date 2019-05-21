@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
 import { toReviewUri, fromReviewUri, ReviewUriParams, toDiffViewFileUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
-import { Comment } from '../common/comment';
+import { IComment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes, Branch } from '../api/api';
@@ -32,7 +32,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
 
-	private _comments: Comment[] = [];
+	private _comments: IComment[] = [];
 	private _localFileChanges: (GitFileChangeNode)[] = [];
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha?: string;
@@ -351,7 +351,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return Promise.resolve(void 0);
 	}
 
-	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: Comment[]): Promise<GitFileChangeNode[]> {
+	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: IComment[]): Promise<GitFileChangeNode[]> {
 		let nodes: GitFileChangeNode[] = [];
 		const mergeBase = pr.mergeBase || pr.base.sha;
 		const headSha = pr.head.sha;

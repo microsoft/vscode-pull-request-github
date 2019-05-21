@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Comment } from '../../common/comment';
+import { IComment } from '../../common/comment';
 
 export interface Revealable<T> {
 	reveal(element: T, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Thenable<void>;
-	revealComment?(comment: Comment): Thenable<void>;
+	revealComment?(comment: IComment): Thenable<void>;
 }
 
 export abstract class TreeNode implements vscode.Disposable {
@@ -27,7 +27,7 @@ export abstract class TreeNode implements vscode.Disposable {
 		return this.parent.reveal(treeNode || this);
 	}
 
-	async revealComment?(comment: Comment) { }
+	async revealComment?(comment: IComment) { }
 
 	async getChildren(): Promise<TreeNode[]> {
 		return [];

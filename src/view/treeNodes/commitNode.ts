@@ -10,7 +10,7 @@ import { TreeNode } from './treeNode';
 import { GitFileChangeNode } from './fileChangeNode';
 import { toReviewUri } from '../../common/uri';
 import { getGitChangeType } from '../../common/diffHunk';
-import { Comment } from '../../common/comment';
+import { IComment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
@@ -26,7 +26,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		private readonly pullRequestManager: PullRequestManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: PullRequestsGetCommitsResponseItem,
-		private readonly comments: Comment[]
+		private readonly comments: IComment[]
 	) {
 		super();
 		this.label = commit.commit.message;
