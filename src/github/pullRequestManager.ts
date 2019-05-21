@@ -553,7 +553,7 @@ export class PullRequestManager {
 		this._telemetry.on('branch.delete');
 	}
 
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<PullRequestsResponseResult> {
+	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<PullRequestsResponseResult> {
 		if (!this._githubRepositories || !this._githubRepositories.length) {
 			return {
 				pullRequests: [],
@@ -579,7 +579,9 @@ export class PullRequestManager {
 		for (let i = 0; i < githubRepositories.length; i++) {
 			const githubRepository = githubRepositories[i];
 			const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString())!;
-			const pullRequestData = await githubRepository.getPullRequests(type, pageInformation.pullRequestPage);
+			const pullRequestData = type === PRType.All
+				? await githubRepository.getAllPullRequests(pageInformation.pullRequestPage)
+				: await githubRepository.searchPullRequests(query || '', pageInformation.pullRequestPage);
 
 			pageInformation.hasMorePages = !!pullRequestData && pullRequestData.hasMorePages;
 			pageInformation.pullRequestPage++;

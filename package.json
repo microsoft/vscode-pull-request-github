@@ -282,6 +282,15 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.configurePRViewlet",
+        "title": "Configure...",
+        "category": "GitHub Pull Requests",
+        "icon": {
+          "light": "resources/icons/light/gear.svg",
+          "dark": "resources/icons/dark/gear.svg"
+        }
+      },
+      {
         "command": "pr.deleteLocalBranch",
         "title": "Delete Local Branch",
         "category": "GitHub Pull Requests"
@@ -434,6 +443,11 @@
       "view/title": [
         {
           "command": "pr.create",
+          "when": "view =~ /pr:/",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.configurePRViewlet",
           "when": "view =~ /pr:/",
           "group": "navigation"
         },

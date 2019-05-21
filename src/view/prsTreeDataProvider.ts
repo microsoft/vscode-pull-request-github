@@ -11,6 +11,18 @@ import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING } from '../github/pullRequestManager';
 
+interface CategoryState {
+	[name: string]: string;
+}
+
+const defaultCategories = {
+	'Waiting For My Review': 'is:open review-requested:${user}',
+	'Assigned To Me': 'is:open assignee:${user}',
+	'Created By Me': 'is:open author:${user}'
+};
+
+const CATEGORY_STATE_KEY = 'githubPullRequestCategories';
+
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -21,15 +33,18 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _view: vscode.TreeView<TreeNode>;
 	private _prManager: PullRequestManager;
 	private _initialized: boolean = false;
+	private _categories: CategoryState;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
 	constructor(
-		private _telemetry: ITelemetry
+		private _telemetry: ITelemetry,
+		private _context: vscode.ExtensionContext
 	) {
 		this._disposables = [];
+		this.initializeCategories(_context);
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', getInMemPRContentProvider()));
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshList', _ => {
@@ -49,6 +64,57 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._disposables.push(this._view);
 		this._childrenDisposables = [];
+
+		this._disposables.push(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
+			const categoryAction = await vscode.window.showQuickPick(['Add Category', 'Remove Category']);
+
+			switch (categoryAction) {
+				case 'Add Category':
+					const categoryName = await vscode.window.showInputBox({ prompt: 'Enter a category name'});
+					if (categoryName) {
+						if (this._categories[categoryName]) {
+							vscode.window.showErrorMessage(`The name '${categoryName}' is already taken. Please use a different category name or edit the existing category.`);
+						}
+
+						const query = await vscode.window.showInputBox({ prompt: 'Enter a search query for the category', ignoreFocusOut: true, placeHolder: 'is:open mentions:${user}'});
+						if (query) {
+							this.addCategory(categoryName, query);
+							this.refresh();
+						}
+					}
+					return;
+				case 'Remove Category':
+					const categoryNames = Object.keys(this._categories);
+					const categoryToRemove = await vscode.window.showQuickPick(categoryNames);
+					if (categoryToRemove) {
+						// Prompt to confirm?
+						this.removeCategory(categoryToRemove);
+						this.refresh();
+					}
+				default:
+					return;
+			}
+		}));
+	}
+
+	private addCategory(categoryName: string, categoryQuery: string): void {
+		this._categories[categoryName] = categoryQuery;
+		this._context.globalState.update(CATEGORY_STATE_KEY, this._categories);
+	}
+
+	private removeCategory(categoryName: string) {
+		delete this._categories[categoryName];
+		this._context.globalState.update(CATEGORY_STATE_KEY, this._categories);
+	}
+
+	private initializeCategories(context: vscode.ExtensionContext) {
+		const existingCategoryState = context.globalState.get<CategoryState>(CATEGORY_STATE_KEY);
+		if (existingCategoryState) {
+			this._categories = existingCategoryState;
+		} else {
+			this._categories = defaultCategories;
+			context.globalState.update(CATEGORY_STATE_KEY, defaultCategories);
+		}
 	}
 
 	initialize(prManager: PullRequestManager) {
@@ -95,11 +161,12 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				this._childrenDisposables.forEach(dispose => dispose.dispose());
 			}
 
+			const queryCategories = Object.keys(this._categories).map(categoryName => {
+				return new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Query, categoryName, this._categories[categoryName]);
+			});
 			let result = [
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.LocalPullRequest),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.RequestReview),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.AssignedToMe),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Mine),
+				...queryCategories,
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.All)
 			];
 
