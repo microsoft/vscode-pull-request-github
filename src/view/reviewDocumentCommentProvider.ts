@@ -328,21 +328,19 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #region New Comment Thread
 
 	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
-		if (await this._prManager.authenticate()) {
-			const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
-			// threadIds must be unique, otherwise they will collide when vscode saves pending comment text. Assumes
-			// that only one empty thread can be created per line.
-			const threadId = document.uri.toString() + range.start.line;
-			const thread = this._commentController!.createCommentThread(threadId, document.uri, range, []);
-			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+		const inDraftMode = await this._prManager.inDraftMode(this._prManager.activePullRequest!);
+		// threadIds must be unique, otherwise they will collide when vscode saves pending comment text. Assumes
+		// that only one empty thread can be created per line.
+		const threadId = document.uri.toString() + range.start.line;
+		const thread = this._commentController!.createCommentThread(threadId, document.uri, range, []);
+		thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
 
-			const commands = getAcceptInputCommands(thread, inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
+		const commands = getAcceptInputCommands(thread, inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
 
-			thread.acceptInputCommand = commands.acceptInputCommand;
-			thread.additionalCommands = commands.additionalCommands;
-			thread.deleteCommand = getDeleteThreadCommand(thread);
-			updateCommentThreadLabel(thread);
-		}
+		thread.acceptInputCommand = commands.acceptInputCommand;
+		thread.additionalCommands = commands.additionalCommands;
+		thread.deleteCommand = getDeleteThreadCommand(thread);
+		updateCommentThreadLabel(thread);
 	}
 
 	private addToCommentThreadCache(thread: vscode.CommentThread): void {
@@ -823,7 +821,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 	// #region Comment
 	async createOrReplyComment(thread: vscode.CommentThread): Promise<void> {
-		if (await this._prManager.authenticate() && this.commentController!.inputBox) {
+		if (this.commentController!.inputBox) {
 			if (thread.comments.length) {
 				let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
 				const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
@@ -843,7 +841,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 	async editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void> {
 		try {
-			if (!await this._prManager.authenticate() || !this._commentController!.inputBox) {
+			if (!this._commentController!.inputBox) {
 				return;
 			}
 
