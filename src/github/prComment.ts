@@ -46,6 +46,8 @@ export class GHPRComment implements vscode.Comment {
 	commentId: string;
 	_rawComment: IComment;
 	parent: vscode.CommentThread | undefined;
+	contextValue: string;
+
 	constructor(comment: IComment) {
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
@@ -58,5 +60,6 @@ export class GHPRComment implements vscode.Comment {
 			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : [];
 		this.label = comment.isDraft ? 'Pending' : undefined;
+		this.contextValue = comment.canEdit ? 'canEdit' : '';
 	}
 }

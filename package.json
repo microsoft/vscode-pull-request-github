@@ -357,6 +357,11 @@
         "command": "pr.configureRemotes",
         "title": "Configure Remotes...",
         "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.gotoLine",
+        "title": "Go To Line",
+        "category": "GitHub Pull Requests"
       }
     ],
     "menus": {
@@ -558,29 +563,31 @@
             "command": "pr.startReview",
             "group": "navigation",
             "precondition": "!commentIsEmpty",
-            "when": "!github:inDraftMode"
+            "when": "commentThread =~ /graphql:(?!inDraft)/"
         },
         {
             "command": "pr.deleteReview",
             "group": "navigation",
             "precondition": "!commentIsEmpty",
-            "when": "github:inDraftMode"
+            "when": "commentThread =~ /graphql:inDraft/"
         },
         {
             "command": "pr.finishReview",
             "group": "navigation",
             "precondition": "!commentIsEmpty",
-            "when": "github:inDraftMode"
+            "when": "commentThread =~ /graphql:inDraft/"
         }
       ],
       "comments/comment/title": [
         {
             "command": "pr.editComment",
-            "group": "group@1"
+            "group": "group@1",
+            "when": "comment =~ /canEdit/"
         },
         {
             "command": "pr.deleteComment",
-            "group": "group@2"
+            "group": "group@2",
+            "when": "comment =~ /canEdit/"
         }
       ],
       "comments/comment/actions": [

@@ -38,6 +38,12 @@ export function createVSCodeCommentThread(thread: GHPRCommentThread, commentCont
 		thread.comments as vscode.Comment[]
 	);
 
+	if (inDraftMode) {
+		vscodeThread.contextValue = 'graphql:inDraft';
+	} else {
+		vscodeThread.contextValue = 'graphql:notInDraft';
+	}
+
 	vscodeThread.threadId = thread.threadId;
 
 	vscodeThread.comments = thread.comments.map(comment => {
