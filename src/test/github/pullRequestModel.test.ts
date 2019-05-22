@@ -169,7 +169,7 @@ const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseIt
 	}
 };
 
-describe('PullRequestModel', () => {
+describe('PullRequestModel', function () {
 	let credentials: CredentialStore;
 	let repo: GitHubRepository;
 
@@ -180,21 +180,21 @@ describe('PullRequestModel', () => {
 
 	afterEach(function () {
 		credentials.dispose();
-	})
+	});
 
-	it('should return `state` properly as `open`', () => {
+	it('should return `state` properly as `open`', function () {
 		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.equal(open.state, PullRequestStateEnum.Open);
 	});
 
-	it('should return `state` properly as `closed`', () => {
+	it('should return `state` properly as `closed`', function () {
 		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest({ ...pr, state: 'closed' }, repo));
 
 		assert.equal(open.state, PullRequestStateEnum.Closed);
 	});
 
-	it('should return `state` properly as `merged`', () => {
+	it('should return `state` properly as `merged`', function () {
 		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest({ ...pr, merged: true, state: 'closed' }, repo));
 
 		assert.equal(open.state, PullRequestStateEnum.Merged);
