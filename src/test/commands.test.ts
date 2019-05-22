@@ -60,6 +60,12 @@ describe('Command registration', function() {
 			assert.deepEqual(await listHosts(), ['bbb.com']);
 		});
 
-		it('does nothing when no host is selected');
+		it('does nothing when no host is selected', async function() {
+			(sinon.stub(vscode.window, 'showQuickPick') as any).resolves(undefined);
+
+			await vscode.commands.executeCommand('auth.signout');
+
+			assert.deepEqual(await listHosts(), ['aaa.com', 'bbb.com', 'ccc.com']);
+		});
 	});
 });
