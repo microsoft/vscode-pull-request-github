@@ -13,7 +13,7 @@ const telemetry = {
 	shutdown: () => Promise.resolve()
 };
 const credentials = new CredentialStore(telemetry);
-const protocol = new Protocol('');
+const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new Remote('test', 'github/test', protocol);
 const repo = new GitHubRepository(remote, credentials);
 const user: Octokit.PullRequestsGetAllResponseItemUser = {
@@ -84,7 +84,7 @@ const githubRepo: Octokit.PullRequestsGetResponseHeadRepo = {
 	tags_url: '',
 	teams_url: '',
 	trees_url: '',
-	clone_url: '',
+	clone_url: 'https://github.com/owner/name.git',
 	mirror_url: '',
 	hooks_url: '',
 	svn_url: '',
@@ -132,12 +132,12 @@ const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseIt
 	milestone: null,
 	locked: false,
 	active_lock_reason: '',
-	closed_at: null,
-	merged_at: null,
-	_links: null,
-	merge_commit_sha: null,
+	closed_at: undefined,
+	merged_at: undefined,
+	_links: undefined,
+	merge_commit_sha: undefined,
 	mergeable: true,
-	merged_by: null,
+	merged_by: undefined,
 	additions:1,
 	deletions: 1,
 	changed_files: 1,
