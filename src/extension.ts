@@ -95,6 +95,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	const firstRepository = apiImpl.repositories[0];
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry);
+	context.subscriptions.push(prTree);
 
 	if (firstRepository) {
 		await init(context, apiImpl, firstRepository, prTree);
