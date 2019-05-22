@@ -561,7 +561,7 @@
     "webpack-cli": "^3.2.1"
   },
   "dependencies": {
-    "@octokit/rest": "^15.15.1",
+    "@octokit/rest": "16.21.0",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
     "debounce": "^1.2.0",
