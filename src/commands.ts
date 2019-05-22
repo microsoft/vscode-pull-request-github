@@ -190,6 +190,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		reviewManager.createPullRequest();
 	}));
 
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.createDraft', async () => {
+		reviewManager.createPullRequest(true);
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 		let pullRequestModel: PullRequestModel;
 

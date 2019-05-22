@@ -184,6 +184,15 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.createDraft",
+        "title": "Create Draft Pull Request",
+        "icon": {
+          "light": "resources/icons/light/stage.svg",
+          "dark": "resources/icons/dark/stage.svg"
+        },
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "auth.signout",
         "title": "Sign out of GitHub",
         "category": "GitHub Pull Requests"

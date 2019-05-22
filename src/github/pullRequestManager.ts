@@ -977,6 +977,7 @@ export class PullRequestManager {
 			repo: parent.name,
 			head: `${meta.owner.login}:${branchName}`,
 			base: parent.default_branch,
+			draft: false,
 		};
 	}
 
