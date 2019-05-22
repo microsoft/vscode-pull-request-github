@@ -92,8 +92,10 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
-export class PullRequestManager {
+export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
+
+	private _subs: vscode.Disposable[];
 	private _activePullRequest?: PullRequestModel;
 	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
@@ -110,15 +112,18 @@ export class PullRequestManager {
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
 	) {
+		this._subs = [];
 		this._githubRepositories = [];
 		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
-		vscode.workspace.onDidChangeConfiguration(async e => {
+
+		this._subs.push(this._credentialStore);
+		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
 				await this.updateRepositories();
 				vscode.commands.executeCommand('pr.refreshList');
 			}
-		});
+		}));
 
 		this.setUpCompletionItemProvider();
 	}
@@ -1533,6 +1538,10 @@ export class PullRequestManager {
 		]);
 
 		return events;
+	}
+
+	dispose() {
+		this._subs.forEach(sub => sub.dispose());
 	}
 }
 

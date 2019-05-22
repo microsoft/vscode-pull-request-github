@@ -28,14 +28,16 @@ export interface GitHub {
 	graphql: ApolloClient<NormalizedCacheObject> | null;
 }
 
-export class CredentialStore {
+export class CredentialStore implements vscode.Disposable {
+	private _subs: vscode.Disposable[];
 	private _octokits: Map<string, GitHub | undefined>;
 	private _authenticationStatusBarItems: Map<string, vscode.StatusBarItem>;
 
 	constructor(private readonly _telemetry: ITelemetry) {
+		this._subs = [];
 		this._octokits = new Map<string, GitHub>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
-		vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
+		this._subs.push(vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
 			const uriOrToken = await vscode.window.showInputBox({ prompt: 'Token', ignoreFocusOut: true });
 			if (!uriOrToken) { return; }
 			try {
@@ -48,7 +50,7 @@ export class CredentialStore {
 				if (!host) { return; }
 				setToken(host, uriOrToken);
 			}
-		});
+		}));
 	}
 
 	public reset() {
@@ -269,6 +271,9 @@ export class CredentialStore {
 		}
 	}
 
+	dispose() {
+		this._subs.forEach(sub => sub.dispose());
+	}
 }
 
 const link = (url: string, token: string) =>
