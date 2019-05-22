@@ -366,9 +366,9 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (thread: vscode.CommentThread) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (reply: vscode.CommentReply) => {
 		telemetry.on('pr.deleteReview');
-		let handler = resolveCommentHandler(thread);
+		let handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
 			await handler.deleteReview();
@@ -444,11 +444,6 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				Logger.appendLine(`No thread found for comment '${comment}'`);
 			}
 		}
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteThread', async (thread: vscode.CommentThread) => {
-		telemetry.on('pr.deleteThread');
-		thread.dispose!();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.gotoLine', async () => {

@@ -335,15 +335,6 @@
         }
       },
       {
-        "command": "pr.deleteThread",
-        "title": "Delete Comment Thread",
-        "category": "GitHub Pull Requests",
-        "icon": {
-          "light": "resources/icons/light/delete.svg",
-          "dark": "resources/icons/dark/delete.svg"
-        }
-      },
-      {
         "command": "pr.finishReview",
         "title": "Finish Review",
         "category": "GitHub Pull Requests"
@@ -545,12 +536,6 @@
           "command": "review.suggestDiff",
           "when": "scmProvider == git && github:inReviewMode",
           "group": "inline"
-        }
-      ],
-      "comments/commentThread/title": [
-        {
-            "command": "pr.deleteThread",
-            "group": "navigation"
         }
       ],
       "comments/commentThread/actions": [
