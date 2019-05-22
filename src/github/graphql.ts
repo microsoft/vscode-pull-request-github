@@ -296,6 +296,7 @@ export interface PullRequestResponse {
 			merged: boolean;
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			id: string;
+			isDraft: boolean;
 		}
 	};
 	rateLimit: RateLimit;

@@ -75,6 +75,7 @@ export interface PullRequest {
 	merged: boolean;
 	mergeable?: boolean;
 	nodeId: string;
+	draft: boolean;
 }
 
 export interface IRawFileChange {

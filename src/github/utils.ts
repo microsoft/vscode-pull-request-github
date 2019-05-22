@@ -142,7 +142,8 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 		head,
 		base,
 		labels,
-		node_id
+		node_id,
+		draft
 	} = pullRequest;
 
 	const item: PullRequest = {
@@ -160,7 +161,8 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			base: convertRESTHeadToIGitHubRef(base),
 			mergeable: (pullRequest as Octokit.PullRequestsGetResponse).mergeable,
 			labels,
-			nodeId: node_id
+			nodeId: node_id,
+			draft
 	};
 
 	return item;
@@ -347,7 +349,8 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		merged: graphQLPullRequest.merged,
 		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
 		nodeId: graphQLPullRequest.id,
-		labels: graphQLPullRequest.labels.nodes
+		labels: graphQLPullRequest.labels.nodes,
+		draft: graphQLPullRequest.isDraft
 	};
 }
 

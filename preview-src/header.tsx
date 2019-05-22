@@ -10,9 +10,9 @@ import Timestamp from './timestamp';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
 
-export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, }: PullRequest) {
+export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, draft, }: PullRequest) {
 	return <>
-		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut}} />
+		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut, draft}} />
 		<div className='subtitle'>
 			<div id='status'>{getStatus(state)}</div>
 			<Avatar for={author} />
@@ -32,7 +32,7 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 	</>;
 }
 
-function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<PullRequest>) {
+function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, draft }: Partial<PullRequest>) {
 	const [ inEditMode, setEditMode ] = useState(false);
 	const [ showActionBar, setShowActionBar ] = useState(false);
 	const [ currentTitle, setCurrentTitle ] = useStateProp(title);
@@ -70,7 +70,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<P
 	return <div className='overview-title'
 		onMouseEnter={() => setShowActionBar(true)}
 		onMouseLeave={() => setShowActionBar(false)}>
-		{editableTitle}
+		{editableTitle} {draft && 'Draft'}
 		{
 			(canEdit && showActionBar && !inEditMode)
 				? <div className='flex-action-bar comment-actions'>
