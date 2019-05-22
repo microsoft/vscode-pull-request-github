@@ -490,24 +490,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	// #endregion
 
-	// #region New Comment Thread
-	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
-		if (await this._prManager.authenticate()) {
-			// threadIds must be unique, otherwise they will collide when vscode saves pending comment text. Assumes
-			// that only one empty thread can be created per line.
-			const threadId = document.uri.toString() + range.start.line;
-			const thread = this._commentController!.createCommentThread(document.uri, range, []);
-			thread.threadId = threadId;
-			updateCommentThreadLabel(thread);
-			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-			await this._prManager.validateDraftMode(this.pullRequestModel);
-			// let commands = getAcceptInputCommands(thread, inDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
-			// thread.acceptInputCommand = commands.acceptInputCommand;
-			// thread.additionalCommands = commands.additionalCommands;
-			// thread.deleteCommand = getDeleteThreadCommand(thread);
-		}
-	}
-
 	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
 		if (document.uri.scheme === 'pr') {
 			const params = fromPRUri(document.uri);
@@ -725,19 +707,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	public async finishReview(thread: vscode.CommentThread, input: string): Promise<void> {
 		try {
-			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: IComment });
-			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, input, comment._rawComment);
-
-			const fileChange = this.findMatchingFileNode(thread.resource);
-			// const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
-			// if (index > -1) {
-			fileChange.comments.push(rawComment!);
-			// }
-
-			const vscodeComment = new GHPRComment(rawComment!);
-			// updateCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
-			this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment]);
-
+			this.createOrReplyComment(thread, input);
 			await this._prManager.submitReview(this.pullRequestModel);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);

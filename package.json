@@ -568,7 +568,6 @@
         {
             "command": "pr.deleteReview",
             "group": "navigation",
-            "precondition": "!commentIsEmpty",
             "when": "commentThread =~ /graphql:inDraft/"
         },
         {
