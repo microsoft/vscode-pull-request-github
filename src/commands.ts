@@ -394,6 +394,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 				return cmt;
 			});
+		} else {
+			Logger.appendLine(`No thread found for comment '${comment}'`);
 		}
 	}));
 
@@ -408,6 +410,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 				return cmt;
 			});
+		} else {
+			Logger.appendLine(`No thread found for comment '${comment}'`);
 		}
 	}));
 
@@ -419,17 +423,25 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			if (handler) {
 				await handler.editComment(comment.parent, comment);
 			}
+		}  else {
+			Logger.appendLine(`No thread found for comment '${comment}'`);
 		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (comment: GHPRComment) => {
 		telemetry.on('pr.deleteComment');
 
-		if (comment.parent) {
-			let handler = resolveCommentHandler(comment.parent);
+		const shouldDelete = await vscode.window.showWarningMessage('Delete comment?', { modal: true }, 'Delete');
 
-			if (handler) {
-				await handler.deleteComment(comment.parent, comment);
+		if (shouldDelete === 'Delete') {
+			if (comment.parent) {
+				let handler = resolveCommentHandler(comment.parent);
+
+				if (handler) {
+					await handler.deleteComment(comment.parent, comment);
+				}
+			} else {
+				Logger.appendLine(`No thread found for comment '${comment}'`);
 			}
 		}
 	}));

@@ -68,7 +68,7 @@ export function provideDocumentComments(
 			threadId: firstComment.id.toString(),
 			resource: uri,
 			range,
-			comments: comments.map(comment => new GHPRComment(comment)),
+			comments: comments.map(comment => new GHPRComment(comment)), // TODO (rmacfarlane) ensure parent pointer is set
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
 		});
 	}
@@ -639,7 +639,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 
 			fileChange.comments.push(rawComment!);
-			const vscodeComment = new GHPRComment(rawComment!);
+			const vscodeComment = new GHPRComment(rawComment!, thread);
 			this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment]);
 		}
 	}
@@ -661,7 +661,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			const i = thread.comments.findIndex(c => (c as GHPRComment)._rawComment.id.toString() === comment.commentId);
 			if (i > -1) {
-				const vscodeComment = new GHPRComment(rawComment);
+				const vscodeComment = new GHPRComment(rawComment, thread);
 
 				const comments = thread.comments.slice(0);
 				comments.splice(i, 1, vscodeComment);

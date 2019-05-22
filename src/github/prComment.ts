@@ -48,7 +48,7 @@ export class GHPRComment implements vscode.Comment {
 	parent: vscode.CommentThread | undefined;
 	contextValue: string;
 
-	constructor(comment: IComment) {
+	constructor(comment: IComment, parent?: vscode.CommentThread) {
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
 		this.body = new vscode.MarkdownString(comment.body);
@@ -61,5 +61,6 @@ export class GHPRComment implements vscode.Comment {
 		}) : [];
 		this.label = comment.isDraft ? 'Pending' : undefined;
 		this.contextValue = comment.canEdit ? 'canEdit' : '';
+		this.parent = parent;
 	}
 }
