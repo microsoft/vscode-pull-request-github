@@ -1,39 +1,10 @@
 import * as path from 'path';
 import * as temp from 'temp';
-import { createSandbox, SinonSandbox } from 'sinon';
-import { Suite } from 'mocha';
 import { ExtensionContext, Memento, Uri } from 'vscode';
+
 import { ITelemetry } from '../github/interface';
 import { Repository, RepositoryState, RepositoryUIState, Commit, Branch } from '../api/api';
 import { Keytar } from '../authentication/keychain';
-
-/**
- * Create a Sinon sandbox for use in a Mocha test suite that will automatically restore its stubs and spies at test completion.
- *
- * @param {Suite} testSuite - The value of "this" within a Mocha describe block.
- * @returns {SinonSandbox} - A Sinon sandbox that may be used to create scoped stubs and spies.
- *
- * @example
- * import { createSinonSandbox } from './helpers';
- *
- * describe('Some class', function() {
- *   const sinon = createSinonSandbox(this);
- *
- *   it('isolates mocks within each test case', function() {
- *     sinon.stub(vscode.env, 'openExternal').resolves(true);
- * 	 });
- * });
- */
-export function createSinonSandbox(testSuite: Suite): SinonSandbox {
-	let sandbox: SinonSandbox;
-	testSuite.beforeEach(function () {
-		sandbox = createSandbox();
-	});
-	testSuite.afterEach(function () {
-		sandbox.restore();
-	});
-	return sandbox!;
-}
 
 export class InMemoryMemento implements Memento {
 	private _storage: {[keyName: string]: any} = {};
@@ -50,7 +21,7 @@ export class InMemoryMemento implements Memento {
 }
 
 export class MockKeytar implements Keytar {
-	private _storage: { [serviceName: string]: { [accountName: string]: string } };
+	private _storage: { [serviceName: string]: { [accountName: string]: string } } = {};
 
 	getPassword(service: string, account: string): Promise<string | null> {
 		const accountMap = this._storage[service] || {};

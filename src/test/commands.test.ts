@@ -1,14 +1,17 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import { createSandbox, SinonSandbox } from 'sinon';
 
 import { registerCommands } from '../commands';
-import { MockExtensionContext, MockTelemetry, MockRepository, MockKeytar, createSinonSandbox } from './helpers';
+import { MockExtensionContext, MockTelemetry, MockRepository, MockKeytar } from './helpers';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { ReviewManager } from '../view/reviewManager';
 import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';
 import { Keytar, init as initKeytar, setToken, listHosts } from '../authentication/keychain';
 
 describe('Command registration', function() {
+	let sinon: SinonSandbox;
+
 	let context: MockExtensionContext;
 	let repository: MockRepository;
 	let prManager: PullRequestManager;
@@ -16,9 +19,9 @@ describe('Command registration', function() {
 	let reviewManager: ReviewManager;
 	let telemetry: MockTelemetry;
 
-	const sinon = createSinonSandbox(this);
-
 	beforeEach(function() {
+		sinon = createSandbox();
+
 		context = new MockExtensionContext();
 		telemetry = new MockTelemetry();
 		repository = new MockRepository();
@@ -34,6 +37,7 @@ describe('Command registration', function() {
 
 	afterEach(function() {
 		context.dispose();
+		sinon.restore();
 	});
 
 	describe('auth.signout', function() {
