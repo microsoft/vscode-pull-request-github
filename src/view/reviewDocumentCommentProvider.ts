@@ -342,26 +342,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		return false;
 	}
 
-	// #region New Comment Thread
-
-	async createEmptyCommentThread(document: vscode.TextDocument, range: vscode.Range): Promise<void> {
-		if (await this._prManager.authenticate()) {
-			await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-			// threadIds must be unique, otherwise they will collide when vscode saves pending comment text. Assumes
-			// that only one empty thread can be created per line.
-			// const threadId = document.uri.toString() + range.start.line;
-			const thread = this._commentController!.createCommentThread(document.uri, range, []);
-			thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-
-			// const commands = getAcceptInputCommands(thread, inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
-
-			// thread.acceptInputCommand = commands.acceptInputCommand;
-			// thread.additionalCommands = commands.additionalCommands;
-			// thread.deleteCommand = getDeleteThreadCommand(thread);
-			updateCommentThreadLabel(thread);
-		}
-	}
-
 	private addToCommentThreadCache(thread: vscode.CommentThread): void {
 		const uri = thread.resource;
 		switch (uri.scheme) {
@@ -790,25 +770,19 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 	// #region Comment
 	async createOrReplyComment(thread: vscode.CommentThread, input: string): Promise<void> {
-		if (await this._prManager.authenticate()) {
-			if (thread.comments.length === 0) {
-				this.addToCommentThreadCache(thread);
-			}
-
-			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: IComment });
-			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, input, comment._rawComment);
-			const vscodeComment = new GHPRComment(rawComment!);
-			thread.comments = [...thread.comments, vscodeComment];
-			updateCommentThreadLabel(thread);
+		if (thread.comments.length === 0) {
+			this.addToCommentThreadCache(thread);
 		}
+
+		let comment = thread.comments[0] as (vscode.Comment & { _rawComment: IComment });
+		const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, input, comment._rawComment);
+		const vscodeComment = new GHPRComment(rawComment!);
+		thread.comments = [...thread.comments, vscodeComment];
+		updateCommentThreadLabel(thread);
 	}
 
 	async editComment(thread: vscode.CommentThread, comment: GHPRComment): Promise<void> {
 		try {
-			if (!await this._prManager.authenticate()) {
-				return;
-			}
-
 			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
