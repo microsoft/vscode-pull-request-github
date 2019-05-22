@@ -3,7 +3,10 @@ import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { registerCommands } from '../commands';
-import { MockExtensionContext, MockTelemetry, MockRepository, MockKeytar } from './helpers';
+import { MockExtensionContext } from './mocks/mock-extension-context';
+import { MockRepository } from './mocks/mock-repository';
+import { MockTelemetry } from './mocks/mock-telemetry';
+import { MockKeytar } from './mocks/mock-keytar';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { ReviewManager } from '../view/reviewManager';
 import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';
@@ -30,7 +33,10 @@ describe('Command registration', function() {
 		context.subscriptions.push(prManager);
 
 		prTreeManager = new PullRequestsTreeDataProvider(telemetry);
+		context.subscriptions.push(prTreeManager);
+
 		reviewManager = new ReviewManager(context, repository, prManager, prTreeManager, telemetry);
+		context.subscriptions.push(reviewManager);
 
 		registerCommands(context, prManager, reviewManager, telemetry);
 	});
