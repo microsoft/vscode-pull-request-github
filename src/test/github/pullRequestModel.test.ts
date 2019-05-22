@@ -117,7 +117,7 @@ const githubRepo: Octokit.PullRequestsGetResponseHeadRepo = {
 	subscribers_count: 0,
 	network_count: 0,
 };
-const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem = {
+const pr: any = {
 	id: 1,
 	url: '',
 	diff_url: '',

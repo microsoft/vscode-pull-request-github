@@ -215,7 +215,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const result = await octokit.pullRequests.getAll({
+			const result = await octokit.pulls.list({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				per_page: PULL_REQUEST_PAGE_SIZE,
@@ -268,7 +268,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		try {
 			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const user = await octokit.users.get({});
+			const user = await octokit.users.getAuthenticated({});
 			// Search api will not try to resolve repo that redirects, so get full name first
 			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
 			const { data, headers } = await octokit.search.issues({
@@ -279,7 +279,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			let promises: Promise<Octokit.Response<Octokit.PullRequestsGetResponse>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
-					let prData = await octokit.pullRequests.get({
+					let prData = await octokit.pulls.get({
 						owner: remote.owner,
 						repo: remote.repositoryName,
 						number: item.number
@@ -335,7 +335,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 
 				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
 			} else {
-				let { data } = await octokit.pullRequests.get({
+				let { data } = await octokit.pulls.get({
 					owner: remote.owner,
 					repo: remote.repositoryName,
 					number: id

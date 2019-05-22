@@ -622,7 +622,7 @@ export class PullRequestManager {
 	async getReviewRequests(pullRequest: PullRequestModel): Promise<IAccount[]> {
 		const githubRepository = pullRequest.githubRepository;
 		const { remote, octokit } = await githubRepository.ensure();
-		const result = await octokit.pullRequests.getReviewRequests({
+		const result = await octokit.pulls.getReviewRequests({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber
@@ -669,7 +669,7 @@ export class PullRequestManager {
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		const { remote, octokit } = await githubRepository.ensure();
-		const reviewData = await octokit.pullRequests.getComments({
+		const reviewData = await octokit.pulls.getComments({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -684,7 +684,7 @@ export class PullRequestManager {
 		try {
 			Logger.debug(`Fetch commits of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { remote, octokit } = await pullRequest.githubRepository.ensure();
-			const commitData = await octokit.pullRequests.getCommits({
+			const commitData = await octokit.pulls.getCommits({
 				number: pullRequest.prNumber,
 				owner: remote.owner,
 				repo: remote.repositoryName
@@ -792,7 +792,7 @@ export class PullRequestManager {
 		const { octokit, remote } = await githubRepository.ensure();
 
 		try {
-			let ret = await octokit.pullRequests.createCommentReply({
+			let ret = await octokit.pulls.createCommentReply({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				number: pullRequest.prNumber,
@@ -944,7 +944,7 @@ export class PullRequestManager {
 		const { octokit, remote } = await githubRepository.ensure();
 
 		try {
-			let ret = await octokit.pullRequests.createComment({
+			let ret = await octokit.pulls.createComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				number: pullRequest.prNumber,
@@ -1055,7 +1055,7 @@ export class PullRequestManager {
 			}
 
 			// Create PR
-			let { data } = await repo.octokit.pullRequests.create(params);
+			let { data } = await repo.octokit.pulls.create(params);
 			const item = convertRESTPullRequestToRawPullRequest(data, repo);
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
 
@@ -1097,7 +1097,7 @@ export class PullRequestManager {
 			const githubRepository = pullRequest.githubRepository;
 			const { octokit, remote } = await githubRepository.ensure();
 
-			const ret = await octokit.pullRequests.editComment({
+			const ret = await octokit.pulls.editComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				body: text,
@@ -1144,7 +1144,7 @@ export class PullRequestManager {
 		try {
 			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
-			await octokit.pullRequests.deleteComment({
+			await octokit.pulls.deleteComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				comment_id: Number(commentId)
@@ -1171,7 +1171,7 @@ export class PullRequestManager {
 	private async changePullRequestState(state: 'open' | 'closed', pullRequest: PullRequestModel): Promise<[Github.PullRequestsUpdateResponse, GitHubRepository]> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
-		let ret = await octokit.pullRequests.update({
+		let ret = await octokit.pulls.update({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -1184,7 +1184,7 @@ export class PullRequestManager {
 	async editPullRequest(pullRequest: PullRequestModel, toEdit: IPullRequestEditData): Promise<Github.PullRequestsUpdateResponse> {
 		try {
 			const { octokit, remote } = await pullRequest.githubRepository.ensure();
-			const { data } = await octokit.pullRequests.update({
+			const { data } = await octokit.pulls.update({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				number: pullRequest.prNumber,
@@ -1207,7 +1207,7 @@ export class PullRequestManager {
 
 	async mergePullRequest(pullRequest: PullRequestModel, title?: string, description?: string, method?: 'merge' | 'squash' | 'rebase'): Promise<any> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		return await octokit.pullRequests.merge({
+		return await octokit.pulls.merge({
 			commit_message: description,
 			commit_title: title,
 			merge_method: method || vscode.workspace.getConfiguration('githubPullRequests').get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
@@ -1225,7 +1225,7 @@ export class PullRequestManager {
 		const githubRepository = pullRequest.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
 
-		const { data } = await octokit.pullRequests.createReview({
+		const { data } = await octokit.pulls.createReview({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -1287,7 +1287,7 @@ export class PullRequestManager {
 		const { octokit, remote } = await githubRepository.ensure();
 
 		if (!pullRequest.base) {
-			const info = await octokit.pullRequests.get({
+			const info = await octokit.pulls.get({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				number: pullRequest.prNumber
@@ -1315,7 +1315,7 @@ export class PullRequestManager {
 	 */
 	async requestReview(pullRequest: PullRequestModel, reviewers: string[]): Promise<void> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		await octokit.pullRequests.createReviewRequest({
+		await octokit.pulls.createReviewRequest({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -1325,7 +1325,7 @@ export class PullRequestManager {
 
 	async deleteRequestedReview(pullRequest: PullRequestModel, reviewer: string): Promise<void> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		await octokit.pullRequests.deleteReviewRequest({
+		await octokit.pulls.deleteReviewRequest({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
@@ -1370,7 +1370,7 @@ export class PullRequestManager {
 			const { octokit, remote } = await githubRepository.ensure();
 
 			if (!pullRequest.base) {
-				const { data } = await octokit.pullRequests.get({
+				const { data } = await octokit.pulls.get({
 					owner: remote.owner,
 					repo: remote.repositoryName,
 					number: pullRequest.prNumber

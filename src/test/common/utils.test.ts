@@ -12,7 +12,7 @@ describe('utils', () => {
 
 		it('should format an HttpError from octorest', (done) => {
 			const octokit = new Octokit();
-			octokit.pullRequests.getComments({
+			octokit.pulls.getComments({
 				number: 1,
 				owner: 'me',
 				repo: '犬?'
