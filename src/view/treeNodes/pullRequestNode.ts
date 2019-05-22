@@ -667,9 +667,14 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				fileChange.comments.splice(index, 1, rawComment);
 			}
 
-			const vscodeComment = new GHPRComment(rawComment);
-			updateCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
-			thread.comments = thread.comments.filter((c: GHPRComment) => c.commentId !== vscodeComment.commentId);
+			const i = thread.comments.findIndex(c => (c as GHPRComment)._rawComment.id.toString() === comment.commentId);
+			if (i > -1) {
+				const vscodeComment = new GHPRComment(rawComment);
+
+				const comments = thread.comments.slice(0);
+				comments.splice(i, 1, vscodeComment);
+				thread.comments = comments;
+			}
 		}
 	}
 

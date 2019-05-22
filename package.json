@@ -330,8 +330,8 @@
         "title": "Delete Comment",
         "category": "GitHub Pull Requests",
         "icon": {
-          "light": "resources/icons/delete.svg",
-          "dark": "resources/icons/delete.svg"
+          "light": "resources/icons/light/delete.svg",
+          "dark": "resources/icons/dark/delete.svg"
         }
       },
       {
@@ -339,8 +339,8 @@
         "title": "Delete Comment Thread",
         "category": "GitHub Pull Requests",
         "icon": {
-          "light": "resources/icons/delete.svg",
-          "dark": "resources/icons/delete.svg"
+          "light": "resources/icons/light/delete.svg",
+          "dark": "resources/icons/dark/delete.svg"
         }
       },
       {
