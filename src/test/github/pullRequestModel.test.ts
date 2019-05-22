@@ -12,10 +12,10 @@ const telemetry = {
 	on: (action: string) => Promise.resolve(),
 	shutdown: () => Promise.resolve()
 };
-const credentials = new CredentialStore(telemetry);
+
 const protocol = new Protocol('');
 const remote = new Remote('test', 'github/test', protocol);
-const repo = new GitHubRepository(remote, credentials);
+
 const user: Octokit.PullRequestsGetAllResponseItemUser = {
 	login: 'me',
 	id: 1,
@@ -170,6 +170,18 @@ const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseIt
 };
 
 describe('PullRequestModel', () => {
+	let credentials: CredentialStore;
+	let repo: GitHubRepository;
+
+	beforeEach(function () {
+		credentials = new CredentialStore(telemetry);
+		repo = new GitHubRepository(remote, credentials);
+	});
+
+	afterEach(function () {
+		credentials.dispose();
+	})
+
 	it('should return `state` properly as `open`', () => {
 		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
