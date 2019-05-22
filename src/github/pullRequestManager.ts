@@ -819,6 +819,7 @@ export class PullRequestManager {
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
 		pullRequest.inDraftMode = false;
+		await vscode.commands.executeCommand('setContext', 'github:inDraftMode', false);
 
 		return {
 			deletedReviewId: databaseId,
@@ -841,6 +842,7 @@ export class PullRequestManager {
 		});
 
 		pullRequest.inDraftMode = true;
+		await vscode.commands.executeCommand('setContext', 'github:inDraftMode', true);
 
 		return;
 	}
@@ -1254,6 +1256,8 @@ export class PullRequestManager {
 			});
 
 			pullRequest.inDraftMode = false;
+			await vscode.commands.executeCommand('setContext', 'github:inDraftMode', false);
+
 			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, githubRepository);
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);

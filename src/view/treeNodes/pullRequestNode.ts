@@ -245,9 +245,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 						for (let fileName in this._prDocumentCommentProvider!.commentThreadCache) {
 							this._prDocumentCommentProvider!.commentThreadCache[fileName].forEach(thread => {
-								// let commands = getAcceptInputCommands(thread, newDraftMode, this, this.pullRequestModel.githubRepository.supportsGraphQl);
-								// thread.acceptInputCommand = commands.acceptInputCommand;
-								// thread.additionalCommands = commands.additionalCommands;
 								updateCommentReviewState(thread, newDraftMode);
 							});
 						}
@@ -702,7 +699,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	public async startReview(thread: vscode.CommentThread, input: string): Promise<void> {
 		await this._prManager.startReview(this.pullRequestModel);
 		await this.createOrReplyComment(thread, input);
-		await this._prManager.validateDraftMode(this.pullRequestModel);
 	}
 
 	public async finishReview(thread: vscode.CommentThread, input: string): Promise<void> {
