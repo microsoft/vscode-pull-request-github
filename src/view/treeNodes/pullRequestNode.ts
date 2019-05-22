@@ -20,7 +20,7 @@ import { IComment } from '../../common/comment';
 import { GHPRComment, GHPRCommentThread } from '../../github/prComment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { CommentHandler, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, updateCommentCommands, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
+import { CommentHandler, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
 import { registerCommentHandler } from '../../commentThreadResolver';
 
 export function provideDocumentComments(
@@ -474,6 +474,20 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return fileChange;
 	}
 
+	private calculateCommentPosition(fileChange: InMemFileChangeNode, thread: vscode.CommentThread): number {
+		const uri = thread.resource;
+		const params = fromPRUri(uri);
+
+		const isBase = !!(params && params.isBase);
+		const position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', thread.range.start.line + 1, isBase);
+
+		if (position < 0) {
+			throw new Error('Comment position cannot be negative');
+		}
+
+		return position;
+	}
+
 	// #endregion
 
 	// #region New Comment Thread
@@ -626,29 +640,28 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	// #region comment
 	public async createOrReplyComment(thread: vscode.CommentThread, input: string) {
 		if (await this._prManager.authenticate()) {
-			if (thread.comments.length === 0) {
-				const uri = thread.resource;
-				const params = fromPRUri(uri);
+			const fileChange = this.findMatchingFileNode(thread.resource);
+			let rawComment: IComment | undefined;
 
-				if (params) {
-					let existingThreads = this._prDocumentCommentProvider!.commentThreadCache[params!.fileName];
-					if (existingThreads) {
-						this._prDocumentCommentProvider!.commentThreadCache[params!.fileName] = [...existingThreads, thread];
-					} else {
-						this._prDocumentCommentProvider!.commentThreadCache[params!.fileName] = [thread];
-					}
+			if (thread.comments.length) {
+				const replyingTo = thread.comments[0] as GHPRComment;
+				rawComment = await this._prManager.createCommentReply(this.pullRequestModel, input, replyingTo._rawComment);
+			} else {
+				const position = this.calculateCommentPosition(fileChange, thread);
+				rawComment = await this._prManager.createComment(this.pullRequestModel, input, fileChange.fileName, position);
+
+				// Add new thread to cache
+				const existingThreads = this._prDocumentCommentProvider!.commentThreadCache[fileChange.fileName];
+				if (existingThreads) {
+					this._prDocumentCommentProvider!.commentThreadCache[fileChange.fileName] = [...existingThreads, thread];
+				} else {
+					this._prDocumentCommentProvider!.commentThreadCache[fileChange.fileName] = [thread];
 				}
 			}
 
-			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: IComment });
-			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, input, comment._rawComment);
-
-			const fileChange = this.findMatchingFileNode(thread.resource);
 			fileChange.comments.push(rawComment!);
-
 			const vscodeComment = new GHPRComment(rawComment!);
-			thread.comments = [...thread.comments, vscodeComment];
-			updateCommentThreadLabel(thread);
+			this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment]);
 		}
 	}
 
@@ -706,48 +719,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	// #region Review
 	public async startReview(thread: vscode.CommentThread, input: string): Promise<void> {
 		await this._prManager.startReview(this.pullRequestModel);
-
-		if (thread.comments.length) {
-			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: IComment });
-			const rawComment = await this._prManager.createCommentReply(this.pullRequestModel, input, comment._rawComment);
-
-			const fileChange = this.findMatchingFileNode(thread.resource);
-			fileChange.comments.push(rawComment!);
-
-			const vscodeComment = new GHPRComment(rawComment!);
-			updateCommentCommands(vscodeComment, this.commentController!, thread, this.pullRequestModel, this);
-			this.updateCommentThreadComments(thread, [...thread.comments, vscodeComment]);
-		} else {
-			// create new comment thread
-			const uri = thread.resource;
-			const params = fromPRUri(uri);
-			const fileChange = this._fileChanges.find(change => change.fileName === params!.fileName);
-
-			if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
-				return;
-			}
-
-			const isBase = !!(params && params.isBase);
-			const position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', thread.range.start.line + 1, isBase);
-
-			if (position < 0) {
-				throw new Error('Comment position cannot be negative');
-			}
-
-			// there is no thread Id, which means it's a new thread
-			const rawComment = await this._prManager.createComment(this.pullRequestModel, input, params!.fileName, position);
-			fileChange.comments.push(rawComment!);
-			const vscodeComment = new GHPRComment(rawComment!);
-			this.updateCommentThreadComments(thread, [vscodeComment]);
-			await this._prManager.validateDraftMode(this.pullRequestModel);
-
-			let existingThreads = this._prDocumentCommentProvider!.commentThreadCache[params!.fileName];
-			if (existingThreads) {
-				this._prDocumentCommentProvider!.commentThreadCache[params!.fileName] = [...existingThreads, thread];
-			} else {
-				this._prDocumentCommentProvider!.commentThreadCache[params!.fileName] = [thread];
-			}
-		}
+		await this.createOrReplyComment(thread, input);
+		await this._prManager.validateDraftMode(this.pullRequestModel);
 	}
 
 	public async finishReview(thread: vscode.CommentThread, input: string): Promise<void> {

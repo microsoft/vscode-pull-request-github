@@ -85,20 +85,6 @@ export function updateCommentReviewState(thread: vscode.CommentThread, newDraftM
 	});
 }
 
-export function updateCommentCommands(vscodeComment: vscode.Comment, commentControl: vscode.CommentController, thread: vscode.CommentThread, pullRequestModel: PullRequestModel, node: PRNode | ReviewDocumentCommentProvider) {
-	if (commentControl && pullRequestModel) {
-		let patchedComment = vscodeComment as vscode.Comment & { _rawComment: IComment, canEdit?: boolean, canDelete?: boolean, isDraft?: boolean };
-
-		if (patchedComment._rawComment.canEdit) {
-			// patchedComment.editCommand = getEditCommand(thread, vscodeComment, node);
-		}
-
-		if (patchedComment._rawComment.canDelete) {
-			// patchedComment.deleteCommand = getDeleteCommand(thread, vscodeComment, node);
-		}
-	}
-}
-
 export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser, githubRepository: GitHubRepository): IAccount {
 	return {
 		login: user.login,

@@ -14,7 +14,7 @@ import { Repository } from '../api/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRequestNode';
-import { CommentHandler, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, updateCommentCommands, updateCommentReviewState } from '../github/utils';
+import { CommentHandler, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState } from '../github/utils';
 import { ReactionGroup } from '../github/graphql';
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 import { registerCommentHandler } from '../commentThreadResolver';
@@ -798,7 +798,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: IComment });
 			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, input, comment._rawComment);
 			const vscodeComment = new GHPRComment(rawComment!);
-			updateCommentCommands(vscodeComment, this.commentController!, thread, this._prManager.activePullRequest!, this);
 			thread.comments = [...thread.comments, vscodeComment];
 			updateCommentThreadLabel(thread);
 		}
@@ -956,7 +955,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;
 					matchedThread[0].comments = thread.comments.map(comment => {
-						updateCommentCommands(comment, this.commentController!, matchedThread[0], this._prManager.activePullRequest!, this);
 						return comment;
 					});
 					updateCommentThreadLabel(matchedThread[0]);

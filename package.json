@@ -292,8 +292,8 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.replyComment",
-        "title": "Reply Comment",
+        "command": "pr.createComment",
+        "title": "Add Comment",
         "category": "GitHub Pull Requests"
       },
       {
@@ -439,7 +439,7 @@
           "when": "false"
         },
         {
-          "command": "pr.replyComment",
+          "command": "pr.createComment",
           "when": "false"
         },
         {
@@ -555,7 +555,7 @@
       ],
       "comments/commentThread/actions": [
         {
-            "command": "pr.replyComment",
+            "command": "pr.createComment",
             "group": "navigation",
             "precondition": "!commentIsEmpty"
         },

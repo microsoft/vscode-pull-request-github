@@ -375,8 +375,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.replyComment', async (reply: vscode.CommentReply) => {
-		telemetry.on('pr.replyComment');
+	context.subscriptions.push(vscode.commands.registerCommand('pr.createComment', async (reply: vscode.CommentReply) => {
+		telemetry.on('pr.createComment');
 		let handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
