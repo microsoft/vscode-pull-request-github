@@ -51,7 +51,10 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
+
 	const prManager = new PullRequestManager(repository, telemetry);
+	context.subscriptions.push(prManager);
+
 	const reviewManager = new ReviewManager(context, repository, prManager, tree, telemetry);
 	tree.initialize(prManager);
 	registerCommands(context, prManager, reviewManager, telemetry);
