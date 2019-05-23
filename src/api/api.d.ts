@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Event, Disposable } from 'vscode';
+import { PullRequest } from '../github/interface';
 
 export const enum RefType {
 	Head,
@@ -221,4 +222,9 @@ export interface API {
 	 * @return A git provider or `undefined`
 	 */
 	getGitProvider(uri: Uri): IGit | undefined;
+
+	/**
+	 * Event that is called when a pull request is created.
+	 */
+	onPullRequestCreated: Event<PullRequest>;
 }

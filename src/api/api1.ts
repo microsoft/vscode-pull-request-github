@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { API, IGit, Repository } from './api';
 import { TernarySearchTree } from '../common/utils';
+import { PullRequest } from '../github/interface';
 
 export class ApiImpl implements API, IGit, vscode.Disposable {
 	private static _handlePool: number = 0;
@@ -78,5 +79,10 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 
 	dispose() {
 		this._disposables.forEach(disposable => disposable.dispose());
+	}
+
+	readonly onPullRequestCreatedEmitter = new vscode.EventEmitter<PullRequest>();
+	get onPullRequestCreated(): vscode.Event<PullRequest> {
+		return this.onPullRequestCreatedEmitter.event;
 	}
 }
