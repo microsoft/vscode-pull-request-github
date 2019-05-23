@@ -538,26 +538,26 @@
           "group": "inline"
         }
       ],
-      "comments/commentThread/actions": [
+      "comments/commentThread/context": [
         {
             "command": "pr.createComment",
-            "group": "navigation",
+            "group": "inline",
             "precondition": "!commentIsEmpty"
         },
         {
             "command": "pr.startReview",
-            "group": "navigation",
+            "group": "inline",
             "precondition": "!commentIsEmpty",
             "when": "commentThread =~ /graphql:(?!inDraft)/"
         },
         {
             "command": "pr.deleteReview",
-            "group": "navigation",
+            "group": "inline",
             "when": "commentThread =~ /graphql:inDraft/"
         },
         {
             "command": "pr.finishReview",
-            "group": "navigation",
+            "group": "inline",
             "precondition": "!commentIsEmpty",
             "when": "commentThread =~ /graphql:inDraft/"
         }
@@ -574,14 +574,14 @@
             "when": "comment =~ /canEdit/"
         }
       ],
-      "comments/comment/actions": [
+      "comments/comment/context": [
         {
             "command": "pr.cancelEditComment",
-            "group": "group@1"
+            "group": "inline@1"
         },
         {
             "command": "pr.saveComment",
-            "group": "group@2",
+            "group": "inline@2",
             "precondition": "!commentIsEmpty"
         }
       ]
