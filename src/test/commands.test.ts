@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { registerCommands } from '../commands';
+import { MockCommandRegistry } from './mocks/mock-command-registry';
 import { MockExtensionContext } from './mocks/mock-extension-context';
 import { MockRepository } from './mocks/mock-repository';
 import { MockTelemetry } from './mocks/mock-telemetry';
@@ -15,6 +16,7 @@ import { Keytar, init as initKeytar, setToken, listHosts } from '../authenticati
 describe('Command registration', function() {
 	let sinon: SinonSandbox;
 
+	let commands: MockCommandRegistry;
 	let context: MockExtensionContext;
 	let repository: MockRepository;
 	let prManager: PullRequestManager;
@@ -24,6 +26,8 @@ describe('Command registration', function() {
 
 	beforeEach(function() {
 		sinon = createSandbox();
+
+		commands = new MockCommandRegistry(sinon);
 
 		context = new MockExtensionContext();
 		telemetry = new MockTelemetry();
@@ -61,7 +65,7 @@ describe('Command registration', function() {
 		it('deletes the tokens associated with each selected host', async function() {
 			(sinon.stub(vscode.window, 'showQuickPick') as any).resolves(['aaa.com', 'ccc.com']);
 
-			await vscode.commands.executeCommand('auth.signout');
+			await commands.executeCommand('auth.signout');
 
 			assert.deepEqual(await listHosts(), ['bbb.com']);
 		});
@@ -69,7 +73,7 @@ describe('Command registration', function() {
 		it('does nothing when no host is selected', async function() {
 			(sinon.stub(vscode.window, 'showQuickPick') as any).resolves(undefined);
 
-			await vscode.commands.executeCommand('auth.signout');
+			await commands.executeCommand('auth.signout');
 
 			assert.deepEqual(await listHosts(), ['aaa.com', 'bbb.com', 'ccc.com']);
 		});

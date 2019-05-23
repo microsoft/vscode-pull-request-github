@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import * as Octokit from '../../common/octokit';
+import { MockCommandRegistry } from '../mocks/mock-command-registry';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -7,6 +8,7 @@ import { PullRequestStateEnum } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { SinonSandbox, createSandbox } from 'sinon';
 
 const telemetry = {
 	on: (action: string) => Promise.resolve(),
@@ -170,16 +172,21 @@ const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseIt
 };
 
 describe('PullRequestModel', function () {
+	let sinon: SinonSandbox;
 	let credentials: CredentialStore;
 	let repo: GitHubRepository;
 
 	beforeEach(function () {
+		sinon = createSandbox();
+		MockCommandRegistry.install(sinon);
+
 		credentials = new CredentialStore(telemetry);
 		repo = new GitHubRepository(remote, credentials);
 	});
 
 	afterEach(function () {
 		credentials.dispose();
+		sinon.restore();
 	});
 
 	it('should return `state` properly as `open`', function () {
