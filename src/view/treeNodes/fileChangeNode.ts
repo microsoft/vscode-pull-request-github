@@ -38,7 +38,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		this.command = {
 			title: 'show remote file',
-			command: 'vscode.open',
+			command: 'pr.openDiffGitHub',
 			arguments: [
 				vscode.Uri.parse(this.blobUrl)
 			]
