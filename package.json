@@ -103,7 +103,7 @@
             }
           },
           "scope": "resource",
-          "description": "Specifies what queries should be used in the GitHub Pull Requests tree. Uses [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). `${user}` can be used for the current user.",
+          "markdownDescription": "Specifies what queries should be used in the GitHub Pull Requests tree. Uses [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user.",
           "default": [
             {
               "label": "Waiting For My Review",
