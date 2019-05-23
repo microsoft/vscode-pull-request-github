@@ -533,6 +533,7 @@
     "@types/temp": "0.8.34",
     "@types/webpack": "^4.4.10",
     "@types/ws": "^5.1.2",
+    "builder-pattern": "1.2.0",
     "css-loader": "^0.28.11",
     "del": "^3.0.0",
     "gulp": "3.9.1",
