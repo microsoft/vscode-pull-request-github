@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as Github from '@octokit/rest';
+import * as Octokit from '@octokit/rest';
 import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
@@ -560,7 +560,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private closePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.close', this._pullRequest, message.args).then(comment => {
+		vscode.commands.executeCommand<Octokit.PullsGetResponse>('pr.close', this._pullRequest, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -688,7 +688,7 @@ export class PullRequestOverviewPanel {
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'unsafe-eval' 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
 
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<title>Pull Request #${number}</title>

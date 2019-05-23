@@ -222,7 +222,7 @@ export class CredentialStore {
 
 		if (octokit) {
 			try {
-				const user = await octokit.users.get({});
+				const user = await octokit.users.getAuthenticated({});
 				(octokit as any).currentUser = user.data;
 				text = `$(mark-github) ${user.data.login}`;
 			} catch (e) {

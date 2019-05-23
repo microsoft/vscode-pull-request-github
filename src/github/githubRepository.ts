@@ -276,7 +276,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			let promises: Promise<Octokit.Response<Octokit.PullRequestsGetResponse>>[] = [];
+			let promises: Promise<Octokit.Response<Octokit.PullsGetResponse>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
 					let prData = await octokit.pulls.get({

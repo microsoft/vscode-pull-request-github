@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import * as Octokit from '../../common/octokit';
+import * as Octokit from '@octokit/rest';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -16,7 +16,7 @@ const credentials = new CredentialStore(telemetry);
 const protocol = new Protocol('');
 const remote = new Remote('test', 'github/test', protocol);
 const repo = new GitHubRepository(remote, credentials);
-const user: Octokit.PullRequestsGetAllResponseItemUser = {
+const user: Octokit.PullsListResponseItemUser = {
 	login: 'me',
 	id: 1,
 	node_id: 'string',
@@ -36,7 +36,7 @@ const user: Octokit.PullRequestsGetAllResponseItemUser = {
 	type: '',
 	site_admin: false,
 };
-const githubRepo: Octokit.PullRequestsGetResponseHeadRepo = {
+const githubRepo: Octokit.PullsListResponseItemHeadRepo = {
 	id: 1,
 	node_id: '',
 	name: '',
@@ -116,6 +116,7 @@ const githubRepo: Octokit.PullRequestsGetResponseHeadRepo = {
 	allow_merge_commit: false,
 	subscribers_count: 0,
 	network_count: 0,
+	disabled: false
 };
 const pr: any = {
 	id: 1,
