@@ -7,7 +7,7 @@ import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import { GHPRComment, GHPRCommentThread } from '../github/prComment';
-import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased } from '../common/diffPositionMapping';
+import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, mapHeadLineToDiffHunkPosition } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../api/api';
@@ -202,7 +202,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads, this._reviewDocumentCommentThreads].forEach(commentThreadMap => {
 				for (let fileName in commentThreadMap) {
 					commentThreadMap[fileName].forEach(thread => {
-						this.updateCommentThreadCommands(thread, newDraftMode);
 						updateCommentReviewState(thread, newDraftMode);
 						updateCommentThreadLabel(thread);
 					});
@@ -211,7 +210,6 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 			for (let fileName in this._prDocumentCommentThreads) {
 				[...this._prDocumentCommentThreads[fileName].original || [], ...this._prDocumentCommentThreads[fileName].modified || []].forEach(thread => {
-					this.updateCommentThreadCommands(thread, newDraftMode);
 					thread.comments = thread.comments.map(comment => {
 						comment.label = newDraftMode ? 'Pending' : undefined;
 						return comment;
@@ -446,10 +444,41 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 	// #region Helper
 
-	private updateCommentThreadCommands(thread: vscode.CommentThread, newDraftMode: boolean) {
-		// let commands = getAcceptInputCommands(thread, newDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
-		// thread.acceptInputCommand = commands.acceptInputCommand;
-		// thread.additionalCommands = commands.additionalCommands;
+	private async updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void> {
+		const uri = thread.resource;
+		const matchedFile = this.findMatchedFileByUri(uri);
+		const query = uri.query === '' ? undefined : fromReviewUri(uri);
+		const isBase = query && query.base;
+
+		if (!matchedFile) {
+			throw new Error(`Cannot find document ${uri.toString()}`);
+		}
+
+		if (!this._prManager.activePullRequest) {
+			throw new Error('No active pull request');
+		}
+		const headCommitSha = this._prManager.activePullRequest.head.sha;
+
+		// git diff sha -- fileName
+		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
+		const position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, thread.range.start.line + 1, isBase);
+
+		if (position < 0) {
+			throw new Error('Comment position cannot be negative');
+		}
+
+		// there is no thread Id, which means it's a new thread
+		const rawComment = await this._prManager.createComment(this._prManager.activePullRequest!, text, matchedFile.fileName, position);
+		const comment = new GHPRComment(rawComment!, thread);
+
+		thread.comments = [comment];
+		this.addToCommentThreadCache(thread);
+		updateCommentThreadLabel(thread);
+		matchedFile.comments.push(rawComment!);
+		this._comments.push(rawComment!);
+
+		await this.update(this._localFileChanges, this._obsoleteFileChanges);
+		this._onDidChangeComments.fire(this._comments);
 	}
 
 	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string): Promise<string> {
@@ -655,49 +684,22 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Review
-	public async startReview(thread: vscode.CommentThread): Promise<void> {
+	public async startReview(thread: vscode.CommentThread, input: string): Promise<void> {
 		await this._prManager.startReview(this._prManager.activePullRequest!);
-
-		// if (thread.comments.length) {
-		// 	let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-		// 	const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox ? this.commentController!.inputBox!.value : '', comment._rawComment);
-
-		// 	const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
-		// 	updateCommentCommands(vscodeComment,this.commentController!, thread, this._prManager.activePullRequest!, this);
-		// 	thread.comments = [...thread.comments, vscodeComment];
-		// 	updateCommentThreadLabel(thread);
-		// } else {
-		// 	// create new comment thread
-
-		// 	if (this.commentController!.inputBox && this.commentController!.inputBox!.value) {
-		// 		await this.updateCommentThreadRoot(thread, this.commentController!.inputBox!.value);
-		// 	}
-		// }
-
-		// if (this.commentController!.inputBox) {
-		// 	this.commentController!.inputBox!.value = '';
-		// }
+		await this.createOrReplyComment(thread, input);
 	}
 
-	public async finishReview(thread: vscode.CommentThread): Promise<void> {
-		// if (this.commentController && this.commentController.inputBox && this.commentController.inputBox.value) {
-		// 	let comment = thread.comments[0] as (vscode.Comment & { _rawComment: Comment });
-		// 	const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, this.commentController!.inputBox!.value, comment._rawComment);
-		// 	const vscodeComment = convertToVSCodeComment(rawComment!, undefined);
-		// 	updateCommentCommands(vscodeComment, this.commentController!, thread, this._prManager.activePullRequest!, this);
-		// 	thread.comments = [...thread.comments, vscodeComment];
-		// 	updateCommentThreadLabel(thread);
-		// 	this.commentController!.inputBox!.value = '';
-		// }
-
-		// await this._prManager.submitReview(this._prManager.activePullRequest!);
+	public async finishReview(thread: vscode.CommentThread, input: string): Promise<void> {
+		try {
+			this.createOrReplyComment(thread, input);
+			await this._prManager.submitReview(this._prManager.activePullRequest!);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
+		}
 	}
 
 	async deleteReview(): Promise<void> {
 		const { deletedReviewComments } = await this._prManager.deleteReview(this._prManager.activePullRequest!);
-		// if (this.commentController!.inputBox && this.commentController!.inputBox!.value) {
-		// 	this.commentController!.inputBox!.value = '';
-		// }
 
 		[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads, this._reviewDocumentCommentThreads].forEach(commentThreadMap => {
 			for (let fileName in commentThreadMap) {
@@ -772,13 +774,14 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	async createOrReplyComment(thread: vscode.CommentThread, input: string): Promise<void> {
 		if (thread.comments.length === 0) {
 			this.addToCommentThreadCache(thread);
+			this.updateCommentThreadRoot(thread, input);
+		} else {
+			let comment = thread.comments[0] as (vscode.Comment & { _rawComment: IComment });
+			const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, input, comment._rawComment);
+			const vscodeComment = new GHPRComment(rawComment!, thread);
+			thread.comments = [...thread.comments, vscodeComment];
+			updateCommentThreadLabel(thread);
 		}
-
-		let comment = thread.comments[0] as (vscode.Comment & { _rawComment: IComment });
-		const rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, input, comment._rawComment);
-		const vscodeComment = new GHPRComment(rawComment!);
-		thread.comments = [...thread.comments, vscodeComment];
-		updateCommentThreadLabel(thread);
 	}
 
 	async editComment(thread: vscode.CommentThread, comment: GHPRComment): Promise<void> {
@@ -811,7 +814,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				this._comments.splice(indexInAllComments, 1, editedComment);
 			}
 
-			const vscodeComment = new GHPRComment(editedComment);
+			const vscodeComment = new GHPRComment(editedComment, thread);
 
 			let newComments = thread.comments.map((cmt: GHPRComment) => {
 				if (cmt.commentId === vscodeComment.commentId) {
