@@ -9,6 +9,7 @@ import { Comment } from '../src/common/comment';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { editIcon, deleteIcon } from './icon';
+import { PullRequestStateEnum } from '../src/github/interface';
 
 export type Props = Partial<Comment & PullRequest> & {
 	headerInEditMode?: boolean
@@ -163,7 +164,7 @@ export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 		:
 	<div className='comment-body'><em>No description provided.</em></div>;
 
-export function AddComment({ pendingCommentText }: PullRequest) {
+export function AddComment({ pendingCommentText, state }: PullRequest) {
 		const { updatePR, comment } = useContext(PullRequestContext);
 		return <form id='comment-form' className='comment-form main-comment-form' onSubmit={onSubmit}>
 			<textarea id='comment-textarea'
@@ -173,7 +174,9 @@ export function AddComment({ pendingCommentText }: PullRequest) {
 				value={pendingCommentText}
 				placeholder='Leave a comment' />
 			<div className='form-actions'>
-				<button id='close' className='secondary'>Close Pull Request</button>
+				<button id='close'
+					disabled={state !== PullRequestStateEnum.Open}
+					className='secondary'>Close Pull Request</button>
 				<button id='request-changes'
 					disabled={!pendingCommentText}
 					className='secondary'>Request Changes</button>
