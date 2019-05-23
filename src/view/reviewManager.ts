@@ -153,7 +153,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				}
 
 				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry, this._context);
+				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
 				this._prsTreeDataProvider.initialize(this._prManager);
 				this._disposables.push(this._prsTreeDataProvider);
 			}

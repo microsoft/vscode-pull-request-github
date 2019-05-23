@@ -62,6 +62,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 			if (repo.ui.selected) {
 				prManager.repository = repo;
 				reviewManager.repository = repo;
+				tree.updateQueries();
 			}
 		});
 	});
@@ -71,6 +72,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 			if (repo.ui.selected) {
 				prManager.repository = repo;
 				reviewManager.repository = repo;
+				tree.updateQueries();
 			}
 		});
 	});
@@ -91,7 +93,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	Logger.appendLine('Looking for git repository');
 	const firstRepository = apiImpl.repositories[0];
 
-	const prTree = new PullRequestsTreeDataProvider(telemetry, context);
+	const prTree = new PullRequestsTreeDataProvider(telemetry);
 
 	if (firstRepository) {
 		await init(context, apiImpl, firstRepository, prTree);

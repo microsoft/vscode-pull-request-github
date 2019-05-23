@@ -87,6 +87,38 @@
           "deprecationMessage": "The setting `githubPullRequests.includeRemotes` has been deprecated. Use `githubPullRequests.remotes` to configure what remotes are shown.",
           "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
         },
+        "githubPullRequests.queries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "The label to display for the query in the Pull Requests tree"
+              },
+              "query": {
+                "type": "string",
+                "description": "The query used for searching pull requests."
+              }
+            }
+          },
+          "scope": "resource",
+          "description": "Specifies what queries should be used in the GitHub Pull Requests tree. Uses [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). `${user}` can be used for the current user.",
+          "default": [
+            {
+              "label": "Waiting For My Review",
+              "query": "is:open review-requsted:${user}"
+            },
+            {
+              "label": "Assigned To Me",
+              "query": "is:open assignee:${user}"
+            },
+            {
+              "label": "Created By Me",
+              "query": "is:open author:${user}"
+            }
+          ]
+        },
         "githubPullRequests.defaultMergeMethod": {
           "type": "string",
           "enum": [
