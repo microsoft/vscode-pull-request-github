@@ -2,14 +2,13 @@ import * as assert from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PullRequestManager } from '../../github/pullRequestManager';
-import { MockRepository } from '../mocks/mock-repository';
-import { MockTelemetry } from '../mocks/mock-telemetry';
-import { MockCommandRegistry } from '../mocks/mock-command-registry';
+import { MockRepository } from '../mocks/mockRepository';
+import { MockTelemetry } from '../mocks/mockTelemetry';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
-import { CredentialStore } from '../../github/credentials';
 import { createRESTPullRequest } from '../builders/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 

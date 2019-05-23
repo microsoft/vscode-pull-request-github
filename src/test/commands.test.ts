@@ -3,11 +3,11 @@ import * as vscode from 'vscode';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { registerCommands } from '../commands';
-import { MockCommandRegistry } from './mocks/mock-command-registry';
-import { MockExtensionContext } from './mocks/mock-extension-context';
-import { MockRepository } from './mocks/mock-repository';
-import { MockTelemetry } from './mocks/mock-telemetry';
-import { MockKeytar } from './mocks/mock-keytar';
+import { MockCommandRegistry } from './mocks/mockCommandRegistry';
+import { MockExtensionContext } from './mocks/mockExtensionContext';
+import { MockRepository } from './mocks/mockRepository';
+import { MockTelemetry } from './mocks/mockTelemetry';
+import { MockKeytar } from './mocks/mockKeytar';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { ReviewManager } from '../view/reviewManager';
 import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';

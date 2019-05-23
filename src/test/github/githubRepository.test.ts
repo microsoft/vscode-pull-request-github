@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
-import { MockCommandRegistry } from '../mocks/mock-command-registry';
-import { MockTelemetry } from '../mocks/mock-telemetry';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';

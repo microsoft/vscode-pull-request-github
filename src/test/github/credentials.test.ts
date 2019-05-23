@@ -2,13 +2,13 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox } from 'sinon';
 
-import { MockCommandRegistry } from '../mocks/mock-command-registry';
-import { MockTelemetry } from '../mocks/mock-telemetry';
-import { MockKeytar } from '../mocks/mock-keytar';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { MockTelemetry } from '../mocks/mockTelemetry';
+import { MockKeytar } from '../mocks/mockKeytar';
 import { CredentialStore } from '../../github/credentials';
 import { handler as uriHandler } from '../../common/uri';
 import { init as initKeytar, getToken } from '../../authentication/keychain';
-import { MockExtensionContext } from '../mocks/mock-extension-context';
+import { MockExtensionContext } from '../mocks/mockExtensionContext';
 
 describe('CredentialStore', function() {
 	let sinon: SinonSandbox;

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { MockCommandRegistry } from '../mocks/mock-command-registry';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
