@@ -347,6 +347,10 @@ export class PullRequestManager implements vscode.Disposable {
 		this._repository = repository;
 	}
 
+	get credentialStore(): CredentialStore {
+		return this._credentialStore;
+	}
+
 	async clearCredentialCache(): Promise<void> {
 		this._credentialStore.reset();
 	}
