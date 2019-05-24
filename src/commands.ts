@@ -373,6 +373,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		if (handler) {
 			await handler.deleteReview();
 		}
+
+		if (!reply.thread.comments.length) {
+			reply.thread.dispose();
+		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.createComment', async (reply: vscode.CommentReply) => {
