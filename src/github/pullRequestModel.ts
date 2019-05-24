@@ -20,6 +20,7 @@ export class PullRequestModel {
 	public updatedAt: string;
 	public localBranchName?: string;
 	public mergeBase?: string;
+	public isDraft: boolean;
 
 	public get isOpen(): boolean {
 		return this.state === PullRequestStateEnum.Open;
@@ -92,6 +93,7 @@ export class PullRequestModel {
 		this.bodyHTML = prItem.bodyHTML;
 		this.html_url = prItem.url;
 		this.author = prItem.user;
+		this.isDraft = prItem.isDraft;
 
 		if (prItem.state.toLowerCase() === 'open') {
 			this.state = PullRequestStateEnum.Open;

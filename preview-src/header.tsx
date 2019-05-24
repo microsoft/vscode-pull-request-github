@@ -10,11 +10,11 @@ import Timestamp from './timestamp';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
 
-export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, draft, }: PullRequest) {
+export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, }: PullRequest) {
 	return <>
-		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut, draft}} />
+		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut, isDraft}} />
 		<div className='subtitle'>
-			<div id='status'>{getStatus(state)}</div>
+			<div id='status'>{getStatus(state, isDraft)}</div>
 			<Avatar for={author} />
 			<span className='author'>
 				<Spaced>
@@ -32,7 +32,7 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 	</>;
 }
 
-function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, draft }: Partial<PullRequest>) {
+function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isDraft }: Partial<PullRequest>) {
 	const [ inEditMode, setEditMode ] = useState(false);
 	const [ showActionBar, setShowActionBar ] = useState(false);
 	const [ currentTitle, setCurrentTitle ] = useStateProp(title);
@@ -70,7 +70,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, draft }: Pa
 	return <div className='overview-title'
 		onMouseEnter={() => setShowActionBar(true)}
 		onMouseLeave={() => setShowActionBar(false)}>
-		{editableTitle} {draft && 'Draft'}
+		{editableTitle}
 		{
 			(canEdit && showActionBar && !inEditMode)
 				? <div className='flex-action-bar comment-actions'>
@@ -97,10 +97,12 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut }) => {
 	}
 };
 
-export function getStatus(state: PullRequestStateEnum) {
+export function getStatus(state: PullRequestStateEnum, isDraft: Boolean) {
+	console.log('#########', isDraft)
 	if (state === PullRequestStateEnum.Merged) {
 		return 'Merged';
 	} else if (state === PullRequestStateEnum.Open) {
+		if (isDraft) return 'Draft'
 		return 'Open';
 	} else {
 		return 'Closed';

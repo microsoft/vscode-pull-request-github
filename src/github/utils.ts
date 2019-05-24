@@ -162,7 +162,7 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable,
 			labels,
 			nodeId: node_id,
-			draft
+			isDraft: draft
 	};
 
 	return item;
@@ -350,7 +350,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
 		nodeId: graphQLPullRequest.id,
 		labels: graphQLPullRequest.labels.nodes,
-		draft: graphQLPullRequest.isDraft
+		isDraft: graphQLPullRequest.isDraft
 	};
 }
 

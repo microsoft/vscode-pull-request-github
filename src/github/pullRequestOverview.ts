@@ -253,9 +253,10 @@ export class PullRequestOverviewPanel {
 					status: status,
 					mergeable: this._pullRequest.prItem.mergeable,
 					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
+					isDraft: this._pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
-					supportsGraphQl
+					supportsGraphQl,
 				}
 			});
 		}).catch(e => {
