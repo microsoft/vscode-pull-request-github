@@ -13,13 +13,13 @@ import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../api/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { getCommentingRanges, provideDocumentComments } from './treeNodes/pullRequestNode';
+import { getCommentingRanges, provideDocumentComments, ThreadData } from './treeNodes/pullRequestNode';
 import { CommentHandler, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState } from '../github/utils';
 import { ReactionGroup } from '../github/graphql';
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 import { registerCommentHandler } from '../commentThreadResolver';
 
-function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): GHPRCommentThread[] {
+function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
 	if (!fileChange) {
 		return [];
 	}
@@ -28,7 +28,7 @@ function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChan
 		return [];
 	}
 
-	const ret: GHPRCommentThread[] = [];
+	const ret: ThreadData[] = [];
 	const sections = groupBy(fileComments, comment => String(comment.position));
 
 	for (let i in sections) {
@@ -44,7 +44,7 @@ function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChan
 			threadId: firstComment.id.toString(),
 			resource: newUri,
 			range,
-			comments: comments.map(comment => new GHPRComment(comment)),
+			comments,
 			collapsibleState
 		});
 	}
@@ -117,12 +117,12 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 			matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
 
 			let threads = workspaceLocalCommentsToCommentThreads(
-				this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed).map(thread => createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
+				this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed).map(thread => createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
 			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threads;
 		});
 
 		gitFileChangeNodeFilter(this._obsoleteFileChanges).forEach(fileChange => {
-			let threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
+			let threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
 			this._obsoleteFileChangeCommentThreads[fileChange.fileName] = threads;
 		});
 	}
@@ -249,10 +249,10 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 					const inDraftMode = await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 
 					let documentComments = provideDocumentComments(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
-					let newThreads: vscode.CommentThread[] = [];
+					let newThreads: GHPRCommentThread[] = [];
 					if (documentComments) {
-						documentComments.threads.forEach(thread => {
-							newThreads.push(createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
+						documentComments.forEach(thread => {
+							newThreads.push(createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
 						});
 					}
 
@@ -303,8 +303,8 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 			if (reviewCommentThreads) {
 				let newThreads: vscode.CommentThread[] = [];
-				reviewCommentThreads.forEach((thread: GHPRCommentThread) => {
-					newThreads.push(createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
+				reviewCommentThreads.forEach(thread => {
+					newThreads.push(createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
 				});
 
 				this._reviewDocumentCommentThreads[reviewUriString] = newThreads;
@@ -444,7 +444,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 
 	// #region Helper
 
-	private async updateCommentThreadRoot(thread: vscode.CommentThread, text: string): Promise<void> {
+	private async updateCommentThreadRoot(thread: GHPRCommentThread, text: string): Promise<void> {
 		const uri = thread.resource;
 		const matchedFile = this.findMatchedFileByUri(uri);
 		const query = uri.query === '' ? undefined : fromReviewUri(uri);
@@ -499,12 +499,12 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		return contentDiff;
 	}
 
-	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): GHPRCommentThread[] {
+	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
 		if (!fileComments || !fileComments.length) {
 			return [];
 		}
 
-		let ret: GHPRCommentThread[] = [];
+		let ret: ThreadData[] = [];
 		let sections = groupBy(fileComments, comment => String(comment.position));
 
 		for (let i in sections) {
@@ -524,11 +524,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				threadId: firstComment.id.toString(),
 				resource: fileChange.filePath,
 				range,
-				comments: comments.map(comment => {
-					let vscodeComment = new GHPRComment(comment);
-
-					return vscodeComment;
-				}),
+				comments,
 				collapsibleState: collapsibleState
 			});
 		}
@@ -536,7 +532,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		return ret;
 	}
 
-	private provideCommentsForReviewUri(document: vscode.TextDocument, query: ReviewUriParams): GHPRCommentThread[] {
+	private provideCommentsForReviewUri(document: vscode.TextDocument, query: ReviewUriParams): ThreadData[] {
 		const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
 
 		if (matchedFile) {
@@ -569,7 +565,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 
 		let sections = groupBy(comments, comment => String(comment.originalPosition)); // comment.position is null in this case.
-		let ret: GHPRCommentThread[] = [];
+		let ret: ThreadData[] = [];
 		for (let i in sections) {
 			let commentGroup = sections[i];
 			const firstComment = commentGroup[0];
@@ -594,10 +590,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 				threadId: String(firstComment.id),
 				resource: document.uri,
 				range,
-				comments: commentGroup.map(comment => {
-					let vscodeComment = new GHPRComment(comment);
-					return vscodeComment;
-				}),
+				comments,
 				collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
 			});
 		}
@@ -684,12 +677,12 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Review
-	public async startReview(thread: vscode.CommentThread, input: string): Promise<void> {
+	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		await this._prManager.startReview(this._prManager.activePullRequest!);
 		await this.createOrReplyComment(thread, input);
 	}
 
-	public async finishReview(thread: vscode.CommentThread, input: string): Promise<void> {
+	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		try {
 			this.createOrReplyComment(thread, input);
 			await this._prManager.submitReview(this._prManager.activePullRequest!);
@@ -771,7 +764,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 	// #endregion
 
 	// #region Comment
-	async createOrReplyComment(thread: vscode.CommentThread, input: string): Promise<void> {
+	async createOrReplyComment(thread: GHPRCommentThread, input: string): Promise<void> {
 		if (thread.comments.length === 0) {
 			this.addToCommentThreadCache(thread);
 			this.updateCommentThreadRoot(thread, input);
@@ -784,7 +777,7 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 		}
 	}
 
-	async editComment(thread: vscode.CommentThread, comment: GHPRComment): Promise<void> {
+	async editComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<void> {
 		try {
 			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
@@ -932,13 +925,13 @@ export class ReviewDocumentCommentProvider implements vscode.Disposable, Comment
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;
 					matchedThread[0].comments = thread.comments.map(comment => {
-						return comment;
+						return new GHPRComment(comment, matchedThread as any);
 					});
 					updateCommentThreadLabel(matchedThread[0]);
 
 				} else {
 					// create new thread
-					resultThreads.push(createVSCodeCommentThread(thread, this._commentController!, this._prManager.activePullRequest!, inDraftMode, this));
+					resultThreads.push(createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
 				}
 			});
 

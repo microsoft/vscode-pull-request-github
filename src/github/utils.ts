@@ -12,30 +12,33 @@ import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
-import { PullRequestModel } from './pullRequestModel';
-import { PRNode } from '../view/treeNodes/pullRequestNode';
-import { ReviewDocumentCommentProvider } from '../view/reviewDocumentCommentProvider';
 import { uniqBy } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
-import { GHPRCommentThread } from './prComment';
+import { GHPRCommentThread, GHPRComment, TemporaryComment } from './prComment';
+import { ThreadData } from '../view/treeNodes/pullRequestNode';
 
 export interface CommentHandler {
 	supportedSchemes: string[];
 	commentController?: vscode.CommentController;
-	hasCommentThread(thread: vscode.CommentThread): boolean;
-	startReview(thread: vscode.CommentThread, input: string): Promise<void>;
-	finishReview(thread: vscode.CommentThread, input: string): Promise<void>;
+	hasCommentThread(thread: GHPRCommentThread): boolean;
+	startReview(thread: GHPRCommentThread, input: string): Promise<void>;
+	finishReview(thread: GHPRCommentThread, input: string): Promise<void>;
 	deleteReview(): Promise<void>;
-	createOrReplyComment(thread: vscode.CommentThread, input: string): Promise<void>;
-	editComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
-	deleteComment(thread: vscode.CommentThread, comment: vscode.Comment): Promise<void>;
+	createOrReplyComment(thread: GHPRCommentThread, input: string): Promise<void>;
+	editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
+	deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
 }
 
-export function createVSCodeCommentThread(thread: GHPRCommentThread, commentController: vscode.CommentController, pullRequestModel: PullRequestModel, inDraftMode: boolean, node: PRNode | ReviewDocumentCommentProvider) {
+export interface CommentReply {
+	thread: GHPRCommentThread;
+	text: string;
+}
+
+export function createVSCodeCommentThread(thread: ThreadData, commentController: vscode.CommentController, inDraftMode: boolean): GHPRCommentThread {
 	let vscodeThread = commentController.createCommentThread(
 		thread.resource,
 		thread.range!,
-		thread.comments as vscode.Comment[]
+		[]
 	);
 
 	if (inDraftMode) {
@@ -46,17 +49,14 @@ export function createVSCodeCommentThread(thread: GHPRCommentThread, commentCont
 
 	vscodeThread.threadId = thread.threadId;
 
-	vscodeThread.comments = thread.comments.map(comment => {
-		comment.parent = vscodeThread;
-		return comment;
-	});
+	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
 
 	updateCommentThreadLabel(vscodeThread);
 	vscodeThread.collapsibleState = thread.collapsibleState;
-	return vscodeThread;
+	return vscodeThread as GHPRCommentThread;
 }
 
-export function updateCommentThreadLabel(thread: vscode.CommentThread) {
+export function updateCommentThreadLabel(thread: vscode.CommentThread | GHPRCommentThread) {
 	if (thread.comments.length) {
 		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name).map(comment => `@${comment.author.name}`).join(', ');
 		thread.label = `Participants: ${participantsList}`;

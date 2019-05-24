@@ -23,7 +23,7 @@ export interface GHPRCommentThread {
 	/**
 	 * The ordered comments of the thread.
 	 */
-	comments: GHPRComment[];
+	comments: (GHPRComment | TemporaryComment)[];
 
 	/**
 	 * Whether the thread should be collapsed or expanded when opening the document.
@@ -35,6 +35,35 @@ export interface GHPRCommentThread {
 	 * The optional human-readable label describing the [Comment Thread](#CommentThread)
 	 */
 	label?: string;
+
+	dispose: () => void;
+}
+
+export class TemporaryComment implements vscode.Comment {
+	public body: string | vscode.MarkdownString;
+	public mode: vscode.CommentMode;
+	public author: vscode.CommentAuthorInformation;
+	public label: string | undefined;
+	public contextValue: string;
+	public id: number;
+	public parent: GHPRCommentThread;
+	public originalBody?: string;
+
+	static idPool = 0;
+
+	constructor(parent: GHPRCommentThread, input: string, isDraft: boolean, currentUser: any, originalBody?: string) {
+		this.parent = parent;
+		this.body = new vscode.MarkdownString(input);
+		this.mode = vscode.CommentMode.Preview;
+		this.author = {
+			name: currentUser.login,
+			iconPath: vscode.Uri.parse(`${currentUser.avatar_url}&s=${64}`)
+		};
+		this.label = isDraft ? 'Pending' : undefined;
+		this.contextValue = 'canEdit';
+		this.originalBody = originalBody;
+		this.id = TemporaryComment.idPool++;
+	}
 }
 
 export class GHPRComment implements vscode.Comment {
@@ -45,10 +74,10 @@ export class GHPRComment implements vscode.Comment {
 	commentReactions?: vscode.CommentReaction[] | undefined;
 	commentId: string;
 	_rawComment: IComment;
-	parent: vscode.CommentThread | undefined;
+	parent: GHPRCommentThread;
 	contextValue: string;
 
-	constructor(comment: IComment, parent?: vscode.CommentThread) {
+	constructor(comment: IComment, parent: GHPRCommentThread) {
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
 		this.body = new vscode.MarkdownString(comment.body);

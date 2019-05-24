@@ -1168,6 +1168,10 @@ export class PullRequestManager {
 		return this._credentialStore.isCurrentUser(username, pullRequest.remote);
 	}
 
+	getCurrentUser(pullRequest: PullRequestModel): any {
+		return this._credentialStore.getCurrentUser(pullRequest.remote);
+	}
+
 	private addCommentPermissions(rawComment: IComment, remote: Remote): IComment {
 		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user!.login, remote);
 		const notOutdated = rawComment.position !== null;

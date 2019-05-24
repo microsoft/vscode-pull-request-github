@@ -174,6 +174,11 @@ export class CredentialStore {
 		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
 	}
 
+	public getCurrentUser(remote: Remote): any {
+		const octokit = this.getOctokit(remote);
+		return octokit && (octokit as any).currentUser;
+	}
+
 	private async createHub(creds: IHostConfiguration): Promise<GitHub> {
 		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
 		let octokit = new Octokit({

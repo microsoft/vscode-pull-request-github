@@ -23,10 +23,11 @@ import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
 import { IComment } from './common/comment';
-import { GHPRComment } from './github/prComment';
+import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler } from './commentThreadResolver';
+import { CommentReply } from './github/utils';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -348,7 +349,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (reply: vscode.CommentReply) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (reply: CommentReply) => {
 		telemetry.on('pr.startReview');
 		let handler = resolveCommentHandler(reply.thread);
 
@@ -357,7 +358,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (reply: vscode.CommentReply) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (reply: CommentReply) => {
 		telemetry.on('pr.finishReview');
 		let handler = resolveCommentHandler(reply.thread);
 
@@ -366,7 +367,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (reply: vscode.CommentReply) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (reply: CommentReply) => {
 		telemetry.on('pr.deleteReview');
 		let handler = resolveCommentHandler(reply.thread);
 
@@ -379,7 +380,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.createComment', async (reply: vscode.CommentReply) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.createComment', async (reply: CommentReply) => {
 		telemetry.on('pr.createComment');
 		let handler = resolveCommentHandler(reply.thread);
 
@@ -388,64 +389,75 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
 		telemetry.on('pr.editComment');
-		if (comment.parent) {
-			comment.parent.comments = comment.parent.comments.map((cmt: GHPRComment) => {
-				if (cmt.commentId === comment.commentId) {
+
+		if (comment instanceof GHPRComment) {
+			comment.parent.comments = comment.parent.comments.map(cmt => {
+				if (cmt instanceof GHPRComment && cmt.commentId === comment.commentId) {
 					cmt.mode = vscode.CommentMode.Editing;
 				}
 
 				return cmt;
 			});
-		} else {
-			Logger.appendLine(`No thread found for comment '${comment}'`);
+		}
+
+		if (comment instanceof TemporaryComment) {
+			comment.parent.comments = comment.parent.comments.map(cmt => {
+				if (cmt instanceof TemporaryComment && cmt.id === comment.id) {
+					cmt.mode = vscode.CommentMode.Editing;
+				}
+
+				return cmt;
+			});
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.cancelEditComment', async (comment: GHPRComment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.cancelEditComment', async (comment: GHPRComment | TemporaryComment) => {
 		telemetry.on('pr.cancelEditComment');
-		if (comment.parent) {
-			comment.parent.comments = comment.parent.comments.map((cmt: GHPRComment) => {
-				if (cmt.commentId === comment.commentId) {
+
+		if (comment instanceof GHPRComment) {
+			comment.parent.comments = comment.parent.comments.map(cmt => {
+				if (cmt instanceof GHPRComment && cmt.commentId === comment.commentId) {
 					cmt.mode = vscode.CommentMode.Preview;
 					cmt.body = cmt._rawComment.body;
 				}
 
 				return cmt;
 			});
-		} else {
-			Logger.appendLine(`No thread found for comment '${comment}'`);
+		}
+
+		if (comment instanceof TemporaryComment) {
+			comment.parent.comments = comment.parent.comments.map(cmt => {
+				if (cmt instanceof TemporaryComment && cmt.id === comment.id) {
+					cmt.mode = vscode.CommentMode.Preview;
+					cmt.body = cmt.originalBody || cmt.body;
+				}
+
+				return cmt;
+			});
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.saveComment', async (comment: GHPRComment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.saveComment', async (comment: GHPRComment | TemporaryComment) => {
 		telemetry.on('pr.saveComment');
-		if (comment.parent) {
-			let handler = resolveCommentHandler(comment.parent);
+		let handler = resolveCommentHandler(comment.parent);
 
-			if (handler) {
-				await handler.editComment(comment.parent, comment);
-			}
-		}  else {
-			Logger.appendLine(`No thread found for comment '${comment}'`);
+		if (handler) {
+			await handler.editComment(comment.parent, comment);
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (comment: GHPRComment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (comment: GHPRComment | TemporaryComment) => {
 		telemetry.on('pr.deleteComment');
 
 		const shouldDelete = await vscode.window.showWarningMessage('Delete comment?', { modal: true }, 'Delete');
 
 		if (shouldDelete === 'Delete') {
-			if (comment.parent) {
-				let handler = resolveCommentHandler(comment.parent);
+			let handler = resolveCommentHandler(comment.parent);
 
-				if (handler) {
-					await handler.deleteComment(comment.parent, comment);
-				}
-			} else {
-				Logger.appendLine(`No thread found for comment '${comment}'`);
+			if (handler) {
+				await handler.deleteComment(comment.parent, comment);
 			}
 		}
 	}));

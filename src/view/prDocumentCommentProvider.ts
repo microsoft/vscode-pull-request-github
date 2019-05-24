@@ -7,11 +7,12 @@
 import * as vscode from 'vscode';
 import { fromPRUri } from '../common/uri';
 import { getReactionGroup } from '../github/utils';
+import { GHPRCommentThread } from '../github/prComment';
 
 export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider, vscode.CommentReactionProvider, vscode.Disposable {
 	availableReactions: vscode.CommentReaction[] = getReactionGroup();
 	private _prDocumentCommentProviders: {[key: number]: vscode.CommentingRangeProvider & vscode.CommentReactionProvider } = {};
-	private _prDocumentCommentThreadMap: {[key: number]: { [key: string]: vscode.CommentThread[] } } = {};
+	private _prDocumentCommentThreadMap: {[key: number]: { [key: string]: GHPRCommentThread[] } } = {};
 
 	constructor(
 		public commentsController: vscode.CommentController

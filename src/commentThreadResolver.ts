@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as vscode from 'vscode';
 import { CommentHandler } from './github/utils';
+import { GHPRCommentThread } from './github/prComment';
 
 let commentHandlers = new Set<CommentHandler>();
 
@@ -13,7 +13,7 @@ export function registerCommentHandler(commentHandler: CommentHandler) {
 	commentHandlers.add(commentHandler);
 }
 
-export function resolveCommentHandler(commentThread: vscode.CommentThread): CommentHandler | undefined {
+export function resolveCommentHandler(commentThread: GHPRCommentThread): CommentHandler | undefined {
 	for (let [key] of commentHandlers.entries()) {
 		if (key.hasCommentThread(commentThread)) {
 			return key;
