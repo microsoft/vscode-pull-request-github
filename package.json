@@ -556,6 +556,11 @@
             "when": "commentController =~ /github/ && !prInDraft && commentThreadIsEmpty"
         },
         {
+          "command": "pr.startReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && !reviewInDraftMode && commentThreadIsEmpty"
+        },
+        {
             "command": "pr.deleteReview",
             "group": "inline",
             "when": "commentThread =~ /graphql:inDraft/"
@@ -564,6 +569,11 @@
             "command": "pr.deleteReview",
             "group": "inline",
             "when": "commentController =~ /github/ && prInDraft && commentThreadIsEmpty"
+        },
+        {
+            "command": "pr.deleteReview",
+            "group": "inline",
+            "when": "commentController =~ /review/ && reviewInDraftMode && commentThreadIsEmpty"
         },
         {
             "command": "pr.finishReview",
@@ -576,6 +586,12 @@
             "group": "inline",
             "precondition": "!commentIsEmpty",
             "when": "commentController =~ /github/ && prInDraft && commentThreadIsEmpty"
+        },
+        {
+            "command": "pr.finishReview",
+            "group": "inline",
+            "precondition": "!commentIsEmpty",
+            "when": "commentController =~ /review/ && reviewInDraftMode && commentThreadIsEmpty"
         }
       ],
       "comments/comment/title": [

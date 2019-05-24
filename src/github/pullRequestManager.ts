@@ -819,7 +819,7 @@ export class PullRequestManager {
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
 		pullRequest.inDraftMode = false;
-		await vscode.commands.executeCommand('setContext', 'github:inDraftMode', false);
+		await this.updateDraftModeContext(pullRequest);
 
 		return {
 			deletedReviewId: databaseId,
@@ -842,7 +842,7 @@ export class PullRequestManager {
 		});
 
 		pullRequest.inDraftMode = true;
-		await vscode.commands.executeCommand('setContext', 'github:inDraftMode', true);
+		await this.updateDraftModeContext(pullRequest);
 
 		return;
 	}
@@ -853,10 +853,15 @@ export class PullRequestManager {
 			pullRequest.inDraftMode = inDraftMode;
 		}
 
-		// todo set context key
-		await vscode.commands.executeCommand('setContext', 'github:inDraftMode', inDraftMode);
+		await this.updateDraftModeContext(pullRequest);
 
 		return inDraftMode;
+	}
+
+	async updateDraftModeContext(pullRequest: PullRequestModel) {
+		if (this._activePullRequest && this._activePullRequest.prNumber === pullRequest.prNumber) {
+			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', pullRequest.inDraftMode);
+		}
 	}
 
 	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | undefined> {
@@ -1256,7 +1261,7 @@ export class PullRequestManager {
 			});
 
 			pullRequest.inDraftMode = false;
-			await vscode.commands.executeCommand('setContext', 'github:inDraftMode', false);
+			await this.updateDraftModeContext(pullRequest);
 
 			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, githubRepository);
 		} else {
