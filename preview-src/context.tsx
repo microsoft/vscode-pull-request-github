@@ -140,7 +140,6 @@ export class PRContext {
 		this.postMessage({ command: 'pr.open-diff', args: { comment } })
 
 	setPR = (pr: PullRequest) => {
-		console.log('%%%%%%%%%%%%%%', pr)
 		this.pr = pr;
 		setState(this.pr);
 		if (this.onchange) { this.onchange(this.pr); }

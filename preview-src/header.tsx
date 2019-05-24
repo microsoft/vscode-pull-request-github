@@ -98,7 +98,6 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut }) => {
 };
 
 export function getStatus(state: PullRequestStateEnum, isDraft: Boolean) {
-	console.log('#########', isDraft)
 	if (state === PullRequestStateEnum.Merged) {
 		return 'Merged';
 	} else if (state === PullRequestStateEnum.Open) {
