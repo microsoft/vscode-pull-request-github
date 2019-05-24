@@ -294,12 +294,14 @@
       {
         "command": "pr.createComment",
         "title": "Add Comment",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.startReview",
         "title": "Start Review",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.deleteReview",
@@ -323,7 +325,8 @@
       {
         "command": "pr.saveComment",
         "title": "Save",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.deleteComment",
@@ -337,7 +340,8 @@
       {
         "command": "pr.finishReview",
         "title": "Finish Review",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.signinAndRefreshList",
@@ -541,13 +545,11 @@
       "comments/commentThread/context": [
         {
             "command": "pr.createComment",
-            "group": "inline",
-            "precondition": "!commentIsEmpty"
+            "group": "inline"
         },
         {
             "command": "pr.startReview",
             "group": "inline",
-            "precondition": "!commentIsEmpty",
             "when": "commentThread =~ /graphql:(?!inDraft)/"
         },
         {
@@ -578,19 +580,16 @@
         {
             "command": "pr.finishReview",
             "group": "inline",
-            "precondition": "!commentIsEmpty",
             "when": "commentThread =~ /graphql:inDraft/"
         },
         {
             "command": "pr.finishReview",
             "group": "inline",
-            "precondition": "!commentIsEmpty",
             "when": "commentController =~ /github/ && prInDraft && commentThreadIsEmpty"
         },
         {
             "command": "pr.finishReview",
             "group": "inline",
-            "precondition": "!commentIsEmpty",
             "when": "commentController =~ /review/ && reviewInDraftMode && commentThreadIsEmpty"
         }
       ],
@@ -613,8 +612,7 @@
         },
         {
             "command": "pr.saveComment",
-            "group": "inline@2",
-            "precondition": "!commentIsEmpty"
+            "group": "inline@2"
         }
       ]
     }
