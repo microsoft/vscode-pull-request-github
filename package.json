@@ -551,15 +551,31 @@
             "when": "commentThread =~ /graphql:(?!inDraft)/"
         },
         {
+            "command": "pr.startReview",
+            "group": "inline",
+            "when": "commentController =~ /github/ && !prInDraft && commentThreadIsEmpty"
+        },
+        {
             "command": "pr.deleteReview",
             "group": "inline",
             "when": "commentThread =~ /graphql:inDraft/"
+        },
+        {
+            "command": "pr.deleteReview",
+            "group": "inline",
+            "when": "commentController =~ /github/ && prInDraft && commentThreadIsEmpty"
         },
         {
             "command": "pr.finishReview",
             "group": "inline",
             "precondition": "!commentIsEmpty",
             "when": "commentThread =~ /graphql:inDraft/"
+        },
+        {
+            "command": "pr.finishReview",
+            "group": "inline",
+            "precondition": "!commentIsEmpty",
+            "when": "commentController =~ /github/ && prInDraft && commentThreadIsEmpty"
         }
       ],
       "comments/comment/title": [
