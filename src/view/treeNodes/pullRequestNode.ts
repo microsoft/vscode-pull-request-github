@@ -260,6 +260,12 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					// Comment Threads in cache map is updated only when users trigger refresh
 					await this.refreshExistingPREditors(e, false);
 				}));
+
+				await this._prManager.validateDraftMode(this.pullRequestModel);
+				await this.refreshContextKey(vscode.window.activeTextEditor);
+				this._disposables.push(vscode.window.onDidChangeActiveTextEditor(async e => {
+					await this.refreshContextKey(e);
+				}));
 			} else {
 				await this.pullRequestModel.githubRepository.ensureCommentsProvider();
 				this.pullRequestModel.githubRepository.commentsProvider!.clearCommentThreadCache(this.pullRequestModel.prNumber);
@@ -352,6 +358,26 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			});
 
 		}
+	}
+
+	async refreshContextKey(editor: vscode.TextEditor | undefined) {
+		if (!editor) {
+			return;
+		}
+
+		let resource = editor.document;
+
+		if (resource.uri.scheme !== 'pr') {
+			return;
+		}
+
+		const params = fromPRUri(editor.document.uri);
+
+		if (!params || params.prNumber !== this.pullRequestModel.prNumber) {
+			return;
+		}
+
+		vscode.commands.executeCommand('setContext', 'prInDraft', this.pullRequestModel.inDraftMode);
 	}
 
 	async revealComment(comment: IComment) {
@@ -695,12 +721,16 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	public async startReview(thread: vscode.CommentThread, input: string): Promise<void> {
 		await this._prManager.startReview(this.pullRequestModel);
 		await this.createOrReplyComment(thread, input);
+		this.updateThreadReviewState(thread);
+		await this.refreshContextKey(vscode.window.activeTextEditor);
 	}
 
 	public async finishReview(thread: vscode.CommentThread, input: string): Promise<void> {
 		try {
-			this.createOrReplyComment(thread, input);
+			await this.createOrReplyComment(thread, input);
 			await this._prManager.submitReview(this.pullRequestModel);
+			this.updateThreadReviewState(thread);
+			await this.refreshContextKey(vscode.window.activeTextEditor);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
@@ -736,6 +766,16 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					}
 				}
 			}
+		}
+
+		await this.refreshContextKey(vscode.window.activeTextEditor);
+	}
+
+	public updateThreadReviewState(thread: vscode.CommentThread) {
+		if (this.pullRequestModel.inDraftMode) {
+			thread.contextValue = 'graphql:inDraft';
+		} else {
+			thread.contextValue = 'graphql:notInDraft';
 		}
 	}
 
