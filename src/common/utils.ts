@@ -6,7 +6,7 @@
 'use strict';
 import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
-import * as moment from 'moment';
+import moment from 'moment';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);

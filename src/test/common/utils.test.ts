@@ -1,7 +1,7 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import * as utils from '../../common/utils';
 import { EventEmitter } from 'vscode';
-import * as Octokit from '@octokit/rest';
+import Octokit from '@octokit/rest';
 
 describe('utils', () => {
 	describe('formatError', () => {
