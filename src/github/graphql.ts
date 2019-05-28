@@ -141,11 +141,9 @@ export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
 			timeline: {
-				edges: [
-					{
-						node: (MergedEvent | Review | IssueComment | Commit | AssignedEvent)[];
-					}
-				]
+				edges: {
+					node: (MergedEvent | Review | IssueComment | Commit | AssignedEvent)[];
+				}[]
 			}
 		}
 	};
@@ -287,11 +285,9 @@ export interface PullRequestResponse {
 			headRef?: Ref;
 			baseRef?: Ref;
 			labels: {
-				nodes: [
-					{
-						name: string;
-					}
-				]
+				nodes: {
+					name: string;
+				}[],
 			}
 			merged: boolean;
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
