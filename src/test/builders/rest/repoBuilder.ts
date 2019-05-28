@@ -3,7 +3,7 @@ import { UserBuilder } from './userBuilder';
 import { OrganizationBuilder } from './organizationBuilder';
 import { createBuilderClass, createLink } from '../base';
 
-type RepoUnion =
+export type RepoUnion =
 	REST.PullRequestsGetResponseHeadRepo &
 	REST.PullRequestsGetAllResponseItemBaseRepo &
 	REST.ReposGetResponse;

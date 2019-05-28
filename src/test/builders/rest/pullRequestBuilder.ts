@@ -3,8 +3,7 @@ import { UserBuilder } from './userBuilder';
 import { RefBuilder } from './refBuilder';
 import { createLink, createBuilderClass } from '../base';
 
-type PullRequestUnion = Octokit.PullRequestsGetResponse;
-
+export type PullRequestUnion = Octokit.PullRequestsGetResponse;
 type Links = PullRequestUnion['_links'];
 
 export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
