@@ -616,7 +616,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	// #region comment
 	public async createOrReplyComment(thread: GHPRCommentThread, input: string, inDraft?: boolean) {
 		const hasExistingComments = thread.comments.length;
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, inDraft || this.pullRequestModel.inDraftMode);
+		const isDraft = inDraft !== undefined ? inDraft : this.pullRequestModel.inDraftMode;
+		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
 			const fileChange = this.findMatchingFileNode(thread.resource);
@@ -664,7 +665,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		});
 
 		return temporaryComment.id;
-
 	}
 
 	private replaceTemporaryComment(thread: GHPRCommentThread, realComment: IComment, temporaryCommentId: number): void {
@@ -718,6 +718,14 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
 				} catch (e) {
 					vscode.window.showErrorMessage(`Editing comment failed ${e}`);
+
+					thread.comments = thread.comments.map(c => {
+						if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
+							return new GHPRComment(comment._rawComment, thread);
+						}
+
+						return c;
+					});
 				}
 			} else {
 				this.createOrReplyComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
