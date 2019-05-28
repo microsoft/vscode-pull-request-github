@@ -9,7 +9,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
-import { createRESTPullRequest } from '../builders/pullRequestBuilder';
+import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 
 describe('PullRequestManager', function() {
@@ -40,7 +40,7 @@ describe('PullRequestManager', function() {
 			const protocol = new Protocol(url);
 			const remote = new Remote('origin', url, protocol);
 			const repository = new GitHubRepository(remote, manager.credentialStore);
-			const prItem = convertRESTPullRequestToRawPullRequest(createRESTPullRequest().build(), repository);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(repository, remote, prItem);
 
 			manager.activePullRequest = pr;
