@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { PullRequestManager } from '../../github/pullRequestManager';
