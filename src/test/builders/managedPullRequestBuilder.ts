@@ -19,7 +19,7 @@ import { ReviewRequestsBuilder as ReviewRequestsRESTBuilder } from './rest/revie
 type ResponseFlavor<APIFlavor, GQL, RST> = APIFlavor extends 'graphql' ? GQL : RST;
 
 export interface ManagedPullRequest<APIFlavor> {
-	pr: ResponseFlavor<APIFlavor, PullRequestGraphQL, PullRequestREST>;
+	pullRequest: ResponseFlavor<APIFlavor, PullRequestGraphQL, PullRequestREST>;
 	timelineEvents: ResponseFlavor<APIFlavor, TimelineEventsGraphQL, TimelineEventREST[]>;
 	repositoryREST: RepositoryREST;
 	combinedStatusREST: CombinedStatusREST;
@@ -59,7 +59,7 @@ export class ManagedGraphQLPullRequestBuilder extends BaseManagedPullRequestBuil
 	pullRequest(block: (builder: PullRequestGraphQLBuilder) => any) {
 		const builder = new PullRequestGraphQLBuilder();
 		block(builder);
-		this._underConstruction.pr = builder.build();
+		this._underConstruction.pullRequest = builder.build();
 		return this;
 	}
 
@@ -75,7 +75,7 @@ export class ManagedRESTPullRequestBuilder extends BaseManagedPullRequestBuilder
 	pullRequest(block: (builder: PullRequestRESTBuilder) => any) {
 		const builder = new PullRequestRESTBuilder();
 		block(builder);
-		this._underConstruction.pr = builder.build();
+		this._underConstruction.pullRequest = builder.build();
 		return this;
 	}
 
