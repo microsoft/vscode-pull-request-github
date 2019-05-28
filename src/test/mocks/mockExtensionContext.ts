@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as temp from 'temp';
 import { ExtensionContext } from 'vscode';
 
-import { InMemoryMemento } from './in-memory-memento';
+import { InMemoryMemento } from './inMemoryMemento';
 
 export class MockExtensionContext implements ExtensionContext {
 	extensionPath = path.resolve(__dirname, '..');
