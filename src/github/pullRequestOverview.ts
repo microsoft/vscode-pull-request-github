@@ -50,7 +50,7 @@ export class PullRequestOverviewPanel {
 	private _scrollPosition = { x: 0, y: 0 };
 	private _existingReviewers: ReviewState[];
 
-	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		let activeColumn = toTheSide ?
 							vscode.ViewColumn.Beside :
 							vscode.window.activeTextEditor ?
@@ -66,7 +66,7 @@ export class PullRequestOverviewPanel {
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
 		}
 
-		PullRequestOverviewPanel.currentPanel!.update(pullRequestModel, descriptionNode);
+		await PullRequestOverviewPanel.currentPanel!.update(pullRequestModel, descriptionNode);
 	}
 
 	public static refresh(): void {
@@ -201,7 +201,7 @@ export class PullRequestOverviewPanel {
 
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
 
-		Promise.all([
+		await Promise.all([
 			this._pullRequestManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
 				pullRequestModel.remote.repositoryName,
@@ -219,6 +219,7 @@ export class PullRequestOverviewPanel {
 			}
 
 			this._pullRequest = pullRequest;
+			console.log(`setting title in update() with ${pullRequestModel.prNumber}`);
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
@@ -259,8 +260,11 @@ export class PullRequestOverviewPanel {
 				}
 			});
 		}).catch(e => {
+			console.error(e.stack);
 			vscode.window.showErrorMessage(formatError(e));
 		});
+
+		console.log(`update done: ${pullRequestModel.prNumber}`);
 	}
 
 	private async _postMessage(message: any) {
@@ -698,6 +702,10 @@ export class PullRequestOverviewPanel {
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
+	}
+
+	public getCurrentTitle(): string {
+		return this._panel.title;
 	}
 }
 
