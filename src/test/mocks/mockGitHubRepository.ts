@@ -7,7 +7,7 @@ import { Remote } from '../../common/remote';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
-import { PullRequestBuilder } from '../builders/graphql/pullRequestBuilder';
+import { ManagedGraphQLPullRequestBuilder, ManagedRESTPullRequestBuilder, ManagedPullRequest } from '../builders/managedPullRequestBuilder';
 const queries = require('./queries.gql');
 
 interface IMockGitHubRepositoryOptions {
@@ -69,18 +69,78 @@ export class MockGitHubRepository extends GitHubRepository {
 		};
 	}
 
-	addPullRequest(block: (prBuilder: PullRequestBuilder) => void) {
-		const builder = new PullRequestBuilder();
+	addGraphQLPullRequest(block: (builder: ManagedGraphQLPullRequestBuilder) => void) {
+		const builder = new ManagedGraphQLPullRequestBuilder();
 		block(builder);
-		const pr = builder.build();
+		const responses = builder.build();
+
+		const prNumber = responses.pullRequest.repository.pullRequest.number;
+		const headRef = responses.pullRequest.repository.pullRequest.headRef;
 
 		this.queryProvider.expectGraphQLQuery({
 			query: queries.PullRequest,
 			variables: {
 				owner: this.remote.owner,
 				name: this.remote.repositoryName,
-				number: pr.repository.pullRequest.number,
+				number: prNumber,
 			}
-		}, {data: pr, loading: false, stale: false, networkStatus: NetworkStatus.ready});
+		}, {data: responses.pullRequest, loading: false, stale: false, networkStatus: NetworkStatus.ready});
+
+		this.queryProvider.expectGraphQLQuery({
+			query: queries.TimelineEvents,
+			variables: {
+				owner: this.remote.owner,
+				name: this.remote.repositoryName,
+				number: prNumber
+			}
+		}, {data: responses.timelineEvents, loading: false, stale: false, networkStatus: NetworkStatus.ready});
+
+		this._addPullRequestCommon(prNumber, headRef && headRef.target.oid, responses);
+
+		return this;
+	}
+
+	addRESTPullRequest(block: (builder: ManagedRESTPullRequestBuilder) => void) {
+		const builder = new ManagedRESTPullRequestBuilder();
+		block(builder);
+		const responses = builder.build();
+
+		const prNumber = responses.pullRequest.number;
+		const headRef = responses.pullRequest.head.sha;
+
+		this.queryProvider.expectOctokitRequest(
+			['pullRequests', 'get'],
+			[{owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber}],
+			responses.pullRequest,
+		);
+		this.queryProvider.expectOctokitRequest(
+			['issues', 'getEventsTimeline'],
+			[{owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber}],
+			responses.timelineEvents,
+		);
+
+		this._addPullRequestCommon(prNumber, headRef, responses);
+
+		return this;
+	}
+
+	private _addPullRequestCommon<F>(prNumber: number, headRef: string | undefined, responses: ManagedPullRequest<F>) {
+		this.queryProvider.expectOctokitRequest(
+			['repos', 'get'],
+			[{owner: this.remote.owner, repo: this.remote.repositoryName}],
+			responses.repositoryREST,
+		);
+		if (headRef) {
+			this.queryProvider.expectOctokitRequest(
+				['repos', 'getCombinedStatusForRef'],
+				[{owner: this.remote.owner, repo: this.remote.repositoryName, ref: headRef}],
+				responses.combinedStatusREST,
+			);
+		}
+		this.queryProvider.expectOctokitRequest(
+			['pullRequests', 'getReviewRequests'],
+			[{owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber}],
+			responses.reviewRequestsREST,
+		);
 	}
 }

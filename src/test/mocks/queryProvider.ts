@@ -53,12 +53,12 @@ export class QueryProvider {
 		}
 	}
 
-	expectOctokitRequest<R>(accessorPath: string[], response: R) {
+	expectOctokitRequest<R>(accessorPath: string[], args: any[], response: R) {
 		let currentStub: SinonStubbedInstance<any> = this._octokit;
 		for (const accessor of accessorPath) {
-			currentStub = currentStub[accessor];
+			currentStub = currentStub[accessor] || currentStub.stub(accessor);
 		}
-		currentStub.resolves(response);
+		currentStub.withArgs(...args).resolves(response);
 	}
 
 	emulateGraphQLQuery<T>(q: QueryOptions): ApolloQueryResult<T> {
