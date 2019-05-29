@@ -9,7 +9,6 @@ import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { GitHubRepository } from '../../github/githubRepository';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
@@ -19,6 +18,7 @@ import { TreeNode } from '../../view/treeNodes/treeNode';
 import { init as initKeytar, setToken } from '../../authentication/keychain';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockKeytar } from '../mocks/mockKeytar';
+import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
@@ -27,7 +27,7 @@ describe('PullRequestOverview', function() {
 	let pullRequestManager: PullRequestManager;
 	let context: MockExtensionContext;
 	let remote: Remote;
-	let repo: GitHubRepository;
+	let repo: MockGitHubRepository;
 
 	beforeEach(async function() {
 		sinon = createSandbox();
@@ -40,7 +40,7 @@ describe('PullRequestOverview', function() {
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new Remote('origin', url, new Protocol(url));
-		repo = new GitHubRepository(remote, pullRequestManager.credentialStore);
+		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, sinon);
 
 		initKeytar(context, new MockKeytar());
 		await setToken('github.com', '1234');
@@ -60,6 +60,14 @@ describe('PullRequestOverview', function() {
 		it('creates a new panel', async function() {
 			assert.strictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
+
+			repo.addGraphQLPullRequest((builder) => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
 
 			const prItem = convertRESTPullRequestToRawPullRequest(
 				new PullRequestBuilder().number(1000).build(),
@@ -88,8 +96,23 @@ describe('PullRequestOverview', function() {
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 		});
 
-		it.only('reveals and updates an existing panel', async function() {
+		it('reveals and updates an existing panel', async function() {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
+
+			repo.addGraphQLPullRequest((builder) => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
+			repo.addGraphQLPullRequest((builder) => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(2000));
+					});
+				});
+			});
 
 			const prItem0 = convertRESTPullRequestToRawPullRequest(
 				new PullRequestBuilder().number(1000).build(),
