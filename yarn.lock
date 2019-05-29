@@ -921,11 +921,6 @@ buffer@^4.3.0:
     ieee754 "^1.1.4"
     isarray "^1.0.0"
 
-builder-pattern@1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/builder-pattern/-/builder-pattern-1.2.0.tgz#258716e1e7915e9f4e597b714e35bb86e05dfce9"
-  integrity sha512-2E+p+lNCtnXWvXKBYV/xSMG37i82LynLvT/7HgyCWxY7FZ/JqElDD9jwQeLs6w6qWUnAyIarAXcFTsYMgMdMsg==
-
 builtin-modules@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/builtin-modules/-/builtin-modules-1.1.1.tgz#270f076c5a72c02f5b65a47df94c5fe3a278892f"
