@@ -1,10 +1,14 @@
 import { Uri } from 'vscode';
-import { Repository, RepositoryState, RepositoryUIState, Commit, Branch } from '../../api/api';
+import isEqual from 'lodash.isequal';
+
+import { Repository, RepositoryState, RepositoryUIState, Commit, Branch, RefType } from '../../api/api';
+
+type Mutable<T> = {
+	-readonly[P in keyof T]: T[P];
+};
 
 export class MockRepository implements Repository {
-	rootUri = Uri.file('/root');
-
-	state: RepositoryState = {
+	private _state: Mutable<RepositoryState> = {
 		HEAD: undefined,
 		refs: [],
 		remotes: [],
@@ -15,82 +19,215 @@ export class MockRepository implements Repository {
 		workingTreeChanges: [],
 		onDidChange: () => ({ dispose() {} }),
 	};
+	private _config: Map<string, string> = new Map();
+	private _branches: Branch[] = [];
+	private _expectedFetches: {remoteName?: string, ref?: string, depth?: number}[] = [];
+	private _expectedPulls: {unshallow?: boolean}[] = [];
+	private _expectedPushes: {remoteName?: string, branchName?: string, setUpstream?: boolean}[] = [];
+
+	rootUri = Uri.file('/root');
+
+	state: RepositoryState = this._state;
 
 	ui: RepositoryUIState = {
 		selected: true,
 		onDidChange: () => ({ dispose() {} }),
 	};
 
-	getConfigs(): Promise<{ key: string; value: string; }[]> {
-		return Promise.reject(new Error('Unexpected getConfigs()'));
+	async getConfigs(): Promise<{key: string, value: string}[]> {
+		return Array.from(this._config, ([k, v]) => ({key: k, value: v}));
 	}
-	getConfig(key: string): Promise<string> {
-		return Promise.reject(new Error(`Unexpected getConfig(${key})`));
+
+	async getConfig(key: string): Promise<string> {
+		return this._config.get(key) || '';
 	}
-	setConfig(key: string, value: string): Promise<string> {
-		return Promise.reject(new Error(`Unexpected setConfig(${key}, ${value})`));
+
+	async setConfig(key: string, value: string): Promise<string> {
+		const oldValue = this._config.get(key) || '';
+		this._config.set(key, value);
+		return oldValue;
 	}
+
 	getObjectDetails(treeish: string, treePath: string): Promise<{ mode: string; object: string; size: number; }> {
 		return Promise.reject(new Error(`Unexpected getObjectDetails(${treeish}, ${treePath})`));
 	}
+
 	show(ref: string, treePath: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected show(${ref}, ${treePath})`));
 	}
+
 	getCommit(ref: string): Promise<Commit> {
 		return Promise.reject(new Error(`Unexpected getCommit(${ref})`));
 	}
+
 	apply(patch: string, reverse?: boolean | undefined): Promise<void> {
 		return Promise.reject(new Error(`Unexpected apply(..., ${reverse})`));
 	}
+
 	diff(cached?: boolean | undefined): Promise<string> {
 		return Promise.reject(new Error(`Unexpected diff(${cached})`));
 	}
+
 	diffWith(ref: string, treePath: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected diffWith(${ref}, ${treePath})`));
 	}
+
 	diffBlobs(object1: string, object2: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected diffBlobs(${object1}, ${object2})`));
 	}
+
 	diffBetween(ref1: string, ref2: string, treePath: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected diffBlobs(${ref1}, ${ref2}, ${treePath})`));
 	}
+
 	hashObject(data: string): Promise<string> {
 		return Promise.reject(new Error('Unexpected hashObject(...)'));
 	}
-	createBranch(name: string, checkout: boolean, ref?: string | undefined): Promise<void> {
-		return Promise.reject(new Error(`Unexpected createBranch(${name}, ${checkout}, ${ref})`));
+
+	async createBranch(name: string, checkout: boolean, ref?: string | undefined): Promise<void> {
+		if (this._branches.some(b => b.name === name)) {
+			throw new Error(`A branch named ${name} already exists`);
+		}
+
+		const branch = {
+			type: RefType.Head,
+			name,
+			commit: ref,
+		};
+
+		if (checkout) {
+			this._state.HEAD = branch;
+		}
+
+		this._branches.push(branch);
 	}
-	deleteBranch(name: string, force?: boolean | undefined): Promise<void> {
-		return Promise.reject(new Error(`Unexpected deleteBranch(${name}, ${force})`));
+
+	async deleteBranch(name: string, force?: boolean | undefined): Promise<void> {
+		const index = this._branches.findIndex(b => b.name === name);
+		if (index === -1) {
+			throw new Error(`Attempt to delete nonexistent branch ${name}`);
+		}
+		this._branches.splice(index, 1);
 	}
-	getBranch(name: string): Promise<Branch> {
-		return Promise.reject(new Error(`Unexpected getBranch(${name})`));
+
+	async getBranch(name: string): Promise<Branch> {
+		const branch = this._branches.find(b => b.name === name);
+		if (!branch) {
+			throw new Error(`getBranch called with unrecognized name "${name}"`);
+		}
+		return branch;
 	}
-	setBranchUpstream(name: string, upstream: string): Promise<void> {
-		return Promise.reject(new Error(`Unexpected setBranchUpstream(${name})`));
+
+	async setBranchUpstream(name: string, upstream: string): Promise<void> {
+		const index = this._branches.findIndex(b => b.name === name);
+		if (index === -1) {
+			throw new Error(`setBranchUpstream called with unrecognized branch name ${name})`);
+		}
+
+		const match = /^refs\/remotes\/([^\/]+)\/(.+)$/.exec(upstream);
+		if (!match) {
+			throw new Error(`upstream ${upstream} provided to setBranchUpstream did match pattern refs/remotes/<name>/<remote-branch>`);
+		}
+		const [, remoteName, remoteRef] = match;
+
+		const existing = this._branches[index];
+		const replacement = {
+			...existing,
+			upstream: {
+				remote: remoteName,
+				name: remoteRef,
+			},
+		};
+		this._branches.splice(index, 1, replacement);
+
+		if (this._state.HEAD === existing) {
+			this._state.HEAD = replacement;
+		}
 	}
+
 	status(): Promise<void> {
 		return Promise.reject(new Error('Unexpected status()'));
 	}
-	checkout(treeish: string): Promise<void> {
-		return Promise.reject(new Error(`Unexpected checkout(${treeish})`));
+
+	async checkout(treeish: string): Promise<void> {
+		const branch = this._branches.find(b => b.name === treeish);
+
+		// Also: tags
+
+		if (!branch) {
+			throw new Error(`checked called with unrecognized ref ${treeish}`);
+		}
+
+		this._state.HEAD = branch;
 	}
-	addRemote(name: string, url: string): Promise<void> {
-		return Promise.reject(new Error(`Unexpected addRemote(${name}, ${url})`));
+
+	async addRemote(name: string, url: string): Promise<void> {
+		if (this._state.remotes.some(r => r.name === name)) {
+			throw new Error(`A remote named ${name} already exists.`);
+		}
+
+		this._state.remotes.push({
+			name,
+			fetchUrl: url,
+			pushUrl: url,
+			isReadOnly: false,
+		});
 	}
-	removeRemote(name: string): Promise<void> {
-		return Promise.reject(new Error(`Unexpected removeRemote(${name})`));
+
+	async removeRemote(name: string): Promise<void> {
+		const index = this._state.remotes.findIndex(r => r.name === name);
+		if (index === -1) {
+			throw new Error(`No remote named ${name} exists.`);
+		}
+		this._state.remotes.splice(index, 1);
 	}
-	fetch(remote?: string | undefined, ref?: string | undefined, depth?: number | undefined): Promise<void> {
-		return Promise.reject(new Error(`Unexpected fetch(${remote}, ${ref}, ${depth})`));
+
+	async fetch(remoteName?: string | undefined, ref?: string | undefined, depth?: number | undefined): Promise<void> {
+		const index = this._expectedFetches.findIndex(f => isEqual(f, {remoteName, ref, depth}));
+		if (index === -1) {
+			throw new Error(`Unexpected fetch(${remoteName}, ${ref}, ${depth})`);
+		}
+
+		if (ref) {
+			const match = /^(?:\+?[^:]+\:)?(.*)$/.exec(ref);
+			if (match) {
+				const [, localRef] = match;
+				await this.createBranch(localRef, false);
+			}
+		}
+
+		this._expectedFetches.splice(index, 1);
 	}
-	pull(unshallow?: boolean | undefined): Promise<void> {
-		return Promise.reject(new Error(`Unexpected pull(${unshallow})`));
+
+	async pull(unshallow?: boolean | undefined): Promise<void> {
+		const index = this._expectedPulls.findIndex(f => isEqual(f, {unshallow}));
+		if (index === -1) {
+			throw new Error(`Unexpected pull(${unshallow})`);
+		}
+		this._expectedPulls.splice(index, 1);
 	}
-	push(remoteName?: string | undefined, branchName?: string | undefined, setUpstream?: boolean | undefined): Promise<void> {
-		return Promise.reject(new Error(`Unexpected push(${remoteName}, ${branchName}, ${setUpstream})`));
+
+	async push(remoteName?: string | undefined, branchName?: string | undefined, setUpstream?: boolean | undefined): Promise<void> {
+		const index = this._expectedPushes.findIndex(f => isEqual(f, {remoteName, branchName, setUpstream}));
+		if (index === -1) {
+			throw new Error(`Unexpected push(${remoteName}, ${branchName}, ${setUpstream})`);
+		}
+		this._expectedPushes.splice(index, 1);
 	}
+
 	blame(treePath: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected blame(${treePath})`));
+	}
+
+	expectFetch(remoteName?: string, ref?: string, depth?: number) {
+		this._expectedFetches.push({remoteName, ref, depth});
+	}
+
+	expectPull(unshallow?: boolean) {
+		this._expectedPulls.push({unshallow});
+	}
+
+	expectPush(remoteName?: string, branchName?: string, setUpstream?: boolean) {
+		this._expectedPushes.push({remoteName, branchName, setUpstream});
 	}
 }
