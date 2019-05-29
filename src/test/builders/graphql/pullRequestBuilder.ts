@@ -12,7 +12,7 @@ const RefBuilder = createBuilderClass<Ref>()({
 		url: {default: 'https://github.com/owner/repo'},
 	}),
 	target: createLink<Ref['target']>()({
-		oid: {default: '0000'},
+		oid: {default: '0000000000000000000000000000000000000000'},
 	})
 });
 
