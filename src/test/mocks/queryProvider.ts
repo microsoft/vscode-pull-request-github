@@ -32,6 +32,10 @@ export class QueryProvider {
 	}
 
 	expectGraphQLQuery<T>(q: QueryOptions, result: ApolloQueryResult<T>) {
+		if (!q.query) {
+			throw new Error('Empty GraphQL query used in expectation. Is the GraphQL loader configured properly?');
+		}
+
 		const cannedResponse: RecordedQueryResult<T> = {variables: q.variables, result};
 
 		const cannedResponses = this._graphqlQueryResponses.get(q.query) || [];
