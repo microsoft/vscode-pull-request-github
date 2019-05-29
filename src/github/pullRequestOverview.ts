@@ -219,7 +219,6 @@ export class PullRequestOverviewPanel {
 			}
 
 			this._pullRequest = pullRequest;
-			console.log(`setting title in update() with ${pullRequestModel.prNumber}`);
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
@@ -263,8 +262,6 @@ export class PullRequestOverviewPanel {
 			console.error(e.stack);
 			vscode.window.showErrorMessage(formatError(e));
 		});
-
-		console.log(`update done: ${pullRequestModel.prNumber}`);
 	}
 
 	private async _postMessage(message: any) {
