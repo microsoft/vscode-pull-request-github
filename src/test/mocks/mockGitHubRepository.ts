@@ -8,7 +8,7 @@ import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
 import { ManagedGraphQLPullRequestBuilder, ManagedRESTPullRequestBuilder, ManagedPullRequest } from '../builders/managedPullRequestBuilder';
-const queries = require('./queries.gql');
+const queries = require('../../github/queries.gql');
 
 interface IMockGitHubRepositoryOptions {
 	failAuthentication?: boolean;
