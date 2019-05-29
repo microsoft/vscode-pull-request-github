@@ -12,9 +12,9 @@ import { PullRequestBuilder as PullRequestGraphQLBuilder } from './graphql/pullR
 import { PullRequestBuilder as PullRequestRESTBuilder, PullRequestUnion as PullRequestREST } from './rest/pullRequestBuilder';
 import { TimelineEventsBuilder as TimelineEventsGraphQLBuilder } from './graphql/timelineEventsBuilder';
 import { RepoUnion as RepositoryREST, RepositoryBuilder as RepositoryRESTBuilder } from './rest/repoBuilder';
-import { TimelineEventItemBuilder as TimelineEventRESTBuilder } from './rest/timelineEventItemBuilder';
 import { CombinedStatusBuilder as CombinedStatusRESTBuilder } from './rest/combinedStatusBuilder';
 import { ReviewRequestsBuilder as ReviewRequestsRESTBuilder } from './rest/reviewRequestsBuilder';
+import { createBuilderClass } from './base';
 
 type ResponseFlavor<APIFlavor, GQL, RST> = APIFlavor extends 'graphql' ? GQL : RST;
 
@@ -26,66 +26,22 @@ export interface ManagedPullRequest<APIFlavor> {
 	reviewRequestsREST: ReviewRequestsREST;
 }
 
-abstract class BaseManagedPullRequestBuilder<APIFlavor extends 'graphql' | 'rest'> {
-	protected _underConstruction: Partial<ManagedPullRequest<APIFlavor>>;
+export const ManagedGraphQLPullRequestBuilder = createBuilderClass<ManagedPullRequest<'graphql'>>()({
+	pullRequest: {linked: PullRequestGraphQLBuilder},
+	timelineEvents: {linked: TimelineEventsGraphQLBuilder},
+	repositoryREST: {linked: RepositoryRESTBuilder},
+	combinedStatusREST: {linked: CombinedStatusRESTBuilder},
+	reviewRequestsREST: {linked: ReviewRequestsRESTBuilder},
+});
 
-	repository(block: (builder: RepositoryRESTBuilder) => any) {
-		const builder = new RepositoryRESTBuilder();
-		block(builder);
-		this._underConstruction.repositoryREST = builder.build();
-		return this;
-	}
+export type ManagedGraphQLPullRequestBuilder = InstanceType<typeof ManagedGraphQLPullRequestBuilder>;
 
-	combinedStatus(block: (builder: CombinedStatusRESTBuilder) => any) {
-		const builder = new CombinedStatusRESTBuilder();
-		block(builder);
-		this._underConstruction.combinedStatusREST = builder.build();
-		return this;
-	}
+export const ManagedRESTPullRequestBuilder = createBuilderClass<ManagedPullRequest<'rest'>>()({
+	pullRequest: {linked: PullRequestRESTBuilder},
+	timelineEvents: {default: []},
+	repositoryREST: {linked: RepositoryRESTBuilder},
+	combinedStatusREST: {linked: CombinedStatusRESTBuilder},
+	reviewRequestsREST: {linked: ReviewRequestsRESTBuilder},
+});
 
-	reviewRequests(block: (builder: ReviewRequestsRESTBuilder) => any) {
-		const builder = new ReviewRequestsRESTBuilder();
-		block(builder);
-		this._underConstruction.reviewRequestsREST = builder.build();
-		return this;
-	}
-
-	build(): ManagedPullRequest<APIFlavor> {
-		return this._underConstruction as ManagedPullRequest<APIFlavor>;
-	}
-}
-
-export class ManagedGraphQLPullRequestBuilder extends BaseManagedPullRequestBuilder<'graphql'> {
-	pullRequest(block: (builder: PullRequestGraphQLBuilder) => any) {
-		const builder = new PullRequestGraphQLBuilder();
-		block(builder);
-		this._underConstruction.pullRequest = builder.build();
-		return this;
-	}
-
-	timelineEvents(block: (builder: TimelineEventsGraphQLBuilder) => any) {
-		const builder = new TimelineEventsGraphQLBuilder();
-		block(builder);
-		this._underConstruction.timelineEvents = builder.build();
-		return this;
-	}
-}
-
-export class ManagedRESTPullRequestBuilder extends BaseManagedPullRequestBuilder<'rest'> {
-	pullRequest(block: (builder: PullRequestRESTBuilder) => any) {
-		const builder = new PullRequestRESTBuilder();
-		block(builder);
-		this._underConstruction.pullRequest = builder.build();
-		return this;
-	}
-
-	timelineEvents(blocks: ((builder: TimelineEventRESTBuilder) => any)[]) {
-		this._underConstruction.timelineEvents = [];
-		for (const block of blocks) {
-			const builder = new TimelineEventRESTBuilder();
-			block(builder);
-			this._underConstruction.timelineEvents.push(builder.build());
-		}
-		return this;
-	}
-}
+export type ManagedRESTPullRequestBuilder = InstanceType<typeof ManagedRESTPullRequestBuilder>;
