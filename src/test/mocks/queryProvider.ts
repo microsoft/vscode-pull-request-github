@@ -59,10 +59,17 @@ export class QueryProvider {
 
 	expectOctokitRequest<R>(accessorPath: string[], args: any[], response: R) {
 		let currentStub: SinonStubbedInstance<any> = this._octokit;
-		for (const accessor of accessorPath) {
-			currentStub = currentStub[accessor] || currentStub.stub(accessor);
-		}
-		currentStub.withArgs(...args).resolves(response);
+		accessorPath.forEach((accessor, i) => {
+			let nextStub = currentStub[accessor];
+			if (nextStub === undefined) {
+				nextStub = i < accessorPath.length - 1 ? {} : this._sinon.stub().callsFake((...variables) => {
+					throw new Error(`Unexpected octokit query: ${accessorPath.join('.')}(${variables.map(v => inspect(v)).join(', ')})`);
+				});
+				currentStub[accessor] = nextStub;
+			}
+			currentStub = nextStub;
+		});
+		currentStub.withArgs(...args).resolves({data: response});
 	}
 
 	emulateGraphQLQuery<T>(q: QueryOptions): ApolloQueryResult<T> {
@@ -88,7 +95,7 @@ export class QueryProvider {
 		if (cannedResponse) {
 			return cannedResponse.result;
 		} else {
-			if (cannedResponses.length > 0) {
+			if (cannedResponses.length > 0) { } {
 				let message = 'Variables did not match any expected queries:\n';
 				for (const {variables} of cannedResponses) {
 					message += `  ${inspect(variables, {depth: 3})}\n`;
