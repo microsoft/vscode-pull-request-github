@@ -1,4 +1,4 @@
 #!/bin/bash
 tsc -p .
-echo -n > out/github/queries.gql
+scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql
 node ./node_modules/vscode/bin/test
