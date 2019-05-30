@@ -674,7 +674,7 @@ export class PullRequestOverviewPanel {
 				reviewers: this._existingReviewers
 			});
 		}, (e) => {
-			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
+			vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
 		});
 	}
