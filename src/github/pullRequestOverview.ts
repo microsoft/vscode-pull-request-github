@@ -85,7 +85,7 @@ export class PullRequestOverviewPanel {
 			// Enable javascript in the webview
 			enableScripts: true,
 
-			// And restric the webview to only loading content from our extension's `media` directory.
+			// And restrict the webview to only loading content from our extension's `media` directory.
 			localResourceRoots: [
 				vscode.Uri.file(path.join(this._extensionPath, 'media'))
 			]
