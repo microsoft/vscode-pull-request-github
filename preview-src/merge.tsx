@@ -81,7 +81,7 @@ export const Merge = (pr: PullRequest) => {
 };
 
 function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMethod, cancel: () => void}) {
-	const { merge } = useContext(PullRequestContext);
+	const { merge, updatePR } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false)
 
 	return <form onSubmit={
@@ -96,6 +96,7 @@ function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMetho
 					description: description.value,
 					method,
 				});
+				updatePR({ state: PullRequestStateEnum.Merged })
 			} finally {
 				setBusy(false)
 			}
