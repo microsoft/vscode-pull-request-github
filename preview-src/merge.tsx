@@ -1,8 +1,9 @@
 import * as React from 'react';
+
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { groupBy } from 'lodash';
-import { useContext, useReducer, useRef, useState, useEffect } from 'react';
+import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';
 import { checkIcon, deleteIcon, pendingIcon } from './icon';
 import { Avatar, } from './user';
@@ -67,13 +68,25 @@ export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) =>
 	</div>;
 
 export const ReadyForReview = () => {
+	const [isBusy, setBusy] = useState(false);
 	const { readyForReview } = useContext(PullRequestContext);
+
+	const markReadyForReview = useCallback(
+		async () => {
+			try {
+				setBusy(true);
+				await readyForReview();
+			} finally {
+				setBusy(false);
+			}
+		},
+		[setBusy]);
 
 	return <div>
 		<span>Icon</span>
 		<span>This pull request is still a work in progress.</span>
 		<span>Draft pull requests cannot be merged.</span>
-		<button onClick={readyForReview}>Ready for review</button>
+		<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
 	</div>
 }
 
