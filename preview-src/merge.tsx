@@ -5,7 +5,7 @@ import PullRequestContext from './context';
 import { groupBy } from 'lodash';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';
-import { checkIcon, deleteIcon, pendingIcon } from './icon';
+import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
 
@@ -83,11 +83,11 @@ export const ReadyForReview = () => {
 		},
 		[setBusy]);
 
-	return <div>
-		<span>Icon</span>
-		<span>This pull request is still a work in progress.</span>
-		<span>Draft pull requests cannot be merged.</span>
-		<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+	return <div className='ready-for-review-container'>
+		<button className='ready-for-review-button' disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+		<div className='ready-for-review-icon'>{alertIcon}</div>
+		<div className='ready-for-review-heading'>This pull request is still a work in progress.</div>
+		<span className='ready-for-review-meta'>Draft pull requests cannot be merged.</span>
 	</div>
 }
 
