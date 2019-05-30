@@ -21,6 +21,16 @@ const context: vscode.ExtensionContext = {
 };
 
 describe('Telemetry', () => {
+	let disposable: vscode.Disposable;
+
+	beforeEach(function () {
+		disposable = new vscode.Disposable(() => {});
+	});
+
+	afterEach(function () {
+		disposable.dispose();
+	});
+
 	it('should migrate deprecated optout setting', async () => {
 		const deprecated = vscode.workspace.getConfiguration('telemetry');
 		const migrated = vscode.workspace.getConfiguration('githubPullRequests.telemetry');
@@ -33,7 +43,7 @@ describe('Telemetry', () => {
 		// Change setting to force migration to run
 		await deprecated.update('optout', true, target);
 
-		vscode.workspace.onDidChangeConfiguration(async () => {
+		disposable = vscode.workspace.onDidChangeConfiguration(async () => {
 			assert.equal(deprecated.get('optout'), undefined);
 			assert.equal(migrated.get('enabled'), false);
 
