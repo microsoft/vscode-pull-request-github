@@ -200,7 +200,7 @@ export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 		:
 	<div className='comment-body'><em>No description provided.</em></div>;
 
-export function AddComment({ pendingCommentText, isDraft }: PullRequest) {
+export function AddComment({ pendingCommentText }: PullRequest) {
 	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
 	const [ isBusy, setBusy ] = useState(false);
 	const form = useRef<HTMLFormElement>();
@@ -261,13 +261,13 @@ export function AddComment({ pendingCommentText, isDraft }: PullRequest) {
 					onClick={onClick}
 					data-command='close'>Close Pull Request</button>
 				<button id='request-changes'
-					disabled={isBusy || !pendingCommentText || isDraft}
+					disabled={isBusy || !pendingCommentText}
 					className='secondary'
 					onClick={onClick}
 					data-command='requestChanges'>Request Changes</button>
 				<button id='approve'
 					className='secondary'
-					disabled={isBusy || isDraft}
+					disabled={isBusy}
 					onClick={onClick}
 					data-command='approve'>Approve</button>
 				<input id='reply'
