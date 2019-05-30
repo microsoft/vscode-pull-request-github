@@ -295,6 +295,8 @@ export class PullRequestOverviewPanel {
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.readyForReview':
+				return this.setReadyForReview(message);
 			case 'pr.close':
 				return this.closePullRequest(message);
 			case 'pr.approve':
@@ -554,6 +556,21 @@ export class PullRequestOverviewPanel {
 			this._replyMessage(message, {
 				state: result.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Open
 			});
+		}).catch(e => {
+			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+			this._throwError(message, {});
+		});
+	}
+
+	private setReadyForReview(message: IRequestMessage<{}>): void {
+		this._pullRequestManager.setReadyForReview(this._pullRequest).then(result => {
+			vscode.commands.executeCommand('pr.refreshList');
+
+			console.log(result)
+
+			// this._replyMessage(message, {
+			// 	state: result.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Open
+			// });
 		}).catch(e => {
 			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 			this._throwError(message, {});

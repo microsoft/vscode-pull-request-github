@@ -1221,6 +1221,20 @@ export class PullRequestManager {
 			});
 	}
 
+	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		return await octokit.pulls.update({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			pull_number: pullRequest.prNumber,
+			draft: false,
+		} as any)
+			.then(x => {
+				this._telemetry.on('pr.readyForReview');
+				return x.data;
+			});
+	}
+
 	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<CommonReviewEvent> {
 		const githubRepository = pullRequest.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();

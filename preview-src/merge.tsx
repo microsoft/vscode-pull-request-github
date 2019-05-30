@@ -9,7 +9,7 @@ import { Avatar, } from './user';
 import { nbsp } from './space';
 
 export const StatusChecks = (pr: PullRequest) => {
-	const { state, status, mergeable } = pr;
+	const { state, status, mergeable, isDraft } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
 		status.statuses.some(s => s.state === 'failure')) as [boolean, () => void];
@@ -48,7 +48,8 @@ export const StatusChecks = (pr: PullRequest) => {
 					: null
 				}
 				<MergeStatus mergeable={mergeable} />
-				{ mergeable ? <Merge {...pr} /> : null}
+				{ isDraft ? <ReadyForReview/> :
+					mergeable ? <Merge {...pr} /> : null}
 			</>
 	}</div>;
 };
@@ -64,6 +65,17 @@ export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) =>
 				: 'This branch has conflicts that must be resolved'
 		}</div>
 	</div>;
+
+export const ReadyForReview = () => {
+	const { readyForReview } = useContext(PullRequestContext);
+
+	return <div>
+		<span>Icon</span>
+		<span>This pull request is still a work in progress.</span>
+		<span>Draft pull requests cannot be merged.</span>
+		<button onClick={readyForReview}>Ready for review</button>
+	</div>
+}
 
 export const Merge = (pr: PullRequest) => {
 	const select = useRef<HTMLSelectElement>();

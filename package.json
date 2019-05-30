@@ -208,6 +208,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.readyForReview",
+        "title": "Mark Pull Request Ready For Review",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.close",
         "title": "Close Pull Request",
         "category": "GitHub Pull Requests"
@@ -365,6 +370,10 @@
         },
         {
           "command": "pr.merge",
+          "when": "config.git.enabled && github:inReviewMode"
+        },
+        {
+          "command": "pr.readyForReview",
           "when": "config.git.enabled && github:inReviewMode"
         },
         {
