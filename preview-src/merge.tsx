@@ -69,13 +69,14 @@ export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) =>
 
 export const ReadyForReview = () => {
 	const [isBusy, setBusy] = useState(false);
-	const { readyForReview } = useContext(PullRequestContext);
+	const { readyForReview, updatePR } = useContext(PullRequestContext);
 
 	const markReadyForReview = useCallback(
 		async () => {
 			try {
 				setBusy(true);
 				await readyForReview();
+				updatePR({isDraft: false})
 			} finally {
 				setBusy(false);
 			}
