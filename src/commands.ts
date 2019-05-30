@@ -236,17 +236,17 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	context.subscriptions.push(vscode.commands.registerCommand('pr.readyForReview', async (pr?: PRNode) => {
 		const pullRequest = ensurePR(prManager, pr);
 		return vscode.window.showWarningMessage(`Are you sure you want to mark this pull request as ready to review on GitHub?`, { modal: true }, 'Yes').then(async value => {
-			let newPR;
+			let isDraft;
 			if (value === 'Yes') {
 				try {
-					newPR = await prManager.setReadyForReview(pullRequest);
+					isDraft = await prManager.setReadyForReview(pullRequest);
 					vscode.commands.executeCommand('pr.refreshList');
-					telemetry.on('pr.readyForReview.success');
-					return newPR;
+					telemetry.on('pr.readyForReviesw.success');
+					return isDraft;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to mark pull request as ready to review. ${formatError(e)}`);
 					telemetry.on('pr.readyForReview.failure');
-					return newPR;
+					return isDraft;
 				}
 			}
 

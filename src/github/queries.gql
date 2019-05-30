@@ -262,6 +262,14 @@ mutation EditComment($input: UpdatePullRequestReviewCommentInput!) {
 	}
 }
 
+mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
+	markPullRequestReadyForReview(input: $input) {
+		pullRequest {
+			isDraft
+		}
+	}
+}
+
 mutation StartReview($input: AddPullRequestReviewInput!) {
 	addPullRequestReview(input: $input) {
 		pullRequestReview { id }

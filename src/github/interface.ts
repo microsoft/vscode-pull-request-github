@@ -59,6 +59,7 @@ export interface ILabel {
 }
 
 export interface PullRequest {
+	id?: string;
 	url: string;
 	number: number;
 	state: string;

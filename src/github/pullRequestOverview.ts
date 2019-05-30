@@ -563,16 +563,12 @@ export class PullRequestOverviewPanel {
 	}
 
 	private setReadyForReview(message: IRequestMessage<{}>): void {
-		this._pullRequestManager.setReadyForReview(this._pullRequest).then(result => {
+		this._pullRequestManager.setReadyForReview(this._pullRequest).then(isDraft => {
 			vscode.commands.executeCommand('pr.refreshList');
 
-			console.log(result)
-
-			// this._replyMessage(message, {
-			// 	state: result.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Open
-			// });
+			this._replyMessage(message, { isDraft });
 		}).catch(e => {
-			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+			vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
 			this._throwError(message, {});
 		});
 	}

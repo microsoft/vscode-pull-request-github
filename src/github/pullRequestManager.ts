@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse } from './graphql';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -1222,17 +1222,22 @@ export class PullRequestManager {
 	}
 
 	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		return await octokit.pulls.update({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.prNumber,
-			draft: false,
-		} as any)
-			.then(x => {
-				this._telemetry.on('pr.readyForReview');
-				return x.data;
-			});
+		if (!pullRequest.id) return;
+
+		const { mutate } = await pullRequest.githubRepository.ensure();
+
+		const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
+			mutation: queries.ReadyForReview,
+			variables: {
+				input: {
+					pullRequestId: pullRequest.id,
+				}
+			}
+		});
+
+		this._telemetry.on('pr.readyForReview');
+
+		return data!.markPullRequestReadyForReview.pullRequest.isDraft;
 	}
 
 	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<CommonReviewEvent> {

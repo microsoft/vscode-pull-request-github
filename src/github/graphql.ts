@@ -210,6 +210,14 @@ export interface EditCommentResponse {
 	};
 }
 
+export interface MarkPullRequestReadyForReviewResponse {
+	markPullRequestReadyForReview: {
+		pullRequest: {
+			isDraft: boolean
+		};
+	};
+}
+
 export interface SubmittedReview extends Review {
 	comments: {
 		nodes: ReviewComment[];

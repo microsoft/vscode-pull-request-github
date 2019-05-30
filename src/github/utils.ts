@@ -335,6 +335,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
 	return {
+		id: graphQLPullRequest.id,
 		url: graphQLPullRequest.url,
 		number: graphQLPullRequest.number,
 		state: graphQLPullRequest.state,

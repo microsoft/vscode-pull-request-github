@@ -10,6 +10,7 @@ import { GitHubRepository } from './githubRepository';
 import { IAccount, PullRequest, PullRequestStateEnum } from './interface';
 
 export class PullRequestModel {
+	public id?: string;
 	public prNumber: number;
 	public title: string;
 	public html_url: string;
@@ -88,6 +89,7 @@ export class PullRequestModel {
 	}
 
 	update(prItem: PullRequest): void {
+		this.id = prItem.id;
 		this.prNumber = prItem.number;
 		this.title = prItem.title;
 		this.bodyHTML = prItem.bodyHTML;
