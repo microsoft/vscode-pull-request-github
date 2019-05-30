@@ -82,23 +82,30 @@ export const Merge = (pr: PullRequest) => {
 
 function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMethod, cancel: () => void}) {
 	const { merge } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false)
 
 	return <form onSubmit={
-		event => {
+		async event => {
 			event.preventDefault();
-			const {title, description}: any = event.target;
-			merge({
-				title: title.value,
-				description: description.value,
-				method,
-			});
+
+			try {
+				setBusy(true)
+				const {title, description}: any = event.target;
+				await merge({
+					title: title.value,
+					description: description.value,
+					method,
+				});
+			} finally {
+				setBusy(false)
+			}
 		}
 	}>
 		<input type='text' name='title' defaultValue={getDefaultTitleText(method, pr)} />
 		<textarea name='description' defaultValue={getDefaultDescriptionText(method, pr)} />
 		<div className='form-actions'>
 			<button className='secondary' onClick={cancel}>Cancel</button>
-			<input type='submit' id='confirm-merge' value={MERGE_METHODS[method]} />
+			<input disabled={isBusy} type='submit' id='confirm-merge' value={MERGE_METHODS[method]} />
 		</div>
 	</form>;
 }
