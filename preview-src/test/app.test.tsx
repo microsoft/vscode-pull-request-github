@@ -5,6 +5,7 @@ import { SinonSandbox, createSandbox } from 'sinon';
 
 import PullRequestContext, { PRContext } from '../context';
 import { Root } from '../app';
+import { PullRequestBuilder } from './builder/pullRequest';
 
 describe('Root', function () {
 	let sinon: SinonSandbox;
@@ -32,5 +33,19 @@ describe('Root', function () {
 
 		assert(out.queryByText('Loading...'));
 		assert(!children.called);
+	});
+
+	it('renders its child prop with a pull request from the context', function () {
+		const pr = new PullRequestBuilder().build();
+		const context = new PRContext(pr);
+		const children = sinon.stub().returns(<div />);
+
+		render(
+			<PullRequestContext.Provider value={context}>
+				<Root>{children}</Root>
+			</PullRequestContext.Provider>
+		);
+
+		assert(children.calledWith(pr));
 	});
 });
