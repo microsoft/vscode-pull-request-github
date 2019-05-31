@@ -1,5 +1,6 @@
-import isEqual from 'lodash.isequal';
+import isEqual = require('lodash.isequal');
 import installJsDomGlobal from 'jsdom-global';
+import { Suite } from 'mocha';
 
 interface WebviewEnvironmentSetters {
 	stateSetter(newState: any): void;
@@ -62,6 +63,23 @@ class MockWebviewEnvironment {
 
 	uninstall() {
 		this._uninstall();
+	}
+
+	/**
+	 * Install before and after hooks to configure a Mocha test suite to use this Webview environment.
+	 *
+	 * @param suite The test suite context.
+	 *
+	 * @example
+	 * describe('SomeComponent', function () {
+	 *   mockWebviewEnvironment.use(this);
+	 *
+	 *   it('does something');
+	 * });
+	 */
+	use(suite: Suite) {
+		suite.beforeAll(() => this.install(global));
+		suite.afterAll(() => this.uninstall());
 	}
 
 	/**
