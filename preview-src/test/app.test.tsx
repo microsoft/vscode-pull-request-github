@@ -1,10 +1,10 @@
 import * as React from 'react';
-import * as assert from 'assert';
+import assert = require('assert');
 import { render, cleanup } from 'react-testing-library';
+import { SinonSandbox, createSandbox } from 'sinon';
 
 import PullRequestContext, { PRContext } from '../context';
 import { Root } from '../app';
-import { SinonSandbox, createSandbox } from 'sinon';
 
 describe('Root', function () {
 	let sinon: SinonSandbox;
