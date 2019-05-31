@@ -19,8 +19,8 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 			<span className='author'>
 				<Spaced>
 					<AuthorLink for={author} /> wants to merge changes
+					into <code>{base}</code>
 					from <code>{head}</code>
-					to <code>{base}</code>
 				</Spaced>.
 			</span>
 			<span className='created-at'>

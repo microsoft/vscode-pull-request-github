@@ -151,6 +151,16 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		vscode.commands.executeCommand('vscode.diff', parentFilePath, filePath, fileName, opts);
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffGitHub', (uri: string) => {
+		vscode.window
+			.showWarningMessage('This file is either too large, of an unsupported type, or has only been renamed. Would you like to view it on GitHub?', 'Open in GitHub')
+			.then(result => {
+				if (result === 'Open in GitHub') {
+					vscode.commands.executeCommand('vscode.open', uri);
+				}
+			});
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
 		const pullRequestModel = ensurePR(prManager, e);
 		const DELETE_BRANCH_FORCE = 'delete branch (even if not merged)';
