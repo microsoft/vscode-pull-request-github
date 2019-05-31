@@ -1,5 +1,4 @@
 import * as React from 'react';
-
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { groupBy } from 'lodash';
@@ -81,7 +80,7 @@ export const ReadyForReview = () => {
 				setBusy(false);
 			}
 		},
-		[setBusy]);
+		[setBusy, readyForReview, updatePR]);
 
 	return <div className='ready-for-review-container'>
 		<button className='ready-for-review-button' disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>

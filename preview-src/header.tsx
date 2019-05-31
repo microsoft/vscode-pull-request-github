@@ -12,7 +12,7 @@ import { useStateProp } from './hooks';
 
 export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, }: PullRequest) {
 	return <>
-		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut, isDraft}} />
+		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut}} />
 		<div className='subtitle'>
 			<div id='status'>{getStatus(state, isDraft)}</div>
 			<Avatar for={author} />
@@ -32,7 +32,7 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 	</>;
 }
 
-function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isDraft }: Partial<PullRequest>) {
+function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<PullRequest>) {
 	const [ inEditMode, setEditMode ] = useState(false);
 	const [ showActionBar, setShowActionBar ] = useState(false);
 	const [ currentTitle, setCurrentTitle ] = useStateProp(title);
@@ -101,8 +101,7 @@ export function getStatus(state: PullRequestStateEnum, isDraft: boolean) {
 	if (state === PullRequestStateEnum.Merged) {
 		return 'Merged';
 	} else if (state === PullRequestStateEnum.Open) {
-		if (isDraft) return 'Draft'
-		return 'Open';
+		return isDraft ? 'Draft' : 'Open';
 	} else {
 		return 'Closed';
 	}
