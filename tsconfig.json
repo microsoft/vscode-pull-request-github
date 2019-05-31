@@ -17,9 +17,7 @@
 			"./src/typings/"
 		],
 		"noImplicitAny": true,
-		"strictNullChecks": true,
-		"esModuleInterop": true,
-		"moduleResolution": "node"
+		"strictNullChecks": true
 	},
 	"include": [
 		"src/**/*"
