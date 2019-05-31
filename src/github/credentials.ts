@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import Octokit from '@octokit/rest';
+import Octokit = require('@octokit/rest');
 import { ApolloClient, InMemoryCache, NormalizedCacheObject, gql } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';

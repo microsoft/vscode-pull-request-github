@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as Octokit from '@octokit/rest';
+import Octokit = require('@octokit/rest');
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
 import { PRType, IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';

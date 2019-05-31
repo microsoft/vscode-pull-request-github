@@ -1,4 +1,4 @@
-import * as REST from '@octokit/rest';
+import REST = require('@octokit/rest');
 
 type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 

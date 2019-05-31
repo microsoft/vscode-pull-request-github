@@ -1,4 +1,4 @@
-import assert from 'assert';
+import assert = require('assert');
 import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';

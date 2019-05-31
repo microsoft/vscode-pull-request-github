@@ -1,4 +1,4 @@
-import * as REST from '@octokit/rest';
+import REST = require('@octokit/rest');
 import { createBuilderClass } from '../base';
 
 export type TeamUnion = REST.PullRequestsGetReviewRequestsResponseTeamsItem;

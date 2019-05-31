@@ -1,8 +1,8 @@
 import { inspect } from 'util';
 
-import isEqual from 'lodash.isequal';
+import isEqual = require('lodash.isequal');
+import Octokit = require('@octokit/rest');
 import { ApolloQueryResult, QueryOptions, DocumentNode, OperationVariables, MutationOptions, FetchResult } from 'apollo-boost';
-import Octokit from '@octokit/rest';
 import { SinonSandbox, SinonStubbedInstance } from 'sinon';
 
 interface RecordedQueryResult<T> {

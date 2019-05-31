@@ -1,4 +1,4 @@
-import assert from 'assert';
+import assert = require('assert');
 
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';

@@ -1,4 +1,4 @@
-import * as REST from '@octokit/rest';
+import REST = require('@octokit/rest');
 import { UserBuilder } from './userBuilder';
 import { OrganizationBuilder } from './organizationBuilder';
 import { createBuilderClass, createLink } from '../base';

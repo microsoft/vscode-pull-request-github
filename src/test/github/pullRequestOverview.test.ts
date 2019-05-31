@@ -1,4 +1,4 @@
-import assert from 'assert';
+import assert = require('assert');
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';

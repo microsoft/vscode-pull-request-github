@@ -1,9 +1,7 @@
 // This file is providing the test runner to use when running extension tests.
 import * as path from 'path';
-import glob from 'glob';
-import Mocha from 'mocha';
-
-import { mockWebviewEnvironment } from './mocks/mockWebviewEnvironment';
+import glob = require('glob');
+import Mocha = require('mocha');
 
 // Linux: prevent a weird NPE when mocha on Linux requires the window size from the TTY
 // Since we are not running in a tty environment, we just implement the method statically.
