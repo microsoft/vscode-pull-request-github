@@ -8,12 +8,16 @@ import { ReviewState, ILabel } from '../src/github/interface';
 import { nbsp } from './space';
 
 export default function Sidebar({ reviewers, labels }: PullRequest) {
-	const { addReviewers, addLabels } = useContext(PullRequestContext);
+	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
+
 	return <div id='sidebar'>
 		<div id='reviewers' className='section'>
 			<div className='section-header'>
 				<div>Reviewers</div>
-				<button title='Add Reviewers' onClick={addReviewers}>{plusIcon}</button>
+				<button title='Add Reviewers' onClick={async () => {
+					const reviewers = await addReviewers()
+					updatePR({reviewers: pr.reviewers.concat(reviewers.added)})
+				}}>{plusIcon}</button>
 			</div>
 			{
 				reviewers.map(state =>
@@ -24,7 +28,10 @@ export default function Sidebar({ reviewers, labels }: PullRequest) {
 		<div id='labels' className='section'>
 			<div className='section-header'>
 				<div>Labels</div>
-				<button title='Add Labels' onClick={addLabels}>{plusIcon}</button>
+				<button title='Add Labels' onClick={async () => {
+					const labels = await addLabels()
+					updatePR({ labels: pr.labels.concat(labels.added) })
+				}}>{plusIcon}</button>
 			</div>
 			{
 				labels.map(label => <Label key={label.name} {...label} />)
