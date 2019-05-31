@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useContext, useState, useEffect, useRef } from 'react';
+import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 import Markdown from './markdown';
 import { Spaced, nbsp } from './space';
@@ -10,6 +10,7 @@ import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { editIcon, deleteIcon } from './icon';
 import { PullRequestStateEnum } from '../src/github/interface';
+import { useStateProp } from './hooks';
 
 export type Props = Partial<Comment & PullRequest> & {
 	headerInEditMode?: boolean
@@ -18,17 +19,11 @@ export type Props = Partial<Comment & PullRequest> & {
 
 export function CommentView(comment: Props) {
 	const { id, pullRequestReviewId, canEdit, canDelete, bodyHTML, body, isPRDescription } = comment;
-	const [ bodyMd, setBodyMd ] = useState(body);
+	const [ bodyMd, setBodyMd ] = useStateProp(body);
 	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
-
-	useEffect(() => {
-		if (body !== bodyMd) {
-			setBodyMd(body);
-		}
-	}, [body]);
 
 	if (inEditMode) {
 		return React.cloneElement(
@@ -111,9 +106,22 @@ function CommentBox({
 	</div>;
 }
 
-function EditComment({ id, body, onCancel, onSave }: { id: number, body: string, onCancel: () => void, onSave: (body: string) => void}) {
-	const draftComment = useRef<{body: string, dirty: boolean}>({ body, dirty: false });
+type FormInputSet = {
+	[name: string]: HTMLInputElement | HTMLTextAreaElement
+};
+
+type EditCommentProps = {
+	id: number
+	body: string
+	onCancel: () => void
+	onSave: (body: string) => Promise<any>
+};
+
+function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 	const { updateDraft } = useContext(PullRequestContext);
+	const draftComment = useRef<{body: string, dirty: boolean}>({ body, dirty: false });
+	const form = useRef<HTMLFormElement>();
+
 	useEffect(() => {
 		const interval = setInterval(
 			() => {
@@ -124,27 +132,56 @@ function EditComment({ id, body, onCancel, onSave }: { id: number, body: string,
 			},
 			500);
 		return () => clearInterval(interval);
-	});
-	return <form onSubmit={
+	},
+	[draftComment]);
+
+	const submit = useCallback(
+		async () => {
+			const { markdown, submitButton }: FormInputSet = form.current;
+			submitButton.disabled = true;
+			try {
+				await onSave(markdown.value);
+			} finally {
+				submitButton.disabled = false;
+			}
+		},
+		[form, onSave]);
+
+	const onSubmit = useCallback(
 		event => {
 			event.preventDefault();
-			const { markdown }: any = event.target;
-			onSave(markdown.value);
-		}
-	}>
+			submit();
+		},
+		[submit]
+	);
+
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				e.preventDefault();
+				submit();
+			}
+		},
+		[submit]
+	);
+
+	const onInput = useCallback(
+		e => {
+			draftComment.current.body = (e.target as any).value;
+			draftComment.current.dirty = true;
+		},
+		[draftComment]);
+
+	return <form ref={form} onSubmit={onSubmit}>
 		<textarea
 			name='markdown'
 			defaultValue={body}
-			onInput={
-				e => {
-					draftComment.current.body = (e.target as any).value;
-					draftComment.current.dirty = true;
-				}
-			}
+			onKeyDown={onKeyDown}
+			onInput={onInput}
 		/>
 		<div className='form-actions'>
 			<button className='secondary' onClick={onCancel}>Cancel</button>
-			<input type='submit' value='Save' />
+			<input type='submit' name='submitButton' value='Save' />
 		</div>
 	</form>;
 }
@@ -165,33 +202,80 @@ export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 	<div className='comment-body'><em>No description provided.</em></div>;
 
 export function AddComment({ pendingCommentText, state }: PullRequest) {
-		const { updatePR, comment } = useContext(PullRequestContext);
-		return <form id='comment-form' className='comment-form main-comment-form' onSubmit={onSubmit}>
+	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
+	const [ isBusy, setBusy ] = useState(false);
+	const form = useRef<HTMLFormElement>();
+
+	const submit = useCallback(
+		async (command: (body: string) => Promise<any> = comment) => {
+			try {
+				setBusy(true);
+				const { body }: FormInputSet = form.current;
+				await command(body.value);
+				updatePR({ pendingCommentText: '' });
+			} finally {
+				setBusy(false);
+			}
+		},
+		[comment, updatePR, setBusy]);
+
+	const onSubmit = useCallback(
+		e => {
+			e.preventDefault();
+			submit();
+		},
+		[submit]);
+
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				submit();
+			}
+		},
+		[submit]);
+
+	const onClick = useCallback(
+		e => {
+			e.preventDefault();
+			const { command } = e.target.dataset;
+			submit({ approve, requestChanges, close }[command]);
+		},
+		[submit, approve, requestChanges, close]);
+
+		return <form id='comment-form'
+			ref={form}
+			className='comment-form main-comment-form'
+			onSubmit={onSubmit}>
 			<textarea id='comment-textarea'
 				name='body'
-				onInput={({ target }) =>
-					updatePR({ pendingCommentText: (target as any).value })}
+				onInput={
+					({ target }) =>
+						updatePR({ pendingCommentText: (target as any).value })
+				}
+				onKeyDown={onKeyDown}
 				value={pendingCommentText}
 				placeholder='Leave a comment' />
 			<div className='form-actions'>
 				<button id='close'
-					disabled={state !== PullRequestStateEnum.Open}
-					className='secondary'>Close Pull Request</button>
+					className='secondary'
+					disabled={isBusy || state !== PullRequestStateEnum.Open}
+					onClick={onClick}
+					data-command='close'>Close Pull Request</button>
 				<button id='request-changes'
-					disabled={!pendingCommentText}
-					className='secondary'>Request Changes</button>
+					disabled={isBusy || !pendingCommentText}
+					className='secondary'
+					onClick={onClick}
+					data-command='requestChanges'>Request Changes</button>
 				<button id='approve'
-					className='secondary'>Approve</button>
+					className='secondary'
+					disabled={isBusy}
+					onClick={onClick}
+					data-command='approve'>Approve</button>
 				<input id='reply'
 					value='Comment'
 					type='submit'
 					className='reply-button'
-					disabled={!pendingCommentText} />
+					disabled={isBusy || !pendingCommentText} />
 			</div>
 		</form>;
-
-		function onSubmit(evt) {
-			evt.preventDefault();
-			comment((evt.target as any).body.value);
-		}
 	}

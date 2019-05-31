@@ -1,3 +1,14 @@
+0.7.0
+
+**Engineering**
+- Description view is now rendered with React [#1096](https://github.com/microsoft/vscode-pull-request-github/pull/1096)
+- Performance improvement
+  - [Decrease time to enter review mode](https://github.com/microsoft/vscode-pull-request-github/pull/1131)
+
+**Bug fixes**
+- Pull Request Tree GitHub Enterprise Avatars [#1121](https://github.com/microsoft/vscode-pull-request-github/pull/1121)
+- Unable to expand PRs whose branch contains a # character [#1059](https://github.com/microsoft/vscode-pull-request-github/issues/1059)
+
 0.6.1
 
 **Bug fixes**
