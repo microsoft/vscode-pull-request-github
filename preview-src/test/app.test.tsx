@@ -22,7 +22,7 @@ describe('Root', function () {
 		const context = new PRContext();
 		const children = sinon.stub();
 
-		assert.strictEqual(context.pr, null);
+		assert(!context.pr);
 
 		const out = render(
 			<PullRequestContext.Provider value={context}>
@@ -30,9 +30,7 @@ describe('Root', function () {
 			</PullRequestContext.Provider>
 		);
 
-		assert.notStrictEqual(out.queryByText('Loading...'), null);
+		assert(out.queryByText('Loading...'));
 		assert(!children.called);
-
-		assert(false, 'hey look it ran');
 	});
 });
