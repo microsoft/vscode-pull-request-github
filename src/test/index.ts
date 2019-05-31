@@ -3,6 +3,8 @@ import * as path from 'path';
 import glob = require('glob');
 import Mocha = require('mocha');
 
+import { mockWebviewEnvironment } from './mocks/mockWebviewEnvironment';
+
 // Linux: prevent a weird NPE when mocha on Linux requires the window size from the TTY
 // Since we are not running in a tty environment, we just implement the method statically.
 // This is copied verbatim from the upstream, default Mocha test runner:
@@ -12,13 +14,7 @@ if (!tty.getWindowSize) {
 	tty.getWindowSize = function () { return [80, 75]; };
 }
 
-function runTestsInRoot(root: string): Promise<number> {
-	console.log(`running tests in root ${root}`);
-	const mocha = new Mocha({
-		ui: 'bdd',
-		useColors: true,
-	});
-
+function addTests(mocha: Mocha, root: string): Promise<void> {
 	return new Promise((resolve, reject) => {
 		glob('**/**.test.js', {cwd: root}, (error, files) => {
 			if (error) {
@@ -28,15 +24,7 @@ function runTestsInRoot(root: string): Promise<number> {
 			for (const testFile of files) {
 				mocha.addFile(path.join(root, testFile));
 			}
-
-			try {
-				mocha.run((failures) => {
-					console.log(`finished tests in ${root} - ${failures}`);
-					resolve(failures);
-				});
-			} catch (error) {
-				reject(error);
-			}
+			resolve();
 		});
 	});
 }
@@ -48,13 +36,15 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 
 	mockWebviewEnvironment.install(global);
 
-	try {
-		failures += await runTestsInRoot(webviewRoot);
-	} finally {
-		mockWebviewEnvironment.uninstall();
-	}
+	const mocha = new Mocha({
+		ui: 'bdd',
+		useColors: true,
+	});
 
-	return failures;
+	await addTests(mocha, testsRoot);
+	await addTests(mocha, path.resolve(testsRoot, '../../preview-src/dist/preview-src/test'));
+
+	return new Promise((resolve) => mocha.run(resolve));
 }
 
 export function run(testsRoot: string, clb: (error: Error | null, failures?: number) => void): void {

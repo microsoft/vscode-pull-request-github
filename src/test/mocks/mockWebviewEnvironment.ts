@@ -1,5 +1,5 @@
 import isEqual = require('lodash.isequal');
-import installJsDomGlobal from 'jsdom-global';
+import installJsDomGlobal = require('jsdom-global');
 import { Suite } from 'mocha';
 
 interface WebviewEnvironmentSetters {
