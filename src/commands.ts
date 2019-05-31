@@ -241,7 +241,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				try {
 					isDraft = await prManager.setReadyForReview(pullRequest);
 					vscode.commands.executeCommand('pr.refreshList');
-					telemetry.on('pr.readyForReviesw.success');
+					telemetry.on('pr.readyForReview.success');
 					return isDraft;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to mark pull request as ready to review. ${formatError(e)}`);
