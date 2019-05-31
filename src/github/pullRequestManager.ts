@@ -1224,7 +1224,11 @@ export class PullRequestManager {
 	}
 
 	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {
-		if (!pullRequest.id) return;
+		if (!pullRequest.githubRepository.supportsGraphQl) {
+			// currently the REST api doesn't support updating PR draft status
+			vscode.window.showWarningMessage('"Ready for Review" operation failed: requires GitHub GraphQL API support');
+			return;
+		}
 
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
