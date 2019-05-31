@@ -28,7 +28,10 @@ export default function Sidebar({ reviewers, labels }: PullRequest) {
 		<div id='labels' className='section'>
 			<div className='section-header'>
 				<div>Labels</div>
-				<button title='Add Labels' onClick={addLabels}>{plusIcon}</button>
+				<button title='Add Labels' onClick={async () => {
+					const labels = await addLabels()
+					updatePR({ labels: pr.labels.concat(labels.added) })
+				}}>{plusIcon}</button>
 			</div>
 			{
 				labels.map(label => <Label key={label.name} {...label} />)
