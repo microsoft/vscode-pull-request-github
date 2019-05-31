@@ -55,7 +55,7 @@ export function run(testsRoot: string, clb: (error: Error | null, failures?: num
 	runAllExtensionTests(testsRoot).then(
 		failures => clb(null, failures),
 		error => {
-			console.error(error.stack);
+			console.log(error.stack);
 			clb(error);
 		},
 	);
