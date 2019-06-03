@@ -69,7 +69,7 @@ export class MockGitHubRepository extends GitHubRepository {
 		};
 	}
 
-	addGraphQLPullRequest(block: (builder: ManagedGraphQLPullRequestBuilder) => void) {
+	addGraphQLPullRequest(block: (builder: ManagedGraphQLPullRequestBuilder) => void): ManagedPullRequest<'graphql'> {
 		const builder = new ManagedGraphQLPullRequestBuilder();
 		block(builder);
 		const responses = builder.build();
@@ -97,10 +97,10 @@ export class MockGitHubRepository extends GitHubRepository {
 
 		this._addPullRequestCommon(prNumber, headRef && headRef.target.oid, responses);
 
-		return this;
+		return responses;
 	}
 
-	addRESTPullRequest(block: (builder: ManagedRESTPullRequestBuilder) => void) {
+	addRESTPullRequest(block: (builder: ManagedRESTPullRequestBuilder) => void): ManagedPullRequest<'rest'> {
 		const builder = new ManagedRESTPullRequestBuilder();
 		block(builder);
 		const responses = builder.build();
@@ -121,7 +121,7 @@ export class MockGitHubRepository extends GitHubRepository {
 
 		this._addPullRequestCommon(prNumber, headRef, responses);
 
-		return this;
+		return responses;
 	}
 
 	private _addPullRequestCommon<F>(prNumber: number, headRef: string | undefined, responses: ManagedPullRequest<F>) {
