@@ -59,6 +59,8 @@ export interface ILabel {
 }
 
 export interface PullRequest {
+	// `id` refers to the graphql object id. It is used for graphql mutations to update the PR draft status.
+	// As long as we fall back to using REST, this field must be optional.
 	id?: string;
 	url: string;
 	number: number;
