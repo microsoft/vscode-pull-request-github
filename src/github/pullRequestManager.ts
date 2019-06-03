@@ -108,6 +108,8 @@ export class PullRequestManager implements vscode.Disposable {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
+	public createGitHubRepository = (remote: Remote, credentialStore: CredentialStore) => new GitHubRepository(remote, credentialStore);
+
 	constructor(
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
@@ -395,7 +397,7 @@ export class PullRequestManager implements vscode.Disposable {
 		let resolveRemotePromises: Promise<void>[] = [];
 
 		activeRemotes.forEach(remote => {
-			const repository = new GitHubRepository(remote, this._credentialStore);
+			const repository = this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
 		});
