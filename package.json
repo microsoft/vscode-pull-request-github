@@ -366,7 +366,11 @@
         },
         {
           "command": "pr.create",
-          "when": "config.git.enabled && !github.inReviewMode"
+          "when": "config.git.enabled && github:inReviewMode == 'false'"
+        },
+        {
+          "command": "pr.createDraft",
+          "when": "config.git.enabled && github:inReviewMode == 'false'"
         },
         {
           "command": "pr.merge",
