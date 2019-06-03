@@ -97,7 +97,6 @@ export class PullRequestManager implements vscode.Disposable {
 
 	private _subs: vscode.Disposable[];
 	private _activePullRequest?: PullRequestModel;
-	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
@@ -113,10 +112,10 @@ export class PullRequestManager implements vscode.Disposable {
 	constructor(
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
+		private _credentialStore: CredentialStore = new CredentialStore(_telemetry),
 	) {
 		this._subs = [];
 		this._githubRepositories = [];
-		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
 
 		this._subs.push(this._credentialStore);
