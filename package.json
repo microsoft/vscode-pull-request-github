@@ -513,6 +513,7 @@
     "vscode:prepublish": "webpack --env.production",
     "postinstall": "node ./node_modules/vscode/bin/install",
     "compile": "tsc -p ./",
+    "clean": "rm -r out/ media/ preview-src/dist/",
     "watch": "webpack --watch --env.development",
     "test": "./test.sh"
   },
