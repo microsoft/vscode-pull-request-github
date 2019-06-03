@@ -95,7 +95,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES_SETTING}`)) {
-				this._queries = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE, this._prManager.repository.rootUri).get<IQueryInfo[]>(QUERIES_SETTING) || [];
+				this.updateQueries();
 				this.refresh();
 			}
 		}));

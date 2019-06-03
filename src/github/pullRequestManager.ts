@@ -581,7 +581,7 @@ export class PullRequestManager {
 			const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString())!;
 			const pullRequestData = type === PRType.All
 				? await githubRepository.getAllPullRequests(pageInformation.pullRequestPage)
-				: await githubRepository.searchPullRequests(query || '', pageInformation.pullRequestPage);
+				: await githubRepository.getPullRequestsForCategory(query || '', pageInformation.pullRequestPage);
 
 			pageInformation.hasMorePages = !!pullRequestData && pullRequestData.hasMorePages;
 			pageInformation.pullRequestPage++;

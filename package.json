@@ -103,7 +103,7 @@
             }
           },
           "scope": "resource",
-          "markdownDescription": "Specifies what queries should be used in the GitHub Pull Requests tree. Uses [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user.",
+          "markdownDescription": "Specifies what queries should be used in the GitHub Pull Requests tree. Each query has a label that will be shown in the tree and a search query using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. By default these queries define the categories \"Waiting For My Review\", \"Assigned To Me\" and \"Created By Me\". If you want to preserve these, make sure they are still in the array when you modify the setting.",
           "default": [
             {
               "label": "Waiting For My Review",

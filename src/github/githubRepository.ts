@@ -207,10 +207,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		};
 	}
 
-	async searchPullRequests(query: string, page?:number): Promise<PullRequestData | undefined> {
-		return this.getPullRequestsForCategory(query, page);
-	}
-
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
@@ -264,7 +260,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		}
 	}
 
-	private async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
+	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
