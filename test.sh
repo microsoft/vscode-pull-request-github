@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ ! -f media/extension.js ]; then
+	printf "Running webpack\n"
+	webpack --env.development
+fi
+
 printf "Transpiling src/\n"
 tsc -p .
 scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql
