@@ -48,8 +48,12 @@ export const StatusChecks = (pr: PullRequest) => {
 					: null
 				}
 				<MergeStatus mergeable={mergeable} />
-				{ isDraft ? <ReadyForReview/> :
-					mergeable ? <Merge {...pr} /> : null}
+				{ isDraft
+					? <ReadyForReview/>
+					: mergeable
+						? <Merge {...pr} />
+						: null
+				}
 			</>
 	}</div>;
 };
