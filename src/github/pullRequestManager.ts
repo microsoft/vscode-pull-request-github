@@ -1063,11 +1063,11 @@ export class PullRequestManager {
 			const branchName = params.head.slice(branchNameSeparatorIndex + 1);
 			await PullRequestGitHelper.associateBranchWithPullRequest(this._repository, pullRequestModel, branchName);
 
-			this._telemetry.on(`pr.create${params.draft ? "Draft" : ""}.success`);
+			this._telemetry.on(`pr.create${params.draft ? 'Draft' : ''}.success`);
 			return pullRequestModel;
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
-			this._telemetry.on(`pr.create${params.draft ? "Draft" : ""}.failure`);
+			this._telemetry.on(`pr.create${params.draft ? 'Draft' : ''}.failure`);
 			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
 		}
 	}
