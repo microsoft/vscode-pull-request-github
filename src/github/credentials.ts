@@ -179,7 +179,11 @@ export class CredentialStore {
 		let octokit = new Octokit({
 			agent,
 			baseUrl,
-			headers: { 'user-agent': 'GitHub VSCode Pull Requests', Accept: 'application/vnd.github.shadow-cat-preview+json' }
+			headers: {
+				'user-agent': 'GitHub VSCode Pull Requests',
+				// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
+				Accept: 'application/vnd.github.shadow-cat-preview+json'
+			}
 		});
 
 		octokit.authenticate({
