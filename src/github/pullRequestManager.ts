@@ -107,8 +107,6 @@ export class PullRequestManager implements vscode.Disposable {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
-	public createGitHubRepository = (remote: Remote, credentialStore: CredentialStore) => new GitHubRepository(remote, credentialStore);
-
 	constructor(
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
@@ -1543,6 +1541,10 @@ export class PullRequestManager implements vscode.Disposable {
 		]);
 
 		return events;
+	}
+
+	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
+		return new GitHubRepository(remote, credentialStore);
 	}
 
 	dispose() {
