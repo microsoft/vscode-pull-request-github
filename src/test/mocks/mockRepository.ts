@@ -99,6 +99,7 @@ export class MockRepository implements Repository {
 			this._state.HEAD = branch;
 		}
 
+		this._state.refs.push(branch);
 		this._branches.push(branch);
 	}
 
