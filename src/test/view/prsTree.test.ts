@@ -159,7 +159,6 @@ describe('GitHub Pull Requests view', function() {
 			assert(localNode);
 
 			const localChildren = await localNode!.getChildren();
-			console.log(localChildren);
 			assert.strictEqual(localChildren.length, 2);
 			const [localItem0, localItem1] = localChildren.map(node => node.getTreeItem());
 
