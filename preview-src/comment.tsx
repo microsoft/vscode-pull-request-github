@@ -9,6 +9,7 @@ import { Comment } from '../src/common/comment';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { editIcon, deleteIcon } from './icon';
+import { PullRequestStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
 
 export type Props = Partial<Comment & PullRequest> & {
@@ -200,7 +201,7 @@ export const CommentBody = ({ bodyHTML, body }: Embodied) =>
 		:
 	<div className='comment-body'><em>No description provided.</em></div>;
 
-export function AddComment({ pendingCommentText }: PullRequest) {
+export function AddComment({ pendingCommentText, state }: PullRequest) {
 	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
 	const [ isBusy, setBusy ] = useState(false);
 	const form = useRef<HTMLFormElement>();
@@ -257,7 +258,7 @@ export function AddComment({ pendingCommentText }: PullRequest) {
 			<div className='form-actions'>
 				<button id='close'
 					className='secondary'
-					disabled={isBusy}
+					disabled={isBusy || state !== PullRequestStateEnum.Open}
 					onClick={onClick}
 					data-command='close'>Close Pull Request</button>
 				<button id='request-changes'

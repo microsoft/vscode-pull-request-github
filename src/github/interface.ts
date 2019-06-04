@@ -4,12 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 export enum PRType {
-	RequestReview = 0,
-	AssignedToMe = 1,
-	Mine = 2,
-	Mention = 3,
-	All = 4,
-	LocalPullRequest = 5
+	Query,
+	All,
+	LocalPullRequest
 }
 
 export enum ReviewEvent {

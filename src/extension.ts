@@ -62,6 +62,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 			if (repo.ui.selected) {
 				prManager.repository = repo;
 				reviewManager.repository = repo;
+				tree.updateQueries();
 			}
 		});
 	});
@@ -71,6 +72,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 			if (repo.ui.selected) {
 				prManager.repository = repo;
 				reviewManager.repository = repo;
+				tree.updateQueries();
 			}
 		});
 	});

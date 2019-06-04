@@ -114,7 +114,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
 		private _prManager: PullRequestManager,
 		private _telemetry: ITelemetry,
-		private _type: PRType
+		private _type: PRType,
+		_categoryLabel?: string,
+		private _categoryQuery?: string
 	) {
 		super();
 
@@ -124,14 +126,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			case PRType.All:
 				this.label = 'All';
 				break;
-			case PRType.RequestReview:
-				this.label = 'Waiting For My Review';
-				break;
-			case PRType.AssignedToMe:
-				this.label = 'Assigned To Me';
-				break;
-			case PRType.Mine:
-				this.label = 'Created By Me';
+			case PRType.Query:
+				this.label = _categoryLabel!;
 				break;
 			case PRType.LocalPullRequest:
 				this.label = 'Local Pull Request Branches';
@@ -156,7 +152,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			if (!this.fetchNextPage) {
 				try {
-					const response = await this._prManager.getPullRequests(this._type, { fetchNextPage: false });
+					const response = await this._prManager.getPullRequests(this._type, { fetchNextPage: false }, this._categoryQuery);
 					this.prs = response.pullRequests;
 					hasMorePages = response.hasMorePages;
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
@@ -164,16 +160,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					switch (this._type) {
 						case PRType.All:
 							this._telemetry.on('prList.expand.all');
-							break;
-						case PRType.AssignedToMe:
-							this._telemetry.on('prList.expand.assignedToMe');
-							break;
-						case PRType.RequestReview:
-							this._telemetry.on('prList.expand.requestReview');
-							break;
-						case PRType.Mine:
-							this._telemetry.on('prList.expand.mine');
-							break;
+						break;
 					}
 
 				} catch (e) {

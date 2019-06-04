@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as Octokit from '@octokit/rest';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { PRType, IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';
+import { IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -207,11 +207,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		};
 	}
 
-	async getPullRequests(prType: PRType, page?: number): Promise<PullRequestData | undefined> {
-		return await (prType === PRType.All ? this.getAllPullRequests(page) : this.getPullRequestsForCategory(prType, page));
-	}
-
-	private async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
+	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
@@ -264,15 +260,15 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		}
 	}
 
-	private async getPullRequestsForCategory(prType: PRType, page?: number): Promise<PullRequestData | undefined> {
+	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
-			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - enter`, GitHubRepository.ID);
+			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			const user = await octokit.users.get({});
 			// Search api will not try to resolve repo that redirects, so get full name first
 			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
 			const { data, headers } = await octokit.search.issues({
-				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, prType),
+				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
@@ -300,7 +296,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 				return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(response.data, this));
 			}).filter(item => item !== null) as PullRequestModel[];
 
-			Logger.debug(`Fetch pull request catogory ${PRType[prType]} - done`, GitHubRepository.ID);
+			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, GitHubRepository.ID);
 
 			return {
 				pullRequests,
@@ -400,22 +396,8 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		return [];
 	}
 
-	private getPRFetchQuery(repo: string, user: string, type: PRType) {
-		let filter = '';
-		switch (type) {
-			case PRType.RequestReview:
-				filter = `review-requested:${user}`;
-				break;
-			case PRType.AssignedToMe:
-				filter = `assignee:${user}`;
-				break;
-			case PRType.Mine:
-				filter = `author:${user}`;
-				break;
-			default:
-				break;
-		}
-
+	private getPRFetchQuery(repo: string, user: string, query: string) {
+		let filter = query.replace('${user}', user);
 		return `is:open ${filter} type:pr repo:${repo}`;
 	}
 }
