@@ -367,14 +367,14 @@ export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubR
 }
 
 export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent)[], githubRepository: GitHubRepository): Common.TimelineEvent[] {
-	let ret: Common.TimelineEvent[] = [];
+	const normalizedEvents: Common.TimelineEvent[] = [];
 	events.forEach(event => {
 		let type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
 			case Common.EventType.Commented:
 				let commentEvent = event as GraphQL.IssueComment;
-				ret.push({
+				normalizedEvents.push({
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
@@ -384,11 +384,11 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					canDelete: commentEvent.viewerCanDelete,
 					id: commentEvent.databaseId,
 					createdAt: commentEvent.createdAt
-				} as Common.CommentEvent);
+				});
 				return;
 			case Common.EventType.Reviewed:
 				let reviewEvent = event as GraphQL.Review;
-				ret.push({
+				normalizedEvents.push({
 					event: type,
 					comments: [],
 					submittedAt: reviewEvent.submittedAt,
@@ -399,22 +399,24 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					authorAssociation: reviewEvent.authorAssociation,
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
-				} as Common.ReviewEvent);
+				});
 				return;
 			case Common.EventType.Committed:
 				let commitEv = event as GraphQL.Commit;
-				ret.push({
+				normalizedEvents.push({
+					id: commitEv.databaseId,
 					event: type,
 					sha: commitEv.oid,
 					author: commitEv.author.user ? parseAuthor(commitEv.author.user, githubRepository) : { login: commitEv.committer.name },
 					htmlUrl: commitEv.url,
 					message: commitEv.message
-				} as Common.CommitEvent);
+				} as Common.CommitEvent); // TODO remove cast
 				return;
 			case Common.EventType.Merged:
 				let mergeEv = event as GraphQL.MergedEvent;
 
-				ret.push({
+				normalizedEvents.push({
+					id: mergeEv.databaseId,
 					event: type,
 					user: parseAuthor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
@@ -423,23 +425,24 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					commitUrl: mergeEv.commit.commitUrl,
 					url: mergeEv.url,
 					graphNodeId: mergeEv.id
-				} as Common.MergedEvent);
+				});
 				return;
 			case Common.EventType.Assigned:
 				let assignEv = event as GraphQL.AssignedEvent;
 
-				ret.push({
+				normalizedEvents.push({
+					id: assignEv.databaseId,
 					event: type,
 					user: assignEv.user,
 					actor: assignEv.actor
-				} as Common.AssignEvent);
+				});
 				return;
 			default:
 				break;
 		}
 	});
 
-	return ret;
+	return normalizedEvents;
 }
 
 export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[] {
@@ -451,6 +454,7 @@ export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[]
 		if (event.event === Common.EventType.Reviewed) {
 			event.submittedAt = event.submitted_at;
 			event.htmlUrl = event.html_url;
+			event.authorAssociation = event.user.type;
 		}
 
 		if (event.event === Common.EventType.Committed) {
