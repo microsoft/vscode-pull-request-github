@@ -833,7 +833,7 @@ export class PullRequestManager {
 			variables: {
 				input: {
 					body: '',
-					pullRequestId: pullRequest.prItem.nodeId
+					pullRequestId: pullRequest.prItem.graphNodeId
 				}
 			}
 		}).then(x => x.data).catch(e => {
@@ -869,7 +869,7 @@ export class PullRequestManager {
 			const { data } = await query<PendingReviewIdResponse>({
 				query: queries.GetPendingReviewId,
 				variables: {
-					pullRequestId: (pullRequest as PullRequestModel).prItem.nodeId,
+					pullRequestId: (pullRequest as PullRequestModel).prItem.graphNodeId,
 					author: currentUser.login
 				}
 			});
@@ -1236,7 +1236,7 @@ export class PullRequestManager {
 			mutation: queries.ReadyForReview,
 			variables: {
 				input: {
-					pullRequestId: pullRequest.id,
+					pullRequestId: pullRequest.graphNodeId,
 				}
 			}
 		});
@@ -1421,7 +1421,7 @@ export class PullRequestManager {
 
 	//#region Git related APIs
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullReuqestNumber: number): Promise<PullRequestModel | undefined> {
+	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
 		const githubRepo = this._githubRepositories.find(repo =>
 			repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase()
 		);
@@ -1430,7 +1430,7 @@ export class PullRequestManager {
 			return;
 		}
 
-		const pr = await githubRepo.getPullRequest(pullReuqestNumber);
+		const pr = await githubRepo.getPullRequest(pullRequestNumber);
 		return pr;
 	}
 

@@ -235,6 +235,7 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			merged
 			mergeable
 			id
+			databaseId
 			isDraft
 		}
 	}

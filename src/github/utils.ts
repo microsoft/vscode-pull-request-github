@@ -143,10 +143,13 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 		base,
 		labels,
 		node_id,
+		id,
 		draft
 	} = pullRequest;
 
 	const item: PullRequest = {
+			id,
+			graphNodeId: node_id,
 			number,
 			body,
 			title,
@@ -161,7 +164,6 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			base: convertRESTHeadToIGitHubRef(base),
 			mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable,
 			labels,
-			nodeId: node_id,
 			isDraft: draft
 	};
 
@@ -335,7 +337,8 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
 	return {
-		id: graphQLPullRequest.id,
+		id: graphQLPullRequest.databaseId,
+		graphNodeId: graphQLPullRequest.id,
 		url: graphQLPullRequest.url,
 		number: graphQLPullRequest.number,
 		state: graphQLPullRequest.state,
@@ -349,7 +352,6 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
-		nodeId: graphQLPullRequest.id,
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft
 	};
