@@ -18,7 +18,8 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 			<Avatar for={author} />
 			<span className='author'>
 				<Spaced>
-					<AuthorLink for={author} /> wants to merge changes
+					<AuthorLink for={author} />
+					{getActionText(state)}
 					into <code>{base}</code>
 					from <code>{head}</code>
 				</Spaced>.
@@ -104,5 +105,13 @@ export function getStatus(state: PullRequestStateEnum) {
 		return 'Open';
 	} else {
 		return 'Closed';
+	}
+}
+
+export function getActionText(state: PullRequestStateEnum) {
+	if (state === PullRequestStateEnum.Merged) {
+		return 'merged changes';
+	} else {
+		return 'wants to merge changes';
 	}
 }
