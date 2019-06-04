@@ -84,6 +84,7 @@ export class PullRequestOverviewPanel {
 		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel._viewType, title, column, {
 			// Enable javascript in the webview
 			enableScripts: true,
+			retainContextWhenHidden: true,
 
 			// And restric the webview to only loading content from our extension's `media` directory.
 			localResourceRoots: [
