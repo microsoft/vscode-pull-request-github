@@ -96,13 +96,6 @@ export class PullRequestOverviewPanel {
 		// This happens when the user closes the panel or when the panel is closed programatically
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
-		// Listen for changes to panel visibility, if the webview comes into view resubmit data
-		this._panel.onDidChangeViewState(e => {
-			if (e.webviewPanel.visible && this._pullRequest) {
-				this.update(this._pullRequest, this._descriptionNode);
-			}
-		}, this, this._disposables);
-
 		// Handle messages from the webview
 		this._panel.webview.onDidReceiveMessage(async message => {
 			await this._onDidReceiveMessage(message);
