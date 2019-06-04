@@ -64,6 +64,14 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 
 	}
 
+	public getCommentsProviderId(): string | undefined {
+		if (!this.commentsController) {
+			return undefined;
+		}
+
+		return this.commentsController.id;
+	}
+
 	dispose() {
 		this._toDispose.forEach(d => d.dispose());
 	}
