@@ -171,7 +171,7 @@ export class PullRequestManager {
 			provideCompletionItems: async (document, position, token) => {
 				try {
 					const commentControllerId = document.uri.authority;
-					if (!this._githubRepositories.some(repo => repo.getCommentsProviderId() === commentControllerId)) {
+					if (!this._githubRepositories.some(repo => repo.getCommentsControllerId() === commentControllerId)) {
 						return;
 					}
 
