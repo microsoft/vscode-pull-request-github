@@ -123,6 +123,19 @@ export class PullRequestManager {
 		this.setUpCompletionItemProvider();
 	}
 
+	private getAllGitHubRemotes(): Promise<Remote[]> {
+		Logger.debug('update repositories', PullRequestManager.ID);
+		const remotes = parseRepositoryRemotes(this.repository);
+		const potentialRemotes = remotes.filter(remote => remote.host);
+		return Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
+			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
+			.catch(e => {
+				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
+				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
+				return [];
+			});
+	}
+
 	private async getActiveGitHubRemotes(allGitHubRemotes: Remote[]): Promise<Remote[]> {
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 
@@ -348,16 +361,7 @@ export class PullRequestManager {
 
 	async updateRepositories(): Promise<void> {
 		Logger.debug('update repositories', PullRequestManager.ID);
-		const remotes = parseRepositoryRemotes(this.repository);
-		const potentialRemotes = remotes.filter(remote => remote.host);
-		const allGitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
-			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
-			.catch(e => {
-				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
-				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
-				return [];
-			});
-
+		const allGitHubRemotes = await this.getAllGitHubRemotes();
 		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
 
 		if (activeRemotes.length) {
@@ -452,12 +456,15 @@ export class PullRequestManager {
 	}
 
 	async authenticate(): Promise<boolean> {
-		let ret = false;
-		this._credentialStore.reset();
-		for (let repository of uniqBy(this._githubRepositories, x => x.remote.normalizedHost)) {
-			ret = await repository.authenticate() || ret;
+		let wasSuccessful = false;
+		const allGitHubRemotes = await this.getAllGitHubRemotes();
+		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+
+		for (let remote of uniqBy(activeRemotes, x => x.normalizedHost)) {
+			wasSuccessful = await !!this._credentialStore.login(remote) || wasSuccessful;
 		}
-		return ret;
+
+		return wasSuccessful;
 	}
 
 	async getLocalPullRequests(): Promise<PullRequestModel[]> {
