@@ -80,31 +80,6 @@ declare module 'vscode' {
 	//#endregion
 	//#region Joh - selection range provider
 
-	/**
-	 * A selection range represents a part of a selection hierarchy. A selection range
-	 * may have a parent selection range that contains it.
-	 */
-	export class SelectionRange {
-
-		/**
-		 * The [range](#Range) of this selection range.
-		 */
-		range: Range;
-
-		/**
-		 * The parent selection range containing this range.
-		 */
-		parent?: SelectionRange;
-
-		/**
-		 * Creates a new selection range.
-		 *
-		 * @param range The range of the selection range.
-		 * @param parent The parent of the selection range.
-		 */
-		constructor(range: Range, parent?: SelectionRange);
-	}
-
 	export interface SelectionRangeProvider {
 		/**
 		 * Provide selection ranges for the given positions.
@@ -645,11 +620,6 @@ declare module 'vscode' {
 		 * An [event](#Event) that fires when the log level has changed.
 		 */
 		export const onDidChangeLogLevel: Event<LogLevel>;
-
-		/**
-		 * The custom uri scheme the editor registers to in the operating system, like 'vscode', 'vscode-insiders'.
-		 */
-		export const uriScheme: string;
 	}
 
 	//#endregion

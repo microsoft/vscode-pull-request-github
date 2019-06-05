@@ -149,13 +149,12 @@ const MergedEventView = (event: MergedEvent) =>
 			</div>
 			<AuthorLink for={event.user} />
 			<div className='message'>
-				merged commit
-				<a className='sha' href={event.commitUrl}>{event.sha.substr(0, 7)}</a>
-				into
-				{event.mergeRef}
+				merged commit{nbsp}
+				<a className='sha' href={event.commitUrl}>{event.sha.substr(0, 7)}</a>{nbsp}
+				into {event.mergeRef}{nbsp}
 			</div>
+			<Timestamp href={event.url} date={event.createdAt} />
 		</div>
-		<Timestamp href={event.url} date={event.createdAt} />
 	</div>;
 
 // TODO: We should show these, but the pre-React overview page didn't. Add

@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import Github = require('@octokit/rest');
+import Octokit = require('@octokit/rest');
 import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
@@ -253,9 +253,10 @@ export class PullRequestOverviewPanel {
 					status: status,
 					mergeable: this._pullRequest.prItem.mergeable,
 					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
+					isDraft: this._pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
-					supportsGraphQl
+					supportsGraphQl,
 				}
 			});
 		}).catch(e => {
@@ -295,6 +296,8 @@ export class PullRequestOverviewPanel {
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.readyForReview':
+				return this.setReadyForReview(message);
 			case 'pr.close':
 				return this.closePullRequest(message);
 			case 'pr.approve':
@@ -560,8 +563,19 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
+	private setReadyForReview(message: IRequestMessage<{}>): void {
+		this._pullRequestManager.setReadyForReview(this._pullRequest).then(isDraft => {
+			vscode.commands.executeCommand('pr.refreshList');
+
+			this._replyMessage(message, { isDraft });
+		}).catch(e => {
+			vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
+			this._throwError(message, {});
+		});
+	}
+
 	private closePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Github.PullRequestsGetResponse>('pr.close', this._pullRequest, message.args).then(comment => {
+		vscode.commands.executeCommand<Octokit.PullsGetResponse>('pr.close', this._pullRequest, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -661,7 +675,7 @@ export class PullRequestOverviewPanel {
 				reviewers: this._existingReviewers
 			});
 		}, (e) => {
-			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
+			vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
 		});
 	}
