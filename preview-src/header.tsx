@@ -108,7 +108,7 @@ export function getStatus(state: PullRequestStateEnum) {
 	}
 }
 
-export function getActionText(state: PullRequestStateEnum) {
+function getActionText(state: PullRequestStateEnum) {
 	if (state === PullRequestStateEnum.Merged) {
 		return 'merged changes';
 	} else {
