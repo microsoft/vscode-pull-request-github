@@ -24,7 +24,10 @@ export class QueryProvider {
 		this._graphqlQueryResponses = new Map();
 		this._graphqlMutationResponses = new Map();
 
-		this._octokit = this._sinon.createStubInstance(Octokit);
+		// Create the stubbed Octokit instance indirectly like this, rather than using `this._sinon.createStubbedInstance()`,
+		// because the exported Octokit function is actually a bound constructor method. `Object.getPrototypeOf(Octokit)` returns
+		// the correct prototype, but `Octokit.prototype` does not.
+		this._octokit = this._sinon.stub(Object.create(Object.getPrototypeOf(Octokit)));
 	}
 
 	get octokit(): Octokit {
