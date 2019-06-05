@@ -9,9 +9,9 @@ import { fromPRUri } from '../common/uri';
 import { getReactionGroup } from '../github/utils';
 import { GHPRCommentThread } from '../github/prComment';
 
-export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider, vscode.CommentReactionProvider, vscode.Disposable {
+export class PRCommentController implements vscode.CommentingRangeProvider, vscode.CommentReactionProvider, vscode.Disposable {
 	availableReactions: vscode.CommentReaction[] = getReactionGroup();
-	private _prDocumentCommentProviders: {[key: number]: vscode.CommentingRangeProvider & vscode.CommentReactionProvider } = {};
+	private _prCommentControllers: {[key: number]: vscode.CommentingRangeProvider & vscode.CommentReactionProvider } = {};
 	private _prDocumentCommentThreadMap: {[key: number]: { [key: string]: GHPRCommentThread[] } } = {};
 
 	constructor(
@@ -25,11 +25,11 @@ export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider
 		let uri = document.uri;
 		let params = fromPRUri(uri);
 
-		if (!params || !this._prDocumentCommentProviders[params.prNumber]) {
+		if (!params || !this._prCommentControllers[params.prNumber]) {
 			return;
 		}
 
-		let provideCommentingRanges = this._prDocumentCommentProviders[params.prNumber].provideCommentingRanges.bind(this._prDocumentCommentProviders[params.prNumber]);
+		let provideCommentingRanges = this._prCommentControllers[params.prNumber].provideCommentingRanges.bind(this._prCommentControllers[params.prNumber]);
 
 		return provideCommentingRanges(document, token);
 	}
@@ -38,17 +38,17 @@ export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider
 		let uri = document.uri;
 		let params = fromPRUri(uri);
 
-		if (!params || !this._prDocumentCommentProviders[params.prNumber] || !this._prDocumentCommentProviders[params.prNumber].toggleReaction) {
+		if (!params || !this._prCommentControllers[params.prNumber] || !this._prCommentControllers[params.prNumber].toggleReaction) {
 			return;
 		}
 
-		let toggleReaction = this._prDocumentCommentProviders[params.prNumber].toggleReaction!.bind(this._prDocumentCommentProviders[params.prNumber]);
+		let toggleReaction = this._prCommentControllers[params.prNumber].toggleReaction!.bind(this._prCommentControllers[params.prNumber]);
 
 		return toggleReaction(document, comment, reaction);
 	}
 
-	public registerDocumentCommentProvider(prNumber: number, provider: vscode.CommentingRangeProvider & vscode.CommentReactionProvider) {
-		this._prDocumentCommentProviders[prNumber] = provider;
+	public registerCommentController(prNumber: number, provider: vscode.CommentingRangeProvider & vscode.CommentReactionProvider) {
+		this._prCommentControllers[prNumber] = provider;
 		if (!this._prDocumentCommentThreadMap[prNumber]) {
 			this._prDocumentCommentThreadMap[prNumber] = {};
 		}
@@ -58,7 +58,7 @@ export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider
 		return {
 			commentThreadCache: commentThreadCache,
 			dispose: () => {
-				delete this._prDocumentCommentProviders[prNumber];
+				delete this._prCommentControllers[prNumber];
 			}
 		};
 	}
@@ -74,7 +74,7 @@ export class PRDocumentCommentProvider implements vscode.CommentingRangeProvider
 	}
 
 	dispose() {
-		this._prDocumentCommentProviders = {};
+		this._prCommentControllers = {};
 		this._prDocumentCommentThreadMap = {};
 	}
 }

@@ -186,7 +186,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				if (!this._prDocumentCommentProvider || !this._commentController) {
 					await this.pullRequestModel.githubRepository.ensureCommentsProvider();
 					this._commentController = this.pullRequestModel.githubRepository.commentsController!;
-					this._prDocumentCommentProvider = this.pullRequestModel.githubRepository.commentsProvider!.registerDocumentCommentProvider(this.pullRequestModel.prNumber, this);
+					this._prDocumentCommentProvider = this.pullRequestModel.githubRepository.commentsProvider!.registerCommentController(this.pullRequestModel.prNumber, this);
 
 					this._disposables.push(this.pullRequestModel.onDidChangeDraftMode(newDraftMode => {
 						if (!newDraftMode) {
