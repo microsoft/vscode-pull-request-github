@@ -38,7 +38,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
-	private _reviewDocumentCommentProvider: ReviewCommentController;
+	private _reviewCommentController: ReviewCommentController;
 
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider | undefined;
 	private _statusBarItem: vscode.StatusBarItem;
@@ -304,7 +304,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
-		await this.registerCommentProvider();
+		await this.registerCommentController();
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = 'pr.openDescription';
@@ -346,7 +346,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		await this.getPullRequestData(pr);
-		await this._reviewDocumentCommentProvider.update(this._localFileChanges, this._obsoleteFileChanges);
+		await this._reviewCommentController.update(this._localFileChanges, this._obsoleteFileChanges);
 
 		return Promise.resolve(void 0);
 	}
@@ -473,17 +473,17 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return undefined;
 	}
 
-	private async registerCommentProvider() {
-		this._reviewDocumentCommentProvider = new ReviewCommentController(this._prManager,
+	private async registerCommentController() {
+		this._reviewCommentController = new ReviewCommentController(this._prManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
 			this._comments);
 
-		await this._reviewDocumentCommentProvider.initialize();
+		await this._reviewCommentController.initialize();
 
-		this._localToDispose.push(this._reviewDocumentCommentProvider);
-		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeComments(comments => {
+		this._localToDispose.push(this._reviewCommentController);
+		this._localToDispose.push(this._reviewCommentController.onDidChangeComments(comments => {
 			this._comments = comments;
 			this._onDidChangeDecorations.fire();
 		}));
