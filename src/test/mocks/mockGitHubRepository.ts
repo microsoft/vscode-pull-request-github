@@ -138,7 +138,7 @@ export class MockGitHubRepository extends GitHubRepository {
 			);
 		}
 		this.queryProvider.expectOctokitRequest(
-			['pullRequests', 'getReviewRequests'],
+			['pulls', 'listReviewRequests'],
 			[{owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber}],
 			responses.reviewRequestsREST,
 		);
