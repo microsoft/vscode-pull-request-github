@@ -4,8 +4,8 @@ import {
 } from '../../github/graphql';
 import {
 	ReposGetCombinedStatusForRefResponse as CombinedStatusREST,
-	PullRequestsGetReviewRequestsResponse as ReviewRequestsREST,
-	IssuesGetEventsTimelineResponseItem as TimelineEventREST,
+	PullsListReviewRequestsResponse as ReviewRequestsREST,
+	IssuesListEventsForTimelineResponseItem as TimelineEventREST,
 } from '@octokit/rest';
 
 import { PullRequestBuilder as PullRequestGraphQLBuilder } from './graphql/pullRequestBuilder';

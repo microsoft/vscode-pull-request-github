@@ -1,8 +1,8 @@
-import REST = require('@octokit/rest');
+import Octokit = require('@octokit/rest');
 
 import { createBuilderClass } from '../base';
 
-export const ReviewRequestsBuilder = createBuilderClass<REST.PullRequestsGetReviewRequestsResponse>()({
+export const ReviewRequestsBuilder = createBuilderClass<Octokit.PullsListReviewRequestsResponse>()({
 	users: {default: []},
 	teams: {default: []},
 });

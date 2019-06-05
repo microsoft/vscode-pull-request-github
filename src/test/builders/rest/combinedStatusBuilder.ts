@@ -1,9 +1,9 @@
-import REST = require('@octokit/rest');
+import Octokit = require('@octokit/rest');
 
 import { createBuilderClass } from '../base';
 import { RepositoryBuilder } from './repoBuilder';
 
-export const StatusItemBuilder = createBuilderClass<REST.ReposGetCombinedStatusForRefResponseStatusesItem>()({
+export const StatusItemBuilder = createBuilderClass<Octokit.ReposGetCombinedStatusForRefResponseStatusesItem>()({
 	url: {default: 'https://api.github.com/repos/octocat/Hello-World/statuses/0000000000000000000000000000000000000000'},
 	avatar_url: {default: 'https://github.com/images/error/hubot_happy.gif'},
 	id: {default: 1},
@@ -18,7 +18,7 @@ export const StatusItemBuilder = createBuilderClass<REST.ReposGetCombinedStatusF
 
 export type StatusItemBuilder = InstanceType<typeof StatusItemBuilder>;
 
-export const CombinedStatusBuilder = createBuilderClass<REST.ReposGetCombinedStatusForRefResponse>()({
+export const CombinedStatusBuilder = createBuilderClass<Octokit.ReposGetCombinedStatusForRefResponse>()({
 	state: {default: 'success'},
 	statuses: {default: []},
 	sha: {default: '0000000000000000000000000000000000000000'},

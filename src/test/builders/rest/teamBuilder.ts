@@ -1,7 +1,7 @@
-import REST = require('@octokit/rest');
+import Octokit = require('@octokit/rest');
 import { createBuilderClass } from '../base';
 
-export type TeamUnion = REST.PullRequestsGetReviewRequestsResponseTeamsItem;
+export type TeamUnion = Octokit.PullsListReviewRequestsResponseTeamsItem;
 
 export const TeamBuilder = createBuilderClass<TeamUnion>()({
 	id: {default: 1},

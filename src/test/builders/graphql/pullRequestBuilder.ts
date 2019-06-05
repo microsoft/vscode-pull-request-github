@@ -25,6 +25,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 	repository: createLink<Repository>()({
 		pullRequest: createLink<PullRequest>()({
 			id: {default: 'pr0'},
+			databaseId: {default: 1234},
 			number: {default: 1347},
 			url: {default: 'https://github.com/owner/repo/pulls/1347'},
 			state: {default: 'OPEN'},
@@ -45,6 +46,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			}),
 			merged: {default: false},
 			mergeable: {default: 'MERGEABLE'},
+			isDraft: {default: false},
 		}),
 	}),
 	rateLimit: {linked: RateLimitBuilder},

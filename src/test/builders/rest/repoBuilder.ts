@@ -1,12 +1,12 @@
-import REST = require('@octokit/rest');
+import Octokit = require('@octokit/rest');
 import { UserBuilder } from './userBuilder';
 import { OrganizationBuilder } from './organizationBuilder';
 import { createBuilderClass, createLink } from '../base';
 
 export type RepoUnion =
-	REST.PullRequestsGetResponseHeadRepo &
-	REST.PullRequestsGetAllResponseItemBaseRepo &
-	REST.ReposGetResponse;
+	Octokit.ReposGetResponse &
+	Octokit.PullsListResponseItemHeadRepo &
+	Octokit.PullsListResponseItemBaseRepo;
 
 type License = RepoUnion['license'];
 type Permissions = RepoUnion['permissions'];
@@ -23,6 +23,7 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 	source: {default: null} as any,
 	private: {default: false},
 	fork: {default: false},
+	disabled: {default: false},
 	url: {default: 'https://api.github.com/repos/octocat/reponame'},
 	html_url: {default: 'https://github.com/octocat/reponame'},
 	archive_url: {default: 'http://api.github.com/repos/octocat/reponame/{archive_format}{/ref}'},

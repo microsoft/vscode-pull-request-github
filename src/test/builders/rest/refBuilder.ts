@@ -1,11 +1,11 @@
-import REST = require('@octokit/rest');
+import Octokit = require('@octokit/rest');
 import { UserBuilder } from './userBuilder';
 import { RepositoryBuilder } from './repoBuilder';
 import { createBuilderClass } from '../base';
 
 type RefUnion =
-	REST.PullRequestsGetResponseHead &
-	REST.PullRequestsGetResponseBase;
+	Octokit.PullsListResponseItemHead &
+	Octokit.PullsListResponseItemBase;
 
 export const RefBuilder = createBuilderClass<RefUnion>()({
 	label: {default: 'octocat:new-feature'},

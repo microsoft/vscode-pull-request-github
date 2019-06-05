@@ -1,7 +1,7 @@
-import REST = require('@octokit/rest');
+import Octokit = require('@octokit/rest');
 import { createBuilderClass } from '../base';
 
-export const OrganizationBuilder = createBuilderClass<REST.ReposGetResponseOrganization>()({
+export const OrganizationBuilder = createBuilderClass<Octokit.ReposGetResponseOrganization>()({
 	login: {default: 'octocat'},
 	id: {default: 1},
 	node_id: {default: 'MDQ6VXNlcjE='},

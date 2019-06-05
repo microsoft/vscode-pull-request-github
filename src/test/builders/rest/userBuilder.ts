@@ -1,9 +1,16 @@
-import REST = require('@octokit/rest');
+import Octokit = require('@octokit/rest');
 import { createBuilderClass } from '../base';
 
 type UserUnion =
-	REST.PullRequestsGetAllResponseItemUser |
-	REST.IssuesGetEventsTimelineResponseItemActor;
+	Octokit.PullsListResponseItemUser |
+	Octokit.PullsListResponseItemAssignee |
+	Octokit.PullsListResponseItemAssigneesItem |
+	Octokit.PullsListResponseItemRequestedReviewersItem |
+	Octokit.PullsListResponseItemBaseUser |
+	Octokit.PullsListResponseItemBaseRepoOwner |
+	Octokit.PullsListResponseItemHeadUser |
+	Octokit.PullsListResponseItemHeadRepoOwner |
+	Octokit.IssuesListEventsForTimelineResponseItemActor;
 
 export const UserBuilder = createBuilderClass<UserUnion>()({
 	id: {default: 0},

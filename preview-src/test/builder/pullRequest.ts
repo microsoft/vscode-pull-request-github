@@ -30,4 +30,5 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	mergeMethodsAvailability: {default: {merge: true, squash: true, rebase: true}},
 	supportsGraphQl: {default: true},
 	reviewers: {default: []},
+	isDraft: {default: false},
 });

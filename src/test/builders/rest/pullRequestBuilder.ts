@@ -1,10 +1,13 @@
-import * as Octokit from '../../../common/octokit';
+import Octokit = require('@octokit/rest');
 import { UserBuilder } from './userBuilder';
 import { RefBuilder } from './refBuilder';
 import { createLink, createBuilderClass } from '../base';
 
-export type PullRequestUnion = Octokit.PullRequestsGetResponse;
+export type PullRequestUnion =
+	Octokit.PullsListResponseItem &
+	Octokit.PullsGetResponse;
 type Links = PullRequestUnion['_links'];
+type Milestone = PullRequestUnion['milestone'];
 
 export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 	id: {default: 0},
@@ -25,7 +28,11 @@ export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 	title: {default: 'New feature'},
 	body: {default: 'Please merge thx'},
 	user: {linked: UserBuilder},
+	author_association: {default: 'OWNER'},
 	assignee: {linked: UserBuilder},
+	assignees: {default: []},
+	requested_reviewers: {default: []},
+	requested_teams: {default: []},
 	labels: {default: []},
 	active_lock_reason: {default: ''},
 	created_at: {default: '2019-01-01T08:00:00Z'},
@@ -35,8 +42,12 @@ export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 	merge_commit_sha: {default: ''},
 	head: {linked: RefBuilder},
 	base: {linked: RefBuilder},
+	draft: {default: false},
 	merged: {default: false},
 	mergeable: {default: true},
+	rebaseable: {default: true},
+	mergeable_state: {default: 'clean'},
+	review_comments: {default: 0},
 	merged_by: {linked: UserBuilder},
 	comments: {default: 10},
 	commits: {default: 5},
@@ -44,7 +55,24 @@ export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 	deletions: {default: 400},
 	changed_files: {default: 10},
 	maintainer_can_modify: {default: true},
-	milestone: {default: null},
+	milestone: createLink<Milestone>()({
+		id: {default: 1},
+		node_id: {default: 'milestone0'},
+		number: {default: 100},
+		state: {default: 'open'},
+		title: {default: 'milestone title'},
+		description: {default: 'milestone description'},
+		url: {default: 'https://api.github.com/repos/octocat/reponame/milestones/100'},
+		html_url: {default: 'https://github.com/octocat/reponame/milestones/123'},
+		labels_url: {default: 'https://github.com/octocat/reponame/milestones/123/labels'},
+		creator: {linked: UserBuilder},
+		open_issues: {default: 10},
+		closed_issues: {default: 5},
+		created_at: {default: '2019-01-01T10:00:00Z'},
+		updated_at: {default: '2019-01-01T10:00:00Z'},
+		closed_at: {default: '2019-01-01T10:00:00Z'},
+		due_on: {default: '2019-01-01T10:00:00Z'}
+	}),
 	_links: createLink<Links>()({
 		self: createLink<Links['self']>()({
 			href: {default: 'https://api.github.com/repos/octocat/reponame/pulls/1347'}

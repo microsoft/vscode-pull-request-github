@@ -28,7 +28,9 @@ export class QueryProvider {
 	}
 
 	get octokit(): Octokit {
-		return this._octokit;
+		// Cast through "any" because SinonStubbedInstance<Octokit> does not propertly map the type of the
+		// overloaded "authenticate" method.
+		return this._octokit as any as Octokit;
 	}
 
 	expectGraphQLQuery<T>(q: QueryOptions, result: ApolloQueryResult<T>) {
