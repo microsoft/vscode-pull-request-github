@@ -24,7 +24,7 @@ import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { ReviewDocumentCommentProvider } from './reviewDocumentCommentProvider';
+import { ReviewCommentController } from './reviewCommentController';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -38,7 +38,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
-	private _reviewDocumentCommentProvider: ReviewDocumentCommentProvider;
+	private _reviewDocumentCommentProvider: ReviewCommentController;
 
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider | undefined;
 	private _statusBarItem: vscode.StatusBarItem;
@@ -474,7 +474,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async registerCommentProvider() {
-		this._reviewDocumentCommentProvider = new ReviewDocumentCommentProvider(this._prManager,
+		this._reviewDocumentCommentProvider = new ReviewCommentController(this._prManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,

@@ -68,7 +68,7 @@ function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, comme
 		}
 	});
 }
-export class ReviewDocumentCommentProvider implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.CommentReactionProvider {
+export class ReviewCommentController implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.CommentReactionProvider {
 
 	public supportedSchemes: string[] = ['pr', 'review', 'file'];
 	private _localToDispose: vscode.Disposable[] = [];
