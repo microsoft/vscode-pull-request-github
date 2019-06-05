@@ -56,6 +56,8 @@ export interface ILabel {
 }
 
 export interface PullRequest {
+	id: number;
+	graphNodeId: string;
 	url: string;
 	number: number;
 	state: string;
@@ -71,7 +73,7 @@ export interface PullRequest {
 	labels: ILabel[];
 	merged: boolean;
 	mergeable?: boolean;
-	nodeId: string;
+	isDraft: boolean;
 }
 
 export interface IRawFileChange {

@@ -235,6 +235,8 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			merged
 			mergeable
 			id
+			databaseId
+			isDraft
 		}
 	}
 	rateLimit {
@@ -257,6 +259,14 @@ mutation EditComment($input: UpdatePullRequestReviewCommentInput!) {
 	updatePullRequestReviewComment(input: $input) {
 		pullRequestReviewComment {
 			...ReviewComment
+		}
+	}
+}
+
+mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
+	markPullRequestReadyForReview(input: $input) {
+		pullRequest {
+			isDraft
 		}
 	}
 }

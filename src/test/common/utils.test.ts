@@ -12,14 +12,14 @@ describe('utils', () => {
 
 		it('should format an HttpError from octorest', (done) => {
 			const octokit = new Octokit();
-			octokit.pullRequests.getComments({
+			octokit.pulls.listComments({
 				number: 1,
 				owner: 'me',
 				repo: '犬?'
-			}).then(_ => {
+			}).then((_: any) => {
 				assert.fail('managed the impossible');
 				done();
-			}).catch(e => {
+			}).catch((e: any) => {
 				assert.equal(utils.formatError(e), 'Not Found');
 				done();
 			});

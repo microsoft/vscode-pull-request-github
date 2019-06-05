@@ -210,6 +210,14 @@ export interface EditCommentResponse {
 	};
 }
 
+export interface MarkPullRequestReadyForReviewResponse {
+	markPullRequestReadyForReview: {
+		pullRequest: {
+			isDraft: boolean
+		};
+	};
+}
+
 export interface SubmittedReview extends Review {
 	comments: {
 		nodes: ReviewComment[];
@@ -271,6 +279,8 @@ export interface Ref {
 export interface PullRequestResponse {
 	repository: {
 		pullRequest: {
+			id: string;
+			databaseId: number;
 			number: number;
 			url: string;
 			state: 'OPEN' | 'CLOSED' | 'MERGED';
@@ -295,7 +305,7 @@ export interface PullRequestResponse {
 			}
 			merged: boolean;
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
-			id: string;
+			isDraft: boolean;
 		}
 	};
 	rateLimit: RateLimit;

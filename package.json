@@ -216,6 +216,15 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.createDraft",
+        "title": "Create Draft Pull Request",
+        "icon": {
+          "light": "resources/icons/light/stage.svg",
+          "dark": "resources/icons/dark/stage.svg"
+        },
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "auth.signout",
         "title": "Sign out of GitHub",
         "category": "GitHub Pull Requests"
@@ -228,6 +237,11 @@
       {
         "command": "pr.merge",
         "title": "Merge Pull Request",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.readyForReview",
+        "title": "Mark Pull Request Ready For Review",
         "category": "GitHub Pull Requests"
       },
       {
@@ -393,10 +407,18 @@
         },
         {
           "command": "pr.create",
-          "when": "config.git.enabled && !github.inReviewMode"
+          "when": "config.git.enabled && !github:inReviewMode"
+        },
+        {
+          "command": "pr.createDraft",
+          "when": "config.git.enabled && !github:inReviewMode"
         },
         {
           "command": "pr.merge",
+          "when": "config.git.enabled && github:inReviewMode"
+        },
+        {
+          "command": "pr.readyForReview",
           "when": "config.git.enabled && github:inReviewMode"
         },
         {
@@ -592,13 +614,13 @@
     "ts-loader": "^4.0.1",
     "tslint": "^5.11.0",
     "tslint-webpack-plugin": "^1.2.2",
-    "typescript": "^2.1.4",
+    "typescript": "^3",
     "vscode": "^1.1.33",
     "webpack": "^4.1.0",
     "webpack-cli": "^3.2.1"
   },
   "dependencies": {
-    "@octokit/rest": "^15.15.1",
+    "@octokit/rest": "^16.21.0",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
     "debounce": "^1.2.0",
@@ -607,6 +629,7 @@
     "graphql": "^14.0.2",
     "iconv-lite": "0.4.23",
     "js-base64": "^2.4.9",
+    "lodash": "^4.17.11",
     "markdown-it": "^8.4.0",
     "markdown-it-checkbox": "^1.1.0",
     "markdown-it-sanitizer": "github:rebornix/markdown-it-sanitizer#10d930d08236ef4609ad10a6087745461d91cc7c",

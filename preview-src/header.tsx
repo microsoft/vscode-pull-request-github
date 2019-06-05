@@ -10,11 +10,11 @@ import Timestamp from './timestamp';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
 
-export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, }: PullRequest) {
+export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, }: PullRequest) {
 	return <>
 		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut}} />
 		<div className='subtitle'>
-			<div id='status'>{getStatus(state)}</div>
+			<div id='status'>{getStatus(state, isDraft)}</div>
 			<Avatar for={author} />
 			<span className='author'>
 				<Spaced>
@@ -97,11 +97,11 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut }) => {
 	}
 };
 
-export function getStatus(state: PullRequestStateEnum) {
+export function getStatus(state: PullRequestStateEnum, isDraft: boolean) {
 	if (state === PullRequestStateEnum.Merged) {
 		return 'Merged';
 	} else if (state === PullRequestStateEnum.Open) {
-		return 'Open';
+		return isDraft ? 'Draft' : 'Open';
 	} else {
 		return 'Closed';
 	}
