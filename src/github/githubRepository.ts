@@ -33,7 +33,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	private _metadata: any;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
-	public commentsProvider?: PRCommentController;
+	public commentsController?: PRCommentController;
 	public readonly isGitHubDotCom: boolean;
 
 	public get hub(): GitHub {
@@ -47,17 +47,17 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		return this._hub;
 	}
 
-	public async ensureCommentsProvider(): Promise<void> {
+	public async ensureCommentsController(): Promise<void> {
 		try {
-			if (this.commentsProvider) {
+			if (this.commentsController) {
 				return;
 			}
 
 			await this.ensure();
 			this.commentsController = vscode.comments.createCommentController(`github-pull-request-${this.remote.normalizedHost}`, `GitHub Pull Request for ${this.remote.normalizedHost}`);
-			this.commentsProvider = new PRCommentController(this.commentsController);
+			this.commentsController = new PRCommentController(this.commentsController);
 			this._toDispose.push(this.commentsController);
-			this._toDispose.push(this.commentsProvider);
+			this._toDispose.push(this.commentsController);
 		} catch (e) {
 			console.log(e);
 		}
