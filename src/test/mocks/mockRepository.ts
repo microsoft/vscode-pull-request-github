@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import isEqual = require('lodash.isequal');
+import { isEqual } from 'lodash';
 
 import { Repository, RepositoryState, RepositoryUIState, Commit, Branch, RefType } from '../../api/api';
 
