@@ -107,7 +107,7 @@
           "default": [
             {
               "label": "Waiting For My Review",
-              "query": "is:open review-requsted:${user}"
+              "query": "is:open review-requested:${user}"
             },
             {
               "label": "Assigned To Me",
