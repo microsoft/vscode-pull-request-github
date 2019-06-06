@@ -390,6 +390,22 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "auth.inputTokenCallback",
+          "when": "gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "auth.signout",
+          "when": "gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "pr.configureRemotes",
+          "when": "gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "pr.configurePRViewlet",
+          "when": "gitOpenRepositoryCount != 0"
+        },
+        {
           "command": "pr.pick",
           "when": "false"
         },
@@ -403,27 +419,27 @@
         },
         {
           "command": "pr.close",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.create",
-          "when": "config.git.enabled && !github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && !github:inReviewMode"
         },
         {
           "command": "pr.createDraft",
-          "when": "config.git.enabled && !github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && !github:inReviewMode"
         },
         {
           "command": "pr.merge",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.readyForReview",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.openFileInGitHub",
@@ -447,11 +463,11 @@
         },
         {
           "command": "pr.openDescription",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.refreshList",
-          "when": "config.git.enabled && github:hasGitHubRemotes"
+          "when": "gitOpenRepositoryCount != 0 && github:hasGitHubRemotes"
         },
         {
           "command": "pr.refreshChanges",
@@ -459,7 +475,7 @@
         },
         {
           "command": "pr.signin",
-          "when": "config.git.enabled && github:hasGitHubRemotes"
+          "when": "gitOpenRepositoryCount != 0 && github:hasGitHubRemotes"
         },
         {
           "command": "pr.signinAndRefreshList",
@@ -497,17 +513,17 @@
       "view/title": [
         {
           "command": "pr.create",
-          "when": "view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
           "group": "navigation"
         },
         {
           "command": "pr.configurePRViewlet",
-          "when": "view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
           "group": "navigation"
         },
         {
           "command": "pr.refreshList",
-          "when": "view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
           "group": "navigation"
         },
         {
