@@ -14,25 +14,8 @@ import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
 import { uniqBy } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
-import { GHPRCommentThread, GHPRComment, TemporaryComment } from './prComment';
+import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
-
-export interface CommentHandler {
-	supportedSchemes: string[];
-	commentController?: vscode.CommentController;
-	hasCommentThread(thread: GHPRCommentThread): boolean;
-	startReview(thread: GHPRCommentThread, input: string): Promise<void>;
-	finishReview(thread: GHPRCommentThread, input: string): Promise<void>;
-	deleteReview(): Promise<void>;
-	createOrReplyComment(thread: GHPRCommentThread, input: string): Promise<void>;
-	editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
-	deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
-}
-
-export interface CommentReply {
-	thread: GHPRCommentThread;
-	text: string;
-}
 
 export function createVSCodeCommentThread(thread: ThreadData, commentController: vscode.CommentController, inDraftMode: boolean): GHPRCommentThread {
 	let vscodeThread = commentController.createCommentThread(

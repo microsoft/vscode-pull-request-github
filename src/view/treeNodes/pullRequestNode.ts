@@ -20,9 +20,13 @@ import { IComment } from '../../common/comment';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { CommentHandler, createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
-import { registerCommentHandler } from '../../commentThreadResolver';
+import { createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
+import { CommentHandler, registerCommentHandler } from '../../commentHandlerResolver';
 
+/**
+ * Thread data is raw data. It should be transformed to GHPRCommentThreads
+ * before being sent to VSCode.
+ */
 export interface ThreadData {
 	threadId: string;
 	resource: vscode.Uri;
@@ -31,7 +35,7 @@ export interface ThreadData {
 	collapsibleState: vscode.CommentThreadCollapsibleState;
 }
 
-export function provideDocumentComments(
+export function getDocumentThreadDatas(
 	uri: vscode.Uri,
 	isBase: boolean,
 	fileChange: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode),
@@ -95,7 +99,6 @@ export function getCommentingRanges(diffHunks: DiffHunk[], isBase: boolean): vsc
 
 export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, vscode.CommentReactionProvider {
 	static ID = 'PRNode';
-	public supportedSchemes: string[] = ['pr'];
 
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
 	private _commentController?: vscode.CommentController;
@@ -296,8 +299,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				const parentFilePath = fileChange.parentFilePath;
 				const filePath = fileChange.filePath;
 
-				let newLeftCommentThreads = provideDocumentComments(parentFilePath, true, fileChange, fileChange.comments) || [];
-				let newRightSideCommentThreads = provideDocumentComments(filePath, false, fileChange, fileChange.comments) || [];
+				let newLeftCommentThreads = getDocumentThreadDatas(parentFilePath, true, fileChange, fileChange.comments) || [];
+				let newRightSideCommentThreads = getDocumentThreadDatas(filePath, false, fileChange, fileChange.comments) || [];
 
 				let oldCommentThreads: GHPRCommentThread[] = [];
 
@@ -418,12 +421,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return true;
 	}
 
-	private createCommentThread(fileName: string, commentThreads: ThreadData[], inDraftMode: boolean) {
-		let threads: GHPRCommentThread[] = [];
-		commentThreads.forEach(thread => {
-			threads.push(createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
-		});
-
+	private createCommentThreads(fileName: string, commentThreads: ThreadData[], inDraftMode: boolean) {
+		const threads = commentThreads.map(thread => createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
 		this._prCommentController!.commentThreadCache[fileName] = threads;
 	}
 
@@ -538,7 +537,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			});
 
 			if (added.length) {
-				this.createCommentThread(newFileChange.fileName, added, inDraftMode);
+				this.createCommentThreads(newFileChange.fileName, added, inDraftMode);
 			}
 		}
 	}

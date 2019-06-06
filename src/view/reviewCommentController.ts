@@ -13,11 +13,11 @@ import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../api/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { getCommentingRanges, provideDocumentComments, ThreadData } from './treeNodes/pullRequestNode';
-import { CommentHandler, getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState } from '../github/utils';
+import { getCommentingRanges, getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
+import { getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState } from '../github/utils';
 import { ReactionGroup } from '../github/graphql';
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
-import { registerCommentHandler } from '../commentThreadResolver';
+import { CommentHandler, registerCommentHandler } from '../commentHandlerResolver';
 
 function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
 	if (!fileChange) {
@@ -70,7 +70,6 @@ function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, comme
 }
 export class ReviewCommentController implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.CommentReactionProvider {
 
-	public supportedSchemes: string[] = ['pr', 'review', 'file'];
 	private _localToDispose: vscode.Disposable[] = [];
 	private _onDidChangeComments = new vscode.EventEmitter<IComment[]>();
 	public onDidChangeComments = this._onDidChangeComments.event;
@@ -248,7 +247,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				if (matchedFileChanges.length) {
 					const inDraftMode = await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 
-					let documentComments = provideDocumentComments(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
+					let documentComments = getDocumentThreadDatas(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
 					let newThreads: GHPRCommentThread[] = [];
 					if (documentComments) {
 						documentComments.forEach(thread => {

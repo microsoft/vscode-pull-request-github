@@ -26,8 +26,7 @@ import { IComment } from './common/comment';
 import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
-import { resolveCommentHandler } from './commentThreadResolver';
-import { CommentReply } from './github/utils';
+import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
