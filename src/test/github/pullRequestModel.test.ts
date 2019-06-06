@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import * as Octokit from '../../common/octokit';
+import * as Octokit from '@octokit/rest';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -13,10 +13,10 @@ const telemetry = {
 	shutdown: () => Promise.resolve()
 };
 const credentials = new CredentialStore(telemetry);
-const protocol = new Protocol('');
+const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new Remote('test', 'github/test', protocol);
 const repo = new GitHubRepository(remote, credentials);
-const user: Octokit.PullRequestsGetAllResponseItemUser = {
+const user: Octokit.PullsListResponseItemUser = {
 	login: 'me',
 	id: 1,
 	node_id: 'string',
@@ -36,7 +36,7 @@ const user: Octokit.PullRequestsGetAllResponseItemUser = {
 	type: '',
 	site_admin: false,
 };
-const githubRepo: Octokit.PullRequestsGetResponseHeadRepo = {
+const githubRepo: Octokit.PullsListResponseItemHeadRepo = {
 	id: 1,
 	node_id: '',
 	name: '',
@@ -84,7 +84,7 @@ const githubRepo: Octokit.PullRequestsGetResponseHeadRepo = {
 	tags_url: '',
 	teams_url: '',
 	trees_url: '',
-	clone_url: '',
+	clone_url: 'https://github.com/owner/name.git',
 	mirror_url: '',
 	hooks_url: '',
 	svn_url: '',
@@ -116,8 +116,9 @@ const githubRepo: Octokit.PullRequestsGetResponseHeadRepo = {
 	allow_merge_commit: false,
 	subscribers_count: 0,
 	network_count: 0,
+	disabled: false
 };
-const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem = {
+const pr: any = {
 	id: 1,
 	url: '',
 	diff_url: '',
@@ -132,12 +133,12 @@ const pr: Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseIt
 	milestone: null,
 	locked: false,
 	active_lock_reason: '',
-	closed_at: null,
-	merged_at: null,
-	_links: null,
-	merge_commit_sha: null,
+	closed_at: undefined,
+	merged_at: undefined,
+	_links: undefined,
+	merge_commit_sha: undefined,
 	mergeable: true,
-	merged_by: null,
+	merged_by: undefined,
 	additions:1,
 	deletions: 1,
 	changed_files: 1,

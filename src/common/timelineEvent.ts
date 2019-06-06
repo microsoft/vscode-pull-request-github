@@ -55,7 +55,6 @@ export interface CommitEvent {
 	author: IAccount;
 	event: EventType;
 	sha: string;
-	url: string;
 	htmlUrl: string;
 	message: string;
 	bodyHTML?: string;

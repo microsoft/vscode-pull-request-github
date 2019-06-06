@@ -153,6 +153,16 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		vscode.commands.executeCommand('vscode.diff', parentFilePath, filePath, fileName, opts);
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffGitHub', (uri: string) => {
+		vscode.window
+			.showWarningMessage('This file is either too large, of an unsupported type, or has only been renamed. Would you like to view it on GitHub?', 'Open in GitHub')
+			.then(result => {
+				if (result === 'Open in GitHub') {
+					vscode.commands.executeCommand('vscode.open', uri);
+				}
+			});
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
 		const pullRequestModel = ensurePR(prManager, e);
 		const DELETE_BRANCH_FORCE = 'delete branch (even if not merged)';
@@ -192,6 +202,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		reviewManager.createPullRequest();
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.createDraft', async () => {
+		reviewManager.createPullRequest(true);
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 		let pullRequestModel: PullRequestModel;
 
@@ -225,6 +239,26 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 					vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 					telemetry.on('pr.merge.failure');
 					return newPR;
+				}
+			}
+
+		});
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.readyForReview', async (pr?: PRNode) => {
+		const pullRequest = ensurePR(prManager, pr);
+		return vscode.window.showWarningMessage(`Are you sure you want to mark this pull request as ready to review on GitHub?`, { modal: true }, 'Yes').then(async value => {
+			let isDraft;
+			if (value === 'Yes') {
+				try {
+					isDraft = await prManager.setReadyForReview(pullRequest);
+					vscode.commands.executeCommand('pr.refreshList');
+					telemetry.on('pr.readyForReview.success');
+					return isDraft;
+				} catch (e) {
+					vscode.window.showErrorMessage(`Unable to mark pull request as ready to review. ${formatError(e)}`);
+					telemetry.on('pr.readyForReview.failure');
+					return isDraft;
 				}
 			}
 

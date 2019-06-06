@@ -10,6 +10,8 @@ import { GitHubRepository } from './githubRepository';
 import { IAccount, PullRequest, PullRequestStateEnum } from './interface';
 
 export class PullRequestModel {
+	public id: number;
+	public graphNodeId: string;
 	public prNumber: number;
 	public title: string;
 	public html_url: string;
@@ -20,6 +22,7 @@ export class PullRequestModel {
 	public updatedAt: string;
 	public localBranchName?: string;
 	public mergeBase?: string;
+	public isDraft: boolean;
 
 	public get isOpen(): boolean {
 		return this.state === PullRequestStateEnum.Open;
@@ -87,11 +90,14 @@ export class PullRequestModel {
 	}
 
 	update(prItem: PullRequest): void {
+		this.id = prItem.id;
+		this.graphNodeId = prItem.graphNodeId;
 		this.prNumber = prItem.number;
 		this.title = prItem.title;
 		this.bodyHTML = prItem.bodyHTML;
 		this.html_url = prItem.url;
 		this.author = prItem.user;
+		this.isDraft = prItem.isDraft;
 
 		if (prItem.state.toLowerCase() === 'open') {
 			this.state = PullRequestStateEnum.Open;

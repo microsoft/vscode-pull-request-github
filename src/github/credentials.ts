@@ -184,7 +184,11 @@ export class CredentialStore {
 		let octokit = new Octokit({
 			agent,
 			baseUrl,
-			headers: { 'user-agent': 'GitHub VSCode Pull Requests' }
+			headers: {
+				'user-agent': 'GitHub VSCode Pull Requests',
+				// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
+				Accept: 'application/vnd.github.shadow-cat-preview+json'
+			}
 		});
 
 		octokit.authenticate({
@@ -227,7 +231,7 @@ export class CredentialStore {
 
 		if (octokit) {
 			try {
-				const user = await octokit.users.get({});
+				const user = await octokit.users.getAuthenticated({});
 				(octokit as any).currentUser = user.data;
 				text = `$(mark-github) ${user.data.login}`;
 			} catch (e) {
@@ -281,6 +285,7 @@ const link = (url: string, token: string) =>
 		headers: {
 			...headers,
 			authorization: token ? `Bearer ${token}` : '',
+			Accept: 'application/vnd.github.shadow-cat-preview+json'
 		}
 	}))).concat(createHttpLink({
 		uri: `${url}/graphql`,

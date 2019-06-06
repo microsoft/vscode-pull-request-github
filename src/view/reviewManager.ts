@@ -645,7 +645,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return selected;
 	}
 
-	public async createPullRequest(): Promise<void> {
+	public async createPullRequest(draft=false): Promise<void> {
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
 		const githubRemotes = this._prManager.getGitHubRemotes();
 		let targetRemote = await this.getRemote(githubRemotes, 'Select the remote to send the pull request to',
@@ -704,6 +704,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			pullRequestDefaults.head = `${headRemote.owner}:${branchName}`;
 			pullRequestDefaults.owner = targetRemote!.owner;
 			pullRequestDefaults.repo = targetRemote!.name;
+			pullRequestDefaults.draft = draft;
 			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);
 
 			if (pullRequestModel) {

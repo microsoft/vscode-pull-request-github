@@ -2,14 +2,14 @@ import * as React from 'react';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { groupBy } from 'lodash';
-import { useContext, useReducer, useRef, useState, useEffect } from 'react';
+import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';
-import { checkIcon, deleteIcon, pendingIcon } from './icon';
+import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
 
 export const StatusChecks = (pr: PullRequest) => {
-	const { state, status, mergeable } = pr;
+	const { state, status, mergeable, isDraft } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
 		status.statuses.some(s => s.state === 'failure')) as [boolean, () => void];
@@ -48,7 +48,12 @@ export const StatusChecks = (pr: PullRequest) => {
 					: null
 				}
 				<MergeStatus mergeable={mergeable} />
-				{ mergeable ? <Merge {...pr} /> : null}
+				{ isDraft
+					? <ReadyForReview/>
+					: mergeable
+						? <Merge {...pr} />
+						: null
+				}
 			</>
 	}</div>;
 };
@@ -64,6 +69,30 @@ export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) =>
 				: 'This branch has conflicts that must be resolved'
 		}</div>
 	</div>;
+
+export const ReadyForReview = () => {
+	const [isBusy, setBusy] = useState(false);
+	const { readyForReview, updatePR } = useContext(PullRequestContext);
+
+	const markReadyForReview = useCallback(
+		async () => {
+			try {
+				setBusy(true);
+				await readyForReview();
+				updatePR({isDraft: false})
+			} finally {
+				setBusy(false);
+			}
+		},
+		[setBusy, readyForReview, updatePR]);
+
+	return <div className='ready-for-review-container'>
+		<button className='ready-for-review-button' disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+		<div className='ready-for-review-icon'>{alertIcon}</div>
+		<div className='ready-for-review-heading'>This pull request is still a work in progress.</div>
+		<span className='ready-for-review-meta'>Draft pull requests cannot be merged.</span>
+	</div>
+}
 
 export const Merge = (pr: PullRequest) => {
 	const select = useRef<HTMLSelectElement>();
@@ -81,24 +110,32 @@ export const Merge = (pr: PullRequest) => {
 };
 
 function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMethod, cancel: () => void}) {
-	const { merge } = useContext(PullRequestContext);
+	const { merge, updatePR } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false)
 
 	return <form onSubmit={
-		event => {
+		async event => {
 			event.preventDefault();
-			const {title, description}: any = event.target;
-			merge({
-				title: title.value,
-				description: description.value,
-				method,
-			});
+
+			try {
+				setBusy(true)
+				const {title, description}: any = event.target;
+				await merge({
+					title: title.value,
+					description: description.value,
+					method,
+				});
+				updatePR({ state: PullRequestStateEnum.Merged })
+			} finally {
+				setBusy(false)
+			}
 		}
 	}>
 		<input type='text' name='title' defaultValue={getDefaultTitleText(method, pr)} />
 		<textarea name='description' defaultValue={getDefaultDescriptionText(method, pr)} />
 		<div className='form-actions'>
 			<button className='secondary' onClick={cancel}>Cancel</button>
-			<input type='submit' id='confirm-merge' value={MERGE_METHODS[method]} />
+			<input disabled={isBusy} type='submit' id='confirm-merge' value={MERGE_METHODS[method]} />
 		</div>
 	</form>;
 }
