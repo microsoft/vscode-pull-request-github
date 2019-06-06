@@ -60,7 +60,7 @@ export class TemporaryComment implements vscode.Comment {
 			iconPath: vscode.Uri.parse(`${currentUser.avatar_url}&s=${64}`)
 		};
 		this.label = isDraft ? 'Pending' : undefined;
-		this.contextValue = 'canEdit';
+		this.contextValue = 'canEdit,canDelete';
 		this.originalBody = originalBody;
 		this.id = TemporaryComment.idPool++;
 	}
@@ -89,7 +89,17 @@ export class GHPRComment implements vscode.Comment {
 			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
 		}) : [];
 		this.label = comment.isDraft ? 'Pending' : undefined;
-		this.contextValue = comment.canEdit ? 'canEdit' : '';
+
+		const contextValues: string[] = [];
+		if (comment.canEdit) {
+			contextValues.push('canEdit');
+		}
+
+		if (comment.canDelete) {
+			contextValues.push('canDelete');
+		}
+
+		this.contextValue = contextValues.join(',');
 		this.parent = parent;
 	}
 }

@@ -334,7 +334,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return;
 		}
 
-		vscode.commands.executeCommand('setContext', 'prInDraft', this.pullRequestModel.inDraftMode);
+		this.setContextKey(this.pullRequestModel.inDraftMode);
+	}
+
+	private setContextKey(inDraftMode: boolean): void {
+		vscode.commands.executeCommand('setContext', 'prInDraft', inDraftMode);
 	}
 
 	async revealComment(comment: IComment) {
@@ -744,7 +748,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			thread.comments = thread.comments.filter(c => c instanceof GHPRComment && c.commentId !== comment.commentId);
 
 			if (thread.comments.length === 0) {
-				let rawComment = (comment as vscode.Comment & { _rawComment: IComment })._rawComment;
+				let rawComment = comment._rawComment;
 
 				if (rawComment.path) {
 					let threadIndex = this._prCommentController!.commentThreadCache[rawComment.path].findIndex(cachedThread => cachedThread.threadId === thread.threadId);
@@ -765,16 +769,14 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		await this._prManager.startReview(this.pullRequestModel);
 		await this.createOrReplyComment(thread, input);
-		this.updateThreadReviewState(thread);
-		await this.refreshContextKey(vscode.window.activeTextEditor);
+		this.setContextKey(true);
 	}
 
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		try {
 			await this.createOrReplyComment(thread, input, false);
 			await this._prManager.submitReview(this.pullRequestModel);
-			this.updateThreadReviewState(thread);
-			await this.refreshContextKey(vscode.window.activeTextEditor);
+			this.setContextKey(false);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
@@ -812,15 +814,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 		}
 
-		await this.refreshContextKey(vscode.window.activeTextEditor);
-	}
-
-	public updateThreadReviewState(thread: vscode.CommentThread) {
-		if (this.pullRequestModel.inDraftMode) {
-			thread.contextValue = 'graphql:inDraft';
-		} else {
-			thread.contextValue = 'graphql:notInDraft';
-		}
+		this.setContextKey(false);
 	}
 
 	// #endregion
@@ -846,13 +840,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label && !!ret.hasReacted)) {
 			// add reaction
-			const matchedRawComment = (comment as (vscode.Comment & { _rawComment: IComment }))._rawComment;
+			const matchedRawComment = comment._rawComment;
 			let result = await this._prManager.addCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
 			let reactionGroups = result.addReaction.subject.reactionGroups;
 			fileChange.comments[commentIndex].reactions = parseGraphQLReaction(reactionGroups);
 			updateCommentReactions(comment, fileChange.comments[commentIndex].reactions!);
 		} else {
-			const matchedRawComment = (comment as (vscode.Comment & { _rawComment: IComment }))._rawComment;
+			const matchedRawComment = comment._rawComment;
 			let result = await this._prManager.deleteCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
 			let reactionGroups = result.removeReaction.subject.reactionGroups;
 			fileChange.comments[commentIndex].reactions = parseGraphQLReaction(reactionGroups);

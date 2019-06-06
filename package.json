@@ -628,75 +628,60 @@
       ],
       "comments/commentThread/context": [
         {
-            "command": "pr.createComment",
-            "group": "inline"
-        },
-        {
-            "command": "pr.startReview",
-            "group": "inline",
-            "when": "commentThread =~ /graphql:(?!inDraft)/"
-        },
-        {
-            "command": "pr.startReview",
-            "group": "inline",
-            "when": "commentController =~ /github/ && !prInDraft && commentThreadIsEmpty"
+          "command": "pr.createComment",
+          "group": "inline"
         },
         {
           "command": "pr.startReview",
           "group": "inline",
-          "when": "commentController =~ /review/ && !reviewInDraftMode && commentThreadIsEmpty"
+          "when": "commentController =~ /browse/ && !prInDraft"
         },
         {
-            "command": "pr.deleteReview",
-            "group": "inline",
-            "when": "commentThread =~ /graphql:inDraft/"
+          "command": "pr.startReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && !reviewInDraftMode"
         },
         {
-            "command": "pr.deleteReview",
-            "group": "inline",
-            "when": "commentController =~ /github/ && prInDraft && commentThreadIsEmpty"
+          "command": "pr.deleteReview",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && prInDraft"
         },
         {
-            "command": "pr.deleteReview",
-            "group": "inline",
-            "when": "commentController =~ /review/ && reviewInDraftMode && commentThreadIsEmpty"
+          "command": "pr.deleteReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && reviewInDraftMode"
         },
         {
-            "command": "pr.finishReview",
-            "group": "inline",
-            "when": "commentThread =~ /graphql:inDraft/"
+          "command": "pr.finishReview",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && prInDraft"
         },
         {
-            "command": "pr.finishReview",
-            "group": "inline",
-            "when": "commentController =~ /github/ && prInDraft && commentThreadIsEmpty"
-        },
-        {
-            "command": "pr.finishReview",
-            "group": "inline",
-            "when": "commentController =~ /review/ && reviewInDraftMode && commentThreadIsEmpty"
+          "command": "pr.finishReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && reviewInDraftMode"
         }
       ],
       "comments/comment/title": [
         {
-            "command": "pr.editComment",
-            "group": "group@1",
-            "when": "comment =~ /canEdit/"
+          "command": "pr.editComment",
+          "group": "group@1",
+          "when": "comment =~ /canEdit/"
         },
         {
-            "command": "pr.deleteComment",
-            "group": "group@2",
-            "when": "comment =~ /canEdit/"
+          "command": "pr.deleteComment",
+          "group": "group@2",
+          "when": "comment =~ /canDelete/"
         }
       ],
       "comments/comment/context": [
         {
-            "command": "pr.cancelEditComment",
-            "group": "inline@1"
+          "command": "pr.cancelEditComment",
+          "group": "inline@1"
         },
         {
-            "command": "pr.saveComment",
-            "group": "inline@2"
+          "command": "pr.saveComment",
+          "group": "inline@2"
         }
       ]
     }
