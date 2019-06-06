@@ -71,17 +71,19 @@ export function updateCommentReactions(comment: vscode.Comment, reactions: React
 	});
 }
 
-export function updateCommentReviewState(thread: vscode.CommentThread, newDraftMode: boolean) {
+export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode: boolean) {
 	if (newDraftMode) {
 		return;
 	}
 
 	thread.comments = thread.comments.map(comment => {
-		let patchedComment = comment as (vscode.Comment & { _rawComment: IComment });
-		patchedComment._rawComment.isDraft = false;
-		patchedComment.label = undefined;
+		if (comment instanceof GHPRComment) {
+			comment._rawComment.isDraft = false;
+		}
 
-		return patchedComment;
+		comment.label = undefined;
+
+		return comment;
 	});
 }
 

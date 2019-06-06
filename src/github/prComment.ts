@@ -12,7 +12,7 @@ export interface GHPRCommentThread {
 	/**
 	 * The uri of the document the thread has been created on.
 	 */
-	resource: vscode.Uri;
+	uri: vscode.Uri;
 
 	/**
 	 * The range the comment thread is located within the document. The thread icon will be shown

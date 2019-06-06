@@ -83,10 +83,10 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		return this._commentController;
 	}
 
-	private _workspaceFileChangeCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
-	private _obsoleteFileChangeCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
-	private _reviewDocumentCommentThreads: { [key: string]: vscode.CommentThread[] } = {};
-	private _prDocumentCommentThreads: { [key: string]: { original?: vscode.CommentThread[], modified?: vscode.CommentThread[] }} = {};
+	private _workspaceFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
+	private _obsoleteFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
+	private _reviewDocumentCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
+	private _prDocumentCommentThreads: { [key: string]: { original?: GHPRCommentThread[], modified?: GHPRCommentThread[] }} = {};
 
 	constructor(
 		private _prManager: PullRequestManager,
@@ -302,7 +302,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			let reviewCommentThreads = this.provideCommentsForReviewUri(editor.document, query);
 
 			if (reviewCommentThreads) {
-				let newThreads: vscode.CommentThread[] = [];
+				let newThreads: GHPRCommentThread[] = [];
 				reviewCommentThreads.forEach(thread => {
 					newThreads.push(createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
 				});
@@ -315,12 +315,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #endregion
 
 	hasCommentThread(thread: vscode.CommentThread): boolean {
-		if (thread.resource.scheme === 'review') {
+		if (thread.uri.scheme === 'review') {
 			return true;
 		}
 
-		if (thread.resource.scheme === 'pr') {
-			let params = fromPRUri(thread.resource);
+		if (thread.uri.scheme === 'pr') {
+			let params = fromPRUri(thread.uri);
 			if (this._prManager.activePullRequest && params && this._prManager.activePullRequest.prNumber === params.prNumber) {
 				return true;
 			} else {
@@ -328,20 +328,20 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 		}
 
-		const currentWorkspace = vscode.workspace.getWorkspaceFolder(thread.resource);
+		const currentWorkspace = vscode.workspace.getWorkspaceFolder(thread.uri);
 		if (!currentWorkspace) {
 			return false;
 		}
 
-		if (thread.resource.scheme === currentWorkspace.uri.scheme) {
+		if (thread.uri.scheme === currentWorkspace.uri.scheme) {
 			return true;
 		}
 
 		return false;
 	}
 
-	private addToCommentThreadCache(thread: vscode.CommentThread): void {
-		const uri = thread.resource;
+	private addToCommentThreadCache(thread: GHPRCommentThread): void {
+		const uri = thread.uri;
 		switch (uri.scheme) {
 			case 'pr':
 				const params = fromPRUri(uri);
@@ -445,7 +445,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #region Helper
 
 	private async updateCommentThreadRoot(thread: GHPRCommentThread, text: string, temporaryCommentId: number): Promise<void> {
-		const uri = thread.resource;
+		const uri = thread.uri;
 		const matchedFile = this.findMatchedFileByUri(uri);
 		const query = uri.query === '' ? undefined : fromReviewUri(uri);
 		const isBase = query && query.base;
@@ -695,7 +695,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 		[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads, this._reviewDocumentCommentThreads].forEach(commentThreadMap => {
 			for (let fileName in commentThreadMap) {
-				let threads: vscode.CommentThread[] = [];
+				let threads: GHPRCommentThread[] = [];
 				commentThreadMap[fileName].forEach(thread => {
 					thread.comments = thread.comments.filter((comment: GHPRComment) => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
 					updateCommentThreadLabel(thread);
@@ -717,7 +717,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		for (let fileName in this._prDocumentCommentThreads) {
 			if (this._prDocumentCommentThreads[fileName]) {
 				if (this._prDocumentCommentThreads[fileName].original) {
-					let threads: vscode.CommentThread[] = [];
+					let threads: GHPRCommentThread[] = [];
 
 					this._prDocumentCommentThreads[fileName].original!.forEach(thread => {
 						thread.comments = thread.comments.filter((comment: GHPRComment) => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
@@ -737,7 +737,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				}
 
 				if (this._prDocumentCommentThreads[fileName].modified) {
-					let threads: vscode.CommentThread[] = [];
+					let threads: GHPRCommentThread[] = [];
 
 					this._prDocumentCommentThreads[fileName].modified!.forEach(thread => {
 						thread.comments = thread.comments.filter((comment: GHPRComment) => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
@@ -837,7 +837,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 					throw new Error('Unable to find active pull request');
 				}
 
-				const matchedFile = this.findMatchedFileByUri(thread.resource);
+				const matchedFile = this.findMatchedFileByUri(thread.uri);
 				if (!matchedFile) {
 					throw new Error('Unable to find matching file');
 				}
@@ -880,7 +880,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				throw new Error('Unable to find active pull request');
 			}
 
-			const matchedFile = this.findMatchedFileByUri(thread.resource);
+			const matchedFile = this.findMatchedFileByUri(thread.uri);
 			if (!matchedFile) {
 				throw new Error('Unable to find matching file');
 			}
@@ -962,7 +962,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			let newThreads = workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed);
 
-			let resultThreads: vscode.CommentThread[] = [];
+			let resultThreads: GHPRCommentThread[] = [];
 
 			newThreads.forEach(thread => {
 				let matchedThread = existingCommentThreads.filter(existingThread => existingThread.threadId === thread.threadId);
