@@ -18,7 +18,6 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
-import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse } from './graphql';
@@ -171,8 +170,8 @@ export class PullRequestManager {
 		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
 			provideCompletionItems: async (document, position, token) => {
 				try {
-					let query = JSON.parse(document.uri.query);
-					if (query.extensionId !== EXTENSION_ID) {
+					const commentControllerId = document.uri.authority;
+					if (!this._githubRepositories.some(repo => repo.getCommentsControllerId() === commentControllerId)) {
 						return;
 					}
 
