@@ -260,7 +260,6 @@ export class PullRequestOverviewPanel {
 				}
 			});
 		}).catch(e => {
-			console.error(e.stack);
 			vscode.window.showErrorMessage(formatError(e));
 		});
 	}
