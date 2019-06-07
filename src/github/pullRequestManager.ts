@@ -1172,8 +1172,8 @@ export class PullRequestManager {
 		return this._credentialStore.isCurrentUser(username, pullRequest.remote);
 	}
 
-	getCurrentUser(pullRequest: PullRequestModel): any {
-		return this._credentialStore.getCurrentUser(pullRequest.remote);
+	getCurrentUser(pullRequest: PullRequestModel): IAccount {
+		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(pullRequest.remote), pullRequest.githubRepository);
 	}
 
 	private addCommentPermissions(rawComment: IComment, remote: Remote): IComment {

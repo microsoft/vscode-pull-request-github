@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import { IAccount } from './interface';
 
 export interface GHPRCommentThread {
 	threadId: string;
@@ -51,13 +52,13 @@ export class TemporaryComment implements vscode.Comment {
 
 	static idPool = 0;
 
-	constructor(parent: GHPRCommentThread, input: string, isDraft: boolean, currentUser: any, originalBody?: string) {
+	constructor(parent: GHPRCommentThread, input: string, isDraft: boolean, currentUser: IAccount, originalBody?: string) {
 		this.parent = parent;
 		this.body = new vscode.MarkdownString(input);
 		this.mode = vscode.CommentMode.Preview;
 		this.author = {
 			name: currentUser.login,
-			iconPath: vscode.Uri.parse(`${currentUser.avatar_url}&s=${64}`)
+			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=${64}`) : undefined
 		};
 		this.label = isDraft ? 'Pending' : undefined;
 		this.contextValue = 'canEdit,canDelete';

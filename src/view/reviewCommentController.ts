@@ -107,7 +107,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	async initializeWorkspaceCommentThreads(): Promise<void> {
-		const inDraftMode = await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
+		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 		this._localFileChanges.forEach(async matchedFile => {
 			let matchingComments: IComment[] = [];
 			const headCommitSha = this._prManager.activePullRequest!.head.sha;
@@ -116,12 +116,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			matchingComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchingComments);
 
 			let threads = workspaceLocalCommentsToCommentThreads(
-				this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed).map(thread => createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
+				this._repository, matchedFile, matchingComments, vscode.CommentThreadCollapsibleState.Collapsed).map(thread => createVSCodeCommentThread(thread, this._commentController!));
 			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threads;
 		});
 
 		gitFileChangeNodeFilter(this._obsoleteFileChanges).forEach(fileChange => {
-			let threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
+			let threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!));
 			this._obsoleteFileChangeCommentThreads[fileChange.fileName] = threads;
 		});
 	}
@@ -245,15 +245,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				let matchedFileChanges = this._localFileChanges.filter(localFileChange => localFileChange.fileName === params.fileName);
 
 				if (matchedFileChanges.length) {
-					const inDraftMode = await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-
-					let documentComments = getDocumentThreadDatas(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
-					let newThreads: GHPRCommentThread[] = [];
-					if (documentComments) {
-						documentComments.forEach(thread => {
-							newThreads.push(createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
-						});
-					}
+					const documentComments = getDocumentThreadDatas(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
+					const newThreads: GHPRCommentThread[] = documentComments.map(thread => createVSCodeCommentThread(thread, this._commentController!));
 
 					if (params.isBase) {
 						this._prDocumentCommentThreads[params.fileName].original = newThreads;
@@ -297,17 +290,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		} catch (e) { }
 
 		if (query) {
-			const inDraftMode = await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-			let reviewCommentThreads = this.provideCommentsForReviewUri(editor.document, query);
+			// TODO why is this line needed?
+			await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 
-			if (reviewCommentThreads) {
-				let newThreads: GHPRCommentThread[] = [];
-				reviewCommentThreads.forEach(thread => {
-					newThreads.push(createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
-				});
-
-				this._reviewDocumentCommentThreads[reviewUriString] = newThreads;
-			}
+			const threadData = this.provideCommentsForReviewUri(editor.document, query);
+			const newThreads = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
+			this._reviewDocumentCommentThreads[reviewUriString] = newThreads;
 		}
 	}
 
@@ -761,19 +749,19 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #endregion
 	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!); // TODO rmacfarlane add real type
+		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!);
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;
 	}
 
-	private updateCommentThreadComments(thread: vscode.CommentThread | GHPRCommentThread, newComments: vscode.Comment[]) {
+	private updateCommentThreadComments(thread: GHPRCommentThread, newComments: (GHPRComment | TemporaryComment)[]) {
 		thread.comments = newComments;
 		updateCommentThreadLabel(thread);
 	}
 
 	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!); // TODO rmacfarlane add real type
+		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!);
 		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment._rawComment.body);
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof GHPRComment && c.commentId === comment.commentId) {
@@ -873,7 +861,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 	}
 
-	async deleteComment(thread: vscode.CommentThread, comment: GHPRComment): Promise<void> {
+	async deleteComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<void> {
 		try {
 			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
@@ -918,17 +906,17 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #region Incremental update comments
 	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]): Promise<void> {
-		const inDraftMode = await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
+		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 		// _workspaceFileChangeCommentThreads
 		for (let fileName in this._workspaceFileChangeCommentThreads) {
-			this.updateFileChangeCommentThreads(localFileChanges, fileName, inDraftMode);
+			this.updateFileChangeCommentThreads(localFileChanges, fileName);
 		}
 
 		this._localFileChanges = localFileChanges;
 
 		// _obsoleteFileChangeCommentThreads
 		for (let fileName in this._obsoleteFileChangeCommentThreads) {
-			this.updateFileChangeCommentThreads(gitFileChangeNodeFilter(obsoleteFileChanges), fileName, inDraftMode);
+			this.updateFileChangeCommentThreads(gitFileChangeNodeFilter(obsoleteFileChanges), fileName);
 		}
 
 		this._obsoleteFileChanges = obsoleteFileChanges;
@@ -939,7 +927,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 	}
 
-	private async updateFileChangeCommentThreads(fileChanges: GitFileChangeNode[], fileName: string, inDraftMode: boolean): Promise<void> {
+	private async updateFileChangeCommentThreads(fileChanges: GitFileChangeNode[], fileName: string): Promise<void> {
 		let matchedFileChanges = fileChanges.filter(fileChange => fileChange.fileName === fileName);
 
 		if (matchedFileChanges.length === 0) {
@@ -967,7 +955,6 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				let matchedThread = existingCommentThreads.filter(existingThread => existingThread.threadId === thread.threadId);
 
 				if (matchedThread.length) {
-					// let commands = getAcceptInputCommands(matchedThread[0], inDraftMode, this, this._prManager.activePullRequest!.githubRepository.supportsGraphQl);
 					// update
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;
@@ -978,7 +965,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 				} else {
 					// create new thread
-					resultThreads.push(createVSCodeCommentThread(thread, this._commentController!, inDraftMode));
+					resultThreads.push(createVSCodeCommentThread(thread, this._commentController!));
 				}
 			});
 

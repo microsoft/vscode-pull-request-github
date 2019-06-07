@@ -17,29 +17,23 @@ import { GitHubRepository } from './githubRepository';
 import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
 
-export function createVSCodeCommentThread(thread: ThreadData, commentController: vscode.CommentController, inDraftMode: boolean): GHPRCommentThread {
+export function createVSCodeCommentThread(thread: ThreadData, commentController: vscode.CommentController): GHPRCommentThread {
 	let vscodeThread = commentController.createCommentThread(
 		thread.resource,
 		thread.range!,
 		[]
 	);
 
-	if (inDraftMode) {
-		vscodeThread.contextValue = 'graphql:inDraft';
-	} else {
-		vscodeThread.contextValue = 'graphql:notInDraft';
-	}
-
 	vscodeThread.threadId = thread.threadId;
 
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
 
-	updateCommentThreadLabel(vscodeThread);
+	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
 	vscodeThread.collapsibleState = thread.collapsibleState;
 	return vscodeThread as GHPRCommentThread;
 }
 
-export function updateCommentThreadLabel(thread: vscode.CommentThread | GHPRCommentThread) {
+export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 	if (thread.comments.length) {
 		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name).map(comment => `@${comment.author.name}`).join(', ');
 		thread.label = `Participants: ${participantsList}`;

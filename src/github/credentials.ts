@@ -174,7 +174,7 @@ export class CredentialStore {
 		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
 	}
 
-	public getCurrentUser(remote: Remote): any {
+	public getCurrentUser(remote: Remote): Octokit.PullsGetResponseUser {
 		const octokit = this.getOctokit(remote);
 		return octokit && (octokit as any).currentUser;
 	}
