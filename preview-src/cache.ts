@@ -33,6 +33,7 @@ export interface PullRequest {
 	mergeMethodsAvailability: MergeMethodsAvailability;
 	supportsGraphQl: boolean;
 	reviewers: ReviewState[];
+	isDraft: boolean;
 }
 
 export function getState(): PullRequest {

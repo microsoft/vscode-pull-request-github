@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.34.0"
@@ -86,6 +86,38 @@
           "default": "default",
           "deprecationMessage": "The setting `githubPullRequests.includeRemotes` has been deprecated. Use `githubPullRequests.remotes` to configure what remotes are shown.",
           "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
+        },
+        "githubPullRequests.queries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "The label to display for the query in the Pull Requests tree"
+              },
+              "query": {
+                "type": "string",
+                "description": "The query used for searching pull requests."
+              }
+            }
+          },
+          "scope": "resource",
+          "markdownDescription": "Specifies what queries should be used in the GitHub Pull Requests tree. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. By default these queries define the categories \"Waiting For My Review\", \"Assigned To Me\" and \"Created By Me\". If you want to preserve these, make sure they are still in the array when you modify the setting.",
+          "default": [
+            {
+              "label": "Waiting For My Review",
+              "query": "is:open review-requested:${user}"
+            },
+            {
+              "label": "Assigned To Me",
+              "query": "is:open assignee:${user}"
+            },
+            {
+              "label": "Created By Me",
+              "query": "is:open author:${user}"
+            }
+          ]
         },
         "githubPullRequests.defaultMergeMethod": {
           "type": "string",
@@ -184,6 +216,15 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.createDraft",
+        "title": "Create Draft Pull Request",
+        "icon": {
+          "light": "resources/icons/light/stage.svg",
+          "dark": "resources/icons/dark/stage.svg"
+        },
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "auth.signout",
         "title": "Sign out of GitHub",
         "category": "GitHub Pull Requests"
@@ -196,6 +237,11 @@
       {
         "command": "pr.merge",
         "title": "Merge Pull Request",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.readyForReview",
+        "title": "Mark Pull Request Ready For Review",
         "category": "GitHub Pull Requests"
       },
       {
@@ -282,6 +328,15 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.configurePRViewlet",
+        "title": "Configure...",
+        "category": "GitHub Pull Requests",
+        "icon": {
+          "light": "resources/icons/light/gear.svg",
+          "dark": "resources/icons/dark/gear.svg"
+        }
+      },
+      {
         "command": "pr.deleteLocalBranch",
         "title": "Delete Local Branch",
         "category": "GitHub Pull Requests"
@@ -335,6 +390,22 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "auth.inputTokenCallback",
+          "when": "gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "auth.signout",
+          "when": "gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "pr.configureRemotes",
+          "when": "gitOpenRepositoryCount != 0"
+        },
+        {
+          "command": "pr.configurePRViewlet",
+          "when": "gitOpenRepositoryCount != 0"
+        },
+        {
           "command": "pr.pick",
           "when": "false"
         },
@@ -348,19 +419,27 @@
         },
         {
           "command": "pr.close",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.create",
-          "when": "config.git.enabled && !github.inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && !github:inReviewMode"
+        },
+        {
+          "command": "pr.createDraft",
+          "when": "gitOpenRepositoryCount != 0 && !github:inReviewMode"
         },
         {
           "command": "pr.merge",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+        },
+        {
+          "command": "pr.readyForReview",
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.openFileInGitHub",
@@ -384,11 +463,11 @@
         },
         {
           "command": "pr.openDescription",
-          "when": "config.git.enabled && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
           "command": "pr.refreshList",
-          "when": "config.git.enabled && github:hasGitHubRemotes"
+          "when": "gitOpenRepositoryCount != 0 && github:hasGitHubRemotes"
         },
         {
           "command": "pr.refreshChanges",
@@ -396,7 +475,7 @@
         },
         {
           "command": "pr.signin",
-          "when": "config.git.enabled && github:hasGitHubRemotes"
+          "when": "gitOpenRepositoryCount != 0 && github:hasGitHubRemotes"
         },
         {
           "command": "pr.signinAndRefreshList",
@@ -434,12 +513,17 @@
       "view/title": [
         {
           "command": "pr.create",
-          "when": "view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.configurePRViewlet",
+          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
           "group": "navigation"
         },
         {
           "command": "pr.refreshList",
-          "when": "view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
           "group": "navigation"
         },
         {
@@ -546,13 +630,13 @@
     "ts-loader": "^4.0.1",
     "tslint": "^5.11.0",
     "tslint-webpack-plugin": "^1.2.2",
-    "typescript": "^2.1.4",
+    "typescript": "^3",
     "vscode": "^1.1.33",
     "webpack": "^4.1.0",
     "webpack-cli": "^3.2.1"
   },
   "dependencies": {
-    "@octokit/rest": "^15.15.1",
+    "@octokit/rest": "^16.21.0",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
     "debounce": "^1.2.0",
@@ -561,6 +645,7 @@
     "graphql": "^14.0.2",
     "iconv-lite": "0.4.23",
     "js-base64": "^2.4.9",
+    "lodash": "^4.17.11",
     "markdown-it": "^8.4.0",
     "markdown-it-checkbox": "^1.1.0",
     "markdown-it-sanitizer": "github:rebornix/markdown-it-sanitizer#10d930d08236ef4609ad10a6087745461d91cc7c",

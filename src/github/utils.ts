@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as Octokit from '../common/octokit';
+import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
 import { Comment, Reaction } from '../common/comment';
@@ -111,7 +111,7 @@ export function updateCommentCommands(vscodeComment: vscode.Comment, commentCont
 	}
 }
 
-export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllResponseItemUser, githubRepository: GitHubRepository): IAccount {
+export function convertRESTUserToAccount(user: Octokit.PullsListResponseItemUser, githubRepository: GitHubRepository): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
@@ -119,7 +119,7 @@ export function convertRESTUserToAccount(user: Octokit.PullRequestsGetAllRespons
 	};
 }
 
-export function convertRESTHeadToIGitHubRef(head: Octokit.PullRequestsGetResponseHead) {
+export function convertRESTHeadToIGitHubRef(head: Octokit.PullsListResponseItemHead) {
 	return {
 		label: head.label,
 		ref: head.ref,
@@ -128,7 +128,7 @@ export function convertRESTHeadToIGitHubRef(head: Octokit.PullRequestsGetRespons
 	};
 }
 
-export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullRequestsCreateResponse | Octokit.PullRequestsGetResponse | Octokit.PullRequestsGetAllResponseItem, githubRepository: GitHubRepository): PullRequest {
+export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullsCreateResponse | Octokit.PullsGetResponse | Octokit.PullsListResponseItem, githubRepository: GitHubRepository): PullRequest {
 	let {
 		number,
 		body,
@@ -142,31 +142,35 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 		head,
 		base,
 		labels,
-		node_id
+		node_id,
+		id,
+		draft
 	} = pullRequest;
 
 	const item: PullRequest = {
+			id,
+			graphNodeId: node_id,
 			number,
 			body,
 			title,
 			url: html_url,
 			user: convertRESTUserToAccount(user, githubRepository),
 			state,
-			merged: (pullRequest as Octokit.PullRequestsGetResponse).merged || false,
+			merged: (pullRequest as Octokit.PullsGetResponse).merged || false,
 			assignee: assignee ? convertRESTUserToAccount(assignee, githubRepository) : undefined,
 			createdAt: created_at,
 			updatedAt: updated_at,
 			head: convertRESTHeadToIGitHubRef(head),
 			base: convertRESTHeadToIGitHubRef(base),
-			mergeable: (pullRequest as Octokit.PullRequestsGetResponse).mergeable,
+			mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable,
 			labels,
-			nodeId: node_id
+			isDraft: draft
 	};
 
 	return item;
 }
 
-export function convertRESTReviewEvent(review: Octokit.PullRequestsCreateReviewResponse, githubRepository: GitHubRepository): Common.ReviewEvent {
+export function convertRESTReviewEvent(review: Octokit.PullsCreateReviewResponse, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
@@ -194,7 +198,7 @@ export function parseCommentDiffHunk(comment: Comment): DiffHunk[] {
 	return diffHunks;
 }
 
-export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesEditCommentResponse, githubRepository: GitHubRepository): Comment {
+export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesUpdateCommentResponse, githubRepository: GitHubRepository): Comment {
 	return {
 		url: comment.url,
 		id: comment.id,
@@ -213,7 +217,7 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 	};
 }
 
-export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullRequestsGetCommentsResponseItem | Octokit.PullRequestsEditCommentResponse, githubRepository: GitHubRepository): Comment {
+export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullsListCommentsResponseItem | Octokit.PullsUpdateCommentResponse, githubRepository: GitHubRepository): Comment {
 	let ret: Comment = {
 		url: comment.url,
 		id: comment.id,
@@ -333,6 +337,8 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
 	return {
+		id: graphQLPullRequest.databaseId,
+		graphNodeId: graphQLPullRequest.id,
 		url: graphQLPullRequest.url,
 		number: graphQLPullRequest.number,
 		state: graphQLPullRequest.state,
@@ -346,8 +352,8 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
-		nodeId: graphQLPullRequest.id,
-		labels: graphQLPullRequest.labels.nodes
+		labels: graphQLPullRequest.labels.nodes,
+		isDraft: graphQLPullRequest.isDraft
 	};
 }
 
@@ -367,14 +373,14 @@ export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubR
 }
 
 export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent)[], githubRepository: GitHubRepository): Common.TimelineEvent[] {
-	let ret: Common.TimelineEvent[] = [];
+	const normalizedEvents: Common.TimelineEvent[] = [];
 	events.forEach(event => {
 		let type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
 			case Common.EventType.Commented:
 				let commentEvent = event as GraphQL.IssueComment;
-				ret.push({
+				normalizedEvents.push({
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
@@ -384,11 +390,11 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					canDelete: commentEvent.viewerCanDelete,
 					id: commentEvent.databaseId,
 					createdAt: commentEvent.createdAt
-				} as Common.CommentEvent);
+				});
 				return;
 			case Common.EventType.Reviewed:
 				let reviewEvent = event as GraphQL.Review;
-				ret.push({
+				normalizedEvents.push({
 					event: type,
 					comments: [],
 					submittedAt: reviewEvent.submittedAt,
@@ -399,22 +405,24 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					authorAssociation: reviewEvent.authorAssociation,
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
-				} as Common.ReviewEvent);
+				});
 				return;
 			case Common.EventType.Committed:
 				let commitEv = event as GraphQL.Commit;
-				ret.push({
+				normalizedEvents.push({
+					id: commitEv.databaseId,
 					event: type,
 					sha: commitEv.oid,
 					author: commitEv.author.user ? parseAuthor(commitEv.author.user, githubRepository) : { login: commitEv.committer.name },
 					htmlUrl: commitEv.url,
 					message: commitEv.message
-				} as Common.CommitEvent);
+				} as Common.CommitEvent); // TODO remove cast
 				return;
 			case Common.EventType.Merged:
 				let mergeEv = event as GraphQL.MergedEvent;
 
-				ret.push({
+				normalizedEvents.push({
+					id: mergeEv.databaseId,
 					event: type,
 					user: parseAuthor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
@@ -423,23 +431,24 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					commitUrl: mergeEv.commit.commitUrl,
 					url: mergeEv.url,
 					graphNodeId: mergeEv.id
-				} as Common.MergedEvent);
+				});
 				return;
 			case Common.EventType.Assigned:
 				let assignEv = event as GraphQL.AssignedEvent;
 
-				ret.push({
+				normalizedEvents.push({
+					id: assignEv.databaseId,
 					event: type,
 					user: assignEv.user,
 					actor: assignEv.actor
-				} as Common.AssignEvent);
+				});
 				return;
 			default:
 				break;
 		}
 	});
 
-	return ret;
+	return normalizedEvents;
 }
 
 export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[] {
@@ -451,6 +460,7 @@ export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[]
 		if (event.event === Common.EventType.Reviewed) {
 			event.submittedAt = event.submitted_at;
 			event.htmlUrl = event.html_url;
+			event.authorAssociation = event.user.type;
 		}
 
 		if (event.event === Common.EventType.Committed) {

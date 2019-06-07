@@ -11,6 +11,13 @@ import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING } from '../github/pullRequestManager';
 
+interface IQueryInfo {
+	label: string;
+	query: string;
+}
+
+const QUERIES_SETTING = 'queries';
+
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -21,6 +28,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _view: vscode.TreeView<TreeNode>;
 	private _prManager: PullRequestManager;
 	private _initialized: boolean = false;
+	private _queries: IQueryInfo[];
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -49,6 +57,22 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._disposables.push(this._view);
 		this._childrenDisposables = [];
+
+		this._disposables.push(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
+			const configuration = await vscode.window.showQuickPick(['Configure Remotes...', 'Configure Queries...']);
+
+			const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
+			const extensionId = `${publisher}.${name}`;
+
+			switch (configuration) {
+				case 'Configure Queries...':
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} queries`);
+				case 'Configure Remotes...':
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
+				default:
+					return;
+			}
+		}));
 	}
 
 	initialize(prManager: PullRequestManager) {
@@ -58,7 +82,23 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._initialized = true;
 		this._prManager = prManager;
+		this.initializeCategories();
 		this.refresh();
+	}
+
+	public updateQueries() {
+		this._queries = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE, this._prManager.repository.rootUri).get<IQueryInfo[]>(QUERIES_SETTING) || [];
+	}
+
+	private initializeCategories() {
+		this.updateQueries();
+
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES_SETTING}`)) {
+				this.updateQueries();
+				this.refresh();
+			}
+		}));
 	}
 
 	async refresh(node?: TreeNode) {
@@ -95,11 +135,10 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				this._childrenDisposables.forEach(dispose => dispose.dispose());
 			}
 
-			let result = [
+			const queryCategories = this._queries.map(queryInfo => new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Query, queryInfo.label, queryInfo.query));
+			const result = [
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.LocalPullRequest),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.RequestReview),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.AssignedToMe),
-				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.Mine),
+				...queryCategories,
 				new CategoryTreeNode(this._view, this._prManager, this._telemetry, PRType.All)
 			];
 

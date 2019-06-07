@@ -1,3 +1,20 @@
+0.8.0
+
+**Changes**
+- Add Draft PR support [#1129](https://github.com/microsoft/vscode-pull-request-github/issues/1129)
+- Support specifying custom category in PR tree view  [#1106](https://github.com/microsoft/vscode-pull-request-github/issues/1106)
+
+**Bug fixes**
+- Do not show commands before extension has fully activated [#1198](https://github.com/microsoft/vscode-pull-request-github/issues/1198)
+- Description page is blank after 0.7.0 upgrade [#1175](https://github.com/microsoft/vscode-pull-request-github/issues/1175)
+- Change "wants to merge" text when viewing merged PR [#1027](https://github.com/microsoft/vscode-pull-request-github/issues/1027)
+- Correct text alignment in merged timeline events [#1199](https://github.com/microsoft/vscode-pull-request-github/issues/1199)
+- Update UI after adding reviewers or labels [#1191](https://github.com/microsoft/vscode-pull-request-github/issues/1191)
+- Update PR details after merge [#1183](https://github.com/microsoft/vscode-pull-request-github/issues/1183)
+- Display a message before opening file diffs in the browser [#442](https://github.com/microsoft/vscode-pull-request-github/issues/442), thank you [@malwilley](https://github.com/malwilley)!
+- Swap order of PR branch and target branch [#784](https://github.com/microsoft/vscode-pull-request-github/issues/784)
+
+
 0.7.0
 
 **Engineering**

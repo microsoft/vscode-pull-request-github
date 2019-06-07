@@ -387,6 +387,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			title,
 			prNumber,
 			author,
+			isDraft,
 		} = this.pullRequestModel;
 
 		const {
@@ -398,7 +399,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const formattedPRNumber = prNumber.toString();
 		const label = `${labelPrefix}${title}`;
 		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by @${login}`;
-		const description = `#${formattedPRNumber} by @${login}`;
+		const description = `#${formattedPRNumber}${isDraft ? '(draft)' : ''} by @${login}`;
 
 		return {
 			label,

@@ -4,12 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 export enum PRType {
-	RequestReview = 0,
-	AssignedToMe = 1,
-	Mine = 2,
-	Mention = 3,
-	All = 4,
-	LocalPullRequest = 5
+	Query,
+	All,
+	LocalPullRequest
 }
 
 export enum ReviewEvent {
@@ -59,6 +56,8 @@ export interface ILabel {
 }
 
 export interface PullRequest {
+	id: number;
+	graphNodeId: string;
 	url: string;
 	number: number;
 	state: string;
@@ -74,7 +73,7 @@ export interface PullRequest {
 	labels: ILabel[];
 	merged: boolean;
 	mergeable?: boolean;
-	nodeId: string;
+	isDraft: boolean;
 }
 
 export interface IRawFileChange {

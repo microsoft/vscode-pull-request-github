@@ -38,6 +38,9 @@ export class PRContext {
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
 		this.postMessage({ command: 'pr.merge', args	})
 
+	public readyForReview = () =>
+		this.postMessage({ command: 'pr.readyForReview' })
+
 	public comment = async (args: string) => {
 		const result = await this.postMessage({ command: 'pr.comment', args});
 		const newComment = result.value;

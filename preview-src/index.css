@@ -176,6 +176,28 @@ body .comment-container .review-comment-header {
 	margin-left: 0.7em;
 }
 
+.ready-for-review-container {
+	border-top: 1px solid;
+	padding-top: 10px;
+}
+
+.ready-for-review-button {
+	float: right;
+}
+
+.ready-for-review-icon {
+	float: left;
+}
+
+.ready-for-review-heading {
+	font-size: 1.2;
+	font-weight: bold;
+}
+
+.ready-for-review-meta {
+	font-size: 0.9;
+}
+
 #confirm-merge {
 	margin-left: auto;
 }
