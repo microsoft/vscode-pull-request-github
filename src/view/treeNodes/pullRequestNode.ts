@@ -22,6 +22,7 @@ import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
 import { CommentHandler, registerCommentHandler } from '../../commentHandlerResolver';
+import { ReactionGroup } from '../../github/graphql';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -317,19 +318,17 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 	}
 
-	async refreshContextKey(editor: vscode.TextEditor | undefined) {
+	private async refreshContextKey(editor: vscode.TextEditor | undefined) {
 		if (!editor) {
 			return;
 		}
 
-		let resource = editor.document;
-
-		if (resource.uri.scheme !== 'pr') {
+		const editorUri = editor.document.uri;
+		if (editorUri.scheme !== 'pr') {
 			return;
 		}
 
-		const params = fromPRUri(editor.document.uri);
-
+		const params = fromPRUri(editorUri);
 		if (!params || params.prNumber !== this.pullRequestModel.prNumber) {
 			return;
 		}
@@ -838,20 +837,18 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return;
 		}
 
+		let reactionGroups: ReactionGroup[];
 		if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label && !!ret.hasReacted)) {
 			// add reaction
-			const matchedRawComment = comment._rawComment;
-			let result = await this._prManager.addCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
-			let reactionGroups = result.addReaction.subject.reactionGroups;
-			fileChange.comments[commentIndex].reactions = parseGraphQLReaction(reactionGroups);
-			updateCommentReactions(comment, fileChange.comments[commentIndex].reactions!);
+			const result = await this._prManager.addCommentReaction(this.pullRequestModel, comment._rawComment.graphNodeId, reaction);
+			reactionGroups = result.addReaction.subject.reactionGroups;
 		} else {
-			const matchedRawComment = comment._rawComment;
-			let result = await this._prManager.deleteCommentReaction(this.pullRequestModel, matchedRawComment.graphNodeId, reaction);
-			let reactionGroups = result.removeReaction.subject.reactionGroups;
-			fileChange.comments[commentIndex].reactions = parseGraphQLReaction(reactionGroups);
-			updateCommentReactions(comment, fileChange.comments[commentIndex].reactions!);
+			const result = await this._prManager.deleteCommentReaction(this.pullRequestModel, comment._rawComment.graphNodeId, reaction);
+			reactionGroups = result.removeReaction.subject.reactionGroups;
 		}
+
+		fileChange.comments[commentIndex].reactions = parseGraphQLReaction(reactionGroups);
+		updateCommentReactions(comment, fileChange.comments[commentIndex].reactions!);
 
 		if (this._prCommentController!.commentThreadCache[params.fileName]) {
 			this._prCommentController!.commentThreadCache[params.fileName].forEach(thread => {

@@ -494,35 +494,4 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			}
 		}
 	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.gotoLine', async () => {
-		let line = await vscode.window.showInputBox({
-			ignoreFocusOut: true,
-			placeHolder: 'GitHub url'
-		});
-
-		if (line) {
-			let uri = vscode.Uri.parse(line);
-			let regex = /blob\/[^/]+\/([^#]*)(#L(\d+))?/g;
-			let matches = regex.exec(line);
-			if (matches) {
-				let fileName = matches[1];
-				let opts: vscode.TextDocumentShowOptions = {};
-
-				if (uri.fragment) {
-					let lineNumbers = /^L(\d+)(-L(\d+))?/g.exec(uri.fragment);
-
-					if (lineNumbers) {
-						let startLineNumber = parseInt(lineNumbers[1]);
-						let endLineNumber = parseInt(lineNumbers[3]) || startLineNumber;
-						opts = {
-							selection: new vscode.Range(startLineNumber - 1, 0, endLineNumber - 1, 0)
-						};
-					}
-				}
-
-				vscode.commands.executeCommand('vscode.open', prManager.repository.rootUri.with({ path: pathLib.join(prManager.repository.rootUri.path, fileName) }), opts);
-			}
-		}
-	}));
 }

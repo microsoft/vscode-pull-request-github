@@ -395,8 +395,7 @@
       {
         "command": "pr.finishReview",
         "title": "Finish Review",
-        "category": "GitHub Pull Requests",
-        "enablement": "!commentIsEmpty"
+        "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.signinAndRefreshList",
@@ -406,11 +405,6 @@
       {
         "command": "pr.configureRemotes",
         "title": "Configure Remotes...",
-        "category": "GitHub Pull Requests"
-      },
-      {
-        "command": "pr.gotoLine",
-        "title": "Go To Line",
         "category": "GitHub Pull Requests"
       }
     ],

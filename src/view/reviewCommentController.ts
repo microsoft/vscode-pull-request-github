@@ -994,17 +994,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				throw new Error('Unable to find matching file');
 			}
 
-			const rawComment = matchedFile.comments.find(c => String(c.id) === comment.commentId);
-			if (!rawComment) {
-				throw new Error('Unable to find comment');
-			}
-
 			let reactionGroups: ReactionGroup[] = [];
 			if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label && !!ret.hasReacted)) {
-				let result = await this._prManager.addCommentReaction(this._prManager.activePullRequest, rawComment.graphNodeId, reaction);
+				const result = await this._prManager.addCommentReaction(this._prManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
 				reactionGroups = result.addReaction.subject.reactionGroups;
 			} else {
-				let result = await this._prManager.deleteCommentReaction(this._prManager.activePullRequest, rawComment.graphNodeId, reaction);
+				const result = await this._prManager.deleteCommentReaction(this._prManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
 				reactionGroups = result.removeReaction.subject.reactionGroups;
 			}
 
