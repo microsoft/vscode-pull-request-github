@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as assert from 'assert';
+import assert = require('assert');
 import * as ssh from '../../common/ssh';
 import { Protocol, ProtocolType } from '../../common/protocol';
 

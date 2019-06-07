@@ -12,7 +12,7 @@ const TSLintPlugin = require('tslint-webpack-plugin');
 function getWebviewConfig(env) {
 	/** @type webpack.Configuration */
 	let webview = {
-		name: 'webiew',
+		name: 'webview',
 		mode: env.production ? 'production' : 'development',
 		entry: {
 			index: './preview-src/index.ts'

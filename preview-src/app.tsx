@@ -11,7 +11,7 @@ export function main() {
 	, document.getElementById('app'));
 }
 
-function Root({ children }) {
+export function Root({ children }) {
 	const ctx = useContext(PullRequestContext);
 	const [pr, setPR] = useState<PullRequest>(ctx.pr);
 	useEffect(() => {
