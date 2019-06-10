@@ -10,7 +10,6 @@
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { GitHubRepository } from './githubRepository';
 import { Repository, Branch } from '../api/api';
 import { PullRequestModel } from './pullRequestModel';
 
@@ -44,8 +43,8 @@ export class PullRequestGitHelper {
 		PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 
-	static async fetchAndCheckout(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel): Promise<void> {
-		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(repository, githubRepositories, pullRequest);
+	static async fetchAndCheckout(repository: Repository, remotes: Remote[], pullRequest: PullRequestModel): Promise<void> {
+		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(remotes, pullRequest);
 		if (!remote) {
 			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest);
 		}
@@ -85,7 +84,7 @@ export class PullRequestGitHelper {
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
-	static async checkoutExistingPullRequestBranch(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel) {
+	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel) {
 		let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
 		let configs = await repository.getConfigs();
 
@@ -223,15 +222,8 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(repository: Repository, githubRepositories: GitHubRepository[], pullRequest: PullRequestModel): Remote | undefined {
-		for (let i = 0; i < githubRepositories.length; i++) {
-			let remote = githubRepositories[i].remote;
-			if (remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl)) {
-				return remote;
-			}
-		}
-
-		return;
+	static getHeadRemoteForPullRequest(remotes: Remote[], pullRequest: PullRequestModel): Remote | undefined {
+		return remotes.find(remote => remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl));
 	}
 
 	static async associateBranchWithPullRequest(repository: Repository, pullRequest: PullRequestModel, branchName: string) {
