@@ -1,5 +1,0 @@
-steps:
-
-- script: yarn run test
-
-# TODO: publish test results
