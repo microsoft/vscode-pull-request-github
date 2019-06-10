@@ -1,5 +1,5 @@
 jobs:
-- job: test-suite
+- job: test_suite
   displayName: Test Suite
   pool:
     name: Hosted macOS
