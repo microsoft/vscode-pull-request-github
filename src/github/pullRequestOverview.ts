@@ -84,6 +84,7 @@ export class PullRequestOverviewPanel {
 		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel._viewType, title, column, {
 			// Enable javascript in the webview
 			enableScripts: true,
+			retainContextWhenHidden: true,
 
 			// And restrict the webview to only loading content from our extension's `media` directory.
 			localResourceRoots: [
@@ -94,13 +95,6 @@ export class PullRequestOverviewPanel {
 		// Listen for when the panel is disposed
 		// This happens when the user closes the panel or when the panel is closed programatically
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-
-		// Listen for changes to panel visibility, if the webview comes into view resubmit data
-		this._panel.onDidChangeViewState(e => {
-			if (e.webviewPanel.visible && this._pullRequest) {
-				this.update(this._pullRequest, this._descriptionNode);
-			}
-		}, this, this._disposables);
 
 		// Handle messages from the webview
 		this._panel.webview.onDidReceiveMessage(async message => {
