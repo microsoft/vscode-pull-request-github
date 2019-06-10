@@ -5,6 +5,7 @@ jobs:
     name: Hosted macOS
   steps:
   - template: scripts/ci/common-setup.yml
+
   - script: yarn run test
     displayName: Run test suite
 
