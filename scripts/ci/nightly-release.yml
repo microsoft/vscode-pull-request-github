@@ -15,7 +15,7 @@ steps:
    mv ./README.insiders.md ./README.md
    mv ./src/constants.ts ./src/constants.ts.bak
    mv ./src/constants.insiders.ts ./src/constants.ts
-   ./node_modules/vscode-vsce/out/vsce publish -p "$TOKEN" --yarn
+   ./node_modules/vscode-vsce/out/vsce publish -p "$TOKEN" --yarn --noVerify
   displayName: Publish
   env:
     TOKEN: $(vsce.token)
