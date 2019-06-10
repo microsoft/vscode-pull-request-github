@@ -1,0 +1,16 @@
+steps:
+
+- task: geeklearningio.gl-vsts-tasks-yarn.yarn-installer-task.YarnInstaller@2
+  displayName: 'Install Yarn'
+  inputs:
+    versionSpec: 1.9.4
+
+- script: |
+   yarn install
+   cd node_modules
+   git clone https://github.com/rebornix/vscode-vsce
+   cd vscode-vsce
+   yarn
+   ./node_modules/.bin/gulp compile
+   cd ../../
+  displayName: 'Install Dependencies'

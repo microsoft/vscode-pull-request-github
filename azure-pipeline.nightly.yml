@@ -1,0 +1,13 @@
+# Run on a schedule
+trigger: none
+pr: none
+
+jobs:
+- deployment: nightly-release
+  displayName: Nightly Release
+  environment: nightly
+  pool:
+    name: Hosted macOS
+  steps:
+  - template: scripts/ci/common-setup.yml
+  - template: scripts/ci/nightly-release.yml

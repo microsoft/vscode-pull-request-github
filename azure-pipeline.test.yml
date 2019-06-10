@@ -1,0 +1,8 @@
+jobs:
+- job: test-suite
+  displayName: Test Suite
+  pool:
+    name: Hosted macOS
+  steps:
+  - template: scripts/ci/common-setup.yml
+  - template: scripts/ci/test-suite.yml
