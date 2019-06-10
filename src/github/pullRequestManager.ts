@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as Octokit from '@octokit/rest';
+import Octokit = require('@octokit/rest');
 import { CredentialStore } from './credentials';
 import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
@@ -18,6 +18,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
+import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse } from './graphql';
@@ -91,11 +92,13 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
-export class PullRequestManager {
+export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
+
+	private _subs: vscode.Disposable[];
 	private _activePullRequest?: PullRequestModel;
-	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
+	private _allGitHubRemotes: Remote[] = [];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _gitBlameCache: { [key: string]: string } = {};
@@ -108,16 +111,19 @@ export class PullRequestManager {
 	constructor(
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
+		private _credentialStore: CredentialStore = new CredentialStore(_telemetry),
 	) {
+		this._subs = [];
 		this._githubRepositories = [];
-		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
-		vscode.workspace.onDidChangeConfiguration(async e => {
+
+		this._subs.push(this._credentialStore);
+		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
 				await this.updateRepositories();
 				vscode.commands.executeCommand('pr.refreshList');
 			}
-		});
+		}));
 
 		this.setUpCompletionItemProvider();
 	}
@@ -170,8 +176,8 @@ export class PullRequestManager {
 		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
 			provideCompletionItems: async (document, position, token) => {
 				try {
-					const commentControllerId = document.uri.authority;
-					if (!this._githubRepositories.some(repo => repo.getCommentsControllerId() === commentControllerId)) {
+					let query = JSON.parse(document.uri.query);
+					if (query.extensionId !== EXTENSION_ID) {
 						return;
 					}
 
@@ -341,6 +347,10 @@ export class PullRequestManager {
 		this._repository = repository;
 	}
 
+	get credentialStore(): CredentialStore {
+		return this._credentialStore;
+	}
+
 	async clearCredentialCache(): Promise<void> {
 		this._credentialStore.reset();
 	}
@@ -349,7 +359,7 @@ export class PullRequestManager {
 		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
-		const allGitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
+		this._allGitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
 				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
@@ -357,7 +367,7 @@ export class PullRequestManager {
 				return [];
 			});
 
-		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
@@ -385,7 +395,7 @@ export class PullRequestManager {
 		let resolveRemotePromises: Promise<void>[] = [];
 
 		activeRemotes.forEach(remote => {
-			const repository = new GitHubRepository(remote, this._credentialStore);
+			const repository = this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
 		});
@@ -440,6 +450,10 @@ export class PullRequestManager {
 		});
 	}
 
+	/**
+	 * Returns the remotes that are currently active, which is those that are important by convention (origin, upstream),
+	 * or the remotes configured by the setting githubPullRequests.remotes
+	 */
 	getGitHubRemotes(): Remote[] {
 		const githubRepositories = this._githubRepositories;
 
@@ -448,6 +462,13 @@ export class PullRequestManager {
 		}
 
 		return githubRepositories.map(repository => repository.remote);
+	}
+
+	/**
+	 * Returns all remotes from the repository.
+	 */
+	getAllGitHubRemotes(): Remote[] {
+		return this._allGitHubRemotes;
 	}
 
 	async authenticate(): Promise<boolean> {
@@ -1461,11 +1482,11 @@ export class PullRequestManager {
 	}
 
 	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel): Promise<boolean> {
-		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, this._githubRepositories, pullRequest);
+		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest);
 	}
 
 	async fetchAndCheckout(pullRequest: PullRequestModel): Promise<void> {
-		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._githubRepositories, pullRequest);
+		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest);
 	}
 
 	async checkout(branchName: string): Promise<void> {
@@ -1576,6 +1597,14 @@ export class PullRequestManager {
 		]);
 
 		return events;
+	}
+
+	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
+		return new GitHubRepository(remote, credentialStore);
+	}
+
+	dispose() {
+		this._subs.forEach(sub => sub.dispose());
 	}
 }
 

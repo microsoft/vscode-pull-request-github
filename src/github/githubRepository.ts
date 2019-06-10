@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as Octokit from '@octokit/rest';
+import Octokit = require('@octokit/rest');
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
 import { IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';
@@ -26,11 +26,15 @@ export interface PullRequestData {
 	hasMorePages: boolean;
 }
 
+export interface IMetadata extends Octokit.ReposGetResponse {
+	currentUser: any;
+}
+
 export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	static ID = 'GitHubRepository';
-	private _hub: GitHub | undefined;
-	private _initialized: boolean;
-	private _metadata: any;
+	protected _initialized: boolean;
+	protected _hub: GitHub | undefined;
+	protected _metadata: IMetadata;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentController;
@@ -62,14 +66,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			console.log(e);
 		}
 
-	}
-
-	public getCommentsControllerId(): string | undefined {
-		if (!this.commentsController) {
-			return undefined;
-		}
-
-		return this.commentsController.id;
 	}
 
 	dispose() {
