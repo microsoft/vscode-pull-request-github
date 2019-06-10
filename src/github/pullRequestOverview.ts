@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as Octokit from '@octokit/rest';
+import Octokit = require('@octokit/rest');
 import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
@@ -50,7 +50,7 @@ export class PullRequestOverviewPanel {
 	private _scrollPosition = { x: 0, y: 0 };
 	private _existingReviewers: ReviewState[];
 
-	public static createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		let activeColumn = toTheSide ?
 							vscode.ViewColumn.Beside :
 							vscode.window.activeTextEditor ?
@@ -66,7 +66,7 @@ export class PullRequestOverviewPanel {
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
 		}
 
-		PullRequestOverviewPanel.currentPanel!.update(pullRequestModel, descriptionNode);
+		await PullRequestOverviewPanel.currentPanel!.update(pullRequestModel, descriptionNode);
 	}
 
 	public static refresh(): void {
@@ -85,7 +85,7 @@ export class PullRequestOverviewPanel {
 			// Enable javascript in the webview
 			enableScripts: true,
 
-			// And restric the webview to only loading content from our extension's `media` directory.
+			// And restrict the webview to only loading content from our extension's `media` directory.
 			localResourceRoots: [
 				vscode.Uri.file(path.join(this._extensionPath, 'media'))
 			]
@@ -201,7 +201,7 @@ export class PullRequestOverviewPanel {
 
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
 
-		Promise.all([
+		await Promise.all([
 			this._pullRequestManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
 				pullRequestModel.remote.repositoryName,
@@ -712,6 +712,10 @@ export class PullRequestOverviewPanel {
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
+	}
+
+	public getCurrentTitle(): string {
+		return this._panel.title;
 	}
 }
 

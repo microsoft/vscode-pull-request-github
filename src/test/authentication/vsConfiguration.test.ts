@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import assert = require('assert');
 import * as vscode from 'vscode';
 import { migrateConfiguration } from '../../authentication/vsConfiguration';
 import { promiseFromEvent } from '../../common/utils';

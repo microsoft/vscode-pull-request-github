@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as Octokit from '@octokit/rest';
+import Octokit = require('@octokit/rest');
 import { CredentialStore } from './credentials';
 import { Comment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
@@ -93,10 +93,11 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
-export class PullRequestManager {
+export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
+
+	private _subs: vscode.Disposable[];
 	private _activePullRequest?: PullRequestModel;
-	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
@@ -111,16 +112,19 @@ export class PullRequestManager {
 		private api: ApiImpl,
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
+		private _credentialStore: CredentialStore = new CredentialStore(_telemetry),
 	) {
+		this._subs = [];
 		this._githubRepositories = [];
-		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
-		vscode.workspace.onDidChangeConfiguration(async e => {
+
+		this._subs.push(this._credentialStore);
+		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
 				await this.updateRepositories();
 				vscode.commands.executeCommand('pr.refreshList');
 			}
-		});
+		}));
 
 		this.setUpCompletionItemProvider();
 	}
@@ -344,6 +348,10 @@ export class PullRequestManager {
 		this._repository = repository;
 	}
 
+	get credentialStore(): CredentialStore {
+		return this._credentialStore;
+	}
+
 	async clearCredentialCache(): Promise<void> {
 		this._credentialStore.reset();
 	}
@@ -388,7 +396,7 @@ export class PullRequestManager {
 		let resolveRemotePromises: Promise<void>[] = [];
 
 		activeRemotes.forEach(remote => {
-			const repository = new GitHubRepository(remote, this._credentialStore);
+			const repository = this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
 		});
@@ -1590,6 +1598,14 @@ export class PullRequestManager {
 		]);
 
 		return events;
+	}
+
+	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
+		return new GitHubRepository(remote, credentialStore);
+	}
+
+	dispose() {
+		this._subs.forEach(sub => sub.dispose());
 	}
 }
 

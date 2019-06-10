@@ -51,7 +51,10 @@ async function init(context: vscode.ExtensionContext, api: ApiImpl, repository: 
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
+
 	const prManager = new PullRequestManager(api, repository, telemetry);
+	context.subscriptions.push(prManager);
+
 	const reviewManager = new ReviewManager(context, repository, prManager, tree, telemetry);
 	tree.initialize(prManager);
 	registerCommands(context, prManager, reviewManager, telemetry);
@@ -94,6 +97,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	const firstRepository = apiImpl.repositories[0];
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry);
+	context.subscriptions.push(prTree);
 
 	if (firstRepository) {
 		await init(context, apiImpl, firstRepository, prTree);
