@@ -8,27 +8,31 @@ jobs:
   environment: nightly
   pool:
     name: Hosted macOS
-  steps:
-  - template: scripts/ci/common-setup.yml
+  strategy:
+    runOnce:
+      deploy:
+        steps:
 
-  - script: >
-      node ./scripts/prepare-nightly-build.js
-      -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"'
-    displayName: 'Generate package.json'
-    env:
-      NAME: vscode-pull-request-github-insiders
-      DISPLAYNAME: GitHub Pull Request Nightly Build
-      DESCRIPTION: Nightly Build GitHub Pull Request extension
-      PUBLISHER: GitHub
+        - template: scripts/ci/common-setup.yml
 
-  - script: |
-      mv ./package.json ./package.json.bak
-      mv ./package.insiders.json ./package.json
-      mv ./README.md ./README.md.bak
-      mv ./README.insiders.md ./README.md
-      mv ./src/constants.ts ./src/constants.ts.bak
-      mv ./src/constants.insiders.ts ./src/constants.ts
-      ./node_modules/vscode-vsce/out/vsce publish -p "$TOKEN" --yarn --noVerify
-    displayName: Publish
-    env:
-      TOKEN: $(vsce.token)
+        - script: >
+            node ./scripts/prepare-nightly-build.js
+            -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"'
+          displayName: 'Generate package.json'
+          env:
+            NAME: vscode-pull-request-github-insiders
+            DISPLAYNAME: GitHub Pull Request Nightly Build
+            DESCRIPTION: Nightly Build GitHub Pull Request extension
+            PUBLISHER: GitHub
+
+        - script: |
+            mv ./package.json ./package.json.bak
+            mv ./package.insiders.json ./package.json
+            mv ./README.md ./README.md.bak
+            mv ./README.insiders.md ./README.md
+            mv ./src/constants.ts ./src/constants.ts.bak
+            mv ./src/constants.insiders.ts ./src/constants.ts
+            ./node_modules/vscode-vsce/out/vsce publish -p "$TOKEN" --yarn --noVerify
+          displayName: Publish
+          env:
+            TOKEN: $(vsce.token)
