@@ -1,0 +1,14 @@
+steps:
+
+- task: NodeTool@0
+  displayName: Upgrade Node
+  inputs:
+    versionSpec: '8.x'
+
+- task: geeklearningio.gl-vsts-tasks-yarn.yarn-installer-task.YarnInstaller@2
+  displayName: Install Yarn
+  inputs:
+    versionSpec: 1.16.0
+
+- script: yarn install
+  displayName: Install dependencies
