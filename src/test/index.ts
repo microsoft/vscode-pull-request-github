@@ -42,6 +42,7 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 		ui: 'bdd',
 		useColors: true,
 	});
+	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
 
 	await addTests(mocha, testsRoot);
 	await addTests(mocha, path.resolve(testsRoot, '../../preview-src/dist/preview-src/test'));
@@ -52,6 +53,7 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 			mochaJunitReporterReporterOptions: {
 				mochaFile: process.env.TEST_JUNIT_XML_PATH,
 				suiteTitleSeparatedBy: ' / ',
+				outputs: true,
 			}
 		});
 	}
