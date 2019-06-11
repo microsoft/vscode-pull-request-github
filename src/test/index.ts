@@ -46,6 +46,16 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	await addTests(mocha, testsRoot);
 	await addTests(mocha, path.resolve(testsRoot, '../../preview-src/dist/preview-src/test'));
 
+	if (process.env.TEST_JUNIT_XML_PATH) {
+		mocha.reporter('mocha-multi-reporters', {
+			reporterEnabled: 'mocha-junit-reporter, spec',
+			mochaJunitReporterReporterOptions: {
+				mochaFile: process.env.TEST_JUNIT_XML_PATH,
+				suiteTitleSeparatedBy: ' / ',
+			}
+		});
+	}
+
 	return new Promise((resolve) => mocha.run(resolve));
 }
 
