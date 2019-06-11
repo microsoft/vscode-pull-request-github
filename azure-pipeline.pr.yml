@@ -17,7 +17,7 @@ jobs:
     inputs:
       testResultsFormat: JUnit
       testResultsFiles: $(Agent.HomeDirectory)/test-results.xml
-      testResultsTitle: Mocha test suite
+      testRunTitle: Mocha test suite
     condition: succeededOrFailed()
 
 - job: indexer
