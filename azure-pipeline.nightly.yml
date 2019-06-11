@@ -11,7 +11,9 @@ jobs:
   steps:
   - template: scripts/ci/common-setup.yml
 
-  - script: 'node ./ci.js -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"'
+  - script: >
+      node ./scripts/prepare-nightly-build.js
+      -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"'
     displayName: 'Generate package.json'
     env:
       NAME: vscode-pull-request-github-insiders
