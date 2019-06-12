@@ -526,8 +526,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const isBase = query.base;
 			matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile!.diffHunks, isBase); });
 
-			return  workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded).map(thread => {
-				thread.resource = document.uri; // TODO, this thread is not created yet
+			return workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded).map(thread => {
+				thread.resource = document.uri;
 				return thread;
 			});
 		}
@@ -762,7 +762,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
 		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!);
-		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment._rawComment.body);
+		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment);
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof GHPRComment && c.commentId === comment.commentId) {
 				return temporaryComment;

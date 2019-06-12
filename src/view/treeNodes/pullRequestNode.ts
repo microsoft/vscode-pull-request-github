@@ -506,36 +506,40 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (newCommentThreads && newCommentThreads.length) {
 			let added: ThreadData[] = [];
 			newCommentThreads.forEach(thread => {
-				const matchingCommentThread = oldCommentThreads.filter(oldComment => oldComment.threadId === thread.threadId);
+				const matchingCommentThreads = oldCommentThreads.filter(oldComment => oldComment.threadId === thread.threadId);
 
-				if (matchingCommentThread.length === 0) {
+				if (matchingCommentThreads.length === 0) {
 					added.push(thread);
 					if (thread.resource.scheme === 'file') {
 						thread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
 					}
 				}
 
-				matchingCommentThread.forEach(match => {
-					// TODO revisit this. Temporary comments should probably be last, need to ensure that update
-					// does not duplicate temporary comment value
-					match.comments = match.comments.map(cmt => {
-						// Retain temporary comments
+				matchingCommentThreads.forEach(existingThread => {
+					existingThread.comments = existingThread.comments.map(cmt => {
 						if (cmt instanceof TemporaryComment) {
+							// If the body of the temporary comment already matches the comment, then replace it.
+							// Otherwise, retain the temporary comment.
+							const matchingComment = thread.comments.find(c => c.body === cmt.body);
+							if (matchingComment) {
+								return new GHPRComment(matchingComment, existingThread);
+							}
+
 							return cmt;
 						}
 
 						// Update existing comments
 						const matchedComment = thread.comments.find(c => c.id.toString() === cmt.commentId);
 						if (matchedComment) {
-							return new GHPRComment(matchedComment, match);
+							return new GHPRComment(matchedComment, existingThread);
 						}
 
 						// Remove comments that are no longer present
 						return undefined;
-					}).filter((c: any): c is GHPRComment => !!c);
+					}).filter((c: TemporaryComment | GHPRComment | undefined): c is GHPRComment | TemporaryComment => !!c);
 
-					const addedComments = thread.comments.filter(cmt => !match.comments.some(existingComment => existingComment instanceof GHPRComment && existingComment.commentId === cmt.id.toString()));
-					match.comments = [...match.comments, ...addedComments.map(comment => new GHPRComment(comment, match))];
+					const addedComments = thread.comments.filter(cmt => !existingThread.comments.some(existingComment => existingComment instanceof GHPRComment && existingComment.commentId === cmt.id.toString()));
+					existingThread.comments = [...existingThread.comments, ...addedComments.map(comment => new GHPRComment(comment, existingThread))];
 				});
 			});
 
@@ -644,11 +648,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 	}
 
-	/**
-	 * Adds a temporary comment to the thread so that it is immediately shown in the UI. This
-	 * comment should not be used for actual operations on GitHub, it should be replaced by real
-	 * data when add finishes.
-	 */
 	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
 		const currentUser = this._prManager.getCurrentUser(this.pullRequestModel);
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
@@ -658,7 +657,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
 		const currentUser = this._prManager.getCurrentUser(this.pullRequestModel);
-		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment._rawComment.body);
+		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment);
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof GHPRComment && c.commentId === comment.commentId) {
 				return temporaryComment;

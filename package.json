@@ -395,7 +395,8 @@
       {
         "command": "pr.finishReview",
         "title": "Finish Review",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.signinAndRefreshList",

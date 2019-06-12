@@ -40,19 +40,59 @@ export interface GHPRCommentThread {
 	dispose: () => void;
 }
 
+/**
+ * Used to optimistically render updates to comment threads. Temporary comments are immediately
+ * set when a command is run, and then replaced with real data when the operation finishes.
+ */
 export class TemporaryComment implements vscode.Comment {
-	public body: string | vscode.MarkdownString;
-	public mode: vscode.CommentMode;
-	public author: vscode.CommentAuthorInformation;
-	public label: string | undefined;
-	public contextValue: string;
+	/**
+	 * The id of the comment
+	 */
 	public id: number;
+
+	/**
+	 * The comment thread the comment is from
+	 */
 	public parent: GHPRCommentThread;
+
+	/**
+	 * The text of the comment
+	 */
+	public body: string | vscode.MarkdownString;
+
+	/**
+	 * If the temporary comment is in place for an edit, the original text value of the comment
+	 */
 	public originalBody?: string;
+
+	/**
+	 * Whether the comment is in edit mode or not
+	 */
+	public mode: vscode.CommentMode;
+
+	/**
+	 * The author of the comment
+	 */
+	public author: vscode.CommentAuthorInformation;
+
+	/**
+	 * The label to display on the comment, 'Pending' or nothing
+	 */
+	public label: string | undefined;
+
+	/**
+	 * The list of reactions to the comment
+	 */
+	public commentReactions?: vscode.CommentReaction[] | undefined;
+
+	/**
+	 * The context value, used to determine whether the command should be visible/enabled based on clauses in package.json
+	 */
+	public contextValue: string;
 
 	static idPool = 0;
 
-	constructor(parent: GHPRCommentThread, input: string, isDraft: boolean, currentUser: IAccount, originalBody?: string) {
+	constructor(parent: GHPRCommentThread, input: string, isDraft: boolean, currentUser: IAccount, originalComment?: GHPRComment) {
 		this.parent = parent;
 		this.body = new vscode.MarkdownString(input);
 		this.mode = vscode.CommentMode.Preview;
@@ -62,21 +102,57 @@ export class TemporaryComment implements vscode.Comment {
 		};
 		this.label = isDraft ? 'Pending' : undefined;
 		this.contextValue = 'canEdit,canDelete';
-		this.originalBody = originalBody;
+		this.originalBody = originalComment ? originalComment._rawComment.body : undefined;
+		this.commentReactions = originalComment ? originalComment.commentReactions : undefined;
 		this.id = TemporaryComment.idPool++;
 	}
 }
 
 export class GHPRComment implements vscode.Comment {
-	body: string | vscode.MarkdownString;
-	mode: vscode.CommentMode;
-	author: vscode.CommentAuthorInformation;
-	label?: string | undefined;
-	commentReactions?: vscode.CommentReaction[] | undefined;
-	commentId: string;
-	_rawComment: IComment;
-	parent: GHPRCommentThread;
-	contextValue: string;
+	/**
+	 * The database id of the comment
+	 */
+	public commentId: string;
+
+	/**
+	 * The comment thread the comment is from
+	 */
+	public parent: GHPRCommentThread;
+
+	/**
+	 * The text of the comment
+	 */
+	public body: string | vscode.MarkdownString;
+
+	/**
+	 * Whether the comment is in edit mode or not
+	 */
+	public mode: vscode.CommentMode;
+
+	/**
+	 * The author of the comment
+	 */
+	public author: vscode.CommentAuthorInformation;
+
+	/**
+	 * The label to display on the comment, 'Pending' or nothing
+	 */
+	public label: string | undefined;
+
+	/**
+	 * The list of reactions to the comment
+	 */
+	public commentReactions?: vscode.CommentReaction[] | undefined;
+
+	/**
+	 * The complete comment data returned from GitHub
+	 */
+	public _rawComment: IComment;
+
+	/**
+	 * The context value, used to determine whether the command should be visible/enabled based on clauses in package.json
+	 */
+	public contextValue: string;
 
 	constructor(comment: IComment, parent: GHPRCommentThread) {
 		this._rawComment = comment;
