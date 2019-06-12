@@ -290,7 +290,6 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		} catch (e) { }
 
 		if (query) {
-			// TODO why is this line needed?
 			await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 
 			const threadData = this.provideCommentsForReviewUri(editor.document, query);
