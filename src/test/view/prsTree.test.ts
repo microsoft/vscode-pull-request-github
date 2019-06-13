@@ -19,6 +19,7 @@ import { Protocol } from '../../common/protocol';
 import { CredentialStore } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
+import { ApiImpl } from '../../api/api1';
 
 describe('GitHub Pull Requests view', function() {
 	let sinon: SinonSandbox;
@@ -79,7 +80,7 @@ describe('GitHub Pull Requests view', function() {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry);
+		const manager = new PullRequestManager(new ApiImpl(), repository, telemetry);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, credentialStore) => {
 			return new MockGitHubRepository(remote, credentialStore, sinon);
 		});
@@ -144,7 +145,7 @@ describe('GitHub Pull Requests view', function() {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new PullRequestManager(repository, telemetry, credentialStore);
+			const manager = new PullRequestManager(new ApiImpl(), repository, telemetry, credentialStore);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);

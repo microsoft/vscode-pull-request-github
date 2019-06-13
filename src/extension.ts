@@ -29,7 +29,7 @@ fetch.Promise = PolyfillPromise;
 
 let telemetry: ITelemetry;
 
-async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: Repository, tree: PullRequestsTreeDataProvider): Promise<void> {
+async function init(context: vscode.ExtensionContext, api: ApiImpl, repository: Repository, tree: PullRequestsTreeDataProvider): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
@@ -52,14 +52,15 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
 
-	const prManager = new PullRequestManager(repository, telemetry);
+	const prManager = new PullRequestManager(api, repository, telemetry);
+	api.pullRequestManager = prManager;
 	context.subscriptions.push(prManager);
 
 	const reviewManager = new ReviewManager(context, repository, prManager, tree, telemetry);
 	tree.initialize(prManager);
 	registerCommands(context, prManager, reviewManager, telemetry);
 
-	git.repositories.forEach(repo => {
+	api.repositories.forEach(repo => {
 		repo.ui.onDidChange(() => {
 			// No multi-select support, always show last selected repo
 			if (repo.ui.selected) {
@@ -70,7 +71,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 		});
 	});
 
-	git.onDidOpenRepository(repo => {
+	api.onDidOpenRepository(repo => {
 		repo.ui.onDidChange(() => {
 			if (repo.ui.selected) {
 				prManager.repository = repo;
