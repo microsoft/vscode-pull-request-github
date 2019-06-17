@@ -104,7 +104,7 @@ export class TemporaryComment implements vscode.Comment {
 		this.label = isDraft ? 'Pending' : undefined;
 		this.contextValue = 'canEdit,canDelete';
 		this.originalBody = originalComment ? originalComment._rawComment.body : undefined;
-		this.commentReactions = originalComment ? originalComment.commentReactions : undefined;
+		this.commentReactions = originalComment ? originalComment.reactions : undefined;
 		this.id = TemporaryComment.idPool++;
 	}
 }
