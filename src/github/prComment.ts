@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import { IAccount } from './interface';
+import { updateCommentReactions } from './utils';
 
 export interface GHPRCommentThread {
 	threadId: string;
@@ -142,7 +143,7 @@ export class GHPRComment implements vscode.Comment {
 	/**
 	 * The list of reactions to the comment
 	 */
-	public commentReactions?: vscode.CommentReaction[] | undefined;
+	public reactions?: vscode.CommentReaction[] | undefined;
 
 	/**
 	 * The complete comment data returned from GitHub
@@ -157,14 +158,14 @@ export class GHPRComment implements vscode.Comment {
 	constructor(comment: IComment, parent: GHPRCommentThread) {
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
-		this.body = new vscode.MarkdownString(comment.body);
+		this.body = new vscode.MarkdownString(`hello [create pull request](command:pr.create)`); // comment.body);
+		this.body.isTrusted = true;
 		this.author = {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined
 		};
-		this.commentReactions = comment.reactions ? comment.reactions.map(reaction => {
-			return { label: reaction.label, hasReacted: reaction.viewerHasReacted, count: reaction.count, iconPath: reaction.icon };
-		}) : [];
+		updateCommentReactions(this, comment.reactions);
+
 		this.label = comment.isDraft ? 'Pending' : undefined;
 
 		const contextValues: string[] = [];

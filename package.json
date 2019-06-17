@@ -660,13 +660,13 @@
       "comments/comment/title": [
         {
           "command": "pr.editComment",
-          "group": "group@1",
+          "group": "inline@1",
           "when": "comment =~ /canEdit/"
         },
         {
           "command": "pr.deleteComment",
-          "group": "group@2",
-          "when": "comment =~ /canDelete/"
+          "group": "inline@2",
+          "when": "comment =~ /canEdit/"
         }
       ],
       "comments/comment/context": [

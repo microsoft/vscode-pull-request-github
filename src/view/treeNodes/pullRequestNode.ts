@@ -20,7 +20,7 @@ import { IComment } from '../../common/comment';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { createVSCodeCommentThread, getReactionGroup, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions } from '../../github/utils';
+import { createVSCodeCommentThread, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions, CommentReactionHandler } from '../../github/utils';
 import { CommentHandler, registerCommentHandler } from '../../commentHandlerResolver';
 import { ReactionGroup } from '../../github/graphql';
 
@@ -30,7 +30,7 @@ import { ReactionGroup } from '../../github/graphql';
  */
 export interface ThreadData {
 	threadId: string;
-	resource: vscode.Uri;
+	uri: vscode.Uri;
 	range: vscode.Range;
 	comments: IComment[];
 	collapsibleState: vscode.CommentThreadCollapsibleState;
@@ -66,7 +66,7 @@ export function getDocumentThreadDatas(
 
 		threads.push({
 			threadId: firstComment.id.toString(),
-			resource: uri,
+			uri: uri,
 			range,
 			comments,
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
@@ -98,7 +98,7 @@ export function getCommentingRanges(diffHunks: DiffHunk[], isBase: boolean): vsc
 	return ranges;
 }
 
-export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, vscode.CommentReactionProvider {
+export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, CommentReactionHandler {
 	static ID = 'PRNode';
 
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[];
@@ -121,8 +121,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	public set command(newCommand: vscode.Command) {
 		this._command = newCommand;
 	}
-
-	public availableReactions: vscode.CommentReaction[] = getReactionGroup();
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
@@ -510,7 +508,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				if (matchingCommentThreads.length === 0) {
 					added.push(thread);
-					if (thread.resource.scheme === 'file') {
+					if (thread.uri.scheme === 'file') {
 						thread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
 					}
 				}
@@ -818,18 +816,18 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	// #endregion
 
 	// #region Reaction
-	async toggleReaction(document: vscode.TextDocument, comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
-		if (document.uri.scheme !== 'pr') {
+	async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
+		if (comment.parent!.uri.scheme !== 'pr') {
 			return;
 		}
 
-		const params = fromPRUri(document.uri);
+		const params = fromPRUri(comment.parent!.uri);
 
 		if (!params) {
 			return;
 		}
 
-		const fileChange = this.findMatchingFileNode(document.uri);
+		const fileChange = this.findMatchingFileNode(comment.parent!.uri);
 		const commentIndex = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 
 		if (commentIndex < 0) {
@@ -837,7 +835,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 
 		let reactionGroups: ReactionGroup[];
-		if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label && !!ret.hasReacted)) {
+		if (comment.reactions && !comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)) {
 			// add reaction
 			const result = await this._prManager.addCommentReaction(this.pullRequestModel, comment._rawComment.graphNodeId, reaction);
 			reactionGroups = result.addReaction.subject.reactionGroups;

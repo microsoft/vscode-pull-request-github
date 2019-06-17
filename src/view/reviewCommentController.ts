@@ -14,7 +14,7 @@ import { Repository } from '../api/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getCommentingRanges, getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
-import { getReactionGroup, parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState } from '../github/utils';
+import { parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState, CommentReactionHandler, generateCommentReactions } from '../github/utils';
 import { ReactionGroup } from '../github/graphql';
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 import { CommentHandler, registerCommentHandler } from '../commentHandlerResolver';
@@ -42,7 +42,7 @@ function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChan
 		const newUri = repository.rootUri.with({ path: newPath });
 		ret.push({
 			threadId: firstComment.id.toString(),
-			resource: newUri,
+			uri: newUri,
 			range,
 			comments,
 			collapsibleState
@@ -68,13 +68,11 @@ function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, comme
 		}
 	});
 }
-export class ReviewCommentController implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, vscode.CommentReactionProvider {
+export class ReviewCommentController implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, CommentReactionHandler {
 
 	private _localToDispose: vscode.Disposable[] = [];
 	private _onDidChangeComments = new vscode.EventEmitter<IComment[]>();
 	public onDidChangeComments = this._onDidChangeComments.event;
-
-	public availableReactions = getReactionGroup();
 
 	private _commentController?: vscode.CommentController;
 
@@ -95,7 +93,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		private _comments: IComment[]) {
 		this._commentController = vscode.comments.createCommentController(`review-${_prManager.activePullRequest!.prNumber}`, _prManager.activePullRequest!.title);
 		this._commentController.commentingRangeProvider = this;
-		this._commentController.reactionProvider = this;
+		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
 		registerCommentHandler(this);
 	}
@@ -507,7 +505,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			ret.push({
 				threadId: firstComment.id.toString(),
-				resource: fileChange.filePath,
+				uri: fileChange.filePath,
 				range,
 				comments,
 				collapsibleState: collapsibleState
@@ -526,7 +524,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile!.diffHunks, isBase); });
 
 			return workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded).map(thread => {
-				thread.resource = document.uri;
+				thread.uri = document.uri;
 				return thread;
 			});
 		}
@@ -573,7 +571,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			ret.push({
 				threadId: String(firstComment.id),
-				resource: document.uri,
+				uri: document.uri,
 				range,
 				comments,
 				collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
@@ -982,19 +980,19 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #endregion
 
 	// #region Reactions
-	async toggleReaction(document: vscode.TextDocument, comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
+	async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
 		try {
 			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
-			const matchedFile = this.findMatchedFileByUri(document.uri);
+			const matchedFile = this.findMatchedFileByUri(comment.parent!.uri);
 			if (!matchedFile) {
 				throw new Error('Unable to find matching file');
 			}
 
 			let reactionGroups: ReactionGroup[] = [];
-			if (comment.commentReactions && !comment.commentReactions.find(ret => ret.label === reaction.label && !!ret.hasReacted)) {
+			if (comment.reactions && !comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)) {
 				const result = await this._prManager.addCommentReaction(this._prManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
 				reactionGroups = result.addReaction.subject.reactionGroups;
 			} else {
@@ -1007,10 +1005,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			if (matchingCommentIndex > -1) {
 				let editedComment = matchedFile.comments[matchingCommentIndex];
 				editedComment.reactions = parseGraphQLReaction(reactionGroups);
-				const vscodeCommentReactions = editedComment.reactions.map(ret => {
-					return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
-				});
-
+				const vscodeCommentReactions = generateCommentReactions(editedComment.reactions);
 				const fileName = matchedFile.fileName;
 				const modifiedThreads = [
 					...(this._prDocumentCommentThreads[fileName] ? this._prDocumentCommentThreads[fileName].original || [] : []),
@@ -1023,7 +1018,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				modifiedThreads.forEach(thread => {
 					thread.comments = thread.comments.map((cmt: GHPRComment) => {
 						if (cmt.commentId === comment.commentId) {
-							cmt.commentReactions = vscodeCommentReactions;
+							cmt.reactions = vscodeCommentReactions;
 						}
 
 						return cmt;

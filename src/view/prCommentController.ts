@@ -6,19 +6,18 @@
 
 import * as vscode from 'vscode';
 import { fromPRUri } from '../common/uri';
-import { getReactionGroup } from '../github/utils';
 import { GHPRCommentThread } from '../github/prComment';
+import { CommentReactionHandler } from '../github/utils';
 
-export class PRCommentController implements vscode.CommentingRangeProvider, vscode.CommentReactionProvider, vscode.Disposable {
-	availableReactions: vscode.CommentReaction[] = getReactionGroup();
-	private _prCommentControllers: {[key: number]: vscode.CommentingRangeProvider & vscode.CommentReactionProvider } = {};
+export class PRCommentController implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
+	private _prCommentControllers: {[key: number]: vscode.CommentingRangeProvider & CommentReactionHandler } = {};
 	private _prDocumentCommentThreadMap: {[key: number]: { [key: string]: GHPRCommentThread[] } } = {};
 
 	constructor(
 		public commentsController: vscode.CommentController
 	) {
 		this.commentsController.commentingRangeProvider = this;
-		this.commentsController.reactionProvider = this;
+		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
@@ -34,8 +33,8 @@ export class PRCommentController implements vscode.CommentingRangeProvider, vsco
 		return provideCommentingRanges(document, token);
 	}
 
-	async toggleReaction(document: vscode.TextDocument, comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void> {
-		let uri = document.uri;
+	async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
+		let uri = comment.parent!.uri;
 		let params = fromPRUri(uri);
 
 		if (!params || !this._prCommentControllers[params.prNumber] || !this._prCommentControllers[params.prNumber].toggleReaction) {
@@ -44,10 +43,10 @@ export class PRCommentController implements vscode.CommentingRangeProvider, vsco
 
 		let toggleReaction = this._prCommentControllers[params.prNumber].toggleReaction!.bind(this._prCommentControllers[params.prNumber]);
 
-		return toggleReaction(document, comment, reaction);
+		return toggleReaction(comment, reaction);
 	}
 
-	public registerCommentController(prNumber: number, provider: vscode.CommentingRangeProvider & vscode.CommentReactionProvider) {
+	public registerCommentController(prNumber: number, provider: vscode.CommentingRangeProvider & CommentReactionHandler) {
 		this._prCommentControllers[prNumber] = provider;
 		if (!this._prDocumentCommentThreadMap[prNumber]) {
 			this._prDocumentCommentThreadMap[prNumber] = {};

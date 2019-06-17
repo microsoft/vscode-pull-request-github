@@ -17,9 +17,12 @@ import { GitHubRepository } from './githubRepository';
 import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
 
+export interface CommentReactionHandler {
+	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
+}
 export function createVSCodeCommentThread(thread: ThreadData, commentController: vscode.CommentController): GHPRCommentThread {
 	let vscodeThread = commentController.createCommentThread(
-		thread.resource,
+		thread.uri,
 		thread.range!,
 		[]
 	);
@@ -42,10 +45,23 @@ export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 	}
 }
 
-export function updateCommentReactions(comment: vscode.Comment, reactions: Reaction[]) {
-	comment.commentReactions = reactions.map(ret => {
-		return { label: ret.label, hasReacted: ret.viewerHasReacted, count: ret.count, iconPath: ret.icon };
+export function generateCommentReactions(reactions: Reaction[] | undefined) {
+	return getReactionGroup().map(reaction => {
+		if (!reactions) {
+			return { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
+		}
+
+		let matchedReaction = reactions.find(re => re.label === reaction.label);
+
+		if (matchedReaction) {
+			return { label: matchedReaction.label, authorHasReacted: matchedReaction.viewerHasReacted, count: matchedReaction.count, iconPath: reaction.icon || '' };
+		} else {
+			return { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
+		}
 	});
+}
+export function updateCommentReactions(comment: vscode.Comment, reactions: Reaction[] | undefined) {
+	comment.reactions = generateCommentReactions(reactions);
 }
 
 export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode: boolean) {

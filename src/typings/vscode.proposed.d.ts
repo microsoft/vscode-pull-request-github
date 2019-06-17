@@ -738,29 +738,36 @@ declare module 'vscode' {
 	 * A comment is displayed within the editor or the Comments Panel, depending on how it is provided.
 	 */
 	export interface Comment {
-		commentReactions?: CommentReaction[];
+		reactions?: CommentReaction[];
 	}
 
 	export interface CommentThread {
 		threadId: string;
 	}
+
 	/**
-	 * Comment Reactions
-	 * Stay in proposed.
+	 * Reactions of a [comment](#Comment)
 	 */
 	export interface CommentReaction {
-		readonly label?: string;
-		readonly iconPath?: string | Uri;
-		count?: number;
-		readonly hasReacted?: boolean;
-	}
+		/**
+		 * The human-readable label for the reaction
+		 */
+		readonly label: string;
 
 		/**
-	 * Stay in proposed
-	 */
-	export interface CommentReactionProvider {
-		availableReactions: CommentReaction[];
-		toggleReaction?(document: TextDocument, comment: Comment, reaction: CommentReaction): Promise<void>;
+		 * Icon for the reaction shown in UI.
+		 */
+		readonly iconPath: string | Uri;
+
+		/**
+		 * The number of users who have reacted to this reaction
+		 */
+		readonly count: number;
+
+		/**
+		 * Whether the [author](CommentAuthorInformation) of the comment has reacted to this reaction
+		 */
+		readonly authorHasReacted: boolean;
 	}
 
 	/**
@@ -771,7 +778,7 @@ declare module 'vscode' {
 		/**
 		 * Optional reaction provider
 		 */
-		reactionProvider?: CommentReactionProvider;
+		reactionHandler?: (comment: Comment, reaction: CommentReaction) => Promise<void>;
 	}
 
 	//#endregion
