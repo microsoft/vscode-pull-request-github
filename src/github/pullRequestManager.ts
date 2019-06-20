@@ -1238,11 +1238,13 @@ export class PullRequestManager implements vscode.Disposable {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			number: pullRequest.prNumber,
-		})
-			.then(x => {
-				this._telemetry.on('pr.merge');
-				return x.data;
-			});
+		}).then(x => {
+			this._telemetry.on('pr.merge.success');
+			return x.data;
+		}).catch(e => {
+			this._telemetry.on('pr.merge.failure');
+			throw e;
+		});
 	}
 
 	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {

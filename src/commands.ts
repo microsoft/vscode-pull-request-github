@@ -231,11 +231,9 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				try {
 					newPR = await prManager.mergePullRequest(pullRequest);
 					vscode.commands.executeCommand('pr.refreshList');
-					telemetry.on('pr.merge.success');
 					return newPR;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
-					telemetry.on('pr.merge.failure');
 					return newPR;
 				}
 			}
