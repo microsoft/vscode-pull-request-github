@@ -858,7 +858,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 	}
 
-	async deleteComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<void> {
+	async deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		try {
 			if (!this._prManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
@@ -869,18 +869,23 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				throw new Error('Unable to find matching file');
 			}
 
-			await this._prManager.deleteReviewComment(this._prManager.activePullRequest, comment.commentId);
-			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
-			if (matchingCommentIndex > -1) {
-				matchedFile.comments.splice(matchingCommentIndex, 1);
+			if (comment instanceof GHPRComment) {
+				await this._prManager.deleteReviewComment(this._prManager.activePullRequest, comment.commentId);
+				const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
+				if (matchingCommentIndex > -1) {
+					matchedFile.comments.splice(matchingCommentIndex, 1);
+				}
+
+				const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);
+				if (indexInAllComments > -1) {
+					this._comments.splice(indexInAllComments, 1);
+				}
+
+				thread.comments = thread.comments.filter(c => c instanceof GHPRComment && c.commentId !== comment.commentId);
+			} else {
+				thread.comments = thread.comments.filter(c => c instanceof TemporaryComment && c.id === comment.id);
 			}
 
-			const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);
-			if (indexInAllComments > -1) {
-				this._comments.splice(indexInAllComments, 1);
-			}
-
-			thread.comments = thread.comments.filter((c: GHPRComment) => c.commentId !== comment.commentId);
 			if (thread.comments.length === 0) {
 				thread.dispose();
 			} else {
