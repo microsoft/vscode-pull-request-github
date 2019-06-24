@@ -96,6 +96,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			if (value instanceof GitFileChangeNode) {
 				params = fromReviewUri(value.filePath);
 				filePath = value.filePath.path;
+				value.reveal(value, { select: true });
 			} else {
 				params = fromReviewUri(value);
 				filePath = value.path;

@@ -145,6 +145,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		const isPartial = fileChangeNode.isPartial;
 		const opts = fileChangeNode.opts;
 
+		fileChangeNode.reveal(fileChangeNode, { select: true });
+
 		if (isPartial) {
 			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
 		}
@@ -302,6 +304,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			descriptionNode = rootNodes[0] as DescriptionNode;
 		}
 		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
+		descriptionNode.reveal(descriptionNode, { select: true });
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode);
 		telemetry.on('pr.openDescription');
