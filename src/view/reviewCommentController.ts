@@ -667,7 +667,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		try {
-			this.createOrReplyComment(thread, input);
+			await this.createOrReplyComment(thread, input);
 			await this._prManager.submitReview(this._prManager.activePullRequest!);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);

@@ -99,13 +99,34 @@ export class TemporaryComment implements vscode.Comment {
 		this.mode = vscode.CommentMode.Preview;
 		this.author = {
 			name: currentUser.login,
-			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=${64}`) : undefined
+			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined
 		};
 		this.label = isDraft ? 'Pending' : undefined;
 		this.contextValue = 'canEdit,canDelete';
 		this.originalBody = originalComment ? originalComment._rawComment.body : undefined;
 		this.commentReactions = originalComment ? originalComment.reactions : undefined;
 		this.id = TemporaryComment.idPool++;
+	}
+
+	startEdit() {
+		this.parent.comments = this.parent.comments.map(cmt => {
+			if (cmt instanceof TemporaryComment && cmt.id === this.id) {
+				cmt.mode = vscode.CommentMode.Editing;
+			}
+
+			return cmt;
+		});
+	}
+
+	cancelEdit() {
+		this.parent.comments = this.parent.comments.map(cmt => {
+			if (cmt instanceof TemporaryComment && cmt.id === this.id) {
+				cmt.mode = vscode.CommentMode.Preview;
+				cmt.body = cmt.originalBody || cmt.body;
+			}
+
+			return cmt;
+		});
 	}
 }
 
@@ -158,7 +179,7 @@ export class GHPRComment implements vscode.Comment {
 	constructor(comment: IComment, parent: GHPRCommentThread) {
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
-		this.body = new vscode.MarkdownString(`hello [create pull request](command:pr.create)`); // comment.body);
+		this.body = new vscode.MarkdownString(comment.body);
 		this.body.isTrusted = true;
 		this.author = {
 			name: comment.user!.login,
@@ -179,5 +200,26 @@ export class GHPRComment implements vscode.Comment {
 
 		this.contextValue = contextValues.join(',');
 		this.parent = parent;
+	}
+
+	startEdit() {
+		this.parent.comments = this.parent.comments.map(cmt => {
+			if (cmt instanceof GHPRComment && cmt.commentId === this.commentId) {
+				cmt.mode = vscode.CommentMode.Editing;
+			}
+
+			return cmt;
+		});
+	}
+
+	cancelEdit() {
+		this.parent.comments = this.parent.comments.map(cmt => {
+			if (cmt instanceof GHPRComment && cmt.commentId === this.commentId) {
+				cmt.mode = vscode.CommentMode.Preview;
+				cmt.body = cmt._rawComment.body;
+			}
+
+			return cmt;
+		});
 	}
 }

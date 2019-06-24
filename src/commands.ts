@@ -424,52 +424,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
 		telemetry.on('pr.editComment');
-
-		if (comment instanceof GHPRComment) {
-			comment.parent.comments = comment.parent.comments.map(cmt => {
-				if (cmt instanceof GHPRComment && cmt.commentId === comment.commentId) {
-					cmt.mode = vscode.CommentMode.Editing;
-				}
-
-				return cmt;
-			});
-		}
-
-		if (comment instanceof TemporaryComment) {
-			comment.parent.comments = comment.parent.comments.map(cmt => {
-				if (cmt instanceof TemporaryComment && cmt.id === comment.id) {
-					cmt.mode = vscode.CommentMode.Editing;
-				}
-
-				return cmt;
-			});
-		}
+		comment.startEdit();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.cancelEditComment', async (comment: GHPRComment | TemporaryComment) => {
 		telemetry.on('pr.cancelEditComment');
-
-		if (comment instanceof GHPRComment) {
-			comment.parent.comments = comment.parent.comments.map(cmt => {
-				if (cmt instanceof GHPRComment && cmt.commentId === comment.commentId) {
-					cmt.mode = vscode.CommentMode.Preview;
-					cmt.body = cmt._rawComment.body;
-				}
-
-				return cmt;
-			});
-		}
-
-		if (comment instanceof TemporaryComment) {
-			comment.parent.comments = comment.parent.comments.map(cmt => {
-				if (cmt instanceof TemporaryComment && cmt.id === comment.id) {
-					cmt.mode = vscode.CommentMode.Preview;
-					cmt.body = cmt.originalBody || cmt.body;
-				}
-
-				return cmt;
-			});
-		}
+		comment.cancelEdit();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.saveComment', async (comment: GHPRComment | TemporaryComment) => {

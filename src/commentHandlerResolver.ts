@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { GHPRCommentThread, GHPRComment, TemporaryComment } from './github/prComment';
+import Logger from './common/logger';
 
 export interface CommentHandler {
 	commentController?: vscode.CommentController;
@@ -37,6 +38,8 @@ export function resolveCommentHandler(commentThread: GHPRCommentThread): Comment
 			return key;
 		}
 	}
+
+	Logger.appendLine(`Unable to find handler for comment thread ${commentThread.threadId}`);
 
 	return;
 }
