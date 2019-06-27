@@ -666,7 +666,7 @@
         {
           "command": "pr.deleteComment",
           "group": "inline@2",
-          "when": "comment =~ /canEdit/"
+          "when": "comment =~ /canDelete/"
         }
       ],
       "comments/comment/context": [
