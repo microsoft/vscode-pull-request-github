@@ -167,8 +167,9 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			for (let fileName in this._reviewDocumentCommentThreads) {
 				let threads = this._reviewDocumentCommentThreads[fileName];
 				let visible = vscode.window.visibleTextEditors.find(editor => {
+					const editorFileName = vscode.workspace.asRelativePath(editor.document.uri.path);
 					if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme && editor.document.uri.query) {
-						if (fileName === editor.document.uri.toString()) {
+						if (fileName === editorFileName) {
 							return true;
 						}
 					}
@@ -177,7 +178,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 						return false;
 					}
 
-					if (fileName === editor.document.uri.toString()) {
+					if (fileName === editorFileName) {
 						return true;
 					}
 
@@ -257,8 +258,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			return;
 		}
 
+		const fileName = vscode.workspace.asRelativePath(editor.document.uri.path);
 		if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme && !editor.document.uri.query) {
-			let fileName = vscode.workspace.asRelativePath(editor.document.uri.path);
 			// local files
 			let matchedFiles = this._localFileChanges.filter(fileChange => fileChange.fileName === fileName);
 
@@ -275,13 +276,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 
 		let query: ReviewUriParams | undefined;
-		let reviewUriString = editor.document.uri.toString();
 
-		if (this._reviewDocumentCommentThreads[reviewUriString]) {
+		if (this._reviewDocumentCommentThreads[fileName]) {
 			return;
 		}
 
-		this._reviewDocumentCommentThreads[reviewUriString] = [];
+		this._reviewDocumentCommentThreads[fileName] = [];
 
 		try {
 			query = fromReviewUri(editor.document.uri);
@@ -292,7 +292,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			const threadData = this.provideCommentsForReviewUri(editor.document, query);
 			const newThreads = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
-			this._reviewDocumentCommentThreads[reviewUriString] = newThreads;
+			this._reviewDocumentCommentThreads[fileName] = newThreads;
 		}
 	}
 
@@ -342,7 +342,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return;
 
 			case 'review':
-				const fileName = uri.toString();
+				const fileName = vscode.workspace.asRelativePath(uri.path);
 				const reviewCommentThreads = this._reviewDocumentCommentThreads[fileName];
 				if (reviewCommentThreads) {
 					reviewCommentThreads.push(thread);
@@ -1028,7 +1028,6 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 						return cmt;
 					});
-					updateCommentThreadLabel(thread);
 				});
 			}
 		} catch (e) {
