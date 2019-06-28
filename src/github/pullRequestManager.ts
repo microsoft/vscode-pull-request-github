@@ -675,7 +675,7 @@ export class PullRequestManager implements vscode.Disposable {
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
 				.reduce((prev: any, curr: any) => prev.concat(curr), [])
-				.sort((a: IComment, b: IComment) => { return a.isDraft ? 1 : 0; });
+				.sort((a: IComment, b: IComment) => { return a.createdAt > b.createdAt ? 1 : -1; });
 
 			return comments;
 		} catch (e) {
