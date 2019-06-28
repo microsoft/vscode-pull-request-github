@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
 import { toReviewUri, fromReviewUri, ReviewUriParams, toDiffViewFileUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
-import { Comment } from '../common/comment';
+import { IComment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes, Branch } from '../api/api';
@@ -24,7 +24,7 @@ import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { ReviewDocumentCommentProvider } from './reviewDocumentCommentProvider';
+import { ReviewCommentController } from './reviewCommentController';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -32,13 +32,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
 
-	private _comments: Comment[] = [];
+	private _comments: IComment[] = [];
 	private _localFileChanges: (GitFileChangeNode)[] = [];
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
-	private _reviewDocumentCommentProvider: ReviewDocumentCommentProvider;
+	private _reviewCommentController: ReviewCommentController;
 
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider | undefined;
 	private _statusBarItem: vscode.StatusBarItem;
@@ -304,7 +304,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
-		await this.registerCommentProvider();
+		await this.registerCommentController();
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = 'pr.openDescription';
@@ -346,12 +346,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		await this.getPullRequestData(pr);
-		await this._reviewDocumentCommentProvider.update(this._localFileChanges, this._obsoleteFileChanges);
+		await this._reviewCommentController.update(this._localFileChanges, this._obsoleteFileChanges);
 
 		return Promise.resolve(void 0);
 	}
 
-	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: Comment[]): Promise<GitFileChangeNode[]> {
+	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: IComment[]): Promise<GitFileChangeNode[]> {
 		let nodes: GitFileChangeNode[] = [];
 		const mergeBase = pr.mergeBase || pr.base.sha;
 		const headSha = pr.head.sha;
@@ -473,17 +473,17 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return undefined;
 	}
 
-	private async registerCommentProvider() {
-		this._reviewDocumentCommentProvider = new ReviewDocumentCommentProvider(this._prManager,
+	private async registerCommentController() {
+		this._reviewCommentController = new ReviewCommentController(this._prManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
 			this._comments);
 
-		await this._reviewDocumentCommentProvider.initialize();
+		await this._reviewCommentController.initialize();
 
-		this._localToDispose.push(this._reviewDocumentCommentProvider);
-		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeComments(comments => {
+		this._localToDispose.push(this._reviewCommentController);
+		this._localToDispose.push(this._reviewCommentController.onDidChangeComments(comments => {
 			this._comments = comments;
 			this._onDidChangeDecorations.fire();
 		}));

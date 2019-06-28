@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNode';
 import { CommitNode } from './commitNode';
-import { Comment } from '../../common/comment';
+import { IComment } from '../../common/comment';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
@@ -15,9 +15,9 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private _prManager: PullRequestManager;
 	private _pr: PullRequestModel;
-	private _comments: Comment[];
+	private _comments: IComment[];
 
-	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, prManager: PullRequestManager, pr: PullRequestModel, comments: Comment[]) {
+	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, prManager: PullRequestManager, pr: PullRequestModel, comments: IComment[]) {
 		super();
 		this.parent = parent;
 		this._pr = pr;

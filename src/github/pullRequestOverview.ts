@@ -11,7 +11,7 @@ import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, Merge
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../api/api';
-import { Comment } from '../common/comment';
+import { IComment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
@@ -427,7 +427,7 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private applyPatch(message: IRequestMessage<{ comment: Comment }>): void {
+	private applyPatch(message: IRequestMessage<{ comment: IComment }>): void {
 		try {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
@@ -463,7 +463,7 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private openDiff(message: IRequestMessage<{ comment: Comment }>): void {
+	private openDiff(message: IRequestMessage<{ comment: IComment }>): void {
 		try {
 			const comment = message.args.comment;
 			const prContainer = this._descriptionNode.parent;
@@ -494,7 +494,7 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private editComment(message: IRequestMessage<{ comment: Comment, text: string }>) {
+	private editComment(message: IRequestMessage<{ comment: IComment, text: string }>) {
 		const { comment, text } = message.args;
 		const editCommentPromise = comment.pullRequestReviewId !== undefined
 			? this._pullRequestManager.editReviewComment(this._pullRequest, comment, text)
@@ -510,7 +510,7 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private deleteComment(message: IRequestMessage<Comment>) {
+	private deleteComment(message: IRequestMessage<IComment>) {
 		const comment = message.args;
 		vscode.window.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete').then(value => {
 			if (value === 'Delete') {

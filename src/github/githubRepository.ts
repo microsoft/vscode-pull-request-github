@@ -12,7 +12,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
-import { PRDocumentCommentProvider } from '../view/prDocumentCommentProvider';
+import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
 const queries = require('./queries.gql');
@@ -37,7 +37,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	protected _metadata: IMetadata;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
-	public commentsProvider?: PRDocumentCommentProvider;
+	public commentsHandler?: PRCommentController;
 	public readonly isGitHubDotCom: boolean;
 
 	public get hub(): GitHub {
@@ -51,17 +51,17 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		return this._hub;
 	}
 
-	public async ensureCommentsProvider(): Promise<void> {
+	public async ensureCommentsController(): Promise<void> {
 		try {
-			if (this.commentsProvider) {
+			if (this.commentsController) {
 				return;
 			}
 
 			await this.ensure();
-			this.commentsController = vscode.comment.createCommentController(`github-pull-request-${this.remote.normalizedHost}`, `GitHub Pull Request for ${this.remote.normalizedHost}`);
-			this.commentsProvider = new PRDocumentCommentProvider(this.commentsController);
+			this.commentsController = vscode.comments.createCommentController(`browse-${this.remote.normalizedHost}`, `GitHub Pull Request for ${this.remote.normalizedHost}`);
+			this.commentsHandler = new PRCommentController(this.commentsController);
 			this._toDispose.push(this.commentsController);
-			this._toDispose.push(this.commentsProvider);
+			this._toDispose.push(this.commentsController);
 		} catch (e) {
 			console.log(e);
 		}

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DiffLine, DiffHunk, parseDiffHunk, DiffChangeType } from './diffHunk';
-import { Comment } from './comment';
+import { IComment } from './comment';
 
 /**
  * Line position in a git diff is 1 based, except for the case when the original or changed file have
@@ -30,7 +30,7 @@ export function getZeroBased(line: number): number {
  * @param fileDiffHunks The diff hunks of the file
  * @param isBase Whether the file, if a diff, is the base or modified
  */
-export function getAbsolutePosition(comment: Comment, fileDiffHunks: DiffHunk[], isBase: boolean): number {
+export function getAbsolutePosition(comment: IComment, fileDiffHunks: DiffHunk[], isBase: boolean): number {
 	let commentAbsolutePosition = -1;
 	// Ignore outdated comments
 	if (comment.position !== null) {
@@ -56,7 +56,7 @@ export function getAbsolutePosition(comment: Comment, fileDiffHunks: DiffHunk[],
  * @param fileDiffHunks The diff hunks of the file
  * @param isBase Whether the file, if a diff, is the base or modified
  */
-export function getPositionInDiff(comment: Comment, fileDiffHunks: DiffHunk[], isBase: boolean): number {
+export function getPositionInDiff(comment: IComment, fileDiffHunks: DiffHunk[], isBase: boolean): number {
 	let commentAbsolutePosition = -1;
 	// Ignore outdated comments
 	if (comment.position !== null) {
@@ -160,7 +160,7 @@ export function mapOldPositionToNew(patch: string, line: number): number {
 	return line + delta;
 }
 
-export function mapCommentsToHead(diffHunks: DiffHunk[], localDiff: string, comments: Comment[]) {
+export function mapCommentsToHead(diffHunks: DiffHunk[], localDiff: string, comments: IComment[]) {
 	for (let i = 0; i < comments.length; i++) {
 		const comment = comments[i];
 
