@@ -647,7 +647,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const result = await octokit.pulls.listReviewRequests({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber
+			pull_number: pullRequest.prNumber
 		});
 
 		return result.data.users.map((user: any) => convertRESTUserToAccount(user, githubRepository));
@@ -707,7 +707,7 @@ export class PullRequestManager implements vscode.Disposable {
 			Logger.debug(`Fetch commits of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { remote, octokit } = await pullRequest.githubRepository.ensure();
 			const commitData = await octokit.pulls.listCommits({
-				number: pullRequest.prNumber,
+				pull_number: pullRequest.prNumber,
 				owner: remote.owner,
 				repo: remote.repositoryName
 			});
@@ -727,7 +727,7 @@ export class PullRequestManager implements vscode.Disposable {
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				sha: commit.sha
+				commit_sha: commit.sha
 			});
 			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 

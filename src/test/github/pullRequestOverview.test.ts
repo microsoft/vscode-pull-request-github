@@ -90,6 +90,7 @@ describe('PullRequestOverview', function() {
 				vscode.ViewColumn.One,
 				{
 					enableScripts: true,
+					retainContextWhenHidden: true,
 					localResourceRoots: [vscode.Uri.file(path.resolve(EXTENSION_PATH, 'media'))]
 				}
 			));

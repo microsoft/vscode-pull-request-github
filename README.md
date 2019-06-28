@@ -1,3 +1,5 @@
+[![Build Status](https://rebornix.visualstudio.com/Pull%20Request/_apis/build/status/Pull%20Request%20Build?branchName=master)](https://rebornix.visualstudio.com/Pull%20Request/_build/latest?definitionId=5&branchName=master)
+
 > Review and manage your GitHub pull requests directly in VS Code
 
 This extension allows you to review and manage GitHub pull requests in Visual Studio Code. The support includes:

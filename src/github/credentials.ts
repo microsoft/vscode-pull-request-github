@@ -184,18 +184,14 @@ export class CredentialStore implements vscode.Disposable {
 	private async createHub(creds: IHostConfiguration): Promise<GitHub> {
 		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
 		let octokit = new Octokit({
-			agent,
+			request: { agent },
 			baseUrl,
-			headers: {
-				'user-agent': 'GitHub VSCode Pull Requests',
-				// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
-				Accept: 'application/vnd.github.shadow-cat-preview+json'
+			userAgent: 'GitHub VSCode Pull Requests',
+			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
+			previews: ['shadow-cat-preview'],
+			auth () {
+				return `token ${creds.token || ''}`;
 			}
-		});
-
-		octokit.authenticate({
-			type: 'token',
-			token: creds.token || '',
 		});
 
 		const graphql = new ApolloClient({
