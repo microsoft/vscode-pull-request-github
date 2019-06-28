@@ -244,6 +244,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				let matchedFileChanges = this._localFileChanges.filter(localFileChange => localFileChange.fileName === params.fileName);
 
 				if (matchedFileChanges.length) {
+					await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
+
 					const documentComments = getDocumentThreadDatas(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
 					const newThreads: GHPRCommentThread[] = documentComments.map(thread => createVSCodeCommentThread(thread, this._commentController!));
 
