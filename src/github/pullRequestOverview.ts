@@ -221,6 +221,7 @@ export class PullRequestOverviewPanel {
 			const supportsGraphQl = pullRequestModel.githubRepository.supportsGraphQl;
 			const defaultMergeMethod = getDetaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
+			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: {
@@ -329,6 +330,8 @@ export class PullRequestOverviewPanel {
 				return this.addLabels(message);
 			case 'pr.remove-label':
 				return this.removeLabel(message);
+			case 'pr.debug':
+				return this.webviewDebug(message);
 		}
 	}
 
@@ -425,6 +428,10 @@ export class PullRequestOverviewPanel {
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
+	}
+
+	private webviewDebug(message: IRequestMessage<string>): void {
+		Logger.debug(message.args, PullRequestOverviewPanel.ID);
 	}
 
 	private applyPatch(message: IRequestMessage<{ comment: Comment }>): void {
