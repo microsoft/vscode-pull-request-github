@@ -90,7 +90,7 @@ describe('diff hunk parsing', () => {
 	});
 
 	describe('mapCommentsToHead', () => {
-		it('should handle comments that are on a deleted diff line', () => {
+		it('should ignore comments that are on a deleted diff line', () => {
 			const comments = [{
 				position: 66
 			}];
@@ -100,8 +100,20 @@ describe('diff hunk parsing', () => {
 
 			const mappedComments = mapCommentsToHead([diffHunk], '', comments as any);
 			assert(mappedComments.length === 1);
-			console.log(mappedComments[0].absolutePosition);
-			assert.equal(mappedComments[0].absolutePosition, 489);
+			assert.equal(mappedComments[0].absolutePosition, undefined);
+		});
+
+		it('should handle comments that are on an added diff line', () => {
+			const comments = [{
+				position: 55
+			}];
+
+			const diffHunk = new DiffHunk(481, 16, 481, 17, 54);
+			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Add, 481, 482, 55, '+	()	this.editorBlurTimeout.cancelAndSet(() => {'));
+
+			const mappedComments = mapCommentsToHead([diffHunk], '', comments as any);
+			assert(mappedComments.length === 1);
+			assert.equal(mappedComments[0].absolutePosition, 482);
 		});
 	});
 

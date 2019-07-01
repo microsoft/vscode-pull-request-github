@@ -43,27 +43,6 @@ export interface GitUriOptions {
 	base: boolean;
 }
 
-export function toDiffViewFileUri(uri: Uri, filePath: string | undefined, ref: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
-	const params: ReviewUriParams = {
-		path: filePath ? filePath : uri.path,
-		ref,
-		commit: commit,
-		base: options.base,
-		isOutdated
-	};
-
-	let path = uri.path;
-
-	if (options.replaceFileExtension) {
-		path = `${path}.git`;
-	}
-
-	return uri.with({
-		path,
-		query: JSON.stringify(params)
-	});
-}
-
 // As a mitigation for extensions like ESLint showing warnings and errors
 // for git URIs, let's change the file extension of these uris to .git,
 // when `replaceFileExtension` is true.

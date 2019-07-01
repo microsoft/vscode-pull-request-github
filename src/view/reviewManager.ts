@@ -6,7 +6,7 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
-import { toReviewUri, fromReviewUri, ReviewUriParams, toDiffViewFileUri } from '../common/uri';
+import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
@@ -91,15 +91,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private registerCommands(): void {
 		this._disposables.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
-			let params: ReviewUriParams;
-			let filePath: string;
-			if (value instanceof GitFileChangeNode) {
-				params = fromReviewUri(value.filePath);
-				filePath = value.filePath.path;
-			} else {
-				params = fromReviewUri(value);
-				filePath = value.path;
-			}
+			const uri = value instanceof GitFileChangeNode ? value.filePath : value;
 
 			const activeTextEditor = vscode.window.activeTextEditor;
 			const opts: vscode.TextDocumentShowOptions = {
@@ -109,11 +101,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			// Check if active text editor has same path as other editor. we cannot compare via
 			// URI.toString() here because the schemas can be different. Instead we just go by path.
-			if (activeTextEditor && activeTextEditor.document.uri.path === filePath) {
+			if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
 				opts.selection = activeTextEditor.selection;
 			}
 
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, params.path)), opts);
+			vscode.commands.executeCommand('vscode.open', uri, opts);
 		}));
 		this._disposables.push(vscode.commands.registerCommand('pr.openChangedFile', (value: GitFileChangeNode) => {
 			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
@@ -384,7 +376,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				change.blobUrl,
 				change.status === GitChangeType.DELETE ?
 					toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
-					toDiffViewFileUri(uri, change.fileName, undefined, pr.head.sha, false, { base: false }),
+					uri,
 				toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : mergeBase, false, { base: true }),
 				isPartial,
 				diffHunks,
