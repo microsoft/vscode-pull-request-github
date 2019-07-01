@@ -347,14 +347,16 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.replyComment",
-        "title": "Reply Comment",
-        "category": "GitHub Pull Requests"
+        "command": "pr.createComment",
+        "title": "Add Comment",
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.startReview",
         "title": "Start Review",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.deleteReview",
@@ -364,17 +366,37 @@
       {
         "command": "pr.editComment",
         "title": "Edit Comment",
+        "category": "GitHub Pull Requests",
+        "icon": {
+          "light": "resources/icons/light/edit.svg",
+          "dark": "resources/icons/dark/edit.svg"
+        }
+      },
+      {
+        "command": "pr.cancelEditComment",
+        "title": "Cancel",
         "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.saveComment",
+        "title": "Save",
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.deleteComment",
         "title": "Delete Comment",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "icon": {
+          "light": "resources/icons/light/delete.svg",
+          "dark": "resources/icons/dark/delete.svg"
+        }
       },
       {
         "command": "pr.finishReview",
         "title": "Finish Review",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.signinAndRefreshList",
@@ -486,7 +508,7 @@
           "when": "false"
         },
         {
-          "command": "pr.replyComment",
+          "command": "pr.createComment",
           "when": "false"
         },
         {
@@ -499,6 +521,14 @@
         },
         {
           "command": "pr.editComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.cancelEditComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.saveComment",
           "when": "false"
         },
         {
@@ -590,6 +620,64 @@
           "when": "scmProvider == git && github:inReviewMode",
           "group": "inline"
         }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "pr.createComment",
+          "group": "inline"
+        },
+        {
+          "command": "pr.startReview",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && !prInDraft"
+        },
+        {
+          "command": "pr.startReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && !reviewInDraftMode"
+        },
+        {
+          "command": "pr.deleteReview",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && prInDraft"
+        },
+        {
+          "command": "pr.deleteReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && reviewInDraftMode"
+        },
+        {
+          "command": "pr.finishReview",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && prInDraft"
+        },
+        {
+          "command": "pr.finishReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && reviewInDraftMode"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "pr.editComment",
+          "group": "inline@1",
+          "when": "comment =~ /canEdit/"
+        },
+        {
+          "command": "pr.deleteComment",
+          "group": "inline@2",
+          "when": "comment =~ /canDelete/"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "pr.cancelEditComment",
+          "group": "inline@1"
+        },
+        {
+          "command": "pr.saveComment",
+          "group": "inline@2"
+        }
       ]
     }
   },
@@ -645,7 +733,7 @@
     "tslint": "^5.11.0",
     "tslint-webpack-plugin": "^1.2.2",
     "tty": "1.0.1",
-    "typescript": "^3",
+    "typescript": "^3.4.5",
     "vscode": "^1.1.33",
     "webpack": "^4.1.0",
     "webpack-cli": "^3.2.1"

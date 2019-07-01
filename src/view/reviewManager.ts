@@ -6,9 +6,9 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
-import { toReviewUri, fromReviewUri, ReviewUriParams, toDiffViewFileUri } from '../common/uri';
+import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
-import { Comment } from '../common/comment';
+import { IComment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes, Branch } from '../api/api';
@@ -24,7 +24,7 @@ import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { ReviewDocumentCommentProvider } from './reviewDocumentCommentProvider';
+import { ReviewCommentController } from './reviewCommentController';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -32,13 +32,13 @@ export class ReviewManager implements vscode.DecorationProvider {
 	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
 
-	private _comments: Comment[] = [];
+	private _comments: IComment[] = [];
 	private _localFileChanges: (GitFileChangeNode)[] = [];
 	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
-	private _reviewDocumentCommentProvider: ReviewDocumentCommentProvider;
+	private _reviewCommentController: ReviewCommentController;
 
 	private _prFileChangesProvider: PullRequestChangesTreeDataProvider | undefined;
 	private _statusBarItem: vscode.StatusBarItem;
@@ -91,15 +91,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	private registerCommands(): void {
 		this._disposables.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
-			let params: ReviewUriParams;
-			let filePath: string;
+			const uri = value instanceof GitFileChangeNode ? value.filePath : value;
+
 			if (value instanceof GitFileChangeNode) {
-				params = fromReviewUri(value.filePath);
-				filePath = value.filePath.path;
 				value.reveal(value, { select: true });
-			} else {
-				params = fromReviewUri(value);
-				filePath = value.path;
 			}
 
 			const activeTextEditor = vscode.window.activeTextEditor;
@@ -110,11 +105,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			// Check if active text editor has same path as other editor. we cannot compare via
 			// URI.toString() here because the schemas can be different. Instead we just go by path.
-			if (activeTextEditor && activeTextEditor.document.uri.path === filePath) {
+			if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
 				opts.selection = activeTextEditor.selection;
 			}
 
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, params.path)), opts);
+			vscode.commands.executeCommand('vscode.open', uri, opts);
 		}));
 		this._disposables.push(vscode.commands.registerCommand('pr.openChangedFile', (value: GitFileChangeNode) => {
 			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
@@ -305,7 +300,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
-		await this.registerCommentProvider();
+		await this.registerCommentController();
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = 'pr.openDescription';
@@ -347,12 +342,12 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}
 
 		await this.getPullRequestData(pr);
-		await this._reviewDocumentCommentProvider.update(this._localFileChanges, this._obsoleteFileChanges);
+		await this._reviewCommentController.update(this._localFileChanges, this._obsoleteFileChanges);
 
 		return Promise.resolve(void 0);
 	}
 
-	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: Comment[]): Promise<GitFileChangeNode[]> {
+	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: IComment[]): Promise<GitFileChangeNode[]> {
 		let nodes: GitFileChangeNode[] = [];
 		const mergeBase = pr.mergeBase || pr.base.sha;
 		const headSha = pr.head.sha;
@@ -385,7 +380,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				change.blobUrl,
 				change.status === GitChangeType.DELETE ?
 					toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
-					toDiffViewFileUri(uri, change.fileName, undefined, pr.head.sha, false, { base: false }),
+					uri,
 				toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : mergeBase, false, { base: true }),
 				isPartial,
 				diffHunks,
@@ -474,17 +469,17 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return undefined;
 	}
 
-	private async registerCommentProvider() {
-		this._reviewDocumentCommentProvider = new ReviewDocumentCommentProvider(this._prManager,
+	private async registerCommentController() {
+		this._reviewCommentController = new ReviewCommentController(this._prManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
 			this._comments);
 
-		await this._reviewDocumentCommentProvider.initialize();
+		await this._reviewCommentController.initialize();
 
-		this._localToDispose.push(this._reviewDocumentCommentProvider);
-		this._localToDispose.push(this._reviewDocumentCommentProvider.onDidChangeComments(comments => {
+		this._localToDispose.push(this._reviewCommentController);
+		this._localToDispose.push(this._reviewCommentController.onDidChangeComments(comments => {
 			this._comments = comments;
 			this._onDidChangeDecorations.fire();
 		}));

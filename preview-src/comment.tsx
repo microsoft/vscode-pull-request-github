@@ -5,14 +5,14 @@ import Markdown from './markdown';
 import { Spaced, nbsp } from './space';
 import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
-import { Comment } from '../src/common/comment';
+import { IComment } from '../src/common/comment';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { editIcon, deleteIcon } from './icon';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
 
-export type Props = Partial<Comment & PullRequest> & {
+export type Props = Partial<IComment & PullRequest> & {
 	headerInEditMode?: boolean
 	isPRDescription?: boolean
 };
@@ -45,7 +45,7 @@ export function CommentView(comment: Props) {
 							if (isPRDescription) {
 								await setDescription(text);
 							} else {
-								await editComment({ comment: comment as Comment, text });
+								await editComment({ comment: comment as IComment, text });
 							}
 							setBodyMd(text);
 						} finally {
@@ -72,7 +72,7 @@ export function CommentView(comment: Props) {
 }
 
 type CommentBoxProps = {
-	for: Partial<Comment & PullRequest>
+	for: Partial<IComment & PullRequest>
 	header?: React.ReactChild
 	onMouseEnter?: any
 	onMouseLeave?: any
