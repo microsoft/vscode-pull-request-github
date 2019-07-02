@@ -110,7 +110,7 @@ export class CredentialStore implements vscode.Disposable {
 	public async loginWithConfirmation(remote: Remote): Promise<GitHub | undefined> {
 		const normalizedUri = remote.gitProtocol.normalizeUri()!;
 		const result = await vscode.window.showInformationMessage(
-			`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
+			`In order to use the Pull Requests functionality, you must sign in to ${normalizedUri.authority}`,
 			SIGNIN_COMMAND);
 
 		if (result === SIGNIN_COMMAND) {
