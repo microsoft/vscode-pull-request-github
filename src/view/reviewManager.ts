@@ -74,16 +74,16 @@ export class ReviewManager implements vscode.DecorationProvider {
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
 
+		this._previousRepositoryState = {
+			HEAD: _repository.state.HEAD,
+			remotes: parseRepositoryRemotes(this._repository)
+		};
+
 		this.registerCommands();
 		this.registerListeners();
 
 		this._disposables.push(this._prsTreeDataProvider);
 		this._disposables.push(vscode.window.registerDecorationProvider(this));
-
-		this._previousRepositoryState = {
-			HEAD: _repository.state.HEAD,
-			remotes: parseRepositoryRemotes(this._repository)
-		};
 
 		this.updateState();
 		this.pollForStatusChange();
