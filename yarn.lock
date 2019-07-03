@@ -5591,10 +5591,10 @@ sprintf-js@~1.0.2:
   resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.0.3.tgz#04e6926f662895354f3dd015203633b857297e2c"
   integrity sha1-BOaSb2YolTVPPdAVIDYzuFcpfiw=
 
-ssh-config@^1.1.3:
-  version "1.1.3"
-  resolved "https://registry.yarnpkg.com/ssh-config/-/ssh-config-1.1.3.tgz#2b19630af85b1666688b9d68f6e4218900f81f8c"
-  integrity sha1-KxljCvhbFmZoi51o9uQhiQD4H4w=
+ssh-config@^2.0.0-alpha.3:
+  version "2.0.0-alpha.3"
+  resolved "https://registry.yarnpkg.com/ssh-config/-/ssh-config-2.0.0-alpha.3.tgz#c174df6e42b16e4e5ece731d655f2af7181f2bf4"
+  integrity sha512-7Hgynvg/mkOb8clmYp4/BZUmWw4bfjkZiafg8clSQkQYviOE8X5DnIcOIDK90qY4O76MdhYKT2CPdAxZkev4FA==
 
 sshpk@^1.7.0:
   version "1.14.2"
