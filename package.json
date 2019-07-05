@@ -706,14 +706,8 @@
     "@types/sinon": "7.0.11",
     "@types/temp": "0.8.34",
     "@types/webpack": "^4.4.10",
-    "@types/ws": "^5.1.2",
     "css-loader": "^0.28.11",
-    "del": "^3.0.0",
     "glob": "7.1.4",
-    "gulp": "3.9.1",
-    "gulp-mocha": "^6.0.0",
-    "gulp-typescript": "^5.0.0-alpha.2",
-    "gulp-util": "^3.0.8",
     "jsdom": "15.1.1",
     "jsdom-global": "3.0.2",
     "minimist": "^1.2.0",
@@ -746,7 +740,6 @@
     "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
     "graphql": "^14.0.2",
-    "iconv-lite": "0.4.23",
     "js-base64": "^2.4.9",
     "lodash": "^4.17.11",
     "markdown-it": "^8.4.0",
@@ -759,8 +752,7 @@
     "ssh-config": "^2.0.0-alpha.3",
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "tunnel": "0.0.6",
-    "vsls": "^0.3.967",
-    "ws": "^6.0.0"
+    "vsls": "^0.3.967"
   },
   "optionalDependencies": {
     "spawn-sync": "^2.0.0"

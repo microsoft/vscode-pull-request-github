@@ -13,5 +13,4 @@ media/*.map
 .readme/**
 documentation/**
 .vscode-test/**
-gulpfile.json
 webpack.config.js
