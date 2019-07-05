@@ -129,7 +129,6 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	private computeAllGitHubRemotes(): Promise<Remote[]> {
-		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		return Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
