@@ -156,7 +156,7 @@ export class PRContext {
 		return this;
 	}
 
-	private postMessage(message: any) {
+	postMessage(message: any) {
 		console.log('sending', message);
 		return this._handler.postMessage(message);
 	}

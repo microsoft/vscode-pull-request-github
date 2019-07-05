@@ -18,5 +18,6 @@ export function Root({ children }) {
 		ctx.onchange = setPR;
 		setPR(ctx.pr);
 	}, []);
+	ctx.postMessage({ command: 'pr.debug', args: ('initialized ' + (pr ? 'with PR' : 'without PR'))});
 	return pr ? children(pr) : 'Loading...';
 }

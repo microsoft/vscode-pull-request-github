@@ -311,6 +311,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		telemetry.on('pr.openDescription');
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshDescription', async () => {
+		if (PullRequestOverviewPanel.currentPanel) {
+			PullRequestOverviewPanel.refresh();
+		}
+	}))
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
 		let pr = descriptionNode.pullRequestModel;
 		const pullRequest = ensurePR(prManager, pr);
