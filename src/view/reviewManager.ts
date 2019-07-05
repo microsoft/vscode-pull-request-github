@@ -237,9 +237,11 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 		if (!this._validateStatusInProgress) {
+			Logger.appendLine('Review> Validate state in progress');
 			this._validateStatusInProgress = this.validateState();
 			return this._validateStatusInProgress;
 		} else {
+			Logger.appendLine('Review> Queuing additional validate state');
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
 				return await this.validateState();
 			});
@@ -249,6 +251,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async validateState() {
+		Logger.appendLine('Review> Validating state...');
 		await this._prManager.updateRepositories();
 
 		if (!this._repository.state.HEAD) {
@@ -285,6 +288,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._lastCommitSha = undefined;
 
 		const { owner, repositoryName } = matchingPullRequestMetadata;
+		Logger.appendLine('Review> Resolving pull request');
 		const pr = await this._prManager.resolvePullRequest(owner, repositoryName, matchingPullRequestMetadata.prNumber);
 		if (!pr) {
 			this._prNumber = undefined;
@@ -295,6 +299,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._prManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
+		Logger.appendLine('Review> Fetching pull request data');
 		await this.getPullRequestData(pr);
 		await this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, pr, this._localFileChanges, this._comments);
 
