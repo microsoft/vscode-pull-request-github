@@ -1,3 +1,16 @@
+0.9.0
+
+**Changes**
+- Adopt new commenting api [#1168](https://github.com/microsoft/vscode-pull-request-github/issues/1168)
+- Set tree selection on tree node when clicking on an inline action [1245](https://github.com/microsoft/vscode-pull-request-github/issues/1245)
+
+**Bug fixes**
+- Command palette sign in not working [#1213](https://github.com/microsoft/vscode-pull-request-github/issues/1213)
+- Limit comment areas on the base side of diff editors to deleted lines [#153](https://github.com/microsoft/vscode-pull-request-github/issues/153)
+- Ensure extension activates when ssh config contains "Host *+*" [#1255](https://github.com/microsoft/vscode-pull-request-github/issues/1255)
+- Update wording of sign in notification [#757](https://github.com/microsoft/vscode-pull-request-github/issues/757)
+- Address @octokit/rest deprecations [#1227](https://github.com/microsoft/vscode-pull-request-github/issues/1255)
+
 0.8.0
 
 **Changes**
