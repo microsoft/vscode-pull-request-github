@@ -14,7 +14,7 @@ export interface Reaction {
 	viewerHasReacted: boolean;
 }
 
-export interface Comment {
+export interface IComment {
 	absolutePosition?: number;
 	bodyHTML?: string;
 	diffHunks?: DiffHunk[];

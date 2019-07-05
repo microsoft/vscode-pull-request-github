@@ -8,7 +8,7 @@ import * as path from 'path';
 import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
 import { TreeNode } from './treeNode';
-import { Comment } from '../../common/comment';
+import { IComment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 import { toResourceUri } from '../../common/uri';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -75,7 +75,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly isPartial: boolean,
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
-		public comments: Comment[],
+		public comments: IComment[],
 		public readonly sha?: string
 	) {
 		super();
@@ -89,7 +89,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.update(this.comments);
 	}
 
-	update(comments: Comment[]) {
+	update(comments: IComment[]) {
 		this.resourceUri = toResourceUri(this.filePath, comments.length > 0, this.status);
 
 		if (comments && comments.length) {
@@ -116,7 +116,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		};
 	}
 
-	getCommentPosition(comment: Comment) {
+	getCommentPosition(comment: IComment) {
 		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
 
 		if (diffLine) {
@@ -156,7 +156,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly parentFilePath: vscode.Uri,
 		public readonly isPartial: boolean,
 		public readonly diffHunks: DiffHunk[],
-		public comments: Comment[] = [],
+		public comments: IComment[] = [],
 		public readonly sha?: string,
 	) {
 		super();
@@ -194,7 +194,7 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		};
 	}
 
-	getCommentPosition(comment: Comment) {
+	getCommentPosition(comment: IComment) {
 		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position!);
 
 		if (diffLine) {

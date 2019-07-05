@@ -40,7 +40,7 @@
         "githubPullRequests.hosts": {
           "type": "array",
           "default": [],
-          "description": "List of host credentials. For example, \"githubPullRequests.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
+          "markdownDescription": "List of host credentials. For example, \"githubPullRequests.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
           "items": {
             "type": "object",
             "properties": {
@@ -75,7 +75,7 @@
           "items": {
             "type": "string"
           },
-          "description": "List of remotes to fetch pull requests from. If no remotes are specified, will default to `upstream` or `origin` if these remotes are present, or all valid GitHub remotes."
+          "markdownDescription": "List of remotes to fetch pull requests from. If no remotes are specified, will default to `upstream` or `origin` if these remotes are present, or all valid GitHub remotes."
         },
         "githubPullRequests.includeRemotes": {
           "type": "string",
@@ -352,14 +352,16 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.replyComment",
-        "title": "Reply Comment",
-        "category": "GitHub Pull Requests"
+        "command": "pr.createComment",
+        "title": "Add Comment",
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.startReview",
         "title": "Start Review",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.deleteReview",
@@ -369,17 +371,37 @@
       {
         "command": "pr.editComment",
         "title": "Edit Comment",
+        "category": "GitHub Pull Requests",
+        "icon": {
+          "light": "resources/icons/light/edit.svg",
+          "dark": "resources/icons/dark/edit.svg"
+        }
+      },
+      {
+        "command": "pr.cancelEditComment",
+        "title": "Cancel",
         "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.saveComment",
+        "title": "Save",
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.deleteComment",
         "title": "Delete Comment",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "icon": {
+          "light": "resources/icons/light/delete.svg",
+          "dark": "resources/icons/dark/delete.svg"
+        }
       },
       {
         "command": "pr.finishReview",
         "title": "Finish Review",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.signinAndRefreshList",
@@ -491,7 +513,7 @@
           "when": "false"
         },
         {
-          "command": "pr.replyComment",
+          "command": "pr.createComment",
           "when": "false"
         },
         {
@@ -504,6 +526,14 @@
         },
         {
           "command": "pr.editComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.cancelEditComment",
+          "when": "false"
+        },
+        {
+          "command": "pr.saveComment",
           "when": "false"
         },
         {
@@ -595,6 +625,64 @@
           "when": "scmProvider == git && github:inReviewMode",
           "group": "inline"
         }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "pr.createComment",
+          "group": "inline"
+        },
+        {
+          "command": "pr.startReview",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && !prInDraft"
+        },
+        {
+          "command": "pr.startReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && !reviewInDraftMode"
+        },
+        {
+          "command": "pr.deleteReview",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && prInDraft"
+        },
+        {
+          "command": "pr.deleteReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && reviewInDraftMode"
+        },
+        {
+          "command": "pr.finishReview",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && prInDraft"
+        },
+        {
+          "command": "pr.finishReview",
+          "group": "inline",
+          "when": "commentController =~ /review/ && reviewInDraftMode"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "pr.editComment",
+          "group": "inline@1",
+          "when": "comment =~ /canEdit/"
+        },
+        {
+          "command": "pr.deleteComment",
+          "group": "inline@2",
+          "when": "comment =~ /canDelete/"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "pr.cancelEditComment",
+          "group": "inline@1"
+        },
+        {
+          "command": "pr.saveComment",
+          "group": "inline@2"
+        }
       ]
     }
   },
@@ -623,14 +711,8 @@
     "@types/sinon": "7.0.11",
     "@types/temp": "0.8.34",
     "@types/webpack": "^4.4.10",
-    "@types/ws": "^5.1.2",
     "css-loader": "^0.28.11",
-    "del": "^3.0.0",
     "glob": "7.1.4",
-    "gulp": "3.9.1",
-    "gulp-mocha": "^6.0.0",
-    "gulp-typescript": "^5.0.0-alpha.2",
-    "gulp-util": "^3.0.8",
     "jsdom": "15.1.1",
     "jsdom-global": "3.0.2",
     "minimist": "^1.2.0",
@@ -650,7 +732,7 @@
     "tslint": "^5.11.0",
     "tslint-webpack-plugin": "^1.2.2",
     "tty": "1.0.1",
-    "typescript": "^3",
+    "typescript": "^3.4.5",
     "vscode": "^1.1.33",
     "webpack": "^4.1.0",
     "webpack-cli": "^3.2.1"
@@ -663,7 +745,6 @@
     "es6-promise": "^4.2.5",
     "git-credential-node": "^1.1.0",
     "graphql": "^14.0.2",
-    "iconv-lite": "0.4.23",
     "js-base64": "^2.4.9",
     "lodash": "^4.17.11",
     "markdown-it": "^8.4.0",
@@ -673,11 +754,10 @@
     "node-emoji": "^1.8.1",
     "node-fetch": "^2.1.1",
     "query-string": "^6.2.0",
-    "ssh-config": "^1.1.3",
+    "ssh-config": "^2.0.0-alpha.3",
     "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "tunnel": "0.0.6",
-    "vsls": "^0.3.967",
-    "ws": "^6.0.0"
+    "vsls": "^0.3.967"
   },
   "optionalDependencies": {
     "spawn-sync": "^2.0.0"

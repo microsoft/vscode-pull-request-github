@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import Octokit = require('@octokit/rest');
 import { CredentialStore } from './credentials';
-import { Comment } from '../common/comment';
+import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
@@ -126,6 +126,18 @@ export class PullRequestManager implements vscode.Disposable {
 		}));
 
 		this.setUpCompletionItemProvider();
+	}
+
+	private computeAllGitHubRemotes(): Promise<Remote[]> {
+		const remotes = parseRepositoryRemotes(this.repository);
+		const potentialRemotes = remotes.filter(remote => remote.host);
+		return Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
+			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
+			.catch(e => {
+				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
+				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
+				return [];
+			});
 	}
 
 	private async getActiveGitHubRemotes(allGitHubRemotes: Remote[]): Promise<Remote[]> {
@@ -357,16 +369,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async updateRepositories(): Promise<void> {
 		Logger.debug('update repositories', PullRequestManager.ID);
-		const remotes = parseRepositoryRemotes(this.repository);
-		const potentialRemotes = remotes.filter(remote => remote.host);
-		this._allGitHubRemotes = await Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
-			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
-			.catch(e => {
-				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
-				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
-				return [];
-			});
-
+		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
 		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
 		if (activeRemotes.length) {
@@ -472,12 +475,15 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async authenticate(): Promise<boolean> {
-		let ret = false;
-		this._credentialStore.reset();
-		for (let repository of uniqBy(this._githubRepositories, x => x.remote.normalizedHost)) {
-			ret = await repository.authenticate() || ret;
+		let wasSuccessful = false;
+		const allGitHubRemotes = await this.getAllGitHubRemotes();
+		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+
+		for (let remote of uniqBy(activeRemotes, x => x.normalizedHost)) {
+			wasSuccessful = await !!this._credentialStore.login(remote) || wasSuccessful;
 		}
-		return ret;
+
+		return wasSuccessful;
 	}
 
 	async getLocalPullRequests(): Promise<PullRequestModel[]> {
@@ -653,14 +659,14 @@ export class PullRequestManager implements vscode.Disposable {
 		return result.data.users.map((user: any) => convertRESTUserToAccount(user, githubRepository));
 	}
 
-	async getPullRequestComments(pullRequest: PullRequestModel): Promise<Comment[]> {
+	async getPullRequestComments(pullRequest: PullRequestModel): Promise<IComment[]> {
 		const { supportsGraphQl } = pullRequest.githubRepository;
 		return supportsGraphQl
 			? this.getAllPullRequestReviewComments(pullRequest)
 			: this.getPullRequestReviewComments(pullRequest);
 	}
 
-	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
+	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<IComment[]> {
 		const { remote, query } = await pullRequest.githubRepository.ensure();
 		try {
 			const { data } = await query<PullRequestCommentsResponse>({
@@ -675,7 +681,7 @@ export class PullRequestManager implements vscode.Disposable {
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
 				.reduce((prev: any, curr: any) => prev.concat(curr), [])
-				.sort((a: Comment, b: Comment) => { return a.isDraft ? 1 : 0; });
+				.sort((a: IComment, b: IComment) => { return a.createdAt > b.createdAt ? 1 : -1; });
 
 			return comments;
 		} catch (e) {
@@ -687,7 +693,7 @@ export class PullRequestManager implements vscode.Disposable {
 	/**
 	 * Returns review comments from the pull request using the REST API, comments on pending reviews are not included.
 	 */
-	private async getPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
+	private async getPullRequestReviewComments(pullRequest: PullRequestModel): Promise<IComment[]> {
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		const { remote, octokit } = await githubRepository.ensure();
@@ -790,7 +796,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return promise.data;
 	}
 
-	async createIssueComment(pullRequest: PullRequestModel, text: string): Promise<Comment> {
+	async createIssueComment(pullRequest: PullRequestModel, text: string): Promise<IComment> {
 		const githubRepository = pullRequest.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
 
@@ -804,7 +810,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(promise.data, githubRepository), remote);
 	}
 
-	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment | undefined> {
+	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: IComment): Promise<IComment | undefined> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		if (pendingReviewId) {
 			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.graphNodeId });
@@ -828,7 +834,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: Comment[] }> {
+	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: IComment[] }> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
@@ -841,6 +847,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
 		pullRequest.inDraftMode = false;
+		await this.updateDraftModeContext(pullRequest);
 
 		return {
 			deletedReviewId: databaseId,
@@ -863,17 +870,26 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 
 		pullRequest.inDraftMode = true;
+		await this.updateDraftModeContext(pullRequest);
 
 		return;
 	}
 
-	async inDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
+	async validateDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
 		let inDraftMode = !!await this.getPendingReviewId(pullRequest);
 		if (inDraftMode !== pullRequest.inDraftMode) {
 			pullRequest.inDraftMode = inDraftMode;
 		}
 
+		await this.updateDraftModeContext(pullRequest);
+
 		return inDraftMode;
+	}
+
+	async updateDraftModeContext(pullRequest: PullRequestModel) {
+		if (this._activePullRequest && this._activePullRequest.prNumber === pullRequest.prNumber) {
+			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', pullRequest.inDraftMode);
+		}
 	}
 
 	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | undefined> {
@@ -901,7 +917,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<Comment> {
+	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<IComment> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<AddCommentResponse>({
 			mutation: queries.AddComment,
@@ -956,7 +972,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return data!;
 	}
 
-	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<Comment | undefined> {
+	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<IComment | undefined> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
 		if (pendingReviewId) {
 			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path: commentPath, position });
@@ -1094,7 +1110,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	async editIssueComment(pullRequest: PullRequestModel, commentId: string, text: string): Promise<Comment> {
+	async editIssueComment(pullRequest: PullRequestModel, commentId: string, text: string): Promise<IComment> {
 		try {
 			const githubRepository = pullRequest.githubRepository;
 			const { octokit, remote } = await githubRepository.ensure();
@@ -1112,7 +1128,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	async editReviewComment(pullRequest: PullRequestModel, comment: Comment, text: string): Promise<Comment> {
+	async editReviewComment(pullRequest: PullRequestModel, comment: IComment, text: string): Promise<IComment> {
 		try {
 			if (comment.isDraft) {
 				return this.editPendingReviewComment(pullRequest, comment.graphNodeId, text);
@@ -1134,7 +1150,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	private async editPendingReviewComment(pullRequest: PullRequestModel, commentNodeId: string, text: string): Promise<Comment> {
+	private async editPendingReviewComment(pullRequest: PullRequestModel, commentNodeId: string, text: string): Promise<IComment> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
 		const { data } = await mutate<EditCommentResponse>({
@@ -1183,7 +1199,11 @@ export class PullRequestManager implements vscode.Disposable {
 		return this._credentialStore.isCurrentUser(username, pullRequest.remote);
 	}
 
-	private addCommentPermissions(rawComment: Comment, remote: Remote): Comment {
+	getCurrentUser(pullRequest: PullRequestModel): IAccount {
+		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(pullRequest.remote), pullRequest.githubRepository);
+	}
+
+	private addCommentPermissions(rawComment: IComment, remote: Remote): IComment {
 		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user!.login, remote);
 		const notOutdated = rawComment.position !== null;
 		rawComment.canEdit = isCurrentUser && notOutdated;
@@ -1299,6 +1319,8 @@ export class PullRequestManager implements vscode.Disposable {
 			});
 
 			pullRequest.inDraftMode = false;
+			await this.updateDraftModeContext(pullRequest);
+
 			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, githubRepository);
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
@@ -1500,7 +1522,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	private async addReviewTimelineEventComments(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
-		interface CommentNode extends Comment {
+		interface CommentNode extends IComment {
 			childComments?: CommentNode[];
 		}
 
