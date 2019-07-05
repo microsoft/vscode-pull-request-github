@@ -87,8 +87,11 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	private _workspaceFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 	private _obsoleteFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 
-	// Original and modified refer to the document the comment threads are on
+	// In most cases, the right side/modified document is of type 'file' scheme, so comments
+	// for that side are from _workspaceFileChangeCommentThreads. If the document has been
+	// deleted, the right hand side will be 'review' scheme.
 	private _reviewDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
+
 	private _prDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
 
 	constructor(
@@ -331,7 +334,6 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return;
 
 			case 'review':
-			case currentWorkspace.uri.scheme:
 				const reviewParams = uri.query && fromReviewUri(uri);
 				if (reviewParams) {
 					const documentFileName = vscode.workspace.asRelativePath(uri.path);
@@ -339,6 +341,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 					this._reviewDocumentCommentThreads.setDocumentThreads(documentFileName, reviewParams.base, existingThreads.concat(thread));
 					return;
 				}
+
+			case currentWorkspace.uri.scheme:
+				const workspaceFileName = vscode.workspace.asRelativePath(uri.path);
+				const existingWorkspaceThreads = this._workspaceFileChangeCommentThreads[workspaceFileName];
+				existingWorkspaceThreads.push(thread);
+				return;
 
 			default:
 				return;
@@ -925,7 +933,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 					resultThreads.push(matchedThread[0]);
 					matchedThread[0].range = thread.range;
 					matchedThread[0].comments = thread.comments.map(comment => {
-						return new GHPRComment(comment, matchedThread as any);
+						return new GHPRComment(comment, matchedThread[0]);
 					});
 					updateCommentThreadLabel(matchedThread[0]);
 
