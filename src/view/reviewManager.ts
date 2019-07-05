@@ -93,6 +93,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._disposables.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
 			const uri = value instanceof GitFileChangeNode ? value.filePath : value;
 
+			if (value instanceof GitFileChangeNode) {
+				value.reveal(value, { select: true });
+			}
+
 			const activeTextEditor = vscode.window.activeTextEditor;
 			const opts: vscode.TextDocumentShowOptions = {
 				preserveFocus: false,
