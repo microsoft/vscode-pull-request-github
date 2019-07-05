@@ -1,0 +1,38 @@
+jobs:
+- job: test_suite
+  displayName: Test suite
+  pool:
+    name: Hosted macOS
+  steps:
+
+  - template: scripts/ci/common-setup.yml
+
+  - script: yarn run test
+    displayName: Run test suite
+    env:
+      TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
+
+  - task: PublishTestResults@2
+    displayName: Publish test results
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: $(Agent.HomeDirectory)/test-results.xml
+      testRunTitle: Mocha test suite
+    condition: succeededOrFailed()
+
+- job: indexer
+  displayName: Code navigator indexing
+  pool:
+    name: Hosted VS2017
+  steps:
+
+  - template: scripts/ci/common-setup.yml
+
+  - task: MS-RichCodeNav.Indexer.build-task.RichCodeNavIndexer@0
+    displayName: Rich Code Navigation Indexer
+    inputs:
+      serviceConnection: Rich Code Navigation
+      languages: typescript
+      githubServiceConnection: GitHub Pull Request
+      nugetFeed: https://vside.myget.org/F/buildtools/api/v3/index.json
+      serviceEndpoint: https://prod.richnav.vsengsaas.visualstudio.com

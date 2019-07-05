@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { Keytar, getToken, setToken, keyFor, failingKeytar, onDidChange, listHosts, migrateToken, ALL_HOSTS_KEY, deleteToken } from '../../authentication/keychain';
-import * as assert from 'assert';
+import assert = require('assert');
 import { promiseFromEvent } from '../../common/utils';
 
 class TestMemento implements vscode.Memento {

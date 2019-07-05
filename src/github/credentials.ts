@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as Octokit from '@octokit/rest';
+import Octokit = require('@octokit/rest');
 import { ApolloClient, InMemoryCache, NormalizedCacheObject, gql } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
@@ -28,14 +28,16 @@ export interface GitHub {
 	graphql: ApolloClient<NormalizedCacheObject> | null;
 }
 
-export class CredentialStore {
+export class CredentialStore implements vscode.Disposable {
+	private _subs: vscode.Disposable[];
 	private _octokits: Map<string, GitHub | undefined>;
 	private _authenticationStatusBarItems: Map<string, vscode.StatusBarItem>;
 
 	constructor(private readonly _telemetry: ITelemetry) {
+		this._subs = [];
 		this._octokits = new Map<string, GitHub>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
-		vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
+		this._subs.push(vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
 			const uriOrToken = await vscode.window.showInputBox({ prompt: 'Token', ignoreFocusOut: true });
 			if (!uriOrToken) { return; }
 			try {
@@ -48,7 +50,7 @@ export class CredentialStore {
 				if (!host) { return; }
 				setToken(host, uriOrToken);
 			}
-		});
+		}));
 	}
 
 	public reset() {
@@ -108,7 +110,7 @@ export class CredentialStore {
 	public async loginWithConfirmation(remote: Remote): Promise<GitHub | undefined> {
 		const normalizedUri = remote.gitProtocol.normalizeUri()!;
 		const result = await vscode.window.showInformationMessage(
-			`In order to use the Pull Requests functionality, you need to sign in to ${normalizedUri.authority}`,
+			`In order to use the Pull Requests functionality, you must sign in to ${normalizedUri.authority}`,
 			SIGNIN_COMMAND);
 
 		if (result === SIGNIN_COMMAND) {
@@ -174,21 +176,22 @@ export class CredentialStore {
 		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
 	}
 
+	public getCurrentUser(remote: Remote): Octokit.PullsGetResponseUser {
+		const octokit = this.getOctokit(remote);
+		return octokit && (octokit as any).currentUser;
+	}
+
 	private async createHub(creds: IHostConfiguration): Promise<GitHub> {
 		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
 		let octokit = new Octokit({
-			agent,
+			request: { agent },
 			baseUrl,
-			headers: {
-				'user-agent': 'GitHub VSCode Pull Requests',
-				// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
-				Accept: 'application/vnd.github.shadow-cat-preview+json'
+			userAgent: 'GitHub VSCode Pull Requests',
+			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
+			previews: ['shadow-cat-preview'],
+			auth () {
+				return `token ${creds.token || ''}`;
 			}
-		});
-
-		octokit.authenticate({
-			type: 'token',
-			token: creds.token || '',
 		});
 
 		const graphql = new ApolloClient({
@@ -273,6 +276,9 @@ export class CredentialStore {
 		}
 	}
 
+	dispose() {
+		this._subs.forEach(sub => sub.dispose());
+	}
 }
 
 const link = (url: string, token: string) =>

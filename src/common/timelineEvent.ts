@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Comment } from './comment';
+import { IComment } from './comment';
 import { IAccount } from '../github/interface';
 
 export enum EventType {
@@ -40,7 +40,7 @@ export interface CommentEvent {
 export interface ReviewEvent {
 	id: number;
 	event: EventType;
-	comments: Comment[];
+	comments: IComment[];
 	submittedAt: string;
 	body: string;
 	bodyHTML?: string;
@@ -55,7 +55,6 @@ export interface CommitEvent {
 	author: IAccount;
 	event: EventType;
 	sha: string;
-	url: string;
 	htmlUrl: string;
 	message: string;
 	bodyHTML?: string;

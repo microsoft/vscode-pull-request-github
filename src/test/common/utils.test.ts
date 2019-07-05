@@ -1,28 +1,12 @@
-import * as assert from 'assert';
+import assert = require('assert');
 import * as utils from '../../common/utils';
 import { EventEmitter } from 'vscode';
-import * as Octokit from '@octokit/rest';
 
 describe('utils', () => {
 	describe('formatError', () => {
 		it('should format a normal error', () => {
 			const error = new Error('No!');
 			assert.equal(utils.formatError(error), 'No!');
-		});
-
-		it('should format an HttpError from octorest', (done) => {
-			const octokit = new Octokit();
-			octokit.pulls.listComments({
-				number: 1,
-				owner: 'me',
-				repo: '犬?'
-			}).then((_: any) => {
-				assert.fail('managed the impossible');
-				done();
-			}).catch((e: any) => {
-				assert.equal(utils.formatError(e), 'Not Found');
-				done();
-			});
 		});
 
 		it('should format an error with submessages', () => {

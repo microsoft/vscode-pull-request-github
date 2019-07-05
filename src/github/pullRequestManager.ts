@@ -5,9 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as Octokit from '@octokit/rest';
+import Octokit = require('@octokit/rest');
 import { CredentialStore } from './credentials';
-import { Comment } from '../common/comment';
+import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
@@ -92,11 +92,13 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
-export class PullRequestManager {
+export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
+
+	private _subs: vscode.Disposable[];
 	private _activePullRequest?: PullRequestModel;
-	private _credentialStore: CredentialStore;
 	private _githubRepositories: GitHubRepository[];
+	private _allGitHubRemotes: Remote[] = [];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _gitBlameCache: { [key: string]: string } = {};
@@ -109,21 +111,24 @@ export class PullRequestManager {
 	constructor(
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
+		private _credentialStore: CredentialStore = new CredentialStore(_telemetry),
 	) {
+		this._subs = [];
 		this._githubRepositories = [];
-		this._credentialStore = new CredentialStore(this._telemetry);
 		this._githubManager = new GitHubManager();
-		vscode.workspace.onDidChangeConfiguration(async e => {
+
+		this._subs.push(this._credentialStore);
+		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
 				await this.updateRepositories();
 				vscode.commands.executeCommand('pr.refreshList');
 			}
-		});
+		}));
 
 		this.setUpCompletionItemProvider();
 	}
 
-	private getAllGitHubRemotes(): Promise<Remote[]> {
+	private computeAllGitHubRemotes(): Promise<Remote[]> {
 		Logger.debug('update repositories', PullRequestManager.ID);
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
@@ -355,14 +360,18 @@ export class PullRequestManager {
 		this._repository = repository;
 	}
 
+	get credentialStore(): CredentialStore {
+		return this._credentialStore;
+	}
+
 	async clearCredentialCache(): Promise<void> {
 		this._credentialStore.reset();
 	}
 
 	async updateRepositories(): Promise<void> {
 		Logger.debug('update repositories', PullRequestManager.ID);
-		const allGitHubRemotes = await this.getAllGitHubRemotes();
-		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
+		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
@@ -390,7 +399,7 @@ export class PullRequestManager {
 		let resolveRemotePromises: Promise<void>[] = [];
 
 		activeRemotes.forEach(remote => {
-			const repository = new GitHubRepository(remote, this._credentialStore);
+			const repository = this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
 		});
@@ -445,6 +454,10 @@ export class PullRequestManager {
 		});
 	}
 
+	/**
+	 * Returns the remotes that are currently active, which is those that are important by convention (origin, upstream),
+	 * or the remotes configured by the setting githubPullRequests.remotes
+	 */
 	getGitHubRemotes(): Remote[] {
 		const githubRepositories = this._githubRepositories;
 
@@ -453,6 +466,13 @@ export class PullRequestManager {
 		}
 
 		return githubRepositories.map(repository => repository.remote);
+	}
+
+	/**
+	 * Returns all remotes from the repository.
+	 */
+	getAllGitHubRemotes(): Remote[] {
+		return this._allGitHubRemotes;
 	}
 
 	async authenticate(): Promise<boolean> {
@@ -634,20 +654,20 @@ export class PullRequestManager {
 		const result = await octokit.pulls.listReviewRequests({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber
+			pull_number: pullRequest.prNumber
 		});
 
 		return result.data.users.map((user: any) => convertRESTUserToAccount(user, githubRepository));
 	}
 
-	async getPullRequestComments(pullRequest: PullRequestModel): Promise<Comment[]> {
+	async getPullRequestComments(pullRequest: PullRequestModel): Promise<IComment[]> {
 		const { supportsGraphQl } = pullRequest.githubRepository;
 		return supportsGraphQl
 			? this.getAllPullRequestReviewComments(pullRequest)
 			: this.getPullRequestReviewComments(pullRequest);
 	}
 
-	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
+	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<IComment[]> {
 		const { remote, query } = await pullRequest.githubRepository.ensure();
 		try {
 			const { data } = await query<PullRequestCommentsResponse>({
@@ -662,7 +682,7 @@ export class PullRequestManager {
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
 				.reduce((prev: any, curr: any) => prev.concat(curr), [])
-				.sort((a: Comment, b: Comment) => { return a.isDraft ? 1 : 0; });
+				.sort((a: IComment, b: IComment) => { return a.createdAt > b.createdAt ? 1 : -1; });
 
 			return comments;
 		} catch (e) {
@@ -674,7 +694,7 @@ export class PullRequestManager {
 	/**
 	 * Returns review comments from the pull request using the REST API, comments on pending reviews are not included.
 	 */
-	private async getPullRequestReviewComments(pullRequest: PullRequestModel): Promise<Comment[]> {
+	private async getPullRequestReviewComments(pullRequest: PullRequestModel): Promise<IComment[]> {
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const githubRepository = (pullRequest as PullRequestModel).githubRepository;
 		const { remote, octokit } = await githubRepository.ensure();
@@ -694,7 +714,7 @@ export class PullRequestManager {
 			Logger.debug(`Fetch commits of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 			const { remote, octokit } = await pullRequest.githubRepository.ensure();
 			const commitData = await octokit.pulls.listCommits({
-				number: pullRequest.prNumber,
+				pull_number: pullRequest.prNumber,
 				owner: remote.owner,
 				repo: remote.repositoryName
 			});
@@ -714,7 +734,7 @@ export class PullRequestManager {
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				sha: commit.sha
+				commit_sha: commit.sha
 			});
 			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
 
@@ -777,7 +797,7 @@ export class PullRequestManager {
 		return promise.data;
 	}
 
-	async createIssueComment(pullRequest: PullRequestModel, text: string): Promise<Comment> {
+	async createIssueComment(pullRequest: PullRequestModel, text: string): Promise<IComment> {
 		const githubRepository = pullRequest.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
 
@@ -791,7 +811,7 @@ export class PullRequestManager {
 		return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(promise.data, githubRepository), remote);
 	}
 
-	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: Comment): Promise<Comment | undefined> {
+	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: IComment): Promise<IComment | undefined> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		if (pendingReviewId) {
 			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.graphNodeId });
@@ -815,7 +835,7 @@ export class PullRequestManager {
 		}
 	}
 
-	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: Comment[] }> {
+	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: IComment[] }> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const { mutate } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
@@ -828,6 +848,7 @@ export class PullRequestManager {
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
 
 		pullRequest.inDraftMode = false;
+		await this.updateDraftModeContext(pullRequest);
 
 		return {
 			deletedReviewId: databaseId,
@@ -850,17 +871,26 @@ export class PullRequestManager {
 		});
 
 		pullRequest.inDraftMode = true;
+		await this.updateDraftModeContext(pullRequest);
 
 		return;
 	}
 
-	async inDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
+	async validateDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
 		let inDraftMode = !!await this.getPendingReviewId(pullRequest);
 		if (inDraftMode !== pullRequest.inDraftMode) {
 			pullRequest.inDraftMode = inDraftMode;
 		}
 
+		await this.updateDraftModeContext(pullRequest);
+
 		return inDraftMode;
+	}
+
+	async updateDraftModeContext(pullRequest: PullRequestModel) {
+		if (this._activePullRequest && this._activePullRequest.prNumber === pullRequest.prNumber) {
+			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', pullRequest.inDraftMode);
+		}
 	}
 
 	async getPendingReviewId(pullRequest = this._activePullRequest): Promise<string | undefined> {
@@ -888,7 +918,7 @@ export class PullRequestManager {
 		}
 	}
 
-	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<Comment> {
+	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<IComment> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<AddCommentResponse>({
 			mutation: queries.AddComment,
@@ -943,7 +973,7 @@ export class PullRequestManager {
 		return data!;
 	}
 
-	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<Comment | undefined> {
+	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<IComment | undefined> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
 		if (pendingReviewId) {
 			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path: commentPath, position });
@@ -1081,7 +1111,7 @@ export class PullRequestManager {
 		}
 	}
 
-	async editIssueComment(pullRequest: PullRequestModel, commentId: string, text: string): Promise<Comment> {
+	async editIssueComment(pullRequest: PullRequestModel, commentId: string, text: string): Promise<IComment> {
 		try {
 			const githubRepository = pullRequest.githubRepository;
 			const { octokit, remote } = await githubRepository.ensure();
@@ -1099,7 +1129,7 @@ export class PullRequestManager {
 		}
 	}
 
-	async editReviewComment(pullRequest: PullRequestModel, comment: Comment, text: string): Promise<Comment> {
+	async editReviewComment(pullRequest: PullRequestModel, comment: IComment, text: string): Promise<IComment> {
 		try {
 			if (comment.isDraft) {
 				return this.editPendingReviewComment(pullRequest, comment.graphNodeId, text);
@@ -1121,7 +1151,7 @@ export class PullRequestManager {
 		}
 	}
 
-	private async editPendingReviewComment(pullRequest: PullRequestModel, commentNodeId: string, text: string): Promise<Comment> {
+	private async editPendingReviewComment(pullRequest: PullRequestModel, commentNodeId: string, text: string): Promise<IComment> {
 		const { mutate } = await pullRequest.githubRepository.ensure();
 
 		const { data } = await mutate<EditCommentResponse>({
@@ -1170,7 +1200,11 @@ export class PullRequestManager {
 		return this._credentialStore.isCurrentUser(username, pullRequest.remote);
 	}
 
-	private addCommentPermissions(rawComment: Comment, remote: Remote): Comment {
+	getCurrentUser(pullRequest: PullRequestModel): IAccount {
+		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(pullRequest.remote), pullRequest.githubRepository);
+	}
+
+	private addCommentPermissions(rawComment: IComment, remote: Remote): IComment {
 		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user!.login, remote);
 		const notOutdated = rawComment.position !== null;
 		rawComment.canEdit = isCurrentUser && notOutdated;
@@ -1286,6 +1320,8 @@ export class PullRequestManager {
 			});
 
 			pullRequest.inDraftMode = false;
+			await this.updateDraftModeContext(pullRequest);
+
 			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, githubRepository);
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${pullRequest.prNumber}.`);
@@ -1453,11 +1489,11 @@ export class PullRequestManager {
 	}
 
 	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel): Promise<boolean> {
-		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, this._githubRepositories, pullRequest);
+		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest);
 	}
 
 	async fetchAndCheckout(pullRequest: PullRequestModel): Promise<void> {
-		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._githubRepositories, pullRequest);
+		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest);
 	}
 
 	async checkout(branchName: string): Promise<void> {
@@ -1487,7 +1523,7 @@ export class PullRequestManager {
 	}
 
 	private async addReviewTimelineEventComments(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
-		interface CommentNode extends Comment {
+		interface CommentNode extends IComment {
 			childComments?: CommentNode[];
 		}
 
@@ -1568,6 +1604,14 @@ export class PullRequestManager {
 		]);
 
 		return events;
+	}
+
+	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
+		return new GitHubRepository(remote, credentialStore);
+	}
+
+	dispose() {
+		this._subs.forEach(sub => sub.dispose());
 	}
 }
 
