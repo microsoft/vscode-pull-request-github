@@ -13,12 +13,13 @@ import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../api/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { getCommentingRanges, getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
+import { getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
 import { parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState, CommentReactionHandler, generateCommentReactions } from '../github/utils';
 import { ReactionGroup } from '../github/graphql';
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 import { CommentHandler, registerCommentHandler } from '../commentHandlerResolver';
 import { CommentThreadCache } from './commentThreadCache';
+import { getCommentingRanges } from '../common/commentingRanges';
 
 function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
 	if (!fileChange) {
@@ -367,7 +368,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return;
 			}
 
-			return fileChange.isPartial ? [new vscode.Range(0, 0, 0, 0)] : getCommentingRanges(fileChange.diffHunks, params.isBase);
+			return getCommentingRanges(fileChange.diffHunks, document.lineCount, fileChange.isPartial, params.isBase);
 		}
 
 		let query: ReviewUriParams | undefined;
@@ -380,7 +381,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
 
 			if (matchedFile) {
-				return getCommentingRanges(matchedFile.diffHunks, query.base);
+				return getCommentingRanges(matchedFile.diffHunks, document.lineCount, matchedFile.isPartial, query.base);
 			}
 		}
 
@@ -421,10 +422,23 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #region Helper
 
-	private async updateCommentThreadRoot(thread: GHPRCommentThread, matchedFile: GitFileChangeNode, text: string, temporaryCommentId: number): Promise<IComment | undefined> {
+	private async createNewThread(thread: GHPRCommentThread, matchedFile: GitFileChangeNode, text: string): Promise<IComment | undefined> {
 		const uri = thread.uri;
-		const query = uri.query === '' ? undefined : fromReviewUri(uri);
-		const isBase = query && query.base;
+		let isBase = false;
+		if (uri.query) {
+			if (uri.scheme === 'review') {
+				try {
+					isBase = fromReviewUri(uri).base;
+				} catch {
+					// do nothing
+				}
+			}
+
+			if (uri.scheme === 'pr') {
+				const params = fromPRUri(uri);
+				isBase = !!params && params.isBase;
+			}
+		}
 
 		if (!this._prManager.activePullRequest) {
 			throw new Error('No active pull request');
@@ -434,6 +448,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		// git diff sha -- fileName
 		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
 		const position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, thread.range.start.line + 1, isBase);
+		// If this is base and the diff line isn't a deletion, then this should actually be created on the right hand side
 
 		if (position < 0) {
 			throw new Error('Comment position cannot be negative');
@@ -763,8 +778,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			let rawComment: IComment | undefined;
 			if (!hasExistingComments) {
+				rawComment = await this.createNewThread(thread, matchedFile, input);
 				this.addToCommentThreadCache(thread);
-				rawComment = await this.updateCommentThreadRoot(thread, matchedFile, input, temporaryCommentId);
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {

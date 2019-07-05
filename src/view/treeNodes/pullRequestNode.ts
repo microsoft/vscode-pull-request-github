@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType, DiffHunk } from '../../common/diffHunk';
+import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { getZeroBased, getAbsolutePosition, getPositionInDiff, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
@@ -23,6 +23,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { createVSCodeCommentThread, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions, CommentReactionHandler } from '../../github/utils';
 import { CommentHandler, registerCommentHandler } from '../../commentHandlerResolver';
 import { ReactionGroup } from '../../github/graphql';
+import { getCommentingRanges } from '../../common/commentingRanges';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -74,28 +75,6 @@ export function getDocumentThreadDatas(
 	}
 
 	return threads;
-}
-
-export function getCommentingRanges(diffHunks: DiffHunk[], isBase: boolean): vscode.Range[] {
-	const ranges: vscode.Range[] = [];
-
-	for (let i = 0; i < diffHunks.length; i++) {
-		let diffHunk = diffHunks[i];
-		let startingLine: number;
-		let length: number;
-		if (isBase) {
-			startingLine = getZeroBased(diffHunk.oldLineNumber);
-			length = getZeroBased(diffHunk.oldLength);
-
-		} else {
-			startingLine = getZeroBased(diffHunk.newLineNumber);
-			length = getZeroBased(diffHunk.newLength);
-		}
-
-		ranges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
-	}
-
-	return ranges;
 }
 
 export class PRNode extends TreeNode implements CommentHandler, vscode.CommentingRangeProvider, CommentReactionHandler {
@@ -482,9 +461,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				return;
 			}
 
-			const commentingRanges = fileChange.isPartial ? [new vscode.Range(0, 0, 0, 0)] : getCommentingRanges(fileChange.diffHunks, params.isBase);
-
-			return commentingRanges;
+			return getCommentingRanges(fileChange.diffHunks, document.lineCount, fileChange.isPartial, params.isBase);
 		}
 	}
 
