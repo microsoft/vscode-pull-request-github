@@ -543,6 +543,8 @@ export class PullRequestManager implements vscode.Disposable {
 				};
 			}));
 
+			results = results.sort((a,b)=> a.name.localeCompare(b.name));
+
 			hasNextPage = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
 			page += 1;
 		} while (hasNextPage);
