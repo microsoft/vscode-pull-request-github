@@ -323,6 +323,9 @@ body button.secondary:hover {
 
 body button svg {
 	fill: var(--vscode-button-foreground);
+}
+
+body button .icon {
 	margin-right: 6px;
 }
 
