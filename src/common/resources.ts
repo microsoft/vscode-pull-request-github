@@ -24,7 +24,6 @@ export class Resource {
 				Conflict: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'status-conflict.svg')),
 				Comment: context.asAbsolutePath(path.join('resources', 'icons', 'comment.svg')),
 				Avatar: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'github.svg')),
-				Fold: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'fold.svg')),
 				Description: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'git-pull-request.svg'))
 			},
 			dark: {
@@ -38,7 +37,6 @@ export class Resource {
 				Conflict: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'status-conflict.svg')),
 				Comment: context.asAbsolutePath(path.join('resources', 'icons', 'comment.svg')),
 				Avatar: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'github.svg')),
-				Fold: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'fold.svg')),
 				Description: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'git-pull-request.svg'))
 			},
 			reactions: {
