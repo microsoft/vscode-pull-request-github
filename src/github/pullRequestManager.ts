@@ -702,7 +702,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const reviewData = await octokit.pulls.listComments({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			pull_number: pullRequest.prNumber,
 			per_page: 100
 		});
 		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
@@ -775,7 +775,7 @@ export class PullRequestManager implements vscode.Disposable {
 			ret = (await octokit.issues.listEventsForTimeline({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				number: pullRequest.prNumber,
+				issue_number: pullRequest.prNumber,
 				per_page: 100
 			})).data;
 			Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
@@ -790,7 +790,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const promise = await octokit.issues.listComments({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			issue_number: pullRequest.prNumber,
 			per_page: 100
 		});
 		Logger.debug(`Fetch issue comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
@@ -804,7 +804,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 		const promise = await octokit.issues.createComment({
 			body: text,
-			number: pullRequest.prNumber,
+			issue_number: pullRequest.prNumber,
 			owner: remote.owner,
 			repo: remote.repositoryName
 		});
@@ -825,7 +825,7 @@ export class PullRequestManager implements vscode.Disposable {
 			let ret = await octokit.pulls.createCommentReply({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				number: pullRequest.prNumber,
+				pull_number: pullRequest.prNumber,
 				body: body,
 				in_reply_to: Number(reply_to.id)
 			});
@@ -987,7 +987,7 @@ export class PullRequestManager implements vscode.Disposable {
 			let ret = await octokit.pulls.createComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				number: pullRequest.prNumber,
+				pull_number: pullRequest.prNumber,
 				body: body,
 				commit_id: pullRequest.head.sha,
 				path: commentPath,
@@ -1220,7 +1220,7 @@ export class PullRequestManager implements vscode.Disposable {
 		let ret = await octokit.pulls.update({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			pull_number: pullRequest.prNumber,
 			state: state
 		});
 
@@ -1233,7 +1233,7 @@ export class PullRequestManager implements vscode.Disposable {
 			const { data } = await octokit.pulls.update({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				number: pullRequest.prNumber,
+				pull_number: pullRequest.prNumber,
 				body: toEdit.body,
 				title: toEdit.title
 			});
@@ -1259,7 +1259,7 @@ export class PullRequestManager implements vscode.Disposable {
 			merge_method: method || vscode.workspace.getConfiguration('githubPullRequests').get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			pull_number: pullRequest.prNumber,
 		})
 			.then(x => {
 				this._telemetry.on('pr.merge');
@@ -1297,7 +1297,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const { data } = await octokit.pulls.createReview({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			pull_number: pullRequest.prNumber,
 			event: event,
 			body: message,
 		});
@@ -1361,7 +1361,7 @@ export class PullRequestManager implements vscode.Disposable {
 			const info = await octokit.pulls.get({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				number: pullRequest.prNumber
+				pull_number: pullRequest.prNumber
 			});
 			pullRequest.update(convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
 		}
@@ -1389,7 +1389,7 @@ export class PullRequestManager implements vscode.Disposable {
 		await octokit.pulls.createReviewRequest({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			pull_number: pullRequest.prNumber,
 			reviewers
 		});
 	}
@@ -1399,7 +1399,7 @@ export class PullRequestManager implements vscode.Disposable {
 		await octokit.pulls.deleteReviewRequest({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			pull_number: pullRequest.prNumber,
 			reviewers: [reviewer]
 		});
 	}
@@ -1409,7 +1409,7 @@ export class PullRequestManager implements vscode.Disposable {
 		await octokit.issues.addLabels({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			issue_number: pullRequest.prNumber,
 			labels
 		});
 	}
@@ -1419,7 +1419,7 @@ export class PullRequestManager implements vscode.Disposable {
 		await octokit.issues.removeLabel({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			number: pullRequest.prNumber,
+			issue_number: pullRequest.prNumber,
 			name: label
 		});
 	}
@@ -1444,7 +1444,7 @@ export class PullRequestManager implements vscode.Disposable {
 				const { data } = await octokit.pulls.get({
 					owner: remote.owner,
 					repo: remote.repositoryName,
-					number: pullRequest.prNumber
+					pull_number: pullRequest.prNumber
 				});
 				pullRequest.update(convertRESTPullRequestToRawPullRequest(data, githubRepository));
 			}
