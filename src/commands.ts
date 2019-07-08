@@ -315,7 +315,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		if (PullRequestOverviewPanel.currentPanel) {
 			PullRequestOverviewPanel.refresh();
 		}
-	}))
+	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
 		let pr = descriptionNode.pullRequestModel;
