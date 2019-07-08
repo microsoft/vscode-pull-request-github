@@ -114,7 +114,7 @@ export class PRContext {
 	}
 
 	public removeLabel = async (label: string) => {
-		await this.postMessage({ command: 'pr.remove-reviewer', args: label });
+		await this.postMessage({ command: 'pr.remove-label', args: label });
 		const labels = this.pr.labels.filter(r => r.name !== label);
 		this.updatePR({ labels });
 	}
