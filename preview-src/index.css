@@ -417,8 +417,8 @@ body .overview-title .button-group button {
 	display: flex;
 }
 
-.section button .icon {
-	margin: 0;
+.section .icon {
+	margin-right: 0;
 }
 
 .section .avatar-link {
