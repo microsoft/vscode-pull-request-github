@@ -44,7 +44,7 @@ const CommitEventView = (event: CommitEvent) =>
 				<Avatar for={event.author} />
 			</div>
 			<AuthorLink for={event.author} />
-			<div className='message'>{event.message}</div>
+			<a className='message' href={event.htmlUrl}>{event.message}</a>
 		</div>
 		<a className='sha' href={event.htmlUrl}>{event.sha.slice(0, 7)}</a>
 	</div>;
