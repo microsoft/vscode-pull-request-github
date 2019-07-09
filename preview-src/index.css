@@ -225,7 +225,7 @@ body .comment-container .review-comment-header {
 #status-checks svg {
 	fill: var(--vscode-foreground);
 	margin-right: 6px;
-	width: 12px;
+	width: 16px;
 }
 
 #status-checks .merge-select-container {
@@ -326,6 +326,8 @@ body button svg {
 }
 
 body button .icon {
+	width: 1em;
+	height: 1em;
 	margin-right: 6px;
 }
 
@@ -412,6 +414,11 @@ body .overview-title .button-group button {
 	margin-left: auto;
 	padding: 0;
 	background: transparent;
+	display: flex;
+}
+
+.section button .icon {
+	margin: 0;
 }
 
 .section .avatar-link {
@@ -424,8 +431,8 @@ body .overview-title .button-group button {
 
 .section svg {
 	fill: var(--vscode-foreground);
-	width: 14px;
-	height: 14px;
+	width: 16px;
+	height: 16px;
 	display: block;
 	margin-right: 0;
 }
@@ -468,7 +475,7 @@ body .overview-title .button-group button {
 }
 
 .commit svg {
-	width: 14px;
+	width: 16px;
 	height: auto;
 	margin-right: 8px;
 	flex-shrink: 0;
@@ -1012,6 +1019,7 @@ code {
 
 	.section-header button {
 		margin-left: 8px;
+		display: flex;
 	}
 
 	.section-item.reviewer {
@@ -1034,6 +1042,7 @@ code {
 	width: 1em;
 	height: 1em;
 	font-size: 16px;
+	margin-right: 6px;
 }
 
 .push-right {
