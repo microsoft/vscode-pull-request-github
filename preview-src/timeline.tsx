@@ -37,17 +37,17 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 export default Timeline;
 
 const CommitEventView = (event: CommitEvent) =>
-	<a className='comment-container commit' href={event.htmlUrl}>
+	<div className='comment-container commit'>
 		<div className='commit-message'>
 			{commitIcon}{nbsp}
 			<div className='avatar-container'>
 				<Avatar for={event.author} />
 			</div>
 			<AuthorLink for={event.author} />
-			<div className='message'>{event.message}</div>
+			<a className='message' href={event.htmlUrl}>{event.message}</a>
 		</div>
-		<div className='sha'>{event.sha.slice(0, 7)}</div>
-	</a>;
+		<a className='sha' href={event.htmlUrl}>{event.sha.slice(0, 7)}</a>
+	</div>;
 
 const association = (
 	{ authorAssociation }: ReviewEvent,
