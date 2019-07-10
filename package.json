@@ -755,8 +755,8 @@
     "node-fetch": "^2.1.1",
     "query-string": "^6.2.0",
     "ssh-config": "^2.0.0-alpha.3",
-    "telemetry-github": "https://github.com/shana/telemetry/releases/download/0.3.2/telemetry-github-v0.3.2.tgz",
     "tunnel": "0.0.6",
+    "vscode-extension-telemetry": "^0.1.2",
     "vsls": "^0.3.967"
   },
   "optionalDependencies": {

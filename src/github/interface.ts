@@ -106,20 +106,3 @@ export type MergeMethod = 'merge' | 'squash' | 'rebase';
 export type MergeMethodsAvailability = {
 	[method in MergeMethod]: boolean;
 };
-
-export interface ITelemetry {
-	on(action: 'startup'): Promise<void>;
-	on(action: 'authSuccess'): Promise<void>;
-	on(action: 'commentsFromEditor'): Promise<void>;
-	on(action: 'commentsFromDescription'): Promise<void>;
-	on(action: 'prListExpandLocalPullRequest'): Promise<void>;
-	on(action: 'prListExpandRequestReview'): Promise<void>;
-	on(action: 'prListExpandAssignedToMe'): Promise<void>;
-	on(action: 'prListExpandMine'): Promise<void>;
-	on(action: 'prListExpandAll'): Promise<void>;
-	on(action: 'prCheckoutFromContext'): Promise<void>;
-	on(action: 'prCheckoutFromDescription'): Promise<void>;
-	on(action: string): Promise<void>;
-
-	shutdown(): Promise<void>;
-}

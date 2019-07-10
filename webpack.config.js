@@ -110,7 +110,8 @@ function getExtensionConfig(env) {
 			'vscode': 'commonjs vscode',
 			'utf-8-validate': 'utf-8-validate',
 			'bufferutil': 'bufferutil',
-			'encoding': 'encoding'
+			'encoding': 'encoding',
+			'applicationinsights-native-metrics': 'applicationinsights-native-metrics'
 		}
 	};
 

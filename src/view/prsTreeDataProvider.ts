@@ -6,10 +6,11 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
-import { PRType, ITelemetry } from '../github/interface';
+import { PRType } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING } from '../github/pullRequestManager';
+import { ITelemetry } from '../common/telemetry';
 
 interface IQueryInfo {
 	label: string;

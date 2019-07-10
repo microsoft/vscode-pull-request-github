@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PRType, ITelemetry } from '../../github/interface';
+import { PRType } from '../../github/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
 import { formatError } from '../../common/utils';
 import { AuthenticationError } from '../../common/authentication';
 import { PullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { ITelemetry } from '../../common/telemetry';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -144,7 +145,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (this._type === PRType.LocalPullRequest) {
 			try {
 				this.prs = await this._prManager.getLocalPullRequests();
-				this._telemetry.on('prList.expand.local');
+				/* __GDPR__
+					"pr.expand.local" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('prList.expand.local');
 			} catch (e) {
 				vscode.window.showErrorMessage(`Fetching local pull requests failed: ${formatError(e)}`);
 				needLogin = e instanceof AuthenticationError;
@@ -159,7 +163,15 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 					switch (this._type) {
 						case PRType.All:
-							this._telemetry.on('prList.expand.all');
+							/* __GDPR__
+								"pr.expand.all" : {}
+							*/
+							this._telemetry.sendTelemetryEvent('prList.expand.all');
+						case PRType.Query:
+							/* __GDPR__
+								"pr.expand.query" : {}
+							*/
+							this._telemetry.sendTelemetryEvent('prList.expand.query');
 						break;
 					}
 
