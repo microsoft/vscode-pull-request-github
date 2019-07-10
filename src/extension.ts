@@ -13,21 +13,23 @@ import Logger from './common/logger';
 import { PullRequestManager } from './github/pullRequestManager';
 import { formatError, onceEvent } from './common/utils';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
-import { Telemetry } from './common/telemetry';
 import { handler as uriHandler } from './common/uri';
-import { ITelemetry } from './github/interface';
 import * as Keychain from './authentication/keychain';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ApiImpl } from './api/api1';
 import { Repository } from './api/api';
+import TelemetryReporter from 'vscode-extension-telemetry';
+import { EXTENSION_ID } from './constants';
+
+const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
 // fetch.promise polyfill
 const fetch = require('node-fetch');
 const PolyfillPromise = require('es6-promise').Promise;
 fetch.Promise = PolyfillPromise;
 
-let telemetry: ITelemetry;
+let telemetry: TelemetryReporter;
 
 async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: Repository, tree: PullRequestsTreeDataProvider): Promise<void> {
 	context.subscriptions.push(Logger);
@@ -80,7 +82,10 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 		});
 	});
 
-	telemetry.on('startup');
+	/* __GDPR__
+		"startup" : {}
+	*/
+	telemetry.sendTelemetryEvent('startup');
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<ApiImpl> {
@@ -88,7 +93,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	Resource.initialize(context);
 	const apiImpl = new ApiImpl();
 
-	telemetry = new Telemetry(context);
+	const version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
+	telemetry = new TelemetryReporter(EXTENSION_ID, version, aiKey);
+	context.subscriptions.push(telemetry);
+
 	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
 	context.subscriptions.push(registerLiveShareGitProvider(apiImpl));
 	context.subscriptions.push(apiImpl);
@@ -110,6 +118,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 
 export async function deactivate() {
 	if (telemetry) {
-		await telemetry.shutdown();
+		telemetry.dispose();
 	}
 }

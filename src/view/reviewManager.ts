@@ -10,7 +10,6 @@ import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
-import { ITelemetry } from '../github/interface';
 import { Repository, GitErrorCodes, Branch } from '../api/api';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { GitContentProvider } from './gitContentProvider';
@@ -25,6 +24,7 @@ import { RemoteQuickPickItem } from './quickpick';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
+import { ITelemetry } from '../common/telemetry';
 
 export class ReviewManager implements vscode.DecorationProvider {
 	public static ID = 'Review';
@@ -527,7 +527,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			await this._prManager.fullfillPullRequestMissingInfo(pr);
 
-			this._telemetry.on('pr.checkout');
+			/* __GDPR__
+				"pr.checkout" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.checkout');
 			Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - done`, ReviewManager.ID);
 		} finally {
 			this.switchingToReviewMode = false;

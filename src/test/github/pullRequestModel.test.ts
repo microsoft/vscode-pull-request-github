@@ -9,11 +9,9 @@ import { Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
-const telemetry = {
-	on: (action: string) => Promise.resolve(),
-	shutdown: () => Promise.resolve()
-};
+const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new Remote('test', 'github/test', protocol);
 

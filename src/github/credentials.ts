@@ -13,10 +13,10 @@ import { GitHubServer } from '../authentication/githubServer';
 import { getToken, setToken } from '../authentication/keychain';
 import { Remote } from '../common/remote';
 import Logger from '../common/logger';
-import { ITelemetry } from './interface';
 import { handler as uriHandler } from '../common/uri';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
+import { ITelemetry } from '../common/telemetry';
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
@@ -118,12 +118,20 @@ export class CredentialStore implements vscode.Disposable {
 		} else {
 			// user cancelled sign in, remember that and don't ask again
 			this._octokits.set(`${normalizedUri.scheme}://${normalizedUri.authority}`, undefined);
-			this._telemetry.on('auth.cancel');
+
+			/* __GDPR__
+				"auth.cancel" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('auth.cancel');
 		}
 	}
 
 	public async login(remote: Remote): Promise<GitHub | undefined> {
-		this._telemetry.on('auth.start');
+
+		/* __GDPR__
+			"auth.start" : {}
+		*/
+		this._telemetry.sendTelemetryEvent('auth.start');
 
 		// the remote url might be http[s]/git/ssh but we always go through https for the api
 		// so use a normalized http[s] url regardless of the original protocol
@@ -161,9 +169,16 @@ export class CredentialStore implements vscode.Disposable {
 
 		if (octokit) {
 			this._octokits.set(host, octokit);
-			this._telemetry.on('auth.success');
+
+			/* __GDPR__
+				"auth.success" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('auth.success');
 		} else {
-			this._telemetry.on('auth.fail');
+			/* __GDPR__
+				"auth.fail" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('auth.fail');
 		}
 
 		this.updateAuthenticationStatusBar(remote);
@@ -208,11 +223,18 @@ export class CredentialStore implements vscode.Disposable {
 		await graphql.query({ query: gql `query { viewer { login } }` })
 			.then(result => {
 				Logger.appendLine(`${baseUrl}: GraphQL support detected`);
-				this._telemetry.on('auth.graphql.supported');
+
+				/* __GDPR__
+					"auth.graphql.supported" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('auth.graphql.supported');
 			})
 			.catch(err => {
 				Logger.appendLine(`${baseUrl}: GraphQL not supported (${err.message})`);
-				this._telemetry.on('auth.graphql.unsupported');
+				/* __GDPR__
+					"auth.graphql.unsupported" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('auth.graphql.unsupported');
 				supportsGraphQL = false;
 			});
 

@@ -12,7 +12,7 @@ import { fromReviewUri, ReviewUriParams } from './common/uri';
 import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
-import { ITelemetry, PullRequest } from './github/interface';
+import { PullRequest } from './github/interface';
 import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
@@ -27,6 +27,7 @@ import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
+import { ITelemetry } from './common/telemetry';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -63,7 +64,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		} else {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
 		}
-		telemetry.on('pr.openInGitHub');
+
+		/* __GDPR__
+			"pr.openInGitHub" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.openInGitHub');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
@@ -190,10 +195,20 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 
 		if (error) {
-			telemetry.on('pr.deleteLocalPullRequest.failure');
+			/* __GDPR__
+				"pr.deleteLocalPullRequest.failure" : {
+					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			telemetry.sendTelemetryEvent('pr.deleteLocalPullRequest.failure', {
+				message: error
+			});
 			await vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${error}`);
 		} else {
-			telemetry.on('pr.deleteLocalPullRequest.success');
+			/* __GDPR__
+				"pr.deleteLocalPullRequest.success" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.deleteLocalPullRequest.success');
 			// fire and forget
 			vscode.commands.executeCommand('pr.refreshList');
 		}
@@ -212,11 +227,17 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
 			pullRequestModel = pr.pullRequestModel;
-			telemetry.on('pr.checkout.context');
 		} else {
 			pullRequestModel = pr;
-			telemetry.on('pr.checkout.description');
 		}
+
+		const fromDescriptionPage = pr instanceof PullRequestModel;
+		/* __GDPR__
+			"pr.checkout" : {
+				"fromDescriptionPage" : { "classification": "SystemMetadata", "purpose": "FeatureInsight" }
+			}
+		*/
+		telemetry.sendTelemetryEvent('pr.checkout', { fromDescription: fromDescriptionPage.toString() });
 
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.SourceControl,
@@ -233,12 +254,9 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			if (value === 'Yes') {
 				try {
 					newPR = await prManager.mergePullRequest(pullRequest);
-					vscode.commands.executeCommand('pr.refreshList');
-					telemetry.on('pr.merge.success');
 					return newPR;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
-					telemetry.on('pr.merge.failure');
 					return newPR;
 				}
 			}
@@ -254,11 +272,9 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				try {
 					isDraft = await prManager.setReadyForReview(pullRequest);
 					vscode.commands.executeCommand('pr.refreshList');
-					telemetry.on('pr.readyForReview.success');
 					return isDraft;
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to mark pull request as ready to review. ${formatError(e)}`);
-					telemetry.on('pr.readyForReview.failure');
 					return isDraft;
 				}
 			}
@@ -308,7 +324,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		descriptionNode.reveal(descriptionNode, { select: true });
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode);
-		telemetry.on('pr.openDescription');
+
+		/* __GDPR__
+			"pr.openDescription" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.openDescription');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshDescription', async () => {
@@ -323,7 +343,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		descriptionNode.reveal(descriptionNode, { select: true });
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode, true);
-		telemetry.on('pr.openDescriptionToTheSide');
+
+		/* __GDPR__
+			"pr.openDescriptionToTheSide" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.openDescriptionToTheSide');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
@@ -393,7 +417,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (reply: CommentReply) => {
-		telemetry.on('pr.startReview');
+		/* __GDPR__
+			"pr.startReview" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.startReview');
 		let handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
@@ -402,7 +429,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (reply: CommentReply) => {
-		telemetry.on('pr.finishReview');
+		/* __GDPR__
+			"pr.finishReview" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.finishReview');
 		let handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
@@ -411,7 +441,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (reply: CommentReply) => {
-		telemetry.on('pr.deleteReview');
+		/* __GDPR__
+			"pr.deleteReview" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.deleteReview');
 		let handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
@@ -424,7 +457,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.createComment', async (reply: CommentReply) => {
-		telemetry.on('pr.createComment');
+		/* __GDPR__
+			"pr.createComment" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.createComment');
 		let handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
@@ -433,17 +469,26 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
-		telemetry.on('pr.editComment');
+		/* __GDPR__
+			"pr.editComment" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.editComment');
 		comment.startEdit();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.cancelEditComment', async (comment: GHPRComment | TemporaryComment) => {
-		telemetry.on('pr.cancelEditComment');
+		/* __GDPR__
+			"pr.cancelEditComment" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.cancelEditComment');
 		comment.cancelEdit();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.saveComment', async (comment: GHPRComment | TemporaryComment) => {
-		telemetry.on('pr.saveComment');
+		/* __GDPR__
+			"pr.saveComment" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.saveComment');
 		let handler = resolveCommentHandler(comment.parent);
 
 		if (handler) {
@@ -452,7 +497,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (comment: GHPRComment | TemporaryComment) => {
-		telemetry.on('pr.deleteComment');
+		/* __GDPR__
+			"pr.deleteComment" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.deleteComment');
 
 		const shouldDelete = await vscode.window.showWarningMessage('Delete comment?', { modal: true }, 'Delete');
 

@@ -11,7 +11,7 @@ import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, ITelemetry, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -22,6 +22,7 @@ import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse } from './graphql';
+import { ITelemetry } from '../common/telemetry';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -578,7 +579,11 @@ export class PullRequestManager implements vscode.Disposable {
 				await this.repository.removeRemote(remoteName);
 			}
 		}
-		this._telemetry.on('branch.delete');
+
+		/* __GDPR__
+			"branch.delete" : {}
+		*/
+		this._telemetry.sendTelemetryEvent('branch.delete');
 	}
 
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<PullRequestsResponseResult> {
@@ -1103,11 +1108,26 @@ export class PullRequestManager implements vscode.Disposable {
 			const branchName = params.head.slice(branchNameSeparatorIndex + 1);
 			await PullRequestGitHelper.associateBranchWithPullRequest(this._repository, pullRequestModel, branchName);
 
-			this._telemetry.on(`pr.create${params.draft ? 'Draft' : ''}.success`);
+			/* __GDPR__
+				"pr.create.success" : {
+					"isDraft" : { "classification": "SystemMetadata", "purpose": "FeatureInsight" }
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
 			return pullRequestModel;
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
-			this._telemetry.on(`pr.create${params.draft ? 'Draft' : ''}.failure`);
+
+			/* __GDPR__
+				"pr.create.failure" : {
+					"isDraft" : { "classification": "SystemMetadata", "purpose": "FeatureInsight" },
+					"message" : { "classification": "CallstackOrException", "purpose" PerformanceAndHealth" }
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.create.failure', {
+				isDraft: (params.draft || '').toString(),
+				message: formatError(e)
+			});
 			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
 		}
 	}
@@ -1246,7 +1266,10 @@ export class PullRequestManager implements vscode.Disposable {
 	async closePullRequest(pullRequest: PullRequestModel): Promise<PullRequest> {
 		return this.changePullRequestState('closed', pullRequest)
 			.then(x => {
-				this._telemetry.on('pr.close');
+				/* __GDPR__
+					"pr.close" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('pr.close');
 				return convertRESTPullRequestToRawPullRequest(x[0], x[1]);
 			});
 	}
@@ -1262,32 +1285,56 @@ export class PullRequestManager implements vscode.Disposable {
 			pull_number: pullRequest.prNumber,
 		})
 			.then(x => {
-				this._telemetry.on('pr.merge');
+				/* __GDPR__
+					"pr.merge.success" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('pr.merge.success');
 				return x.data;
+			}).catch(e => {
+				/* __GDPR__
+					"pr.merge.failure" : {
+						"message" : { "classification": "CallstackOrException", "purpose" PerformanceAndHealth" }
+					}
+				*/
+				this._telemetry.sendTelemetryEvent('pr.merge.failure', { message: formatError(e) });
+				throw e;
 			});
 	}
 
 	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {
-		if (!pullRequest.githubRepository.supportsGraphQl) {
-			// currently the REST api doesn't support updating PR draft status
-			vscode.window.showWarningMessage('"Ready for Review" operation failed: requires GitHub GraphQL API support');
-			return;
-		}
-
-		const { mutate } = await pullRequest.githubRepository.ensure();
-
-		const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
-			mutation: queries.ReadyForReview,
-			variables: {
-				input: {
-					pullRequestId: pullRequest.graphNodeId,
-				}
+		try {
+			if (!pullRequest.githubRepository.supportsGraphQl) {
+				// currently the REST api doesn't support updating PR draft status
+				vscode.window.showWarningMessage('"Ready for Review" operation failed: requires GitHub GraphQL API support');
+				return;
 			}
-		});
 
-		this._telemetry.on('pr.readyForReview');
+			const { mutate } = await pullRequest.githubRepository.ensure();
 
-		return data!.markPullRequestReadyForReview.pullRequest.isDraft;
+			const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
+				mutation: queries.ReadyForReview,
+				variables: {
+					input: {
+						pullRequestId: pullRequest.graphNodeId,
+					}
+				}
+			});
+
+			/* __GDPR__
+				"pr.readyForReview.success" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
+
+			return data!.markPullRequestReadyForReview.pullRequest.isDraft;
+		} catch (e) {
+			/* __GDPR__
+				"pr.readyForReview.failure" : {
+					"message" : { "classification": "CallstackOrException", "purpose" PerformanceAndHealth" }
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.readyForReview.failure', { message: formatError(e) });
+			throw e;
+		}
 	}
 
 	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<CommonReviewEvent> {
@@ -1336,7 +1383,10 @@ export class PullRequestManager implements vscode.Disposable {
 
 		return action
 			.then(x => {
-				this._telemetry.on('pr.requestChanges');
+				/* __GDPR__
+					"pr.requestChanges" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('pr.requestChanges');
 				return x;
 			});
 	}
@@ -1347,7 +1397,10 @@ export class PullRequestManager implements vscode.Disposable {
 			: this.createReview(pullRequest, ReviewEvent.Approve, message);
 
 		return action.then(x => {
-			this._telemetry.on('pr.approve');
+			/* __GDPR__
+				"pr.approve" : {}
+			*/
+			this._telemetry.sendTelemetryEvent('pr.approve');
 			return x;
 		});
 	}
