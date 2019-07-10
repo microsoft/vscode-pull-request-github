@@ -127,6 +127,7 @@ describe('PullRequestOverview', function() {
 				prModel0,
 			);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
+			sinon.stub(pullRequestManager, 'getReviewRequests').resolves([]);
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0, descriptionNode0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;

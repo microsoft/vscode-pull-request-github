@@ -26,7 +26,7 @@ class WebviewVsCodeApi {
 
 class MockWebviewEnvironment {
 	private readonly _api: WebviewVsCodeApi;
-	private readonly _messages: any[];
+	private readonly _messages: any[] = [];
 	private _persistedState: any;
 	private _uninstall: () => void;
 
