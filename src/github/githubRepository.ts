@@ -376,12 +376,11 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 						}
 					});
 
-					ret.push(...result.data.repository.mentionableUsers.nodes.map((node: any) => {
+					ret.push(...result.data.repository.mentionableUsers.nodes.map(node => {
 						return {
 							login: node.login,
 							avatarUrl: node.avatarUrl,
 							name: node.name,
-							email: node.email,
 							url: node.url
 						};
 					}));

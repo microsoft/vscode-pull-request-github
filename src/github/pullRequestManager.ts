@@ -418,12 +418,19 @@ export class PullRequestManager implements vscode.Disposable {
 				}
 			}
 
-			this.getMentionableUsers();
+			const repositoriesChanged = oldRepositories.length !== this._githubRepositories.length
+				|| !oldRepositories.every(oldRepo => this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)));
+
+			this.getMentionableUsers(repositoriesChanged);
 			return Promise.resolve();
 		});
 	}
 
-	async getMentionableUsers(): Promise<{ [key: string]: IAccount[] }> {
+	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
+		if (clearCache) {
+			delete this._mentionableUsers;
+		}
+
 		if (this._mentionableUsers) {
 			return this._mentionableUsers;
 		}
@@ -431,26 +438,21 @@ export class PullRequestManager implements vscode.Disposable {
 		if (!this._fetchMentionableUsersPromise) {
 			let cache: { [key: string]: IAccount[] } = {};
 			return this._fetchMentionableUsersPromise = new Promise((resolve) => {
-				let promises: Promise<void>[] = [];
-				this._githubRepositories.forEach(githubRepository => {
-					promises.push(new Promise<void>(async (res) => {
-						let data = await githubRepository.getMentionableUsers();
-						cache[githubRepository.remote.remoteName] = data;
-						res();
-					}));
+				const promises = this._githubRepositories.map(async githubRepository => {
+					const data = await githubRepository.getMentionableUsers();
+					cache[githubRepository.remote.remoteName] = data;
+					return;
 				});
 
 				Promise.all(promises).then(() => {
+					this._mentionableUsers = cache;
+					this._fetchMentionableUsersPromise = undefined;
 					resolve(cache);
 				});
 			});
 		}
 
-		return this._fetchMentionableUsersPromise.then(cache => {
-			this._mentionableUsers = cache;
-			this._fetchMentionableUsersPromise = undefined;
-			return this._mentionableUsers;
-		});
+		return this._fetchMentionableUsersPromise;
 	}
 
 	/**
