@@ -102,11 +102,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	context.subscriptions.push(apiImpl);
 
 	Logger.appendLine('Looking for git repository');
-	const firstRepository = apiImpl.repositories[0];
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry);
 	context.subscriptions.push(prTree);
 
+	const firstRepository = apiImpl.repositories[0];
 	if (firstRepository) {
 		await init(context, apiImpl, firstRepository, prTree);
 	} else {

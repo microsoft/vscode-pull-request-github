@@ -93,6 +93,11 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
+export enum UpdateRepositoryState {
+	NeedsAuthentication,
+	Authenticated
+}
+
 export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
 
@@ -108,6 +113,8 @@ export class PullRequestManager implements vscode.Disposable {
 
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
+
+	public state: UpdateRepositoryState;
 
 	constructor(
 		private _repository: Repository,
@@ -381,17 +388,22 @@ export class PullRequestManager implements vscode.Disposable {
 			Logger.appendLine('No GitHub remotes found');
 		}
 
-		let serverAuthPromises = [];
+		let serverAuthPromises: Promise<boolean>[] = [];
 		for (let server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
 			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
 				if (!authd) {
-					this._credentialStore.loginWithConfirmation(server);
+					this.state = UpdateRepositoryState.NeedsAuthentication;
+					return this._credentialStore.loginWithConfirmation(server).then(octokit => !!octokit);
 				}
+
+				return true;
 			}));
 		}
 		// Make sure authentication is set up for all the servers that the remotes are pointing to
 		// this will ask the user to sign in if there's no credentials for a server, once per server
-		await Promise.all(serverAuthPromises).catch(e => {
+		await Promise.all(serverAuthPromises).then(authenticationResult => {
+			this.state = authenticationResult.every(isAuthd => isAuthd) ? UpdateRepositoryState.Authenticated : UpdateRepositoryState.NeedsAuthentication;
+		}).catch(e => {
 			Logger.appendLine(`serverAuthPromises failed: ${formatError(e)}`);
 		});
 
