@@ -8,11 +8,8 @@ const json = JSON.parse(fs.readFileSync('./package.json').toString());
 let version = argv['v'];
 if (typeof(version) !== 'string') {
 	const date = new Date();
-	const major = date.getFullYear() - 2018;
-	const yearStart = new Date(date.getFullYear(), 0, 0);
-	const diff = date - yearStart;
-	const minor = Math.floor(diff / (1000 * 60 * 60 * 24));
-	version = `${major}.${minor}.0`;
+	const monthMinutes = (date.getDate() - 1) * 24 * 60 + date.getHours() * 60 + date.getMinutes();
+	version = `${date.getFullYear()}.${date.getMonth() + 1}.${monthMinutes}`;
 }
 
 const id = argv['i'];
