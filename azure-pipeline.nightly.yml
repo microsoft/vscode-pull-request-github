@@ -11,6 +11,11 @@ jobs:
 
   - template: scripts/ci/common-setup.yml
 
+  - script: yarn run test
+    displayName: Run test suite
+    env:
+      TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
+
   - script: yarn global add vsce
     displayName: Install vsce
 
