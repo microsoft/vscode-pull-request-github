@@ -520,7 +520,6 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 
 		return Promise.all(promises).then(_ => {
-			this.hasAuthenticated = wasSuccessful;
 			return wasSuccessful;
 		});
 	}
