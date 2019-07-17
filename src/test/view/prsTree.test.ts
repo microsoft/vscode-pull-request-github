@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox } from 'sinon';
 import assert = require('assert');
+import Octokit = require('@octokit/rest');
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
 import { PullRequestManager } from '../../github/pullRequestManager';
@@ -16,7 +17,7 @@ import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
-import { CredentialStore } from '../../github/credentials';
+import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
 
@@ -26,6 +27,7 @@ describe('GitHub Pull Requests view', function() {
 	let keytar: MockKeytar;
 	let telemetry: MockTelemetry;
 	let provider: PullRequestsTreeDataProvider;
+	let credentialStore: CredentialStore;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -37,6 +39,23 @@ describe('GitHub Pull Requests view', function() {
 
 		telemetry = new MockTelemetry();
 		provider = new PullRequestsTreeDataProvider(telemetry);
+		credentialStore = new CredentialStore(telemetry);
+
+		// For tree view unit tests, we don't test the authentication flow, so `loginWithConfirmation` returns
+		// a dummy GitHub/Octokit object.
+		sinon.stub(credentialStore, 'loginWithConfirmation').callsFake(async (remote) => {
+			let github: GitHub = {
+				octokit: new Octokit({
+					request: {},
+					baseUrl: 'https://github.com',
+					userAgent: 'GitHub VSCode Pull Requests',
+					previews: ['shadow-cat-preview']
+				}),
+				graphql: null
+			};
+
+			return github;
+		});
 
 		Resource.initialize(context);
 	});
@@ -79,9 +98,9 @@ describe('GitHub Pull Requests view', function() {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry);
-		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, credentialStore) => {
-			return new MockGitHubRepository(remote, credentialStore, sinon);
+		const manager = new PullRequestManager(repository, telemetry, credentialStore);
+		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
+			return new MockGitHubRepository(remote, cStore, sinon);
 		});
 		provider.initialize(manager);
 		await manager.updateRepositories();
@@ -102,7 +121,6 @@ describe('GitHub Pull Requests view', function() {
 		it('creates a node for each local pull request', async function() {
 			const url = 'git@github.com:aaa/bbb';
 			const remote = new Remote('origin', url, new Protocol(url));
-			const credentialStore = new CredentialStore(telemetry);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, sinon);
 			gitHubRepository.buildMetadata(m => {
 				m.clone_url('https://github.com/aaa/bbb');
