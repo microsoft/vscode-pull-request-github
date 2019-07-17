@@ -1135,7 +1135,7 @@ export class PullRequestManager implements vscode.Disposable {
 			/* __GDPR__
 				"pr.create.failure" : {
 					"isDraft" : { "classification": "SystemMetadata", "purpose": "FeatureInsight" },
-					"message" : { "classification": "CallstackOrException", "purpose" PerformanceAndHealth" }
+					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.create.failure', {
@@ -1307,7 +1307,7 @@ export class PullRequestManager implements vscode.Disposable {
 			}).catch(e => {
 				/* __GDPR__
 					"pr.merge.failure" : {
-						"message" : { "classification": "CallstackOrException", "purpose" PerformanceAndHealth" }
+						"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 					}
 				*/
 				this._telemetry.sendTelemetryEvent('pr.merge.failure', { message: formatError(e) });
@@ -1343,7 +1343,7 @@ export class PullRequestManager implements vscode.Disposable {
 		} catch (e) {
 			/* __GDPR__
 				"pr.readyForReview.failure" : {
-					"message" : { "classification": "CallstackOrException", "purpose" PerformanceAndHealth" }
+					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.readyForReview.failure', { message: formatError(e) });
