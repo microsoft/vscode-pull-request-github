@@ -148,7 +148,7 @@ export class CredentialStore implements vscode.Disposable {
 				const login = await server.login();
 				if (login && login.token) {
 					octokit = await this.createHub(login);
-					await setToken(login.host, login.token, { emit: false });
+					await setToken(login.host, login.token);
 					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
 				}
 			} catch (e) {

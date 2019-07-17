@@ -41,8 +41,8 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 		if (prManager) {
 			try {
 				await prManager.clearCredentialCache();
-				if (repository) {
-					repository.status();
+				if (reviewManager) {
+					reviewManager.updateState();
 				}
 				await tree.refresh();
 			} catch (e) {

@@ -45,10 +45,6 @@ export class MockGitHubRepository extends GitHubRepository {
 		return this;
 	}
 
-	async authenticate() {
-		return !this._options.failAuthentication;
-	}
-
 	get supportsGraphQl() {
 		return !this._options.noGraphQL;
 	}

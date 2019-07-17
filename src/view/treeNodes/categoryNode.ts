@@ -22,7 +22,8 @@ export enum PRCategoryActionType {
 	NoGitRepositories,
 	NoOpenFolder,
 	NoMatchingRemotes,
-	ConfigureRemotes
+	ConfigureRemotes,
+	Initializing
 }
 
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
@@ -89,6 +90,8 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					arguments: []
 				};
 				break;
+			case PRCategoryActionType.Initializing:
+				this.label = 'Loading...';
 			default:
 				break;
 		}

@@ -9,7 +9,7 @@ import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './
 import { PRType } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, UpdateRepositoryState } from '../github/pullRequestManager';
+import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING } from '../github/pullRequestManager';
 import { ITelemetry } from '../common/telemetry';
 
 interface IQueryInfo {
@@ -119,8 +119,12 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 		}
 
+		if (!this._prManager.hasInitializedRepositories) {
+			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Initializing)]);
+		}
+
 		if (!this._prManager.getGitHubRemotes().length) {
-			if (this._prManager.state !== UpdateRepositoryState.Authenticated) {
+			if (!this._prManager.hasAuthenticated) {
 				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Login)]);
 			}
 

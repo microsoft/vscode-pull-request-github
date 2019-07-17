@@ -92,10 +92,6 @@ export interface IPullRequestsPagingOptions {
 	fetchNextPage: boolean;
 }
 
-export interface IGitHubRepository {
-	authenticate(): Promise<boolean>;
-}
-
 export interface IPullRequestEditData {
 	body?: string;
 	title?: string;
