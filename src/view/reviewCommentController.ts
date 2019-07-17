@@ -391,7 +391,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 
 		if (document.uri.scheme === currentWorkspace.uri.scheme) {
-			const fileName = nodePath.relative(currentWorkspace!.uri.fsPath, document.uri.fsPath);
+			const fileName = vscode.workspace.asRelativePath(document.uri.path);
 			const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === fileName);
 			let matchedFile: GitFileChangeNode;
 			let ranges = [];
