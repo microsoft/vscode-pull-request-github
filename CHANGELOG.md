@@ -1,3 +1,8 @@
+0.9.1
+**Bug fixes**
+- Unable to add reviewers to description view [#1181](https://github.com/microsoft/vscode-pull-request-github/issues/1181)
+- Commenting ranges not shown on local files on Windows when PR is checked out [#1273](https://github.com/microsoft/vscode-pull-request-github/issues/1273)
+
 0.9.0
 
 **Changes**
