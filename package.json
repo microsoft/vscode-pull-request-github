@@ -629,7 +629,8 @@
       "comments/commentThread/context": [
         {
           "command": "pr.createComment",
-          "group": "inline"
+          "group": "inline",
+          "when": "commentController =~ /^(browse|review)/"
         },
         {
           "command": "pr.startReview",
