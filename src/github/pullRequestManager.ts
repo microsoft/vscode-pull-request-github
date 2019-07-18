@@ -1124,7 +1124,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 			/* __GDPR__
 				"pr.create.success" : {
-					"isDraft" : { "classification": "SystemMetadata", "purpose": "FeatureInsight" }
+					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
@@ -1134,7 +1134,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 			/* __GDPR__
 				"pr.create.failure" : {
-					"isDraft" : { "classification": "SystemMetadata", "purpose": "FeatureInsight" },
+					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/

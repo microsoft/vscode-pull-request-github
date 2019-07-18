@@ -234,7 +234,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		const fromDescriptionPage = pr instanceof PullRequestModel;
 		/* __GDPR__
 			"pr.checkout" : {
-				"fromDescriptionPage" : { "classification": "SystemMetadata", "purpose": "FeatureInsight" }
+				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
 		telemetry.sendTelemetryEvent('pr.checkout', { fromDescription: fromDescriptionPage.toString() });
