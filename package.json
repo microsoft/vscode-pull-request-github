@@ -667,22 +667,24 @@
         {
           "command": "pr.editComment",
           "group": "inline@1",
-          "when": "comment =~ /canEdit/"
+          "when": "commentController =~ /^(browse|review)/ && comment =~ /canEdit/"
         },
         {
           "command": "pr.deleteComment",
           "group": "inline@2",
-          "when": "comment =~ /canDelete/"
+          "when": "commentController =~ /^(browse|review)/ && comment =~ /canDelete/"
         }
       ],
       "comments/comment/context": [
         {
           "command": "pr.cancelEditComment",
-          "group": "inline@1"
+          "group": "inline@1",
+          "when": "commentController =~ /^(browse|review)/"
         },
         {
           "command": "pr.saveComment",
-          "group": "inline@2"
+          "group": "inline@2",
+          "when": "commentController =~ /^(browse|review)/"
         }
       ]
     }
