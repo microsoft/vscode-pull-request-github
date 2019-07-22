@@ -44,7 +44,6 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 				if (reviewManager) {
 					reviewManager.updateState();
 				}
-				await tree.refresh();
 			} catch (e) {
 				vscode.window.showErrorMessage(formatError(e));
 			}

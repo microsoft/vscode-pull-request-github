@@ -93,6 +93,12 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
+export enum PRManagerState {
+	Initializing,
+	NeedsAuthentication,
+	RepositoriesLoaded
+}
+
 export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
 
@@ -109,8 +115,11 @@ export class PullRequestManager implements vscode.Disposable {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
+	private _onDidChangeState = new vscode.EventEmitter<void>();
+	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
+
+	private _state: PRManagerState = PRManagerState.Initializing;
 	public hasAuthenticated: boolean;
-	public hasInitializedRepositories: boolean = false;
 
 	constructor(
 		private _repository: Repository,
@@ -131,6 +140,18 @@ export class PullRequestManager implements vscode.Disposable {
 
 		this.setUpCompletionItemProvider();
 		this.showLoginPrompt();
+	}
+
+	get state() {
+		return this._state;
+	}
+
+	set state(state: PRManagerState) {
+		const stateChange = state !== this._state;
+		this._state = state;
+		if (stateChange) {
+			this._onDidChangeState.fire();
+		}
 	}
 
 	// Check if the remotes are authenticated and show a prompt if not, but don't block on user's response
@@ -385,6 +406,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async clearCredentialCache(): Promise<void> {
 		this._credentialStore.reset();
+		this.state = PRManagerState.Initializing;
 	}
 
 	private async getUniqueActiveRemotes(): Promise<Remote[]> {
@@ -454,7 +476,7 @@ export class PullRequestManager implements vscode.Disposable {
 				|| !oldRepositories.every(oldRepo => this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)));
 
 			this.getMentionableUsers(repositoriesChanged);
-			this.hasInitializedRepositories = true;
+			this.state = this.hasAuthenticated ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
 			return Promise.resolve();
 		});
 	}
