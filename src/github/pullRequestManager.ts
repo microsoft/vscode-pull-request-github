@@ -119,7 +119,6 @@ export class PullRequestManager implements vscode.Disposable {
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
 
 	private _state: PRManagerState = PRManagerState.Initializing;
-	public hasAuthenticated: boolean;
 
 	constructor(
 		private _repository: Repository,
@@ -159,7 +158,6 @@ export class PullRequestManager implements vscode.Disposable {
 		const activeRemotes = await this.getUniqueActiveRemotes();
 		for (let server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
 			this._credentialStore.hasOctokit(server).then(authd => {
-				this.hasAuthenticated = authd || this.hasAuthenticated;
 				if (!authd) {
 					this._credentialStore.loginWithConfirmation(server);
 				}
@@ -432,7 +430,6 @@ export class PullRequestManager implements vscode.Disposable {
 		for (let server of activeRemotes) {
 			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
 				if (!authd) {
-					this.hasAuthenticated = false;
 					return false;
 				} else {
 					authenticatedRemotes.push(server);
@@ -441,9 +438,10 @@ export class PullRequestManager implements vscode.Disposable {
 			}));
 		}
 
+		let hasAuthenticated = false;
 		await Promise.all(serverAuthPromises).then(authenticationResult => {
-			this.hasAuthenticated = authenticationResult.some(isAuthd => isAuthd);
-			vscode.commands.executeCommand('setContext', 'github:authenticated', this.hasAuthenticated);
+			hasAuthenticated = authenticationResult.some(isAuthd => isAuthd);
+			vscode.commands.executeCommand('setContext', 'github:authenticated', hasAuthenticated);
 		}).catch(e => {
 			Logger.appendLine(`serverAuthPromises failed: ${formatError(e)}`);
 		});
@@ -476,7 +474,7 @@ export class PullRequestManager implements vscode.Disposable {
 				|| !oldRepositories.every(oldRepo => this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)));
 
 			this.getMentionableUsers(repositoriesChanged);
-			this.state = this.hasAuthenticated ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
+			this.state = hasAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
 			return Promise.resolve();
 		});
 	}
