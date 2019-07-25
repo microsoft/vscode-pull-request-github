@@ -93,9 +93,10 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
-export enum UpdateRepositoryState {
+export enum PRManagerState {
+	Initializing,
 	NeedsAuthentication,
-	Authenticated
+	RepositoriesLoaded
 }
 
 export class PullRequestManager implements vscode.Disposable {
@@ -114,7 +115,10 @@ export class PullRequestManager implements vscode.Disposable {
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 
-	public state: UpdateRepositoryState;
+	private _onDidChangeState = new vscode.EventEmitter<void>();
+	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
+
+	private _state: PRManagerState = PRManagerState.Initializing;
 
 	constructor(
 		private _repository: Repository,
@@ -134,6 +138,33 @@ export class PullRequestManager implements vscode.Disposable {
 		}));
 
 		this.setUpCompletionItemProvider();
+		this.showLoginPrompt();
+	}
+
+	get state() {
+		return this._state;
+	}
+
+	set state(state: PRManagerState) {
+		const stateChange = state !== this._state;
+		this._state = state;
+		if (stateChange) {
+			this._onDidChangeState.fire();
+		}
+	}
+
+	// Check if the remotes are authenticated and show a prompt if not, but don't block on user's response
+	private async showLoginPrompt(): Promise<void> {
+		const activeRemotes = await this.getUniqueActiveRemotes();
+		for (let server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
+			this._credentialStore.hasOctokit(server).then(authd => {
+				if (!authd) {
+					this._credentialStore.loginWithConfirmation(server);
+				}
+			});
+		}
+
+		return Promise.resolve();
 	}
 
 	private computeAllGitHubRemotes(): Promise<Remote[]> {
@@ -373,10 +404,10 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async clearCredentialCache(): Promise<void> {
 		this._credentialStore.reset();
+		this.state = PRManagerState.Initializing;
 	}
 
-	async updateRepositories(): Promise<void> {
-		Logger.debug('update repositories', PullRequestManager.ID);
+	private async getUniqueActiveRemotes(): Promise<Remote[]> {
 		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
 		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
@@ -388,21 +419,29 @@ export class PullRequestManager implements vscode.Disposable {
 			Logger.appendLine('No GitHub remotes found');
 		}
 
-		let serverAuthPromises: Promise<boolean>[] = [];
-		for (let server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
+		return uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority);
+	}
+
+	async updateRepositories(): Promise<void> {
+		const activeRemotes = await this.getUniqueActiveRemotes();
+
+		const serverAuthPromises: Promise<boolean>[] = [];
+		const authenticatedRemotes: Remote[] = [];
+		for (let server of activeRemotes) {
 			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
 				if (!authd) {
-					this.state = UpdateRepositoryState.NeedsAuthentication;
-					return this._credentialStore.loginWithConfirmation(server).then(octokit => !!octokit);
+					return false;
+				} else {
+					authenticatedRemotes.push(server);
+					return true;
 				}
-
-				return true;
 			}));
 		}
-		// Make sure authentication is set up for all the servers that the remotes are pointing to
-		// this will ask the user to sign in if there's no credentials for a server, once per server
+
+		let hasAuthenticated = false;
 		await Promise.all(serverAuthPromises).then(authenticationResult => {
-			this.state = authenticationResult.every(isAuthd => isAuthd) ? UpdateRepositoryState.Authenticated : UpdateRepositoryState.NeedsAuthentication;
+			hasAuthenticated = authenticationResult.some(isAuthd => isAuthd);
+			vscode.commands.executeCommand('setContext', 'github:authenticated', hasAuthenticated);
 		}).catch(e => {
 			Logger.appendLine(`serverAuthPromises failed: ${formatError(e)}`);
 		});
@@ -410,7 +449,7 @@ export class PullRequestManager implements vscode.Disposable {
 		let repositories: GitHubRepository[] = [];
 		let resolveRemotePromises: Promise<void>[] = [];
 
-		activeRemotes.forEach(remote => {
+		authenticatedRemotes.forEach(remote => {
 			const repository = this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
@@ -435,6 +474,7 @@ export class PullRequestManager implements vscode.Disposable {
 				|| !oldRepositories.every(oldRepo => this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)));
 
 			this.getMentionableUsers(repositoriesChanged);
+			this.state = hasAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
 			return Promise.resolve();
 		});
 	}
@@ -491,14 +531,16 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async authenticate(): Promise<boolean> {
 		let wasSuccessful = false;
-		const allGitHubRemotes = await this.getAllGitHubRemotes();
-		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
-		for (let remote of uniqBy(activeRemotes, x => x.normalizedHost)) {
-			wasSuccessful = await !!this._credentialStore.login(remote) || wasSuccessful;
-		}
+		const promises = uniqBy(activeRemotes, x => x.normalizedHost).map(async remote => {
+			wasSuccessful = !!(await this._credentialStore.login(remote)) || wasSuccessful;
+			return;
+		});
 
-		return wasSuccessful;
+		return Promise.all(promises).then(_ => {
+			return wasSuccessful;
+		});
 	}
 
 	async getLocalPullRequests(): Promise<PullRequestModel[]> {

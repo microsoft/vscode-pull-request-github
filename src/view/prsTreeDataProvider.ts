@@ -9,7 +9,7 @@ import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './
 import { PRType } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, UpdateRepositoryState } from '../github/pullRequestManager';
+import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/pullRequestManager';
 import { ITelemetry } from '../common/telemetry';
 
 interface IQueryInfo {
@@ -83,6 +83,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._initialized = true;
 		this._prManager = prManager;
+		this._disposables.push(this._prManager.onDidChangeState(() => {
+			this._onDidChangeTreeData.fire();
+		}));
 		this.initializeCategories();
 		this.refresh();
 	}
@@ -119,8 +122,12 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 		}
 
+		if (this._prManager.state === PRManagerState.Initializing) {
+			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Initializing)]);
+		}
+
 		if (!this._prManager.getGitHubRemotes().length) {
-			if (this._prManager.state !== UpdateRepositoryState.Authenticated) {
+			if (this._prManager.state === PRManagerState.NeedsAuthentication) {
 				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Login)]);
 			}
 

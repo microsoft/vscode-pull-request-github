@@ -422,7 +422,7 @@
         },
         {
           "command": "auth.signout",
-          "when": "gitOpenRepositoryCount != 0"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
         },
         {
           "command": "pr.configureRemotes",
@@ -450,11 +450,11 @@
         },
         {
           "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && !github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated && !github:inReviewMode"
         },
         {
           "command": "pr.createDraft",
-          "when": "gitOpenRepositoryCount != 0 && !github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated && !github:inReviewMode"
         },
         {
           "command": "pr.merge",
@@ -466,6 +466,10 @@
         },
         {
           "command": "pr.openPullRequestInGitHub",
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+        },
+        {
+          "command": "pr.refreshDescription",
           "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
@@ -494,7 +498,7 @@
         },
         {
           "command": "pr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && github:hasGitHubRemotes"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
         },
         {
           "command": "pr.refreshChanges",

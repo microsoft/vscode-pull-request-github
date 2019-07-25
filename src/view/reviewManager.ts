@@ -232,7 +232,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		}, 1000 * 30);
 	}
 
-	private async updateState() {
+	public async updateState() {
 		if (this.switchingToReviewMode) {
 			return;
 		}

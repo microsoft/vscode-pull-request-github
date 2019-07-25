@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import Octokit = require('@octokit/rest');
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';
+import { IAccount, MergeMethodsAvailability } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -30,7 +30,7 @@ export interface IMetadata extends Octokit.ReposGetResponse {
 	currentUser: any;
 }
 
-export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
+export class GitHubRepository implements vscode.Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean;
 	protected _hub: GitHub | undefined;
@@ -155,16 +155,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		}
 
 		return this;
-	}
-
-	async authenticate(): Promise<boolean> {
-		this._initialized = true;
-		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			this._hub = await this._credentialStore.login(this.remote);
-		} else {
-			this._hub = this._credentialStore.getHub(this.remote);
-		}
-		return this.octokit !== undefined;
 	}
 
 	async getDefaultBranch(): Promise<string> {
