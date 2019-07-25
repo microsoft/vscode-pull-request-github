@@ -531,8 +531,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async authenticate(): Promise<boolean> {
 		let wasSuccessful = false;
-		const allGitHubRemotes = await this.getAllGitHubRemotes();
-		const activeRemotes = await this.getActiveGitHubRemotes(allGitHubRemotes);
+		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
 		const promises = uniqBy(activeRemotes, x => x.normalizedHost).map(async remote => {
 			wasSuccessful = !!(await this._credentialStore.login(remote)) || wasSuccessful;
