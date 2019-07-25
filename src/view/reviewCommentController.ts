@@ -85,15 +85,16 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		return this._commentController;
 	}
 
-	private _workspaceFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
-	private _obsoleteFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
+	// Note: marked as protected so that tests can verify caches have been updated correctly without breaking type safety
+	protected _workspaceFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
+	protected _obsoleteFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 
 	// In most cases, the right side/modified document is of type 'file' scheme, so comments
 	// for that side are from _workspaceFileChangeCommentThreads. If the document has been
 	// deleted, the right hand side will be 'review' scheme.
-	private _reviewDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
+	protected _reviewDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
 
-	private _prDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
+	protected _prDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
 
 	constructor(
 		private _prManager: PullRequestManager,
@@ -114,17 +115,21 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		await this.initializeDocumentCommentThreadsAndListeners();
 	}
 
-	async initializeWorkspaceCommentThreads(): Promise<void> {
+	async initializeWorkspaceCommentThreads(): Promise<void[]> {
 		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-		this._localFileChanges.forEach(async matchedFile => {
+		const localFileChangePromises = this._localFileChanges.map(async matchedFile => {
 			const threadData = await this.getWorkspaceFileThreadDatas(matchedFile);
 			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
+			return;
 		});
 
-		gitFileChangeNodeFilter(this._obsoleteFileChanges).forEach(fileChange => {
+		const outdatedFileChangePromises = gitFileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
 			let threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!));
 			this._obsoleteFileChangeCommentThreads[fileChange.fileName] = threads;
+			return;
 		});
+
+		return Promise.all([...localFileChangePromises, ...outdatedFileChangePromises]);
 	}
 
 	private async getWorkspaceFileThreadDatas(matchedFile: GitFileChangeNode): Promise<ThreadData[]> {
@@ -627,10 +632,6 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			fileName = query.path;
 		}
 
-		if (uri.scheme === 'file') {
-			fileName = uri.path;
-		}
-
 		if (uri.scheme === 'pr') {
 			fileName = fromPRUri(uri)!.fileName;
 		}
@@ -640,9 +641,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			if (uri.scheme === 'review' || uri.scheme === 'pr') {
 				return fileChange.fileName === fileName;
 			} else {
-				let absoluteFilePath = vscode.Uri.file(nodePath.resolve(this._repository.rootUri.fsPath, fileChange.fileName));
-				let targetFilePath = vscode.Uri.file(fileName);
-				return absoluteFilePath.fsPath === targetFilePath.fsPath;
+				return fileChange.filePath.path === uri.path;
 			}
 		});
 
@@ -779,6 +778,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			let rawComment: IComment | undefined;
 			if (!hasExistingComments) {
 				rawComment = await this.createNewThread(thread, matchedFile, input);
+				thread.threadId = rawComment!.id.toString();
 				this.addToCommentThreadCache(thread);
 			} else {
 				const comment = thread.comments[0];
