@@ -20,6 +20,7 @@ import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
+import { ApiImpl } from '../../api/api1';
 
 describe('GitHub Pull Requests view', function() {
 	let sinon: SinonSandbox;
@@ -98,7 +99,7 @@ describe('GitHub Pull Requests view', function() {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry, credentialStore);
+		const manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 		provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
@@ -115,7 +116,7 @@ describe('GitHub Pull Requests view', function() {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry, credentialStore);
+		const manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockGitHubRepository(remote, cStore, sinon);
 		});
@@ -138,7 +139,7 @@ describe('GitHub Pull Requests view', function() {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry, credentialStore);
+		const manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockGitHubRepository(remote, cStore, sinon);
 		});
@@ -203,7 +204,7 @@ describe('GitHub Pull Requests view', function() {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new PullRequestManager(repository, telemetry, credentialStore);
+			const manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
