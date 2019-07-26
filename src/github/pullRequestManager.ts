@@ -99,6 +99,12 @@ export enum PRManagerState {
 	RepositoriesLoaded
 }
 
+export interface PullRequestDefaults {
+	owner: string;
+	repo: string;
+	base: string;
+}
+
 export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
 
@@ -1061,7 +1067,22 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	async getPullRequestDefaults(): Promise<Octokit.PullsCreateParams> {
+	async getPullRequestTemplates(): Promise<vscode.Uri[]> {
+		/**
+		 * Places a PR template can be:
+		 * - At the root, the docs folder, or the.github folder, named pull_request_template.md or PULL_REQUEST_TEMPLATE.md
+		 * - At the same folder locations under a PULL_REQUEST_TEMPLATE folder with any name
+		 */
+		const templatesPattern1 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{pull_request_template,PULL_REQUEST_TEMPLATE}.md'));
+		const templatesPattern2 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md'));
+
+		const templatesPattern3 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, 'PULL_REQUEST_TEMPLATE/*.md'));
+		const templatesPattern4 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md'));
+
+		return [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
+	}
+
+	async getPullRequestDefaults(): Promise<PullRequestDefaults> {
 		if (!this.repository.state.HEAD) {
 			throw new DetachedHeadError(this.repository);
 		}
@@ -1070,15 +1091,11 @@ export class PullRequestManager implements vscode.Disposable {
 		const parent = meta.fork
 			? meta.parent
 			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
-		const branchName = this.repository.state.HEAD.name;
-		const { title, body } = titleAndBodyFrom(await this.getHeadCommitMessage());
+
 		return {
-			title, body,
 			owner: parent.owner.login,
 			repo: parent.name,
-			head: `${meta.owner.login}:${branchName}`,
-			base: parent.default_branch,
-			draft: false,
+			base: parent.default_branch
 		};
 	}
 
@@ -1750,7 +1767,7 @@ const ownedByMe: Predicate<GitHubRepository> = repo => {
 const byRemoteName = (name: string): Predicate<GitHubRepository> =>
 	({ remote: { remoteName } }) => remoteName === name;
 
-const titleAndBodyFrom = (message: string): { title: string, body: string } => {
+export const titleAndBodyFrom = (message: string): { title: string, body: string } => {
 	const idxLineBreak = message.indexOf('\n');
 	return {
 		title: idxLineBreak === -1

@@ -21,7 +21,7 @@ import { PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
@@ -649,6 +649,52 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return selected;
 	}
 
+	private async getPullRequestTitleAndDescriptionDefaults(progress: vscode.Progress<{message?: string, increment?: number}>): Promise<{ title: string, description: string } | undefined> {
+		const pullRequestTemplates = await this._prManager.getPullRequestTemplates();
+		let template: vscode.Uri | undefined;
+
+		if (pullRequestTemplates.length === 1) {
+			template = pullRequestTemplates[0];
+			progress.report({ increment: 5, message: 'Found pull request template. Creating pull request...' });
+		}
+
+		if (pullRequestTemplates.length > 1) {
+			const targetTemplate = await vscode.window.showQuickPick(pullRequestTemplates.map(uri => {
+				return {
+					label: vscode.workspace.asRelativePath(uri.path),
+					uri: uri
+				};
+			}), {
+				ignoreFocusOut: true,
+				placeHolder: 'Select the pull request template to use'
+			});
+
+			// Treat user pressing escape as cancel
+			if (!targetTemplate) {
+				return;
+			}
+
+			template = targetTemplate.uri;
+			progress.report({ increment: 5, message: 'Creating pull request...' });
+		}
+
+		const { title, body } = titleAndBodyFrom(await this._prManager.getHeadCommitMessage());
+		let description = body;
+		if (template) {
+			try {
+				const templateContent = await vscode.workspace.fs.readFile(template);
+				description = templateContent.toString();
+			} catch (e) {
+				Logger.appendLine(`Reading pull request template failed: ${e}`);
+			}
+		}
+
+		return {
+			title,
+			description
+		};
+	}
+
 	public async createPullRequest(draft=false): Promise<void> {
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
 		const githubRemotes = this._prManager.getGitHubRemotes();
@@ -703,13 +749,24 @@ export class ReviewManager implements vscode.DecorationProvider {
 				return;
 			}
 
-			pullRequestDefaults.base = target;
-			// For cross-repository pull requests, the owner must be listed. Always list to be safe. See https://developer.github.com/v3/pulls/#create-a-pull-request.
-			pullRequestDefaults.head = `${headRemote.owner}:${branchName}`;
-			pullRequestDefaults.owner = targetRemote!.owner;
-			pullRequestDefaults.repo = targetRemote!.name;
-			pullRequestDefaults.draft = draft;
-			const pullRequestModel = await this._prManager.createPullRequest(pullRequestDefaults);
+			const titleAndDescriptionDefaults = await this.getPullRequestTitleAndDescriptionDefaults(progress);
+			// User cancelled a quick input, cancel the create process
+			if (!titleAndDescriptionDefaults) {
+				return;
+			}
+
+			const createParams = {
+				title: titleAndDescriptionDefaults.title,
+				body: titleAndDescriptionDefaults.description,
+				base: target,
+				// For cross-repository pull requests, the owner must be listed. Always list to be safe. See https://developer.github.com/v3/pulls/#create-a-pull-request.
+				head: `${headRemote.owner}:${branchName}`,
+				owner: targetRemote!.owner,
+				repo: targetRemote!.name,
+				draft: draft
+			};
+
+			const pullRequestModel = await this._prManager.createPullRequest(createParams);
 
 			if (pullRequestModel) {
 				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.prNumber} Created` });
@@ -718,7 +775,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 				progress.report({ increment: 30 });
 			} else {
 				// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
-				progress.report({ increment: 90, message: `Failed to create pull request for ${pullRequestDefaults.head}` });
+				progress.report({ increment: 90, message: `Failed to create pull request for ${branchName}` });
 			}
 		});
 	}
