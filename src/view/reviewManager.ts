@@ -650,13 +650,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async getPullRequestTitleAndDescriptionDefaults(progress: vscode.Progress<{message?: string, increment?: number}>): Promise<{ title: string, description: string } | undefined> {
-		progress.report({ increment: 5, message: 'Looking for pull request template...' });
 		const pullRequestTemplates = await this._prManager.getPullRequestTemplates();
 		let template: vscode.Uri | undefined;
-
-		if (pullRequestTemplates.length === 0) {
-			progress.report({ increment: 5, message: 'No pull request template found. Creating pull request...' });
-		}
 
 		if (pullRequestTemplates.length === 1) {
 			template = pullRequestTemplates[0];
