@@ -741,8 +741,8 @@
     "tty": "1.0.1",
     "typescript": "^3.4.5",
     "vscode": "^1.1.33",
-    "webpack": "^4.35.3",
-    "webpack-cli": "^3.3.5"
+    "webpack": "^4.39.0",
+    "webpack-cli": "^3.3.6"
   },
   "dependencies": {
     "@octokit/rest": "^16.21.0",
@@ -753,7 +753,7 @@
     "git-credential-node": "^1.1.0",
     "graphql": "^14.0.2",
     "js-base64": "^2.4.9",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.13",
     "markdown-it": "^8.4.0",
     "markdown-it-checkbox": "^1.1.0",
     "markdown-it-sanitizer": "github:rebornix/markdown-it-sanitizer#10d930d08236ef4609ad10a6087745461d91cc7c",
@@ -768,6 +768,9 @@
   },
   "optionalDependencies": {
     "spawn-sync": "^2.0.0"
+  },
+  "resolutions": {
+    "webpack/**/tar": "^4.4.2"
   },
   "license": "MIT"
 }
