@@ -38,6 +38,9 @@ export class PRContext {
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
 		this.postMessage({ command: 'pr.merge', args	})
 
+	public deleteBranch = () =>
+		this.postMessage({ command: 'pr.deleteBranch' })
+
 	public readyForReview = () =>
 		this.postMessage({ command: 'pr.readyForReview' })
 

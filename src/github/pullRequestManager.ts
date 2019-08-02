@@ -1368,6 +1368,10 @@ export class PullRequestManager implements vscode.Disposable {
 			});
 	}
 
+	async deleteBranch(pullRequest: PullRequestModel) {
+		await pullRequest.githubRepository.deleteBranch(pullRequest);
+	}
+
 	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {
 		try {
 			if (!pullRequest.githubRepository.supportsGraphQl) {

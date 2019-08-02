@@ -24,10 +24,18 @@ export const StatusChecks = (pr: PullRequest) => {
 
 	return <div id='status-checks'>{
 		state === PullRequestStateEnum.Merged
-			? 'Pull request successfully merged'
+			?
+			<>
+				<div className='branch-status-message'>{'Pull request successfully merged'}</div>
+				<DeleteBranch {...pr}/>
+			</>
 			:
 		state === PullRequestStateEnum.Closed
-			? 'This pull request is closed'
+			?
+			<>
+				<div className='branch-status-message'>{'This pull request is closed'}</div>
+				<DeleteBranch {...pr}/>
+			</>
 			:
 			<>
 				{ status.statuses.length
@@ -106,6 +114,25 @@ export const Merge = (pr: PullRequest) => {
 		<button onClick={() => selectMethod(select.current.value as MergeMethod)}>Merge Pull Request</button>
 		{nbsp}using method{nbsp}
 		<MergeSelect ref={select} {...pr} />
+	</div>;
+};
+
+export const DeleteBranch = (pr: PullRequest) => {
+	const { deleteBranch } = useContext(PullRequestContext);
+
+	return <div className='branch-status-container'>
+		<form onSubmit={
+			async event => {
+				event.preventDefault();
+
+				try {
+					await deleteBranch();
+				} finally {
+				}
+			}
+		}>
+		<button type='submit'>Delete branch</button>
+		</form>
 	</div>;
 };
 

@@ -237,6 +237,16 @@ body .comment-container .review-comment-header {
 	margin-right: 5px;
 }
 
+#status-checks .branch-status-container {
+	display: inline-block;
+}
+
+#status-checks .branch-status-message {
+	display: inline-block;
+	line-height: 100%;
+	padding: 0 10px;
+}
+
 body .comment-container .review-comment-header > span,
 body .comment-container .review-comment-header > a,
 body .commit .commit-message > a,

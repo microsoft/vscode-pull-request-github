@@ -290,6 +290,8 @@ export class PullRequestOverviewPanel {
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.deleteBranch':
+				return this.deleteBranch();
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
 			case 'pr.close':
@@ -561,6 +563,10 @@ export class PullRequestOverviewPanel {
 			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 			this._throwError(message, {});
 		});
+	}
+
+	private deleteBranch() {
+		this._pullRequestManager.deleteBranch(this._pullRequest);
 	}
 
 	private setReadyForReview(message: IRequestMessage<{}>): void {
