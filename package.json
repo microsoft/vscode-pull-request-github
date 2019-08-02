@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.9.1",
+  "version": "0.9.2",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.35.0"
