@@ -345,6 +345,21 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
+	async deleteBranch(pullRequestModel: PullRequestModel): Promise<void> {
+		const { octokit } = await this.ensure();
+
+		try {
+			await octokit.git.deleteRef({
+				owner: pullRequestModel.head.repositoryCloneUrl.owner,
+				repo: pullRequestModel.head.repositoryCloneUrl.repositoryName,
+				ref: `heads/${pullRequestModel.head.ref}`
+			});
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to delete branch: ${e}`);
+			return;
+		}
+	}
+
 	async getMentionableUsers(): Promise<IAccount[]> {
 		Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
 		const { query, supportsGraphQl, remote } = await this.ensure();
