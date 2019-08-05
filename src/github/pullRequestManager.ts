@@ -147,7 +147,6 @@ export class PullRequestManager implements vscode.Disposable {
 
 		this._subs.push(this._git.onDidChangeState(async _ => {
 			await this.updateRepositories();
-			vscode.commands.executeCommand('pr.refreshList');
 		}));
 
 		this.setUpCompletionItemProvider();
