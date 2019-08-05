@@ -188,41 +188,22 @@ export class PullRequestManager implements vscode.Disposable {
 	private async getActiveGitHubRemotes(allGitHubRemotes: Remote[]): Promise<Remote[]> {
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 
-		if (remotesSetting) {
-			remotesSetting.forEach(remote => {
-				if (!allGitHubRemotes.some(repo => repo.remoteName === remote)) {
-					Logger.appendLine(`No remote with name '${remote}' found. Please update your 'githubPullRequests.remotes' setting.`);
-				}
-			});
-
-			Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, PullRequestManager.ID);
-
-			return remotesSetting
-				.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
-				.filter(repo => !!repo) as Remote[];
+		if (!remotesSetting) {
+			Logger.appendLine(`Unable to read remotes setting`);
+			return Promise.resolve([]);
 		}
 
-		const upstream = allGitHubRemotes.find(repo => repo.remoteName === 'upstream');
-		const origin = allGitHubRemotes.find(repo => repo.remoteName === 'origin');
+		remotesSetting.forEach(remote => {
+			if (!allGitHubRemotes.some(repo => repo.remoteName === remote)) {
+				Logger.appendLine(`No remote with name '${remote}' found. Please update your 'githubPullRequests.remotes' setting.`);
+			}
+		});
 
-		const activeRemotes: Remote[] = [];
-		if (upstream) {
-			Logger.debug(`Displaying upstream remote`, PullRequestManager.ID);
-			activeRemotes.push(upstream);
-		}
+		Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, PullRequestManager.ID);
 
-		if (origin) {
-			Logger.debug(`Displaying origin remote`, PullRequestManager.ID);
-			activeRemotes.push(origin);
-		}
-
-		if (activeRemotes.length) {
-			return activeRemotes;
-		}
-
-		Logger.debug(`Displaying all github remotes`, PullRequestManager.ID);
-		const remotes = uniqBy(allGitHubRemotes, remote => remote.gitProtocol.normalizeUri()!.toString());
-		return await PullRequestGitHelper.getUserCreatedRemotes(this.repository, remotes);
+		return remotesSetting
+			.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
+			.filter((repo: Remote | undefined): repo is Remote => !!repo);
 	}
 
 	private setUpCompletionItemProvider() {
