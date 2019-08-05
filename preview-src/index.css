@@ -676,10 +676,10 @@ textarea:focus {
 
 .form-actions {
 	display: flex;
+	padding-top: 10px;
 }
 
 .main-comment-form > .form-actions {
-	padding-top: 10px;
 	margin-bottom: 10px;
 }
 
