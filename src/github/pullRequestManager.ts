@@ -15,7 +15,7 @@ import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, 
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
-import { formatError, uniqBy, Predicate } from '../common/utils';
+import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
@@ -161,7 +161,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 	// Check if the remotes are authenticated and show a prompt if not, but don't block on user's response
 	private async showLoginPrompt(): Promise<void> {
-		const activeRemotes = await this.getUniqueActiveRemotes();
+		const activeRemotes = await this.getActiveRemotes();
 		for (let server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
 			this._credentialStore.hasOctokit(server).then(authd => {
 				if (!authd) {
@@ -413,7 +413,7 @@ export class PullRequestManager implements vscode.Disposable {
 		this.state = PRManagerState.Initializing;
 	}
 
-	private async getUniqueActiveRemotes(): Promise<Remote[]> {
+	private async getActiveRemotes(): Promise<Remote[]> {
 		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
 		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
@@ -425,20 +425,23 @@ export class PullRequestManager implements vscode.Disposable {
 			Logger.appendLine('No GitHub remotes found');
 		}
 
-		return uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority);
+		return activeRemotes;
 	}
 
 	async updateRepositories(): Promise<void> {
-		const activeRemotes = await this.getUniqueActiveRemotes();
+		const activeRemotes = await this.getActiveRemotes();
 
 		const serverAuthPromises: Promise<boolean>[] = [];
 		const authenticatedRemotes: Remote[] = [];
-		for (let server of activeRemotes) {
-			serverAuthPromises.push(this._credentialStore.hasOctokit(server).then(authd => {
+
+		const activeRemotesByAuthority = groupBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority);
+		for (let authority of Object.keys(activeRemotesByAuthority)) {
+			const remotesForAuthority = activeRemotesByAuthority[authority];
+			serverAuthPromises.push(this._credentialStore.hasOctokit(remotesForAuthority[0]).then(authd => {
 				if (!authd) {
 					return false;
 				} else {
-					authenticatedRemotes.push(server);
+					authenticatedRemotes.push(...remotesForAuthority);
 					return true;
 				}
 			}));
