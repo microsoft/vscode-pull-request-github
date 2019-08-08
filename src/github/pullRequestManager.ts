@@ -1192,7 +1192,7 @@ export class PullRequestManager implements vscode.Disposable {
 			this._telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
 			return pullRequestModel;
 		} catch (e) {
-			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
+			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${formatError(e)}`);
 
 			/* __GDPR__
 				"pr.create.failure" : {
