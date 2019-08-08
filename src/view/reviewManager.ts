@@ -587,6 +587,14 @@ export class ReviewManager implements vscode.DecorationProvider {
 						resolve();
 					}
 
+					if (err.gitErrorCode === GitErrorCodes.RemoteConnectionError) {
+						vscode.window.showWarningMessage(`Could not read from remote repository '${selectedRemote.remoteName}'. Please make sure you have the correct access rights and the repository exists.`, {
+							modal: true
+						});
+
+						resolve();
+					}
+
 					// we can't handle the error
 					throw err;
 				}
