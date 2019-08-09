@@ -46,6 +46,7 @@ export class PullRequestOverviewPanel {
 	private _disposables: vscode.Disposable[] = [];
 	private _descriptionNode: DescriptionNode;
 	private _pullRequest: PullRequestModel;
+	private _repositoryDefaultBranch: string;
 	private _pullRequestManager: PullRequestManager;
 	private _scrollPosition = { x: 0, y: 0 };
 	private _existingReviewers: ReviewState[];
@@ -213,6 +214,7 @@ export class PullRequestOverviewPanel {
 			}
 
 			this._pullRequest = pullRequest;
+			this._repositoryDefaultBranch = defaultBranch;
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
@@ -599,12 +601,20 @@ export class PullRequestOverviewPanel {
 		});
 
 		if (selectedActions) {
+			const isBranchActive = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 			const promises = selectedActions.map(action => {
 				switch (action.type) {
 					case 'upstream':
 						return this._pullRequestManager.deleteBranch(this._pullRequest);
 					case 'local':
-						return this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
+						return new Promise<void>(async (resolve) => {
+							if (isBranchActive) {
+								await this._pullRequestManager.repository.checkout(this._repositoryDefaultBranch);
+							}
+
+							await this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
+							resolve();
+						});
 					case 'remote':
 						return this._pullRequestManager.repository.removeRemote(branchInfo!.remote!);
 				}
