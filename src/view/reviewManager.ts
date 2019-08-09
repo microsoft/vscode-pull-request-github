@@ -296,6 +296,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
+		if (!pr.isResolved()) {
+			return;
+		}
+
 		this._prManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
@@ -336,6 +340,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 			return;
 		}
 
+		if (!pr.isResolved()) {
+			return;
+		}
+
 		if ((pr.head.sha !== this._lastCommitSha || (branch.behind !== undefined && branch.behind > 0)) && !this._updateMessageShown) {
 			this._updateMessageShown = true;
 			let result = await vscode.window.showInformationMessage('There are updates available for this branch.', {}, 'Pull');
@@ -353,6 +361,10 @@ export class ReviewManager implements vscode.DecorationProvider {
 	}
 
 	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: IComment[]): Promise<GitFileChangeNode[]> {
+		if (!pr.isResolved()) {
+			return [];
+		}
+
 		let nodes: GitFileChangeNode[] = [];
 		const mergeBase = pr.mergeBase || pr.base.sha;
 		const headSha = pr.head.sha;

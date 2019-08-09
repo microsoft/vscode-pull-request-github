@@ -15,6 +15,7 @@ export enum EventType {
 	Labeled,
 	Milestoned,
 	Assigned,
+	HeadRefDeleted,
 	Merged,
 	Other
 }
@@ -79,7 +80,15 @@ export interface AssignEvent {
 	actor: IAccount;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | MergedEvent | AssignEvent;
+export interface HeadRefDeleteEvent {
+	id: string;
+	event: EventType;
+	actor: IAccount;
+	createdAt: string;
+	headRef: string;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;
 
 export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
 	return event.event === EventType.Reviewed;
@@ -99,4 +108,8 @@ export function isMergedEvent(event: TimelineEvent): event is MergedEvent {
 
 export function isAssignEvent(event: TimelineEvent): event is AssignEvent {
 	return event.event === EventType.Assigned;
+}
+
+export function isHeadDeleteEvent(event: TimelineEvent): event is HeadRefDeleteEvent {
+	return event.event === EventType.HeadRefDeleted;
 }

@@ -23,6 +23,18 @@ export interface MergedEvent {
 	url: string;
 }
 
+export interface HeadRefDeletedEvent {
+	__typename: string;
+	id: string;
+	actor: {
+		login: string;
+		avatarUrl: string;
+		url: string;
+	};
+	createdAt: string;
+	headRefName: string;
+}
+
 export interface IssueComment {
 	__typename: string;
 	id: string;
@@ -145,7 +157,7 @@ export interface TimelineEventsResponse {
 		pullRequest: {
 			timeline: {
 				edges: {
-					node: (MergedEvent | Review | IssueComment | Commit | AssignedEvent)[];
+					node: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
 				}[]
 			}
 		}

@@ -21,6 +21,17 @@ fragment Merged on MergedEvent {
 	url
 }
 
+fragment HeadRefDeleted on HeadRefDeletedEvent {
+	id
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	createdAt
+	headRefName
+}
+
 fragment Ref on Ref {
 	name
 	repository {
@@ -124,6 +135,7 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 						...Review
 						...Commit
 						...AssignedEvent
+						...HeadRefDeleted
 					}
 				}
 			}

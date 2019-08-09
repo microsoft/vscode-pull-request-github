@@ -348,6 +348,10 @@ export class GitHubRepository implements vscode.Disposable {
 	async deleteBranch(pullRequestModel: PullRequestModel): Promise<void> {
 		const { octokit } = await this.ensure();
 
+		if (!pullRequestModel.isResolved()) {
+			return;
+		}
+
 		try {
 			await octokit.git.deleteRef({
 				owner: pullRequestModel.head.repositoryCloneUrl.owner,
