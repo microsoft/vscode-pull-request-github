@@ -71,11 +71,11 @@
         },
         "githubPullRequests.remotes": {
           "type": "array",
-          "default": null,
+          "default": ["origin", "upstream"],
           "items": {
             "type": "string"
           },
-          "markdownDescription": "List of remotes to fetch pull requests from. If no remotes are specified, will default to `upstream` or `origin` if these remotes are present, or all valid GitHub remotes."
+          "markdownDescription": "List of remotes to fetch pull requests from."
         },
         "githubPullRequests.includeRemotes": {
           "type": "string",
