@@ -133,6 +133,10 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	private async getWorkspaceFileThreadDatas(matchedFile: GitFileChangeNode): Promise<ThreadData[]> {
+		if (!this._prManager.activePullRequest!.isResolved()) {
+			return [];
+		}
+
 		const headCommitSha = this._prManager.activePullRequest!.head.sha;
 		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
 		const fileComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchedFile.comments)
@@ -270,6 +274,10 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			let commentThreads = this._workspaceFileChangeCommentThreads[fileName];
 
+			if (!this._prManager.activePullRequest!.isResolved()) {
+				return;
+			}
+
 			const headCommitSha = this._prManager.activePullRequest!.head.sha;
 			let contentDiff = await this.getContentDiff(editor.document, headCommitSha, fileName);
 			mapCommentThreadsToHead(matchedFiles[0].diffHunks, contentDiff, commentThreads);
@@ -396,6 +404,10 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 
 		if (document.uri.scheme === currentWorkspace.uri.scheme) {
+			if (!this._prManager.activePullRequest!.isResolved()) {
+				return;
+			}
+
 			const fileName = vscode.workspace.asRelativePath(document.uri.path);
 			const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === fileName);
 			let matchedFile: GitFileChangeNode;
@@ -448,6 +460,11 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (!this._prManager.activePullRequest) {
 			throw new Error('No active pull request');
 		}
+
+		if (!this._prManager.activePullRequest!.isResolved()) {
+			return;
+		}
+
 		const headCommitSha = this._prManager.activePullRequest.head.sha;
 
 		// git diff sha -- fileName

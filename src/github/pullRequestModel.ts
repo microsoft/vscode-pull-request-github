@@ -9,7 +9,15 @@ import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
 import { IAccount, PullRequest, PullRequestStateEnum } from './interface';
 
-export class PullRequestModel {
+interface IPullRequestModel {
+	head: GitHubRef | null;
+}
+
+interface IResolvedPullRequestModel extends IPullRequestModel {
+	head: GitHubRef;
+}
+
+export class PullRequestModel implements IPullRequestModel {
 	public id: number;
 	public graphNodeId: string;
 	public prNumber: number;
@@ -82,7 +90,7 @@ export class PullRequestModel {
 
 	public bodyHTML?: string;
 
-	public head: GitHubRef;
+	public head: GitHubRef | null;
 	public base: GitHubRef;
 
 	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest) {
@@ -112,8 +120,15 @@ export class PullRequestModel {
 		this.createdAt = prItem.createdAt;
 		this.updatedAt = prItem.updatedAt ? prItem.updatedAt : this.createdAt;
 
-		this.head = new GitHubRef(prItem.head!.ref, prItem.head!.label, prItem.head!.sha, prItem.head!.repo.cloneUrl);
+		if (prItem.head) {
+			this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.cloneUrl);
+		}
+
 		this.base = new GitHubRef(prItem.base!.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
+	}
+
+	isResolved(): this is IResolvedPullRequestModel {
+		return !!this.head;
 	}
 
 	equals(other: PullRequestModel | undefined): boolean {

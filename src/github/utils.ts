@@ -220,6 +220,8 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Milestoned;
 		case 'AssignedEvent':
 			return Common.EventType.Assigned;
+		case 'HeadRefDeletedEvent':
+			return Common.EventType.HeadRefDeleted;
 		case 'IssueComment':
 			return Common.EventType.Commented;
 		case 'PullRequestReview':
@@ -341,7 +343,7 @@ export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubR
 	};
 }
 
-export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent)[], githubRepository: GitHubRepository): Common.TimelineEvent[] {
+export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent | GraphQL.HeadRefDeletedEvent)[], githubRepository: GitHubRepository): Common.TimelineEvent[] {
 	const normalizedEvents: Common.TimelineEvent[] = [];
 	events.forEach(event => {
 		let type = convertGraphQLEventType(event.__typename);
@@ -410,6 +412,17 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					event: type,
 					user: assignEv.user,
 					actor: assignEv.actor
+				});
+				return;
+			case Common.EventType.HeadRefDeleted:
+				let deletedEv = event as GraphQL.HeadRefDeletedEvent;
+
+				normalizedEvents.push({
+					id: deletedEv.id,
+					event: type,
+					actor: deletedEv.actor,
+					createdAt: deletedEv.createdAt,
+					headRef: deletedEv.headRefName
 				});
 				return;
 			default:

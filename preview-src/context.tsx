@@ -173,6 +173,8 @@ export class PRContext {
 				return this.updatePR({ state: message.state });
 			case 'pr.update-checkout-status':
 				return this.updatePR({ isCurrentlyCheckedOut: message.isCurrentlyCheckedOut });
+			case 'pr.deleteBranch':
+				return this.updatePR({ head: 'UNKNOWN'});
 			case 'pr.enable-exit':
 				return this.updatePR({ isCurrentlyCheckedOut: true });
 			case 'set-scroll':

@@ -122,12 +122,22 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
 			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
+			const descriptionNode = new DescriptionNode(this, 'Description', {
+				light: Resource.icons.light.Description,
+				dark: Resource.icons.dark.Description
+			}, this.pullRequestModel);
+
 			const mergeBase = this.pullRequestModel.mergeBase;
 			if (!mergeBase) {
-				return [];
+				return [descriptionNode];
 			}
 
 			const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
+
+			if (!this.pullRequestModel.isResolved()) {
+				return [descriptionNode];
+			}
+
 			let fileChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
 					return new RemoteFileChangeNode(
@@ -139,7 +149,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					);
 				}
 
-				const headCommit = this.pullRequestModel.head.sha;
+				const headCommit = this.pullRequestModel.head!.sha;
 				let changedItem = new InMemFileChangeNode(
 					this,
 					this.pullRequestModel,
@@ -207,10 +217,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				this._fileChanges = fileChanges;
 			}
 
-			let result = [new DescriptionNode(this, 'Description', {
-				light: Resource.icons.light.Description,
-				dark: Resource.icons.dark.Description
-			}, this.pullRequestModel), ...this._fileChanges];
+			let result = [descriptionNode, ...this._fileChanges];
 
 			this.childrenDisposables = result;
 			return result;
@@ -320,6 +327,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	async revealComment(comment: IComment) {
 		let fileChange = this._fileChanges.find(fc => {
 			if (fc.fileName !== comment.path) {
+				return false;
+			}
+
+			if (!fc.pullRequest.isResolved()) {
 				return false;
 			}
 

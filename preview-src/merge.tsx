@@ -120,20 +120,24 @@ export const Merge = (pr: PullRequest) => {
 export const DeleteBranch = (pr: PullRequest) => {
 	const { deleteBranch } = useContext(PullRequestContext);
 
-	return <div className='branch-status-container'>
-		<form onSubmit={
-			async event => {
-				event.preventDefault();
+	if (pr.head === 'UNKNOWN') {
+		return <div />;
+	} else {
+		return <div className='branch-status-container'>
+			<form onSubmit={
+				async event => {
+					event.preventDefault();
 
-				try {
-					await deleteBranch();
-				} finally {
+					try {
+						await deleteBranch();
+					} finally {
+					}
 				}
-			}
-		}>
-		<button type='submit'>Delete branch</button>
-		</form>
-	</div>;
+			}>
+			<button type='submit'>Delete branch</button>
+			</form>
+		</div>;
+	}
 };
 
 function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMethod, cancel: () => void}) {

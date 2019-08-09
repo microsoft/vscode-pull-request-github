@@ -93,6 +93,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 				return false;
 			}
 
+			if (!fc.pullRequest.isResolved()) {
+				return false;
+			}
+
 			if (fc.pullRequest.head.sha !== comment.commitId) {
 				return false;
 			}

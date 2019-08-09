@@ -245,7 +245,7 @@ export class PullRequestOverviewPanel {
 					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
-					status: status,
+					status: status ? status : { statuses: [] },
 					mergeable: this._pullRequest.prItem.mergeable,
 					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
 					isDraft: this._pullRequest.isDraft,
@@ -291,7 +291,7 @@ export class PullRequestOverviewPanel {
 			case 'pr.merge':
 				return this.mergePullRequest(message);
 			case 'pr.deleteBranch':
-				return this.deleteBranch();
+				return this.deleteBranch(message);
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
 			case 'pr.close':
@@ -565,8 +565,61 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private deleteBranch() {
-		this._pullRequestManager.deleteBranch(this._pullRequest);
+	private deleteBranch(message: IRequestMessage<any>) {
+		this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest).then(branchInfo => {
+			let actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
+			let branchHeadRef = this._pullRequest.head!.ref;
+
+			actions.push({
+				label: `Delete remote branch ${this._pullRequest.remote.remoteName}/${branchHeadRef}`,
+				description: `${this._pullRequest.remote.normalizedHost}/${this._pullRequest.remote.owner}/${this._pullRequest.remote.repositoryName}`,
+				type: 'upstream',
+				picked: true
+			});
+
+			if (branchInfo) {
+				actions.push({
+					label: `Delete local branch ${branchInfo.branch}`,
+					type: 'local',
+					picked: false
+				});
+
+				if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
+					actions.push({
+						label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
+						type: 'remote',
+						picked: false
+					});
+				}
+			}
+
+			return vscode.window.showQuickPick(actions, {
+				canPickMany: true,
+				ignoreFocusOut: true
+			}).then(selectedActions => {
+				if (selectedActions) {
+					const promises = selectedActions.map(action => {
+						switch (action.type) {
+							case 'upstream':
+								return this._pullRequestManager.deleteBranch(this._pullRequest);
+							case 'local':
+								return this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
+							case 'remote':
+								return this._pullRequestManager.repository.removeRemote(branchInfo!.remote!);
+						}
+					});
+
+					return Promise.all(promises);
+				}
+			}).then(() => {
+				this.refreshPanel();
+				vscode.commands.executeCommand('pr.refreshList');
+
+				this._postMessage({
+					command: 'pr.deleteBranch'
+				});
+			});
+		});
 	}
 
 	private setReadyForReview(message: IRequestMessage<{}>): void {

@@ -704,7 +704,11 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 	}
 
-	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse> {
+	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse | undefined> {
+		if (!pullRequest.isResolved()) {
+			return;
+		}
+
 		const { remote, octokit } = await pullRequest.githubRepository.ensure();
 
 		const result = await octokit.repos.getCombinedStatusForRef({
@@ -1042,6 +1046,10 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<IComment | undefined> {
+		if (!pullRequest.isResolved()) {
+			return;
+		}
+
 		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
 		if (pendingReviewId) {
 			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path: commentPath, position });
@@ -1483,6 +1491,10 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async getPullRequestFileChangesInfo(pullRequest: PullRequestModel): Promise<IRawFileChange[]> {
+		if (!pullRequest.isResolved()) {
+			return [];
+		}
+
 		Logger.debug(`Fetch file changes, base, head and merge base of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const githubRepository = pullRequest.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
@@ -1566,6 +1578,10 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async fullfillPullRequestMissingInfo(pullRequest: PullRequestModel): Promise<void> {
 		try {
+			if (!pullRequest.isResolved()) {
+				return;
+			}
+
 			Logger.debug(`Fullfill pull request missing info - start`, PullRequestManager.ID);
 			const githubRepository = pullRequest.githubRepository;
 			const { octokit, remote } = await githubRepository.ensure();
@@ -1621,6 +1637,10 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel): Promise<boolean> {
 		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest);
+	}
+
+	async getBranchNameForPullRequest(pullRequest: PullRequestModel) {
+		return await PullRequestGitHelper.getBranchNRemoteForPullRequest(this.repository, pullRequest);
 	}
 
 	async fetchAndCheckout(pullRequest: PullRequestModel): Promise<void> {
