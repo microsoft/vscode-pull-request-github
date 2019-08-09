@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { API, IGit, Repository } from './api';
 import { TernarySearchTree } from '../common/utils';
+import { APIState } from '../typings/git';
 
 export class ApiImpl implements API, IGit, vscode.Disposable {
 	private static _handlePool: number = 0;
@@ -23,10 +24,24 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 		return ret;
 	}
 
+	public get state(): APIState | undefined {
+		let state: APIState | undefined;
+
+		this._providers.forEach(provider => {
+			if (provider.state) {
+				state = provider.state;
+			}
+		});
+
+		return state;
+	}
+
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
+	private _onDidChangeState = new vscode.EventEmitter<APIState>();
+	readonly onDidChangeState: vscode.Event<APIState> = this._onDidChangeState.event;
 
 	private _disposables: vscode.Disposable[];
 	constructor() {
@@ -39,6 +54,9 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 
 		this._disposables.push(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
 		this._disposables.push(provider.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
+		if (provider.onDidChangeState) {
+			this._disposables.push(provider.onDidChangeState(e => this._onDidChangeState.fire(e)));
+		}
 
 		provider.repositories.forEach(repository => {
 			this._onDidOpenRepository.fire(repository);

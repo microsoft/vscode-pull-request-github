@@ -23,6 +23,7 @@ import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
+import { ApiImpl } from '../api/api1';
 const queries = require('./queries.gql');
 
 interface PageInformation {
@@ -129,6 +130,7 @@ export class PullRequestManager implements vscode.Disposable {
 	constructor(
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
+		private _git: ApiImpl,
 		private _credentialStore: CredentialStore = new CredentialStore(_telemetry),
 	) {
 		this._subs = [];
@@ -141,6 +143,10 @@ export class PullRequestManager implements vscode.Disposable {
 				await this.updateRepositories();
 				vscode.commands.executeCommand('pr.refreshList');
 			}
+		}));
+
+		this._subs.push(this._git.onDidChangeState(async _ => {
+			await this.updateRepositories();
 		}));
 
 		this.setUpCompletionItemProvider();
@@ -429,6 +435,10 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async updateRepositories(): Promise<void> {
+		if (this._git.state === 'uninitialized') {
+			return;
+		}
+
 		const activeRemotes = await this.getActiveRemotes();
 
 		const serverAuthPromises: Promise<boolean>[] = [];

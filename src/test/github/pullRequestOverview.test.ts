@@ -19,6 +19,7 @@ import { init as initKeytar, setToken } from '../../authentication/keychain';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockKeytar } from '../mocks/mockKeytar';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
+import { ApiImpl } from '../../api/api1';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
@@ -36,7 +37,7 @@ describe('PullRequestOverview', function() {
 
 		const repository = new MockRepository();
 		const telemetry = new MockTelemetry();
-		pullRequestManager = new PullRequestManager(repository, telemetry);
+		pullRequestManager = new PullRequestManager(repository, telemetry, new ApiImpl());
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new Remote('origin', url, new Protocol(url));
