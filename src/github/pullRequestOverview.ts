@@ -52,10 +52,10 @@ export class PullRequestOverviewPanel {
 
 	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		let activeColumn = toTheSide ?
-							vscode.ViewColumn.Beside :
-							vscode.window.activeTextEditor ?
-								vscode.window.activeTextEditor.viewColumn :
-								vscode.ViewColumn.One;
+			vscode.ViewColumn.Beside :
+			vscode.window.activeTextEditor ?
+				vscode.window.activeTextEditor.viewColumn :
+				vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
@@ -146,7 +146,7 @@ export class PullRequestOverviewPanel {
 		// Do not show the author in the reviewer list
 		seen.set(author.login, true);
 
-		for (let i = reviewEvents.length -1; i >= 0; i--) {
+		for (let i = reviewEvents.length - 1; i >= 0; i--) {
 			const reviewer = reviewEvents[i].user;
 			if (!seen.get(reviewer.login)) {
 				seen.set(reviewer.login, true);
@@ -232,7 +232,7 @@ export class PullRequestOverviewPanel {
 					body: this._pullRequest.body,
 					bodyHTML: this._pullRequest.bodyHTML,
 					labels: this._pullRequest.prItem.labels,
-					author:{
+					author: {
 						login: this._pullRequest.author.login,
 						name: this._pullRequest.author.name,
 						avatarUrl: this._pullRequest.userAvatar,
@@ -352,9 +352,9 @@ export class PullRequestOverviewPanel {
 					description: reviewer.name
 				};
 			}), {
-				canPickMany: true,
-				matchOnDescription: true
-			});
+					canPickMany: true,
+					matchOnDescription: true
+				});
 
 			if (reviewersToAdd) {
 				await this._pullRequestManager.requestReview(this._pullRequest, reviewersToAdd.map(r => r.label));
@@ -382,7 +382,7 @@ export class PullRequestOverviewPanel {
 			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
 			this._existingReviewers.splice(index, 1);
 
-			this._replyMessage(message, { });
+			this._replyMessage(message, {});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
@@ -406,7 +406,7 @@ export class PullRequestOverviewPanel {
 
 			if (labelsToAdd) {
 				await this._pullRequestManager.addLabels(this._pullRequest, labelsToAdd.map(r => r.label));
-				const addedLabels: ILabel[] = labelsToAdd.map(label =>  newLabels.find(l => l.name === label.label)!);
+				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
 				this._pullRequest.prItem.labels = this._pullRequest.prItem.labels.concat(...addedLabels);
 
@@ -426,7 +426,7 @@ export class PullRequestOverviewPanel {
 			const index = this._pullRequest.prItem.labels.findIndex(label => label.name === message.args);
 			this._pullRequest.prItem.labels.splice(index, 1);
 
-			this._replyMessage(message, { });
+			this._replyMessage(message, {});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
@@ -459,7 +459,7 @@ export class PullRequestOverviewPanel {
 							throw err;
 						}
 
-						this._replyMessage(message, { });
+						this._replyMessage(message, {});
 					});
 				} catch (e) {
 					Logger.appendLine(`Applying patch failed: ${e}`);
@@ -528,7 +528,7 @@ export class PullRequestOverviewPanel {
 					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id.toString());
 
 				deleteCommentPromise.then(result => {
-					this._replyMessage(message, { });
+					this._replyMessage(message, {});
 				}).catch(e => {
 					this._throwError(message, e);
 					vscode.window.showErrorMessage(formatError(e));
@@ -565,61 +565,60 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private deleteBranch(message: IRequestMessage<any>) {
-		this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest).then(branchInfo => {
-			let actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
-			let branchHeadRef = this._pullRequest.head!.ref;
+	private async deleteBranch(message: IRequestMessage<any>) {
+		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest)
+		let actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
+		let branchHeadRef = this._pullRequest.head!.ref;
 
+		actions.push({
+			label: `Delete remote branch ${this._pullRequest.remote.remoteName}/${branchHeadRef}`,
+			description: `${this._pullRequest.remote.normalizedHost}/${this._pullRequest.remote.owner}/${this._pullRequest.remote.repositoryName}`,
+			type: 'upstream',
+			picked: true
+		});
+
+		if (branchInfo) {
 			actions.push({
-				label: `Delete remote branch ${this._pullRequest.remote.remoteName}/${branchHeadRef}`,
-				description: `${this._pullRequest.remote.normalizedHost}/${this._pullRequest.remote.owner}/${this._pullRequest.remote.repositoryName}`,
-				type: 'upstream',
-				picked: true
+				label: `Delete local branch ${branchInfo.branch}`,
+				type: 'local',
+				picked: false
 			});
 
-			if (branchInfo) {
+			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({
-					label: `Delete local branch ${branchInfo.branch}`,
-					type: 'local',
+					label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
+					type: 'remote',
 					picked: false
 				});
-
-				if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
-					actions.push({
-						label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
-						type: 'remote',
-						picked: false
-					});
-				}
 			}
+		}
 
-			return vscode.window.showQuickPick(actions, {
-				canPickMany: true,
-				ignoreFocusOut: true
-			}).then(selectedActions => {
-				if (selectedActions) {
-					const promises = selectedActions.map(action => {
-						switch (action.type) {
-							case 'upstream':
-								return this._pullRequestManager.deleteBranch(this._pullRequest);
-							case 'local':
-								return this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
-							case 'remote':
-								return this._pullRequestManager.repository.removeRemote(branchInfo!.remote!);
-						}
-					});
-
-					return Promise.all(promises);
-				}
-			}).then(() => {
-				this.refreshPanel();
-				vscode.commands.executeCommand('pr.refreshList');
-
-				this._postMessage({
-					command: 'pr.deleteBranch'
-				});
-			});
+		const selectedActions = await vscode.window.showQuickPick(actions, {
+			canPickMany: true,
+			ignoreFocusOut: true
 		});
+
+		if (selectedActions) {
+			const promises = selectedActions.map(action => {
+				switch (action.type) {
+					case 'upstream':
+						return this._pullRequestManager.deleteBranch(this._pullRequest);
+					case 'local':
+						return this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
+					case 'remote':
+						return this._pullRequestManager.repository.removeRemote(branchInfo!.remote!);
+				}
+			});
+
+			await Promise.all(promises);
+
+			this.refreshPanel();
+			vscode.commands.executeCommand('pr.refreshList');
+
+			this._postMessage({
+				command: 'pr.deleteBranch'
+			});
+		}
 	}
 
 	private setReadyForReview(message: IRequestMessage<{}>): void {
