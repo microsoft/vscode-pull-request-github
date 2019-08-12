@@ -352,6 +352,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.deleteLocalBranchesNRemotes",
+        "title": "Delete local branches and remotes",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.createComment",
         "title": "Add Comment",
         "category": "GitHub Pull Requests",

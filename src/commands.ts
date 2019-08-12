@@ -403,6 +403,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		await prManager.authenticate();
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
+		await prManager.deleteLocalBranchesNRemotes();
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
 		if (await prManager.authenticate()) {
 			vscode.commands.executeCommand('pr.refreshList');

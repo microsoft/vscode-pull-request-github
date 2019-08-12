@@ -259,6 +259,16 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query PullRequestState($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			title
+			number
+			state
+		}
+	}
+}
+
 mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	addPullRequestReviewComment(input: $input) {
 		comment {

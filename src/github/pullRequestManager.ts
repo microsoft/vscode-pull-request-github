@@ -12,7 +12,7 @@ import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
-import { PullRequestGitHelper } from './pullRequestGitHelper';
+import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 const queries = require('./queries.gql');
@@ -1378,6 +1378,202 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async deleteBranch(pullRequest: PullRequestModel) {
 		await pullRequest.githubRepository.deleteBranch(pullRequest);
+	}
+
+	async deleteLocalBranchesNRemotes() {
+		return new Promise(async resolve => {
+			const quickPick = vscode.window.createQuickPick();
+			quickPick.canSelectMany = true;
+			quickPick.ignoreFocusOut = true;
+			quickPick.placeholder = 'Choose local branches you want to delete permanently';
+			quickPick.show();
+			quickPick.busy = true;
+
+			const allConfigs = await this.repository.getConfigs();
+
+			let branchInfos: Map<string, { remote?: string; metadata?: PullRequestMetadata }> = new Map();
+
+			allConfigs.forEach(config => {
+				const key = config.key;
+				let matches = /^branch\.(.*)\.(.*)$/.exec(key);
+
+				if (matches && matches.length === 3) {
+					const branchName = matches[1];
+
+					if (!branchInfos.has(branchName)) {
+						branchInfos.set(branchName, {});
+					}
+
+					let value = branchInfos.get(branchName);
+					if (matches[2] === 'remote') {
+						value!['remote'] = config.value;
+					}
+
+					if (matches[2] === 'github-pr-owner-number') {
+						const metadata = PullRequestGitHelper.parsePullRequestMetadata(config.value);
+						value!['metadata'] = metadata;
+					}
+
+					branchInfos.set(branchName, value!);
+				}
+			});
+
+			let actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata, legacy?: boolean })[] = [];
+			branchInfos.forEach((value, key) => {
+				if (value.metadata) {
+					actions.push({
+						label: `${key}`,
+						description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata!.prNumber}`,
+						picked: false,
+						metadata: value.metadata!
+					});
+				}
+			});
+
+			let results = await Promise.all(actions.map(async action => {
+				const metadata = action.metadata;
+				const githubRepo = this._githubRepositories.find(repo =>
+					repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase()
+				);
+
+				if (!githubRepo) {
+					return action;
+				}
+
+				const { remote, query } = await githubRepo.ensure();
+				try {
+					const { data } = await query<PullRequestState>({
+						query: queries.PullRequestState,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							number: metadata!.prNumber,
+						}
+					});
+
+					action.legacy = data.repository.pullRequest.state !== 'OPEN';
+				} catch { }
+
+				return action;
+			}));
+
+			results.forEach(result => {
+				if (result.legacy) {
+					result.picked = true;
+				} else {
+					result.description = result.description + ' is still Open';
+				}
+			});
+
+			quickPick.items = results;
+			quickPick.selectedItems = results.filter(result => result.picked);
+			quickPick.busy = false;
+
+			let firstStep = true;
+			quickPick.onDidAccept(async () => {
+				if (firstStep) {
+					const picks = quickPick.selectedItems;
+					if (picks.length) {
+						quickPick.busy = true;
+						await Promise.all(picks.map(async pick => {
+							await this.repository.deleteBranch(pick.label, true);
+						}));
+						quickPick.busy = false;
+					}
+
+					firstStep = false;
+					quickPick.busy = true;
+
+					// check if there are remotes that should be cleaned
+					const newConfigs = await this.repository.getConfigs();
+					let remoteInfos: Map<string, { branches: Set<string>; url?: string; createdForPullRequest?: boolean }> = new Map();
+
+					newConfigs.forEach(config => {
+						const key = config.key;
+						let matches = /^branch\.(.*)\.(.*)$/.exec(key);
+
+						if (matches && matches.length === 3) {
+							const branchName = matches[1];
+
+							if (matches[2] === 'remote') {
+								const remoteName = config.value;
+
+								if (!remoteInfos.has(remoteName)) {
+									remoteInfos.set(remoteName, { branches: new Set() });
+								}
+
+								const value = remoteInfos.get(remoteName);
+								value!.branches.add(branchName);
+							}
+						}
+
+						matches = /^remote\.(.*)\.(.*)$/.exec(key);
+
+						if (matches && matches.length === 3) {
+							const remoteName = matches[1];
+
+							if (!remoteInfos.has(remoteName)) {
+								remoteInfos.set(remoteName, { branches: new Set() });
+							}
+
+							const value = remoteInfos.get(remoteName);
+
+							if (matches[2] === 'github-pr-remote') {
+								value!.createdForPullRequest = config.value === 'true';
+							}
+
+							if (matches[2] === 'url') {
+								value!.url = config.value;
+							}
+
+						}
+					});
+
+					let remoteItems: (vscode.QuickPickItem & { remote: string, createdForPullRequest?: boolean })[] = [];
+
+					remoteInfos.forEach((value, key) => {
+						if (value.branches.size > 0) {
+							let description = value.createdForPullRequest ? '' : 'Not created by GitHub Pull Request extension';
+							if (value.url) {
+								description = description ? (description + ' ' + value.url) : value.url;
+							}
+
+							remoteItems.push({
+								label: key,
+								description: description,
+								picked: value.createdForPullRequest,
+								createdForPullRequest: value.createdForPullRequest,
+								remote: key
+							});
+						}
+					});
+
+					if (remoteItems) {
+						quickPick.placeholder = 'Choose local branches you want to delete permanently';
+						quickPick.busy = false;
+						quickPick.items = remoteItems;
+						quickPick.selectedItems = remoteItems.filter(item => item.picked);
+					} else {
+						quickPick.hide();
+					}
+				} else {
+					// delete remotes
+					const picks = quickPick.selectedItems;
+					if (picks.length) {
+						quickPick.busy = true;
+						await Promise.all(picks.map(async pick => {
+							await this.repository.removeRemote(pick.label);
+						}));
+						quickPick.busy = false;
+					}
+					quickPick.hide();
+				}
+			});
+
+			quickPick.onDidHide(() => {
+				resolve();
+			});
+		});
 	}
 
 	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {

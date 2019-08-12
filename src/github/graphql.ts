@@ -174,6 +174,16 @@ export interface PendingReviewIdResponse {
 	rateLimit: RateLimit;
 }
 
+export interface PullRequestState {
+	repository: {
+		pullRequest: {
+			title: string;
+			number: number;
+			state: 'OPEN' | 'CLOSED' | 'MERGED';
+		}
+	}
+}
+
 export interface PullRequestCommentsResponse {
 	repository: {
 		pullRequest: {
