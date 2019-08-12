@@ -1511,7 +1511,7 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 		});
 
-		let remoteItems: (vscode.QuickPickItem & { remote: string, createdForPullRequest?: boolean })[] = [];
+		let remoteItems: (vscode.QuickPickItem & { remote: string })[] = [];
 
 		remoteInfos.forEach((value, key) => {
 			if (value.branches.size === 0) {
@@ -1524,7 +1524,6 @@ export class PullRequestManager implements vscode.Disposable {
 					label: key,
 					description: description,
 					picked: value.createdForPullRequest,
-					createdForPullRequest: value.createdForPullRequest,
 					remote: key
 				});
 			}
