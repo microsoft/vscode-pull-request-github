@@ -1386,7 +1386,7 @@ export class PullRequestManager implements vscode.Disposable {
 		await pullRequest.githubRepository.deleteBranch(pullRequest);
 	}
 
-	private async getBranchItems() {
+	private async getBranchDeletionItems() {
 		const allConfigs = await this.repository.getConfigs();
 		let branchInfos: Map<string, { remote?: string; metadata?: PullRequestMetadata }> = new Map();
 
@@ -1465,7 +1465,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return results;
 	}
 
-	private async getRemoteItems() {
+	private async getRemoteDeletionItems() {
 		// check if there are remotes that should be cleaned
 		const newConfigs = await this.repository.getConfigs();
 		let remoteInfos: Map<string, { branches: Set<string>; url?: string; createdForPullRequest?: boolean }> = new Map();
@@ -1542,7 +1542,7 @@ export class PullRequestManager implements vscode.Disposable {
 			quickPick.busy = true;
 
 			// Check local branches
-			const results = await this.getBranchItems();
+			const results = await this.getBranchDeletionItems();
 			quickPick.items = results;
 			quickPick.selectedItems = results.filter(result => result.picked);
 			quickPick.busy = false;
@@ -1562,7 +1562,7 @@ export class PullRequestManager implements vscode.Disposable {
 					firstStep = false;
 					quickPick.busy = true;
 
-					const remoteItems = await this.getRemoteItems();
+					const remoteItems = await this.getRemoteDeletionItems();
 
 					if (remoteItems) {
 						quickPick.placeholder = 'Choose remotes you want to delete permanently';
