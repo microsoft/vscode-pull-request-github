@@ -1386,6 +1386,153 @@ export class PullRequestManager implements vscode.Disposable {
 		await pullRequest.githubRepository.deleteBranch(pullRequest);
 	}
 
+	private async getBranchItems() {
+		const allConfigs = await this.repository.getConfigs();
+		let branchInfos: Map<string, { remote?: string; metadata?: PullRequestMetadata }> = new Map();
+
+		allConfigs.forEach(config => {
+			const key = config.key;
+			let matches = /^branch\.(.*)\.(.*)$/.exec(key);
+
+			if (matches && matches.length === 3) {
+				const branchName = matches[1];
+
+				if (!branchInfos.has(branchName)) {
+					branchInfos.set(branchName, {});
+				}
+
+				let value = branchInfos.get(branchName);
+				if (matches[2] === 'remote') {
+					value!['remote'] = config.value;
+				}
+
+				if (matches[2] === 'github-pr-owner-number') {
+					const metadata = PullRequestGitHelper.parsePullRequestMetadata(config.value);
+					value!['metadata'] = metadata;
+				}
+
+				branchInfos.set(branchName, value!);
+			}
+		});
+
+		let actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata, legacy?: boolean })[] = [];
+		branchInfos.forEach((value, key) => {
+			if (value.metadata) {
+				actions.push({
+					label: `${key}`,
+					description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata!.prNumber}`,
+					picked: false,
+					metadata: value.metadata!
+				});
+			}
+		});
+
+		let results = await Promise.all(actions.map(async action => {
+			const metadata = action.metadata;
+			const githubRepo = this._githubRepositories.find(repo =>
+				repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase()
+			);
+
+			if (!githubRepo) {
+				return action;
+			}
+
+			const { remote, query } = await githubRepo.ensure();
+			try {
+				const { data } = await query<PullRequestState>({
+					query: queries.PullRequestState,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: metadata!.prNumber,
+					}
+				});
+
+				action.legacy = data.repository.pullRequest.state !== 'OPEN';
+			} catch { }
+
+			return action;
+		}));
+
+		results.forEach(result => {
+			if (result.legacy) {
+				result.picked = true;
+			} else {
+				result.description = result.description + ' is still Open';
+			}
+		});
+
+		return results;
+	}
+
+	private async getRemoteItems() {
+		// check if there are remotes that should be cleaned
+		const newConfigs = await this.repository.getConfigs();
+		let remoteInfos: Map<string, { branches: Set<string>; url?: string; createdForPullRequest?: boolean }> = new Map();
+
+		newConfigs.forEach(config => {
+			const key = config.key;
+			let matches = /^branch\.(.*)\.(.*)$/.exec(key);
+
+			if (matches && matches.length === 3) {
+				const branchName = matches[1];
+
+				if (matches[2] === 'remote') {
+					const remoteName = config.value;
+
+					if (!remoteInfos.has(remoteName)) {
+						remoteInfos.set(remoteName, { branches: new Set() });
+					}
+
+					const value = remoteInfos.get(remoteName);
+					value!.branches.add(branchName);
+				}
+			}
+
+			matches = /^remote\.(.*)\.(.*)$/.exec(key);
+
+			if (matches && matches.length === 3) {
+				const remoteName = matches[1];
+
+				if (!remoteInfos.has(remoteName)) {
+					remoteInfos.set(remoteName, { branches: new Set() });
+				}
+
+				const value = remoteInfos.get(remoteName);
+
+				if (matches[2] === 'github-pr-remote') {
+					value!.createdForPullRequest = config.value === 'true';
+				}
+
+				if (matches[2] === 'url') {
+					value!.url = config.value;
+				}
+
+			}
+		});
+
+		let remoteItems: (vscode.QuickPickItem & { remote: string, createdForPullRequest?: boolean })[] = [];
+
+		remoteInfos.forEach((value, key) => {
+			if (value.branches.size === 0) {
+				let description = value.createdForPullRequest ? '' : 'Not created by GitHub Pull Request extension';
+				if (value.url) {
+					description = description ? (description + ' ' + value.url) : value.url;
+				}
+
+				remoteItems.push({
+					label: key,
+					description: description,
+					picked: value.createdForPullRequest,
+					createdForPullRequest: value.createdForPullRequest,
+					remote: key
+				});
+			}
+		});
+
+		return remoteItems;
+	}
+
 	async deleteLocalBranchesNRemotes() {
 		return new Promise(async resolve => {
 			const quickPick = vscode.window.createQuickPick();
@@ -1395,82 +1542,8 @@ export class PullRequestManager implements vscode.Disposable {
 			quickPick.show();
 			quickPick.busy = true;
 
-			const allConfigs = await this.repository.getConfigs();
-
-			let branchInfos: Map<string, { remote?: string; metadata?: PullRequestMetadata }> = new Map();
-
-			allConfigs.forEach(config => {
-				const key = config.key;
-				let matches = /^branch\.(.*)\.(.*)$/.exec(key);
-
-				if (matches && matches.length === 3) {
-					const branchName = matches[1];
-
-					if (!branchInfos.has(branchName)) {
-						branchInfos.set(branchName, {});
-					}
-
-					let value = branchInfos.get(branchName);
-					if (matches[2] === 'remote') {
-						value!['remote'] = config.value;
-					}
-
-					if (matches[2] === 'github-pr-owner-number') {
-						const metadata = PullRequestGitHelper.parsePullRequestMetadata(config.value);
-						value!['metadata'] = metadata;
-					}
-
-					branchInfos.set(branchName, value!);
-				}
-			});
-
-			let actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata, legacy?: boolean })[] = [];
-			branchInfos.forEach((value, key) => {
-				if (value.metadata) {
-					actions.push({
-						label: `${key}`,
-						description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata!.prNumber}`,
-						picked: false,
-						metadata: value.metadata!
-					});
-				}
-			});
-
-			let results = await Promise.all(actions.map(async action => {
-				const metadata = action.metadata;
-				const githubRepo = this._githubRepositories.find(repo =>
-					repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase()
-				);
-
-				if (!githubRepo) {
-					return action;
-				}
-
-				const { remote, query } = await githubRepo.ensure();
-				try {
-					const { data } = await query<PullRequestState>({
-						query: queries.PullRequestState,
-						variables: {
-							owner: remote.owner,
-							name: remote.repositoryName,
-							number: metadata!.prNumber,
-						}
-					});
-
-					action.legacy = data.repository.pullRequest.state !== 'OPEN';
-				} catch { }
-
-				return action;
-			}));
-
-			results.forEach(result => {
-				if (result.legacy) {
-					result.picked = true;
-				} else {
-					result.description = result.description + ' is still Open';
-				}
-			});
-
+			// Check local branches
+			const results = await this.getBranchItems();
 			quickPick.items = results;
 			quickPick.selectedItems = results.filter(result => result.picked);
 			quickPick.busy = false;
@@ -1490,72 +1563,10 @@ export class PullRequestManager implements vscode.Disposable {
 					firstStep = false;
 					quickPick.busy = true;
 
-					// check if there are remotes that should be cleaned
-					const newConfigs = await this.repository.getConfigs();
-					let remoteInfos: Map<string, { branches: Set<string>; url?: string; createdForPullRequest?: boolean }> = new Map();
-
-					newConfigs.forEach(config => {
-						const key = config.key;
-						let matches = /^branch\.(.*)\.(.*)$/.exec(key);
-
-						if (matches && matches.length === 3) {
-							const branchName = matches[1];
-
-							if (matches[2] === 'remote') {
-								const remoteName = config.value;
-
-								if (!remoteInfos.has(remoteName)) {
-									remoteInfos.set(remoteName, { branches: new Set() });
-								}
-
-								const value = remoteInfos.get(remoteName);
-								value!.branches.add(branchName);
-							}
-						}
-
-						matches = /^remote\.(.*)\.(.*)$/.exec(key);
-
-						if (matches && matches.length === 3) {
-							const remoteName = matches[1];
-
-							if (!remoteInfos.has(remoteName)) {
-								remoteInfos.set(remoteName, { branches: new Set() });
-							}
-
-							const value = remoteInfos.get(remoteName);
-
-							if (matches[2] === 'github-pr-remote') {
-								value!.createdForPullRequest = config.value === 'true';
-							}
-
-							if (matches[2] === 'url') {
-								value!.url = config.value;
-							}
-
-						}
-					});
-
-					let remoteItems: (vscode.QuickPickItem & { remote: string, createdForPullRequest?: boolean })[] = [];
-
-					remoteInfos.forEach((value, key) => {
-						if (value.branches.size > 0) {
-							let description = value.createdForPullRequest ? '' : 'Not created by GitHub Pull Request extension';
-							if (value.url) {
-								description = description ? (description + ' ' + value.url) : value.url;
-							}
-
-							remoteItems.push({
-								label: key,
-								description: description,
-								picked: value.createdForPullRequest,
-								createdForPullRequest: value.createdForPullRequest,
-								remote: key
-							});
-						}
-					});
+					const remoteItems = await this.getRemoteItems();
 
 					if (remoteItems) {
-						quickPick.placeholder = 'Choose local branches you want to delete permanently';
+						quickPick.placeholder = 'Choose remotes you want to delete permanently';
 						quickPick.busy = false;
 						quickPick.items = remoteItems;
 						quickPick.selectedItems = remoteItems.filter(item => item.picked);
