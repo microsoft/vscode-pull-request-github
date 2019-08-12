@@ -15,7 +15,7 @@ import { formatError, onceEvent } from './common/utils';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { handler as uriHandler } from './common/uri';
 import * as Keychain from './authentication/keychain';
-import * as Storage  from './common/storage';
+import * as Storage from './common/storage';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ApiImpl } from './api/api1';
