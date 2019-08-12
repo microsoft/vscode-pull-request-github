@@ -14,6 +14,7 @@ import { GitErrorCodes } from '../api/api';
 import { IComment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
+import * as Storage from '../common/storage';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { PullRequestManager } from './pullRequestManager';
@@ -568,7 +569,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {
-		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest)
+		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest);
 		let actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
 		let branchHeadRef = this._pullRequest.head!.ref;
 
@@ -583,14 +584,14 @@ export class PullRequestOverviewPanel {
 			actions.push({
 				label: `Delete local branch ${branchInfo.branch}`,
 				type: 'local',
-				picked: false
+				picked: !!Storage.getPreference('ghpr.deleteBranch.shouldSelectLocalBranch')
 			});
 
 			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({
 					label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
 					type: 'remote',
-					picked: false
+					picked: !!Storage.getPreference('ghpr.deleteBranch.shouldSelectRemote')
 				});
 			}
 		}
@@ -602,6 +603,14 @@ export class PullRequestOverviewPanel {
 
 		if (selectedActions) {
 			const isBranchActive = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+			const shouldSelectLocal = !!selectedActions.filter(action => action.type === 'local').length;
+			await Storage.setPreference('ghpr.deleteBranch.shouldSelectLocalBranch', shouldSelectLocal);
+
+			if (actions.filter(action => action.type === 'remote').length) {
+				const shouldSelectRemote =  !!selectedActions.filter(action => action.type === 'remote').length;
+				await Storage.setPreference('ghpr.deleteBranch.shouldSelectRemote', shouldSelectRemote);
+			}
+
 			const promises = selectedActions.map(action => {
 				switch (action.type) {
 					case 'upstream':
