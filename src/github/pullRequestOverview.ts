@@ -571,14 +571,17 @@ export class PullRequestOverviewPanel {
 	private async deleteBranch(message: IRequestMessage<any>) {
 		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest);
 		let actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
-		let branchHeadRef = this._pullRequest.head!.ref;
 
-		actions.push({
-			label: `Delete remote branch ${this._pullRequest.remote.remoteName}/${branchHeadRef}`,
-			description: `${this._pullRequest.remote.normalizedHost}/${this._pullRequest.remote.owner}/${this._pullRequest.remote.repositoryName}`,
-			type: 'upstream',
-			picked: true
-		});
+		if (this._pullRequest.isResolved()) {
+			const branchHeadRef = this._pullRequest.head.ref;
+
+			actions.push({
+				label: `Delete remote branch ${this._pullRequest.remote.remoteName}/${branchHeadRef}`,
+				description: `${this._pullRequest.remote.normalizedHost}/${this._pullRequest.remote.owner}/${this._pullRequest.remote.repositoryName}`,
+				type: 'upstream',
+				picked: true
+			});
+		}
 
 		if (branchInfo) {
 			actions.push({
@@ -594,6 +597,11 @@ export class PullRequestOverviewPanel {
 					picked: !!Storage.getPreference('ghpr.deleteBranch.shouldSelectRemote')
 				});
 			}
+		}
+
+		if (!actions.length) {
+			vscode.window.showWarningMessage(`There is no longer upstream or local branch for Pull Request #${this._pullRequest.prNumber}`);
+			return;
 		}
 
 		const selectedActions = await vscode.window.showQuickPick(actions, {
