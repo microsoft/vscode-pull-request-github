@@ -125,17 +125,17 @@ export class PullRequestGitHelper {
 		let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
 		let configs = await repository.getConfigs();
 
-		let branchInfos = configs.map(config => {
+		let branchInfo = configs.map(config => {
 			let matches = PullRequestBranchRegex.exec(config.key);
 			return {
 				branch: matches && matches.length ? matches[1] : null,
 				value: config.value
 			};
-		}).filter(c => c.branch && c.value === key);
+		}).find(c => c.branch && c.value === key);
 
-		if (branchInfos && branchInfos.length) {
+		if (branchInfo) {
 			// we find the branch
-			const branchName = branchInfos[0].branch;
+			const branchName = branchInfo.branch;
 
 			try {
 				const configKey = `branch.${branchName}.remote`;
@@ -159,7 +159,7 @@ export class PullRequestGitHelper {
 				let remoteInUse: boolean | undefined;
 				if (createdForPullRequest) {
 					// try to find other branches under this remote
-					let otherBranches = configs.filter(config => {
+					remoteInUse = configs.some(config => {
 						let matches = PullRequestRemoteRegex.exec(config.key);
 
 						if (matches && config.key !== `branch.${branchName}.remote` && config.value === remoteName!) {
@@ -168,8 +168,6 @@ export class PullRequestGitHelper {
 
 						return false;
 					});
-
-					remoteInUse = !!otherBranches.length;
 				}
 
 				return {
