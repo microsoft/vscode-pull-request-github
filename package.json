@@ -134,6 +134,16 @@
           "default": false,
           "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
         },
+        "githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, Local Branch option will be selected by default when deleting a branch from a pull request."
+        },
+        "githubPullRequests.defaultDeletionMethod.selectRemote": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, Remote option will be selected by default when deleting a branch from a pull request"
+        },
         "telemetry.optout": {
           "type": "boolean",
           "default": false,
