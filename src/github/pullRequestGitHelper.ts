@@ -131,7 +131,7 @@ export class PullRequestGitHelper {
 				branch: matches && matches.length ? matches[1] : null,
 				value: config.value
 			};
-		}).find(c => c.branch && c.value === key);
+		}).find(c => !!c.branch && c.value === key);
 
 		if (branchInfo) {
 			// we find the branch

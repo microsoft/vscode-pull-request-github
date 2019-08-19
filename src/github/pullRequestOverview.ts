@@ -584,17 +584,20 @@ export class PullRequestOverviewPanel {
 		}
 
 		if (branchInfo) {
+			const preferredLocalBranchDeletionMethod = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('defaultDeletionMethod.selectLocalBranch');
 			actions.push({
 				label: `Delete local branch ${branchInfo.branch}`,
 				type: 'local',
-				picked: !!Storage.getPreference('ghpr.deleteBranch.shouldSelectLocalBranch')
+				picked: !!preferredLocalBranchDeletionMethod
 			});
+
+			const preferredRemoteDeletionMethod = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('defaultDeletionMethod.selectRemote');
 
 			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({
 					label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
 					type: 'remote',
-					picked: !!Storage.getPreference('ghpr.deleteBranch.shouldSelectRemote')
+					picked: !!preferredRemoteDeletionMethod
 				});
 			}
 		}
