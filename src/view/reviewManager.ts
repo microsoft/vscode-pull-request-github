@@ -22,7 +22,7 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem } from './quickpick';
 import { PullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
 
@@ -290,13 +290,9 @@ export class ReviewManager implements vscode.DecorationProvider {
 		const { owner, repositoryName } = matchingPullRequestMetadata;
 		Logger.appendLine('Review> Resolving pull request');
 		const pr = await this._prManager.resolvePullRequest(owner, repositoryName, matchingPullRequestMetadata.prNumber);
-		if (!pr) {
+		if (!pr || !pr.isResolved()) {
 			this._prNumber = undefined;
 			Logger.appendLine('Review> This PR is no longer valid');
-			return;
-		}
-
-		if (!pr.isResolved()) {
 			return;
 		}
 
@@ -335,12 +331,8 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 		const pr = await this._prManager.resolvePullRequest(matchingPullRequestMetadata.owner, matchingPullRequestMetadata.repositoryName, this._prNumber);
 
-		if (!pr) {
+		if (!pr || !pr.isResolved()) {
 			Logger.appendLine('Review> This PR is no longer valid');
-			return;
-		}
-
-		if (!pr.isResolved()) {
 			return;
 		}
 
@@ -360,11 +352,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return Promise.resolve(void 0);
 	}
 
-	private async getLocalChangeNodes(pr: PullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: IComment[]): Promise<GitFileChangeNode[]> {
-		if (!pr.isResolved()) {
-			return [];
-		}
-
+	private async getLocalChangeNodes(pr: PullRequestModel & IResolvedPullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: IComment[]): Promise<GitFileChangeNode[]> {
 		let nodes: GitFileChangeNode[] = [];
 		const mergeBase = pr.mergeBase || pr.base.sha;
 		const headSha = pr.head.sha;
@@ -410,7 +398,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 		return nodes;
 	}
 
-	private async getPullRequestData(pr: PullRequestModel): Promise<void> {
+	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
 			this._comments = await this._prManager.getPullRequestComments(pr);
 			let activeComments = this._comments.filter(comment => comment.position);

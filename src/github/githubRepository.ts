@@ -348,7 +348,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async deleteBranch(pullRequestModel: PullRequestModel): Promise<void> {
 		const { octokit } = await this.ensure();
 
-		if (!pullRequestModel.isResolved()) {
+		if (!pullRequestModel.validatePullRequestModel('Unable to delete branch')) {
 			return;
 		}
 

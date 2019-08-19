@@ -461,7 +461,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			throw new Error('No active pull request');
 		}
 
-		if (!this._prManager.activePullRequest!.isResolved()) {
+		if (!this._prManager.activePullRequest!.validatePullRequestModel('Creating new comment failed')) {
 			return;
 		}
 

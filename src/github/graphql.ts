@@ -181,7 +181,7 @@ export interface PullRequestState {
 			number: number;
 			state: 'OPEN' | 'CLOSED' | 'MERGED';
 		}
-	}
+	};
 }
 
 export interface PullRequestCommentsResponse {

@@ -11,7 +11,7 @@ import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { Repository, Branch } from '../api/api';
-import { PullRequestModel } from './pullRequestModel';
+import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
@@ -26,11 +26,7 @@ export interface PullRequestMetadata {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
-	static async checkoutFromFork(repository: Repository, pullRequest: PullRequestModel) {
-		if (!pullRequest.isResolved()) {
-			return;
-		}
-
+	static async checkoutFromFork(repository: Repository, pullRequest: PullRequestModel & IResolvedPullRequestModel) {
 		// the branch is from a fork
 		let localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
 		// create remote for this fork
@@ -49,7 +45,7 @@ export class PullRequestGitHelper {
 	}
 
 	static async fetchAndCheckout(repository: Repository, remotes: Remote[], pullRequest: PullRequestModel): Promise<void> {
-		if (!pullRequest.isResolved()) {
+		if (!pullRequest.validatePullRequestModel('Checkout pull request failed')) {
 			return;
 		}
 
@@ -304,11 +300,7 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(remotes: Remote[], pullRequest: PullRequestModel): Remote | undefined {
-		if (!pullRequest.isResolved()) {
-			return;
-		}
-
+	static getHeadRemoteForPullRequest(remotes: Remote[], pullRequest: PullRequestModel & IResolvedPullRequestModel): Remote | undefined {
 		return remotes.find(remote => remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl));
 	}
 

@@ -13,7 +13,7 @@ interface IPullRequestModel {
 	head: GitHubRef | null;
 }
 
-interface IResolvedPullRequestModel extends IPullRequestModel {
+export interface IResolvedPullRequestModel extends IPullRequestModel {
 	head: GitHubRef;
 }
 
@@ -127,8 +127,38 @@ export class PullRequestModel implements IPullRequestModel {
 		this.base = new GitHubRef(prItem.base!.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
 	}
 
+	/**
+	 * Valiate if the pull request has a valid HEAD.
+	 * Use only when the method can fail sliently, otherwise use `validatePullRequestModel`
+	 */
 	isResolved(): this is IResolvedPullRequestModel {
 		return !!this.head;
+	}
+
+	/**
+	 * Valiate if the pull request has a valid HEAD. Show a warning message to users when the pull request is invalid.
+	 * @param message Human readable action execution failure message.
+	 */
+	validatePullRequestModel(message?: string): this is IResolvedPullRequestModel {
+		if (!!this.head) {
+			return true;
+		}
+
+		const reason = `There is no upstream branch for Pull Request #${this.prNumber}. View it on GitHub for more details`;
+
+		if (message) {
+			message += `: ${reason}`;
+		} else {
+			message = reason;
+		}
+
+		vscode.window.showWarningMessage(reason, 'Open in GitHub').then(action => {
+			if (action && action === 'Open in GitHub') {
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.html_url));
+			}
+		});
+
+		return false;
 	}
 
 	equals(other: PullRequestModel | undefined): boolean {

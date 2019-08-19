@@ -13,7 +13,7 @@ import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEve
 import { GitHubRepository } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
-import { PullRequestModel } from './pullRequestModel';
+import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, uniqBy, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../api/api';
@@ -1046,7 +1046,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<IComment | undefined> {
-		if (!pullRequest.isResolved()) {
+		if (!pullRequest.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
 
@@ -1420,7 +1420,7 @@ export class PullRequestManager implements vscode.Disposable {
 			if (value.metadata) {
 				actions.push({
 					label: `${key}`,
-					description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata!.prNumber}`,
+					description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata.prNumber}`,
 					picked: false,
 					metadata: value.metadata!
 				});
@@ -1696,11 +1696,7 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 	}
 
-	async getPullRequestFileChangesInfo(pullRequest: PullRequestModel): Promise<IRawFileChange[]> {
-		if (!pullRequest.isResolved()) {
-			return [];
-		}
-
+	async getPullRequestFileChangesInfo(pullRequest: PullRequestModel & IResolvedPullRequestModel): Promise<IRawFileChange[]> {
 		Logger.debug(`Fetch file changes, base, head and merge base of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const githubRepository = pullRequest.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();

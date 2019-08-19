@@ -60,6 +60,11 @@ describe('PullRequestGitHelper', function () {
 
 			const pullRequest = new PullRequestModel(gitHubRepository, remote, prItem);
 
+			if (!pullRequest.isResolved()) {
+				assert(pullRequest.isResolved(), 'pull request head not resolved successfully');
+				return;
+			}
+
 			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest);
 
 			assert.deepEqual(repository.state.remotes, [{

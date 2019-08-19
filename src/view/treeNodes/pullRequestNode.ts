@@ -120,12 +120,17 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				this.childrenDisposables.forEach(dp => dp.dispose());
 			}
 
-			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
-			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
 			const descriptionNode = new DescriptionNode(this, 'Description', {
 				light: Resource.icons.light.Description,
 				dark: Resource.icons.dark.Description
 			}, this.pullRequestModel);
+
+			if (!this.pullRequestModel.isResolved()) {
+				return [descriptionNode];
+			}
+
+			const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
+			const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
 
 			const mergeBase = this.pullRequestModel.mergeBase;
 			if (!mergeBase) {
@@ -133,10 +138,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 
 			const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
-
-			if (!this.pullRequestModel.isResolved()) {
-				return [descriptionNode];
-			}
 
 			let fileChanges = rawChanges.map(change => {
 				if (change instanceof SlimFileChange) {
