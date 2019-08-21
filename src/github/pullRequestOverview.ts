@@ -14,7 +14,6 @@ import { GitErrorCodes } from '../api/api';
 import { IComment } from '../common/comment';
 import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
-import * as Storage from '../common/storage';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { PullRequestManager } from './pullRequestManager';
@@ -604,6 +603,10 @@ export class PullRequestOverviewPanel {
 
 		if (!actions.length) {
 			vscode.window.showWarningMessage(`There is no longer upstream or local branch for Pull Request #${this._pullRequest.prNumber}`);
+			this._replyMessage(message, {
+				cancelled: true
+			});
+
 			return;
 		}
 
@@ -614,13 +617,6 @@ export class PullRequestOverviewPanel {
 
 		if (selectedActions) {
 			const isBranchActive = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
-			const shouldSelectLocal = !!selectedActions.filter(action => action.type === 'local').length;
-			await Storage.setPreference('ghpr.deleteBranch.shouldSelectLocalBranch', shouldSelectLocal);
-
-			if (actions.filter(action => action.type === 'remote').length) {
-				const shouldSelectRemote =  !!selectedActions.filter(action => action.type === 'remote').length;
-				await Storage.setPreference('ghpr.deleteBranch.shouldSelectRemote', shouldSelectRemote);
-			}
 
 			const promises = selectedActions.map(action => {
 				switch (action.type) {
@@ -647,6 +643,10 @@ export class PullRequestOverviewPanel {
 
 			this._postMessage({
 				command: 'pr.deleteBranch'
+			});
+		} else {
+			this._replyMessage(message, {
+				cancelled: true
 			});
 		}
 	}

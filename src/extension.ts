@@ -15,7 +15,6 @@ import { formatError, onceEvent } from './common/utils';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { handler as uriHandler } from './common/uri';
 import * as Keychain from './authentication/keychain';
-import * as Storage from './common/storage';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ApiImpl } from './api/api1';
@@ -37,7 +36,6 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
 	Keychain.init(context);
-	Storage.init(context);
 	await migrateConfiguration();
 	context.subscriptions.push(Keychain.onDidChange(async _ => {
 		if (prManager) {

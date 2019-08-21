@@ -119,6 +119,7 @@ export const Merge = (pr: PullRequest) => {
 
 export const DeleteBranch = (pr: PullRequest) => {
 	const { deleteBranch } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
 
 	if (pr.head === 'UNKNOWN') {
 		return <div />;
@@ -129,12 +130,17 @@ export const DeleteBranch = (pr: PullRequest) => {
 					event.preventDefault();
 
 					try {
-						await deleteBranch();
+						setBusy(true);
+						const result = await deleteBranch();
+						if (result && result.cancelled) {
+							setBusy(false);
+						}
 					} finally {
+						setBusy(false);
 					}
 				}
 			}>
-			<button type='submit'>Delete branch</button>
+			<button disabled={isBusy} type='submit'>Delete branch</button>
 			</form>
 		</div>;
 	}
