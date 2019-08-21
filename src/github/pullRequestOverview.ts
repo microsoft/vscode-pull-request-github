@@ -602,7 +602,7 @@ export class PullRequestOverviewPanel {
 		}
 
 		if (!actions.length) {
-			vscode.window.showWarningMessage(`There is no longer upstream or local branch for Pull Request #${this._pullRequest.prNumber}`);
+			vscode.window.showWarningMessage(`There is no longer an upstream or local branch for Pull Request #${this._pullRequest.prNumber}`);
 			this._replyMessage(message, {
 				cancelled: true
 			});
