@@ -7,7 +7,10 @@ export const Timestamp = ({
 	href,
 }: {
 	date: Date | string,
-	href: string
-}) => <a href={href} className='timestamp'>{dateFromNow(date)}</a>;
+	href?: string
+}) =>
+	href
+	? <a href={href} className='timestamp'>{dateFromNow(date)}</a>
+	: <div className='timestamp'>{dateFromNow(date)}</div>;
 
 export default Timestamp;

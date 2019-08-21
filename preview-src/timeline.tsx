@@ -170,7 +170,7 @@ const HeadDeleteEventView = (event: HeadRefDeleteEvent) =>
 			<div className='message'>
 				deleted the {event.headRef} branch{nbsp}
 			</div>
-			<Timestamp href={''} date={event.createdAt} />
+			<Timestamp date={event.createdAt} />
 		</div>
 	</div>;
 
