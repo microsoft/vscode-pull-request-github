@@ -9,7 +9,7 @@ import { IComment } from '../common/comment';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, mapHeadLineToDiffHunkPosition } from '../common/diffPositionMapping';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
-import { formatError, groupBy } from '../common/utils';
+import { formatError, groupBy, uniqBy } from '../common/utils';
 import { Repository } from '../api/api';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
@@ -96,6 +96,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	protected _prDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
 
+	protected _visibleNormalTextEditors: vscode.TextEditor[] = [];
+
 	constructor(
 		private _prManager: PullRequestManager,
 		private _repository: Repository,
@@ -111,6 +113,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #region initialize
 	async initialize(): Promise<void> {
+		this._visibleNormalTextEditors = vscode.window.visibleTextEditors.filter(ed => ed.document.uri.scheme !== 'comment');
 		await this.initializeWorkspaceCommentThreads();
 		await this.initializeDocumentCommentThreadsAndListeners();
 	}
@@ -147,6 +150,11 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	async initializeDocumentCommentThreadsAndListeners(): Promise<void> {
 		this._localToDispose.push(vscode.window.onDidChangeVisibleTextEditors(async visibleTextEditors => {
+			if (this.visibleEditorsEqual(this._visibleNormalTextEditors, visibleTextEditors)) {
+				return;
+			}
+
+			this._visibleNormalTextEditors = visibleTextEditors.filter(ed => ed.document.uri.scheme !== 'comment');
 			// remove comment threads in `pr/reivew` documents if there are no longer visible
 			let prEditors = visibleTextEditors.filter(editor => {
 				if (editor.document.uri.scheme !== 'pr') {
@@ -202,7 +210,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				});
 			});
 
-			for (let editor of visibleTextEditors.filter(ed => ed.document.uri.scheme !== 'comment')) {
+			for (let editor of this._visibleNormalTextEditors) {
 				await this.updateCommentThreadsForEditor(editor);
 			}
 		}));
@@ -304,6 +312,28 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const newThreads = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
 			this._reviewDocumentCommentThreads.setDocumentThreads(fileName, query.base, newThreads);
 		}
+	}
+
+	private visibleEditorsEqual(a: vscode.TextEditor[], b: vscode.TextEditor[]): boolean {
+		a = a.filter(ed => ed.document.uri.scheme !== 'comment');
+		b = b.filter(ed => ed.document.uri.scheme !== 'comment');
+
+		a = uniqBy(a, editor => editor.document.uri.toString());
+		b = uniqBy(b, editor => editor.document.uri.toString());
+
+		if (a.length !== b.length) {
+			return false;
+		}
+
+		for (let i = 0; i < a.length; i++) {
+			const findRet = b.find(editor => editor.document.uri.toString() === a[i].document.uri.toString());
+
+			if (!findRet) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	// #endregion
