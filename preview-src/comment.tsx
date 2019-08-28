@@ -67,7 +67,7 @@ export function CommentView(comment: Props) {
 			</div>
 		: null
 	}
-			<CommentBody bodyHTML={bodyHTML} body={bodyMd} />
+			<CommentBody comment={comment as IComment} bodyHTML={bodyHTML} body={bodyMd} />
 		</CommentBox>;
 }
 
@@ -187,19 +187,31 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 }
 
 export interface Embodied {
+	comment?: IComment;
 	bodyHTML?: string;
 	body?: string;
 }
 
-export const CommentBody = ({ bodyHTML, body }: Embodied) =>
-	body
-		? <Markdown className='comment-body' src={body} />
-		:
-	bodyHTML
-		? <div className='comment-body'
-				dangerouslySetInnerHTML={ {__html: bodyHTML }} />
-		:
-	<div className='comment-body'><em>No description provided.</em></div>;
+export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
+	if (!body || !bodyHTML) {
+		return <div className='comment-body'><em>No description provided.</em></div>
+	}
+
+	const { applyPatch } = useContext(PullRequestContext);
+	const renderedBody = bodyHTML
+		? <div dangerouslySetInnerHTML={ {__html: bodyHTML }} />
+		: <Markdown src={body}/>;
+
+	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
+	const applyPatchButton = containsSuggestion
+		? <button onClick={() => applyPatch(comment)}>Apply Patch</button>
+		: <></>;
+
+	return <div className='comment-body'>
+		{renderedBody}
+		{applyPatchButton}
+	</div>;
+}
 
 export function AddComment({ pendingCommentText, state }: PullRequest) {
 	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
