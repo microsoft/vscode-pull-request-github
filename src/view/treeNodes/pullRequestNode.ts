@@ -274,7 +274,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 			});
 
-			const inDraftMode = await this._prManager.validateDraftMode(this.pullRequestModel);
 			currentPRDocuments.forEach(editor => {
 				let fileChange = this._fileChanges.find(fc => fc.fileName === editor.fileName);
 
@@ -297,7 +296,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					oldCommentThreads = [...oldLeftSideCommentThreads, ...oldRightSideCommentThreads];
 				}
 
-				this.updateFileChangeCommentThreads(oldCommentThreads, [...newLeftCommentThreads, ...newRightSideCommentThreads], fileChange, inDraftMode);
+				this.updateFileChangeCommentThreads(oldCommentThreads, [...newLeftCommentThreads, ...newRightSideCommentThreads], fileChange);
 			});
 
 		}
@@ -480,7 +479,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	// #endregion
 
 	// #region Incremental updates
-	private updateFileChangeCommentThreads(oldCommentThreads: GHPRCommentThread[], newCommentThreads: ThreadData[], newFileChange: InMemFileChangeNode, inDraftMode: boolean) {
+	private updateFileChangeCommentThreads(oldCommentThreads: GHPRCommentThread[], newCommentThreads: ThreadData[], newFileChange: InMemFileChangeNode) {
 		// remove
 		oldCommentThreads.forEach(thread => {
 			// No current threads match old thread, it has been removed
@@ -746,7 +745,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			thread.comments = thread.comments.filter(c => c instanceof TemporaryComment && c.id === comment.id);
 		}
 
-		await this._prManager.validateDraftMode(this.pullRequestModel);
+		const inDraftMode = await this._prManager.validateDraftMode(this.pullRequestModel);
+		this.setContextKey(inDraftMode);
 	}
 	// #endregion
 
