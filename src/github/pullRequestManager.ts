@@ -145,7 +145,6 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 		}));
 
-
 		this.setUpCompletionItemProvider();
 		this.showLoginPrompt();
 	}
