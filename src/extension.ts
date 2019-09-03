@@ -60,6 +60,10 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	tree.initialize(prManager);
 	registerCommands(context, prManager, reviewManager, telemetry);
 
+	git.onDidChangeState(() => {
+		reviewManager.updateState();
+	});
+
 	git.repositories.forEach(repo => {
 		repo.ui.onDidChange(() => {
 			// No multi-select support, always show last selected repo
