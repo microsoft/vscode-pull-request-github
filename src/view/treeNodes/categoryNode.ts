@@ -151,7 +151,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				/* __GDPR__
 					"pr.expand.local" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('prList.expand.local');
+				this._telemetry.sendTelemetryEvent('pr.expand.local');
 			} catch (e) {
 				vscode.window.showErrorMessage(`Fetching local pull requests failed: ${formatError(e)}`);
 				needLogin = e instanceof AuthenticationError;
@@ -169,12 +169,12 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 							/* __GDPR__
 								"pr.expand.all" : {}
 							*/
-							this._telemetry.sendTelemetryEvent('prList.expand.all');
+							this._telemetry.sendTelemetryEvent('pr.expand.all');
 						case PRType.Query:
 							/* __GDPR__
 								"pr.expand.query" : {}
 							*/
-							this._telemetry.sendTelemetryEvent('prList.expand.query');
+							this._telemetry.sendTelemetryEvent('pr.expand.query');
 						break;
 					}
 
