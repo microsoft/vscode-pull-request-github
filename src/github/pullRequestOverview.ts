@@ -305,7 +305,7 @@ export class PullRequestOverviewPanel {
 			case 'pr.submit':
 				return this.submitReview(message);
 			case 'pr.checkout-default-branch':
-				return this.checkoutDefaultBranch(message.args);
+				return this.checkoutDefaultBranch(message);
 			case 'pr.comment':
 				return this.createComment(message);
 			case 'scroll':
@@ -672,37 +672,30 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private async checkoutDefaultBranch(branch: string): Promise<void> {
+	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
+			const branch = message.args;
 			// This should be updated for multi-root support and consume the git extension API if possible
 			const branchObj = await this._pullRequestManager.repository.getBranch('@{-1}');
 
-			if (branch === branchObj.name) {
+			if (branchObj.upstream && branch === branchObj.upstream.name) {
 				await this._pullRequestManager.repository.checkout(branch);
 			} else {
-				const didCheckout = await vscode.commands.executeCommand('git.checkout');
-				if (!didCheckout) {
-					this._postMessage({
-						command: 'pr.enable-exit'
-					});
-				}
+				await vscode.commands.executeCommand('git.checkout');
 			}
 		} catch (e) {
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
 				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
 					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
-					this._postMessage({
-						command: 'pr.enable-exit'
-					});
 					return;
 				}
 			}
 
 			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
-			this._postMessage({
-				command: 'pr.enable-exit'
-			});
+		} finally {
+			// Complete webview promise so that button becomes enabled again
+			this._replyMessage(message, {});
 		}
 	}
 
