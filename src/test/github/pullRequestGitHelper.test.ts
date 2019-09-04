@@ -65,7 +65,7 @@ describe('PullRequestGitHelper', function () {
 				return;
 			}
 
-			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest);
+			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);
 
 			assert.deepEqual(repository.state.remotes, [{
 				name: 'you',
