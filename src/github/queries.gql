@@ -64,22 +64,24 @@ fragment Comment on IssueComment {
 	viewerCanDelete
 }
 
-fragment Commit on Commit {
+fragment Commit on PullRequestCommit {
 	id
-	author {
-		user {
-			login
-			avatarUrl
-			url
+	commit {
+		author {
+			user {
+				login
+				avatarUrl
+				url
+			}
 		}
-	}
-	committer {
-		avatarUrl
-		name
+		committer {
+			avatarUrl
+			name
+		}
+		oid
+		message
 	}
 	url
-	oid
-	message
 }
 
 fragment AssignedEvent on AssignedEvent {
@@ -126,7 +128,7 @@ fragment Reactable on Reactable {
 query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 100) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			timeline(last: $last) {
+			timelineItems(last: $last) {
 				edges {
 					node {
 						__typename

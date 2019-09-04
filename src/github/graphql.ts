@@ -102,20 +102,23 @@ export interface Commit {
 	__typename: string;
 	id: string;
 	databaseId: number;
-	author: {
-		user: {
-			login: string;
+	commit: {
+		author: {
+			user: {
+				login: string;
+				avatarUrl: string;
+				url: string;
+			}
+		};
+		committer: {
 			avatarUrl: string;
-			url: string;
-		}
+			name: string;
+		};
+		oid: string;
+		message: string;
 	};
-	committer: {
-		avatarUrl: string;
-		name: string;
-	};
+
 	url: string;
-	oid: string;
-	message: string;
 }
 
 export interface AssignedEvent {
@@ -155,7 +158,7 @@ export interface Review {
 export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
-			timeline: {
+			timelineItems: {
 				edges: {
 					node: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
 				}[]
