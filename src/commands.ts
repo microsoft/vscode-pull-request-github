@@ -107,11 +107,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
 
-			if (!vscode.workspace.rootPath) {
-				throw new Error('Current workspace root path is undefined.');
-			}
-
-			const tempFilePath = pathLib.resolve(vscode.workspace.rootPath, '.git', `${prManager.activePullRequest.prNumber}.diff`);
+			const tempFilePath = pathLib.join(prManager.repository.rootUri.path, '.git', `${prManager.activePullRequest.prNumber}.diff`);
 			writeFile(tempFilePath, diff, {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;

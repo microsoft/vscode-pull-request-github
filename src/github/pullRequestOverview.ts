@@ -443,10 +443,8 @@ export class PullRequestOverviewPanel {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
-			if (!vscode.workspace.rootPath) {
-				throw new Error('Current workspace rootpath is undefined.');
-			}
-			const tempFilePath = path.resolve(vscode.workspace.rootPath, '.git', `${comment.id}.diff`);
+
+			const tempFilePath = path.join(this._pullRequestManager.repository.rootUri.path, '.git', `${comment.id}.diff`);
 			writeFile(tempFilePath, matches![1], {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;
@@ -461,6 +459,7 @@ export class PullRequestOverviewPanel {
 							throw err;
 						}
 
+						vscode.window.showInformationMessage('The suggested changes have been applied.');
 						this._replyMessage(message, {});
 					});
 				} catch (e) {
