@@ -732,6 +732,7 @@
     "@types/react-dom": "^16.8.2",
     "@types/sinon": "7.0.11",
     "@types/temp": "0.8.34",
+    "@types/uuid": "^3.4.3",
     "@types/webpack": "^4.4.10",
     "css-loader": "^3.0.0",
     "glob": "7.1.4",
@@ -778,6 +779,7 @@
     "query-string": "^6.2.0",
     "ssh-config": "^2.0.0-alpha.3",
     "tunnel": "0.0.6",
+    "uuid": "^3.3.3",
     "vscode-extension-telemetry": "^0.1.2",
     "vsls": "^0.3.967"
   },

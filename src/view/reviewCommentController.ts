@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nodePath from 'path';
+import * as uuid from 'uuid';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -17,7 +18,7 @@ import { getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode'
 import { parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState, CommentReactionHandler, generateCommentReactions } from '../github/utils';
 import { ReactionGroup } from '../github/graphql';
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
-import { CommentHandler, registerCommentHandler } from '../commentHandlerResolver';
+import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { CommentThreadCache } from './commentThreadCache';
 import { getCommentingRanges } from '../common/commentingRanges';
 
@@ -79,6 +80,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	private _onDidChangeComments = new vscode.EventEmitter<IComment[]>();
 	public onDidChangeComments = this._onDidChangeComments.event;
 
+	private _commentHandlerId: string;
+
 	private _commentController?: vscode.CommentController;
 
 	public get commentController(): vscode.CommentController | undefined {
@@ -108,7 +111,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		this._commentController.commentingRangeProvider = this;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
-		registerCommentHandler(this);
+		this._commentHandlerId = uuid();
+		registerCommentHandler(this._commentHandlerId, this);
 	}
 
 	// #region initialize
@@ -1069,6 +1073,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (this._commentController) {
 			this._commentController.dispose();
 		}
+
+		unregisterCommentHandler(this._commentHandlerId);
 
 		this._localToDispose.forEach(d => d.dispose());
 	}
