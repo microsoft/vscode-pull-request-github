@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nodePath from 'path';
+import * as uuid from 'uuid';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -110,7 +111,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		this._commentController.commentingRangeProvider = this;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
-		this._commentHandlerId = Date.now().toString();
+		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
 	}
 
