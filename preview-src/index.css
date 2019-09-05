@@ -266,11 +266,11 @@ body .comment-container .review-comment-container .review-comment-body {
 	border: none;
 }
 
-body .comment-container .comment-body > p, .comment-container .review-body > p {
+body .comment-container .comment-body > p, body .comment-container .comment-body > div > p, .comment-container .review-body > p {
 	margin-top: 0;
 }
 
-body .comment-container .comment-body > p:last-child, .comment-container .review-body > p:last-child {
+body .comment-container .comment-body > p:last-child, body .comment-container .comment-body > div > p:last-child, .comment-container .review-body > p:last-child {
 	margin-bottom: 0;
 }
 

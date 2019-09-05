@@ -193,7 +193,7 @@ export interface Embodied {
 }
 
 export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
-	if (!body || !bodyHTML) {
+	if (!body && !bodyHTML) {
 		return <div className='comment-body'><em>No description provided.</em></div>
 	}
 
