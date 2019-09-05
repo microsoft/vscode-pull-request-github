@@ -26,12 +26,16 @@ export interface PullRequestMetadata {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
-	static async checkoutFromFork(repository: Repository, pullRequest: PullRequestModel & IResolvedPullRequestModel) {
+	static async checkoutFromFork(repository: Repository, pullRequest: PullRequestModel & IResolvedPullRequestModel, remoteName: string | undefined) {
 		// the branch is from a fork
 		let localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+
 		// create remote for this fork
-		Logger.appendLine(`Branch ${localBranchName} is from a fork. Create a remote first.`, PullRequestGitHelper.ID);
-		let remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
+		if (!remoteName) {
+			Logger.appendLine(`Branch ${localBranchName} is from a fork. Create a remote first.`, PullRequestGitHelper.ID);
+			remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
+		}
+
 		// fetch the branch
 		let ref = `${pullRequest.head.ref}:${localBranchName}`;
 		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - start`, PullRequestGitHelper.ID);
@@ -50,8 +54,9 @@ export class PullRequestGitHelper {
 		}
 
 		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(remotes, pullRequest);
-		if (!remote) {
-			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest);
+		const isFork = pullRequest.head.repositoryCloneUrl.owner !== pullRequest.base.repositoryCloneUrl.owner;
+		if (!remote || isFork) {
+			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest, remote && remote.remoteName);
 		}
 
 		const branchName = pullRequest.head.ref;
