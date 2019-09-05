@@ -129,16 +129,14 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
 			timelineItems(last: $last) {
-				edges {
-					node {
-						__typename
-						...Merged
-						...Comment
-						...Review
-						...Commit
-						...AssignedEvent
-						...HeadRefDeleted
-					}
+				nodes {
+					__typename
+					...Merged
+					...Comment
+					...Review
+					...Commit
+					...AssignedEvent
+					...HeadRefDeleted
 				}
 			}
 		}

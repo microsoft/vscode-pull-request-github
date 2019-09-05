@@ -11,7 +11,7 @@ export const TimelineEventsBuilder = createBuilderClass<TimelineEventsResponse>(
 	repository: createLink<Repository>()({
 		pullRequest: createLink<PullRequest>()({
 			timelineItems: createLink<TimelineConn>()({
-				edges: {default: []},
+				nodes: {default: []},
 			}),
 		}),
 	}),

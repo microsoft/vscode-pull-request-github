@@ -212,7 +212,7 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 
 export function convertGraphQLEventType(text: string) {
 	switch (text) {
-		case 'Commit':
+		case 'PullRequestCommit':
 			return Common.EventType.Committed;
 		case 'LabeledEvent':
 			return Common.EventType.Labeled;
