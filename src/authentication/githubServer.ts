@@ -1,22 +1,19 @@
-import * as vscode from 'vscode';
-import { IHostConfiguration, HostHelper } from './configuration';
 import * as https from 'https';
-import { Base64 } from 'js-base64';
-import { parse } from 'query-string';
+import * as http from 'http';
+import * as vscode from 'vscode';
 import Logger from '../common/logger';
+import { agent } from '../common/net';
 import { handler as uriHandler } from '../common/uri';
 import { PromiseAdapter, promiseFromEvent } from '../common/utils';
-import { agent } from '../common/net';
-import { EXTENSION_ID } from '../constants';
-import { onDidChange as onKeychainDidChange, toCanonical, listHosts } from './keychain';
+import { HostHelper, IHostConfiguration } from './configuration';
+import { listHosts, onDidChange as onKeychainDidChange, toCanonical } from './keychain';
+import uuid = require('uuid');
 
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: { [key: string]: boolean } = {'write:discussion': true};
 
-const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
-const CALLBACK_PATH = '/did-authenticate';
-const CALLBACK_URI = `${vscode.env.uriScheme}://${EXTENSION_ID}${CALLBACK_PATH}`;
-const MAX_TOKEN_RESPONSE_AGE = 5 * (1000 * 60 /* minutes in ms */);
+// const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
+// const CALLBACK_PATH = '/did-authenticate';
 
 export class GitHubManager {
 	private _servers: Map<string, boolean> = new Map().set('github.com', true);
@@ -124,39 +121,54 @@ export class GitHubManager {
 	}
 }
 
-class ResponseExpired extends Error {
-	get message() { return 'Token response expired'; }
-}
+const exchangeCodeForToken: (host: string, state: string) => PromiseAdapter<vscode.Uri, IHostConfiguration> =
+	(host, state) => async (uri, resolve, reject) => {
+		const query = parseQuery(uri);
+		const code = query.code;
 
-const SEPARATOR = '/', SEPARATOR_LEN = SEPARATOR.length;
-
-/**
- * Hydrate and verify the signature of a message produced with `encode`
- *
- * Returns an object
- *
- * @param {string} signedMessage signed message produced by encode
- * @returns {any} decoded JSON data
- * @throws {SyntaxError} if the message was null or could not be parsed as JSON
- */
-const decode = (signedMessage?: string): any => {
-	if (!signedMessage) { throw new SyntaxError('Invalid encoding'); }
-	const separatorIndex = signedMessage.indexOf(SEPARATOR);
-	const message = signedMessage.substr(separatorIndex + SEPARATOR_LEN);
-	return JSON.parse(Base64.decode(message));
-};
-
-const verifyToken: (host: string) => PromiseAdapter<vscode.Uri, IHostConfiguration> =
-	host => async (uri, resolve, reject) => {
-		if (uri.path !== CALLBACK_PATH) { return; }
-		const query = parse(uri.query);
-		const state = decode(query.state as string);
-		const { ts, access_token: token } = state.token;
-		if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE) {
-			return reject(new ResponseExpired);
+		if (query.state !== state) {
+			vscode.window.showInformationMessage('Received bad state');
+			throw new Error('Bad!!!');
 		}
-		resolve({ host, token });
+
+		const post = http.request({
+			host: 'localhost',
+			port: '55555',
+			path: `/token?code=${code}&state=${query.state}`,
+			method: 'POST',
+			headers: {
+				Accept: 'application/json'
+			}
+		}, result => {
+			const buffer: Buffer[] = [];
+			result.on('data', (chunk: Buffer) => {
+				buffer.push(chunk);
+			});
+			result.on('end', () => {
+				if (result.statusCode === 200) {
+					const json = JSON.parse(Buffer.concat(buffer).toString());
+					vscode.window.showInformationMessage(`finished token exchange. token: ${json.access_token}`);
+					resolve({ host, token: json.access_token });
+				} else {
+					vscode.window.showInformationMessage(`error`);
+					reject(new Error('Bad!'));
+				}
+			});
+		});
+
+		post.end();
+		post.on('error', err => {
+			reject(err);
+		});
 	};
+
+function parseQuery(uri: vscode.Uri) {
+	return uri.query.split('&').reduce((prev: any, current) => {
+		const queryString = current.split('=');
+		prev[queryString[0]] = queryString[1];
+		return prev;
+	}, {});
+}
 
 const manuallyEnteredToken: (host: string) => PromiseAdapter<IHostConfiguration, IHostConfiguration> =
 	host => (config: IHostConfiguration, resolve) =>
@@ -172,14 +184,16 @@ export class GitHubServer {
 		this.hostUri = vscode.Uri.parse(host);
 	}
 
-	public login(): Promise<IHostConfiguration> {
+	public async login(): Promise<IHostConfiguration> {
+		const authEndpoint = 'http://localhost:55555/authorize';
+		const state = uuid();
+		const callbackUri = await vscode.env.createAppUri({ payload: { path: '/did-authenticate' } });
+		const uri = vscode.Uri.parse(`${authEndpoint}?callbackUri=${encodeURIComponent(callbackUri.toString())}&scope=${SCOPES}&state=${state}&responseType=code`);
 		const host = this.hostUri.toString();
-		const uri = vscode.Uri.parse(
-			`${AUTH_RELAY_SERVER}/authorize?authServer=${host}&callbackUri=${CALLBACK_URI}&scope=${SCOPES}`
-		);
-		vscode.commands.executeCommand('vscode.open', uri);
+
+		vscode.env.openExternal(uri);
 		return Promise.race([
-			promiseFromEvent(uriHandler.event, verifyToken(host)),
+			promiseFromEvent(uriHandler.event, exchangeCodeForToken(host, state)),
 			promiseFromEvent(onKeychainDidChange, manuallyEnteredToken(host))
 		]);
 	}

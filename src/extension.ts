@@ -5,22 +5,22 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import TelemetryReporter from 'vscode-extension-telemetry';
+import { Repository } from './api/api';
+import { ApiImpl } from './api/api1';
+import * as Keychain from './authentication/keychain';
 import { migrateConfiguration } from './authentication/vsConfiguration';
-import { Resource } from './common/resources';
-import { ReviewManager } from './view/reviewManager';
 import { registerCommands } from './commands';
 import Logger from './common/logger';
-import { PullRequestManager } from './github/pullRequestManager';
-import { formatError, onceEvent } from './common/utils';
-import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
+import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
-import * as Keychain from './authentication/keychain';
+import { formatError, onceEvent } from './common/utils';
+import { EXTENSION_ID } from './constants';
+import { PullRequestManager } from './github/pullRequestManager';
+import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
-import { ApiImpl } from './api/api1';
-import { Repository } from './api/api';
-import TelemetryReporter from 'vscode-extension-telemetry';
-import { EXTENSION_ID } from './constants';
+import { ReviewManager } from './view/reviewManager';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
