@@ -122,6 +122,11 @@ export class PRContext {
 		this.updatePR({ labels });
 	}
 
+
+	public applyPatch = async (comment: IComment) => {
+		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
+	}
+
 	private appendReview({ review, reviewers }: any) {
 		const state = this.pr;
 		let events = state.events;

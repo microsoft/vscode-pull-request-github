@@ -212,7 +212,7 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 
 export function convertGraphQLEventType(text: string) {
 	switch (text) {
-		case 'Commit':
+		case 'PullRequestCommit':
 			return Common.EventType.Committed;
 		case 'LabeledEvent':
 			return Common.EventType.Labeled;
@@ -383,10 +383,10 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 				normalizedEvents.push({
 					id: commitEv.databaseId,
 					event: type,
-					sha: commitEv.oid,
-					author: commitEv.author.user ? parseAuthor(commitEv.author.user, githubRepository) : { login: commitEv.committer.name },
+					sha: commitEv.commit.oid,
+					author: commitEv.commit.author.user ? parseAuthor(commitEv.commit.author.user, githubRepository) : { login: commitEv.commit.committer.name },
 					htmlUrl: commitEv.url,
-					message: commitEv.message
+					message: commitEv.commit.message
 				} as Common.CommitEvent); // TODO remove cast
 				return;
 			case Common.EventType.Merged:

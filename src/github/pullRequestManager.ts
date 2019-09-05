@@ -823,7 +823,7 @@ export class PullRequestManager implements vscode.Disposable {
 						number: pullRequest.prNumber
 					}
 				});
-				ret = data.repository.pullRequest.timeline.edges.map((edge: any) => edge.node);
+				ret = data.repository.pullRequest.timelineItems.nodes;
 				let events = parseGraphQLTimelineEvents(ret, githubRepository);
 				await this.addReviewTimelineEventComments(pullRequest, events);
 

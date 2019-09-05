@@ -117,12 +117,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #region initialize
 	async initialize(): Promise<void> {
 		this._visibleNormalTextEditors = vscode.window.visibleTextEditors.filter(ed => ed.document.uri.scheme !== 'comment');
+		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 		await this.initializeWorkspaceCommentThreads();
 		await this.initializeDocumentCommentThreadsAndListeners();
 	}
 
 	async initializeWorkspaceCommentThreads(): Promise<void[]> {
-		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 		const localFileChangePromises = this._localFileChanges.map(async matchedFile => {
 			const threadData = await this.getWorkspaceFileThreadDatas(matchedFile);
 			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
@@ -262,8 +262,6 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				let matchedFileChanges = this._localFileChanges.filter(localFileChange => localFileChange.fileName === params.fileName);
 
 				if (matchedFileChanges.length) {
-					await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-
 					const documentComments = getDocumentThreadDatas(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
 					const newThreads: GHPRCommentThread[] = documentComments.map(thread => createVSCodeCommentThread(thread, this._commentController!));
 
@@ -308,8 +306,6 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 
 			this._reviewDocumentCommentThreads.setDocumentThreads(fileName, query.base, []);
-
-			await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 
 			const threadData = this.provideCommentsForReviewUri(editor.document, query);
 			const newThreads = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
@@ -954,7 +950,6 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #region Incremental update comments
 	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]): Promise<void> {
-		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
 		// _workspaceFileChangeCommentThreads
 		for (let fileName in this._workspaceFileChangeCommentThreads) {
 			this.updateFileChangeCommentThreads(localFileChanges, fileName, false);

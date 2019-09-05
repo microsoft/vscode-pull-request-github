@@ -5,13 +5,13 @@ import { RateLimitBuilder } from './rateLimitBuilder';
 
 type Repository = TimelineEventsResponse['repository'];
 type PullRequest = Repository['pullRequest'];
-type TimelineConn = PullRequest['timeline'];
+type TimelineConn = PullRequest['timelineItems'];
 
 export const TimelineEventsBuilder = createBuilderClass<TimelineEventsResponse>()({
 	repository: createLink<Repository>()({
 		pullRequest: createLink<PullRequest>()({
-			timeline: createLink<TimelineConn>()({
-				edges: {default: []},
+			timelineItems: createLink<TimelineConn>()({
+				nodes: {default: []},
 			}),
 		}),
 	}),
