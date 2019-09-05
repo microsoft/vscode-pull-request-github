@@ -88,13 +88,34 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<P
 
 const CheckoutButtons = ({ isCurrentlyCheckedOut }) => {
 	const { exitReviewMode, checkout } = useContext(PullRequestContext);
+	const [ isBusy, setBusy ] = useState(false);
+
+	const onClick = async (command: string) => {
+		try {
+			setBusy(true);
+
+			switch (command) {
+				case 'checkout':
+					await checkout();
+					break;
+				case 'exitReviewMode':
+					await exitReviewMode();
+					break;
+				default:
+					throw new Error(`Can't find action ${command}`);
+			}
+		} finally {
+			setBusy(false);
+		}
+	};
+
 	if (isCurrentlyCheckedOut) {
 		return <>
 			<button aria-live='polite' className='checkedOut' disabled>{checkIcon} Checked Out</button>
-			<button aria-live='polite' onClick={exitReviewMode}>Exit Review Mode</button>
+			<button aria-live='polite' disabled={isBusy} onClick={() => onClick('exitReviewMode')}>Exit Review Mode</button>
 		</>;
 	} else {
-		return <button aria-live='polite' onClick={checkout}>Checkout</button>;
+		return <button aria-live='polite' disabled={isBusy} onClick={() => onClick('checkout')}>Checkout</button>;
 	}
 };
 
