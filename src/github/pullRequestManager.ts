@@ -1122,6 +1122,12 @@ export class PullRequestManager implements vscode.Disposable {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
 			if (!upstream) {
+				vscode.window.showErrorMessage(`Unable to find upstream remote '${upstreamRef.remote}'. Please check your remotes setting.`, 'Configure Remotes').then(result => {
+					if (result === 'Configure Remotes') {
+						vscode.commands.executeCommand('pr.configureRemotes');
+					}
+				});
+
 				// No GitHubRepository? We currently won't try pushing elsewhere,
 				// so fail.
 				throw new BadUpstreamError(
