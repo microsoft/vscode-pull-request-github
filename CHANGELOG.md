@@ -1,3 +1,8 @@
+0.11.1
+
+***Bug fixes***
+- Pull request tree incorrectly shows 'No git repositories found' [#1334](https://github.com/microsoft/vscode-pull-request-github/issues/1334)
+
 0.11.0
 
 ***Changes***
