@@ -109,7 +109,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	const prTree = new PullRequestsTreeDataProvider(telemetry);
 	context.subscriptions.push(prTree);
 
-	const selectedRepository = apiImpl.repositories.find(repository => repository.ui.selected);
+	// The Git extension API sometimes returns a single repository that does not have selected set,
+	// so fall back to the first repository if no selected repository is found.
+	const selectedRepository = apiImpl.repositories.find(repository => repository.ui.selected) || apiImpl.repositories[0];
 	if (selectedRepository) {
 		await init(context, apiImpl, selectedRepository, prTree);
 	} else {
