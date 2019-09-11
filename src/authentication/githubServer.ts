@@ -198,9 +198,12 @@ export class GitHubServer {
 						const scopes = res.headers['x-oauth-scopes'] as string;
 						GitHubManager.validateScopes(this.hostUri, scopes);
 						resolve(this.hostConfiguration);
+					} else {
+						resolve(undefined);
 					}
 				} catch (e) {
 					Logger.appendLine(`validate() error ${e}`);
+					resolve(undefined);
 				}
 			});
 
