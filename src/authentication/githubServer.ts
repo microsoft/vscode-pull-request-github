@@ -1,5 +1,4 @@
 import * as https from 'https';
-import * as http from 'http';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { agent } from '../common/net';
@@ -128,12 +127,12 @@ const exchangeCodeForToken: (host: string, state: string) => PromiseAdapter<vsco
 
 		if (query.state !== state) {
 			vscode.window.showInformationMessage('Received bad state');
-			throw new Error('Bad!!!');
+			reject('Received bad state');
+			return;
 		}
 
-		const post = http.request({
-			host: 'localhost',
-			port: '55555',
+		const post = https.request({
+			host: 'client-auth-staging-14a768b.herokuapp.com',
 			path: `/token?code=${code}&state=${query.state}`,
 			method: 'POST',
 			headers: {
@@ -147,7 +146,6 @@ const exchangeCodeForToken: (host: string, state: string) => PromiseAdapter<vsco
 			result.on('end', () => {
 				if (result.statusCode === 200) {
 					const json = JSON.parse(Buffer.concat(buffer).toString());
-					vscode.window.showInformationMessage(`finished token exchange. token: ${json.access_token}`);
 					resolve({ host, token: json.access_token });
 				} else {
 					vscode.window.showInformationMessage(`error`);
@@ -185,7 +183,7 @@ export class GitHubServer {
 	}
 
 	public async login(): Promise<IHostConfiguration> {
-		const authEndpoint = 'http://localhost:55555/authorize';
+		const authEndpoint = 'https://client-auth-staging-14a768b.herokuapp.com/authorize';
 		const state = uuid();
 		const callbackUri = await vscode.env.createAppUri({ payload: { path: '/did-authenticate' } });
 		const uri = vscode.Uri.parse(`${authEndpoint}?callbackUri=${encodeURIComponent(callbackUri.toString())}&scope=${SCOPES}&state=${state}&responseType=code`);
