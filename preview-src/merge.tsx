@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
-import { groupBy } from 'lodash';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
+import { groupBy } from '../src/common/utils';
 
 export const StatusChecks = (pr: PullRequest) => {
 	const { state, status, mergeable, isDraft } = pr;
