@@ -92,6 +92,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	private _inMemPRContentProvider?: vscode.Disposable;
 
+	private _refreshCommentsInProgress?: Promise<void>;
+
 	private _command: vscode.Command;
 
 	private _commentHandlerId: string;
@@ -198,7 +200,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			// Create Comment Threads when the editor is visible
 			// Dispose when the editor is invisible and remove them from the cache map
 			// Comment Threads in cache map is updated only when users trigger refresh
-			await this.refreshExistingPREditors(e, false);
+			if (!this._refreshCommentsInProgress) {
+				this._refreshCommentsInProgress = this.refreshExistingPREditors(e, false);
+			} else {
+				this._refreshCommentsInProgress = this._refreshCommentsInProgress.then(async _ => {
+					return await this.refreshExistingPREditors(e, false);
+				});
+			}
 		}));
 
 		this._disposables.push(vscode.window.onDidChangeActiveTextEditor(async e => {
@@ -309,8 +317,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 			});
 
+			const fileChanges = await this.getFileChanges();
+
 			currentPRDocuments.forEach(async editor => {
-				let fileChange = (await this.getFileChanges()).find(fc => fc.fileName === editor.fileName);
+				let fileChange = fileChanges.find(fc => fc.fileName === editor.fileName);
 
 				if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
 					return;
@@ -331,7 +341,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					oldCommentThreads = [...oldLeftSideCommentThreads, ...oldRightSideCommentThreads];
 				}
 
-				this.updateFileChangeCommentThreads(oldCommentThreads, [...newLeftCommentThreads, ...newRightSideCommentThreads], fileChange);
+				this.updateFileChangeCommentThreads(oldCommentThreads, [...newLeftCommentThreads, ...newRightSideCommentThreads], fileChange, commentThreadCache);
 			});
 
 		}
@@ -447,10 +457,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return true;
 	}
 
-	private async createCommentThreads(fileName: string, commentThreads: ThreadData[]) {
-		const prCommentController = (await this.resolvePRCommentController());
+	private createCommentThreads(fileName: string, commentThreads: ThreadData[], commentThreadCache: { [key: string]: GHPRCommentThread[] }) {
 		const threads = commentThreads.map(thread => createVSCodeCommentThread(thread, this._commentController!));
-		prCommentController.commentThreadCache[fileName] = threads;
+		commentThreadCache[fileName] = threads;
 	}
 
 	private updateCommentThreadComments(thread: GHPRCommentThread, newComments: (GHPRComment | TemporaryComment)[]) {
@@ -515,7 +524,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	// #endregion
 
 	// #region Incremental updates
-	private updateFileChangeCommentThreads(oldCommentThreads: GHPRCommentThread[], newCommentThreads: ThreadData[], newFileChange: InMemFileChangeNode) {
+	private updateFileChangeCommentThreads(oldCommentThreads: GHPRCommentThread[], newCommentThreads: ThreadData[], newFileChange: InMemFileChangeNode, commentThreadCache: { [key: string]: GHPRCommentThread[] }) {
 		// remove
 		oldCommentThreads.forEach(thread => {
 			// No current threads match old thread, it has been removed
@@ -566,7 +575,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			});
 
 			if (added.length) {
-				this.createCommentThreads(newFileChange.fileName, added);
+				this.createCommentThreads(newFileChange.fileName, added, commentThreadCache);
 			}
 		}
 	}
