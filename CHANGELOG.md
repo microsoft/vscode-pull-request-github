@@ -1,3 +1,8 @@
+0.11.2
+
+**Bug fixes**
+- Comments sometimes duplicated on diff files from pull request tree [#1337](https://github.com/microsoft/vscode-pull-request-github/issues/1337)
+
 0.11.1
 
 ***Bug fixes***
