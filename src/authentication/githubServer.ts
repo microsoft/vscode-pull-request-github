@@ -11,8 +11,7 @@ import uuid = require('uuid');
 const SCOPES: string = 'read:user user:email repo write:discussion';
 const GHE_OPTIONAL_SCOPES: { [key: string]: boolean } = {'write:discussion': true};
 
-// const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
-// const CALLBACK_PATH = '/did-authenticate';
+const AUTH_RELAY_SERVER = 'vscode-auth.github.com';
 
 export class GitHubManager {
 	private _servers: Map<string, boolean> = new Map().set('github.com', true);
@@ -132,7 +131,7 @@ const exchangeCodeForToken: (host: string, state: string) => PromiseAdapter<vsco
 		}
 
 		const post = https.request({
-			host: 'client-auth-staging-14a768b.herokuapp.com',
+			host: AUTH_RELAY_SERVER,
 			path: `/token?code=${code}&state=${query.state}`,
 			method: 'POST',
 			headers: {
@@ -183,10 +182,9 @@ export class GitHubServer {
 	}
 
 	public async login(): Promise<IHostConfiguration> {
-		const authEndpoint = 'https://client-auth-staging-14a768b.herokuapp.com/authorize';
 		const state = uuid();
 		const callbackUri = await vscode.env.createAppUri({ payload: { path: '/did-authenticate' } });
-		const uri = vscode.Uri.parse(`${authEndpoint}?callbackUri=${encodeURIComponent(callbackUri.toString())}&scope=${SCOPES}&state=${state}&responseType=code`);
+		const uri = vscode.Uri.parse(`https://${AUTH_RELAY_SERVER}/authorize/?callbackUri=${encodeURIComponent(callbackUri.toString())}&scope=${SCOPES}&state=${state}&responseType=code`);
 		const host = this.hostUri.toString();
 
 		vscode.env.openExternal(uri);
