@@ -125,7 +125,7 @@ const exchangeCodeForToken: (host: string, state: string) => PromiseAdapter<vsco
 		const code = query.code;
 
 		if (query.state !== state) {
-			vscode.window.showInformationMessage('Received bad state');
+			vscode.window.showInformationMessage('Sign in failed: Received bad state');
 			reject('Received bad state');
 			return;
 		}
@@ -147,8 +147,8 @@ const exchangeCodeForToken: (host: string, state: string) => PromiseAdapter<vsco
 					const json = JSON.parse(Buffer.concat(buffer).toString());
 					resolve({ host, token: json.access_token });
 				} else {
-					vscode.window.showInformationMessage(`error`);
-					reject(new Error('Bad!'));
+					vscode.window.showInformationMessage(`Sign in failed: ${result.statusMessage}`);
+					reject(new Error(result.statusMessage));
 				}
 			});
 		});
