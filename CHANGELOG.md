@@ -1,3 +1,6 @@
+0.12.0
+- Adopt `createAppUri` API in authentication flow [1354](https://github.com/microsoft/vscode-pull-request-github/pull/1345)
+
 0.11.2
 
 **Bug fixes**
