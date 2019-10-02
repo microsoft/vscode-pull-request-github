@@ -286,7 +286,7 @@ export function AddComment({ pendingCommentText, state }: PullRequest) {
 				<input id='reply'
 					value='Comment'
 					type='submit'
-					className='reply-button'
+					className='secondary'
 					disabled={isBusy || !pendingCommentText} />
 			</div>
 		</form>;
