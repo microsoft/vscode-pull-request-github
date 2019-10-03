@@ -49,7 +49,7 @@ function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel)
 export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager,
 	reviewManager: ReviewManager, telemetry: ITelemetry) {
 	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
-		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true });
+		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true, ignoreFocusOut: true });
 		if (!selection) { return; }
 		await Promise.all(selection.map(host => deleteToken(host)));
 	}));
