@@ -134,6 +134,15 @@
           "default": false,
           "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
         },
+        "githubPullRequests.fileListLayout": {
+          "type": "string",
+          "enum": [
+            "flat",
+            "tree"
+          ],
+          "default": "tree",
+          "description": "The layout to use when displaying changed files list."
+        },
         "githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
           "type": "boolean",
           "default": true,

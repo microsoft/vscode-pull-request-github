@@ -74,6 +74,13 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 					return;
 			}
 		}));
+
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
+				this._onDidChangeTreeData.fire();
+			}
+		}));
+
 	}
 
 	initialize(prManager: PullRequestManager) {

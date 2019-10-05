@@ -25,6 +25,7 @@ import { createVSCodeCommentThread, parseGraphQLReaction, updateCommentThreadLab
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../../commentHandlerResolver';
 import { ReactionGroup } from '../../github/graphql';
 import { getCommentingRanges } from '../../common/commentingRanges';
+import { DirectoryTreeNode } from './directoryTreeNode';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -154,7 +155,24 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				this.pullRequestModel.githubRepository.commentsHandler!.clearCommentThreadCache(this.pullRequestModel.prNumber);
 			}
 
-			let result = [descriptionNode, ...this._fileChanges];
+			const result: TreeNode[] = [descriptionNode];
+			const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+			if (layout === 'tree') {
+				// tree view
+				const dirNode = new DirectoryTreeNode(this, '');
+				this._fileChanges.forEach(f => dirNode.addFile(f));
+				dirNode.trimTree();
+				dirNode.sort();
+				if (dirNode.label === '') {
+					// nothing on the root changed, pull children to parent
+					result.push(...dirNode.children);
+				} else {
+					result.push(dirNode);
+				}
+			} else {
+				// flat view
+				result.push(...this._fileChanges);
+			}
 
 			this.childrenDisposables = result;
 			return result;
