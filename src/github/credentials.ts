@@ -149,7 +149,6 @@ export class CredentialStore implements vscode.Disposable {
 				if (login && login.token) {
 					octokit = await this.createHub(login);
 					await setToken(login.host, login.token);
-					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
 				}
 			} catch (e) {
 				Logger.appendLine(`Error signing in to ${authority}: ${e}`);
@@ -257,15 +256,18 @@ export class CredentialStore implements vscode.Disposable {
 			} catch (e) {
 				text = '$(mark-github) Signed in';
 			}
-
 			command = undefined;
+			// Temporarily show successful sign-in status
+			statusBarItem.text = '$(mark-github) Successfully signed in';
+			setTimeout(async () => {
+				statusBarItem.text = text;
+			}, 2000);
 		} else {
 			const authority = remote.gitProtocol.normalizeUri()!.authority;
 			text = `$(mark-github) Sign in to ${authority}`;
 			command = 'pr.signin';
+			statusBarItem.text = text;
 		}
-
-		statusBarItem.text = text;
 		statusBarItem.command = command;
 	}
 
