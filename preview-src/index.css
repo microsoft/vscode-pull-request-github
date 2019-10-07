@@ -252,6 +252,7 @@ body .comment-container .review-comment-header > a,
 body .commit .commit-message > a,
 body .merged .merged-message > a {
 	margin-right: 4px;
+	white-space: nowrap;
 }
 
 body .comment-container .comment-body, .review-body {
@@ -543,6 +544,7 @@ body .overview-title .button-group button {
 }
 
 .commit .sha {
+	align-self: center;
 	margin-left: auto;
 }
 
