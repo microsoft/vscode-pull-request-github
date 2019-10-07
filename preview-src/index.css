@@ -618,14 +618,6 @@ body .comment-form {
 	padding: 10px 0;
 }
 
-.review-comment-container #request-changes {
-	margin-left: auto;
-}
-
-.review-comment-container #submit {
-	margin-right: 0;
-}
-
 textarea, input[type='text'] {
 	display: block;
 	box-sizing: border-box;
@@ -679,9 +671,19 @@ textarea:focus {
 	padding: 5px 0;
 }
 
-.reply-button {
+.comment-form .form-actions > button,
+.comment-form .form-actions > input[type=submit] {
+	margin-right: 0;
+	margin-left: 0;
+}
+
+.comment-form .form-actions > #request-changes {
 	margin-left: auto;
-	margin-right: 0 !important;
+}
+
+.comment-form .form-actions > #close {
+	margin-left: 0;
+	margin-right: auto;
 }
 
 .form-actions {
