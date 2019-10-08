@@ -272,14 +272,15 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private willStartLogin(authority: string): void {
-		const status = this._authenticationStatusBarItems.get(authority)!;
-		status.text = `$(mark-github) Signing in to ${authority}...`;
-		status.command = AUTH_INPUT_TOKEN_CMD;
+		const status = this._authenticationStatusBarItems.get(authority);
+		if (status) {
+			status.text = `$(mark-github) Signing in to ${authority}...`;
+			status.command = AUTH_INPUT_TOKEN_CMD;
+		}
 	}
 
 	private didEndLogin(authority: string): void {
 		const status = this._authenticationStatusBarItems.get(authority)!;
-
 		if (status) {
 			status.text = `$(mark-github) Signed in to ${authority}`;
 			status.command = undefined;
