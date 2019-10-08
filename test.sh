@@ -14,4 +14,4 @@ tsc -p preview-src/
 scripts/preprocess-svg --in resources/ --out preview-src/dist/resources/
 
 printf "\nLaunching test runner\n"
-node ./node_modules/vscode/bin/test
+CODE_VERSION=insiders node ./node_modules/vscode/bin/test
