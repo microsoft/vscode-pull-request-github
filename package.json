@@ -68,10 +68,10 @@
             "ask"
           ],
           "enumDescriptions": [
-            "Use the latest commit message.",
-            "Use the branch name.",
-            "Specify a custom message.",
-            "Ask which of the above methods to use."
+            "Use the latest commit message",
+            "Use the branch name",
+            "Specify a custom message",
+            "Ask which of the above methods to use"
           ],
           "default": "ask",
           "description": "The name used when creating pull requests."

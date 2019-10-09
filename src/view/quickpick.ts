@@ -22,3 +22,28 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 		public label = `${owner}:${name}`,
 	) {}
 }
+
+export type PullRequestNameSource = 'commit' | 'branch' | 'custom' | 'ask';
+
+export class PullRequestNameSourceQuickPick implements vscode.QuickPickItem {
+	static allOptions(): PullRequestNameSourceQuickPick[] {
+		const values: PullRequestNameSource[] = ['commit', 'branch', 'custom'];
+		return values.map(x => this.fromPullRequestNameSource(x));
+	}
+	static getDescription(pullRequestNameSource: PullRequestNameSource): string {
+		switch (pullRequestNameSource) {
+			case 'commit':
+				return 'Use the latest commit message';
+			case 'branch':
+				return 'Use the branch name';
+			case 'custom':
+				return 'Specify a custom message';
+		}
+		return '';
+	}
+	static fromPullRequestNameSource(pullRequestNameSource: PullRequestNameSource) {
+		return new this(this.getDescription(pullRequestNameSource), pullRequestNameSource, pullRequestNameSource);
+	}
+	constructor(public description: string, public pullRequestNameSource: PullRequestNameSource, public label: string) { }
+}
+
