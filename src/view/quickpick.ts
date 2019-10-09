@@ -23,27 +23,37 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 	) {}
 }
 
-export type PullRequestNameSource = 'commit' | 'branch' | 'custom' | 'ask';
+export type PullRequestTitleSource = 'commit' | 'branch' | 'custom' | 'ask';
 
-export class PullRequestNameSourceQuickPick implements vscode.QuickPickItem {
-	static allOptions(): PullRequestNameSourceQuickPick[] {
-		const values: PullRequestNameSource[] = ['commit', 'branch', 'custom'];
-		return values.map(x => this.fromPullRequestNameSource(x));
+export enum PullRequestTitleSourceEnum {
+	Commit = 'commit',
+	Branch = 'branch',
+	Custom = 'custom',
+	Ask = 'ask'
+}
+
+export class PullRequestTitleSourceQuickPick implements vscode.QuickPickItem {
+	static allOptions(): PullRequestTitleSourceQuickPick[] {
+		const values: PullRequestTitleSource[] = [
+			PullRequestTitleSourceEnum.Commit,
+			PullRequestTitleSourceEnum.Branch,
+			PullRequestTitleSourceEnum.Custom
+		];
+		return values.map(x => this.fromPullRequestTitleSource(x));
 	}
-	static getDescription(pullRequestNameSource: PullRequestNameSource): string {
-		switch (pullRequestNameSource) {
-			case 'commit':
+	static getDescription(pullRequestTitleSource: PullRequestTitleSource): string {
+		switch (pullRequestTitleSource) {
+			case PullRequestTitleSourceEnum.Commit:
 				return 'Use the latest commit message';
-			case 'branch':
+			case PullRequestTitleSourceEnum.Branch:
 				return 'Use the branch name';
-			case 'custom':
-				return 'Specify a custom message';
+			case PullRequestTitleSourceEnum.Custom:
+				return 'Specify a custom title';
 		}
 		return '';
 	}
-	static fromPullRequestNameSource(pullRequestNameSource: PullRequestNameSource) {
-		return new this(this.getDescription(pullRequestNameSource), pullRequestNameSource, pullRequestNameSource);
+	static fromPullRequestTitleSource(pullRequestTitleSource: PullRequestTitleSource) {
+		return new this(this.getDescription(pullRequestTitleSource), pullRequestTitleSource, pullRequestTitleSource);
 	}
-	constructor(public description: string, public pullRequestNameSource: PullRequestNameSource, public label: string) { }
+	constructor(public description: string, public pullRequestTitleSource: PullRequestTitleSource, public label: string) { }
 }
-

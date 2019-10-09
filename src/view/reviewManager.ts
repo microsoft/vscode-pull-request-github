@@ -20,7 +20,7 @@ import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { RemoteQuickPickItem, PullRequestNameSourceQuickPick, PullRequestNameSource } from './quickpick';
+import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum } from './quickpick';
 import { PullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
@@ -704,20 +704,20 @@ export class ReviewManager implements vscode.DecorationProvider {
 		};
 	}
 
-	private async getPullRequestNameSetting(): Promise<PullRequestNameSource | undefined> {
-		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestNameSource>('pullRequestName', 'ask');
+	private async getPullRequestTitleSetting(): Promise<PullRequestTitleSource | undefined> {
+		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestTitleSource>('pullRequestTitle', PullRequestTitleSourceEnum.Ask);
 
-		if(method == "ask") {
-			const titleSource = await vscode.window.showQuickPick<PullRequestNameSourceQuickPick>(PullRequestNameSourceQuickPick.allOptions(), {
+		if (method === PullRequestTitleSourceEnum.Ask) {
+			const titleSource = await vscode.window.showQuickPick<PullRequestTitleSourceQuickPick>(PullRequestTitleSourceQuickPick.allOptions(), {
 				ignoreFocusOut: true,
-				placeHolder: "Pull Request Name Source"
+				placeHolder: 'Pull Request Title Source'
 			});
 
 			if (!titleSource) {
 				return;
 			}
 
-			return titleSource.pullRequestNameSource;
+			return titleSource.pullRequestTitleSource;
 		}
 
 		return method;
@@ -785,27 +785,28 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 			let { title } = titleAndDescriptionDefaults;
 
-			const pullRequestNameMethod = await this.getPullRequestNameSetting();
+			const pullRequestTitleMethod = await this.getPullRequestTitleSetting();
 
 			// User cancelled the name selection process, cancel the create process
-			if (!pullRequestNameMethod) {
+			if (!pullRequestTitleMethod) {
 				return;
 			}
 
-			switch(pullRequestNameMethod) {
-				case "branch":
-					if(branchName) {
+			switch (pullRequestTitleMethod) {
+				case PullRequestTitleSourceEnum.Branch:
+					if (branchName) {
 						title = branchName;
 					}
 					break;
-				case "custom":
+				case PullRequestTitleSourceEnum.Custom:
 					const nameResult = await vscode.window.showInputBox({
 						value: title,
 						ignoreFocusOut: true,
-						prompt: `What would you like to name your PR?`,
+						prompt: `Enter PR title`,
+						validateInput: (value) => value ? null : 'Title can not be empty'
 					});
 
-					if(!nameResult) {
+					if (!nameResult) {
 						return;
 					}
 
