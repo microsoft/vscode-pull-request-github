@@ -261,7 +261,7 @@ export class GitHubRepository implements vscode.Disposable {
 			const user = await octokit.users.getAuthenticated({});
 			// Search api will not try to resolve repo that redirects, so get full name first
 			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
-			const { data, headers } = await octokit.search.issues({
+			const { data, headers } = await octokit.search.issuesAndPullRequests({
 				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
@@ -272,7 +272,7 @@ export class GitHubRepository implements vscode.Disposable {
 					let prData = await octokit.pulls.get({
 						owner: remote.owner,
 						repo: remote.repositoryName,
-						number: item.number
+						pull_number: item.number
 					});
 					resolve(prData);
 				}));
