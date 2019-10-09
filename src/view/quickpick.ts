@@ -22,3 +22,38 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 		public label = `${owner}:${name}`,
 	) {}
 }
+
+export type PullRequestTitleSource = 'commit' | 'branch' | 'custom' | 'ask';
+
+export enum PullRequestTitleSourceEnum {
+	Commit = 'commit',
+	Branch = 'branch',
+	Custom = 'custom',
+	Ask = 'ask'
+}
+
+export class PullRequestTitleSourceQuickPick implements vscode.QuickPickItem {
+	static allOptions(): PullRequestTitleSourceQuickPick[] {
+		const values: PullRequestTitleSource[] = [
+			PullRequestTitleSourceEnum.Commit,
+			PullRequestTitleSourceEnum.Branch,
+			PullRequestTitleSourceEnum.Custom
+		];
+		return values.map(x => this.fromPullRequestTitleSource(x));
+	}
+	static getDescription(pullRequestTitleSource: PullRequestTitleSource): string {
+		switch (pullRequestTitleSource) {
+			case PullRequestTitleSourceEnum.Commit:
+				return 'Use the latest commit message';
+			case PullRequestTitleSourceEnum.Branch:
+				return 'Use the branch name';
+			case PullRequestTitleSourceEnum.Custom:
+				return 'Specify a custom title';
+		}
+		return '';
+	}
+	static fromPullRequestTitleSource(pullRequestTitleSource: PullRequestTitleSource) {
+		return new this(this.getDescription(pullRequestTitleSource), pullRequestTitleSource, pullRequestTitleSource);
+	}
+	constructor(public description: string, public pullRequestTitleSource: PullRequestTitleSource, public label: string) { }
+}

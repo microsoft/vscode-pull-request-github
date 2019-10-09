@@ -59,6 +59,23 @@
             }
           }
         },
+        "githubPullRequests.pullRequestTitle": {
+          "type": "string",
+          "enum": [
+            "commit",
+            "branch",
+            "custom",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "Use the latest commit message",
+            "Use the branch name",
+            "Specify a custom title",
+            "Ask which of the above methods to use"
+          ],
+          "default": "ask",
+          "description": "The title used when creating pull requests."
+        },
         "githubPullRequests.logLevel": {
           "type": "string",
           "enum": [

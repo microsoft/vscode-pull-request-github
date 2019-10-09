@@ -20,7 +20,7 @@ import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { RemoteQuickPickItem } from './quickpick';
+import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum } from './quickpick';
 import { PullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
@@ -704,6 +704,25 @@ export class ReviewManager implements vscode.DecorationProvider {
 		};
 	}
 
+	private async getPullRequestTitleSetting(): Promise<PullRequestTitleSource | undefined> {
+		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestTitleSource>('pullRequestTitle', PullRequestTitleSourceEnum.Ask);
+
+		if (method === PullRequestTitleSourceEnum.Ask) {
+			const titleSource = await vscode.window.showQuickPick<PullRequestTitleSourceQuickPick>(PullRequestTitleSourceQuickPick.allOptions(), {
+				ignoreFocusOut: true,
+				placeHolder: 'Pull Request Title Source'
+			});
+
+			if (!titleSource) {
+				return;
+			}
+
+			return titleSource.pullRequestTitleSource;
+		}
+
+		return method;
+	}
+
 	public async createPullRequest(draft=false): Promise<void> {
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
 		const githubRemotes = this._prManager.getGitHubRemotes();
@@ -764,8 +783,38 @@ export class ReviewManager implements vscode.DecorationProvider {
 				return;
 			}
 
+			let { title } = titleAndDescriptionDefaults;
+
+			const pullRequestTitleMethod = await this.getPullRequestTitleSetting();
+
+			// User cancelled the name selection process, cancel the create process
+			if (!pullRequestTitleMethod) {
+				return;
+			}
+
+			switch (pullRequestTitleMethod) {
+				case PullRequestTitleSourceEnum.Branch:
+					if (branchName) {
+						title = branchName;
+					}
+					break;
+				case PullRequestTitleSourceEnum.Custom:
+					const nameResult = await vscode.window.showInputBox({
+						value: title,
+						ignoreFocusOut: true,
+						prompt: `Enter PR title`,
+						validateInput: (value) => value ? null : 'Title can not be empty'
+					});
+
+					if (!nameResult) {
+						return;
+					}
+
+					title = nameResult;
+			}
+
 			const createParams = {
-				title: titleAndDescriptionDefaults.title,
+				title,
 				body: titleAndDescriptionDefaults.description,
 				base: target,
 				// For cross-repository pull requests, the owner must be listed. Always list to be safe. See https://developer.github.com/v3/pulls/#create-a-pull-request.
