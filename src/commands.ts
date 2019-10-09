@@ -445,14 +445,17 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			"pr.deleteReview" : {}
 		*/
 		telemetry.sendTelemetryEvent('pr.deleteReview');
-		let handler = resolveCommentHandler(reply.thread);
+		const shouldDelete = await vscode.window.showWarningMessage('Delete this review and all associated comments?', { modal: true }, 'Delete');
+		if (shouldDelete) {
+			let handler = resolveCommentHandler(reply.thread);
 
-		if (handler) {
-			await handler.deleteReview();
-		}
+			if (handler) {
+				await handler.deleteReview();
+			}
 
-		if (!reply.thread.comments.length) {
-			reply.thread.dispose();
+			if (!reply.thread.comments.length) {
+				reply.thread.dispose();
+			}
 		}
 	}));
 
