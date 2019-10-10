@@ -260,18 +260,8 @@ export async function parseDiff(reviews: IRawFileChange[], repository: Repositor
 		const gitChangeType = getGitChangeType(review.status);
 
 		if (!review.patch) {
-			// Patch is not returned if
-			// 1. File has only been renamed
-			// 2. The diff is "too large"
-			// 3. The file is empty
-			// 4. Unknown other reasons
-			// Treat case 3 as something that should be opened locally, offer to open everything else on GitHub
-			if (review.status === 'renamed' || review.additions || review.changes || review.deletions) {
-				fileChanges.push(new SlimFileChange(review.blob_url, gitChangeType, review.filename));
-				continue;
-			} else {
-				review.patch = '';
-			}
+			fileChanges.push(new SlimFileChange(review.blob_url, gitChangeType, review.filename));
+			continue;
 		}
 
 		let originalFileExist = false;
