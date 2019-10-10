@@ -124,7 +124,9 @@ export class PullRequestModel implements IPullRequestModel {
 			this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.cloneUrl);
 		}
 
-		this.base = new GitHubRef(prItem.base!.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
+		if (prItem.base) {
+			this.base = new GitHubRef(prItem.base.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
+		}
 	}
 
 	/**
