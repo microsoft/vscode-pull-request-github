@@ -111,6 +111,9 @@ export class PullRequestGitHelper {
 		let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
 		let configs = await repository.getConfigs();
 
+		let readConfig = (searchKey: string): string | undefined =>
+			configs.filter(({ key: k }) => searchKey === k).map(({ value }) => value)[0];
+
 		let branchInfos = configs.map(config => {
 			let matches = PullRequestBranchRegex.exec(config.key);
 			return {
@@ -121,9 +124,13 @@ export class PullRequestGitHelper {
 
 		if (branchInfos && branchInfos.length) {
 			// let's immediately checkout to branchInfos[0].branch
-			await repository.checkout(branchInfos[0].branch!);
-			const branch = await repository.getBranch(branchInfos[0].branch!);
-			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+			let branchName = branchInfos[0].branch!;
+			await repository.checkout(branchName);
+			let remote = readConfig(`branch.${branchName}.remote`);
+			let ref = readConfig(`branch.${branchName}.merge`);
+			await repository.fetch(remote, ref);
+			const branchStatus = await repository.getBranch(branchInfos[0].branch!);
+			if (branchStatus.behind !== undefined && branchStatus.behind > 0 && branchStatus.ahead === 0) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 				await repository.pull();
 			}
