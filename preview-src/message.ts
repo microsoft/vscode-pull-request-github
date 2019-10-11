@@ -29,7 +29,7 @@ export class MessageHandler {
 	}
 
 	public async postMessage(message: any): Promise<any> {
-		let req = String(++this.lastSentReq);
+		const req = String(++this.lastSentReq);
 		return new Promise<any>((resolve, reject) => {
 			this.pendingReplies[req] = {
 				resolve: resolve,
@@ -48,7 +48,7 @@ export class MessageHandler {
 		console.log('Message:', message);
 		if (message.seq) {
 			// this is a reply
-			let pendingReply = this.pendingReplies[message.seq];
+			const pendingReply = this.pendingReplies[message.seq];
 			if (pendingReply) {
 				if (message.err) {
 					pendingReply.reject(message.err);

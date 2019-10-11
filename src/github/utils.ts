@@ -21,7 +21,7 @@ export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
 }
 export function createVSCodeCommentThread(thread: ThreadData, commentController: vscode.CommentController): GHPRCommentThread {
-	let vscodeThread = commentController.createCommentThread(
+	const vscodeThread = commentController.createCommentThread(
 		thread.uri,
 		thread.range!,
 		[]
@@ -51,7 +51,7 @@ export function generateCommentReactions(reactions: Reaction[] | undefined) {
 			return { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
 		}
 
-		let matchedReaction = reactions.find(re => re.label === reaction.label);
+		const matchedReaction = reactions.find(re => re.label === reaction.label);
 
 		if (matchedReaction) {
 			return { label: matchedReaction.label, authorHasReacted: matchedReaction.viewerHasReacted, count: matchedReaction.count, iconPath: reaction.icon || '' };
@@ -98,7 +98,7 @@ export function convertRESTHeadToIGitHubRef(head: Octokit.PullsListResponseItemH
 }
 
 export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullsCreateResponse | Octokit.PullsGetResponse | Octokit.PullsListResponseItem, githubRepository: GitHubRepository): PullRequest {
-	let {
+	const {
 		number,
 		body,
 		title,
@@ -154,12 +154,12 @@ export function convertRESTReviewEvent(review: Octokit.PullsCreateReviewResponse
 }
 
 export function parseCommentDiffHunk(comment: IComment): DiffHunk[] {
-	let diffHunks = [];
-	let diffHunkReader = parseDiffHunk(comment.diffHunk);
+	const diffHunks = [];
+	const diffHunkReader = parseDiffHunk(comment.diffHunk);
 	let diffHunkIter = diffHunkReader.next();
 
 	while (!diffHunkIter.done) {
-		let diffHunk = diffHunkIter.value;
+		const diffHunk = diffHunkIter.value;
 		diffHunks.push(diffHunk);
 		diffHunkIter = diffHunkReader.next();
 	}
@@ -187,7 +187,7 @@ export function convertIssuesCreateCommentResponseToComment(comment: Octokit.Iss
 }
 
 export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullsListCommentsResponseItem | Octokit.PullsUpdateCommentResponse, githubRepository: GitHubRepository): IComment {
-	let ret: IComment = {
+	const ret: IComment = {
 		url: comment.url,
 		id: comment.id,
 		pullRequestReviewId: comment.pull_request_review_id,
@@ -205,7 +205,7 @@ export function convertPullRequestsGetCommentsResponseItemToComment(comment: Oct
 		graphNodeId: comment.node_id
 	};
 
-	let diffHunks = parseCommentDiffHunk(ret);
+	const diffHunks = parseCommentDiffHunk(ret);
 	ret.diffHunks = diffHunks;
 	return ret;
 }
@@ -264,7 +264,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): IComment {
 }
 
 export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): Reaction[] {
-	let reactionConentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
+	const reactionConentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
 		prev[curr.title] = curr;
 		return prev;
 	}, {} as { [key:string] : { title: string; label: string; icon?: vscode.Uri } });
@@ -346,11 +346,11 @@ export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubR
 export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQL.Review | GraphQL.IssueComment | GraphQL.Commit | GraphQL.AssignedEvent | GraphQL.HeadRefDeletedEvent)[], githubRepository: GitHubRepository): Common.TimelineEvent[] {
 	const normalizedEvents: Common.TimelineEvent[] = [];
 	events.forEach(event => {
-		let type = convertGraphQLEventType(event.__typename);
+		const type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
 			case Common.EventType.Commented:
-				let commentEvent = event as GraphQL.IssueComment;
+				const commentEvent = event as GraphQL.IssueComment;
 				normalizedEvents.push({
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
@@ -364,7 +364,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 				});
 				return;
 			case Common.EventType.Reviewed:
-				let reviewEvent = event as GraphQL.Review;
+				const reviewEvent = event as GraphQL.Review;
 				normalizedEvents.push({
 					event: type,
 					comments: [],
@@ -379,7 +379,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 				});
 				return;
 			case Common.EventType.Committed:
-				let commitEv = event as GraphQL.Commit;
+				const commitEv = event as GraphQL.Commit;
 				normalizedEvents.push({
 					id: commitEv.databaseId,
 					event: type,
@@ -390,7 +390,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 				} as Common.CommitEvent); // TODO remove cast
 				return;
 			case Common.EventType.Merged:
-				let mergeEv = event as GraphQL.MergedEvent;
+				const mergeEv = event as GraphQL.MergedEvent;
 
 				normalizedEvents.push({
 					id: mergeEv.databaseId,
@@ -405,7 +405,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 				});
 				return;
 			case Common.EventType.Assigned:
-				let assignEv = event as GraphQL.AssignedEvent;
+				const assignEv = event as GraphQL.AssignedEvent;
 
 				normalizedEvents.push({
 					id: assignEv.databaseId,
@@ -415,7 +415,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 				});
 				return;
 			case Common.EventType.HeadRefDeleted:
-				let deletedEv = event as GraphQL.HeadRefDeletedEvent;
+				const deletedEv = event as GraphQL.HeadRefDeletedEvent;
 
 				normalizedEvents.push({
 					id: deletedEv.id,
@@ -454,7 +454,7 @@ export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[]
 }
 
 export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
-	let ret = [
+	const ret = [
 		{
 			title: 'CONFUSED',
 			label: '😕',
@@ -494,7 +494,7 @@ export function getReactionGroup(): { title: string; label: string; icon?: vscod
 }
 
 export function getRelatedUsersFromTimelineEvents(timelineEvents: Common.TimelineEvent[]): { login: string; name: string; }[] {
-	let ret: { login: string; name: string; }[] = [];
+	const ret: { login: string; name: string; }[] = [];
 
 	timelineEvents.forEach(event => {
 		if (Common.isCommitEvent(event)) {

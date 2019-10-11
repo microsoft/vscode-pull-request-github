@@ -48,9 +48,9 @@ export class PullRequestModel implements IPullRequestModel {
 	}
 	public get userAvatarUri(): vscode.Uri | undefined {
 		if (this.prItem) {
-			let key = this.userAvatar;
+			const key = this.userAvatar;
 			if (key) {
-				let uri = vscode.Uri.parse(`${key}&s=${64}`);
+				const uri = vscode.Uri.parse(`${key}&s=${64}`);
 
 				// hack, to ensure queries are not wrongly encoded.
 				const originalToStringFn = uri.toString;

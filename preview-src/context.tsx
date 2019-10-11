@@ -91,7 +91,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.edit-comment', args })
 
 	public updateDraft = (id: number, body: string) => {
-		let pullRequest = getState();
+		const pullRequest = getState();
 		const pendingCommentDrafts = pullRequest.pendingCommentDrafts || Object.create(null);
 		if (body === pendingCommentDrafts[id]) { return; }
 		pendingCommentDrafts[id] = body;
@@ -121,7 +121,6 @@ export class PRContext {
 		const labels = this.pr.labels.filter(r => r.name !== label);
 		this.updatePR({ labels });
 	}
-
 
 	public applyPatch = async (comment: IComment) => {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });

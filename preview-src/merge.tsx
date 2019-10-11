@@ -87,7 +87,7 @@ export const ReadyForReview = () => {
 			try {
 				setBusy(true);
 				await readyForReview();
-				updatePR({isDraft: false})
+				updatePR({isDraft: false});
 			} finally {
 				setBusy(false);
 			}
@@ -99,8 +99,8 @@ export const ReadyForReview = () => {
 		<div className='ready-for-review-icon'>{alertIcon}</div>
 		<div className='ready-for-review-heading'>This pull request is still a work in progress.</div>
 		<span className='ready-for-review-meta'>Draft pull requests cannot be merged.</span>
-	</div>
-}
+	</div>;
+};
 
 export const Merge = (pr: PullRequest) => {
 	const select = useRef<HTMLSelectElement>();
@@ -148,23 +148,23 @@ export const DeleteBranch = (pr: PullRequest) => {
 
 function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMethod, cancel: () => void}) {
 	const { merge, updatePR } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false)
+	const [isBusy, setBusy] = useState(false);
 
 	return <form onSubmit={
 		async event => {
 			event.preventDefault();
 
 			try {
-				setBusy(true)
+				setBusy(true);
 				const {title, description}: any = event.target;
 				await merge({
 					title: title.value,
 					description: description.value,
 					method,
 				});
-				updatePR({ state: PullRequestStateEnum.Merged })
+				updatePR({ state: PullRequestStateEnum.Merged });
 			} finally {
-				setBusy(false)
+				setBusy(false);
 			}
 		}
 	}>
@@ -228,8 +228,8 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 
 function getSummaryLabel(statuses: any[]) {
 	const statusTypes = groupBy(statuses, (status: any) => status.state);
-	let statusPhrases = [];
-	for (let statusType of Object.keys(statusTypes)) {
+	const statusPhrases = [];
+	for (const statusType of Object.keys(statusTypes)) {
 		const numOfType = statusTypes[statusType].length;
 		let statusAdjective = '';
 

@@ -164,7 +164,7 @@ export class PullRequestManager implements vscode.Disposable {
 	// Check if the remotes are authenticated and show a prompt if not, but don't block on user's response
 	private async showLoginPrompt(): Promise<void> {
 		const activeRemotes = await this.getActiveRemotes();
-		for (let server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
+		for (const server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
 			this._credentialStore.hasOctokit(server).then(authd => {
 				if (!authd) {
 					this._credentialStore.loginWithConfirmation(server);
@@ -216,7 +216,7 @@ export class PullRequestManager implements vscode.Disposable {
 		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
 			provideCompletionItems: async (document, position, token) => {
 				try {
-					let query = JSON.parse(document.uri.query);
+					const query = JSON.parse(document.uri.query);
 					if (query.extensionId !== EXTENSION_ID) {
 						return;
 					}
@@ -227,17 +227,17 @@ export class PullRequestManager implements vscode.Disposable {
 					}
 
 					let prRelatedusers: { login: string; name?: string; }[] = [];
-					let fileRelatedUsersNames: { [key: string]: boolean } = {};
+					const fileRelatedUsersNames: { [key: string]: boolean } = {};
 					let mentionableUsers: { [key: string]: { login: string; name?: string; }[]; } = {};
 					let prNumber: number | undefined;
 					let remoteName: string | undefined;
 
-					let activeTextEditors = vscode.window.visibleTextEditors;
+					const activeTextEditors = vscode.window.visibleTextEditors;
 					if (activeTextEditors.length) {
-						let visibilePREditor = activeTextEditors.find(editor => editor.document.uri.scheme === 'pr');
+						const visibilePREditor = activeTextEditors.find(editor => editor.document.uri.scheme === 'pr');
 
 						if (visibilePREditor) {
-							let params = fromPRUri(visibilePREditor.document.uri);
+							const params = fromPRUri(visibilePREditor.document.uri);
 							prNumber = params!.prNumber;
 							remoteName = params!.remoteName;
 						} else if (this._activePullRequest) {
@@ -250,14 +250,14 @@ export class PullRequestManager implements vscode.Disposable {
 						}
 					}
 
-					let prRelatedUsersPromise = new Promise(async resolve => {
+					const prRelatedUsersPromise = new Promise(async resolve => {
 						if (prNumber && remoteName) {
 							Logger.debug('get Timeline Events and parse users', PullRequestManager.ID);
 							if (lastPullRequest && lastPullRequest.prNumber === prNumber) {
 								return lastPullRequestTimelineEvents;
 							}
 
-							let githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
+							const githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
 
 							if (githubRepos.length) {
 								lastPullRequest = await githubRepos[0].getPullRequest(prNumber);
@@ -271,11 +271,11 @@ export class PullRequestManager implements vscode.Disposable {
 						resolve();
 					});
 
-					let fileRelatedUsersNamesPromise = new Promise(async resolve => {
+					const fileRelatedUsersNamesPromise = new Promise(async resolve => {
 						if (activeTextEditors.length) {
 							try {
 								Logger.debug('git blame and parse users', PullRequestManager.ID);
-								let fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
+								const fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
 								let blames: string | undefined;
 								if (this._gitBlameCache[fsPath]) {
 									blames = this._gitBlameCache[fsPath];
@@ -284,13 +284,13 @@ export class PullRequestManager implements vscode.Disposable {
 									this._gitBlameCache[fsPath] = blames;
 								}
 
-								let blameLines = blames.split('\n');
+								const blameLines = blames.split('\n');
 
-								for (let line in blameLines) {
-									let matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(blameLines[line]);
+								for (const line in blameLines) {
+									const matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(blameLines[line]);
 
 									if (matches && matches.length === 2) {
-										let name = matches[1].trim();
+										const name = matches[1].trim();
 										fileRelatedUsersNames[name] = true;
 									}
 								}
@@ -302,7 +302,7 @@ export class PullRequestManager implements vscode.Disposable {
 						resolve();
 					});
 
-					let getMentionableUsersPromise = new Promise(async resolve => {
+					const getMentionableUsersPromise = new Promise(async resolve => {
 						Logger.debug('get mentionable users', PullRequestManager.ID);
 						mentionableUsers = await this.getMentionableUsers();
 						resolve();
@@ -311,7 +311,7 @@ export class PullRequestManager implements vscode.Disposable {
 					await Promise.all([prRelatedUsersPromise, fileRelatedUsersNamesPromise, getMentionableUsersPromise]);
 
 					cachedUsers = [];
-					let prRelatedUsersMap: { [key: string]: { login: string; name?: string; } } = {};
+					const prRelatedUsersMap: { [key: string]: { login: string; name?: string; } } = {};
 					Logger.debug('prepare user suggestions', PullRequestManager.ID);
 
 					prRelatedusers.forEach(user => {
@@ -320,9 +320,9 @@ export class PullRequestManager implements vscode.Disposable {
 						}
 					});
 
-					let secondMap: { [key: string]: boolean } = {};
+					const secondMap: { [key: string]: boolean } = {};
 
-					for (let mentionableUserGroup in mentionableUsers) {
+					for (const mentionableUserGroup in mentionableUsers) {
 						mentionableUsers[mentionableUserGroup].forEach(user => {
 							if (!prRelatedUsersMap[user.login] && !secondMap[user.login]) {
 								secondMap[user.login] = true;
@@ -347,7 +347,7 @@ export class PullRequestManager implements vscode.Disposable {
 						});
 					}
 
-					for (let user in prRelatedUsersMap) {
+					for (const user in prRelatedUsersMap) {
 						if (!secondMap[user]) {
 							// if the mentionable api call fails partially, we should still populate related users from timeline events into the completion list
 							cachedUsers.push({
@@ -422,7 +422,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const authenticatedRemotes: Remote[] = [];
 
 		const activeRemotesByAuthority = groupBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority);
-		for (let authority of Object.keys(activeRemotesByAuthority)) {
+		for (const authority of Object.keys(activeRemotesByAuthority)) {
 			const remotesForAuthority = activeRemotesByAuthority[authority];
 			serverAuthPromises.push(this._credentialStore.hasOctokit(remotesForAuthority[0]).then(authd => {
 				if (!authd) {
@@ -442,8 +442,8 @@ export class PullRequestManager implements vscode.Disposable {
 			Logger.appendLine(`serverAuthPromises failed: ${formatError(e)}`);
 		});
 
-		let repositories: GitHubRepository[] = [];
-		let resolveRemotePromises: Promise<void>[] = [];
+		const repositories: GitHubRepository[] = [];
+		const resolveRemotePromises: Promise<void>[] = [];
 
 		authenticatedRemotes.forEach(remote => {
 			const repository = this.createGitHubRepository(remote, this._credentialStore);
@@ -456,7 +456,7 @@ export class PullRequestManager implements vscode.Disposable {
 			this._githubRepositories = repositories;
 			oldRepositories.forEach(repo => repo.dispose());
 
-			for (let repository of this._githubRepositories) {
+			for (const repository of this._githubRepositories) {
 				const remoteId = repository.remote.url.toString();
 				if (!this._repositoryPageInformation.get(remoteId)) {
 					this._repositoryPageInformation.set(remoteId, {
@@ -485,7 +485,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		if (!this._fetchMentionableUsersPromise) {
-			let cache: { [key: string]: IAccount[] } = {};
+			const cache: { [key: string]: IAccount[] } = {};
 			return this._fetchMentionableUsersPromise = new Promise((resolve) => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getMentionableUsers();
@@ -648,7 +648,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		if (!options.fetchNextPage) {
-			for (let repository of this._githubRepositories) {
+			for (const repository of this._githubRepositories) {
 				this._repositoryPageInformation.set(repository.remote.url.toString(), {
 					pullRequestPage: 1,
 					hasMorePages: null
@@ -689,7 +689,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 	public mayHaveMorePages(): boolean {
 		return this._githubRepositories.some(repo => {
-			let info = this._repositoryPageInformation.get(repo.remote.url.toString());
+			const info = this._repositoryPageInformation.get(repo.remote.url.toString());
 			return !!(info && info.hasMorePages !== false);
 		});
 	}
@@ -824,7 +824,7 @@ export class PullRequestManager implements vscode.Disposable {
 					}
 				});
 				ret = data.repository.pullRequest.timelineItems.nodes;
-				let events = parseGraphQLTimelineEvents(ret, githubRepository);
+				const events = parseGraphQLTimelineEvents(ret, githubRepository);
 				await this.addReviewTimelineEventComments(pullRequest, events);
 
 				return events;
@@ -883,7 +883,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const { octokit, remote } = await githubRepository.ensure();
 
 		try {
-			let ret = await octokit.pulls.createCommentReply({
+			const ret = await octokit.pulls.createCommentReply({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				pull_number: pullRequest.prNumber,
@@ -939,7 +939,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async validateDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
-		let inDraftMode = !!await this.getPendingReviewId(pullRequest);
+		const inDraftMode = !!await this.getPendingReviewId(pullRequest);
 		if (inDraftMode !== pullRequest.inDraftMode) {
 			pullRequest.inDraftMode = inDraftMode;
 		}
@@ -998,7 +998,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async addCommentReaction(pullRequest: PullRequestModel, graphNodeId: string, reaction: vscode.CommentReaction): Promise<AddReactionResponse> {
-		let reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
+		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
 			prev[curr.label] = curr.title;
 			return prev;
 		}, {} as { [key: string]: string });
@@ -1017,7 +1017,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async deleteCommentReaction(pullRequest: PullRequestModel, graphNodeId: string, reaction: vscode.CommentReaction): Promise<DeleteReactionResponse> {
-		let reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
+		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
 			prev[curr.label] = curr.title;
 			return prev;
 		}, {} as { [key: string]: string });
@@ -1049,7 +1049,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const { octokit, remote } = await githubRepository.ensure();
 
 		try {
-			let ret = await octokit.pulls.createComment({
+			const ret = await octokit.pulls.createComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				pull_number: pullRequest.prNumber,
@@ -1177,7 +1177,7 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 
 			// Create PR
-			let { data } = await repo.octokit.pulls.create(params);
+			const { data } = await repo.octokit.pulls.create(params);
 			const item = convertRESTPullRequestToRawPullRequest(data, repo);
 			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
 
@@ -1314,7 +1314,7 @@ export class PullRequestManager implements vscode.Disposable {
 	private async changePullRequestState(state: 'open' | 'closed', pullRequest: PullRequestModel): Promise<[Octokit.PullsUpdateResponse, GitHubRepository]> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
-		let ret = await octokit.pulls.update({
+		const ret = await octokit.pulls.update({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: pullRequest.prNumber,
@@ -1384,11 +1384,11 @@ export class PullRequestManager implements vscode.Disposable {
 
 	private async getBranchDeletionItems() {
 		const allConfigs = await this.repository.getConfigs();
-		let branchInfos: Map<string, { remote?: string; metadata?: PullRequestMetadata }> = new Map();
+		const branchInfos: Map<string, { remote?: string; metadata?: PullRequestMetadata }> = new Map();
 
 		allConfigs.forEach(config => {
 			const key = config.key;
-			let matches = /^branch\.(.*)\.(.*)$/.exec(key);
+			const matches = /^branch\.(.*)\.(.*)$/.exec(key);
 
 			if (matches && matches.length === 3) {
 				const branchName = matches[1];
@@ -1397,7 +1397,7 @@ export class PullRequestManager implements vscode.Disposable {
 					branchInfos.set(branchName, {});
 				}
 
-				let value = branchInfos.get(branchName);
+				const value = branchInfos.get(branchName);
 				if (matches[2] === 'remote') {
 					value!['remote'] = config.value;
 				}
@@ -1411,7 +1411,7 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 		});
 
-		let actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata, legacy?: boolean })[] = [];
+		const actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata, legacy?: boolean })[] = [];
 		branchInfos.forEach((value, key) => {
 			if (value.metadata) {
 				actions.push({
@@ -1423,7 +1423,7 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 		});
 
-		let results = await Promise.all(actions.map(async action => {
+		const results = await Promise.all(actions.map(async action => {
 			const metadata = action.metadata;
 			const githubRepo = this._githubRepositories.find(repo =>
 				repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase()
@@ -1464,7 +1464,7 @@ export class PullRequestManager implements vscode.Disposable {
 	private async getRemoteDeletionItems() {
 		// check if there are remotes that should be cleaned
 		const newConfigs = await this.repository.getConfigs();
-		let remoteInfos: Map<string, { branches: Set<string>; url?: string; createdForPullRequest?: boolean }> = new Map();
+		const remoteInfos: Map<string, { branches: Set<string>; url?: string; createdForPullRequest?: boolean }> = new Map();
 
 		newConfigs.forEach(config => {
 			const key = config.key;
@@ -1507,7 +1507,7 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 		});
 
-		let remoteItems: (vscode.QuickPickItem & { remote: string })[] = [];
+		const remoteItems: (vscode.QuickPickItem & { remote: string })[] = [];
 
 		remoteInfos.forEach((value, key) => {
 			if (value.branches.size === 0) {
@@ -1829,7 +1829,7 @@ export class PullRequestManager implements vscode.Disposable {
 			return null;
 		}
 
-		let matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, this.repository.state.HEAD.name);
+		const matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, this.repository.state.HEAD.name);
 		return matchingPullRequestMetadata;
 	}
 
@@ -1917,7 +1917,7 @@ export class PullRequestManager implements vscode.Disposable {
 	private async fixCommitAttribution(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
 		const commits = await this.getPullRequestCommits(pullRequest);
 		const commitEvents = events.filter(isCommitEvent);
-		for (let commitEvent of commitEvents) {
+		for (const commitEvent of commitEvents) {
 			const matchingCommits = commits.filter(commit => commit.sha === commitEvent.sha);
 			if (matchingCommits.length === 1) {
 				const author = matchingCommits[0].author;
@@ -1936,7 +1936,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 	private async parseRESTTimelineEvents(pullRequest: PullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
 		events.forEach(event => {
-			let type = getEventType(event.event);
+			const type = getEventType(event.event);
 			event.event = type;
 			return event;
 		});

@@ -194,7 +194,7 @@ export interface Embodied {
 
 export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	if (!body && !bodyHTML) {
-		return <div className='comment-body'><em>No description provided.</em></div>
+		return <div className='comment-body'><em>No description provided.</em></div>;
 	}
 
 	const { applyPatch } = useContext(PullRequestContext);
@@ -211,7 +211,7 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 		{renderedBody}
 		{applyPatchButton}
 	</div>;
-}
+};
 
 export function AddComment({ pendingCommentText, state }: PullRequest) {
 	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);

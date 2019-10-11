@@ -106,7 +106,7 @@ export class GitHubManager {
 	}
 
 	private static getScopeSuperset(scope: string): string {
-		for (let key in this.GitHubScopesTable) {
+		for (const key in this.GitHubScopesTable) {
 			if (this.GitHubScopesTable[key].indexOf(scope) >= 0) {
 				return key;
 			}

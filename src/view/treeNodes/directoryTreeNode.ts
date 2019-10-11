@@ -68,8 +68,8 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 			return;
 		}
 
-		let dirs: DirectoryTreeNode[] = [];
-		let files: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[] = [];
+		const dirs: DirectoryTreeNode[] = [];
+		const files: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[] = [];
 
 		// process directory
 		this.children.forEach(node => {

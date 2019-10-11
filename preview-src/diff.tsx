@@ -41,7 +41,7 @@ export enum DiffChangeType {
 }
 
 export function getDiffChangeType(text: string) {
-	let c = text[0];
+	const c = text[0];
 	switch (c) {
 		case ' ': return DiffChangeType.Context;
 		case '+': return DiffChangeType.Add;
