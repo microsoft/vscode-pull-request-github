@@ -9,7 +9,7 @@ import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './
 
 export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode| DirectoryTreeNode)[] =  new Array();
+	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] =  new Array();
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
 
 	constructor(
@@ -24,7 +24,12 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		return this.children;
 	}
 
-	public trimTree(): void {
+	public finalize(): void {
+		this.trimTree();
+		this.sort();
+	}
+
+	private trimTree(): void {
 		if (this.children.length === 0) {
 			return;
 		}
@@ -58,7 +63,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		this.children = child.children;
 	}
 
-	sort(): void {
+	private sort(): void {
 		if (this.children.length <= 1) {
 			return;
 		}
@@ -84,14 +89,14 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		this.children = [...dirs, ...files];
 	}
 
-	public addFile(file: RemoteFileChangeNode | InMemFileChangeNode): void {
+	public addFile(file: GitFileChangeNode | RemoteFileChangeNode | InMemFileChangeNode): void {
 		const paths = file.fileName.split('/');
 		file.description = '';
 
 		this.addPathRecc(paths, file);
 	}
 
-	private addPathRecc(paths: string[], file: RemoteFileChangeNode | InMemFileChangeNode): void {
+	private addPathRecc(paths: string[], file: GitFileChangeNode | RemoteFileChangeNode | InMemFileChangeNode): void {
 		if (paths.length <= 0) {
 			return;
 		}

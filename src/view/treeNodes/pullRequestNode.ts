@@ -161,8 +161,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				// tree view
 				const dirNode = new DirectoryTreeNode(this, '');
 				this._fileChanges.forEach(f => dirNode.addFile(f));
-				dirNode.trimTree();
-				dirNode.sort();
+				dirNode.finalize();
 				if (dirNode.label === '') {
 					// nothing on the root changed, pull children to parent
 					result.push(...dirNode.children);
