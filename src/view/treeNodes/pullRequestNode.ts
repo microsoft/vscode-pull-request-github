@@ -335,7 +335,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			});
 
 			const fileChanges = await this.getFileChanges();
-
+			await this._prManager.validateDraftMode(this.pullRequestModel);
 			currentPRDocuments.forEach(async editor => {
 				const fileChange = fileChanges.find(fc => fc.fileName === editor.fileName);
 
@@ -809,8 +809,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			thread.comments = thread.comments.filter(c => c instanceof TemporaryComment && c.id === comment.id);
 		}
 
-		const inDraftMode = await this._prManager.validateDraftMode(this.pullRequestModel);
-		this.setContextKey(inDraftMode);
+		await this._prManager.validateDraftMode(this.pullRequestModel);
 	}
 	// #endregion
 
