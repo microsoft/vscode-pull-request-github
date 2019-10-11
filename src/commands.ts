@@ -140,6 +140,14 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		vscode.env.clipboard.writeText(e.sha);
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openOriginalFile', (e: GitFileChangeNode) => {
+		vscode.commands.executeCommand('vscode.open', e.parentFilePath);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode) => {
+		vscode.commands.executeCommand('vscode.open', e.filePath);
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
 		const parentFilePath = fileChangeNode.parentFilePath;
 		const filePath = fileChangeNode.filePath;

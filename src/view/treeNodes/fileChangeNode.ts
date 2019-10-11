@@ -79,7 +79,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string
 	) {
 		super();
-		this.contextValue = 'filechange';
+		this.contextValue = `filechange:${GitChangeType[status]}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
