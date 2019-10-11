@@ -23,6 +23,18 @@ export interface MergedEvent {
 	url: string;
 }
 
+export interface HeadRefDeletedEvent {
+	__typename: string;
+	id: string;
+	actor: {
+		login: string;
+		avatarUrl: string;
+		url: string;
+	};
+	createdAt: string;
+	headRefName: string;
+}
+
 export interface IssueComment {
 	__typename: string;
 	id: string;
@@ -90,20 +102,23 @@ export interface Commit {
 	__typename: string;
 	id: string;
 	databaseId: number;
-	author: {
-		user: {
-			login: string;
+	commit: {
+		author: {
+			user: {
+				login: string;
+				avatarUrl: string;
+				url: string;
+			}
+		};
+		committer: {
 			avatarUrl: string;
-			url: string;
-		}
+			name: string;
+		};
+		oid: string;
+		message: string;
 	};
-	committer: {
-		avatarUrl: string;
-		name: string;
-	};
+
 	url: string;
-	oid: string;
-	message: string;
 }
 
 export interface AssignedEvent {
@@ -143,10 +158,8 @@ export interface Review {
 export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
-			timeline: {
-				edges: {
-					node: (MergedEvent | Review | IssueComment | Commit | AssignedEvent)[];
-				}[]
+			timelineItems: {
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
 			}
 		}
 	};
@@ -160,6 +173,16 @@ export interface PendingReviewIdResponse {
 		}
 	};
 	rateLimit: RateLimit;
+}
+
+export interface PullRequestState {
+	repository: {
+		pullRequest: {
+			title: string;
+			number: number;
+			state: 'OPEN' | 'CLOSED' | 'MERGED';
+		}
+	};
 }
 
 export interface PullRequestCommentsResponse {

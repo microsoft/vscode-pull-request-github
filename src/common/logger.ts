@@ -52,7 +52,7 @@ class Log {
 	}
 
 	private getLogLevel() {
-		let logLevel = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
+		const logLevel = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
 		switch (logLevel) {
 			case 'debug':
 				this._logLevel = LogLevel.Debug;

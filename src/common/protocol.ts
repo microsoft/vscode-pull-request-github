@@ -80,7 +80,7 @@ export class Protocol {
 
 	getHostName(authority: string) {
 		// <username>:<password>@<authority>:<port>
-		let matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
+		const matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
 
 		if (matches && matches.length >= 2) {
 			return matches[1];
@@ -94,8 +94,8 @@ export class Protocol {
 		if (normalized.endsWith('/')) {
 			normalized = normalized.substr(0, normalized.length - 1);
 		}
-		let lastIndex = normalized.lastIndexOf('/');
-		let lastSegment = normalized.substr(lastIndex + 1);
+		const lastIndex = normalized.lastIndexOf('/');
+		const lastSegment = normalized.substr(lastIndex + 1);
 		if (lastSegment === '' || lastSegment === '/') {
 			return;
 		}
@@ -109,7 +109,7 @@ export class Protocol {
 			normalized = normalized.substr(0, normalized.length - 1);
 		}
 
-		let fragments = normalized.split('/');
+		const fragments = normalized.split('/');
 		if (fragments.length > 1) {
 			return fragments[fragments.length - 2];
 		}
@@ -158,7 +158,7 @@ export class Protocol {
 			return `git://git@${this.host}:${this.owner}/${this.repositoryName}`;
 		}
 
-		let normalizedUri = this.normalizeUri();
+		const normalizedUri = this.normalizeUri();
 		if (normalizedUri) {
 			return normalizedUri.toString();
 		}
@@ -187,12 +187,12 @@ export class Protocol {
 	}
 
 	equals(other: Protocol) {
-		let normalizeUri = this.normalizeUri();
+		const normalizeUri = this.normalizeUri();
 		if (!normalizeUri) {
 			return false;
 		}
 
-		let otherNormalizeUri = other.normalizeUri();
+		const otherNormalizeUri = other.normalizeUri();
 		if (!otherNormalizeUri) {
 			return false;
 		}

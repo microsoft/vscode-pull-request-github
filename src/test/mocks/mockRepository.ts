@@ -1,5 +1,4 @@
 import { Uri } from 'vscode';
-import { isEqual } from 'lodash';
 
 import { Repository, RepositoryState, RepositoryUIState, Commit, Branch, RefType } from '../../api/api';
 
@@ -184,7 +183,7 @@ export class MockRepository implements Repository {
 	}
 
 	async fetch(remoteName?: string | undefined, ref?: string | undefined, depth?: number | undefined): Promise<void> {
-		const index = this._expectedFetches.findIndex(f => isEqual(f, {remoteName, ref, depth}));
+		const index = this._expectedFetches.findIndex(f => f.remoteName === remoteName && f.ref === ref && f.depth === depth);
 		if (index === -1) {
 			throw new Error(`Unexpected fetch(${remoteName}, ${ref}, ${depth})`);
 		}
@@ -201,7 +200,7 @@ export class MockRepository implements Repository {
 	}
 
 	async pull(unshallow?: boolean | undefined): Promise<void> {
-		const index = this._expectedPulls.findIndex(f => isEqual(f, {unshallow}));
+		const index = this._expectedPulls.findIndex(f => f.unshallow === unshallow);
 		if (index === -1) {
 			throw new Error(`Unexpected pull(${unshallow})`);
 		}
@@ -209,7 +208,7 @@ export class MockRepository implements Repository {
 	}
 
 	async push(remoteName?: string | undefined, branchName?: string | undefined, setUpstream?: boolean | undefined): Promise<void> {
-		const index = this._expectedPushes.findIndex(f => isEqual(f, {remoteName, branchName, setUpstream}));
+		const index = this._expectedPushes.findIndex(f => f.remoteName === remoteName && f.branchName === branchName && f.setUpstream === setUpstream);
 		if (index === -1) {
 			throw new Error(`Unexpected push(${remoteName}, ${branchName}, ${setUpstream})`);
 		}

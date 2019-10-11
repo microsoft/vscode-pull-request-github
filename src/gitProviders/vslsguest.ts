@@ -70,7 +70,7 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 	}
 
 	public async openVSLSRepository(folder: vscode.WorkspaceFolder): Promise<void> {
-		let existingRepository = this.getRepository(folder);
+		const existingRepository = this.getRepository(folder);
 		if (existingRepository) {
 			return;
 		}
@@ -82,7 +82,7 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 	}
 
 	public async closeVSLSRepository(folder: vscode.WorkspaceFolder): Promise<void> {
-		let existingRepository = this.getRepository(folder);
+		const existingRepository = this.getRepository(folder);
 		if (!existingRepository) {
 			return;
 		}
@@ -162,7 +162,7 @@ class LiveShareRepository {
 	) { }
 
 	public async initialize() {
-		let result = await this.proxy.request(VSLS_REQUEST_NAME, [VSLS_REPOSITORY_INITIALIZATION_NAME, this.workspaceFolder.uri.toString()]);
+		const result = await this.proxy.request(VSLS_REQUEST_NAME, [VSLS_REPOSITORY_INITIALIZATION_NAME, this.workspaceFolder.uri.toString()]);
 		this.state = new LiveShareRepositoryState(result);
 		this.rootUri = vscode.Uri.parse(result.rootUri);
 		this.proxy.onNotify(VSLS_STATE_CHANGE_NOFITY_NAME, this._notifyHandler.bind(this));

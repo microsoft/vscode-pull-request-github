@@ -12,6 +12,7 @@ import { PullRequestManager } from '../github/pullRequestManager';
 import { ReviewManager } from '../view/reviewManager';
 import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';
 import { Keytar, init as initKeytar, setToken, listHosts } from '../authentication/keychain';
+import { ApiImpl } from '../api/api1';
 
 describe('Command registration', function() {
 	let sinon: SinonSandbox;
@@ -33,7 +34,7 @@ describe('Command registration', function() {
 		telemetry = new MockTelemetry();
 		repository = new MockRepository();
 
-		prManager = new PullRequestManager(repository, telemetry);
+		prManager = new PullRequestManager(repository, telemetry, new ApiImpl());
 		context.subscriptions.push(prManager);
 
 		prTreeManager = new PullRequestsTreeDataProvider(telemetry);

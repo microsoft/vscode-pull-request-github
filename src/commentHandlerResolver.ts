@@ -26,16 +26,20 @@ export interface CommentReply {
 	text: string;
 }
 
-const commentHandlers = new Set<CommentHandler>();
+const commentHandlers = new Map<string, CommentHandler>();
 
-export function registerCommentHandler(commentHandler: CommentHandler) {
-	commentHandlers.add(commentHandler);
+export function registerCommentHandler(key: string, commentHandler: CommentHandler) {
+	commentHandlers.set(key, commentHandler);
+}
+
+export function unregisterCommentHandler(key: string) {
+	commentHandlers.delete(key);
 }
 
 export function resolveCommentHandler(commentThread: GHPRCommentThread): CommentHandler | undefined {
-	for (let [key] of commentHandlers.entries()) {
-		if (key.hasCommentThread(commentThread)) {
-			return key;
+	for (const commentHandler of commentHandlers.values()) {
+		if (commentHandler.hasCommentThread(commentThread)) {
+			return commentHandler;
 		}
 	}
 

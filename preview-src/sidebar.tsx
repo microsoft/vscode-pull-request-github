@@ -15,8 +15,8 @@ export default function Sidebar({ reviewers, labels }: PullRequest) {
 			<div className='section-header'>
 				<div>Reviewers</div>
 				<button title='Add Reviewers' onClick={async () => {
-					const reviewers = await addReviewers()
-					updatePR({reviewers: pr.reviewers.concat(reviewers.added)})
+					const newReviewers = await addReviewers();
+					updatePR({reviewers: pr.reviewers.concat(newReviewers.added)});
 				}}>{plusIcon}</button>
 			</div>
 			{
@@ -29,8 +29,8 @@ export default function Sidebar({ reviewers, labels }: PullRequest) {
 			<div className='section-header'>
 				<div>Labels</div>
 				<button title='Add Labels' onClick={async () => {
-					const labels = await addLabels()
-					updatePR({ labels: pr.labels.concat(labels.added) })
+					const newLabels = await addLabels();
+					updatePR({ labels: pr.labels.concat(newLabels.added)});
 				}}>{plusIcon}</button>
 			</div>
 			{

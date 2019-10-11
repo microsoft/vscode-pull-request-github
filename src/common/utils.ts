@@ -7,6 +7,7 @@
 import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
 import moment = require('moment');
+import { HookError } from '@octokit/rest';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -93,7 +94,7 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
-export function formatError(e: any): string {
+export function formatError(e: HookError | any): string {
 	if (!(e instanceof Error)) {
 		if (typeof e === 'string') {
 			return e;
@@ -106,29 +107,19 @@ export function formatError(e: any): string {
 		return 'Error';
 	}
 
-	try {
-		let errorMessage = e.message;
-
-		const message = JSON.parse(e.message);
-		if (message) {
-			errorMessage = message.message;
-
-			const furtherInfo = message.errors && message.errors.map((error: any) => {
-				if (typeof error === 'string') {
-					return error;
-				} else {
-					return error.message;
-				}
-			}).join(', ');
-			if (furtherInfo) {
-				errorMessage = `${errorMessage}: ${furtherInfo}`;
-			}
+	let errorMessage = e.message;
+	const furtherInfo = (e as HookError).errors && (e as HookError).errors!.map((error: any) => {
+		if (typeof error === 'string') {
+			return error;
+		} else {
+			return error.message;
 		}
-
-		return errorMessage;
-	} catch (_) {
-		return e.message;
+	}).join(', ');
+	if (furtherInfo) {
+		errorMessage = `${errorMessage}: ${furtherInfo}`;
 	}
+
+	return errorMessage;
 }
 
 export interface PromiseAdapter<T, U> {
@@ -402,7 +393,7 @@ export class TernarySearchTree<E> {
 
 				// clean up empty nodes
 				while (stack.length > 0 && node.isEmpty()) {
-					let [dir, parent] = stack.pop()!;
+					const [dir, parent] = stack.pop()!;
 					switch (dir) {
 						case 1: parent.left = undefined; break;
 						case 0: parent.mid = undefined; break;

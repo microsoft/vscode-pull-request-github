@@ -225,7 +225,7 @@ body .comment-container .review-comment-header {
 #status-checks svg {
 	fill: var(--vscode-foreground);
 	margin-right: 6px;
-	width: 12px;
+	width: 16px;
 }
 
 #status-checks .merge-select-container {
@@ -237,11 +237,22 @@ body .comment-container .review-comment-header {
 	margin-right: 5px;
 }
 
+#status-checks .branch-status-container {
+	display: inline-block;
+}
+
+#status-checks .branch-status-message {
+	display: inline-block;
+	line-height: 100%;
+	padding: 0 10px;
+}
+
 body .comment-container .review-comment-header > span,
 body .comment-container .review-comment-header > a,
 body .commit .commit-message > a,
 body .merged .merged-message > a {
 	margin-right: 4px;
+	white-space: nowrap;
 }
 
 body .comment-container .comment-body, .review-body {
@@ -256,11 +267,11 @@ body .comment-container .review-comment-container .review-comment-body {
 	border: none;
 }
 
-body .comment-container .comment-body > p, .comment-container .review-body > p {
+body .comment-container .comment-body > p, body .comment-container .comment-body > div > p, .comment-container .review-body > p {
 	margin-top: 0;
 }
 
-body .comment-container .comment-body > p:last-child, .comment-container .review-body > p:last-child {
+body .comment-container .comment-body > p:last-child, body .comment-container .comment-body > div > p:last-child, .comment-container .review-body > p:last-child {
 	margin-bottom: 0;
 }
 
@@ -323,6 +334,11 @@ body button.secondary:hover {
 
 body button svg {
 	fill: var(--vscode-button-foreground);
+}
+
+body button .icon {
+	width: 1em;
+	height: 1em;
 	margin-right: 6px;
 }
 
@@ -409,6 +425,11 @@ body .overview-title .button-group button {
 	margin-left: auto;
 	padding: 0;
 	background: transparent;
+	display: flex;
+}
+
+.section .icon {
+	margin-right: 0;
 }
 
 .section .avatar-link {
@@ -421,8 +442,8 @@ body .overview-title .button-group button {
 
 .section svg {
 	fill: var(--vscode-foreground);
-	width: 14px;
-	height: 14px;
+	width: 16px;
+	height: 16px;
 	display: block;
 	margin-right: 0;
 }
@@ -465,7 +486,7 @@ body .overview-title .button-group button {
 }
 
 .commit svg {
-	width: 14px;
+	width: 16px;
 	height: auto;
 	margin-right: 8px;
 	flex-shrink: 0;
@@ -523,6 +544,7 @@ body .overview-title .button-group button {
 }
 
 .commit .sha {
+	align-self: center;
 	margin-left: auto;
 }
 
@@ -598,14 +620,6 @@ body .comment-form {
 	padding: 10px 0;
 }
 
-.review-comment-container #request-changes {
-	margin-left: auto;
-}
-
-.review-comment-container #submit {
-	margin-right: 0;
-}
-
 textarea, input[type='text'] {
 	display: block;
 	box-sizing: border-box;
@@ -659,17 +673,27 @@ textarea:focus {
 	padding: 5px 0;
 }
 
-.reply-button {
+.comment-form .form-actions > button,
+.comment-form .form-actions > input[type=submit] {
+	margin-right: 0;
+	margin-left: 0;
+}
+
+.comment-form .form-actions > #request-changes {
 	margin-left: auto;
-	margin-right: 0 !important;
+}
+
+.comment-form .form-actions > #close {
+	margin-left: 0;
+	margin-right: auto;
 }
 
 .form-actions {
 	display: flex;
+	padding-top: 10px;
 }
 
 .main-comment-form > .form-actions {
-	padding-top: 10px;
 	margin-bottom: 10px;
 }
 
@@ -1009,6 +1033,7 @@ code {
 
 	.section-header button {
 		margin-left: 8px;
+		display: flex;
 	}
 
 	.section-item.reviewer {
@@ -1031,6 +1056,7 @@ code {
 	width: 1em;
 	height: 1em;
 	font-size: 16px;
+	margin-right: 6px;
 }
 
 .push-right {

@@ -11,6 +11,7 @@ import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { ApiImpl } from '../../api/api1';
 
 describe('PullRequestManager', function() {
 	let sinon: SinonSandbox;
@@ -22,7 +23,7 @@ describe('PullRequestManager', function() {
 
 		const telemetry = new MockTelemetry();
 		const repository = new MockRepository();
-		manager = new PullRequestManager(repository, telemetry);
+		manager = new PullRequestManager(repository, telemetry, new ApiImpl());
 	});
 
 	afterEach(function () {

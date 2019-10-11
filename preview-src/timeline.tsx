@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useContext, useRef } from 'react';
 
 import { IComment } from '../src/common/comment';
-import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent } from '../src/common/timelineEvent';
+import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent, isHeadDeleteEvent, HeadRefDeleteEvent } from '../src/common/timelineEvent';
 import { commitIcon, mergeIcon } from './icon';
 import { Avatar, AuthorLink } from './user';
 import { groupBy } from '../src/common/utils';
@@ -30,6 +30,9 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 				:
 			isAssignEvent(event)
 				? <AssignEventView key={event.id} {...event} />
+				:
+			isHeadDeleteEvent(event)
+				? <HeadDeleteEventView key={event.id} {...event} />
 				: null
 		)
 	}</>;
@@ -154,6 +157,20 @@ const MergedEventView = (event: MergedEvent) =>
 				into {event.mergeRef}{nbsp}
 			</div>
 			<Timestamp href={event.url} date={event.createdAt} />
+		</div>
+	</div>;
+
+const HeadDeleteEventView = (event: HeadRefDeleteEvent) =>
+	<div className='comment-container commit'>
+		<div className='commit-message'>
+			<div className='avatar-container'>
+				<Avatar for={event.actor} />
+			</div>
+			<AuthorLink for={event.actor} />
+			<div className='message'>
+				deleted the {event.headRef} branch{nbsp}
+			</div>
+			<Timestamp date={event.createdAt} />
 		</div>
 	</div>;
 

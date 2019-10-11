@@ -46,16 +46,17 @@ export class PullRequestOverviewPanel {
 	private _disposables: vscode.Disposable[] = [];
 	private _descriptionNode: DescriptionNode;
 	private _pullRequest: PullRequestModel;
+	private _repositoryDefaultBranch: string;
 	private _pullRequestManager: PullRequestManager;
 	private _scrollPosition = { x: 0, y: 0 };
 	private _existingReviewers: ReviewState[];
 
 	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
-		let activeColumn = toTheSide ?
-							vscode.ViewColumn.Beside :
-							vscode.window.activeTextEditor ?
-								vscode.window.activeTextEditor.viewColumn :
-								vscode.ViewColumn.One;
+		const activeColumn = toTheSide ?
+			vscode.ViewColumn.Beside :
+			vscode.window.activeTextEditor ?
+				vscode.window.activeTextEditor.viewColumn :
+				vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
@@ -146,7 +147,7 @@ export class PullRequestOverviewPanel {
 		// Do not show the author in the reviewer list
 		seen.set(author.login, true);
 
-		for (let i = reviewEvents.length -1; i >= 0; i--) {
+		for (let i = reviewEvents.length - 1; i >= 0; i--) {
 			const reviewer = reviewEvents[i].user;
 			if (!seen.get(reviewer.login)) {
 				seen.set(reviewer.login, true);
@@ -213,6 +214,7 @@ export class PullRequestOverviewPanel {
 			}
 
 			this._pullRequest = pullRequest;
+			this._repositoryDefaultBranch = defaultBranch;
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
@@ -232,7 +234,7 @@ export class PullRequestOverviewPanel {
 					body: this._pullRequest.body,
 					bodyHTML: this._pullRequest.bodyHTML,
 					labels: this._pullRequest.prItem.labels,
-					author:{
+					author: {
 						login: this._pullRequest.author.login,
 						name: this._pullRequest.author.name,
 						avatarUrl: this._pullRequest.userAvatar,
@@ -245,7 +247,7 @@ export class PullRequestOverviewPanel {
 					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
-					status: status,
+					status: status ? status : { statuses: [] },
 					mergeable: this._pullRequest.prItem.mergeable,
 					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
 					isDraft: this._pullRequest.isDraft,
@@ -290,6 +292,8 @@ export class PullRequestOverviewPanel {
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.deleteBranch':
+				return this.deleteBranch(message);
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
 			case 'pr.close':
@@ -301,7 +305,7 @@ export class PullRequestOverviewPanel {
 			case 'pr.submit':
 				return this.submitReview(message);
 			case 'pr.checkout-default-branch':
-				return this.checkoutDefaultBranch(message.args);
+				return this.checkoutDefaultBranch(message);
 			case 'pr.comment':
 				return this.createComment(message);
 			case 'scroll':
@@ -350,9 +354,9 @@ export class PullRequestOverviewPanel {
 					description: reviewer.name
 				};
 			}), {
-				canPickMany: true,
-				matchOnDescription: true
-			});
+					canPickMany: true,
+					matchOnDescription: true
+				});
 
 			if (reviewersToAdd) {
 				await this._pullRequestManager.requestReview(this._pullRequest, reviewersToAdd.map(r => r.label));
@@ -380,7 +384,7 @@ export class PullRequestOverviewPanel {
 			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
 			this._existingReviewers.splice(index, 1);
 
-			this._replyMessage(message, { });
+			this._replyMessage(message, {});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
@@ -404,7 +408,7 @@ export class PullRequestOverviewPanel {
 
 			if (labelsToAdd) {
 				await this._pullRequestManager.addLabels(this._pullRequest, labelsToAdd.map(r => r.label));
-				const addedLabels: ILabel[] = labelsToAdd.map(label =>  newLabels.find(l => l.name === label.label)!);
+				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
 				this._pullRequest.prItem.labels = this._pullRequest.prItem.labels.concat(...addedLabels);
 
@@ -424,7 +428,7 @@ export class PullRequestOverviewPanel {
 			const index = this._pullRequest.prItem.labels.findIndex(label => label.name === message.args);
 			this._pullRequest.prItem.labels.splice(index, 1);
 
-			this._replyMessage(message, { });
+			this._replyMessage(message, {});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
@@ -439,10 +443,8 @@ export class PullRequestOverviewPanel {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
-			if (!vscode.workspace.rootPath) {
-				throw new Error('Current workspace rootpath is undefined.');
-			}
-			const tempFilePath = path.resolve(vscode.workspace.rootPath, '.git', `${comment.id}.diff`);
+
+			const tempFilePath = path.join(this._pullRequestManager.repository.rootUri.path, '.git', `${comment.id}.diff`);
 			writeFile(tempFilePath, matches![1], {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;
@@ -457,7 +459,8 @@ export class PullRequestOverviewPanel {
 							throw err;
 						}
 
-						this._replyMessage(message, { });
+						vscode.window.showInformationMessage('The suggested changes have been applied.');
+						this._replyMessage(message, {});
 					});
 				} catch (e) {
 					Logger.appendLine(`Applying patch failed: ${e}`);
@@ -526,7 +529,7 @@ export class PullRequestOverviewPanel {
 					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id.toString());
 
 				deleteCommentPromise.then(result => {
-					this._replyMessage(message, { });
+					this._replyMessage(message, {});
 				}).catch(e => {
 					this._throwError(message, e);
 					vscode.window.showErrorMessage(formatError(e));
@@ -563,6 +566,90 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
+	private async deleteBranch(message: IRequestMessage<any>) {
+		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest);
+		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
+
+		if (this._pullRequest.isResolved()) {
+			const branchHeadRef = this._pullRequest.head.ref;
+
+			actions.push({
+				label: `Delete remote branch ${this._pullRequest.remote.remoteName}/${branchHeadRef}`,
+				description: `${this._pullRequest.remote.normalizedHost}/${this._pullRequest.remote.owner}/${this._pullRequest.remote.repositoryName}`,
+				type: 'upstream',
+				picked: true
+			});
+		}
+
+		if (branchInfo) {
+			const preferredLocalBranchDeletionMethod = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('defaultDeletionMethod.selectLocalBranch');
+			actions.push({
+				label: `Delete local branch ${branchInfo.branch}`,
+				type: 'local',
+				picked: !!preferredLocalBranchDeletionMethod
+			});
+
+			const preferredRemoteDeletionMethod = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('defaultDeletionMethod.selectRemote');
+
+			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
+				actions.push({
+					label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
+					type: 'remote',
+					picked: !!preferredRemoteDeletionMethod
+				});
+			}
+		}
+
+		if (!actions.length) {
+			vscode.window.showWarningMessage(`There is no longer an upstream or local branch for Pull Request #${this._pullRequest.prNumber}`);
+			this._replyMessage(message, {
+				cancelled: true
+			});
+
+			return;
+		}
+
+		const selectedActions = await vscode.window.showQuickPick(actions, {
+			canPickMany: true,
+			ignoreFocusOut: true
+		});
+
+		if (selectedActions) {
+			const isBranchActive = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+
+			const promises = selectedActions.map(action => {
+				switch (action.type) {
+					case 'upstream':
+						return this._pullRequestManager.deleteBranch(this._pullRequest);
+					case 'local':
+						return new Promise<void>(async (resolve) => {
+							if (isBranchActive) {
+								await this._pullRequestManager.repository.checkout(this._repositoryDefaultBranch);
+							}
+
+							await this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
+							resolve();
+						});
+					case 'remote':
+						return this._pullRequestManager.repository.removeRemote(branchInfo!.remote!);
+				}
+			});
+
+			await Promise.all(promises);
+
+			this.refreshPanel();
+			vscode.commands.executeCommand('pr.refreshList');
+
+			this._postMessage({
+				command: 'pr.deleteBranch'
+			});
+		} else {
+			this._replyMessage(message, {
+				cancelled: true
+			});
+		}
+	}
+
 	private setReadyForReview(message: IRequestMessage<{}>): void {
 		this._pullRequestManager.setReadyForReview(this._pullRequest).then(isDraft => {
 			vscode.commands.executeCommand('pr.refreshList');
@@ -584,37 +671,30 @@ export class PullRequestOverviewPanel {
 		});
 	}
 
-	private async checkoutDefaultBranch(branch: string): Promise<void> {
+	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
+			const branch = message.args;
 			// This should be updated for multi-root support and consume the git extension API if possible
 			const branchObj = await this._pullRequestManager.repository.getBranch('@{-1}');
 
-			if (branch === branchObj.name) {
+			if (branchObj.upstream && branch === branchObj.upstream.name) {
 				await this._pullRequestManager.repository.checkout(branch);
 			} else {
-				const didCheckout = await vscode.commands.executeCommand('git.checkout');
-				if (!didCheckout) {
-					this._postMessage({
-						command: 'pr.enable-exit'
-					});
-				}
+				await vscode.commands.executeCommand('git.checkout');
 			}
 		} catch (e) {
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
 				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
 					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
-					this._postMessage({
-						command: 'pr.enable-exit'
-					});
 					return;
 				}
 			}
 
 			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
-			this._postMessage({
-				command: 'pr.enable-exit'
-			});
+		} finally {
+			// Complete webview promise so that button becomes enabled again
+			this._replyMessage(message, {});
 		}
 	}
 

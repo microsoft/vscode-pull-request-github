@@ -11,11 +11,12 @@ import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { Repository, Branch } from '../api/api';
-import { PullRequestModel } from './pullRequestModel';
+import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 const PullRequestMetadataKey = 'github-pr-owner-number';
 const PullRequestBranchRegex = /branch\.(.+)\.github-pr-owner-number/;
+const PullRequestRemoteRegex = /branch\.(.+)\.remote/;
 
 export interface PullRequestMetadata {
 	owner: string;
@@ -25,32 +26,41 @@ export interface PullRequestMetadata {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
-	static async checkoutFromFork(repository: Repository, pullRequest: PullRequestModel) {
+	static async checkoutFromFork(repository: Repository, pullRequest: PullRequestModel & IResolvedPullRequestModel, remoteName: string | undefined) {
 		// the branch is from a fork
-		let localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+		const localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
+
 		// create remote for this fork
-		Logger.appendLine(`Branch ${localBranchName} is from a fork. Create a remote first.`, PullRequestGitHelper.ID);
-		let remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
+		if (!remoteName) {
+			Logger.appendLine(`Branch ${localBranchName} is from a fork. Create a remote first.`, PullRequestGitHelper.ID);
+			remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
+		}
+
 		// fetch the branch
-		let ref = `${pullRequest.head.ref}:${localBranchName}`;
+		const ref = `${pullRequest.head.ref}:${localBranchName}`;
 		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - start`, PullRequestGitHelper.ID);
 		await repository.fetch(remoteName, ref, 1);
 		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - done`, PullRequestGitHelper.ID);
 		await repository.checkout(localBranchName);
 		// set remote tracking branch for the local branch
 		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
-		await repository.pull(true);
+		await this.unshallow(repository);
 		PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 
 	static async fetchAndCheckout(repository: Repository, remotes: Remote[], pullRequest: PullRequestModel): Promise<void> {
+		if (!pullRequest.validatePullRequestModel('Checkout pull request failed')) {
+			return;
+		}
+
 		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(remotes, pullRequest);
-		if (!remote) {
-			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest);
+		const isFork = pullRequest.head.repositoryCloneUrl.owner !== pullRequest.base.repositoryCloneUrl.owner;
+		if (!remote || isFork) {
+			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest, remote && remote.remoteName);
 		}
 
 		const branchName = pullRequest.head.ref;
-		let remoteName = remote.remoteName;
+		const remoteName = remote.remoteName;
 		let branch: Branch;
 
 		try {
@@ -78,18 +88,34 @@ export class PullRequestGitHelper {
 			// create branch
 			await repository.createBranch(branchName, true, trackedBranch.commit);
 			await repository.setBranchUpstream(branchName, trackedBranchName);
-			await repository.pull(true);
+			await this.unshallow(repository);
 		}
 
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
 	}
 
-	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel) {
-		let key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
-		let configs = await repository.getConfigs();
+	/**
+	 * Attempt to unshallow the repository. If it has been unshallowed in the interim, running with `--unshallow`
+	 * will fail, so fall back to a normal pull.
+	 */
+	static async unshallow(repository: Repository): Promise<void> {
+		try {
+			await repository.pull(true);
+		} catch (e) {
+			Logger.appendLine(`Unshallowing failed: ${e}. Falling back to git pull`);
+			await repository.pull();
+		}
+	}
 
-		let branchInfos = configs.map(config => {
-			let matches = PullRequestBranchRegex.exec(config.key);
+	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel) {
+		const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
+		const configs = await repository.getConfigs();
+
+		const readConfig = (searchKey: string): string | undefined =>
+			configs.filter(({ key: k }) => searchKey === k).map(({ value }) => value)[0];
+
+		const branchInfos = configs.map(config => {
+			const matches = PullRequestBranchRegex.exec(config.key);
 			return {
 				branch: matches && matches.length ? matches[1] : null,
 				value: config.value
@@ -98,9 +124,13 @@ export class PullRequestGitHelper {
 
 		if (branchInfos && branchInfos.length) {
 			// let's immediately checkout to branchInfos[0].branch
-			await repository.checkout(branchInfos[0].branch!);
-			const branch = await repository.getBranch(branchInfos[0].branch!);
-			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
+			const branchName = branchInfos[0].branch!;
+			await repository.checkout(branchName);
+			const remote = readConfig(`branch.${branchName}.remote`);
+			const ref = readConfig(`branch.${branchName}.merge`);
+			await repository.fetch(remote, ref);
+			const branchStatus = await repository.getBranch(branchInfos[0].branch!);
+			if (branchStatus.behind !== undefined && branchStatus.behind > 0 && branchStatus.ahead === 0) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 				await repository.pull();
 			}
@@ -111,13 +141,84 @@ export class PullRequestGitHelper {
 		}
 	}
 
+	static async getBranchNRemoteForPullRequest(repository: Repository, pullRequest: PullRequestModel): Promise<{
+		branch: string,
+		remote?: string,
+		createdForPullRequest?: boolean,
+		remoteInUse?: boolean
+	} | null> {
+		const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
+		const configs = await repository.getConfigs();
+
+		const branchInfo = configs.map(config => {
+			const matches = PullRequestBranchRegex.exec(config.key);
+			return {
+				branch: matches && matches.length ? matches[1] : null,
+				value: config.value
+			};
+		}).find(c => !!c.branch && c.value === key);
+
+		if (branchInfo) {
+			// we find the branch
+			const branchName = branchInfo.branch;
+
+			try {
+				const configKey = `branch.${branchName}.remote`;
+				const branchRemotes = configs.filter(config => config.key === configKey).map(config => config.value);
+				let remoteName: string | undefined = undefined;
+				if (branchRemotes.length) {
+					remoteName = branchRemotes[0];
+				}
+
+				let createdForPullRequest = false;
+				if (remoteName) {
+					const remoteCreatedForPullRequestKey = `remote.${remoteName}.github-pr-remote`;
+					const remoteCreatedForPullRequest = configs.filter(config => config.key === remoteCreatedForPullRequestKey && config.value);
+
+					if (remoteCreatedForPullRequest.length) {
+						// it's created for pull request
+						createdForPullRequest = true;
+					}
+				}
+
+				let remoteInUse: boolean | undefined;
+				if (createdForPullRequest) {
+					// try to find other branches under this remote
+					remoteInUse = configs.some(config => {
+						const matches = PullRequestRemoteRegex.exec(config.key);
+
+						if (matches && config.key !== `branch.${branchName}.remote` && config.value === remoteName!) {
+							return true;
+						}
+
+						return false;
+					});
+				}
+
+				return {
+					branch: branchName!,
+					remote: remoteName,
+					createdForPullRequest,
+					remoteInUse
+				};
+			} catch (_) {
+				return {
+					branch: branchName!
+				};
+			}
+
+		}
+
+		return null;
+	}
+
 	static buildPullRequestMetadata(pullRequest: PullRequestModel) {
 		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.prNumber;
 	}
 
 	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
 		if (value) {
-			let matches = /(.*)#(.*)#(.*)/g.exec(value);
+			const matches = /(.*)#(.*)#(.*)/g.exec(value);
 			if (matches && matches.length === 4) {
 				const [, owner, repo, prNumber] = matches;
 				return {
@@ -131,8 +232,8 @@ export class PullRequestGitHelper {
 
 	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata | undefined> {
 		try {
-			let configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-			let configValue = await repository.getConfig(configKey);
+			const configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
+			const configValue = await repository.getConfig(configKey);
 			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
 		} catch (_) {
 			return;
@@ -142,44 +243,20 @@ export class PullRequestGitHelper {
 	static async createRemote(repository: Repository, baseRemote: Remote, cloneUrl: Protocol) {
 		Logger.appendLine(`create remote for ${cloneUrl}.`, PullRequestGitHelper.ID);
 
-		let remotes = parseRepositoryRemotes(repository);
-		for (let remote of remotes) {
+		const remotes = parseRepositoryRemotes(repository);
+		for (const remote of remotes) {
 			if (new Protocol(remote.url).equals(cloneUrl)) {
 				return remote.remoteName;
 			}
 		}
 
-		let remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
+		const remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
 		cloneUrl.update({
 			type: baseRemote.gitProtocol.type
 		});
 		await repository.addRemote(remoteName, cloneUrl.toString()!);
 		await repository.setConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`, 'true');
 		return remoteName;
-	}
-
-	static async getUserCreatedRemotes(repository: Repository, remotes: Remote[]): Promise<Remote[]> {
-		try {
-			Logger.debug(`Get user created remotes - start`, PullRequestGitHelper.ID);
-			const allConfigs = await repository.getConfigs();
-			let remotesForPullRequest: string[] = [];
-			for (let i = 0; i < allConfigs.length; i++) {
-				let key = allConfigs[i].key;
-				let matches = /^remote\.(.*)\.github-pr-remote$/.exec(key);
-				if (matches && matches.length === 2 && allConfigs[i].value) {
-					// this remote is created for pull requests
-					remotesForPullRequest.push(matches[1]);
-				}
-			}
-
-			let ret = remotes.filter(function (e) {
-				return remotesForPullRequest.indexOf(e.remoteName) < 0;
-			});
-			Logger.debug(`Get user created remotes - end`, PullRequestGitHelper.ID);
-			return ret;
-		} catch (_) {
-			return [];
-		}
 	}
 
 	static async isRemoteCreatedForPullRequest(repository: Repository, remoteName: string) {
@@ -194,7 +271,7 @@ export class PullRequestGitHelper {
 	}
 
 	static async calculateUniqueBranchNameForPR(repository: Repository, pullRequest: PullRequestModel): Promise<string> {
-		let branchName = `pr/${pullRequest.author.login}/${pullRequest.prNumber}`;
+		const branchName = `pr/${pullRequest.author.login}/${pullRequest.prNumber}`;
 		let result = branchName;
 		let number = 1;
 
@@ -222,13 +299,13 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(remotes: Remote[], pullRequest: PullRequestModel): Remote | undefined {
+	static getHeadRemoteForPullRequest(remotes: Remote[], pullRequest: PullRequestModel & IResolvedPullRequestModel): Remote | undefined {
 		return remotes.find(remote => remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl));
 	}
 
 	static async associateBranchWithPullRequest(repository: Repository, pullRequest: PullRequestModel, branchName: string) {
 		Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.prNumber}`, PullRequestGitHelper.ID);
-		let prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
+		const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}
 }

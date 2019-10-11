@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import Octokit = require('@octokit/rest');
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IGitHubRepository, IAccount, MergeMethodsAvailability } from './interface';
+import { IAccount, MergeMethodsAvailability } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -30,7 +30,7 @@ export interface IMetadata extends Octokit.ReposGetResponse {
 	currentUser: any;
 }
 
-export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
+export class GitHubRepository implements vscode.Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean;
 	protected _hub: GitHub | undefined;
@@ -157,16 +157,6 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		return this;
 	}
 
-	async authenticate(): Promise<boolean> {
-		this._initialized = true;
-		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			this._hub = await this._credentialStore.login(this.remote);
-		} else {
-			this._hub = this._credentialStore.getHub(this.remote);
-		}
-		return this.octokit !== undefined;
-	}
-
 	async getDefaultBranch(): Promise<string> {
 		try {
 			Logger.debug(`Fetch default branch - enter`, GitHubRepository.ID);
@@ -271,18 +261,18 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 			const user = await octokit.users.getAuthenticated({});
 			// Search api will not try to resolve repo that redirects, so get full name first
 			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
-			const { data, headers } = await octokit.search.issues({
+			const { data, headers } = await octokit.search.issuesAndPullRequests({
 				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			let promises: Promise<Octokit.Response<Octokit.PullsGetResponse>>[] = [];
+			const promises: Promise<Octokit.Response<Octokit.PullsGetResponse>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
-					let prData = await octokit.pulls.get({
+					const prData = await octokit.pulls.get({
 						owner: remote.owner,
 						repo: remote.repositoryName,
-						number: item.number
+						pull_number: item.number
 					});
 					resolve(prData);
 				}));
@@ -335,7 +325,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 
 				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
 			} else {
-				let { data } = await octokit.pulls.get({
+				const { data } = await octokit.pulls.get({
 					owner: remote.owner,
 					repo: remote.repositoryName,
 					number: id
@@ -355,6 +345,25 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		}
 	}
 
+	async deleteBranch(pullRequestModel: PullRequestModel): Promise<void> {
+		const { octokit } = await this.ensure();
+
+		if (!pullRequestModel.validatePullRequestModel('Unable to delete branch')) {
+			return;
+		}
+
+		try {
+			await octokit.git.deleteRef({
+				owner: pullRequestModel.head.repositoryCloneUrl.owner,
+				repo: pullRequestModel.head.repositoryCloneUrl.repositoryName,
+				ref: `heads/${pullRequestModel.head.ref}`
+			});
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to delete branch: ${e}`);
+			return;
+		}
+	}
+
 	async getMentionableUsers(): Promise<IAccount[]> {
 		Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
 		const { query, supportsGraphQl, remote } = await this.ensure();
@@ -362,7 +371,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 		if (supportsGraphQl) {
 			let after = null;
 			let hasNextPage = false;
-			let ret: IAccount[] = [];
+			const ret: IAccount[] = [];
 
 			do {
 				try {
@@ -376,12 +385,11 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 						}
 					});
 
-					ret.push(...result.data.repository.mentionableUsers.nodes.map((node: any) => {
+					ret.push(...result.data.repository.mentionableUsers.nodes.map(node => {
 						return {
 							login: node.login,
 							avatarUrl: node.avatarUrl,
 							name: node.name,
-							email: node.email,
 							url: node.url
 						};
 					}));
@@ -401,7 +409,7 @@ export class GitHubRepository implements IGitHubRepository, vscode.Disposable {
 	}
 
 	private getPRFetchQuery(repo: string, user: string, query: string) {
-		let filter = query.replace('${user}', user);
+		const filter = query.replace('${user}', user);
 		return `is:open ${filter} type:pr repo:${repo}`;
 	}
 }

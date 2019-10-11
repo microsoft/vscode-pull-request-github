@@ -50,7 +50,7 @@ export function parseRemote(remoteName: string, url: string | undefined, origina
 	if (!url) {
 		return null;
 	}
-	let gitProtocol = new Protocol(url);
+	const gitProtocol = new Protocol(url);
 	if (originalProtocol) {
 		gitProtocol.update({
 			type: originalProtocol.type

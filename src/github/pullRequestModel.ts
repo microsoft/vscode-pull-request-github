@@ -9,7 +9,15 @@ import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
 import { IAccount, PullRequest, PullRequestStateEnum } from './interface';
 
-export class PullRequestModel {
+interface IPullRequestModel {
+	head: GitHubRef | null;
+}
+
+export interface IResolvedPullRequestModel extends IPullRequestModel {
+	head: GitHubRef;
+}
+
+export class PullRequestModel implements IPullRequestModel {
 	public id: number;
 	public graphNodeId: string;
 	public prNumber: number;
@@ -40,9 +48,9 @@ export class PullRequestModel {
 	}
 	public get userAvatarUri(): vscode.Uri | undefined {
 		if (this.prItem) {
-			let key = this.userAvatar;
+			const key = this.userAvatar;
 			if (key) {
-				let uri = vscode.Uri.parse(`${key}&s=${64}`);
+				const uri = vscode.Uri.parse(`${key}&s=${64}`);
 
 				// hack, to ensure queries are not wrongly encoded.
 				const originalToStringFn = uri.toString;
@@ -82,7 +90,7 @@ export class PullRequestModel {
 
 	public bodyHTML?: string;
 
-	public head: GitHubRef;
+	public head: GitHubRef | null;
 	public base: GitHubRef;
 
 	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest) {
@@ -112,8 +120,47 @@ export class PullRequestModel {
 		this.createdAt = prItem.createdAt;
 		this.updatedAt = prItem.updatedAt ? prItem.updatedAt : this.createdAt;
 
-		this.head = new GitHubRef(prItem.head!.ref, prItem.head!.label, prItem.head!.sha, prItem.head!.repo.cloneUrl);
-		this.base = new GitHubRef(prItem.base!.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
+		if (prItem.head) {
+			this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.cloneUrl);
+		}
+
+		if (prItem.base) {
+			this.base = new GitHubRef(prItem.base.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
+		}
+	}
+
+	/**
+	 * Valiate if the pull request has a valid HEAD.
+	 * Use only when the method can fail sliently, otherwise use `validatePullRequestModel`
+	 */
+	isResolved(): this is IResolvedPullRequestModel {
+		return !!this.head;
+	}
+
+	/**
+	 * Valiate if the pull request has a valid HEAD. Show a warning message to users when the pull request is invalid.
+	 * @param message Human readable action execution failure message.
+	 */
+	validatePullRequestModel(message?: string): this is IResolvedPullRequestModel {
+		if (!!this.head) {
+			return true;
+		}
+
+		const reason = `There is no upstream branch for Pull Request #${this.prNumber}. View it on GitHub for more details`;
+
+		if (message) {
+			message += `: ${reason}`;
+		} else {
+			message = reason;
+		}
+
+		vscode.window.showWarningMessage(reason, 'Open in GitHub').then(action => {
+			if (action && action === 'Open in GitHub') {
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.html_url));
+			}
+		});
+
+		return false;
 	}
 
 	equals(other: PullRequestModel | undefined): boolean {

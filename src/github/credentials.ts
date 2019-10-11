@@ -148,8 +148,7 @@ export class CredentialStore implements vscode.Disposable {
 				const login = await server.login();
 				if (login && login.token) {
 					octokit = await this.createHub(login);
-					await setToken(login.host, login.token, { emit: false });
-					vscode.window.showInformationMessage(`You are now signed in to ${authority}`);
+					await setToken(login.host, login.token);
 				}
 			} catch (e) {
 				Logger.appendLine(`Error signing in to ${authority}: ${e}`);
@@ -198,7 +197,7 @@ export class CredentialStore implements vscode.Disposable {
 
 	private async createHub(creds: IHostConfiguration): Promise<GitHub> {
 		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
-		let octokit = new Octokit({
+		const octokit = new Octokit({
 			request: { agent },
 			baseUrl,
 			userAgent: 'GitHub VSCode Pull Requests',
@@ -257,27 +256,31 @@ export class CredentialStore implements vscode.Disposable {
 			} catch (e) {
 				text = '$(mark-github) Signed in';
 			}
-
 			command = undefined;
+			// Temporarily show successful sign-in status
+			statusBarItem.text = '$(mark-github) Successfully signed in';
+			setTimeout(async () => {
+				statusBarItem.text = text;
+			}, 2000);
 		} else {
 			const authority = remote.gitProtocol.normalizeUri()!.authority;
 			text = `$(mark-github) Sign in to ${authority}`;
 			command = 'pr.signin';
+			statusBarItem.text = text;
 		}
-
-		statusBarItem.text = text;
 		statusBarItem.command = command;
 	}
 
 	private willStartLogin(authority: string): void {
-		const status = this._authenticationStatusBarItems.get(authority)!;
-		status.text = `$(mark-github) Signing in to ${authority}...`;
-		status.command = AUTH_INPUT_TOKEN_CMD;
+		const status = this._authenticationStatusBarItems.get(authority);
+		if (status) {
+			status.text = `$(mark-github) Signing in to ${authority}...`;
+			status.command = AUTH_INPUT_TOKEN_CMD;
+		}
 	}
 
 	private didEndLogin(authority: string): void {
 		const status = this._authenticationStatusBarItems.get(authority)!;
-
 		if (status) {
 			status.text = `$(mark-github) Signed in to ${authority}`;
 			status.command = undefined;

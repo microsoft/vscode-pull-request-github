@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Event, Disposable } from 'vscode';
+import { APIState } from '../typings/git';
 
 export const enum RefType {
 	Head,
@@ -206,6 +207,10 @@ export interface IGit {
 	readonly repositories: Repository[];
 	readonly onDidOpenRepository: Event<Repository>;
 	readonly onDidCloseRepository: Event<Repository>;
+
+	// Used by the actual git extension to indicate it has finished initializing state information
+	readonly state?: APIState;
+	readonly onDidChangeState?: Event<APIState>;
 }
 
 export interface API {

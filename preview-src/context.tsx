@@ -38,6 +38,9 @@ export class PRContext {
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
 		this.postMessage({ command: 'pr.merge', args	})
 
+	public deleteBranch = () =>
+		this.postMessage({ command: 'pr.deleteBranch' })
+
 	public readyForReview = () =>
 		this.postMessage({ command: 'pr.readyForReview' })
 
@@ -88,7 +91,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.edit-comment', args })
 
 	public updateDraft = (id: number, body: string) => {
-		let pullRequest = getState();
+		const pullRequest = getState();
 		const pendingCommentDrafts = pullRequest.pendingCommentDrafts || Object.create(null);
 		if (body === pendingCommentDrafts[id]) { return; }
 		pendingCommentDrafts[id] = body;
@@ -117,6 +120,10 @@ export class PRContext {
 		await this.postMessage({ command: 'pr.remove-label', args: label });
 		const labels = this.pr.labels.filter(r => r.name !== label);
 		this.updatePR({ labels });
+	}
+
+	public applyPatch = async (comment: IComment) => {
+		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	}
 
 	private appendReview({ review, reviewers }: any) {
@@ -170,6 +177,8 @@ export class PRContext {
 				return this.updatePR({ state: message.state });
 			case 'pr.update-checkout-status':
 				return this.updatePR({ isCurrentlyCheckedOut: message.isCurrentlyCheckedOut });
+			case 'pr.deleteBranch':
+				return this.updatePR({ head: 'UNKNOWN'});
 			case 'pr.enable-exit':
 				return this.updatePR({ isCurrentlyCheckedOut: true });
 			case 'set-scroll':

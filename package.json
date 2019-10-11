@@ -12,10 +12,10 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.9.0",
+  "version": "0.12.0",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.35.0"
+    "vscode": "^1.39.0"
   },
   "categories": [
     "Other"
@@ -59,6 +59,23 @@
             }
           }
         },
+        "githubPullRequests.pullRequestTitle": {
+          "type": "string",
+          "enum": [
+            "commit",
+            "branch",
+            "custom",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "Use the latest commit message",
+            "Use the branch name",
+            "Specify a custom title",
+            "Ask which of the above methods to use"
+          ],
+          "default": "ask",
+          "description": "The title used when creating pull requests."
+        },
         "githubPullRequests.logLevel": {
           "type": "string",
           "enum": [
@@ -71,11 +88,11 @@
         },
         "githubPullRequests.remotes": {
           "type": "array",
-          "default": null,
+          "default": ["origin", "upstream"],
           "items": {
             "type": "string"
           },
-          "markdownDescription": "List of remotes to fetch pull requests from. If no remotes are specified, will default to `upstream` or `origin` if these remotes are present, or all valid GitHub remotes."
+          "markdownDescription": "List of remotes to fetch pull requests from."
         },
         "githubPullRequests.includeRemotes": {
           "type": "string",
@@ -133,6 +150,25 @@
           "type": "boolean",
           "default": false,
           "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
+        },
+        "githubPullRequests.fileListLayout": {
+          "type": "string",
+          "enum": [
+            "flat",
+            "tree"
+          ],
+          "default": "tree",
+          "description": "The layout to use when displaying changed files list."
+        },
+        "githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, the option to delete the local branch will be selected by default when deleting a branch from a pull request."
+        },
+        "githubPullRequests.defaultDeletionMethod.selectRemote": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, the option to delete the remote will be selected by default when deleting a branch from a pull request."
         },
         "telemetry.optout": {
           "type": "boolean",
@@ -362,6 +398,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.deleteLocalBranchesNRemotes",
+        "title": "Delete local branches and remotes",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.createComment",
         "title": "Add Comment",
         "category": "GitHub Pull Requests",
@@ -432,7 +473,7 @@
         },
         {
           "command": "auth.signout",
-          "when": "gitOpenRepositoryCount != 0"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
         },
         {
           "command": "pr.configureRemotes",
@@ -460,11 +501,11 @@
         },
         {
           "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && !github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated && !github:inReviewMode"
         },
         {
           "command": "pr.createDraft",
-          "when": "gitOpenRepositoryCount != 0 && !github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated && !github:inReviewMode"
         },
         {
           "command": "pr.merge",
@@ -476,6 +517,10 @@
         },
         {
           "command": "pr.openPullRequestInGitHub",
+          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+        },
+        {
+          "command": "pr.refreshDescription",
           "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
@@ -512,7 +557,7 @@
         },
         {
           "command": "pr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && github:hasGitHubRemotes"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
         },
         {
           "command": "pr.refreshChanges",
@@ -655,7 +700,8 @@
       "comments/commentThread/context": [
         {
           "command": "pr.createComment",
-          "group": "inline"
+          "group": "inline",
+          "when": "commentController =~ /^(browse|review)/"
         },
         {
           "command": "pr.startReview",
@@ -692,22 +738,24 @@
         {
           "command": "pr.editComment",
           "group": "inline@1",
-          "when": "comment =~ /canEdit/"
+          "when": "commentController =~ /^(browse|review)/ && comment =~ /canEdit/"
         },
         {
           "command": "pr.deleteComment",
           "group": "inline@2",
-          "when": "comment =~ /canDelete/"
+          "when": "commentController =~ /^(browse|review)/ && comment =~ /canDelete/"
         }
       ],
       "comments/comment/context": [
         {
           "command": "pr.cancelEditComment",
-          "group": "inline@1"
+          "group": "inline@1",
+          "when": "commentController =~ /^(browse|review)/"
         },
         {
           "command": "pr.saveComment",
-          "group": "inline@2"
+          "group": "inline@2",
+          "when": "commentController =~ /^(browse|review)/"
         }
       ]
     }
@@ -726,7 +774,6 @@
     "@types/glob": "7.1.1",
     "@types/graphql": "^14.0.5",
     "@types/keytar": "^4.0.1",
-    "@types/lodash": "^4.14.106",
     "@types/markdown-it": "^0.0.5",
     "@types/mocha": "^5.2.2",
     "@types/node": "*",
@@ -736,8 +783,9 @@
     "@types/react-dom": "^16.8.2",
     "@types/sinon": "7.0.11",
     "@types/temp": "0.8.34",
+    "@types/uuid": "^3.4.3",
     "@types/webpack": "^4.4.10",
-    "css-loader": "^0.28.11",
+    "css-loader": "^3.0.0",
     "glob": "7.1.4",
     "jsdom": "15.1.1",
     "jsdom-global": "3.0.2",
@@ -751,17 +799,17 @@
     "react-testing-library": "7.0.1",
     "sinon": "7.3.2",
     "source-map-support": "0.5.12",
-    "style-loader": "^0.21.0",
+    "style-loader": "^0.23.0",
     "svg-inline-loader": "^0.8.0",
     "temp": "0.9.0",
-    "ts-loader": "^4.0.1",
-    "tslint": "^5.11.0",
-    "tslint-webpack-plugin": "^1.2.2",
+    "ts-loader": "^6.0.4",
+    "tslint": "^5.18.0",
+    "tslint-webpack-plugin": "^2.1.0",
     "tty": "1.0.1",
     "typescript": "^3.4.5",
     "vscode": "^1.1.33",
-    "webpack": "^4.1.0",
-    "webpack-cli": "^3.2.1"
+    "webpack": "^4.39.0",
+    "webpack-cli": "^3.3.6"
   },
   "dependencies": {
     "@octokit/rest": "^16.21.0",
@@ -772,7 +820,6 @@
     "git-credential-node": "^1.1.0",
     "graphql": "^14.0.2",
     "js-base64": "^2.4.9",
-    "lodash": "^4.17.11",
     "markdown-it": "^8.4.0",
     "markdown-it-checkbox": "^1.1.0",
     "markdown-it-sanitizer": "github:rebornix/markdown-it-sanitizer#10d930d08236ef4609ad10a6087745461d91cc7c",
@@ -782,11 +829,15 @@
     "query-string": "^6.2.0",
     "ssh-config": "^2.0.0-alpha.3",
     "tunnel": "0.0.6",
+    "uuid": "^3.3.3",
     "vscode-extension-telemetry": "^0.1.2",
     "vsls": "^0.3.967"
   },
   "optionalDependencies": {
     "spawn-sync": "^2.0.0"
+  },
+  "resolutions": {
+    "webpack/**/tar": "^4.4.2"
   },
   "license": "MIT"
 }

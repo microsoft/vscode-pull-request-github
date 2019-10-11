@@ -22,7 +22,8 @@ export enum PRCategoryActionType {
 	NoGitRepositories,
 	NoOpenFolder,
 	NoMatchingRemotes,
-	ConfigureRemotes
+	ConfigureRemotes,
+	Initializing
 }
 
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
@@ -89,6 +90,8 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					arguments: []
 				};
 				break;
+			case PRCategoryActionType.Initializing:
+				this.label = 'Loading...';
 			default:
 				break;
 		}
@@ -148,7 +151,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				/* __GDPR__
 					"pr.expand.local" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('prList.expand.local');
+				this._telemetry.sendTelemetryEvent('pr.expand.local');
 			} catch (e) {
 				vscode.window.showErrorMessage(`Fetching local pull requests failed: ${formatError(e)}`);
 				needLogin = e instanceof AuthenticationError;
@@ -166,12 +169,12 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 							/* __GDPR__
 								"pr.expand.all" : {}
 							*/
-							this._telemetry.sendTelemetryEvent('prList.expand.all');
+							this._telemetry.sendTelemetryEvent('pr.expand.all');
 						case PRType.Query:
 							/* __GDPR__
 								"pr.expand.query" : {}
 							*/
-							this._telemetry.sendTelemetryEvent('prList.expand.query');
+							this._telemetry.sendTelemetryEvent('pr.expand.query');
 						break;
 					}
 
@@ -195,7 +198,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this, this._prManager, prItem, this._type === PRType.LocalPullRequest));
+			const nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this, this._prManager, prItem, this._type === PRType.LocalPullRequest));
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
 			} else if (hasUnsearchedRepositories) {
@@ -205,8 +208,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			this.childrenDisposables = nodes;
 			return nodes;
 		} else {
-			let category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
-			let result = [new PRCategoryActionNode(this, category)];
+			const category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
+			const result = [new PRCategoryActionNode(this, category)];
 
 			this.childrenDisposables = result;
 			return result;

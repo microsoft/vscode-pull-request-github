@@ -21,6 +21,17 @@ fragment Merged on MergedEvent {
 	url
 }
 
+fragment HeadRefDeleted on HeadRefDeletedEvent {
+	id
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	createdAt
+	headRefName
+}
+
 fragment Ref on Ref {
 	name
 	repository {
@@ -53,22 +64,24 @@ fragment Comment on IssueComment {
 	viewerCanDelete
 }
 
-fragment Commit on Commit {
+fragment Commit on PullRequestCommit {
 	id
-	author {
-		user {
-			login
-			avatarUrl
-			url
+	commit {
+		author {
+			user {
+				login
+				avatarUrl
+				url
+			}
 		}
-	}
-	committer {
-		avatarUrl
-		name
+		committer {
+			avatarUrl
+			name
+		}
+		oid
+		message
 	}
 	url
-	oid
-	message
 }
 
 fragment AssignedEvent on AssignedEvent {
@@ -115,16 +128,15 @@ fragment Reactable on Reactable {
 query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 100) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			timeline(last: $last) {
-				edges {
-					node {
-						__typename
-						...Merged
-						...Comment
-						...Review
-						...Commit
-						...AssignedEvent
-					}
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Merged
+					...Comment
+					...Review
+					...Commit
+					...AssignedEvent
+					...HeadRefDeleted
 				}
 			}
 		}
@@ -244,6 +256,16 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 		cost
 		remaining
 		resetAt
+	}
+}
+
+query PullRequestState($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			title
+			number
+			state
+		}
 	}
 }
 

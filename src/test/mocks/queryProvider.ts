@@ -1,7 +1,6 @@
 import { inspect } from 'util';
 
 import Octokit = require('@octokit/rest');
-import { isEqual } from 'lodash';
 import { ApolloQueryResult, QueryOptions, DocumentNode, OperationVariables, MutationOptions, FetchResult } from 'apollo-boost';
 import { SinonSandbox, SinonStubbedInstance } from 'sinon';
 
@@ -79,7 +78,7 @@ export class QueryProvider {
 
 	emulateGraphQLQuery<T>(q: QueryOptions): ApolloQueryResult<T> {
 		const cannedResponses = this._graphqlQueryResponses.get(q.query) || [];
-		const cannedResponse = cannedResponses.find(each => isEqual(each.variables, q.variables));
+		const cannedResponse = cannedResponses.find(each => !!each.variables && Object.keys(each.variables).every(key => each.variables![key] === q.variables![key]));
 		if (cannedResponse) {
 			return cannedResponse.result;
 		} else {
@@ -96,7 +95,7 @@ export class QueryProvider {
 
 	emulateGraphQLMutation<T>(m: MutationOptions): FetchResult<T> {
 		const cannedResponses = this._graphqlMutationResponses.get(m.mutation) || [];
-		const cannedResponse = cannedResponses.find(each => isEqual(each.variables, m.variables));
+		const cannedResponse = cannedResponses.find(each => !!each.variables && Object.keys(each.variables).every(key => each.variables![key] === m.variables![key]));
 		if (cannedResponse) {
 			return cannedResponse.result;
 		} else {

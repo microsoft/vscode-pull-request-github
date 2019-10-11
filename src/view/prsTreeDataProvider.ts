@@ -9,7 +9,7 @@ import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './
 import { PRType } from '../github/interface';
 import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING } from '../github/pullRequestManager';
+import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/pullRequestManager';
 import { ITelemetry } from '../common/telemetry';
 
 interface IQueryInfo {
@@ -74,6 +74,13 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 					return;
 			}
 		}));
+
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
+				this._onDidChangeTreeData.fire();
+			}
+		}));
+
 	}
 
 	initialize(prManager: PullRequestManager) {
@@ -83,6 +90,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._initialized = true;
 		this._prManager = prManager;
+		this._disposables.push(this._prManager.onDidChangeState(() => {
+			this._onDidChangeTreeData.fire();
+		}));
 		this.initializeCategories();
 		this.refresh();
 	}
@@ -119,7 +129,15 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 		}
 
+		if (this._prManager.state === PRManagerState.Initializing) {
+			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Initializing)]);
+		}
+
 		if (!this._prManager.getGitHubRemotes().length) {
+			if (this._prManager.state === PRManagerState.NeedsAuthentication) {
+				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Login)]);
+			}
+
 			const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 			if (remotesSetting) {
 				return Promise.resolve([
@@ -160,7 +178,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
 	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
 	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
-		let fileChangeUriParams = fromFileChangeNodeUri(uri);
+		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.hasComments) {
 			return {
 				bubble: false,

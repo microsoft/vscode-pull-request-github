@@ -49,7 +49,7 @@ function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel)
 export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager,
 	reviewManager: ReviewManager, telemetry: ITelemetry) {
 	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
-		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true });
+		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true, ignoreFocusOut: true });
 		if (!selection) { return; }
 		await Promise.all(selection.map(host => deleteToken(host)));
 	}));
@@ -107,11 +107,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
 
-			if (!vscode.workspace.rootPath) {
-				throw new Error('Current workspace root path is undefined.');
-			}
-
-			const tempFilePath = pathLib.resolve(vscode.workspace.rootPath, '.git', `${prManager.activePullRequest.prNumber}.diff`);
+			const tempFilePath = pathLib.join(prManager.repository.rootUri.path, '.git', `${prManager.activePullRequest.prNumber}.diff`);
 			writeFile(tempFilePath, diff, {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;
@@ -186,7 +182,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			await prManager.deleteLocalPullRequest(pullRequestModel);
 		} catch (e) {
 			if (e.gitErrorCode === GitErrorCodes.BranchNotFullyMerged) {
-				let action = await vscode.window.showErrorMessage(`The branch '${pullRequestModel.localBranchName}' is not fully merged, are you sure you want to delete it? `, DELETE_BRANCH_FORCE);
+				const action = await vscode.window.showErrorMessage(`The branch '${pullRequestModel.localBranchName}' is not fully merged, are you sure you want to delete it? `, DELETE_BRANCH_FORCE);
 
 				if (action !== DELETE_BRANCH_FORCE) {
 					return;
@@ -242,7 +238,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		const fromDescriptionPage = pr instanceof PullRequestModel;
 		/* __GDPR__
 			"pr.checkout" : {
-				"fromDescriptionPage" : { "classification": "SystemMetadata", "purpose": "FeatureInsight" }
+				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
 		telemetry.sendTelemetryEvent('pr.checkout', { fromDescription: fromDescriptionPage.toString() });
@@ -300,7 +296,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 						newComment = await prManager.createIssueComment(pullRequest, message);
 					}
 
-					let newPR = await prManager.closePullRequest(pullRequest);
+					const newPR = await prManager.closePullRequest(pullRequest);
 					vscode.commands.executeCommand('pr.refreshList');
 					_onDidUpdatePR.fire(newPR);
 					return newComment;
@@ -325,7 +321,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
 		if (!descriptionNode) {
 			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
-			let rootNodes = await reviewManager.prFileChangesProvider.getChildren();
+			const rootNodes = await reviewManager.prFileChangesProvider.getChildren();
 			descriptionNode = rootNodes[0] as DescriptionNode;
 		}
 		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
@@ -346,7 +342,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
-		let pr = descriptionNode.pullRequestModel;
+		const pr = descriptionNode.pullRequestModel;
 		const pullRequest = ensurePR(prManager, pr);
 		descriptionNode.reveal(descriptionNode, { select: true });
 		// Create and show a new webview
@@ -374,8 +370,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 
 		// Show the file change in a diff view.
-		let { path, ref, commit } = fromReviewUri(fileChange.filePath);
-		let previousCommit = `${commit}^`;
+		const { path, ref, commit } = fromReviewUri(fileChange.filePath);
+		const previousCommit = `${commit}^`;
 		const query: ReviewUriParams = {
 			path: path,
 			ref: ref,
@@ -398,7 +394,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].originalPosition!);
 
 				if (diffLine) {
-					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+					const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
 					options.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				}
 			}
@@ -409,6 +405,10 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signin', async () => {
 		await prManager.authenticate();
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
+		await prManager.deleteLocalBranchesNRemotes();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
@@ -429,7 +429,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			"pr.startReview" : {}
 		*/
 		telemetry.sendTelemetryEvent('pr.startReview');
-		let handler = resolveCommentHandler(reply.thread);
+		const handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
 			handler.startReview(reply.thread, reply.text);
@@ -441,7 +441,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			"pr.finishReview" : {}
 		*/
 		telemetry.sendTelemetryEvent('pr.finishReview');
-		let handler = resolveCommentHandler(reply.thread);
+		const handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
 			await handler.finishReview(reply.thread, reply.text);
@@ -453,14 +453,17 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			"pr.deleteReview" : {}
 		*/
 		telemetry.sendTelemetryEvent('pr.deleteReview');
-		let handler = resolveCommentHandler(reply.thread);
+		const shouldDelete = await vscode.window.showWarningMessage('Delete this review and all associated comments?', { modal: true }, 'Delete');
+		if (shouldDelete) {
+			const handler = resolveCommentHandler(reply.thread);
 
-		if (handler) {
-			await handler.deleteReview();
-		}
+			if (handler) {
+				await handler.deleteReview();
+			}
 
-		if (!reply.thread.comments.length) {
-			reply.thread.dispose();
+			if (!reply.thread.comments.length) {
+				reply.thread.dispose();
+			}
 		}
 	}));
 
@@ -469,7 +472,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			"pr.createComment" : {}
 		*/
 		telemetry.sendTelemetryEvent('pr.createComment');
-		let handler = resolveCommentHandler(reply.thread);
+		const handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
 			handler.createOrReplyComment(reply.thread, reply.text);
@@ -497,7 +500,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			"pr.saveComment" : {}
 		*/
 		telemetry.sendTelemetryEvent('pr.saveComment');
-		let handler = resolveCommentHandler(comment.parent);
+		const handler = resolveCommentHandler(comment.parent);
 
 		if (handler) {
 			await handler.editComment(comment.parent, comment);
@@ -513,7 +516,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		const shouldDelete = await vscode.window.showWarningMessage('Delete comment?', { modal: true }, 'Delete');
 
 		if (shouldDelete === 'Delete') {
-			let handler = resolveCommentHandler(comment.parent);
+			const handler = resolveCommentHandler(comment.parent);
 
 			if (handler) {
 				await handler.deleteComment(comment.parent, comment);

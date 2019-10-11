@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
-import { groupBy } from 'lodash';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
+import { groupBy } from '../src/common/utils';
 
 export const StatusChecks = (pr: PullRequest) => {
 	const { state, status, mergeable, isDraft } = pr;
@@ -24,10 +24,18 @@ export const StatusChecks = (pr: PullRequest) => {
 
 	return <div id='status-checks'>{
 		state === PullRequestStateEnum.Merged
-			? 'Pull request successfully merged'
+			?
+			<>
+				<div className='branch-status-message'>{'Pull request successfully merged'}</div>
+				<DeleteBranch {...pr}/>
+			</>
 			:
 		state === PullRequestStateEnum.Closed
-			? 'This pull request is closed'
+			?
+			<>
+				<div className='branch-status-message'>{'This pull request is closed'}</div>
+				<DeleteBranch {...pr}/>
+			</>
 			:
 			<>
 				{ status.statuses.length
@@ -79,7 +87,7 @@ export const ReadyForReview = () => {
 			try {
 				setBusy(true);
 				await readyForReview();
-				updatePR({isDraft: false})
+				updatePR({isDraft: false});
 			} finally {
 				setBusy(false);
 			}
@@ -91,8 +99,8 @@ export const ReadyForReview = () => {
 		<div className='ready-for-review-icon'>{alertIcon}</div>
 		<div className='ready-for-review-heading'>This pull request is still a work in progress.</div>
 		<span className='ready-for-review-meta'>Draft pull requests cannot be merged.</span>
-	</div>
-}
+	</div>;
+};
 
 export const Merge = (pr: PullRequest) => {
 	const select = useRef<HTMLSelectElement>();
@@ -109,25 +117,54 @@ export const Merge = (pr: PullRequest) => {
 	</div>;
 };
 
+export const DeleteBranch = (pr: PullRequest) => {
+	const { deleteBranch } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+
+	if (pr.head === 'UNKNOWN') {
+		return <div />;
+	} else {
+		return <div className='branch-status-container'>
+			<form onSubmit={
+				async event => {
+					event.preventDefault();
+
+					try {
+						setBusy(true);
+						const result = await deleteBranch();
+						if (result && result.cancelled) {
+							setBusy(false);
+						}
+					} finally {
+						setBusy(false);
+					}
+				}
+			}>
+			<button disabled={isBusy} type='submit'>Delete branch</button>
+			</form>
+		</div>;
+	}
+};
+
 function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMethod, cancel: () => void}) {
 	const { merge, updatePR } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false)
+	const [isBusy, setBusy] = useState(false);
 
 	return <form onSubmit={
 		async event => {
 			event.preventDefault();
 
 			try {
-				setBusy(true)
+				setBusy(true);
 				const {title, description}: any = event.target;
 				await merge({
 					title: title.value,
 					description: description.value,
 					method,
 				});
-				updatePR({ state: PullRequestStateEnum.Merged })
+				updatePR({ state: PullRequestStateEnum.Merged });
 			} finally {
-				setBusy(false)
+				setBusy(false);
 			}
 		}
 	}>
@@ -191,8 +228,8 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 
 function getSummaryLabel(statuses: any[]) {
 	const statusTypes = groupBy(statuses, (status: any) => status.state);
-	let statusPhrases = [];
-	for (let statusType of Object.keys(statusTypes)) {
+	const statusPhrases = [];
+	for (const statusType of Object.keys(statusTypes)) {
 		const numOfType = statusTypes[statusType].length;
 		let statusAdjective = '';
 

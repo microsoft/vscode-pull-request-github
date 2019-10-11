@@ -24,7 +24,7 @@ function getCommentingRangesForPartialFile(diffHunks: DiffHunk[], lineCount: num
 	if (isBase) {
 		let currentLine = 0;
 		for (let i = 0; i < diffHunks.length; i++) {
-			let diffHunk = diffHunks[i];
+			const diffHunk = diffHunks[i];
 			let startingLine: number | undefined;
 			let endingLine: number | undefined;
 			for (let j = 0; j < diffHunk.diffLines.length; j++) {
@@ -66,7 +66,7 @@ function getCommentingRangesForCompleteFile(diffHunks: DiffHunk[], isBase: boole
 	const ranges: vscode.Range[] = [];
 
 	for (let i = 0; i < diffHunks.length; i++) {
-		let diffHunk = diffHunks[i];
+		const diffHunk = diffHunks[i];
 		let startingLine: number | undefined;
 		let length: number;
 		if (isBase) {
