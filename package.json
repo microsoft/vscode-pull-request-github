@@ -631,11 +631,11 @@
         },
         {
           "command": "pr.openOriginalFile",
-          "when": "view =~ /(pr|prStatus)/ && viewItem == filechange"
+          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
         },
         {
           "command": "pr.openModifiedFile",
-          "when": "view =~ /(pr|prStatus)/ && viewItem == filechange"
+          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
         }
       ],
       "editor/title": [
