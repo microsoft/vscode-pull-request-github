@@ -175,7 +175,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			});
 
 			this._reviewDocumentCommentThreads.maybeDisposeThreads(visibleTextEditors, (editor: vscode.TextEditor, fileName: string, isBase: boolean) => {
-				const editorFileName = nodePath.relative(this._repository.rootUri.path, editor.document.uri.path);
+				const editorFileName = this.gitRelativePath(editor.document.uri.path);
 				if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme && editor.document.uri.query) {
 					const params = fromReviewUri(editor.document.uri);
 					if (fileName === editorFileName && params.base === isBase) {
@@ -201,7 +201,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			const workspaceDocuments = visibleTextEditors.filter(editor => editor.document.uri.scheme === this._repository.rootUri.scheme);
 			workspaceDocuments.forEach(editor => {
-				const fileName = nodePath.relative(this._repository.rootUri.path, editor.document.uri.path);
+				const fileName = this.gitRelativePath(editor.document.uri.path);
 				const threadsForEditor = this._workspaceFileChangeCommentThreads[fileName] || [];
 				// If the editor has no view column, assume it is part of a diff editor and expand the comments. Otherwise, collapse them.
 				const isEmbedded = !editor.viewColumn;
@@ -275,7 +275,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			return;
 		}
 
-		const fileName = nodePath.relative(this._repository.rootUri.path, editor.document.uri.path);
+		const fileName = this.gitRelativePath(editor.document.uri.path);
 		if (editor.document.uri.scheme === this._repository.rootUri.scheme && editor.viewColumn !== undefined) {
 			// local files
 			const matchedFiles = this._localFileChanges.filter(fileChange => fileChange.fileName === fileName);
@@ -384,14 +384,14 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			case 'review':
 				const reviewParams = uri.query && fromReviewUri(uri);
 				if (reviewParams) {
-					const documentFileName = nodePath.relative(this._repository.rootUri.path, uri.path);
+					const documentFileName = this.gitRelativePath(uri.path);
 					const existingThreads = this._reviewDocumentCommentThreads.getThreadsForDocument(documentFileName, reviewParams.base) || [];
 					this._reviewDocumentCommentThreads.setDocumentThreads(documentFileName, reviewParams.base, existingThreads.concat(thread));
 					return;
 				}
 
 			case currentWorkspace.uri.scheme:
-				const workspaceFileName = nodePath.relative(this._repository.rootUri.path, uri.path);
+				const workspaceFileName = this.gitRelativePath(uri.path);
 				const existingWorkspaceThreads = this._workspaceFileChangeCommentThreads[workspaceFileName];
 				existingWorkspaceThreads.push(thread);
 				return;
@@ -442,7 +442,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return;
 			}
 
-			const fileName = nodePath.relative(this._repository.rootUri.path, document.uri.path);
+			const fileName = this.gitRelativePath(document.uri.path)
 			const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === fileName);
 			let matchedFile: GitFileChangeNode;
 			const ranges = [];
@@ -699,6 +699,11 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (matchedFiles && matchedFiles.length) {
 			return matchedFiles[0];
 		}
+	}
+
+	private gitRelativePath(path: string) {
+		// get path relative to git root directory. Handles windows path by converting it to unix path.
+		return nodePath.relative(this._repository.rootUri.path, path).replace(/\\/g, '/');
 	}
 
 	// #endregion
