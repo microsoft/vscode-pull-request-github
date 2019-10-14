@@ -83,7 +83,7 @@ const reviewDescriptor = (state: string) =>
 
 const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
-	const reviewIsPending = event.state === 'PENDING';
+	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
 	return <div className='comment-container comment'>
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
@@ -91,7 +91,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 					<Avatar for={event.user} />
 					<AuthorLink for={event.user} />{association(event)}
 					{ reviewIsPending
-						? <span>review pending</span>
+						? <em>review pending</em>
 						: <>
 								{reviewDescriptor(event.state)}{nbsp}
 								<Timestamp href={event.htmlUrl} date={event.submittedAt} />
@@ -113,7 +113,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 									hunks={thread[0].diffHunks}
 									outdated={thread[0].position === null}
 									path={thread[0].path} />
-								{thread.map(c => <CommentView {...c} pullRequestReviewId={event.id} parentPending={reviewIsPending} />)}
+								{thread.map(c => <CommentView {...c} pullRequestReviewId={event.id} />)}
 							</div>
 					)
 			}</div>
