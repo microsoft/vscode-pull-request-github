@@ -1040,12 +1040,12 @@ export class PullRequestManager implements vscode.Disposable {
 			return;
 		}
 
-		const pendingReviewId = await this.getPendingReviewId(pullRequest as PullRequestModel);
+		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest as PullRequestModel, pendingReviewId, body, { path: commentPath, position });
+			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { path: commentPath, position });
 		}
 
-		const githubRepository = (pullRequest as PullRequestModel).githubRepository;
+		const githubRepository = pullRequest.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
 
 		try {
