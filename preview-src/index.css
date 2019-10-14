@@ -255,6 +255,13 @@ body .merged .merged-message > a {
 	white-space: nowrap;
 }
 
+body .comment-container .review-comment-container .pending-label {
+	border: 1px solid;
+    border-radius: 2px 2px 2px 2px;
+    padding: 0.1rem 0.3rem;
+    font-style: italic;
+}
+
 body .comment-container .comment-body, .review-body {
 	padding: 10px;
 	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
