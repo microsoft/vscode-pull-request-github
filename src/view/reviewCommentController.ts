@@ -442,7 +442,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return;
 			}
 
-			const fileName = this.gitRelativeRootPath(document.uri.path)
+			const fileName = this.gitRelativeRootPath(document.uri.path);
 			const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === fileName);
 			let matchedFile: GitFileChangeNode;
 			const ranges = [];
