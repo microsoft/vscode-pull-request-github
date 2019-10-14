@@ -15,6 +15,7 @@ import { useStateProp } from './hooks';
 export type Props = Partial<IComment & PullRequest> & {
 	headerInEditMode?: boolean
 	isPRDescription?: boolean
+	parentPending?: boolean
 };
 
 export function CommentView(comment: Props) {
@@ -72,7 +73,7 @@ export function CommentView(comment: Props) {
 }
 
 type CommentBoxProps = {
-	for: Partial<IComment & PullRequest>
+	for: Partial<IComment & PullRequest> & { parentPending?: boolean }
 	header?: React.ReactChild
 	onMouseEnter?: any
 	onMouseLeave?: any
@@ -82,7 +83,7 @@ type CommentBoxProps = {
 function CommentBox({
 	for: comment,
 	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
-	const	{ user, author, createdAt, htmlUrl } = comment;
+	const	{ user, author, createdAt, htmlUrl, parentPending } = comment;
 	return <div className='comment-container comment review-comment'
 		{...{onMouseEnter, onMouseLeave}}
 	>
@@ -98,6 +99,13 @@ function CommentBox({
 									<Timestamp href={htmlUrl} date={createdAt} />
 								</>
 							: <em>pending</em>
+					}
+					{
+						parentPending
+							? <>
+									<span className='pending-label'>Pending</span>
+								</>
+							: null
 					}
 				</Spaced>
 			</div>
