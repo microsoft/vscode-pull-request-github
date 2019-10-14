@@ -30,7 +30,7 @@ export class PullRequestModel implements IPullRequestModel {
 	public updatedAt: string;
 	public localBranchName?: string;
 	public mergeBase?: string;
-	public isDraft: boolean;
+	public isDraft?: boolean;
 
 	public get isOpen(): boolean {
 		return this.state === PullRequestStateEnum.Open;

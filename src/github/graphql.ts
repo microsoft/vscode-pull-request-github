@@ -327,7 +327,7 @@ export interface PullRequestResponse {
 			}
 			merged: boolean;
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
-			isDraft: boolean;
+			isDraft?: boolean;
 		}
 	};
 	rateLimit: RateLimit;
