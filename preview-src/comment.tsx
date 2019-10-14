@@ -82,7 +82,7 @@ type CommentBoxProps = {
 function CommentBox({
 	for: comment,
 	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
-	const	{ user, author, createdAt, htmlUrl } = comment;
+	const	{ user, author, createdAt, htmlUrl, isDraft } = comment;
 	return <div className='comment-container comment review-comment'
 		{...{onMouseEnter, onMouseLeave}}
 	>
@@ -98,6 +98,13 @@ function CommentBox({
 									<Timestamp href={htmlUrl} date={createdAt} />
 								</>
 							: <em>pending</em>
+					}
+					{
+						isDraft
+							? <>
+									<span className='pending-label'>Pending</span>
+								</>
+							: null
 					}
 				</Spaced>
 			</div>

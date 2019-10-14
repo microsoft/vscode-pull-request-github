@@ -83,13 +83,14 @@ const reviewDescriptor = (state: string) =>
 
 const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
+	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
 	return <div className='comment-container comment'>
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
 				<Spaced>
 					<Avatar for={event.user} />
 					<AuthorLink for={event.user} />{association(event)}
-					{ event.state === 'PENDING'
+					{ reviewIsPending
 						? <em>review pending</em>
 						: <>
 								{reviewDescriptor(event.state)}{nbsp}
@@ -117,7 +118,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 					)
 			}</div>
 			{
-				event.state === 'PENDING' ?
+				reviewIsPending ?
 					<AddReviewSummaryComment />
 				: null
 			}
