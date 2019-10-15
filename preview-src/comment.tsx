@@ -20,6 +20,7 @@ export type Props = Partial<IComment & PullRequest> & {
 export function CommentView(comment: Props) {
 	const { id, pullRequestReviewId, canEdit, canDelete, bodyHTML, body, isPRDescription } = comment;
 	const [ bodyMd, setBodyMd ] = useStateProp(body);
+	const [ bodyHTMLState, setBodyHtml ] = useStateProp(bodyHTML);
 	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
@@ -45,7 +46,8 @@ export function CommentView(comment: Props) {
 							if (isPRDescription) {
 								await setDescription(text);
 							} else {
-								await editComment({ comment: comment as IComment, text });
+								const result = await editComment({ comment: comment as IComment, text });
+								setBodyHtml(result.bodyHTML);
 							}
 							setBodyMd(text);
 						} finally {
@@ -67,7 +69,7 @@ export function CommentView(comment: Props) {
 			</div>
 		: null
 	}
-			<CommentBody comment={comment as IComment} bodyHTML={bodyHTML} body={bodyMd} />
+			<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} />
 		</CommentBox>;
 }
 

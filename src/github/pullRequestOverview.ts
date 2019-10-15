@@ -488,7 +488,7 @@ export class PullRequestOverviewPanel {
 
 	private editDescription(message: IRequestMessage<{ text: string }>) {
 		this._pullRequestManager.editPullRequest(this._pullRequest, { body: message.args.text }).then(result => {
-			this._replyMessage(message, { text: result.body });
+			this._replyMessage(message, { body: result.body });
 		}).catch(e => {
 			this._throwError(message, e);
 			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
@@ -512,7 +512,8 @@ export class PullRequestOverviewPanel {
 
 		editCommentPromise.then(result => {
 			this._replyMessage(message, {
-				text: result.body
+				body: result.body,
+				bodyHTML: result.body
 			});
 		}).catch(e => {
 			this._throwError(message, e);
