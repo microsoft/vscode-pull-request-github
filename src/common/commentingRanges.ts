@@ -88,10 +88,18 @@ function getCommentingRangesForCompleteFile(diffHunks: DiffHunk[], isBase: boole
 					}
 				}
 			}
+
+			if (startingLine !== undefined && endingLine !== undefined) {
+				ranges.push(new vscode.Range(startingLine, 0, endingLine, 0));
+				startingLine = undefined;
+				endingLine = undefined;
+			}
 		} else {
-			startingLine = getZeroBased(diffHunk.newLineNumber);
-			length = getZeroBased(diffHunk.newLength);
-			ranges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
+			if (diffHunk.newLineNumber) {
+				startingLine = getZeroBased(diffHunk.newLineNumber);
+				length = getZeroBased(diffHunk.newLength);
+				ranges.push(new vscode.Range(startingLine, 0, startingLine + length, 0));
+			}
 		}
 	}
 
