@@ -377,16 +377,27 @@ export class ReviewManager implements vscode.DecorationProvider {
 			const filePath = nodePath.join(this._repository.rootUri.path, change.fileName).replace(/\\/g, '/');
 			const uri = this._repository.rootUri.with({ path: filePath });
 
+			const modifiedFileUri = change.status === GitChangeType.DELETE
+				? toReviewUri(uri, undefined, undefined, '', false, { base: false })
+				: uri;
+
+			const originalFileUri = toReviewUri(
+				uri,
+				change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
+				undefined,
+				change.status === GitChangeType.ADD ? '' : mergeBase,
+				false,
+				{ base: true }
+			);
+
 			const changedItem = new GitFileChangeNode(
 				this.prFileChangesProvider.view,
 				pr,
 				change.status,
 				change.fileName,
 				change.blobUrl,
-				change.status === GitChangeType.DELETE ?
-					toReviewUri(uri, undefined, undefined, '', false, { base: false }) :
-					uri,
-				toReviewUri(uri, change.fileName, undefined, change.status === GitChangeType.ADD ? '' : mergeBase, false, { base: true }),
+				modifiedFileUri,
+				originalFileUri,
 				isPartial,
 				diffHunks,
 				activeComments.filter(comment => comment.path === change.fileName),

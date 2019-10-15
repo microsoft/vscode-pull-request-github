@@ -267,7 +267,7 @@ export async function parseDiff(reviews: IRawFileChange[], repository: Repositor
 			// 4. Unknown other reasons
 			// Treat case 3 as something that should be opened locally, offer to open everything else on GitHub
 			if (review.status === 'renamed' || review.additions || review.changes || review.deletions) {
-				fileChanges.push(new SlimFileChange(review.blob_url, gitChangeType, review.filename));
+				fileChanges.push(new SlimFileChange(review.blob_url, gitChangeType, review.filename, review.previous_filename));
 				continue;
 			} else {
 				review.patch = '';

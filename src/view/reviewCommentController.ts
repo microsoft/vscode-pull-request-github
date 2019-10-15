@@ -21,6 +21,7 @@ import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { CommentThreadCache } from './commentThreadCache';
 import { getCommentingRanges } from '../common/commentingRanges';
+import { GitChangeType } from '../common/file';
 
 function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
 	if (!fileChange) {
@@ -443,13 +444,15 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 
 			const fileName = this.gitRelativeRootPath(document.uri.path);
-			const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === fileName);
-			let matchedFile: GitFileChangeNode;
+			const matchedFile = gitFileChangeNodeFilter(this._localFileChanges).find(fileChange => fileChange.fileName === fileName);
 			const ranges = [];
 
 			const headCommitSha = this._prManager.activePullRequest!.head.sha;
-			if (matchedFiles && matchedFiles.length) {
-				matchedFile = matchedFiles[0];
+			if (matchedFile) {
+				if (matchedFile.status === GitChangeType.RENAME) {
+					return [];
+				}
+
 				const contentDiff = await this.getContentDiff(document, headCommitSha, matchedFile.fileName);
 				const diffHunks = matchedFile.diffHunks;
 
