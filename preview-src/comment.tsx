@@ -31,7 +31,7 @@ export function CommentView(comment: Props) {
 				comment.headerInEditMode
 					? <CommentBox for={comment} /> : <></>, {}, [
 			<EditComment id={id}
-				body={currentDraft || body}
+				body={currentDraft || bodyMd}
 				onCancel={
 					() => {
 						if (pr.pendingCommentDrafts) {
