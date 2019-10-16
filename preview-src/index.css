@@ -649,7 +649,6 @@ select {
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-dropdown-background);
 	color: var(--vscode-dropdown-foreground);
-	border: 1px solid transparent;
 }
 
 .task-list-item {
@@ -848,16 +847,16 @@ code {
 }
 
 .vscode-high-contrast .comment-body h1 {
-	border-color: rgb(0, 0, 0);
+	border: 1px solid rgb(0, 0, 0);
 }
 
-.vscode-high-contrast .comment-container .review-comment-header, .vscode-high-contrast .subtitle {
+.vscode-high-contrast .comment-container .review-comment-header, .vscode-high-contrast #status-checks {
 	background: none;
-	border-color: var(--vscode-panel-border);
+	border: 1px solid var(--vscode-panel-border);
 }
 
 .vscode-high-contrast .comment-container .comment-body, .vscode-high-contrast .review-comment-container .review-body {
-	border-color: var(--vscode-panel-border);
+	border: 1px solid var(--vscode-panel-border);
 }
 
 .vscode-light .comment-body table > thead > tr > th {
@@ -978,14 +977,18 @@ code {
 	outline-color: var(--vscode-contrastActiveBorder);
 }
 
-.vscode-high-contrast button {
+.vscode-high-contrast .title {
+	border-bottom: 1px solid var(--vscode-contrastBorder);
+}
+
+.vscode-high-contrast button, .vscode-high-contrast input {
 	outline: none;
 	background: none !important;
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
 .vscode-high-contrast button:focus{
-	border-color: var(--vscode-contrastActiveBorder);
+	border: 1px solid var(--vscode-contrastActiveBorder);
 }
 
 .vscode-high-contrast button.secondary {
@@ -1001,7 +1004,7 @@ code {
 }
 
 .vscode-high-contrast .diff-container {
-	border-color: var(--vscode-contrastBorder);
+	border: 1px solid var(--vscode-contrastBorder);
 }
 
 .vscode-high-contrast .diff .diffLine.add {
