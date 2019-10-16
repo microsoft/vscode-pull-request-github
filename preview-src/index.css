@@ -1108,3 +1108,7 @@ code {
 .title-editing-form > .form-actions {
 	margin-left: 0;
 }
+
+::-webkit-scrollbar-corner {
+	display: none;
+}
