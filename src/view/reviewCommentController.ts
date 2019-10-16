@@ -304,6 +304,10 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		} catch (e) { }
 
 		if (query) {
+			if (query.isOutdated) {
+				return;
+			}
+
 			const existingThreadsForDocument = this._reviewDocumentCommentThreads.getThreadsForDocument(fileName, query.base);
 			if (existingThreadsForDocument) {
 				return;
