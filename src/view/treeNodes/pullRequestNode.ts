@@ -428,6 +428,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			prNumber,
 			author,
 			isDraft,
+			html_url
 		} = this.pullRequestModel;
 
 		const {
@@ -443,6 +444,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		return {
 			label,
+			id: html_url, // unique id stable across checkout status
 			tooltip,
 			description,
 			collapsibleState: 1,
