@@ -44,13 +44,13 @@ export class MockRepository implements Repository {
 		mergeChanges: [],
 		indexChanges: [],
 		workingTreeChanges: [],
-		onDidChange: () => ({ dispose() { } }),
+		onDidChange: () => ({ dispose() {} }),
 	};
 	private _config: Map<string, string> = new Map();
 	private _branches: Branch[] = [];
-	private _expectedFetches: { remoteName?: string, ref?: string, depth?: number }[] = [];
-	private _expectedPulls: { unshallow?: boolean }[] = [];
-	private _expectedPushes: { remoteName?: string, branchName?: string, setUpstream?: boolean }[] = [];
+	private _expectedFetches: {remoteName?: string, ref?: string, depth?: number}[] = [];
+	private _expectedPulls: {unshallow?: boolean}[] = [];
+	private _expectedPushes: {remoteName?: string, branchName?: string, setUpstream?: boolean}[] = [];
 
 	rootUri = Uri.file('/root');
 
@@ -58,11 +58,11 @@ export class MockRepository implements Repository {
 
 	ui: RepositoryUIState = {
 		selected: true,
-		onDidChange: () => ({ dispose() { } }),
+		onDidChange: () => ({ dispose() {} }),
 	};
 
-	async getConfigs(): Promise<{ key: string, value: string }[]> {
-		return Array.from(this._config, ([k, v]) => ({ key: k, value: v }));
+	async getConfigs(): Promise<{key: string, value: string}[]> {
+		return Array.from(this._config, ([k, v]) => ({key: k, value: v}));
 	}
 
 	async getConfig(key: string): Promise<string> {
@@ -252,14 +252,14 @@ export class MockRepository implements Repository {
 	}
 
 	expectFetch(remoteName?: string, ref?: string, depth?: number) {
-		this._expectedFetches.push({ remoteName, ref, depth });
+		this._expectedFetches.push({remoteName, ref, depth});
 	}
 
 	expectPull(unshallow?: boolean) {
-		this._expectedPulls.push({ unshallow });
+		this._expectedPulls.push({unshallow});
 	}
 
 	expectPush(remoteName?: string, branchName?: string, setUpstream?: boolean) {
-		this._expectedPushes.push({ remoteName, branchName, setUpstream });
+		this._expectedPushes.push({remoteName, branchName, setUpstream});
 	}
 }
