@@ -9,7 +9,7 @@ import { Uri, UriHandler, EventEmitter } from 'vscode';
 import { GitChangeType } from './file';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { Repository } from '../api/api';
-import * as path from 'path';
+import * as pathUtils from 'path';
 
 export interface ReviewUriParams {
 	path: string;
@@ -66,7 +66,7 @@ export async function asImageDataURI(uri: Uri, repository: Repository): Promise<
 
 		if (ImageMimetypes.indexOf(mimetype) > -1) {
 			const contents = await repository.buffer(commit, uri.fsPath);
-			return Uri.parse(`data:${mimetype};label:${path.basename(uri.fsPath)};description:${commit};size:${size};base64,${contents.toString('base64')}`);
+			return Uri.parse(`data:${mimetype};label:${pathUtils.basename(uri.fsPath)};description:${commit};size:${size};base64,${contents.toString('base64')}`);
 		}
 	} catch (err) {
 		return;
