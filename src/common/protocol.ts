@@ -83,7 +83,10 @@ export class Protocol {
 		const matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
 
 		if (matches && matches.length >= 2) {
-			return matches[1];
+
+			// normalize to fix #903.
+			// www.github.com will redirect anyways, so this is safe in this specific case, but potentially not in others.
+			return matches[1].toLocaleLowerCase() === 'www.github.com' ? 'github.com' : matches[1];
 		}
 
 		return '';
