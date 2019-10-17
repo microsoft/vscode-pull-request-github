@@ -25,6 +25,7 @@
 			"always"
 		],
 		"triple-equals": true,
-		"whitespace": [true, "check-branch"]
+		"whitespace": [true, "check-branch"],
+		"prefer-const": true
 	}
 }

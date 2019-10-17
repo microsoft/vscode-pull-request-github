@@ -198,7 +198,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			let nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this, this._prManager, prItem, this._type === PRType.LocalPullRequest));
+			const nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this, this._prManager, prItem, this._type === PRType.LocalPullRequest));
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
 			} else if (hasUnsearchedRepositories) {
@@ -208,8 +208,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			this.childrenDisposables = nodes;
 			return nodes;
 		} else {
-			let category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
-			let result = [new PRCategoryActionNode(this, category)];
+			const category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
+			const result = [new PRCategoryActionNode(this, category)];
 
 			this.childrenDisposables = result;
 			return result;

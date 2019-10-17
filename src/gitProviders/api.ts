@@ -9,12 +9,12 @@ import { LiveShareManager } from './vsls';
 import { BuiltinGitProvider } from './builtinGit';
 
 export function registerBuiltinGitProvider(apiImpl: API): vscode.Disposable {
-	let builtInGitProvider = new BuiltinGitProvider();
+	const builtInGitProvider = new BuiltinGitProvider();
 	apiImpl.registerGitProvider(builtInGitProvider);
 	return builtInGitProvider;
 }
 
 export function registerLiveShareGitProvider(apiImpl: API): vscode.Disposable {
-	let liveShareManager = new LiveShareManager(apiImpl);
+	const liveShareManager = new LiveShareManager(apiImpl);
 	return liveShareManager;
 }

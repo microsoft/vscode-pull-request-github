@@ -13,7 +13,7 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 	private _providers = new Map<number, IGit>();
 
 	public get repositories(): Repository[] {
-		let ret: Repository[] = [];
+		const ret: Repository[] = [];
 
 		this._providers.forEach(provider => {
 			if (provider.repositories) {
@@ -75,11 +75,11 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 	}
 
 	getGitProvider(uri: vscode.Uri): IGit | undefined {
-		let foldersMap = TernarySearchTree.forPaths<IGit>();
+		const foldersMap = TernarySearchTree.forPaths<IGit>();
 
 		this._providers.forEach(provider => {
 			if (provider.repositories) {
-				let repositories = provider.repositories;
+				const repositories = provider.repositories;
 
 				for (const repository of repositories) {
 					foldersMap.set(repository.rootUri.toString(), provider);

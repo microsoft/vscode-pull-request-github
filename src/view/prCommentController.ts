@@ -21,27 +21,27 @@ export class PRCommentController implements vscode.CommentingRangeProvider, Comm
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
-		let uri = document.uri;
-		let params = fromPRUri(uri);
+		const uri = document.uri;
+		const params = fromPRUri(uri);
 
 		if (!params || !this._prCommentControllers[params.prNumber]) {
 			return;
 		}
 
-		let provideCommentingRanges = this._prCommentControllers[params.prNumber].provideCommentingRanges.bind(this._prCommentControllers[params.prNumber]);
+		const provideCommentingRanges = this._prCommentControllers[params.prNumber].provideCommentingRanges.bind(this._prCommentControllers[params.prNumber]);
 
 		return provideCommentingRanges(document, token);
 	}
 
 	async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
-		let uri = comment.parent!.uri;
-		let params = fromPRUri(uri);
+		const uri = comment.parent!.uri;
+		const params = fromPRUri(uri);
 
 		if (!params || !this._prCommentControllers[params.prNumber] || !this._prCommentControllers[params.prNumber].toggleReaction) {
 			return;
 		}
 
-		let toggleReaction = this._prCommentControllers[params.prNumber].toggleReaction!.bind(this._prCommentControllers[params.prNumber]);
+		const toggleReaction = this._prCommentControllers[params.prNumber].toggleReaction!.bind(this._prCommentControllers[params.prNumber]);
 
 		return toggleReaction(comment, reaction);
 	}
@@ -52,7 +52,7 @@ export class PRCommentController implements vscode.CommentingRangeProvider, Comm
 			this._prDocumentCommentThreadMap[prNumber] = {};
 		}
 
-		let commentThreadCache = this._prDocumentCommentThreadMap[prNumber];
+		const commentThreadCache = this._prDocumentCommentThreadMap[prNumber];
 
 		return {
 			commentThreadCache: commentThreadCache,
@@ -64,7 +64,7 @@ export class PRCommentController implements vscode.CommentingRangeProvider, Comm
 
 	public clearCommentThreadCache(prNumber: number) {
 		if (this._prDocumentCommentThreadMap[prNumber]) {
-			for (let fileName in this._prDocumentCommentThreadMap[prNumber]) {
+			for (const fileName in this._prDocumentCommentThreadMap[prNumber]) {
 				this._prDocumentCommentThreadMap[prNumber][fileName].forEach(thread => thread.dispose!());
 			}
 

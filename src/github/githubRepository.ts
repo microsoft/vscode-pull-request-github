@@ -266,10 +266,10 @@ export class GitHubRepository implements vscode.Disposable {
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			let promises: Promise<Octokit.Response<Octokit.PullsGetResponse>>[] = [];
+			const promises: Promise<Octokit.Response<Octokit.PullsGetResponse>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
-					let prData = await octokit.pulls.get({
+					const prData = await octokit.pulls.get({
 						owner: remote.owner,
 						repo: remote.repositoryName,
 						pull_number: item.number
@@ -325,7 +325,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 				return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
 			} else {
-				let { data } = await octokit.pulls.get({
+				const { data } = await octokit.pulls.get({
 					owner: remote.owner,
 					repo: remote.repositoryName,
 					number: id
@@ -371,7 +371,7 @@ export class GitHubRepository implements vscode.Disposable {
 		if (supportsGraphQl) {
 			let after = null;
 			let hasNextPage = false;
-			let ret: IAccount[] = [];
+			const ret: IAccount[] = [];
 
 			do {
 				try {
@@ -409,7 +409,7 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	private getPRFetchQuery(repo: string, user: string, query: string) {
-		let filter = query.replace('${user}', user);
+		const filter = query.replace('${user}', user);
 		return `is:open ${filter} type:pr repo:${repo}`;
 	}
 }

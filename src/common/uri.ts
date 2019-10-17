@@ -128,7 +128,7 @@ export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit
 		remoteName: pullRequestModel.githubRepository.remote.remoteName
 	};
 
-	let path = uri.path;
+	const path = uri.path;
 
 	return uri.with({
 		scheme: 'pr',

@@ -9,7 +9,7 @@ export class MockKeytar implements Keytar {
 	}
 
 	setPassword(service: string, account: string, password: string): Promise<void> {
-		let accountMap = this._storage[service];
+		const accountMap = this._storage[service];
 		if (accountMap) {
 			accountMap[account] = password;
 		} else {
@@ -19,7 +19,7 @@ export class MockKeytar implements Keytar {
 	}
 
 	deletePassword(service: string, account: string): Promise<boolean> {
-		let accountMap = this._storage[service];
+		const accountMap = this._storage[service];
 		if (accountMap) {
 			const had = account in accountMap;
 			delete accountMap[account];

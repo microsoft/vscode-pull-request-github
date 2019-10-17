@@ -79,7 +79,7 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string
 	) {
 		super();
-		this.contextValue = 'filechange';
+		this.contextValue = `filechange:${GitChangeType[status]}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
@@ -93,17 +93,17 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.resourceUri = toResourceUri(this.filePath, comments.length > 0, this.status);
 
 		if (comments && comments.length) {
-			let sortedActiveComments = comments.filter(comment => comment.position).sort((a, b) => {
+			const sortedActiveComments = comments.filter(comment => comment.position).sort((a, b) => {
 				return a.position! - b.position!;
 			});
 
 			if (sortedActiveComments.length) {
-				let comment = sortedActiveComments[0];
-				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
+				const comment = sortedActiveComments[0];
+				const diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
 
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
-					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+					const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
 					this.opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				}
 			}
@@ -117,11 +117,11 @@ export class InMemFileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	getCommentPosition(comment: IComment) {
-		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
+		const diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
 
 		if (diffLine) {
 			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
-			let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
 			return lineNumber;
 		}
 
@@ -171,17 +171,17 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 		};
 
 		if (this.comments && this.comments.length) {
-			let sortedActiveComments = this.comments.filter(comment => comment.position).sort((a, b) => {
+			const sortedActiveComments = this.comments.filter(comment => comment.position).sort((a, b) => {
 				return a.position! - b.position!;
 			});
 
 			if (sortedActiveComments.length) {
-				let comment = sortedActiveComments[0];
-				let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
+				const comment = sortedActiveComments[0];
+				const diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
 
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
-					let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+					const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
 					this.opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				}
 			}
@@ -195,11 +195,11 @@ export class GitFileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	getCommentPosition(comment: IComment) {
-		let diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position!);
+		const diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position!);
 
 		if (diffLine) {
 			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
-			let lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
 			return lineNumber;
 		}
 

@@ -52,7 +52,7 @@ export class PullRequestOverviewPanel {
 	private _existingReviewers: ReviewState[];
 
 	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
-		let activeColumn = toTheSide ?
+		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
 				vscode.window.activeTextEditor.viewColumn :
@@ -488,7 +488,7 @@ export class PullRequestOverviewPanel {
 
 	private editDescription(message: IRequestMessage<{ text: string }>) {
 		this._pullRequestManager.editPullRequest(this._pullRequest, { body: message.args.text }).then(result => {
-			this._replyMessage(message, { text: result.body });
+			this._replyMessage(message, { body: result.body });
 		}).catch(e => {
 			this._throwError(message, e);
 			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
@@ -512,7 +512,8 @@ export class PullRequestOverviewPanel {
 
 		editCommentPromise.then(result => {
 			this._replyMessage(message, {
-				text: result.body
+				body: result.body,
+				bodyHTML: result.body
 			});
 		}).catch(e => {
 			this._throwError(message, e);
@@ -568,7 +569,7 @@ export class PullRequestOverviewPanel {
 
 	private async deleteBranch(message: IRequestMessage<any>) {
 		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest);
-		let actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
+		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
 
 		if (this._pullRequest.isResolved()) {
 			const branchHeadRef = this._pullRequest.head.ref;

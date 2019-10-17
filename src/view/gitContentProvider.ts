@@ -22,7 +22,7 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 			return '';
 		}
 
-		let { path, commit } = fromReviewUri(uri);
+		const { path, commit } = fromReviewUri(uri);
 
 		if (!path || !commit) {
 			return '';

@@ -35,6 +35,15 @@ const patch = [
 	` }"`
 ].join('\n');
 
+const deletionPatch = [
+	`"@@ -1,5 +0,0 @@`,
+	`-var express = require('express');`,
+	`-var path = require('path');`,
+	`-var favicon = require('serve-favicon');`,
+	`-var logger = require('morgan');`,
+	`-var cookieParser = require('cookie-parser');`
+].join('\n');
+
 const diffHunks = parsePatch(patch);
 
 describe('getCommentingRanges', () => {
@@ -77,5 +86,15 @@ describe('getCommentingRanges', () => {
 		assert.equal(commentingRanges[1].start.character, 0);
 		assert.equal(commentingRanges[1].end.line, 763);
 		assert.equal(commentingRanges[1].end.character, 0);
+	});
+
+	it('should handle the last part of the diff being a deletion, for the base file when complete', () => {
+		const diffHunksForDeletion = parsePatch(deletionPatch);
+		const commentingRanges = getCommentingRanges(diffHunksForDeletion, 5, false, true);
+		assert.equal(commentingRanges.length, 1);
+		assert.equal(commentingRanges[0].start.line, 0);
+		assert.equal(commentingRanges[0].start.character, 0);
+		assert.equal(commentingRanges[0].end.line, 4);
+		assert.equal(commentingRanges[0].end.character, 0);
 	});
 });

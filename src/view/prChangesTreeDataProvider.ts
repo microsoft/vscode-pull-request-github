@@ -10,7 +10,7 @@ import { TreeNode } from './treeNodes/treeNode';
 import { FilesCategoryNode } from './treeNodes/filesCategoryNode';
 import { CommitsNode } from './treeNodes/commitsCategoryNode';
 import { IComment } from '../common/comment';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager, SETTINGS_NAMESPACE } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
@@ -40,6 +40,12 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			showCollapseAll: true
 		});
 		this._context.subscriptions.push(this._view);
+
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
+				this._onDidChangeTreeData.fire();
+			}
+		}));
 	}
 
 	refresh() {
@@ -88,7 +94,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	}
 
 	async revealComment(comment: IComment) {
-		let fileChange = this._localFileChanges.find(fc => {
+		const fileChange = this._localFileChanges.find(fc => {
 			if (fc.fileName !== comment.path) {
 				return false;
 			}
@@ -110,7 +116,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 				return;
 			}
 			if (fileChange instanceof GitFileChangeNode) {
-				let lineNumber = fileChange.getCommentPosition(comment);
+				const lineNumber = fileChange.getCommentPosition(comment);
 				const opts = fileChange.opts;
 				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				fileChange.opts = opts;

@@ -20,6 +20,7 @@ export type Props = Partial<IComment & PullRequest> & {
 export function CommentView(comment: Props) {
 	const { id, pullRequestReviewId, canEdit, canDelete, bodyHTML, body, isPRDescription } = comment;
 	const [ bodyMd, setBodyMd ] = useStateProp(body);
+	const [ bodyHTMLState, setBodyHtml ] = useStateProp(bodyHTML);
 	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
@@ -30,7 +31,7 @@ export function CommentView(comment: Props) {
 				comment.headerInEditMode
 					? <CommentBox for={comment} /> : <></>, {}, [
 			<EditComment id={id}
-				body={currentDraft || body}
+				body={currentDraft || bodyMd}
 				onCancel={
 					() => {
 						if (pr.pendingCommentDrafts) {
@@ -45,7 +46,8 @@ export function CommentView(comment: Props) {
 							if (isPRDescription) {
 								await setDescription(text);
 							} else {
-								await editComment({ comment: comment as IComment, text });
+								const result = await editComment({ comment: comment as IComment, text });
+								setBodyHtml(result.bodyHTML);
 							}
 							setBodyMd(text);
 						} finally {
@@ -67,7 +69,7 @@ export function CommentView(comment: Props) {
 			</div>
 		: null
 	}
-			<CommentBody comment={comment as IComment} bodyHTML={bodyHTML} body={bodyMd} />
+			<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} />
 		</CommentBox>;
 }
 
@@ -82,7 +84,7 @@ type CommentBoxProps = {
 function CommentBox({
 	for: comment,
 	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
-	const	{ user, author, createdAt, htmlUrl } = comment;
+	const	{ user, author, createdAt, htmlUrl, isDraft } = comment;
 	return <div className='comment-container comment review-comment'
 		{...{onMouseEnter, onMouseLeave}}
 	>
@@ -98,6 +100,13 @@ function CommentBox({
 									<Timestamp href={htmlUrl} date={createdAt} />
 								</>
 							: <em>pending</em>
+					}
+					{
+						isDraft
+							? <>
+									<span className='pending-label'>Pending</span>
+								</>
+							: null
 					}
 				</Spaced>
 			</div>
@@ -194,7 +203,7 @@ export interface Embodied {
 
 export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	if (!body && !bodyHTML) {
-		return <div className='comment-body'><em>No description provided.</em></div>
+		return <div className='comment-body'><em>No description provided.</em></div>;
 	}
 
 	const { applyPatch } = useContext(PullRequestContext);
@@ -211,7 +220,7 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 		{renderedBody}
 		{applyPatchButton}
 	</div>;
-}
+};
 
 export function AddComment({ pendingCommentText, state }: PullRequest) {
 	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);

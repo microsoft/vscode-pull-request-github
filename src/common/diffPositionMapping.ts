@@ -32,7 +32,7 @@ export function getAbsolutePosition(comment: IComment, fileDiffHunks: DiffHunk[]
 	let commentAbsolutePosition = -1;
 	// Ignore outdated comments
 	if (comment.position !== null) {
-		let diffLine = getDiffLineByPosition(fileDiffHunks, comment.position!);
+		const diffLine = getDiffLineByPosition(fileDiffHunks, comment.position!);
 
 		if (diffLine) {
 			if (isBase && diffLine.type === DiffChangeType.Delete) {
@@ -60,7 +60,7 @@ export function getPositionInDiff(comment: IComment, fileDiffHunks: DiffHunk[], 
 	let commentAbsolutePosition = -1;
 	// Ignore outdated comments
 	if (comment.position !== null) {
-		let diffLine = getDiffLineByPosition(fileDiffHunks, comment.position!);
+		const diffLine = getDiffLineByPosition(fileDiffHunks, comment.position!);
 
 		if (diffLine) {
 			if ((diffLine.type === DiffChangeType.Add && !isBase) || (diffLine.type === DiffChangeType.Delete && isBase)) {
@@ -74,11 +74,11 @@ export function getPositionInDiff(comment: IComment, fileDiffHunks: DiffHunk[], 
 
 export function getLastDiffLine(prPatch: string): DiffLine | undefined {
 	let lastDiffLine = undefined;
-	let prDiffReader = parseDiffHunk(prPatch);
+	const prDiffReader = parseDiffHunk(prPatch);
 	let prDiffIter = prDiffReader.next();
 
 	while (!prDiffIter.done) {
-		let diffHunk = prDiffIter.value;
+		const diffHunk = prDiffIter.value;
 		lastDiffLine = diffHunk.diffLines[diffHunk.diffLines.length - 1];
 
 		prDiffIter = prDiffReader.next();
@@ -89,7 +89,7 @@ export function getLastDiffLine(prPatch: string): DiffLine | undefined {
 
 export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: number): DiffLine | undefined {
 	for (let i = 0; i < diffHunks.length; i++) {
-		let diffHunk = diffHunks[i];
+		const diffHunk = diffHunks[i];
 		for (let j = 0; j < diffHunk.diffLines.length; j++) {
 			if (diffHunk.diffLines[j].positionInHunk === diffLineNumber) {
 				return diffHunk.diffLines[j];
@@ -101,12 +101,12 @@ export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: num
 }
 
 export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: string, line: number, isBase: boolean = false): number {
-	let localDiffReader = parseDiffHunk(localDiff);
+	const localDiffReader = parseDiffHunk(localDiff);
 	let localDiffIter = localDiffReader.next();
 	let lineInPRDiff = line;
 
 	while (!localDiffIter.done) {
-		let diffHunk = localDiffIter.value;
+		const diffHunk = localDiffIter.value;
 		if (diffHunk.oldLineNumber > line) {
 			break;
 		} else {
@@ -116,10 +116,10 @@ export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: 
 		localDiffIter = localDiffReader.next();
 	}
 
-	let positionInDiffHunk = -1;
+	const positionInDiffHunk = -1;
 
 	for (let i = 0; i < diffHunks.length; i++) {
-		let diffHunk = diffHunks[i];
+		const diffHunk = diffHunks[i];
 
 		for (let j = 0; j < diffHunk.diffLines.length; j++) {
 			if (isBase) {
@@ -138,12 +138,12 @@ export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: 
 }
 
 export function mapOldPositionToNew(patch: string, line: number): number {
-	let diffReader = parseDiffHunk(patch);
+	const diffReader = parseDiffHunk(patch);
 	let diffIter = diffReader.next();
 
 	let delta = 0;
 	while (!diffIter.done) {
-		let diffHunk = diffIter.value;
+		const diffHunk = diffIter.value;
 
 		if (diffHunk.oldLineNumber > line) {
 			// No-op

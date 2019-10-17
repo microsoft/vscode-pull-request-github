@@ -41,7 +41,7 @@ export function getState(): PullRequest {
 }
 
 export function setState(pullRequest: PullRequest): void {
-	let oldPullRequest = getState();
+	const oldPullRequest = getState();
 
 	if (oldPullRequest &&
 		oldPullRequest.number && oldPullRequest.number === pullRequest.number) {

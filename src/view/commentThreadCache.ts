@@ -35,7 +35,7 @@ export class CommentThreadCache {
 	}
 
 	public maybeDisposeThreads(visibleEditors: vscode.TextEditor[], matchEditor: (editor: vscode.TextEditor, fileName: string, isBase: boolean) => boolean) {
-		for (let fileName in this._data) {
+		for (const fileName in this._data) {
 			const threads = this._data[fileName];
 
 			const originalEditor = visibleEditors.find(editor => matchEditor(editor, fileName, true));
