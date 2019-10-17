@@ -72,6 +72,12 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<P
 		onMouseEnter={() => setShowActionBar(true)}
 		onMouseLeave={() => setShowActionBar(false)}>
 		{editableTitle}
+		<div className='block-select'>
+			{/*
+			  For whatever reason, triple click on a block element in MacOS will select everything in that element, *and* every `user-select: false` block adjacent to that element.
+			  Add an empty selectable div here to block triple click on title from selecting the following buttons. Issue #628.
+			*/}
+		</div>
 		{
 			(canEdit && showActionBar && !inEditMode)
 				? <div className='flex-action-bar comment-actions'>
