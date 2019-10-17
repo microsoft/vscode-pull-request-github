@@ -155,7 +155,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		const isPartial = fileChangeNode.isPartial;
 		const opts = fileChangeNode.opts;
 
-		fileChangeNode.reveal(fileChangeNode, { select: true });
+		fileChangeNode.reveal(fileChangeNode, { select: true, focus: true });
 
 		if (isPartial) {
 			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
