@@ -34,8 +34,10 @@ describe('Protocol', () => {
 		[
 			{ uri: 'http://rmacfarlane@github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'http://rmacfarlane:password@github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'http://rmacfarlane:password@www.github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'http://github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'http://github.com/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'http://www.github.com/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'http://github.com:/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'http://github.com:433/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'https://rmacfarlane@github.com/Microsoft/vscode', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
@@ -44,6 +46,7 @@ describe('Protocol', () => {
 			{ uri: 'https://github.com/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'https://github.com:/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'https://github.com:433/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
+			{ uri: 'https://www.github.com:433/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.com', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' },
 			{ uri: 'https://github.enterprise.corp/Microsoft/vscode.git', expectedType: ProtocolType.HTTP, expectedHost: 'github.enterprise.corp', expectedOwner: 'Microsoft', expectedRepositoryName: 'vscode' }
 		].forEach(testRemote)
 	);
