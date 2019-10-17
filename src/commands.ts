@@ -162,10 +162,18 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		if (isPartial) {
 			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
 		}
+
 		// if this is an image, encode it as a base64 data URI
 		const imageDataURI = await asImageDataURI(parentFilePath, prManager.repository);
+		const originalURI = imageDataURI || parentFilePath;
 
-		vscode.commands.executeCommand('vscode.diff', imageDataURI || parentFilePath, filePath, fileName, opts);
+		if (fileChangeNode.status === GitChangeType.ADD) {
+			vscode.commands.executeCommand('vscode.open', filePath);
+		} else if (fileChangeNode.status === GitChangeType.DELETE) {
+			vscode.commands.executeCommand('vscode.open', originalURI);
+		} else {
+			vscode.commands.executeCommand('vscode.diff', originalURI, filePath, fileName, opts);
+		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffGitHub', (uri: string) => {
