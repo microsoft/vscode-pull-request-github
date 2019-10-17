@@ -325,7 +325,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			descriptionNode = rootNodes[0] as DescriptionNode;
 		}
 		const pullRequest = ensurePR(prManager, descriptionNode.pullRequestModel);
-		descriptionNode.reveal(descriptionNode, { select: true });
+		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode);
 
@@ -344,7 +344,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
 		const pr = descriptionNode.pullRequestModel;
 		const pullRequest = ensurePR(prManager, pr);
-		descriptionNode.reveal(descriptionNode, { select: true });
+		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, prManager, pullRequest, descriptionNode, true);
 
