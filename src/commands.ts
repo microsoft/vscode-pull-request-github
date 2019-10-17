@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as pathLib from 'path';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
-import { fromReviewUri, ReviewUriParams, asImageDataURI } from './common/uri';
+import { fromReviewUri, ReviewUriParams, asImageDataURI, EMPTY_IMAGE_URI } from './common/uri';
 import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
@@ -168,9 +168,9 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		const originalURI = imageDataURI || parentFilePath;
 
 		if (fileChangeNode.status === GitChangeType.ADD) {
-			vscode.commands.executeCommand('vscode.open', filePath);
+			vscode.commands.executeCommand('vscode.diff', EMPTY_IMAGE_URI, filePath, fileName, opts);
 		} else if (fileChangeNode.status === GitChangeType.DELETE) {
-			vscode.commands.executeCommand('vscode.open', originalURI);
+			vscode.commands.executeCommand('vscode.diff', originalURI, EMPTY_IMAGE_URI, fileName, opts);
 		} else {
 			vscode.commands.executeCommand('vscode.diff', originalURI, filePath, fileName, opts);
 		}

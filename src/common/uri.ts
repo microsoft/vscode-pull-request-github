@@ -54,6 +54,9 @@ const ImageMimetypes = [
 	'image/bmp'
 ];
 
+// a 1x1 pixel transparent gif, from http://png-pixel.com/
+export const EMPTY_IMAGE_URI = Uri.parse(`data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==`);
+
 export async function asImageDataURI(uri: Uri, repository: Repository): Promise<Uri | undefined> {
 	try {
 		const { commit } = JSON.parse(uri.query);
