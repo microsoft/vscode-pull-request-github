@@ -8,6 +8,8 @@
 import { Uri, UriHandler, EventEmitter } from 'vscode';
 import { GitChangeType } from './file';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { Repository } from '../api/api';
+import * as path from 'path';
 
 export interface ReviewUriParams {
 	path: string;
@@ -43,9 +45,34 @@ export interface GitUriOptions {
 	base: boolean;
 }
 
-// As a mitigation for extensions like ESLint showing warnings and errors
-// for git URIs, let's change the file extension of these uris to .git,
-// when `replaceFileExtension` is true.
+const ImageMimetypes = [
+	'image/png',
+	'image/gif',
+	'image/jpeg',
+	'image/webp',
+	'image/tiff',
+	'image/bmp'
+];
+
+export async function asImageDataURI(uri: Uri, repository: Repository): Promise<Uri | undefined> {
+	try {
+		const { commit } = JSON.parse(uri.query);
+		const { size, object } = await repository.getObjectDetails(commit, uri.fsPath);
+		const { mimetype } = await repository.detectObjectType(object);
+
+		if (mimetype === 'text/plain') {
+			return;
+		}
+
+		if (ImageMimetypes.indexOf(mimetype) > -1) {
+			const contents = await repository.buffer(commit, uri.fsPath);
+			return Uri.parse(`data:${mimetype};label:${path.basename(uri.fsPath)};description:${commit};size:${size};base64,${contents.toString('base64')}`);
+		}
+	} catch (err) {
+		return;
+	}
+}
+
 export function toReviewUri(uri: Uri, filePath: string | undefined, ref: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
 	const params: ReviewUriParams = {
 		path: filePath ? filePath : uri.path,

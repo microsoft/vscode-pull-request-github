@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as pathLib from 'path';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
-import { fromReviewUri, ReviewUriParams } from './common/uri';
+import { fromReviewUri, ReviewUriParams, asImageDataURI } from './common/uri';
 import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
@@ -140,7 +140,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		vscode.env.clipboard.writeText(e.sha);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
 		const parentFilePath = fileChangeNode.parentFilePath;
 		const filePath = fileChangeNode.filePath;
 		const fileName = fileChangeNode.fileName;
@@ -152,7 +152,11 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		if (isPartial) {
 			vscode.window.showInformationMessage('Your local repository is not up to date so only partial content is being displayed');
 		}
-		vscode.commands.executeCommand('vscode.diff', parentFilePath, filePath, fileName, opts);
+
+		// if this is an image, encode it as a base64 data URI
+		const imageDataURI = await asImageDataURI(parentFilePath, prManager.repository);
+
+		vscode.commands.executeCommand('vscode.diff', imageDataURI || parentFilePath, filePath, fileName, opts);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffGitHub', (uri: string) => {
