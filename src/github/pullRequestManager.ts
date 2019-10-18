@@ -1904,7 +1904,9 @@ export class PullRequestManager implements vscode.Disposable {
 
 		roots.forEach(c => {
 			const review = reviewEventsById[c.pullRequestReviewId!];
-			review.comments = review.comments.concat(c).concat(c.childComments || []);
+			if (review) {
+				review.comments = review.comments.concat(c).concat(c.childComments || []);
+			}
 		});
 
 		const pendingReview = reviewEvents.filter(r => r.state.toLowerCase() === 'pending')[0];

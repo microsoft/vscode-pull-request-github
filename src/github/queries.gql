@@ -125,7 +125,7 @@ fragment Reactable on Reactable {
 	}
 }
 
-query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 100) {
+query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
 			timelineItems(last: $last) {
