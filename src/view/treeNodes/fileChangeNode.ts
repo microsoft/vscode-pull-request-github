@@ -22,15 +22,20 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public command: vscode.Command;
 	public resourceUri: vscode.Uri;
+	public contextValue: string;
 
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
-		public readonly blobUrl: string
+		public readonly previousFileName: string | undefined,
+		public readonly blobUrl: string,
+		public readonly filePath: vscode.Uri,
+		public readonly parentFilePath: vscode.Uri
 	) {
 		super();
+		this.contextValue = `filechange:${GitChangeType[status]}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
@@ -38,9 +43,9 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		this.command = {
 			title: 'show remote file',
-			command: 'pr.openDiffGitHub',
+			command: 'pr.openDiffView',
 			arguments: [
-				vscode.Uri.parse(this.blobUrl)
+				this
 			]
 		};
 	}

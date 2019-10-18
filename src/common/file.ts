@@ -33,6 +33,7 @@ export class InMemFileChange {
 
 export class SlimFileChange {
 	constructor(
+		public readonly baseCommit: string,
 		public readonly blobUrl: string,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,

@@ -256,17 +256,21 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
 
 		return rawChanges.map(change => {
+			const headCommit = this.pullRequestModel.head!.sha;
+			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
 			if (change instanceof SlimFileChange) {
 				return new RemoteFileChangeNode(
 					this,
 					this.pullRequestModel,
 					change.status,
 					change.fileName,
-					change.blobUrl
+					change.previousFileName,
+					change.blobUrl,
+					toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
+					toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, parentFileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
 				);
 			}
 
-			const headCommit = this.pullRequestModel.head!.sha;
 			const changedItem = new InMemFileChangeNode(
 				this,
 				this.pullRequestModel,
@@ -275,7 +279,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				change.previousFileName,
 				change.blobUrl,
 				toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
-				toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
+				toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, parentFileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
 				change.isPartial,
 				change.patch,
 				change.diffHunks,
@@ -608,9 +612,37 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return '';
 		}
 
-		const fileChanges = (await this.getFileChanges()).filter(contentChange => (contentChange instanceof InMemFileChangeNode) && contentChange.fileName === params!.fileName);
-		if (fileChanges.length) {
-			const fileChange = fileChanges[0] as InMemFileChangeNode;
+		const fileChange = (await this.getFileChanges()).find(contentChange => contentChange.fileName === params.fileName);
+		if (!fileChange) {
+			Logger.appendLine(`PR> can not find content for document ${uri.toString()}`);
+			return '';
+		}
+
+		if ((params.isBase && fileChange.status === GitChangeType.ADD) || (!params.isBase && fileChange.status === GitChangeType.DELETE)) {
+			return '';
+		}
+
+		if (fileChange instanceof RemoteFileChangeNode) {
+			try {
+				if (params.isBase) {
+					return this._prManager.getFile(this.pullRequestModel, fileChange.previousFileName || fileChange.fileName, params.baseCommit);
+				} else {
+					return this._prManager.getFile(this.pullRequestModel, fileChange.fileName, params.headCommit);
+				}
+			} catch (e) {
+				Logger.appendLine(`PR> Fetching file content failed: ${e}`);
+				vscode.window
+					.showWarningMessage('Opening this file locally failed. Would you like to view it on GitHub?', 'Open in GitHub')
+					.then(result => {
+						if (result === 'Open in GitHub') {
+							vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(fileChange.blobUrl));
+						}
+					});
+				return '';
+			}
+		}
+
+		if (fileChange instanceof InMemFileChangeNode) {
 			const readContentFromDiffHunk = fileChange.isPartial || fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
 
 			if (readContentFromDiffHunk) {
@@ -664,7 +696,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 			}
 		}
-		Logger.appendLine(`PR> can not find content for document ${uri.toString()}`);
+
 		return '';
 	}
 
