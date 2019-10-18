@@ -144,28 +144,58 @@ export interface Repository {
 	 * The counterpart of `getConfig`
 	 */
 	setConfig(key: string, value: string): Promise<string>;
+	getGlobalConfig(key: string): Promise<string>;
 
 	getObjectDetails(treeish: string, path: string): Promise<{ mode: string, object: string, size: number }>;
+	detectObjectType(object: string): Promise<{ mimetype: string, encoding?: string }>;
+	buffer(ref: string, path: string): Promise<Buffer>;
 	show(ref: string, path: string): Promise<string>;
 	getCommit(ref: string): Promise<Commit>;
+
+	clean(paths: string[]): Promise<void>;
+
 	apply(patch: string, reverse?: boolean): Promise<void>;
 	diff(cached?: boolean): Promise<string>;
+	diffWithHEAD(): Promise<Change[]>;
+	diffWithHEAD(path: string): Promise<string>;
+	diffWith(ref: string): Promise<Change[]>;
 	diffWith(ref: string, path: string): Promise<string>;
+	diffIndexWithHEAD(): Promise<Change[]>;
+	diffIndexWithHEAD(path: string): Promise<string>;
+	diffIndexWith(ref: string): Promise<Change[]>;
+	diffIndexWith(ref: string, path: string): Promise<string>;
 	diffBlobs(object1: string, object2: string): Promise<string>;
+	diffBetween(ref1: string, ref2: string): Promise<Change[]>;
 	diffBetween(ref1: string, ref2: string, path: string): Promise<string>;
+
 	hashObject(data: string): Promise<string>;
+
 	createBranch(name: string, checkout: boolean, ref?: string): Promise<void>;
 	deleteBranch(name: string, force?: boolean): Promise<void>;
 	getBranch(name: string): Promise<Branch>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
+	getMergeBase(ref1: string, ref2: string): Promise<string>;
+
 	status(): Promise<void>;
 	checkout(treeish: string): Promise<void>;
+
 	addRemote(name: string, url: string): Promise<void>;
 	removeRemote(name: string): Promise<void>;
+
 	fetch(remote?: string, ref?: string, depth?: number): Promise<void>;
 	pull(unshallow?: boolean): Promise<void>;
 	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
+
 	blame(path: string): Promise<string>;
+	log(options?: LogOptions): Promise<Commit[]>;
+}
+
+/**
+ * Log options.
+ */
+export interface LogOptions {
+	/** Max number of log entries to retrieve. If not specified, the default is 32. */
+	readonly maxEntries?: number;
 }
 
 export const enum GitErrorCodes {
