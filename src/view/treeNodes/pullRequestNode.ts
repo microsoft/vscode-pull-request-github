@@ -715,7 +715,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				? await this.reply(thread, input)
 				: await this.createFirstCommentInThread(thread, input, fileChange);
 
-			fileChange.comments.push(rawComment!);
+			fileChange.update(fileChange.comments.concat(rawComment!));
 
 			this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
 		} catch (e) {
@@ -840,6 +840,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				thread.dispose!();
 			}
+
+			if (fileChange.comments.length === 0) {
+				fileChange.update(fileChange.comments);
+			}
 		} else {
 			thread.comments = thread.comments.filter(c => c instanceof TemporaryComment && c.id === comment.id);
 		}
@@ -876,6 +880,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			if (matchingFileChange && matchingFileChange instanceof InMemFileChangeNode) {
 				matchingFileChange.comments = matchingFileChange.comments.filter(comment => comment.pullRequestReviewId !== deletedReviewId);
+				matchingFileChange.update(matchingFileChange.comments);
 				const commentThreadCache = (await this.resolvePRCommentController()).commentThreadCache;
 				if (commentThreadCache[matchingFileChange.fileName]) {
 					const threads: GHPRCommentThread[] = [];

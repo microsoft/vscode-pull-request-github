@@ -26,7 +26,7 @@ import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullReque
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
 
-export class ReviewManager implements vscode.DecorationProvider {
+export class ReviewManager {
 	public static ID = 'Review';
 	private static _instance: ReviewManager;
 	private _localToDispose: vscode.Disposable[] = [];
@@ -83,7 +83,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this.registerListeners();
 
 		this._disposables.push(this._prsTreeDataProvider);
-		this._disposables.push(vscode.window.registerDecorationProvider(this));
 
 		this.updateState();
 		this.pollForStatusChange();
@@ -303,7 +302,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		await this.getPullRequestData(pr);
 		await this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, pr, this._localFileChanges, this._comments);
 
-		this._onDidChangeDecorations.fire();
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
 
@@ -464,27 +462,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 
 	}
 
-	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
-	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
-	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
-		if (uri.scheme !== 'review') {
-			return;
-		}
-
-		const fileName = uri.path;
-		const matchingComments = this._comments.filter(comment => nodePath.resolve(this._repository.rootUri.fsPath, comment.path!) === fileName && comment.position !== null);
-		if (matchingComments && matchingComments.length) {
-			return {
-				bubble: false,
-				title: 'Commented',
-				letter: '◆',
-				priority: 2
-			};
-		}
-
-		return undefined;
-	}
-
 	private async registerCommentController() {
 		this._reviewCommentController = new ReviewCommentController(this._prManager,
 			this._repository,
@@ -497,7 +474,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 		this._localToDispose.push(this._reviewCommentController);
 		this._localToDispose.push(this._reviewCommentController.onDidChangeComments(comments => {
 			this._comments = comments;
-			this._onDidChangeDecorations.fire();
 		}));
 	}
 
@@ -869,7 +845,6 @@ export class ReviewManager implements vscode.DecorationProvider {
 			// comments are recalculated when getting the data and the change decoration fired then,
 			// so comments only needs to be emptied in this case.
 			this._comments = [];
-			this._onDidChangeDecorations.fire();
 
 			vscode.commands.executeCommand('pr.refreshList');
 		}

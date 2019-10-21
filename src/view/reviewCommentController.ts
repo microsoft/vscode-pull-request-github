@@ -854,7 +854,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
 
-			matchedFile.comments.push(rawComment!);
+			matchedFile.update(matchedFile.comments.concat(rawComment!));
 			this._comments.push(rawComment!);
 
 			await this.update(this._localFileChanges, this._obsoleteFileChanges);
@@ -933,6 +933,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
 				if (matchingCommentIndex > -1) {
 					matchedFile.comments.splice(matchingCommentIndex, 1);
+					matchedFile.update(matchedFile.comments);
 				}
 
 				const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);

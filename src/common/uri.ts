@@ -101,13 +101,15 @@ export function toReviewUri(uri: Uri, filePath: string | undefined, ref: string 
 }
 
 export interface FileChangeNodeUriParams {
-	hasComments?: boolean;
+	prNumber: number;
+	fileName: string;
 	status?: GitChangeType;
 }
 
-export function toResourceUri(uri: Uri, hasComments: boolean, status: GitChangeType) {
+export function toResourceUri(uri: Uri, prNumber: number, fileName: string, status: GitChangeType) {
 	const params = {
-		hasComments: hasComments,
+		prNumber: prNumber,
+		fileName: fileName,
 		status: status
 	};
 

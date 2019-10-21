@@ -7,10 +7,10 @@ import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { PRType } from '../github/interface';
-import { fromFileChangeNodeUri } from '../common/uri';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/pullRequestManager';
 import { ITelemetry } from '../common/telemetry';
+import { DecorationProvider } from './treeDecorationProvider';
 
 interface IQueryInfo {
 	label: string;
@@ -19,7 +19,7 @@ interface IQueryInfo {
 
 const QUERIES_SETTING = 'queries';
 
-export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.DecorationProvider, vscode.Disposable {
+export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
@@ -40,7 +40,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	) {
 		this._disposables = [];
 		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', getInMemPRContentProvider()));
-		this._disposables.push(vscode.window.registerDecorationProvider(this));
+		this._disposables.push(vscode.window.registerDecorationProvider(DecorationProvider));
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this._onDidChangeTreeData.fire();
 		}));
@@ -173,22 +173,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	async getParent(element: TreeNode): Promise<TreeNode | undefined> {
 		return element.getParent();
-	}
-
-	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
-	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
-	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DecorationData> {
-		const fileChangeUriParams = fromFileChangeNodeUri(uri);
-		if (fileChangeUriParams && fileChangeUriParams.hasComments) {
-			return {
-				bubble: false,
-				title: 'Commented',
-				letter: '◆',
-				priority: 2
-			};
-		}
-
-		return undefined;
 	}
 
 	dispose() {
