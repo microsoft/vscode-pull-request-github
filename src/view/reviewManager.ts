@@ -365,7 +365,7 @@ export class ReviewManager implements vscode.DecorationProvider {
 			if (change instanceof InMemFileChange) {
 				isPartial = change.isPartial;
 				diffHunks = change.diffHunks;
-			} else {
+			} else if (change.status !== GitChangeType.RENAME) {
 				try {
 					const patch = await this._repository.diffBetween(pr.base.sha, pr.head.sha, change.fileName);
 					diffHunks = parsePatch(patch);

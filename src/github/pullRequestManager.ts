@@ -807,6 +807,20 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
+	async getFile(pullRequest: PullRequestModel, filePath: string, commit: string) {
+		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		const fileContent = await octokit.repos.getContents({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			path: filePath,
+			ref: commit
+		});
+
+		const contents = fileContent.data.content;
+		const buff = new Buffer(contents, fileContent.data.encoding);
+		return buff.toString();
+	}
+
 	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const githubRepository = pullRequest.githubRepository;
