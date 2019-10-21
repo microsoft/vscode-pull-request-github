@@ -356,8 +356,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				let oldCommentThreads: GHPRCommentThread[] = [];
 
 				if (incremental) {
-					const oldLeftSideCommentThreads = commentThreadCache[editor.fileName].filter(thread => thread.uri.toString() === parentFilePath.toString());
-					const oldRightSideCommentThreads = commentThreadCache[editor.fileName].filter(thread => thread.uri.toString() === filePath.toString());
+					const cachedThreads = commentThreadCache[editor.fileName] || [];
+					const oldLeftSideCommentThreads = cachedThreads.filter(thread => thread.uri.toString() === parentFilePath.toString());
+					const oldRightSideCommentThreads = cachedThreads.filter(thread => thread.uri.toString() === filePath.toString());
 
 					oldCommentThreads = [...oldLeftSideCommentThreads, ...oldRightSideCommentThreads];
 				}
