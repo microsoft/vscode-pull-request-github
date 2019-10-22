@@ -10,4 +10,4 @@ export const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> })
 	</a>;
 
 export const AuthorLink = ({ for: author, text=author.login }: { for: PullRequest['author'], text?: string }) =>
-	<a href={author.url}>{text}</a>;
+	<a className='author-link' href={author.url}>{text}</a>;
