@@ -14,6 +14,7 @@ export interface Revealable<T> {
 export abstract class TreeNode implements vscode.Disposable {
 	childrenDisposables: vscode.Disposable[];
 	parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>;
+	label?: string;
 
 	constructor() { }
 	abstract getTreeItem(): vscode.TreeItem;

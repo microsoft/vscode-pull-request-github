@@ -449,7 +449,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		return {
 			label,
-			id: html_url, // unique id stable across checkout status
+			id: `${this.parent instanceof TreeNode ? this.parent.label : ''}${html_url}`, // unique id stable across checkout status
 			tooltip,
 			description,
 			collapsibleState: 1,
