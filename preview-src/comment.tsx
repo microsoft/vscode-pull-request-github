@@ -43,12 +43,11 @@ export function CommentView(comment: Props) {
 				onSave={
 					async text => {
 						try {
-							if (isPRDescription) {
-								await setDescription(text);
-							} else {
-								const result = await editComment({ comment: comment as IComment, text });
-								setBodyHtml(result.bodyHTML);
-							}
+							const result = isPRDescription
+								? await setDescription(text)
+								: await editComment({ comment: comment as IComment, text });
+
+							setBodyHtml(result.bodyHTML);
 							setBodyMd(text);
 						} finally {
 							setEditMode(false);
