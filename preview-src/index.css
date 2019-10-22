@@ -1116,3 +1116,8 @@ code {
 ::-webkit-scrollbar-corner {
 	display: none;
 }
+
+.author-link {
+	font-weight: bolder;
+	color: var(--vscode-editor-foreground)
+}
