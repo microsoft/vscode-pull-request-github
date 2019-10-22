@@ -8,9 +8,10 @@ import Timestamp from './timestamp';
 import { IComment } from '../src/common/comment';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
-import { editIcon, deleteIcon } from './icon';
+import { editIcon, deleteIcon, commentIcon } from './icon';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
+import emitter from './events';
 
 export type Props = Partial<IComment & PullRequest> & {
 	headerInEditMode?: boolean
@@ -64,6 +65,7 @@ export function CommentView(comment: Props) {
 		onMouseLeave={() => setShowActionBar(false)}
 	>{ ((canEdit || canDelete) && showActionBar)
 		? <div className='action-bar comment-actions'>
+				<button onClick={() => emitter.emit('quoteReply', bodyMd)}>{commentIcon}</button>
 				{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
 				{canDelete ? <button onClick={() => deleteComment({ id, pullRequestReviewId })}>{deleteIcon}</button> : null}
 			</div>
@@ -226,6 +228,13 @@ export function AddComment({ pendingCommentText, state }: PullRequest) {
 	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
 	const [ isBusy, setBusy ] = useState(false);
 	const form = useRef<HTMLFormElement>();
+	const textareaRef = useRef<HTMLTextAreaElement>();
+
+	emitter.addListener('quoteReply', (message) => {
+		updatePR({ pendingCommentText: `> ${message} \n\n` });
+		textareaRef.current.scrollIntoView();
+		textareaRef.current.focus();
+	});
 
 	const submit = useCallback(
 		async (command: (body: string) => Promise<any> = comment) => {
@@ -269,6 +278,7 @@ export function AddComment({ pendingCommentText, state }: PullRequest) {
 			onSubmit={onSubmit}>
 			<textarea id='comment-textarea'
 				name='body'
+				ref={textareaRef}
 				onInput={
 					({ target }) =>
 						updatePR({ pendingCommentText: (target as any).value })
