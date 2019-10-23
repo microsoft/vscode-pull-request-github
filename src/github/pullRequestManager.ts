@@ -10,7 +10,7 @@ import { CredentialStore } from './credentials';
 import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, PullRequestData } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, MergeMethodsAvailability } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
@@ -647,30 +647,37 @@ export class PullRequestManager implements vscode.Disposable {
 			};
 		}
 
-		if (!options.fetchNextPage) {
-			for (const repository of this._githubRepositories) {
-				this._repositoryPageInformation.set(repository.remote.url.toString(), {
-					pullRequestPage: 1,
-					hasMorePages: null
-				});
-			}
-		}
-
 		const githubRepositories = this._githubRepositories.filter(repo => {
 			const info = this._repositoryPageInformation.get(repo.remote.url.toString());
-			return info && info.hasMorePages !== false;
+			return info && (options.fetchNextPage === false || info.hasMorePages !== false);
 		});
 
 		for (let i = 0; i < githubRepositories.length; i++) {
 			const githubRepository = githubRepositories[i];
 			const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString())!;
-			const pullRequestData = type === PRType.All
-				? await githubRepository.getAllPullRequests(pageInformation.pullRequestPage)
-				: await githubRepository.getPullRequestsForCategory(query || '', pageInformation.pullRequestPage);
+			const pullRequestData: PullRequestData = { hasMorePages: false, pullRequests: [] };
 
-			pageInformation.hasMorePages = !!pullRequestData && pullRequestData.hasMorePages;
-			pageInformation.pullRequestPage++;
+			const fetchPage = async (pageNumber: number) =>
+				type === PRType.All
+					? await githubRepository.getAllPullRequests(pageNumber)
+					: await githubRepository.getPullRequestsForCategory(query || '', pageNumber);
 
+			const addPage = (page: PullRequestData | undefined) => {
+				if (page) {
+					pullRequestData.pullRequests = pullRequestData.pullRequests.concat(page.pullRequests);
+					pullRequestData.hasMorePages = page.hasMorePages;
+				}
+			};
+
+			if (options.fetchNextPage) {
+				pageInformation.pullRequestPage++;
+				addPage(await fetchPage(pageInformation.pullRequestPage));
+			} else {
+				const pages = await Promise.all(Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => fetchPage(j + 1)));
+				pages.forEach(page => addPage(page));
+			}
+
+			pageInformation.hasMorePages = pullRequestData.hasMorePages;
 			if (pullRequestData && pullRequestData.pullRequests.length) {
 				return {
 					pullRequests: pullRequestData.pullRequests,
