@@ -63,7 +63,7 @@ export function CommentView(comment: Props) {
 		for={comment}
 		onMouseEnter={() => setShowActionBar(true)}
 		onMouseLeave={() => setShowActionBar(false)}
-	>{ ((canEdit || canDelete) && showActionBar)
+	>{ showActionBar
 		? <div className='action-bar comment-actions'>
 				<button onClick={() => emitter.emit('quoteReply', bodyMd)}>{commentIcon}</button>
 				{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
