@@ -456,16 +456,6 @@ export class PullRequestManager implements vscode.Disposable {
 			this._githubRepositories = repositories;
 			oldRepositories.forEach(repo => repo.dispose());
 
-			for (const repository of this._githubRepositories) {
-				const remoteId = repository.remote.url.toString();
-				if (!this._repositoryPageInformation.get(remoteId)) {
-					this._repositoryPageInformation.set(remoteId, {
-						pullRequestPage: 1,
-						hasMorePages: null
-					});
-				}
-			}
-
 			const repositoriesChanged = oldRepositories.length !== this._githubRepositories.length
 				|| !oldRepositories.every(oldRepo => this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)));
 
@@ -638,6 +628,8 @@ export class PullRequestManager implements vscode.Disposable {
 		this._telemetry.sendTelemetryEvent('branch.delete');
 	}
 
+	// Keep track of how many repos we've pulled from, so when we reload we pull from the same ones.
+	private _numFetchedRepos = 0;
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<PullRequestsResponseResult> {
 		if (!this._githubRepositories || !this._githubRepositories.length) {
 			return {
@@ -647,38 +639,65 @@ export class PullRequestManager implements vscode.Disposable {
 			};
 		}
 
+		const queryId = type.toString() + (query || '');
+		for (const repository of this._githubRepositories) {
+			const remoteId = repository.remote.url.toString() + queryId;
+			if (!this._repositoryPageInformation.get(remoteId)) {
+				this._repositoryPageInformation.set(remoteId, {
+					pullRequestPage: 0,
+					hasMorePages: null
+				});
+			}
+		}
+
+		const pullRequestData: PullRequestData = { hasMorePages: false, pullRequests: [] };
+		const addPage = (page: PullRequestData | undefined) => {
+			if (page) {
+				pullRequestData.pullRequests = pullRequestData.pullRequests.concat(page.pullRequests);
+				pullRequestData.hasMorePages = page.hasMorePages;
+			}
+		};
+
 		const githubRepositories = this._githubRepositories.filter(repo => {
-			const info = this._repositoryPageInformation.get(repo.remote.url.toString());
-			return info && (options.fetchNextPage === false || info.hasMorePages !== false);
+			const info = this._repositoryPageInformation.get(repo.remote.url.toString() + queryId);
+			return info && ((options.fetchNextPage === false) || info.hasMorePages !== false);
 		});
 
 		for (let i = 0; i < githubRepositories.length; i++) {
 			const githubRepository = githubRepositories[i];
-			const pageInformation = this._repositoryPageInformation.get(githubRepository.remote.url.toString())!;
-			const pullRequestData: PullRequestData = { hasMorePages: false, pullRequests: [] };
+			const remoteId = githubRepository.remote.url.toString() + queryId;
+			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
 
 			const fetchPage = async (pageNumber: number) =>
 				type === PRType.All
 					? await githubRepository.getAllPullRequests(pageNumber)
 					: await githubRepository.getPullRequestsForCategory(query || '', pageNumber);
 
-			const addPage = (page: PullRequestData | undefined) => {
-				if (page) {
-					pullRequestData.pullRequests = pullRequestData.pullRequests.concat(page.pullRequests);
-					pullRequestData.hasMorePages = page.hasMorePages;
-				}
-			};
-
 			if (options.fetchNextPage) {
 				pageInformation.pullRequestPage++;
 				addPage(await fetchPage(pageInformation.pullRequestPage));
 			} else {
-				const pages = await Promise.all(Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => fetchPage(j + 1)));
+				if (pageInformation.pullRequestPage === 0) { pageInformation.pullRequestPage = 1; }
+				const pages = await Promise.all(
+					Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => fetchPage(j + 1)));
 				pages.forEach(page => addPage(page));
 			}
 
 			pageInformation.hasMorePages = pullRequestData.hasMorePages;
-			if (pullRequestData && pullRequestData.pullRequests.length) {
+
+			const repoNumber = this._githubRepositories.findIndex(
+				repo => repo.remote.url.toString() === githubRepository.remote.url.toString()) + 1;
+
+			this._numFetchedRepos = Math.max(this._numFetchedRepos, repoNumber);
+
+			// Break early if
+			// 1) we've received data AND
+			// 2) either we're fetching just the next page OR we're fetching all (because reload), and we've fetched as far as we had previously.
+			if (
+				pullRequestData.pullRequests.length &&
+				(options.fetchNextPage === true ||
+					(options.fetchNextPage === false && this._numFetchedRepos === i))
+			) {
 				return {
 					pullRequests: pullRequestData.pullRequests,
 					hasMorePages: pageInformation.hasMorePages,
