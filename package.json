@@ -88,7 +88,10 @@
         },
         "githubPullRequests.remotes": {
           "type": "array",
-          "default": ["origin", "upstream"],
+          "default": [
+            "origin",
+            "upstream"
+          ],
           "items": {
             "type": "string"
           },
@@ -817,6 +820,7 @@
     "apollo-link-context": "^1.0.12",
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",
+    "events": "^3.0.0",
     "git-credential-node": "^1.1.0",
     "graphql": "^14.0.2",
     "js-base64": "^2.4.9",
