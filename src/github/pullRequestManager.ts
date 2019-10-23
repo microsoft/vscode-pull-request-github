@@ -660,7 +660,8 @@ export class PullRequestManager implements vscode.Disposable {
 
 		const githubRepositories = this._githubRepositories.filter(repo => {
 			const info = this._repositoryPageInformation.get(repo.remote.url.toString() + queryId);
-			return info && ((options.fetchNextPage === false) || info.hasMorePages !== false);
+			// If we are reloading (fetchNextPage === false), don't filter out repos that are out of pages.
+			return info && (options.fetchNextPage === false || info.hasMorePages !== false);
 		});
 
 		for (let i = 0; i < githubRepositories.length; i++) {
