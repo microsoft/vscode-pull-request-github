@@ -22,6 +22,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	commitsCount: {default: 10},
 	repositoryDefaultBranch: {default: 'master'},
 	canEdit: {default: true},
+	hasWritePermission: {default: true},
 	pendingCommentText: {default: null},
 	pendingCommentDrafts: {default: null},
 	status: {linked: CombinedStatusBuilder},

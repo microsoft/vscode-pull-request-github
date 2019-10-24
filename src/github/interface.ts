@@ -102,3 +102,8 @@ export type MergeMethod = 'merge' | 'squash' | 'rebase';
 export type MergeMethodsAvailability = {
 	[method in MergeMethod]: boolean;
 };
+
+export type RepoAccessAndMergeMethods = {
+	hasWritePermission: boolean;
+	mergeMethodsAvailability: MergeMethodsAvailability
+};
