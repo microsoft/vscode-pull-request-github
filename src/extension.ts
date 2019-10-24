@@ -15,6 +15,7 @@ import Logger from './common/logger';
 import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
 import { formatError, onceEvent } from './common/utils';
+import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
 import { PullRequestManager } from './github/pullRequestManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
@@ -36,6 +37,8 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
 	Keychain.init(context);
+	PersistentState.init(context);
+
 	await migrateConfiguration();
 	context.subscriptions.push(Keychain.onDidChange(async _ => {
 		if (prManager) {
