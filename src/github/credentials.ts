@@ -13,6 +13,7 @@ import { GitHubServer } from '../authentication/githubServer';
 import { getToken, setToken } from '../authentication/keychain';
 import { Remote } from '../common/remote';
 import Logger from '../common/logger';
+import * as PersistentState from '../common/persistentState';
 import { handler as uriHandler } from '../common/uri';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
@@ -20,7 +21,9 @@ import { ITelemetry } from '../common/telemetry';
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
+const IGNORE_COMMAND = 'Close';
 
+const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
 export interface GitHub {
@@ -109,15 +112,22 @@ export class CredentialStore implements vscode.Disposable {
 
 	public async loginWithConfirmation(remote: Remote): Promise<GitHub | undefined> {
 		const normalizedUri = remote.gitProtocol.normalizeUri()!;
+		const storageKey = `${normalizedUri.scheme}://${normalizedUri.authority}`;
+
+		if (PersistentState.fetch(PROMPT_FOR_SIGN_IN_SCOPE, storageKey) === false) {
+			return;
+		}
+
 		const result = await vscode.window.showInformationMessage(
 			`In order to use the Pull Requests functionality, you must sign in to ${normalizedUri.authority}`,
-			SIGNIN_COMMAND);
+			SIGNIN_COMMAND, IGNORE_COMMAND);
 
 		if (result === SIGNIN_COMMAND) {
 			return await this.login(remote);
 		} else {
+			this._octokits.set(storageKey, undefined);
 			// user cancelled sign in, remember that and don't ask again
-			this._octokits.set(`${normalizedUri.scheme}://${normalizedUri.authority}`, undefined);
+			PersistentState.store(PROMPT_FOR_SIGN_IN_SCOPE, storageKey, false);
 
 			/* __GDPR__
 				"auth.cancel" : {}
@@ -203,7 +213,7 @@ export class CredentialStore implements vscode.Disposable {
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
 			previews: ['shadow-cat-preview'],
-			auth () {
+			auth() {
 				return `token ${creds.token || ''}`;
 			}
 		});
@@ -219,7 +229,7 @@ export class CredentialStore implements vscode.Disposable {
 		});
 
 		let supportsGraphQL = true;
-		await graphql.query({ query: gql `query { viewer { login } }` })
+		await graphql.query({ query: gql`query { viewer { login } }` })
 			.then(result => {
 				Logger.appendLine(`${baseUrl}: GraphQL support detected`);
 
