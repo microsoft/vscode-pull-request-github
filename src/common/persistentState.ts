@@ -8,11 +8,11 @@ export const MISSING = {} as const;
 
 export function init(ctx: GlobalStateContext) {
 	defaultStorage = ctx.globalState;
-};
+}
 
 export const fetch = (scope: string, key: string): unknown => {
 	if (!defaultStorage) {
-		throw new Error('Persistent store not initialized.')
+		throw new Error('Persistent store not initialized.');
 	}
 	return defaultStorage.get(scope + ':' + key, MISSING);
 };
