@@ -21,7 +21,7 @@ import { ITelemetry } from '../common/telemetry';
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
-const IGNORE_COMMAND = 'Close';
+const IGNORE_COMMAND = 'Don\'t show again';
 
 const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
@@ -115,7 +115,7 @@ export class CredentialStore implements vscode.Disposable {
 		const storageKey = `${normalizedUri.scheme}://${normalizedUri.authority}`;
 
 		if (PersistentState.fetch(PROMPT_FOR_SIGN_IN_SCOPE, storageKey) === false) {
-			return;
+			// return;
 		}
 
 		const result = await vscode.window.showInformationMessage(
