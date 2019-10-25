@@ -354,9 +354,9 @@ export class PullRequestOverviewPanel {
 					description: reviewer.name
 				};
 			}), {
-					canPickMany: true,
-					matchOnDescription: true
-				});
+				canPickMany: true,
+				matchOnDescription: true
+			});
 
 			if (reviewersToAdd) {
 				await this._pullRequestManager.requestReview(this._pullRequest, reviewersToAdd.map(r => r.label));
@@ -618,19 +618,23 @@ export class PullRequestOverviewPanel {
 		if (selectedActions) {
 			const isBranchActive = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
 
-			const promises = selectedActions.map(action => {
+			const promises = selectedActions.map(async (action) => {
 				switch (action.type) {
 					case 'upstream':
 						return this._pullRequestManager.deleteBranch(this._pullRequest);
 					case 'local':
-						return new Promise<void>(async (resolve) => {
-							if (isBranchActive) {
-								await this._pullRequestManager.repository.checkout(this._repositoryDefaultBranch);
+						if (isBranchActive) {
+							if (this._pullRequestManager.repository.state.workingTreeChanges.length) {
+								const response = await vscode.window.showWarningMessage(`Your local changes will be lost, do you want to continue?`, { modal: true }, 'Yes');
+								if (response === 'Yes') {
+									await vscode.commands.executeCommand('git.cleanAll');
+								} else {
+									return;
+								}
 							}
-
-							await this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
-							resolve();
-						});
+							await this._pullRequestManager.repository.checkout(this._repositoryDefaultBranch);
+						}
+						return await this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
 					case 'remote':
 						return this._pullRequestManager.repository.removeRemote(branchInfo!.remote!);
 				}
