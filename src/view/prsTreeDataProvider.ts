@@ -60,7 +60,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._childrenDisposables = [];
 
 		this._disposables.push(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
-			const configuration = await vscode.window.showQuickPick(['Configure Remotes...', 'Configure Queries...', 'Sign out of GitHub...']);
+			const isLoggedIn = this._prManager.state === PRManagerState.RepositoriesLoaded;
+			const configuration = await vscode.window.showQuickPick(['Configure Remotes...', 'Configure Queries...', ...isLoggedIn ? ['Sign out of GitHub...'] : []]);
 
 			const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
 			const extensionId = `${publisher}.${name}`;
