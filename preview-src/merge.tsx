@@ -157,12 +157,12 @@ function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMetho
 			try {
 				setBusy(true);
 				const {title, description}: any = event.target;
-				await merge({
+				const { state } = await merge({
 					title: title.value,
 					description: description.value,
 					method,
 				});
-				updatePR({ state: PullRequestStateEnum.Merged });
+				updatePR({ state });
 			} finally {
 				setBusy(false);
 			}
