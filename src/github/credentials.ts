@@ -266,7 +266,7 @@ export class CredentialStore implements vscode.Disposable {
 			} catch (e) {
 				text = '$(mark-github) Signed in';
 			}
-			command = undefined;
+			command = 'pr.configurePRViewlet';
 			// Temporarily show successful sign-in status
 			statusBarItem.text = '$(mark-github) Successfully signed in';
 			setTimeout(async () => {
