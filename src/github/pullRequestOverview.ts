@@ -206,9 +206,9 @@ export class PullRequestOverviewPanel {
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			this._pullRequestManager.getStatusChecks(pullRequestModel),
 			this._pullRequestManager.getReviewRequests(pullRequestModel),
-			this._pullRequestManager.getPullRequestRepositoryMergeMethodsAvailability(pullRequestModel),
+			this._pullRequestManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, mergeMethodsAvailability] = result;
+			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, {hasWritePermission, mergeMethodsAvailability }] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
@@ -247,6 +247,7 @@ export class PullRequestOverviewPanel {
 					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
+					hasWritePermission,
 					status: status ? status : { statuses: [] },
 					mergeable: this._pullRequest.prItem.mergeable,
 					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),

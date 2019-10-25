@@ -9,7 +9,7 @@ import { nbsp } from './space';
 import { groupBy } from '../src/common/utils';
 
 export const StatusChecks = (pr: PullRequest) => {
-	const { state, status, mergeable, isDraft } = pr;
+	const { state, status, mergeable } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
 		status.statuses.some(s => s.state === 'failure')) as [boolean, () => void];
@@ -56,12 +56,7 @@ export const StatusChecks = (pr: PullRequest) => {
 					: null
 				}
 				<MergeStatus mergeable={mergeable} />
-				{ isDraft
-					? <ReadyForReview/>
-					: mergeable
-						? <Merge {...pr} />
-						: null
-				}
+				<PrActions {...pr} />
 			</>
 	}</div>;
 };
@@ -115,6 +110,19 @@ export const Merge = (pr: PullRequest) => {
 		{nbsp}using method{nbsp}
 		<MergeSelect ref={select} {...pr} />
 	</div>;
+};
+
+export const PrActions = (pr: PullRequest) => {
+	const {hasWritePermission, canEdit, isDraft, mergeable} = pr;
+
+	return isDraft
+		// Only PR author and users with push rights can mark draft as ready for review
+		? hasWritePermission || canEdit
+			? <ReadyForReview/>
+			: null
+		: mergeable && hasWritePermission
+			? <Merge {...pr} />
+			: null;
 };
 
 export const DeleteBranch = (pr: PullRequest) => {
@@ -209,7 +217,7 @@ const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>((
 		Object.entries(MERGE_METHODS)
 			.map(([method, text]) =>
 				<option key={method} value={method} disabled={!avail[method]}>
-					{text}{!avail[method] ? '(not enabled)' : null}
+					{text}{!avail[method] ? ' (not enabled)' : null}
 				</option>
 			)
 }</select>);
