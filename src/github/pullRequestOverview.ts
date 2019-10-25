@@ -778,7 +778,7 @@ export class PullRequestOverviewPanel {
 
 	private getHtmlForWebview(number: string) {
 		const scriptPathOnDisk = vscode.Uri.file(path.join(this._extensionPath, 'media', 'index.js'));
-		const scriptUri = scriptPathOnDisk.with({ scheme: 'vscode-resource' });
+		const scriptUri = this._panel.webview.asWebviewUri(scriptPathOnDisk);
 		const nonce = getNonce();
 
 		return `<!DOCTYPE html>
