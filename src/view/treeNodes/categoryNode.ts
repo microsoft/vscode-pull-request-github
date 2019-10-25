@@ -80,8 +80,8 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'You have not yet opened a folder.';
 				break;
 			case PRCategoryActionType.NoMatchingRemotes:
-					this.label = 'No remotes match the current setting.';
-					break;
+				this.label = 'No remotes match the current setting.';
+				break;
 			case PRCategoryActionType.ConfigureRemotes:
 				this.label = 'Configure remotes...';
 				this.command = {
@@ -175,7 +175,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 								"pr.expand.query" : {}
 							*/
 							this._telemetry.sendTelemetryEvent('pr.expand.query');
-						break;
+							break;
 					}
 
 				} catch (e) {
@@ -184,7 +184,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				}
 			} else {
 				try {
-					const response = await this._prManager.getPullRequests(this._type, { fetchNextPage: true });
+					const response = await this._prManager.getPullRequests(this._type, { fetchNextPage: true }, this._categoryQuery);
 					this.prs = this.prs.concat(response.pullRequests);
 					hasMorePages = response.hasMorePages;
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
