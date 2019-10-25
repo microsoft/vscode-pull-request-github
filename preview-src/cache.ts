@@ -25,6 +25,11 @@ export interface PullRequest {
 	commitsCount: number;
 	repositoryDefaultBranch: any;
 	canEdit: boolean;
+	/**
+	 * Users with push access to repo have rights to merge/close PRs,
+	 * edit title/description, assign reviewers/labels etc.
+	 */
+	hasWritePermission: boolean;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string; };
 	status: ReposGetCombinedStatusForRefResponse;

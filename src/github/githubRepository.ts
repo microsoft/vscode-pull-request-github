@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import Octokit = require('@octokit/rest');
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IAccount, MergeMethodsAvailability } from './interface';
+import { IAccount, RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -175,29 +175,37 @@ export class GitHubRepository implements vscode.Disposable {
 		return 'master';
 	}
 
-	async getMergeMethodsAvailability(): Promise<MergeMethodsAvailability> {
+	async getRepoAccessAndMergeMethods(): Promise<RepoAccessAndMergeMethods> {
 		try {
-			Logger.debug(`Fetch available merge methods - enter`, GitHubRepository.ID);
+			Logger.debug(`Fetch repo permissions and available merge methods - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			const { data } = await octokit.repos.get({
 				owner: remote.owner,
 				repo: remote.repositoryName
 			});
-			Logger.debug(`Fetch available merge methods - done`, GitHubRepository.ID);
+			Logger.debug(`Fetch repo permissions and available merge methods - done`, GitHubRepository.ID);
 
 			return {
-				merge: data.allow_merge_commit,
-				squash: data.allow_squash_merge,
-				rebase: data.allow_rebase_merge
+				// Users with push access to repo have rights to merge/close PRs,
+				// edit title/description, assign reviewers/labels etc.
+				hasWritePermission: data.permissions.push,
+				mergeMethodsAvailability: {
+					merge: data.allow_merge_commit,
+					squash: data.allow_squash_merge,
+					rebase: data.allow_rebase_merge
+				}
 			};
 		} catch (e) {
-			Logger.appendLine(`GitHubRepository> Fetching available merge methods failed: ${e}`);
+			Logger.appendLine(`GitHubRepository> Fetching repo permissions and available merge methods failed: ${e}`);
 		}
 
 		return {
-			merge: true,
-			squash: true,
-			rebase: true
+			hasWritePermission: true,
+			mergeMethodsAvailability: {
+				merge: true,
+				squash: true,
+				rebase: true
+			}
 		};
 	}
 
