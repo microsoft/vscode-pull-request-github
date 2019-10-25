@@ -115,7 +115,7 @@ export class CredentialStore implements vscode.Disposable {
 		const storageKey = `${normalizedUri.scheme}://${normalizedUri.authority}`;
 
 		if (PersistentState.fetch(PROMPT_FOR_SIGN_IN_SCOPE, storageKey) === false) {
-			// return;
+			return;
 		}
 
 		const result = await vscode.window.showInformationMessage(
