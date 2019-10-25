@@ -628,8 +628,20 @@ export class PullRequestManager implements vscode.Disposable {
 		this._telemetry.sendTelemetryEvent('branch.delete');
 	}
 
-	// Keep track of how many repos we've pulled from, so when we reload we pull from the same ones.
-	private _numFetchedRepos = 0;
+	// Keep track of how many pages we've fetched for each query, so when we reload we pull the same ones.
+	private totalFetchedPages = new Map<string, number>();
+
+	/**
+	 * This method works in three different ways:
+	 * 1) Initialize: fetch the first page of the first remote that has pages
+	 * 2) Fetch Next: fetch the next page from this remote, or if it has no more pages, the first page from the next remote that does have pages
+	 * 3) Restore: fetch all the pages you previously have fetched
+	 *
+	 * When `options.fetchNextPage === false`, we are in case 2.
+	 * Otherwise:
+	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
+	 *   Otherwise, we're in case 3.
+	 */
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<PullRequestsResponseResult> {
 		if (!this._githubRepositories || !this._githubRepositories.length) {
 			return {
@@ -640,6 +652,9 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		const queryId = type.toString() + (query || '');
+		const getTotalFetchedPages = () => this.totalFetchedPages.get(queryId) || 0;
+		const setTotalFetchedPages = (numPages: number) => this.totalFetchedPages.set(queryId, numPages);
+
 		for (const repository of this._githubRepositories) {
 			const remoteId = repository.remote.url.toString() + queryId;
 			if (!this._repositoryPageInformation.get(remoteId)) {
@@ -650,8 +665,10 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 		}
 
+		let pagesFetched = 0;
 		const pullRequestData: PullRequestData = { hasMorePages: false, pullRequests: [] };
 		const addPage = (page: PullRequestData | undefined) => {
+			pagesFetched++;
 			if (page) {
 				pullRequestData.pullRequests = pullRequestData.pullRequests.concat(page.pullRequests);
 				pullRequestData.hasMorePages = page.hasMorePages;
@@ -660,7 +677,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 		const githubRepositories = this._githubRepositories.filter(repo => {
 			const info = this._repositoryPageInformation.get(repo.remote.url.toString() + queryId);
-			// If we are reloading (fetchNextPage === false), don't filter out repos that are out of pages.
+			// If we are in case 1 or 3, don't filter out repos that are out of pages, as we will be querying from the start.
 			return info && (options.fetchNextPage === false || info.hasMorePages !== false);
 		});
 
@@ -675,10 +692,18 @@ export class PullRequestManager implements vscode.Disposable {
 					: await githubRepository.getPullRequestsForCategory(query || '', pageNumber);
 
 			if (options.fetchNextPage) {
+				// Case 2. Fetch a single new page, and increment the global number of pages fetched for this query.
 				pageInformation.pullRequestPage++;
 				addPage(await fetchPage(pageInformation.pullRequestPage));
+				setTotalFetchedPages(getTotalFetchedPages() + 1);
 			} else {
-				if (pageInformation.pullRequestPage === 0) { pageInformation.pullRequestPage = 1; }
+				// Case 1&3. Fetch all the pages we have fetched in the past, or in case 1, just a single page.
+
+				if (pageInformation.pullRequestPage === 0) {
+					// Case 1. Pretend we have previously fetched the first page, then hand off to the case 3 machinery to "fetch all pages we have fetched in the past"
+					pageInformation.pullRequestPage = 1;
+				}
+
 				const pages = await Promise.all(
 					Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => fetchPage(j + 1)));
 				pages.forEach(page => addPage(page));
@@ -686,19 +711,20 @@ export class PullRequestManager implements vscode.Disposable {
 
 			pageInformation.hasMorePages = pullRequestData.hasMorePages;
 
-			const repoNumber = this._githubRepositories.findIndex(
-				repo => repo.remote.url.toString() === githubRepository.remote.url.toString()) + 1;
-
-			this._numFetchedRepos = Math.max(this._numFetchedRepos, repoNumber);
-
 			// Break early if
 			// 1) we've received data AND
-			// 2) either we're fetching just the next page OR we're fetching all (because reload), and we've fetched as far as we had previously.
+			// 2) either we're fetching just the next page (case 2)
+			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
 			if (
 				pullRequestData.pullRequests.length &&
 				(options.fetchNextPage === true ||
-					(options.fetchNextPage === false && this._numFetchedRepos === i))
+					(options.fetchNextPage === false && pagesFetched >= getTotalFetchedPages()))
 			) {
+				if (getTotalFetchedPages() === 0) {
+					// We're in case 1, manually set number of pages we looked through until we found first results.
+					setTotalFetchedPages(pagesFetched);
+				}
+
 				return {
 					pullRequests: pullRequestData.pullRequests,
 					hasMorePages: pageInformation.hasMorePages,
@@ -712,13 +738,6 @@ export class PullRequestManager implements vscode.Disposable {
 			hasMorePages: false,
 			hasUnsearchedRepositories: false
 		};
-	}
-
-	public mayHaveMorePages(): boolean {
-		return this._githubRepositories.some(repo => {
-			const info = this._repositoryPageInformation.get(repo.remote.url.toString());
-			return !!(info && info.hasMorePages !== false);
-		});
 	}
 
 	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse | undefined> {
