@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useContext } from 'react';
 
 import { IComment } from '../src/common/comment';
-import { DiffHunk, DiffLine } from '../src/common/diffHunk';
+import { DiffHunk, DiffLine, DiffChangeType } from '../src/common/diffHunk';
 import PullRequestContext from './context';
 
 function Diff({ comment, hunks, path, outdated=false }: { comment: IComment, hunks: DiffHunk[], outdated: boolean, path: string }) {
@@ -23,7 +23,8 @@ const Hunk = ({ hunk, maxLines=4 }: {hunk: DiffHunk, maxLines?: number }) => <>{
 			<div key={keyForDiffLine(line)} className={`diffLine ${getDiffChangeClass(line.type)}`}>
 				<LineNumber num={line.oldLineNumber} />
 				<LineNumber num={line.newLineNumber} />
-				<span className='lineContent'>{(line as any)._raw}</span>
+				<span className='diffTypeSign'>{(line as any)._raw.substr(0,1)}</span>
+				<span className='lineContent'>{(line as any)._raw.substr(1)}</span>
 			</div>)
 }</>;
 
@@ -32,23 +33,6 @@ const keyForDiffLine = (diffLine: DiffLine) =>
 
 const LineNumber = ({ num }: { num: number }) =>
 	<span className='lineNumber'>{num > 0 ? num : ' '}</span>;
-
-export enum DiffChangeType {
-	Context,
-	Add,
-	Delete,
-	Control
-}
-
-export function getDiffChangeType(text: string) {
-	const c = text[0];
-	switch (c) {
-		case ' ': return DiffChangeType.Context;
-		case '+': return DiffChangeType.Add;
-		case '-': return DiffChangeType.Delete;
-		default: return DiffChangeType.Control;
-	}
-}
 
 const getDiffChangeClass = (type: DiffChangeType) =>
 	DiffChangeType[type].toLowerCase();
