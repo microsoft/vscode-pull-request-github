@@ -913,12 +913,6 @@ code {
 	cursor: pointer;
 }
 
-.diff .diffHeader .diffPath.outdated:hover {
-	text-decoration: none;
-	color: var(--vscode-foreground);
-	cursor: default;
-}
-
 .diff .diffHeader .outdatedLabel {
 	border-radius: 3px;
 	box-shadow: none;
