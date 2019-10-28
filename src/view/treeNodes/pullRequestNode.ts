@@ -948,6 +948,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 
 				if (thread.comments.find((cmt: GHPRComment) => cmt.commentId === comment.commentId)) {
+					// The following line is necessary to refresh the comments thread UI
+					// Read more: https://github.com/microsoft/vscode-pull-request-github/issues/1421#issuecomment-546995347
 					thread.comments = thread.comments;
 				}
 			});
