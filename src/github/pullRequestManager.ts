@@ -1413,6 +1413,43 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async mergePullRequest(pullRequest: PullRequestModel, title?: string, description?: string, method?: 'merge' | 'squash' | 'rebase'): Promise<any> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+
+		const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
+		const workingDirectorySHA = this.repository.state.HEAD && this.repository.state.HEAD.commit;
+		const mergingPRSHA = pullRequest.head && pullRequest.head.sha;
+		const workingDirectoryIsDirty = this.repository.state.workingTreeChanges.length > 0;
+
+		if (activePRSHA === mergingPRSHA) {
+			// We're on the branch of the pr being merged.
+
+			if (workingDirectorySHA !== mergingPRSHA) {
+				// We are looking at different commit than what will be merged
+				const { ahead } = this.repository.state.HEAD!;
+				if (ahead &&
+					await vscode.window.showWarningMessage(
+						`You have ${ahead} unpushed ${ahead > 1 ? 'commits' : 'commit'} on this PR branch.\n\nWould you like to proceed anyways?`,
+						{ modal: true },
+						'Yes') === undefined
+				) {
+					return {
+						merged: false,
+						message: 'unpushed changes'
+					};
+				}
+			}
+
+			if (workingDirectoryIsDirty) {
+				// We have made changes to the PR that are not committed
+				if (await vscode.window.showWarningMessage(
+					'You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyways?', { modal: true }, 'Yes') === undefined) {
+					return {
+						merged: false,
+						message: 'uncommitted changes'
+					};
+				}
+			}
+		}
+
 		return await octokit.pulls.merge({
 			commit_message: description,
 			commit_title: title,
