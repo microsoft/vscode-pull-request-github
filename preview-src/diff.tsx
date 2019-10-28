@@ -10,6 +10,7 @@ function Diff({ comment, hunks, path, outdated=false }: { comment: IComment, hun
 	return <div className='diff'>
 		<div className='diffHeader'>
 			<a className={`diffPath ${outdated ? 'outdated' : ''}`} onClick={() => openDiff(comment)}>{path}</a>
+			{outdated && <span className='outdatedLabel'>Outdated</span>}
 		</div>
 		{hunks.map(hunk => <Hunk hunk={hunk} />)}
 	</div>;
