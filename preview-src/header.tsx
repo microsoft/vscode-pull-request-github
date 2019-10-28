@@ -81,7 +81,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<P
 		{
 			(canEdit && showActionBar && !inEditMode)
 				? <div className='flex-action-bar comment-actions'>
-						{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
+						{<button onClick={() => setEditMode(true)}>{editIcon}</button>}
 					</div>
 				: null
 		}
