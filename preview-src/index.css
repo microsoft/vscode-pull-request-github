@@ -259,11 +259,16 @@ body .merged .merged-message > a {
 	white-space: nowrap;
 }
 
-body .comment-container .review-comment-container .pending-label {
-	border: 1px solid;
-    border-radius: 2px 2px 2px 2px;
-    padding: 0.1rem 0.3rem;
-    font-style: italic;
+body .comment-container .review-comment-container .pending-label,
+body .diff .diffHeader .outdatedLabel {
+		border: 1px solid;
+		border-radius: 2px 2px 2px 2px;
+		padding: 0.1rem 0.3rem;
+		font-style: italic;
+}
+
+body .diff .diffPath {
+	margin-right: 4px;
 }
 
 body .comment-container .comment-body, .review-body {
@@ -911,18 +916,6 @@ code {
 	text-decoration: underline;
 	color: var(--vscode-textLink-activeForeground);
 	cursor: pointer;
-}
-
-.diff .diffHeader .outdatedLabel {
-	border-radius: 3px;
-	box-shadow: none;
-	color: var(--vscode-badge-foreground);
-	background: var(--vscode-badge-background);
-	padding: 2px 6px;
-	margin-left: 5px;
-	border-radius: 2px;
-	line-height: 1;
-	font-size: 12px;
 }
 
 .win32 .diff .diffLine {
