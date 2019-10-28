@@ -951,6 +951,11 @@ code {
 	background-color: var(--vscode-diffEditor-removedTextBackground);
 }
 
+.diff .diffLine .diffTypeSign {
+	user-select: none;
+	padding-right: 5px;
+}
+
 .diff .diffLine .lineNumber {
 	width: 1%;
 	min-width: 50px;
@@ -963,6 +968,7 @@ code {
 	vertical-align: top;
 	box-sizing: border-box;
 	display: inline-block;
+	user-select: none;
 	font-family: var(--vscode-editor-font-family);
 }
 
