@@ -825,6 +825,8 @@ declare module 'vscode' {
 			 * ```
 			 */
 			export function createAppUri(options?: AppUriOptions): Thenable<Uri>;
+
+			export function asExternalUri(target: Uri): Thenable<Uri>;
 		}
 
 		//#endregion

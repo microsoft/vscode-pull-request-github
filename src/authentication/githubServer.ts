@@ -7,9 +7,10 @@ import { PromiseAdapter, promiseFromEvent } from '../common/utils';
 import { HostHelper, IHostConfiguration } from './configuration';
 import { listHosts, onDidChange as onKeychainDidChange, toCanonical } from './keychain';
 import uuid = require('uuid');
+import { EXTENSION_ID } from '../constants';
 
 const SCOPES: string = 'read:user user:email repo write:discussion';
-const GHE_OPTIONAL_SCOPES: { [key: string]: boolean } = {'write:discussion': true};
+const GHE_OPTIONAL_SCOPES: { [key: string]: boolean } = { 'write:discussion': true };
 
 const AUTH_RELAY_SERVER = 'vscode-auth.github.com';
 
@@ -183,7 +184,7 @@ export class GitHubServer {
 
 	public async login(): Promise<IHostConfiguration> {
 		const state = uuid();
-		const callbackUri = await vscode.env.createAppUri({ payload: { path: '/did-authenticate' } });
+		const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://${EXTENSION_ID}/did-authenticate`));
 		const host = this.hostUri.toString();
 		const uri = vscode.Uri.parse(`https://${AUTH_RELAY_SERVER}/authorize/?callbackUri=${encodeURIComponent(callbackUri.toString())}&scope=${SCOPES}&state=${state}&responseType=code&authServer=${host}`);
 
