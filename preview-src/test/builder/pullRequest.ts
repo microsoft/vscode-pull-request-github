@@ -1,6 +1,6 @@
 import { createBuilderClass } from '../../../src/test/builders/base';
 import { PullRequest } from '../../cache';
-import { PullRequestStateEnum } from '../../../src/github/interface';
+import { PullRequestStateEnum, PullRequestMergeability } from '../../../src/github/interface';
 import { CombinedStatusBuilder } from '../../../src/test/builders/rest/combinedStatusBuilder';
 
 import { AccountBuilder } from './account';
@@ -26,7 +26,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	pendingCommentText: {default: null},
 	pendingCommentDrafts: {default: null},
 	status: {linked: CombinedStatusBuilder},
-	mergeable: {default: true},
+	mergeable: {default: PullRequestMergeability.Mergeable},
 	defaultMergeMethod: {default: 'merge'},
 	mergeMethodsAvailability: {default: {merge: true, squash: true, rebase: true}},
 	supportsGraphQl: {default: true},

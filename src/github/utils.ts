@@ -6,7 +6,7 @@
 
 import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
-import { IAccount, PullRequest, IGitHubRef } from './interface';
+import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability } from './interface';
 import { IComment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
@@ -131,7 +131,7 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			updatedAt: updated_at,
 			head: convertRESTHeadToIGitHubRef(head),
 			base: convertRESTHeadToIGitHubRef(base),
-			mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable,
+			mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable ? PullRequestMergeability.Mergeable : PullRequestMergeability.NotMergeable,
 			labels,
 			isDraft: draft
 	};
@@ -304,6 +304,14 @@ function parseAuthor(author: {login: string, url: string, avatarUrl: string}, gi
 	};
 }
 
+export function parseMergeability(mergability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING'): PullRequestMergeability {
+	switch (mergability) {
+		case 'UNKNOWN': return PullRequestMergeability.Unknown;
+		case 'MERGEABLE': return PullRequestMergeability.Mergeable;
+		case 'CONFLICTING': return PullRequestMergeability.NotMergeable;
+	}
+}
+
 export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse, githubRepository: GitHubRepository): PullRequest {
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
@@ -322,7 +330,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		base: parseRef(graphQLPullRequest.baseRef),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		mergeable: graphQLPullRequest.mergeable === 'MERGEABLE',
+		mergeable: parseMergeability(graphQLPullRequest.mergeable),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft
 	};
