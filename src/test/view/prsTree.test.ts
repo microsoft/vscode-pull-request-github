@@ -52,7 +52,8 @@ describe('GitHub Pull Requests view', function() {
 					userAgent: 'GitHub VSCode Pull Requests',
 					previews: ['shadow-cat-preview']
 				}),
-				graphql: null
+				graphql: null,
+				schema: null,
 			};
 
 			return github;

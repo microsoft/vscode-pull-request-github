@@ -15,7 +15,6 @@ import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchR
 import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
-const queries = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -118,6 +117,10 @@ export class GitHubRepository implements vscode.Disposable {
 		const rsp = await gql.mutate<T>(mutation);
 		Logger.debug(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
+	}
+
+	get schema() {
+		return this.hub.schema;
 	}
 
 	async getMetadata(): Promise<any> {
@@ -318,11 +321,11 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
-			const { octokit, query, remote, supportsGraphQl } = await this.ensure();
+			const { octokit, query, remote, supportsGraphQl, schema } = await this.ensure();
 
 			if (supportsGraphQl) {
 				const { data } = await query<PullRequestResponse>({
-					query: queries.PullRequest,
+					query: schema.PullRequest,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
@@ -374,7 +377,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getMentionableUsers(): Promise<IAccount[]> {
 		Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
-		const { query, supportsGraphQl, remote } = await this.ensure();
+		const { query, supportsGraphQl, remote, schema } = await this.ensure();
 
 		if (supportsGraphQl) {
 			let after = null;
@@ -384,7 +387,7 @@ export class GitHubRepository implements vscode.Disposable {
 			do {
 				try {
 					const result: { data: MentionableUsersResponse } = await query<MentionableUsersResponse>({
-						query: queries.GetMentionableUsers,
+						query: schema.GetMentionableUsers,
 						variables: {
 							owner: remote.owner,
 							name: remote.repositoryName,

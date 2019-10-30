@@ -8,6 +8,7 @@ fi
 printf "Transpiling src/\n"
 tsc -p .
 scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql
+scripts/preprocess-gql --in src/github/enterprise.gql --out out/github/enterprise.gql
 
 printf "\nTranspiling preview-src/\n"
 tsc -p preview-src/
