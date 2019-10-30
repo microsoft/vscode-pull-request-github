@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-export const Icon = ({ className = '', src, title }: { className?: string, title?: string, src: string }) =>
+export const Icon = ({ className='', src, title }: { className?: string, title?: string, src: string }) =>
 	<span className={`icon ${className}`} title={title} dangerouslySetInnerHTML={{ __html: src }} />;
 
 export default Icon;
