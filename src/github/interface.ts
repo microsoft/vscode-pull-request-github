@@ -39,6 +39,11 @@ export interface IAccount {
 	url: string;
 }
 
+export interface ISuggestedReviewer extends IAccount {
+	isAuthor: boolean;
+	isCommenter: boolean;
+}
+
 export interface MergePullRequest {
 	sha: string;
 	merged: boolean;
@@ -80,6 +85,7 @@ export interface PullRequest {
 	merged: boolean;
 	mergeable: PullRequestMergeability;
 	isDraft?: boolean;
+	suggestedReviewers: ISuggestedReviewer[];
 }
 
 export interface IRawFileChange {

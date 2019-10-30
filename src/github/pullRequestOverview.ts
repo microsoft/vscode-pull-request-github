@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import Octokit = require('@octokit/rest');
-import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod, PullRequestMergeability } from './interface';
+import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod, PullRequestMergeability, ISuggestedReviewer } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../api/api';
@@ -350,30 +350,71 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
+	private getReviewersQuickPickItems(assignableUsers: IAccount[], suggestedReviewers: ISuggestedReviewer[]): vscode.QuickPickItem[] {
+		// used to track logins that shouldn't be added to pick list
+		// e.g. author, existing and already added reviewers
+		const skipList: Set<string> = new Set([
+			this._pullRequest.author.login,
+			...this._existingReviewers.map(reviewer => reviewer.reviewer.login)
+		]);
+
+		const reviewers: vscode.QuickPickItem[] = [];
+		for (const { login, name, isAuthor, isCommenter } of suggestedReviewers) {
+			if (skipList.has(login)) {
+				continue;
+			}
+
+			const suggestionReason: string =
+				isAuthor && isCommenter
+					? 'Recently edited and reviewed changes to these files'
+					: isAuthor
+						? 'Recently edited these files'
+						: isCommenter
+							? 'Recently reviewed changes to these files'
+							: 'Suggested reviewer';
+
+			reviewers.push({
+				label: login,
+				description: name,
+				detail: suggestionReason
+			});
+			// this user shouldn't be added later from assignable users list
+			skipList.add(login);
+		}
+
+		for (const { login, name } of assignableUsers) {
+			if (skipList.has(login)) {
+				continue;
+			}
+
+			reviewers.push({
+				label: login,
+				description: name
+			});
+		}
+
+		return reviewers;
+	}
+
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const allMentionableUsers = await this._pullRequestManager.getMentionableUsers();
-			const mentionableUsers = allMentionableUsers[this._pullRequest.remote.remoteName];
-			const newReviewers = mentionableUsers
-				.filter(user =>
-					!this._existingReviewers.some(reviewer => reviewer.reviewer.login === user.login)
-					&& user.login !== this._pullRequest.author.login);
+			const allAssignableUsers = await this._pullRequestManager.getAssignableUsers();
+			const assignableUsers = allAssignableUsers[this._pullRequest.remote.remoteName];
 
-			const reviewersToAdd = await vscode.window.showQuickPick(newReviewers.map(reviewer => {
-				return {
-					label: reviewer.login,
-					description: reviewer.name
-				};
-			}), {
-				canPickMany: true,
-				matchOnDescription: true
-			});
+			const reviewersToAdd = await vscode.window.showQuickPick(
+				this.getReviewersQuickPickItems(assignableUsers, this._pullRequest.suggestedReviewers),
+				{
+					canPickMany: true,
+					matchOnDescription: true
+				}
+			);
 
 			if (reviewersToAdd) {
 				await this._pullRequestManager.requestReview(this._pullRequest, reviewersToAdd.map(r => r.label));
 				const addedReviewers: ReviewState[] = reviewersToAdd.map(reviewer => {
 					return {
-						reviewer: newReviewers.find(r => r.login === reviewer.label)!,
+						// assumes that suggested reviewers will be a subset of assignable users
+						reviewer: assignableUsers.find(r => r.login === reviewer.label)!,
 						state: 'REQUESTED'
 					};
 				});

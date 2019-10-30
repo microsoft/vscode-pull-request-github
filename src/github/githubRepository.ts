@@ -14,7 +14,7 @@ import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest, parseMergeability } from './utils';
-import { PullRequestResponse, MentionableUsersResponse } from './graphql';
+import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse } from './graphql';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -434,6 +434,50 @@ export class GitHubRepository implements vscode.Disposable {
 					after = result.data.repository.mentionableUsers.pageInfo.endCursor;
 				} catch (e) {
 					Logger.debug(`Unable to fetch mentionable users: ${e}`, GitHubRepository.ID);
+					return ret;
+				}
+			} while (hasNextPage);
+
+			return ret;
+		}
+
+		return [];
+	}
+
+	async getAssignableUsers(): Promise<IAccount[]> {
+		Logger.debug(`Fetch assignable users - enter`, GitHubRepository.ID);
+		const { query, supportsGraphQl, remote, schema } = await this.ensure();
+
+		if (supportsGraphQl) {
+			let after = null;
+			let hasNextPage = false;
+			const ret: IAccount[] = [];
+
+			do {
+				try {
+					const result: { data: AssignableUsersResponse } = await query<AssignableUsersResponse>({
+						query: schema.GetAssignableUsers,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							first: 100,
+							after: after
+						}
+					});
+
+					ret.push(...result.data.repository.assignableUsers.nodes.map(node => {
+						return {
+							login: node.login,
+							avatarUrl: node.avatarUrl,
+							name: node.name,
+							url: node.url
+						};
+					}));
+
+					hasNextPage = result.data.repository.assignableUsers.pageInfo.hasNextPage;
+					after = result.data.repository.assignableUsers.pageInfo.endCursor;
+				} catch (e) {
+					Logger.debug(`Unable to fetch assignable users: ${e}`, GitHubRepository.ID);
 					return ret;
 				}
 			} while (hasNextPage);

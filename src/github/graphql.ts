@@ -205,14 +205,30 @@ export interface PullRequestCommentsResponse {
 export interface MentionableUsersResponse {
 	repository: {
 		mentionableUsers: {
-			nodes: [
-				{
-					login: string;
-					avatarUrl: string;
-					name: string;
-					url: string;
-				}
-			];
+			nodes: {
+				login: string;
+				avatarUrl: string;
+				name: string;
+				url: string;
+			}[];
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			};
+		}
+	};
+	rateLimit: RateLimit;
+}
+
+export interface AssignableUsersResponse {
+	repository: {
+		assignableUsers: {
+			nodes: {
+				login: string;
+				avatarUrl: string;
+				name: string;
+				url: string;
+			}[];
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
@@ -300,6 +316,17 @@ export interface Ref {
 	};
 }
 
+export interface SuggestedReviewerResponse {
+	isAuthor: boolean;
+	isCommenter: boolean;
+	reviewer: {
+		login: string;
+		avatarUrl: string;
+		name: string;
+		url: string;
+	};
+}
+
 export interface PullRequestResponse {
 	repository: {
 		pullRequest: {
@@ -323,11 +350,12 @@ export interface PullRequestResponse {
 			labels: {
 				nodes: {
 					name: string;
-				}[],
+				}[];
 			}
 			merged: boolean;
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			isDraft?: boolean;
+			suggestedReviewers?: SuggestedReviewerResponse[];
 		}
 	};
 	rateLimit: RateLimit;
