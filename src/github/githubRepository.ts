@@ -368,7 +368,7 @@ export class GitHubRepository implements vscode.Disposable {
 					}
 				});
 				Logger.debug(`Fetch pull request mergeability ${id} - done`, GitHubRepository.ID);
-				return parseMergeability(data.repository.pullRequest.mergeable); 
+				return parseMergeability(data.repository.pullRequest.mergeable);
 			} else {
 				throw Error('GitHub repos without v4 API support (GraphQL) are no longer supported.');
 			}
