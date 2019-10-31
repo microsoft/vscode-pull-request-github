@@ -359,11 +359,11 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequestMergeability(id: number): Promise<PullRequestMergeability> {
 		try {
 			Logger.debug(`Fetch pull request mergeability ${id} - enter`, GitHubRepository.ID);
-			const { supportsGraphQl, query, remote } = await this.ensure();
+			const { supportsGraphQl, query, remote, schema } = await this.ensure();
 
 			if (supportsGraphQl) {
 				const { data } = await query<PullRequestResponse>({
-					query: queries.PullRequestMergeability,
+					query: schema.PullRequestMergeability,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
