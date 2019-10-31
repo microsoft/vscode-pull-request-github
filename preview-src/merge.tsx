@@ -82,9 +82,9 @@ export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) => {
 		<div>{
 			mergeable === PullRequestMergeability.Mergeable
 				? 'This branch has no conflicts with the base branch'
-				: mergeable === PullRequestMergeability.NotMergeable ?
-					'This branch has conflicts that must be resolved' :
-					'Checking if this branch can be merged...'
+				: mergeable === PullRequestMergeability.NotMergeable
+					? 'This branch has conflicts that must be resolved'
+					: 'Checking if this branch can be merged...'
 		}</div>
 	</div>;
 };
