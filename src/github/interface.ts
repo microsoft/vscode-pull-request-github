@@ -79,7 +79,7 @@ export interface PullRequest {
 	labels: ILabel[];
 	merged: boolean;
 	mergeable: PullRequestMergeability;
-	isDraft: boolean;
+	isDraft?: boolean;
 }
 
 export interface IRawFileChange {

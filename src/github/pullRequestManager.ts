@@ -24,7 +24,6 @@ import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsR
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
-const queries = require('./queries.gql');
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -776,10 +775,10 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<IComment[]> {
-		const { remote, query } = await pullRequest.githubRepository.ensure();
+		const { remote, query, schema } = await pullRequest.githubRepository.ensure();
 		try {
 			const { data } = await query<PullRequestCommentsResponse>({
-				query: queries.PullRequestComments,
+				query: schema.PullRequestComments,
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
@@ -870,13 +869,13 @@ export class PullRequestManager implements vscode.Disposable {
 	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const githubRepository = pullRequest.githubRepository;
-		const { octokit, query, remote, supportsGraphQl } = await githubRepository.ensure();
+		const { octokit, query, remote, supportsGraphQl, schema } = await githubRepository.ensure();
 
 		let ret = [];
 		if (supportsGraphQl) {
 			try {
 				const { data } = await query<TimelineEventsResponse>({
-					query: queries.TimelineEvents,
+					query: schema.TimelineEvents,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
@@ -959,9 +958,9 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: IComment[] }> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
-		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
-			mutation: queries.DeleteReview,
+			mutation: schema.DeleteReview,
 			variables: {
 				input: { pullRequestReviewId: pendingReviewId }
 			}
@@ -979,9 +978,9 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async startReview(pullRequest: PullRequestModel): Promise<void> {
-		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 		await mutate<void>({
-			mutation: queries.StartReview,
+			mutation: schema.StartReview,
 			variables: {
 				input: {
 					body: '',
@@ -1024,11 +1023,11 @@ export class PullRequestManager implements vscode.Disposable {
 			return;
 		}
 
-		const { query, octokit } = await pullRequest.githubRepository.ensure();
+		const { query, octokit, schema } = await pullRequest.githubRepository.ensure();
 		const { currentUser = '' } = octokit as any;
 		try {
 			const { data } = await query<PendingReviewIdResponse>({
-				query: queries.GetPendingReviewId,
+				query: schema.GetPendingReviewId,
 				variables: {
 					pullRequestId: (pullRequest as PullRequestModel).prItem.graphNodeId,
 					author: currentUser.login
@@ -1041,9 +1040,9 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<IComment> {
-		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<AddCommentResponse>({
-			mutation: queries.AddComment,
+			mutation: schema.AddComment,
 			variables: {
 				input: {
 					pullRequestReviewId: reviewId,
@@ -1062,9 +1061,9 @@ export class PullRequestManager implements vscode.Disposable {
 			prev[curr.label] = curr.title;
 			return prev;
 		}, {} as { [key: string]: string });
-		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<AddReactionResponse>({
-			mutation: queries.AddReaction,
+			mutation: schema.AddReaction,
 			variables: {
 				input: {
 					subjectId: graphNodeId,
@@ -1081,9 +1080,9 @@ export class PullRequestManager implements vscode.Disposable {
 			prev[curr.label] = curr.title;
 			return prev;
 		}, {} as { [key: string]: string });
-		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<DeleteReactionResponse>({
-			mutation: queries.DeleteReaction,
+			mutation: schema.DeleteReaction,
 			variables: {
 				input: {
 					subjectId: graphNodeId,
@@ -1310,10 +1309,10 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	private async editPendingReviewComment(pullRequest: PullRequestModel, commentNodeId: string, text: string): Promise<IComment> {
-		const { mutate } = await pullRequest.githubRepository.ensure();
+		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
 		const { data } = await mutate<EditCommentResponse>({
-			mutation: queries.EditComment,
+			mutation: schema.EditComment,
 			variables: {
 				input: {
 					pullRequestReviewCommentId: commentNodeId,
@@ -1530,10 +1529,10 @@ export class PullRequestManager implements vscode.Disposable {
 				return action;
 			}
 
-			const { remote, query } = await githubRepo.ensure();
+			const { remote, query, schema } = await githubRepo.ensure();
 			try {
 				const { data } = await query<PullRequestState>({
-					query: queries.PullRequestState,
+					query: schema.PullRequestState,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
@@ -1693,10 +1692,10 @@ export class PullRequestManager implements vscode.Disposable {
 				return;
 			}
 
-			const { mutate } = await pullRequest.githubRepository.ensure();
+			const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
 			const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
-				mutation: queries.ReadyForReview,
+				mutation: schema.ReadyForReview,
 				variables: {
 					input: {
 						pullRequestId: pullRequest.graphNodeId,
@@ -1739,11 +1738,11 @@ export class PullRequestManager implements vscode.Disposable {
 	public async submitReview(pullRequest: PullRequestModel, event?: ReviewEvent, body?: string): Promise<CommonReviewEvent> {
 		const pendingReviewId = await this.getPendingReviewId(pullRequest);
 		const githubRepository = pullRequest.githubRepository;
-		const { mutate } = await githubRepository.ensure();
+		const { mutate, schema } = await githubRepository.ensure();
 
 		if (pendingReviewId) {
 			const { data } = await mutate<SubmitReviewResponse>({
-				mutation: queries.SubmitReview,
+				mutation: schema.SubmitReview,
 				variables: {
 					id: pendingReviewId,
 					event: event || ReviewEvent.Comment,
@@ -1909,8 +1908,10 @@ export class PullRequestManager implements vscode.Disposable {
 	//#region Git related APIs
 
 	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
-		const githubRepo = this._githubRepositories.find(repo =>
-			repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase()
+		const githubRepo = this._githubRepositories.find(repo => {
+			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
+			return ret;
+			}
 		);
 
 		if (!githubRepo) {

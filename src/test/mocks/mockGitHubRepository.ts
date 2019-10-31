@@ -31,6 +31,7 @@ export class MockGitHubRepository extends GitHubRepository {
 		this._hub = {
 			octokit: this.queryProvider.octokit,
 			graphql: null,
+			schema: queries,
 		};
 
 		this._metadata = {

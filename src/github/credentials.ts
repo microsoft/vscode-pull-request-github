@@ -18,6 +18,8 @@ import { handler as uriHandler } from '../common/uri';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import { ITelemetry } from '../common/telemetry';
+const defaultSchema = require('./queries.gql');
+const enterpriseSchema = require('./enterprise.gql');
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
@@ -29,6 +31,7 @@ const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 export interface GitHub {
 	octokit: Octokit;
 	graphql: ApolloClient<NormalizedCacheObject> | null;
+	schema: any | null;
 }
 
 export class CredentialStore implements vscode.Disposable {
@@ -218,8 +221,28 @@ export class CredentialStore implements vscode.Disposable {
 			}
 		});
 
+		// detect which schema to use, currently only supports github.com & enterprise
+		let version = '';
+		const resp = await octokit.request('GET /');
+		if ('x-github-enterprise-version' in resp.headers) {
+			version = resp.headers['x-github-enterprise-version'];
+		}
+		let schema;
+		if (version === '') {
+			// use default github.com schema
+			schema = defaultSchema;
+		} else {
+			schema = enterpriseSchema;
+		}
+
+		let graphQLBaseURL = baseUrl;
+		if (graphQLBaseURL.endsWith('/api/v3')) {
+			// handles github enterprise
+			graphQLBaseURL = baseUrl.replace('/v3', '');
+		}
+
 		const graphql = new ApolloClient({
-			link: link(baseUrl, creds.token || ''),
+			link: link(graphQLBaseURL, creds.token || ''),
 			cache: new InMemoryCache,
 			defaultOptions: {
 				query: {
@@ -231,7 +254,7 @@ export class CredentialStore implements vscode.Disposable {
 		let supportsGraphQL = true;
 		await graphql.query({ query: gql`query { viewer { login } }` })
 			.then(result => {
-				Logger.appendLine(`${baseUrl}: GraphQL support detected`);
+				Logger.appendLine(`${graphQLBaseURL}: GraphQL support detected`);
 
 				/* __GDPR__
 					"auth.graphql.supported" : {}
@@ -239,7 +262,7 @@ export class CredentialStore implements vscode.Disposable {
 				this._telemetry.sendTelemetryEvent('auth.graphql.supported');
 			})
 			.catch(err => {
-				Logger.appendLine(`${baseUrl}: GraphQL not supported (${err.message})`);
+				Logger.appendLine(`${graphQLBaseURL}: GraphQL not supported (${err.message})`);
 				/* __GDPR__
 					"auth.graphql.unsupported" : {}
 				*/
@@ -250,6 +273,7 @@ export class CredentialStore implements vscode.Disposable {
 		return {
 			octokit,
 			graphql: supportsGraphQL ? graphql : null,
+			schema: schema,
 		};
 	}
 
