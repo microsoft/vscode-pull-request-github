@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import Octokit = require('@octokit/rest');
-import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod } from './interface';
+import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod, PullRequestMergeability } from './interface';
 import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../api/api';
@@ -122,6 +122,14 @@ export class PullRequestOverviewPanel {
 				state: this._pullRequest.state,
 			});
 		}, null, this._disposables);
+	}
+
+	private async checkMergeability(): Promise<PullRequestMergeability> {
+		return this._pullRequestManager.resolvePullRequestMergeability(
+			this._pullRequest.remote.owner,
+			this._pullRequest.remote.repositoryName,
+			this._pullRequest.prNumber
+		);
 	}
 
 	public async refreshPanel(): Promise<void> {
@@ -324,6 +332,8 @@ export class PullRequestOverviewPanel {
 				return this.openDiff(message);
 			case 'pr.edit-title':
 				return this.editTitle(message);
+			case 'pr.checkMergeability':
+				return this._replyMessage(message, await this.checkMergeability());
 			case 'pr.refresh':
 				this.refreshPanel();
 				return;

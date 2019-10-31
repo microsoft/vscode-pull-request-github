@@ -21,6 +21,12 @@ export enum PullRequestStateEnum {
 	Closed,
 }
 
+export enum PullRequestMergeability {
+	Mergeable,
+	NotMergeable,
+	Unknown
+}
+
 export interface ReviewState {
 	reviewer: IAccount;
 	state: string;
@@ -72,7 +78,7 @@ export interface PullRequest {
 	user: IAccount;
 	labels: ILabel[];
 	merged: boolean;
-	mergeable?: boolean;
+	mergeable: PullRequestMergeability;
 	isDraft?: boolean;
 }
 

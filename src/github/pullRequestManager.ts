@@ -11,7 +11,7 @@ import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
 import { GitHubRepository, PullRequestData } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -1920,6 +1920,19 @@ export class PullRequestManager implements vscode.Disposable {
 
 		const pr = await githubRepo.getPullRequest(pullRequestNumber);
 		return pr;
+	}
+
+	async resolvePullRequestMergeability(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestMergeability> {
+		const githubRepo = this._githubRepositories.find(repo =>
+			repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase()
+		);
+
+		if (!githubRepo) {
+			return PullRequestMergeability.Unknown;
+		}
+
+		return githubRepo.getPullRequestMergeability(pullRequestNumber);
+
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {

@@ -258,6 +258,20 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			mergeable
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
 query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {

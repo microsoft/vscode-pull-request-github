@@ -7,13 +7,13 @@ import * as vscode from 'vscode';
 import Octokit = require('@octokit/rest');
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IAccount, RepoAccessAndMergeMethods } from './interface';
+import { IAccount, RepoAccessAndMergeMethods, PullRequestMergeability } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
-import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest } from './utils';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest, parseMergeability } from './utils';
 import { PullRequestResponse, MentionableUsersResponse } from './graphql';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -353,6 +353,31 @@ export class GitHubRepository implements vscode.Disposable {
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
+		}
+	}
+
+	async getPullRequestMergeability(id: number): Promise<PullRequestMergeability> {
+		try {
+			Logger.debug(`Fetch pull request mergeability ${id} - enter`, GitHubRepository.ID);
+			const { supportsGraphQl, query, remote, schema } = await this.ensure();
+
+			if (supportsGraphQl) {
+				const { data } = await query<PullRequestResponse>({
+					query: schema.PullRequestMergeability,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: id
+					}
+				});
+				Logger.debug(`Fetch pull request mergeability ${id} - done`, GitHubRepository.ID);
+				return parseMergeability(data.repository.pullRequest.mergeable);
+			} else {
+				throw Error('GitHub repos without v4 API support (GraphQL) are no longer supported.');
+			}
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch PR Mergeability: ${e}`);
+			return PullRequestMergeability.Unknown;
 		}
 	}
 

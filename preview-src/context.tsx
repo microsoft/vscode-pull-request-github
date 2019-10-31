@@ -35,6 +35,9 @@ export class PRContext {
 	public refresh = () =>
 		this.postMessage({ command: 'pr.refresh' })
 
+	public checkMergeability = () =>
+		this.postMessage({ command: 'pr.checkMergeability' })
+
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
 		this.postMessage({ command: 'pr.merge', args	})
 

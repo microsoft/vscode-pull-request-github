@@ -2,14 +2,14 @@ import * as React from 'react';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
-import { PullRequestStateEnum, MergeMethod } from '../src/github/interface';
+import { PullRequestStateEnum, MergeMethod, PullRequestMergeability } from '../src/github/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
 import { groupBy } from '../src/common/utils';
 
 export const StatusChecks = (pr: PullRequest) => {
-	const { state, status, mergeable } = pr;
+	const { state, status, mergeable: _mergeable } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
 		status.statuses.some(s => s.state === 'failure')) as [boolean, () => void];
@@ -21,6 +21,18 @@ export const StatusChecks = (pr: PullRequest) => {
 			if (showDetails) { toggleDetails(); }
 		}
 	}, status.statuses);
+
+	const [mergeable, setMergeability] = useState(_mergeable);
+	const { checkMergeability } = useContext(PullRequestContext);
+
+	useEffect(() => {
+		const handle = setInterval(async () => {
+			if (mergeable === PullRequestMergeability.Unknown) {
+				setMergeability(await checkMergeability());
+			}
+		}, 3000);
+		return () => clearInterval(handle);
+	});
 
 	return <div id='status-checks'>{
 		state === PullRequestStateEnum.Merged
@@ -56,22 +68,26 @@ export const StatusChecks = (pr: PullRequest) => {
 					: null
 				}
 				<MergeStatus mergeable={mergeable} />
-				<PrActions {...pr} />
+				<PrActions {...{...pr, mergeable}} />
 			</>
 	}</div>;
 };
 
 export default StatusChecks;
 
-export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) =>
-	<div className='status-item status-section'>
-		{mergeable ? checkIcon : deleteIcon}
+export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) => {
+	return <div className='status-item status-section'>
+		{mergeable === PullRequestMergeability.Mergeable ? checkIcon :
+			mergeable === PullRequestMergeability.NotMergeable ? deleteIcon : pendingIcon}
 		<div>{
-			mergeable
+			mergeable === PullRequestMergeability.Mergeable
 				? 'This branch has no conflicts with the base branch'
-				: 'This branch has conflicts that must be resolved'
+				: mergeable === PullRequestMergeability.NotMergeable
+					? 'This branch has conflicts that must be resolved'
+					: 'Checking if this branch can be merged...'
 		}</div>
 	</div>;
+};
 
 export const ReadyForReview = () => {
 	const [isBusy, setBusy] = useState(false);
@@ -120,7 +136,7 @@ export const PrActions = (pr: PullRequest) => {
 		? hasWritePermission || canEdit
 			? <ReadyForReview/>
 			: null
-		: mergeable && hasWritePermission
+		: mergeable === PullRequestMergeability.Mergeable && hasWritePermission
 			? <Merge {...pr} />
 			: null;
 };
