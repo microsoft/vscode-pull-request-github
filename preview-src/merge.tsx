@@ -3,7 +3,7 @@ import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { PullRequestStateEnum, MergeMethod, PullRequestMergeability } from '../src/github/interface';
-import { checkIcon, deleteIcon, loadingIcon, pendingIcon, alertIcon } from './icon';
+import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
 import { groupBy } from '../src/common/utils';
@@ -78,7 +78,7 @@ export default StatusChecks;
 export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) => {
 	return <div className='status-item status-section'>
 		{mergeable === PullRequestMergeability.Mergeable ? checkIcon :
-			mergeable === PullRequestMergeability.NotMergeable ? deleteIcon : loadingIcon}
+			mergeable === PullRequestMergeability.NotMergeable ? deleteIcon : pendingIcon}
 		<div>{
 			mergeable === PullRequestMergeability.Mergeable
 				? 'This branch has no conflicts with the base branch'
