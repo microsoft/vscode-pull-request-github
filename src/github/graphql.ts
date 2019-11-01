@@ -355,7 +355,7 @@ export interface PullRequestResponse {
 			merged: boolean;
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			isDraft?: boolean;
-			suggestedReviewers?: SuggestedReviewerResponse[];
+			suggestedReviewers: SuggestedReviewerResponse[];
 		}
 	};
 	rateLimit: RateLimit;

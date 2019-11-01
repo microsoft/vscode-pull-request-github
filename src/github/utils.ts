@@ -338,11 +338,7 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 	};
 }
 
-function parseSuggestedReviewers(suggestedReviewers: GraphQL.SuggestedReviewerResponse[] | undefined): ISuggestedReviewer[] {
-	if (!suggestedReviewers) {
-		return [];
-	}
-
+function parseSuggestedReviewers(suggestedReviewers: GraphQL.SuggestedReviewerResponse[]): ISuggestedReviewer[] {
 	const ret: ISuggestedReviewer[] = suggestedReviewers.map(suggestedReviewer => {
 		return {
 			login: suggestedReviewer.reviewer.login,
