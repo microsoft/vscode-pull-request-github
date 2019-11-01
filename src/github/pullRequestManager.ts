@@ -20,7 +20,7 @@ import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
@@ -114,6 +114,8 @@ export class PullRequestManager implements vscode.Disposable {
 	private _allGitHubRemotes: Remote[] = [];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
+	private _assignableUsers?: { [key: string]: IAccount[] };
+	private _fetchAssignableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
@@ -459,6 +461,7 @@ export class PullRequestManager implements vscode.Disposable {
 				|| !oldRepositories.every(oldRepo => this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)));
 
 			this.getMentionableUsers(repositoriesChanged);
+			this.getAssignableUsers(repositoriesChanged);
 			this.state = hasAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
 			return Promise.resolve();
 		});
@@ -491,6 +494,35 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		return this._fetchMentionableUsersPromise;
+	}
+
+	async getAssignableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
+		if (clearCache) {
+			delete this._assignableUsers;
+		}
+
+		if (this._assignableUsers) {
+			return this._assignableUsers;
+		}
+
+		if (!this._fetchAssignableUsersPromise) {
+			const cache: { [key: string]: IAccount[] } = {};
+			return this._fetchAssignableUsersPromise = new Promise((resolve) => {
+				const promises = this._githubRepositories.map(async githubRepository => {
+					const data = await githubRepository.getAssignableUsers();
+					cache[githubRepository.remote.remoteName] = data.sort(loginComparator);
+					return;
+				});
+
+				Promise.all(promises).then(() => {
+					this._assignableUsers = cache;
+					this._fetchAssignableUsersPromise = undefined;
+					resolve(cache);
+				});
+			});
+		}
+
+		return this._fetchAssignableUsersPromise;
 	}
 
 	/**

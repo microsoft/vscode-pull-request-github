@@ -6,7 +6,7 @@
 
 import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
-import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability } from './interface';
+import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer } from './interface';
 import { IComment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
@@ -133,7 +133,8 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 			base: convertRESTHeadToIGitHubRef(base),
 			mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable ? PullRequestMergeability.Mergeable : PullRequestMergeability.NotMergeable,
 			labels,
-			isDraft: draft
+			isDraft: draft,
+			suggestedReviewers: [] // suggested reviewers only available through GraphQL API
 	};
 
 	return item;
@@ -332,8 +333,32 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable),
 		labels: graphQLPullRequest.labels.nodes,
-		isDraft: graphQLPullRequest.isDraft
+		isDraft: graphQLPullRequest.isDraft,
+		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers)
 	};
+}
+
+function parseSuggestedReviewers(suggestedReviewers: GraphQL.SuggestedReviewerResponse[]): ISuggestedReviewer[] {
+	const ret: ISuggestedReviewer[] = suggestedReviewers.map(suggestedReviewer => {
+		return {
+			login: suggestedReviewer.reviewer.login,
+			avatarUrl: suggestedReviewer.reviewer.avatarUrl,
+			name: suggestedReviewer.reviewer.name,
+			url: suggestedReviewer.reviewer.url,
+			isAuthor: suggestedReviewer.isAuthor,
+			isCommenter: suggestedReviewer.isCommenter
+		};
+	});
+
+	return ret.sort(loginComparator);
+}
+
+/**
+ * Used for case insensitive sort by login
+ */
+export function loginComparator(a: IAccount, b: IAccount) {
+	// sensitivity: 'accent' allows case insensitive comparison
+	return a.login.localeCompare(b.login, 'en', {sensitivity: 'accent'});
 }
 
 export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubRepository: GitHubRepository): Common.ReviewEvent {

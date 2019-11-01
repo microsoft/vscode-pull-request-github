@@ -47,6 +47,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			merged: {default: false},
 			mergeable: {default: 'MERGEABLE'},
 			isDraft: {default: false},
+			suggestedReviewers: {default: []}
 		}),
 	}),
 	rateLimit: {linked: RateLimitBuilder},
