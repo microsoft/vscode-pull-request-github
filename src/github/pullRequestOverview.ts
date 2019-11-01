@@ -226,7 +226,7 @@ export class PullRequestOverviewPanel {
 			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
-			const canEdit = this._pullRequestManager.canEditPullRequest(this._pullRequest);
+			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._pullRequest);
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const supportsGraphQl = pullRequestModel.githubRepository.supportsGraphQl;
 			const defaultMergeMethod = getDetaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);

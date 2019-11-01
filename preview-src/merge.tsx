@@ -133,7 +133,7 @@ export const PrActions = (pr: PullRequest) => {
 
 	return isDraft
 		// Only PR author and users with push rights can mark draft as ready for review
-		? hasWritePermission || canEdit
+		? canEdit
 			? <ReadyForReview/>
 			: null
 		: mergeable === PullRequestMergeability.Mergeable && hasWritePermission
