@@ -24,6 +24,9 @@ export interface PullRequest {
 	labels: ILabel[];
 	commitsCount: number;
 	repositoryDefaultBranch: any;
+	/**
+	 * User can edit PR title and description (author or user with push access)
+	 */
 	canEdit: boolean;
 	/**
 	 * Users with push access to repo have rights to merge/close PRs,
