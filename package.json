@@ -304,6 +304,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.openAllFiles",
+        "title": "Open All Files",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.copyCommitHash",
         "title": "Copy Commit Hash",
         "category": "GitHub Pull Requests"
@@ -531,6 +536,10 @@
           "when": "false"
         },
         {
+          "command": "pr.openAllFiles",
+          "when": "false"
+        },
+        {
           "command": "pr.openOriginalFile",
           "when": "false"
         },
@@ -657,6 +666,10 @@
         {
           "command": "pr.openFileInGitHub",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
+        },
+        {
+          "command": "pr.openAllFiles",
+          "when": "view =~ /prStatus/ && viewItem =~ /directory|files/"
         },
         {
           "command": "pr.copyCommitHash",

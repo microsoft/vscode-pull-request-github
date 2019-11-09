@@ -11,6 +11,8 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { fromReviewUri, ReviewUriParams, asImageDataURI, EMPTY_IMAGE_URI } from './common/uri';
 import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { CommitNode } from './view/treeNodes/commitNode';
+import { DirectoryTreeNode } from './view/treeNodes/directoryTreeNode';
+import { FilesCategoryNode } from './view/treeNodes/filesCategoryNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { PullRequest } from './github/interface';
 import { formatError } from './common/utils';
@@ -148,6 +150,46 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode) => {
 		vscode.commands.executeCommand('vscode.open', e.filePath);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openAllFiles', (e: DirectoryTreeNode | FilesCategoryNode) => {
+		const options: vscode.TextDocumentShowOptions = {
+			preserveFocus: true,
+			preview: false
+		};
+
+		/**
+		 * Opens all files in tree by recursive traversal.
+		 * @param node Tree node
+		 */
+		function open(node: FilesCategoryNode | DirectoryTreeNode | GitFileChangeNode) {
+			if (node instanceof GitFileChangeNode) {
+				vscode.commands.executeCommand('vscode.open', node.filePath, options);
+				return;
+			}
+
+			if (node instanceof DirectoryTreeNode) {
+				node.children.forEach(child => {
+					if (child instanceof FilesCategoryNode ||
+						child instanceof DirectoryTreeNode ||
+						child instanceof GitFileChangeNode) {
+						open(child);
+					}
+				})
+			} else if (node instanceof FilesCategoryNode) {
+				node.getChildren().then(children => {
+					children.forEach(child => {
+						if (child instanceof FilesCategoryNode ||
+							child instanceof DirectoryTreeNode ||
+							child instanceof GitFileChangeNode) {
+							open(child);
+						}
+					})
+				})
+			}
+		}
+
+		open(e);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
