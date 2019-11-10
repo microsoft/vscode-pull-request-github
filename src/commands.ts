@@ -152,44 +152,68 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		vscode.commands.executeCommand('vscode.open', e.filePath);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openAllFiles', (e: DirectoryTreeNode | FilesCategoryNode) => {
-		const options: vscode.TextDocumentShowOptions = {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openAllFiles', async (e: DirectoryTreeNode | FilesCategoryNode) => {
+		// Minimum number of files for warning message to be shown
+		const MIN_FILES_FOR_WARNING = 10;
+		const openOptions: vscode.TextDocumentShowOptions = {
 			preserveFocus: true,
 			preview: false
 		};
+		const messageOptions: vscode.MessageOptions = {
+			modal: true
+		}
 
 		/**
-		 * Opens all files in tree by recursive traversal.
-		 * @param node Tree node
+		 * Populates Uri array with file paths of all files under given node.
+		 * @param node Files category or directory node
 		 */
-		function open(node: FilesCategoryNode | DirectoryTreeNode | GitFileChangeNode) {
-			if (node instanceof GitFileChangeNode) {
-				vscode.commands.executeCommand('vscode.open', node.filePath, options);
-				return;
+		async function populateFilePaths(node: FilesCategoryNode | DirectoryTreeNode): Promise<vscode.Uri[]> {
+			var filePaths: vscode.Uri[] = []
+
+			if (node instanceof FilesCategoryNode) {
+				const fileChanges = await node.getFileChanges();
+				filePaths = fileChanges.filter(fc => fc instanceof GitFileChangeNode).map(fc => fc.filePath)
+			} else if (node instanceof DirectoryTreeNode) {
+				populateFilePathsHelper(filePaths, node);
 			}
 
-			if (node instanceof DirectoryTreeNode) {
+			return filePaths;
+		}
+
+		/**
+		 * Populate array with Uris of all GitFileChangeNode file paths under a given node.
+		 * @param filePaths Array of Uris to be populated
+		 * @param node Current node
+		 */
+		function populateFilePathsHelper(filePaths: vscode.Uri[], node: DirectoryTreeNode | GitFileChangeNode) {
+			if (node instanceof GitFileChangeNode) {
+				filePaths.push(node.filePath)
+			} else {
 				node.children.forEach(child => {
-					if (child instanceof FilesCategoryNode ||
-						child instanceof DirectoryTreeNode ||
+					if (child instanceof DirectoryTreeNode ||
 						child instanceof GitFileChangeNode) {
-						open(child);
+							populateFilePathsHelper(filePaths, child);
 					}
-				})
-			} else if (node instanceof FilesCategoryNode) {
-				node.getChildren().then(children => {
-					children.forEach(child => {
-						if (child instanceof FilesCategoryNode ||
-							child instanceof DirectoryTreeNode ||
-							child instanceof GitFileChangeNode) {
-							open(child);
-						}
-					})
 				})
 			}
 		}
 
-		open(e);
+		const filePaths: vscode.Uri[] = await populateFilePaths(e);
+
+		// Ask user for confirmation when opening large number of files
+		if (filePaths.length >= MIN_FILES_FOR_WARNING) {
+			vscode.window.showWarningMessage(`Are you sure you want to open ${filePaths.length} files?`, messageOptions, 'Yes').then(option => {
+				if (option === 'Yes') {
+					filePaths.forEach(filePath => {
+						vscode.commands.executeCommand('vscode.open', filePath, openOptions);
+					})
+				}
+			})
+		} else {
+			filePaths.forEach(filePath => {
+				vscode.commands.executeCommand('vscode.open', filePath, openOptions);
+			})
+		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {

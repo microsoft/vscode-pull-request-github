@@ -45,4 +45,8 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		}
 		return Promise.resolve(nodes);
 	}
+
+	async getFileChanges(): Promise<(GitFileChangeNode | RemoteFileChangeNode)[]> {
+		return this._fileChanges;
+	}
 }
