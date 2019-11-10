@@ -304,11 +304,6 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.openAllFiles",
-        "title": "Open All Files",
-        "category": "GitHub Pull Requests"
-      },
-      {
         "command": "pr.copyCommitHash",
         "title": "Copy Commit Hash",
         "category": "GitHub Pull Requests"
@@ -331,6 +326,21 @@
           "light": "resources/icons/light/open-change.svg",
           "dark": "resources/icons/dark/open-change.svg"
         }
+      },
+      {
+        "command": "pr.openAllDiffViews",
+        "title": "Open All Diff Views",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.openAllModifiedFiles",
+        "title": "Open All Modified Files",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.openAllOriginalFiles",
+        "title": "Open All Original Files",
+        "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.openChangedFile",
@@ -536,7 +546,11 @@
           "when": "false"
         },
         {
-          "command": "pr.openAllFiles",
+          "command": "pr.openDiffView",
+          "when": "false"
+        },
+        {
+          "command": "pr.openModifiedFile",
           "when": "false"
         },
         {
@@ -544,7 +558,15 @@
           "when": "false"
         },
         {
-          "command": "pr.openModifiedFile",
+          "command": "pr.openAllDiffViews",
+          "when": "false"
+        },
+        {
+          "command": "pr.openAllModifiedFiles",
+          "when": "false"
+        },
+        {
+          "command": "pr.openAllOriginalFiles",
           "when": "false"
         },
         {
@@ -553,10 +575,6 @@
         },
         {
           "command": "pr.deleteLocalBranch",
-          "when": "false"
-        },
-        {
-          "command": "pr.openDiffView",
           "when": "false"
         },
         {
@@ -668,10 +686,6 @@
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
         },
         {
-          "command": "pr.openAllFiles",
-          "when": "view =~ /prStatus/ && viewItem =~ /directory|files/"
-        },
-        {
           "command": "pr.copyCommitHash",
           "when": "view =~ /prStatus/ && viewItem =~ /commit/"
         },
@@ -697,6 +711,18 @@
         {
           "command": "pr.openModifiedFile",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
+        },
+        {
+          "command": "pr.openAllDiffViews",
+          "when": "view =~ /prStatus/ && viewItem =~ /directory|files/"
+        },
+        {
+          "command": "pr.openAllModifiedFiles",
+          "when": "view =~ /prStatus/ && viewItem =~ /directory|files/"
+        },
+        {
+          "command": "pr.openAllOriginalFiles",
+          "when": "view =~ /prStatus/ && viewItem =~ /directory|files/"
         }
       ],
       "editor/title": [

@@ -142,86 +142,95 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		vscode.env.clipboard.writeText(e.sha);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openOriginalFile', async (e: GitFileChangeNode) => {
-		// if this is an image, encode it as a base64 data URI
-		const imageDataURI = await asImageDataURI(e.parentFilePath, prManager.repository);
-		vscode.commands.executeCommand('vscode.open', imageDataURI || e.parentFilePath);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+		openDiffView(fileChangeNode);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode) => {
 		vscode.commands.executeCommand('vscode.open', e.filePath);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openAllFiles', async (e: DirectoryTreeNode | FilesCategoryNode) => {
-		// Minimum number of files for warning message to be shown
-		const MIN_FILES_FOR_WARNING = 10;
-		const openOptions: vscode.TextDocumentShowOptions = {
-			preserveFocus: true,
-			preview: false
-		};
-		const messageOptions: vscode.MessageOptions = {
-			modal: true
-		}
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openOriginalFile', async (e: GitFileChangeNode) => {
+		// if this is an image, encode it as a base64 data URI
+		const imageDataURI = await asImageDataURI(e.parentFilePath, prManager.repository);
+		vscode.commands.executeCommand('vscode.open', imageDataURI || e.parentFilePath);
+	}));
 
-		/**
-		 * Populates Uri array with file paths of all files under given node.
-		 * @param node Files category or directory node
-		 */
-		async function populateFilePaths(node: FilesCategoryNode | DirectoryTreeNode): Promise<vscode.Uri[]> {
-			var filePaths: vscode.Uri[] = []
-
-			if (node instanceof FilesCategoryNode) {
-				const fileChanges = await node.getFileChanges();
-				filePaths = fileChanges.filter(fc => fc instanceof GitFileChangeNode).map(fc => fc.filePath)
-			} else if (node instanceof DirectoryTreeNode) {
-				populateFilePathsHelper(filePaths, node);
-			}
-
-			return filePaths;
-		}
-
-		/**
-		 * Populate array with Uris of all GitFileChangeNode file paths under a given node.
-		 * @param filePaths Array of Uris to be populated
-		 * @param node Current node
-		 */
-		function populateFilePathsHelper(filePaths: vscode.Uri[], node: DirectoryTreeNode | GitFileChangeNode) {
+	/**
+	 * Retrieves all GitFileChangeNodes under given node.
+	 * @param parentNode Files category or directory node
+	 */
+	async function getGitFileChangeNodes(parentNode: FilesCategoryNode | DirectoryTreeNode): Promise<GitFileChangeNode[]> {
+		// Helper function to recursively populate provided array with GitFileChangeNodes
+		function populateGitFileChangeNodesHelper(nodeArr: GitFileChangeNode[], node: FilesCategoryNode | DirectoryTreeNode | GitFileChangeNode) {
 			if (node instanceof GitFileChangeNode) {
-				filePaths.push(node.filePath)
-			} else {
+				nodeArr.push(node);
+			} else if (node instanceof FilesCategoryNode) {
+				node.directories.forEach(child => {
+					if (child instanceof DirectoryTreeNode ||
+						child instanceof GitFileChangeNode) {
+						populateGitFileChangeNodesHelper(nodeArr, child);
+					}
+				});
+			} else if (node instanceof DirectoryTreeNode) {
 				node.children.forEach(child => {
 					if (child instanceof DirectoryTreeNode ||
 						child instanceof GitFileChangeNode) {
-							populateFilePathsHelper(filePaths, child);
+						populateGitFileChangeNodesHelper(nodeArr, child);
 					}
-				})
+				});
 			}
 		}
 
-		const filePaths: vscode.Uri[] = await populateFilePaths(e);
+		const fileChangeNodes: GitFileChangeNode[] = [];
+		populateGitFileChangeNodesHelper(fileChangeNodes, parentNode);
+
+		return fileChangeNodes;
+	}
+
+	/**
+	 * Executes provided command for all GitFileChangeNodes under the given node.
+	 * @param e Parent node
+	 * @param command Function to be executed on for each GitFileChangeNodes
+	 */
+	async function executeAll(e: DirectoryTreeNode | FilesCategoryNode, command: (node: GitFileChangeNode) => Promise<void>) {
+		// Minimum number of files for warning message to be shown
+		const MIN_FILES_FOR_WARNING = 10;
+		const messageOptions: vscode.MessageOptions = {
+			modal: true
+		};
+
+		const nodes: GitFileChangeNode[] = await getGitFileChangeNodes(e);
 
 		// Ask user for confirmation when opening large number of files
-		if (filePaths.length >= MIN_FILES_FOR_WARNING) {
-			vscode.window.showWarningMessage(`Are you sure you want to open ${filePaths.length} files?`, messageOptions, 'Yes').then(option => {
+		if (nodes.length >= MIN_FILES_FOR_WARNING) {
+			vscode.window.showWarningMessage(`Are you sure you want to open ${nodes.length} files?`, messageOptions, 'Yes').then(async option => {
 				if (option === 'Yes') {
-					filePaths.forEach(filePath => {
-						vscode.commands.executeCommand('vscode.open', filePath, openOptions);
-					})
+					// Ensure files are processed in the same order
+					for (const node of nodes) {
+						await command(node);
+					}
 				}
-			})
+			});
 		} else {
-			filePaths.forEach(filePath => {
-				vscode.commands.executeCommand('vscode.open', filePath, openOptions);
-			})
+			// Ensure files are processed in the same order
+			for (const node of nodes) {
+				await command(node);
+			}
 		}
-	}));
+	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+	/**
+	 * Opens diff view for given file.
+	 * @param fileChangeNode Node representing a file change
+	 * @param openOptions Optional options to open the diff view
+	 */
+	async function openDiffView(fileChangeNode: GitFileChangeNode, openOptions?: vscode.TextDocumentShowOptions) {
 		const parentFilePath = fileChangeNode.parentFilePath;
 		const filePath = fileChangeNode.filePath;
 		const fileName = fileChangeNode.fileName;
 		const isPartial = fileChangeNode.isPartial;
-		const opts = fileChangeNode.opts;
+		const opts = openOptions || fileChangeNode.opts;
 
 		fileChangeNode.reveal(fileChangeNode, { select: true, focus: true });
 
@@ -240,7 +249,40 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			}
 		}
 
-		vscode.commands.executeCommand('vscode.diff', parentURI, headURI, fileName, opts);
+		await vscode.commands.executeCommand('vscode.diff', parentURI, headURI, fileName, opts);
+	}
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openAllDiffViews', (e: DirectoryTreeNode | FilesCategoryNode) => {
+		executeAll(e, async (fileChangeNode: GitFileChangeNode) => {
+			const openOptions: vscode.TextDocumentShowOptions = {
+				preserveFocus: true,
+				preview: false
+			};
+			await openDiffView(fileChangeNode, openOptions);
+		});
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openAllModifiedFiles', (e: DirectoryTreeNode | FilesCategoryNode) => {
+		executeAll(e, async (node: GitFileChangeNode) => {
+			const openOptions: vscode.TextDocumentShowOptions = {
+				preserveFocus: true,
+				preview: false
+			};
+			await vscode.commands.executeCommand('vscode.open', node.filePath, openOptions);
+		});
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openAllOriginalFiles', (e: DirectoryTreeNode | FilesCategoryNode) => {
+		executeAll(e, async (node: GitFileChangeNode) => {
+			const openOptions: vscode.TextDocumentShowOptions = {
+				preserveFocus: true,
+				preview: false
+			};
+
+			// if this is an image, encode it as a base64 data URI
+			const imageDataURI = await asImageDataURI(node.parentFilePath, prManager.repository);
+			await vscode.commands.executeCommand('vscode.open', imageDataURI || node.parentFilePath, openOptions);
+		});
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {

@@ -12,7 +12,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Files';
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public contextValue?: string;
-	private directories: TreeNode[] = [];
+	public directories: TreeNode[] = [];
 
 	constructor(public parent: TreeNode | vscode.TreeView<TreeNode>, private _fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
 		super();
@@ -44,9 +44,5 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 			nodes = this._fileChanges;
 		}
 		return Promise.resolve(nodes);
-	}
-
-	async getFileChanges(): Promise<(GitFileChangeNode | RemoteFileChangeNode)[]> {
-		return this._fileChanges;
 	}
 }
