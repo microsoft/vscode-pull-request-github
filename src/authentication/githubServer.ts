@@ -184,8 +184,8 @@ export class GitHubServer {
 	public async login(): Promise<IHostConfiguration> {
 		const state = uuid();
 		const callbackUri = await vscode.env.createAppUri({ payload: { path: '/did-authenticate' } });
-		const uri = vscode.Uri.parse(`https://${AUTH_RELAY_SERVER}/authorize/?callbackUri=${encodeURIComponent(callbackUri.toString())}&scope=${SCOPES}&state=${state}&responseType=code`);
 		const host = this.hostUri.toString();
+		const uri = vscode.Uri.parse(`https://${AUTH_RELAY_SERVER}/authorize/?callbackUri=${encodeURIComponent(callbackUri.toString())}&scope=${SCOPES}&state=${state}&responseType=code&authServer=${host}`);
 
 		vscode.env.openExternal(uri);
 		return Promise.race([
