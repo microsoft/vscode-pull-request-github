@@ -228,7 +228,6 @@ export class PullRequestOverviewPanel {
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._pullRequest);
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
-			const supportsGraphQl = pullRequestModel.githubRepository.supportsGraphQl;
 			const defaultMergeMethod = getDetaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
@@ -262,7 +261,6 @@ export class PullRequestOverviewPanel {
 					isDraft: this._pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
-					supportsGraphQl,
 				}
 			});
 		}).catch(e => {
