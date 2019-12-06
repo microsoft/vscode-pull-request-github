@@ -303,6 +303,16 @@ export interface DeleteReactionResponse {
 	};
 }
 
+export interface UpdatePullRequestResponse {
+	updatePullRequest: {
+		pullRequest: {
+			body: string;
+			bodyHTML: string;
+			title: string;
+		};
+	};
+}
+
 export interface Ref {
 	name: string;
 	repository: {

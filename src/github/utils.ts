@@ -240,6 +240,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): IComment {
 		id: comment.databaseId,
 		url: comment.url,
 		body: comment.body,
+		bodyHTML: comment.bodyHTML,
 		path: comment.path,
 		canEdit: comment.viewerCanDelete,
 		canDelete: comment.viewerCanDelete,
