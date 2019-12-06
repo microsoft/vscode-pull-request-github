@@ -83,7 +83,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<P
 				? <div className='flex-action-bar comment-actions'>
 						{<button onClick={() => setEditMode(true)}>{editIcon}</button>}
 					</div>
-				: null
+				: <div className='flex-action-bar comment-actons'></div>
 		}
 		<div className='button-group'>
 			<CheckoutButtons {...{isCurrentlyCheckedOut}} />

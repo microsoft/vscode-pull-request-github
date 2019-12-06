@@ -265,6 +265,7 @@ body .diff .diffHeader .outdatedLabel {
 		border-radius: 2px 2px 2px 2px;
 		padding: 0.1rem 0.3rem;
 		font-style: italic;
+		margin-left: 5px;
 }
 
 body .diff .diffPath {
@@ -1084,6 +1085,7 @@ code {
 	justify-content: space-between;
 	z-index: 100;
 	margin-left: 9px;
+	min-width: 42px;
 }
 
 .action-bar > button,
