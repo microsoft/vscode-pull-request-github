@@ -466,26 +466,6 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 	return normalizedEvents;
 }
 
-export function convertRESTTimelineEvents(events: any[]): Common.TimelineEvent[] {
-	events.forEach(event => {
-		if (event.event === Common.EventType.Commented) {
-
-		}
-
-		if (event.event === Common.EventType.Reviewed) {
-			event.submittedAt = event.submitted_at;
-			event.htmlUrl = event.html_url;
-			event.authorAssociation = event.user.type;
-		}
-
-		if (event.event === Common.EventType.Committed) {
-			event.htmlUrl = event.html_url;
-		}
-	});
-
-	return events;
-}
-
 export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
 	const ret = [
 		{
