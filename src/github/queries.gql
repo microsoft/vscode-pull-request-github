@@ -383,6 +383,24 @@ mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
 	}
 }
 
+mutation AddIssueComment($input: AddCommentInput!) {
+	addComment(input: $input) {
+		commentEdge {
+			node {
+				...Comment
+			}
+		}
+	}
+}
+
+mutation EditIssueComment($input: UpdateIssueCommentInput!) {
+	updateIssueComment(input: $input) {
+		issueComment {
+			...Comment
+		}
+	}
+}
+
 query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		mentionableUsers(first: $first, after: $after) {

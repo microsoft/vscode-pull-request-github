@@ -244,9 +244,23 @@ export interface AddCommentResponse {
 	};
 }
 
+export interface AddIssueCommentResponse {
+	addComment: {
+		commentEdge: {
+			node: IssueComment
+		}
+	};
+}
+
 export interface EditCommentResponse {
 	updatePullRequestReviewComment: {
 		pullRequestReviewComment: ReviewComment;
+	};
+}
+
+export interface EditIssueCommentResponse {
+	updateIssueComment: {
+		issueComment: IssueComment;
 	};
 }
 

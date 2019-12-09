@@ -20,8 +20,8 @@ import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse } from './graphql';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment } from './utils';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 
@@ -914,17 +914,18 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async createIssueComment(pullRequest: PullRequestModel, text: string): Promise<IComment> {
-		const githubRepository = pullRequest.githubRepository;
-		const { octokit, remote } = await githubRepository.ensure();
-
-		const promise = await octokit.issues.createComment({
-			body: text,
-			issue_number: pullRequest.prNumber,
-			owner: remote.owner,
-			repo: remote.repositoryName
+		const { mutate, schema } = await pullRequest.githubRepository.ensure();
+		const { data } = await mutate<AddIssueCommentResponse>({
+			mutation: schema.AddIssueComment,
+			variables: {
+				input: {
+					subjectId: pullRequest.graphNodeId,
+					body: text
+				}
+			}
 		});
 
-		return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(promise.data, githubRepository), remote);
+		return parseGraphQlIssueComment(data!.addComment.commentEdge.node);
 	}
 
 	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: IComment): Promise<IComment | undefined> {
@@ -1259,19 +1260,21 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	async editIssueComment(pullRequest: PullRequestModel, commentId: string, text: string): Promise<IComment> {
+	async editIssueComment(pullRequest: PullRequestModel, comment: IComment, text: string): Promise<IComment> {
 		try {
-			const githubRepository = pullRequest.githubRepository;
-			const { octokit, remote } = await githubRepository.ensure();
+			const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
-			const ret = await octokit.issues.updateComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				body: text,
-				comment_id: Number(commentId)
+			const { data } = await mutate<EditIssueCommentResponse>({
+				mutation: schema.EditIssueComment,
+				variables: {
+					input: {
+						id: comment.graphNodeId,
+						body: text
+					}
+				}
 			});
 
-			return this.addCommentPermissions(convertIssuesCreateCommentResponseToComment(ret.data, githubRepository), remote);
+			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}

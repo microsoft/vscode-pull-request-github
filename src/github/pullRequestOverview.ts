@@ -558,7 +558,7 @@ export class PullRequestOverviewPanel {
 		const { comment, text } = message.args;
 		const editCommentPromise = comment.pullRequestReviewId !== undefined
 			? this._pullRequestManager.editReviewComment(this._pullRequest, comment, text)
-			: this._pullRequestManager.editIssueComment(this._pullRequest, comment.id.toString(), text);
+			: this._pullRequestManager.editIssueComment(this._pullRequest, comment, text);
 
 		editCommentPromise.then(result => {
 			this._replyMessage(message, {

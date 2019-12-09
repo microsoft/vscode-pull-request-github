@@ -168,25 +168,6 @@ export function parseCommentDiffHunk(comment: IComment): DiffHunk[] {
 	return diffHunks;
 }
 
-export function convertIssuesCreateCommentResponseToComment(comment: Octokit.IssuesCreateCommentResponse | Octokit.IssuesUpdateCommentResponse, githubRepository: GitHubRepository): IComment {
-	return {
-		url: comment.url,
-		id: comment.id,
-		diffHunk: '',
-		diffHunks: [],
-		path: undefined,
-		position: undefined,
-		commitId: undefined,
-		originalPosition: undefined,
-		originalCommitId: undefined,
-		user: convertRESTUserToAccount(comment.user, githubRepository),
-		body: comment.body,
-		createdAt: comment.created_at,
-		htmlUrl: comment.html_url,
-		graphNodeId: comment.node_id
-	};
-}
-
 export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullsListCommentsResponseItem | Octokit.PullsUpdateCommentResponse, githubRepository: GitHubRepository): IComment {
 	const ret: IComment = {
 		url: comment.url,
@@ -263,6 +244,22 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): IComment {
 	c.diffHunks = diffHunks;
 
 	return c;
+}
+
+export function parseGraphQlIssueComment(comment: GraphQL.IssueComment): IComment {
+	return {
+		id: comment.databaseId,
+		url: comment.url,
+		body: comment.body,
+		bodyHTML: comment.bodyHTML,
+		canEdit: comment.viewerCanDelete,
+		canDelete: comment.viewerCanDelete,
+		user: comment.author,
+		createdAt: comment.createdAt,
+		htmlUrl: comment.url,
+		graphNodeId: comment.id,
+		diffHunk: ''
+	};
 }
 
 export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): Reaction[] {
