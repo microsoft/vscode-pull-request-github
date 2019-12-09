@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import Octokit = require('@octokit/rest');
-import { ApolloClient, InMemoryCache, NormalizedCacheObject, gql } from 'apollo-boost';
+import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
 import { agent } from '../common/net';
@@ -251,28 +251,9 @@ export class CredentialStore implements vscode.Disposable {
 			}
 		});
 
-		let supportsGraphQL = true;
-		await graphql.query({ query: gql`query { viewer { login } }` })
-			.then(result => {
-				Logger.appendLine(`${graphQLBaseURL}: GraphQL support detected`);
-
-				/* __GDPR__
-					"auth.graphql.supported" : {}
-				*/
-				this._telemetry.sendTelemetryEvent('auth.graphql.supported');
-			})
-			.catch(err => {
-				Logger.appendLine(`${graphQLBaseURL}: GraphQL not supported (${err.message})`);
-				/* __GDPR__
-					"auth.graphql.unsupported" : {}
-				*/
-				this._telemetry.sendTelemetryEvent('auth.graphql.unsupported');
-				supportsGraphQL = false;
-			});
-
 		return {
 			octokit,
-			graphql: supportsGraphQL ? graphql : null,
+			graphql,
 			schema: schema,
 		};
 	}

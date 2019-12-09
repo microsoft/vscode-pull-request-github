@@ -39,7 +39,6 @@ export interface PullRequest {
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;
 	mergeMethodsAvailability: MergeMethodsAvailability;
-	supportsGraphQl: boolean;
 	reviewers: ReviewState[];
 	isDraft?: boolean;
 }

@@ -9,7 +9,7 @@ import Octokit = require('@octokit/rest');
 import { CredentialStore } from './credentials';
 import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent, isCommitEvent } from '../common/timelineEvent';
+import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
 import { GitHubRepository, PullRequestData } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -20,7 +20,7 @@ import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, convertRESTTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator } from './utils';
+import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
@@ -800,13 +800,6 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async getPullRequestComments(pullRequest: PullRequestModel): Promise<IComment[]> {
-		const { supportsGraphQl } = pullRequest.githubRepository;
-		return supportsGraphQl
-			? this.getAllPullRequestReviewComments(pullRequest)
-			: this.getPullRequestReviewComments(pullRequest);
-	}
-
-	private async getAllPullRequestReviewComments(pullRequest: PullRequestModel): Promise<IComment[]> {
 		const { remote, query, schema } = await pullRequest.githubRepository.ensure();
 		try {
 			const { data } = await query<PullRequestCommentsResponse>({
@@ -828,24 +821,6 @@ export class PullRequestManager implements vscode.Disposable {
 			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
 			return [];
 		}
-	}
-
-	/**
-	 * Returns review comments from the pull request using the REST API, comments on pending reviews are not included.
-	 */
-	private async getPullRequestReviewComments(pullRequest: PullRequestModel): Promise<IComment[]> {
-		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
-		const githubRepository = (pullRequest as PullRequestModel).githubRepository;
-		const { remote, octokit } = await githubRepository.ensure();
-		const reviewData = await octokit.pulls.listComments({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.prNumber,
-			per_page: 100
-		});
-		Logger.debug(`Fetch comments of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
-
-		return reviewData.data.map((comment: any) => this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(comment, githubRepository), remote));
 	}
 
 	async getPullRequestCommits(pullRequest: PullRequestModel): Promise<Octokit.PullsListCommitsResponseItem[]> {
@@ -901,37 +876,25 @@ export class PullRequestManager implements vscode.Disposable {
 	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
 		const githubRepository = pullRequest.githubRepository;
-		const { octokit, query, remote, supportsGraphQl, schema } = await githubRepository.ensure();
+		const { query, remote, schema } = await githubRepository.ensure();
 
-		let ret = [];
-		if (supportsGraphQl) {
-			try {
-				const { data } = await query<TimelineEventsResponse>({
-					query: schema.TimelineEvents,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						number: pullRequest.prNumber
-					}
-				});
-				ret = data.repository.pullRequest.timelineItems.nodes;
-				const events = parseGraphQLTimelineEvents(ret, githubRepository);
-				await this.addReviewTimelineEventComments(pullRequest, events);
+		try {
+			const { data } = await query<TimelineEventsResponse>({
+				query: schema.TimelineEvents,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: pullRequest.prNumber
+				}
+			});
+			const ret = data.repository.pullRequest.timelineItems.nodes;
+			const events = parseGraphQLTimelineEvents(ret, githubRepository);
+			await this.addReviewTimelineEventComments(pullRequest, events);
 
-				return events;
-			} catch (e) {
-				console.log(e);
-				return [];
-			}
-		} else {
-			ret = (await octokit.issues.listEventsForTimeline({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				issue_number: pullRequest.prNumber,
-				per_page: 100
-			})).data;
-			Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - done`, PullRequestManager.ID);
-			return convertRESTTimelineEvents(await this.parseRESTTimelineEvents(pullRequest, remote, ret));
+			return events;
+		} catch (e) {
+			console.log(e);
+			return [];
 		}
 	}
 
@@ -1051,17 +1014,13 @@ export class PullRequestManager implements vscode.Disposable {
 			return undefined;
 		}
 
-		if (!pullRequest.githubRepository.supportsGraphQl) {
-			return;
-		}
-
 		const { query, octokit, schema } = await pullRequest.githubRepository.ensure();
 		const { currentUser = '' } = octokit as any;
 		try {
 			const { data } = await query<PendingReviewIdResponse>({
 				query: schema.GetPendingReviewId,
 				variables: {
-					pullRequestId: (pullRequest as PullRequestModel).prItem.graphNodeId,
+					pullRequestId: pullRequest.prItem.graphNodeId,
 					author: currentUser.login
 				}
 			});
@@ -1701,12 +1660,6 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {
 		try {
-			if (!pullRequest.githubRepository.supportsGraphQl) {
-				// currently the REST api doesn't support updating PR draft status
-				vscode.window.showWarningMessage('"Ready for Review" operation failed: requires GitHub GraphQL API support');
-				return;
-			}
-
 			const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
 			const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
@@ -2040,47 +1993,6 @@ export class PullRequestManager implements vscode.Disposable {
 			// Ensures that pending comments made in reply to other reviews are included for the pending review
 			pendingReview.comments = reviewComments.filter(c => c.isDraft);
 		}
-	}
-
-	private async fixCommitAttribution(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
-		const commits = await this.getPullRequestCommits(pullRequest);
-		const commitEvents = events.filter(isCommitEvent);
-		for (const commitEvent of commitEvents) {
-			const matchingCommits = commits.filter(commit => commit.sha === commitEvent.sha);
-			if (matchingCommits.length === 1) {
-				const author = matchingCommits[0].author;
-				// There is not necessarily a GitHub account associated with the commit.
-				if (author !== null) {
-					if (pullRequest.githubRepository.isGitHubDotCom) {
-						commitEvent.author.avatarUrl = author.avatar_url;
-					}
-
-					commitEvent.author.login = author.login;
-					commitEvent.author.url = author.html_url;
-				}
-			}
-		}
-	}
-
-	private async parseRESTTimelineEvents(pullRequest: PullRequestModel, remote: Remote, events: any[]): Promise<TimelineEvent[]> {
-		events.forEach(event => {
-			const type = getEventType(event.event);
-			event.event = type;
-			return event;
-		});
-
-		events.forEach(event => {
-			if (event.event === EventType.Commented) {
-				this.addCommentPermissions(event, remote);
-			}
-		});
-
-		await Promise.all([
-			this.addReviewTimelineEventComments(pullRequest, events),
-			this.fixCommitAttribution(pullRequest, events)
-		]);
-
-		return events;
 	}
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
