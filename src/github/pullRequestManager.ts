@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, convertPullRequestsGetCommentsResponseItemToComment, convertIssuesCreateCommentResponseToComment, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 
@@ -1278,35 +1278,13 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async editReviewComment(pullRequest: PullRequestModel, comment: IComment, text: string): Promise<IComment> {
-		try {
-			if (comment.isDraft) {
-				return this.editPendingReviewComment(pullRequest, comment.graphNodeId, text);
-			}
-
-			const githubRepository = pullRequest.githubRepository;
-			const { octokit, remote } = await githubRepository.ensure();
-
-			const ret = await octokit.pulls.updateComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				body: text,
-				comment_id: comment.id
-			});
-
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository), remote);
-		} catch (e) {
-			throw new Error(formatError(e));
-		}
-	}
-
-	private async editPendingReviewComment(pullRequest: PullRequestModel, commentNodeId: string, text: string): Promise<IComment> {
 		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
 		const { data } = await mutate<EditCommentResponse>({
 			mutation: schema.EditComment,
 			variables: {
 				input: {
-					pullRequestReviewCommentId: commentNodeId,
+					pullRequestReviewCommentId: comment.graphNodeId,
 					body: text
 				}
 			}
@@ -1374,17 +1352,22 @@ export class PullRequestManager implements vscode.Disposable {
 		return [ret.data, pullRequest.githubRepository];
 	}
 
-	async editPullRequest(pullRequest: PullRequestModel, toEdit: IPullRequestEditData): Promise<Octokit.PullsUpdateResponse> {
+	async editPullRequest(pullRequest: PullRequestModel, toEdit: IPullRequestEditData): Promise<{ body: string, bodyHTML: string, title: string }> {
 		try {
-			const { octokit, remote } = await pullRequest.githubRepository.ensure();
-			const { data } = await octokit.pulls.update({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: pullRequest.prNumber,
-				body: toEdit.body,
-				title: toEdit.title
+			const { mutate, schema } = await pullRequest.githubRepository.ensure();
+
+			const { data } = await mutate<UpdatePullRequestResponse>({
+				mutation: schema.UpdatePullRequest,
+				variables: {
+					input: {
+						pullRequestId: pullRequest.graphNodeId,
+						body: toEdit.body,
+						title: toEdit.title
+					}
+				}
 			});
-			return data;
+
+			return data!.updatePullRequest.pullRequest;
 		} catch (e) {
 			throw new Error(formatError(e));
 		}

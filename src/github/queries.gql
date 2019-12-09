@@ -158,6 +158,7 @@ fragment ReviewComment on PullRequestReviewComment {
 	}
 	path originalPosition
 	body
+	bodyHTML
 	diffHunk
 	position
 	state
@@ -368,6 +369,16 @@ mutation DeleteReaction($input: RemoveReactionInput!){
 		}
 		subject {
 			...Reactable
+		}
+	}
+}
+
+mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
+	updatePullRequest(input: $input) {
+		pullRequest {
+			body
+			bodyHTML
+			title
 		}
 	}
 }
