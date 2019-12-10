@@ -391,6 +391,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					canEdit: commentEvent.viewerCanUpdate,
 					canDelete: commentEvent.viewerCanDelete,
 					id: commentEvent.databaseId,
+					graphNodeId: commentEvent.id,
 					createdAt: commentEvent.createdAt
 				});
 				return;
