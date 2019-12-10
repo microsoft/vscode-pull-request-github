@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 
-import Markdown from './markdown';
 import { Spaced, nbsp } from './space';
 import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
@@ -208,9 +207,7 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	}
 
 	const { applyPatch } = useContext(PullRequestContext);
-	const renderedBody = bodyHTML
-		? <div dangerouslySetInnerHTML={ {__html: bodyHTML }} />
-		: <Markdown src={body}/>;
+	const renderedBody = <div dangerouslySetInnerHTML={ {__html: bodyHTML }} />;
 
 	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
 	const applyPatchButton = containsSuggestion
