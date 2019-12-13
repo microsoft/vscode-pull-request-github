@@ -1487,12 +1487,19 @@ export class PullRequestManager implements vscode.Disposable {
 		const actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata, legacy?: boolean })[] = [];
 		branchInfos.forEach((value, key) => {
 			if (value.metadata) {
-				actions.push({
-					label: `${key}`,
-					description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata.prNumber}`,
-					picked: false,
-					metadata: value.metadata!
-				});
+				const activePRUrl = this.activePullRequest && this.activePullRequest.base.repositoryCloneUrl;
+				const matchesActiveBranch = activePRUrl
+					? activePRUrl.owner === value.metadata.owner && activePRUrl.repositoryName === value.metadata.repositoryName && this.activePullRequest!.prNumber === value.metadata.prNumber
+					: false;
+
+				if (!matchesActiveBranch) {
+					actions.push({
+						label: `${key}`,
+						description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata.prNumber}`,
+						picked: false,
+						metadata: value.metadata!
+					});
+				}
 			}
 		});
 
@@ -1622,10 +1629,15 @@ export class PullRequestManager implements vscode.Disposable {
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
 						quickPick.busy = true;
-						await Promise.all(picks.map(async pick => {
-							await this.repository.deleteBranch(pick.label, true);
-						}));
-						quickPick.busy = false;
+						try {
+							await Promise.all(picks.map(async pick => {
+								await this.repository.deleteBranch(pick.label, true);
+							}));
+							quickPick.busy = false;
+						} catch (e) {
+							quickPick.hide();
+							vscode.window.showErrorMessage(`Deleting branches failed: ${e}`);
+						}
 					}
 
 					firstStep = false;
@@ -1882,8 +1894,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const githubRepo = this._githubRepositories.find(repo => {
 			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
 			return ret;
-			}
-		);
+		});
 
 		if (!githubRepo) {
 			return;
