@@ -1,3 +1,15 @@
+0.14.0
+
+**Changes**
+- Remove branching logic for graphql [1431](https://github.com/microsoft/vscode-pull-request-github/issues/1431)
+
+**Bug fixes**
+- Set 'authServer' query parameter when opening login url [1440](https://github.com/microsoft/vscode-pull-request-github/issues/1440)
+- Prevent reflow of PR title on hover [1450](https://github.com/microsoft/vscode-pull-request-github/issues/1450)
+- Show rendered markdown after editing on description page [1457](https://github.com/microsoft/vscode-pull-request-github/issues/1457)
+- Better error handling for deleting local branches [1465](https://github.com/microsoft/vscode-pull-request-github/issues/1465)
+- Migrate to asExternalUri API [1475](https://github.com/microsoft/vscode-pull-request-github/issues/1475)
+
 0.13.0
 
 We saw a huge amount of community participation this release, thank you so much to everyone who contributed!
