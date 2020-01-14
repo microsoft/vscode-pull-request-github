@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { IAccount, PullRequest, PullRequestStateEnum, ISuggestedReviewer } from './interface';
+import { IAccount, PullRequest, PullRequestStateEnum, ISuggestedReviewer, IMilestone } from './interface';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -31,7 +31,12 @@ export class PullRequestModel implements IPullRequestModel {
 	public localBranchName?: string;
 	public mergeBase?: string;
 	public isDraft?: boolean;
-	public suggestedReviewers: ISuggestedReviewer[];
+	public suggestedReviewers?: ISuggestedReviewer[];
+	public milestone?: IMilestone;
+
+	public get isIssue(): boolean {
+		return (!this.suggestedReviewers || (this.suggestedReviewers.length === 0)) && (this.mergeBase === undefined) && (this.localBranchName === undefined);
+	}
 
 	public get isOpen(): boolean {
 		return this.state === PullRequestStateEnum.Open;
@@ -108,6 +113,7 @@ export class PullRequestModel implements IPullRequestModel {
 		this.author = prItem.user;
 		this.isDraft = prItem.isDraft;
 		this.suggestedReviewers = prItem.suggestedReviewers;
+		this.milestone = prItem.milestone;
 
 		if (prItem.state.toLowerCase() === 'open') {
 			this.state = PullRequestStateEnum.Open;

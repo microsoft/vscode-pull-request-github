@@ -149,6 +149,26 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 	}
 }
 
+query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Comment
+					...AssignedEvent
+				}
+			}
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
 fragment ReviewComment on PullRequestReviewComment {
 	id databaseId url
 	author {
@@ -260,6 +280,39 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 					url
 				}
 			}
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
+query Issue($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			number
+			url
+			state
+			body
+			bodyHTML
+			title
+			author {
+				login
+				url
+				avatarUrl
+			}
+			createdAt
+			updatedAt
+			labels(first: 50) {
+				nodes {
+					name
+				}
+			}
+			id
+			databaseId
 		}
 	}
 	rateLimit {
@@ -436,6 +489,52 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 			pageInfo {
 				hasNextPage
 				endCursor
+			}
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
+query Issues($query: String!) {
+	search(first: 100, type: ISSUE, query: $query) {
+		issueCount
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+		edges {
+			node {
+				... on Issue {
+					number
+					url
+					state
+					body
+					bodyHTML
+					title
+					author {
+						login
+						url
+						avatarUrl
+					}
+					createdAt
+					updatedAt
+					labels(first: 50) {
+						nodes {
+							name
+						}
+					}
+					id
+					databaseId
+					milestone {
+						title
+						dueOn
+					}
+				}
 			}
 		}
 	}

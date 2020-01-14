@@ -771,6 +771,101 @@ export class PullRequestManager implements vscode.Disposable {
 		};
 	}
 
+	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<PullRequestsResponseResult> {
+		if (!this._githubRepositories || !this._githubRepositories.length) {
+			return {
+				pullRequests: [],
+				hasMorePages: false,
+				hasUnsearchedRepositories: false
+			};
+		}
+
+		const queryId = PRType.All.toString();
+		const getTotalFetchedPages = () => this.totalFetchedPages.get(queryId) || 0;
+		const setTotalFetchedPages = (numPages: number) => this.totalFetchedPages.set(queryId, numPages);
+
+		for (const repository of this._githubRepositories) {
+			const remoteId = repository.remote.url.toString() + queryId;
+			if (!this._repositoryPageInformation.get(remoteId)) {
+				this._repositoryPageInformation.set(remoteId, {
+					pullRequestPage: 0,
+					hasMorePages: null
+				});
+			}
+		}
+
+		let pagesFetched = 0;
+		const pullRequestData: PullRequestData = { hasMorePages: false, pullRequests: [] };
+		const addPage = (page: PullRequestData | undefined) => {
+			pagesFetched++;
+			if (page) {
+				pullRequestData.pullRequests = pullRequestData.pullRequests.concat(page.pullRequests);
+				pullRequestData.hasMorePages = page.hasMorePages;
+			}
+		};
+
+		const githubRepositories = this._githubRepositories.filter(repo => {
+			const info = this._repositoryPageInformation.get(repo.remote.url.toString() + queryId);
+			// If we are in case 1 or 3, don't filter out repos that are out of pages, as we will be querying from the start.
+			return info && (options.fetchNextPage === false || info.hasMorePages !== false);
+		});
+
+
+
+		for (let i = 0; i < githubRepositories.length; i++) {
+			const githubRepository = githubRepositories[i];
+			const remoteId = githubRepository.remote.url.toString() + queryId;
+			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
+
+			if (options.fetchNextPage) {
+				// Case 2. Fetch a single new page, and increment the global number of pages fetched for this query.
+				pageInformation.pullRequestPage++;
+				addPage(await githubRepository.getAllIssues(pageInformation.pullRequestPage));
+				setTotalFetchedPages(getTotalFetchedPages() + 1);
+			} else {
+				// Case 1&3. Fetch all the pages we have fetched in the past, or in case 1, just a single page.
+				if (pageInformation.pullRequestPage === 0) {
+					// Case 1. Pretend we have previously fetched the first page, then hand off to the case 3 machinery to "fetch all pages we have fetched in the past"
+					pageInformation.pullRequestPage = 1;
+				}
+
+				const pages = await Promise.all(
+					Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => githubRepository.getAllIssues(j + 1)));
+				pages.forEach(page => addPage(page));
+			}
+
+			pageInformation.hasMorePages = pullRequestData.hasMorePages;
+
+			// Break early if
+			// 1) we've received data AND
+			// 2) either we're fetching just the next page (case 2)
+			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
+			if (
+				pullRequestData.pullRequests.length &&
+				(options.fetchNextPage === true ||
+					(options.fetchNextPage === false && pagesFetched >= getTotalFetchedPages()))
+			) {
+				if (getTotalFetchedPages() === 0) {
+					// We're in case 1, manually set number of pages we looked through until we found first results.
+					setTotalFetchedPages(pagesFetched);
+				}
+
+				return {
+					pullRequests: pullRequestData.pullRequests,
+					hasMorePages: pageInformation.hasMorePages,
+					hasUnsearchedRepositories: i < githubRepositories.length - 1
+				};
+			}
+
+		}
+		
+		return {
+			pullRequests: [],
+			hasMorePages: false,
+			hasUnsearchedRepositories: false
+		};
+	}
+
 	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse | undefined> {
 		if (!pullRequest.isResolved()) {
 			return;
@@ -890,6 +985,30 @@ export class PullRequestManager implements vscode.Disposable {
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = parseGraphQLTimelineEvents(ret, githubRepository);
 			await this.addReviewTimelineEventComments(pullRequest, events);
+
+			return events;
+		} catch (e) {
+			console.log(e);
+			return [];
+		}
+	}
+
+	async getIssueTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
+		const githubRepository = pullRequest.githubRepository;
+		const { query, remote, schema } = await githubRepository.ensure();
+
+		try {
+			const { data } = await query<TimelineEventsResponse>({
+				query: schema.IssueTimelineEvents,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: pullRequest.prNumber
+				}
+			});
+			const ret = data.repository.pullRequest.timelineItems.nodes;
+			const events = parseGraphQLTimelineEvents(ret, githubRepository);
 
 			return events;
 		} catch (e) {
@@ -1901,6 +2020,20 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		const pr = await githubRepo.getPullRequest(pullRequestNumber);
+		return pr;
+	}
+
+	async resolveIssue(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
+		const githubRepo = this._githubRepositories.find(repo => {
+			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
+			return ret;
+		});
+
+		if (!githubRepo) {
+			return;
+		}
+
+		const pr = await githubRepo.getIssue(pullRequestNumber);
 		return pr;
 	}
 

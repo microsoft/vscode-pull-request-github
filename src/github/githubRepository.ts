@@ -13,8 +13,8 @@ import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
-import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest, parseMergeability } from './utils';
-import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse } from './graphql';
+import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLSearchRequest } from './utils';
+import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, PullRequestSearchResponse } from './graphql';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -261,6 +261,36 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
+	async getAllIssues(page?: number): Promise<PullRequestData | undefined> {
+		try {
+			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+			const { data } = await query<PullRequestSearchResponse>({
+				query: schema.Issues,
+				variables: {
+					query: `assignee:${this._credentialStore.getCurrentUser(remote).login} state:open repo:${remote.owner}/${remote.repositoryName}`
+				}
+			});
+			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
+
+			let pullRequests: PullRequestModel[] = [];
+			if (data && data.search && data.search.edges) {
+				data.search.edges.forEach(raw => {
+					if (raw.node.id) {
+						pullRequests.push(new PullRequestModel(this, remote, parseGraphQLSearchRequest(raw.node, this)));
+					}
+				});
+			}
+			return {
+				pullRequests,
+				hasMorePages: data.search.pageInfo.hasNextPage
+			}
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch issues: ${e}`);
+			return;
+		}
+	}
+
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
@@ -328,6 +358,28 @@ export class GitHubRepository implements vscode.Disposable {
 				}
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
+
+			return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
+			return;
+		}
+	}
+
+	async getIssue(id: number): Promise<PullRequestModel | undefined> {
+		try {
+			Logger.debug(`Fetch issue ${id} - enter`, GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+
+			const { data } = await query<PullRequestResponse>({
+				query: schema.Issue,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: id
+				}
+			});
+			Logger.debug(`Fetch issue ${id} - done`, GitHubRepository.ID);
 
 			return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
 		} catch (e) {

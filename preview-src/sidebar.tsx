@@ -7,35 +7,37 @@ import PullRequestContext from './context';
 import { ReviewState, ILabel } from '../src/github/interface';
 import { nbsp } from './space';
 
-export default function Sidebar({ reviewers, labels, hasWritePermission }: PullRequest) {
+export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue }: PullRequest) {
 	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
 
 	return <div id='sidebar'>
-		<div id='reviewers' className='section'>
-			<div className='section-header'>
-				<div>Reviewers</div>
-				{ hasWritePermission ? (
-					<button title='Add Reviewers' onClick={async () => {
-						const newReviewers = await addReviewers();
-						updatePR({reviewers: pr.reviewers.concat(newReviewers.added)});
-					}}>{plusIcon}</button>
-				) : null }
+		{!isIssue
+			? <div id='reviewers' className='section'>
+				<div className='section-header'>
+					<div>Reviewers</div>
+					{hasWritePermission ? (
+						<button title='Add Reviewers' onClick={async () => {
+							const newReviewers = await addReviewers();
+							updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) });
+						}}>{plusIcon}</button>
+					) : null}
+				</div>
+				{
+					reviewers ? reviewers.map(state =>
+						<Reviewer key={state.reviewer.login} {...state} canDelete={hasWritePermission} />
+					) : []
+				}
 			</div>
-			{
-				reviewers.map(state =>
-					<Reviewer key={state.reviewer.login} {...state} canDelete={hasWritePermission} />
-				)
-			}
-		</div>
+			: ''}
 		<div id='labels' className='section'>
 			<div className='section-header'>
 				<div>Labels</div>
-				{ hasWritePermission ? (
+				{hasWritePermission ? (
 					<button title='Add Labels' onClick={async () => {
 						const newLabels = await addLabels();
-						updatePR({ labels: pr.labels.concat(newLabels.added)});
+						updatePR({ labels: pr.labels.concat(newLabels.added) });
 					}}>{plusIcon}</button>
-				) : null }
+				) : null}
 			</div>
 			{
 				labels.map(label => <Label key={label.name} {...label} canDelete={hasWritePermission} />)
@@ -45,28 +47,28 @@ export default function Sidebar({ reviewers, labels, hasWritePermission }: PullR
 }
 
 function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
-	const	{ reviewer, state, canDelete } = reviewState;
-	const [ showDelete, setShowDelete ] = useState(false);
+	const { reviewer, state, canDelete } = reviewState;
+	const [showDelete, setShowDelete] = useState(false);
 	const { removeReviewer } = useContext(PullRequestContext);
 	return <div className='section-item reviewer'
 		onMouseEnter={state === 'REQUESTED' ? () => setShowDelete(true) : null}
 		onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}>
 		<Avatar for={reviewer} />
 		<AuthorLink for={reviewer} />
-		{ canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.login)}>{deleteIcon}️</a></> : null}
+		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.login)}>{deleteIcon}️</a></> : null}
 		{REVIEW_STATE[state]}
 	</div>;
 }
 
 function Label(label: ILabel & { canDelete: boolean }) {
 	const { name, canDelete } = label;
-	const [ showDelete, setShowDelete ] = useState(false);
+	const [showDelete, setShowDelete] = useState(false);
 	const { removeLabel } = useContext(PullRequestContext);
 	return <div className='section-item label'
 		onMouseEnter={() => setShowDelete(true)}
 		onMouseLeave={() => setShowDelete(false)}>
 		{name}
-		{ canDelete && showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeLabel(name)}>{deleteIcon}️</a>{nbsp}</> : null}
+		{canDelete && showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeLabel(name)}>{deleteIcon}️</a>{nbsp}</> : null}
 	</div>;
 }
 

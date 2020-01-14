@@ -9,6 +9,9 @@ import { nbsp } from './space';
 import { groupBy } from '../src/common/utils';
 
 export const StatusChecks = (pr: PullRequest) => {
+	if (pr.isIssue) {
+		return null;
+	}
 	const { state, status, mergeable: _mergeable } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
@@ -39,19 +42,19 @@ export const StatusChecks = (pr: PullRequest) => {
 			?
 			<>
 				<div className='branch-status-message'>{'Pull request successfully merged'}</div>
-				<DeleteBranch {...pr}/>
+				<DeleteBranch {...pr} />
 			</>
 			:
-		state === PullRequestStateEnum.Closed
-			?
-			<>
-				<div className='branch-status-message'>{'This pull request is closed'}</div>
-				<DeleteBranch {...pr}/>
-			</>
-			:
-			<>
-				{ status.statuses.length
-					? <>
+			state === PullRequestStateEnum.Closed
+				?
+				<>
+					<div className='branch-status-message'>{'This pull request is closed'}</div>
+					<DeleteBranch {...pr} />
+				</>
+				:
+				<>
+					{status.statuses.length
+						? <>
 							<div className='status-section'>
 								<div className='status-item'>
 									<StateIcon state={status.state} />
@@ -65,11 +68,11 @@ export const StatusChecks = (pr: PullRequest) => {
 									: null}
 							</div>
 						</>
-					: null
-				}
-				<MergeStatus mergeable={mergeable} />
-				<PrActions {...{...pr, mergeable}} />
-			</>
+						: null
+					}
+					<MergeStatus mergeable={mergeable} />
+					<PrActions {...{ ...pr, mergeable }} />
+				</>
 	}</div>;
 };
 
@@ -98,7 +101,7 @@ export const ReadyForReview = () => {
 			try {
 				setBusy(true);
 				await readyForReview();
-				updatePR({isDraft: false});
+				updatePR({ isDraft: false });
 			} finally {
 				setBusy(false);
 			}
@@ -115,7 +118,7 @@ export const ReadyForReview = () => {
 
 export const Merge = (pr: PullRequest) => {
 	const select = useRef<HTMLSelectElement>();
-	const [ selectedMethod, selectMethod ] = useState<MergeMethod | null>(null);
+	const [selectedMethod, selectMethod] = useState<MergeMethod | null>(null);
 
 	if (selectedMethod) {
 		return <ConfirmMerge pr={pr} method={selectedMethod} cancel={() => selectMethod(null)} />;
@@ -129,12 +132,12 @@ export const Merge = (pr: PullRequest) => {
 };
 
 export const PrActions = (pr: PullRequest) => {
-	const {hasWritePermission, canEdit, isDraft, mergeable} = pr;
+	const { hasWritePermission, canEdit, isDraft, mergeable } = pr;
 
 	return isDraft
 		// Only PR author and users with push rights can mark draft as ready for review
 		? canEdit
-			? <ReadyForReview/>
+			? <ReadyForReview />
 			: null
 		: mergeable === PullRequestMergeability.Mergeable && hasWritePermission
 			? <Merge {...pr} />
@@ -164,13 +167,13 @@ export const DeleteBranch = (pr: PullRequest) => {
 					}
 				}
 			}>
-			<button disabled={isBusy} type='submit'>Delete branch</button>
+				<button disabled={isBusy} type='submit'>Delete branch</button>
 			</form>
 		</div>;
 	}
 };
 
-function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMethod, cancel: () => void}) {
+function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest, method: MergeMethod, cancel: () => void }) {
 	const { merge, updatePR } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
@@ -180,7 +183,7 @@ function ConfirmMerge({pr, method, cancel}: {pr: PullRequest, method: MergeMetho
 
 			try {
 				setBusy(true);
-				const {title, description}: any = event.target;
+				const { title, description }: any = event.target;
 				const { state } = await merge({
 					title: title.value,
 					description: description.value,
@@ -236,7 +239,7 @@ const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>((
 					{text}{!avail[method] ? ' (not enabled)' : null}
 				</option>
 			)
-}</select>);
+	}</select>);
 
 const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 	<div>{
@@ -280,8 +283,8 @@ function getSummaryLabel(statuses: any[]) {
 
 function StateIcon({ state }: { state: string }) {
 	switch (state) {
-	case 'success': return checkIcon;
-	case 'failure': return deleteIcon;
+		case 'success': return checkIcon;
+		case 'failure': return deleteIcon;
 	}
 	return pendingIcon;
 }
