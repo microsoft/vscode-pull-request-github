@@ -273,7 +273,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
 
-			let pullRequests: PullRequestModel[] = [];
+			const pullRequests: PullRequestModel[] = [];
 			if (data && data.search && data.search.edges) {
 				data.search.edges.forEach(raw => {
 					if (raw.node.id) {
@@ -284,7 +284,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return {
 				pullRequests,
 				hasMorePages: data.search.pageInfo.hasNextPage
-			}
+			};
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch issues: ${e}`);
 			return;

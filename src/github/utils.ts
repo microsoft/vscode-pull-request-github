@@ -345,7 +345,7 @@ function parseMilestone(milestone: { title: string, dueOn?: string } | undefined
 	return {
 		title: milestone.title,
 		dueOn: milestone.dueOn
-	}
+	};
 }
 
 export function parseMergeability(mergability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING'): PullRequestMergeability {

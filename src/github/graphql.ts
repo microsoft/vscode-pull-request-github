@@ -364,7 +364,7 @@ export interface PullRequest {
 		login: string;
 		url: string;
 		avatarUrl: string;
-	}
+	};
 	createdAt: string;
 	updatedAt: string;
 	headRef?: Ref;
@@ -373,7 +373,7 @@ export interface PullRequest {
 		nodes: {
 			name: string;
 		}[];
-	}
+	};
 	merged: boolean;
 	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 	isDraft?: boolean;
@@ -381,7 +381,7 @@ export interface PullRequest {
 	milestone?: {
 		title: string,
 		dueOn?: string
-	}
+	};
 }
 
 export interface PullRequestResponse {
@@ -401,7 +401,7 @@ export interface PullRequestSearchResponse {
 		edges: {
 			node: PullRequest
 		}[]
-	}
+	};
 	rateLimit: RateLimit;
 }
 
