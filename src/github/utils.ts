@@ -140,6 +140,41 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 	return item;
 }
 
+export function convertRESTIssueToRawPullRequest(pullRequest: Octokit.IssuesCreateResponse | Octokit.IssuesGetResponse | Octokit.IssuesListResponseItem, githubRepository: GitHubRepository): PullRequest {
+	const {
+		number,
+		body,
+		title,
+		html_url,
+		user,
+		state,
+		assignee,
+		created_at,
+		updated_at,
+		labels,
+		node_id,
+		id,
+	} = pullRequest;
+
+	const item: PullRequest = {
+		id,
+		graphNodeId: node_id,
+		number,
+		body,
+		title,
+		url: html_url,
+		user: convertRESTUserToAccount(user, githubRepository),
+		state,
+		assignee: assignee ? convertRESTUserToAccount(assignee, githubRepository) : undefined,
+		createdAt: created_at,
+		updatedAt: updated_at,
+		labels,
+		suggestedReviewers: [] // suggested reviewers only available through GraphQL API
+	};
+
+	return item;
+}
+
 export function convertRESTReviewEvent(review: Octokit.PullsCreateReviewResponse, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,

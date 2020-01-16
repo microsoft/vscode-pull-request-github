@@ -20,10 +20,11 @@ import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment } from './utils';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
+import { Protocol } from '../common/protocol';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -858,7 +859,7 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 
 		}
-		
+
 		return {
 			pullRequests: [],
 			hasMorePages: false,
@@ -1376,6 +1377,42 @@ export class PullRequestManager implements vscode.Disposable {
 				message: formatError(e)
 			});
 			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
+		}
+	}
+
+	async createIssue(params: Octokit.IssuesCreateParams): Promise<PullRequestModel | undefined> {
+		try {
+			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
+			if (!repo) {
+				throw new Error(`No matching repository ${params.repo} found for ${params.owner}`);
+			}
+
+			await repo.ensure();
+
+			// Create PR
+			const { data } = await repo.octokit.issues.create(params);
+			const item = convertRESTIssueToRawPullRequest(data, repo);
+			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
+
+
+			/* __GDPR__
+				"issue.create.success" : {
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('issue.create.success');
+			return pullRequestModel;
+		} catch (e) {
+			Logger.appendLine(`GitHubRepository> Creating issue failed: ${formatError(e)}`);
+
+			/* __GDPR__
+				"issue.create.failure" : {
+					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('issue.create.failure', {
+				message: formatError(e)
+			});
+			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
 		}
 	}
 
@@ -2009,32 +2046,35 @@ export class PullRequestManager implements vscode.Disposable {
 
 	//#region Git related APIs
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
-		const githubRepo = this._githubRepositories.find(repo => {
+	private async resolveItem(owner: string, repositoryName: string, pullRequestNumber: number): Promise<GitHubRepository | undefined> {
+		let githubRepo = this._githubRepositories.find(repo => {
 			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
 			return ret;
 		});
 
 		if (!githubRepo) {
-			return;
+			// try to create the repository
+			const uri = `https://github.com/${owner}/${repositoryName}`;
+			githubRepo = new GitHubRepository(new Remote(repositoryName, uri, new Protocol(uri)), this._credentialStore);
+			if (!githubRepo) {
+				return;
+			}
 		}
+		return githubRepo;
+	}
 
-		const pr = await githubRepo.getPullRequest(pullRequestNumber);
-		return pr;
+	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
+		const githubRepo = await this.resolveItem(owner, repositoryName, pullRequestNumber);
+		if (githubRepo) {
+			return githubRepo.getPullRequest(pullRequestNumber);
+		}
 	}
 
 	async resolveIssue(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
-		const githubRepo = this._githubRepositories.find(repo => {
-			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
-			return ret;
-		});
-
-		if (!githubRepo) {
-			return;
+		const githubRepo = await this.resolveItem(owner, repositoryName, pullRequestNumber);
+		if (githubRepo) {
+			return githubRepo.getIssue(pullRequestNumber);
 		}
-
-		const pr = await githubRepo.getIssue(pullRequestNumber);
-		return pr;
 	}
 
 	async resolvePullRequestMergeability(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestMergeability> {
