@@ -323,6 +323,30 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query GetUser($login: String!) {
+	user(login: $login) {
+		login
+		avatarUrl(size: 15)
+		bio
+		name
+		company
+		location
+		contributionsCollection {
+			commitContributionsByRepository(maxRepositories: 50) {
+				contributions(first: 1) {
+					nodes {
+						occurredAt
+					}
+				}
+				repository {
+					nameWithOwner
+				}
+			}
+		}
+		url
+	}
+}
+
 query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {

@@ -11,7 +11,7 @@ import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
 import { GitHubRepository, PullRequestData } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability, User } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -20,8 +20,8 @@ import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse } from './graphql';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse, UserResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
@@ -1973,11 +1973,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 		if (!githubRepo) {
 			// try to create the repository
-			const uri = `https://github.com/${owner}/${repositoryName}`;
-			githubRepo = new GitHubRepository(new Remote(repositoryName, uri, new Protocol(uri)), this._credentialStore);
-			if (!githubRepo) {
-				return;
-			}
+			githubRepo = this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		}
 		return githubRepo;
 	}
@@ -1993,6 +1989,24 @@ export class PullRequestManager implements vscode.Disposable {
 		const githubRepo = await this.resolveItem(owner, repositoryName, pullRequestNumber);
 		if (githubRepo) {
 			return githubRepo.getIssue(pullRequestNumber);
+		}
+	}
+
+	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
+		Logger.debug(`Fetch user ${login}`, PullRequestManager.ID);
+		const githubRepository = this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
+		const { query, schema } = await githubRepository.ensure();
+
+		try {
+			const { data } = await query<UserResponse>({
+				query: schema.GetUser,
+				variables: {
+					login
+				}
+			});
+			return parseGraphQLUser(data);
+		} catch (e) {
+			console.log(e);
 		}
 	}
 
@@ -2103,6 +2117,11 @@ export class PullRequestManager implements vscode.Disposable {
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
 		return new GitHubRepository(remote, credentialStore);
+	}
+
+	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
+		const uri = `https://github.com/${owner}/${name}`;
+		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore);
 	}
 
 	dispose() {

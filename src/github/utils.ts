@@ -6,7 +6,7 @@
 
 import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
-import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone } from './interface';
+import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User } from './interface';
 import { IComment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
@@ -537,6 +537,29 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 	});
 
 	return normalizedEvents;
+}
+
+export function parseGraphQLUser(user: GraphQL.UserResponse): User {
+	return {
+		login: user.user.login,
+		name: user.user.name,
+		avatarUrl: user.user.avatarUrl,
+		url: user.user.url,
+		bio: user.user.bio,
+		company: user.user.company,
+		location: user.user.location,
+		commitContributions: parseGraphQLCommitContributions(user.user.contributionsCollection)
+	};
+}
+
+function parseGraphQLCommitContributions(commitComments: GraphQL.ContributionsCollection): { createdAt: Date, repoNameWithOwner: string }[] {
+	const items: { createdAt: Date, repoNameWithOwner: string }[] = [];
+	commitComments.commitContributionsByRepository.forEach(repoCommits => {
+		repoCommits.contributions.nodes.forEach(commit => {
+			items.push({ createdAt: new Date(commit.occurredAt), repoNameWithOwner: repoCommits.repository.nameWithOwner });
+		});
+	});
+	return items;
 }
 
 export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {

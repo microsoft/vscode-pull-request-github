@@ -125,3 +125,13 @@ export type RepoAccessAndMergeMethods = {
 	hasWritePermission: boolean;
 	mergeMethodsAvailability: MergeMethodsAvailability
 };
+
+export interface User extends IAccount {
+	company?: string;
+	location?: string;
+	bio?: string;
+	commitContributions: {
+		createdAt: Date;
+		repoNameWithOwner: string;
+	}[];
+}

@@ -414,3 +414,29 @@ export interface RateLimit {
 	remaining: number;
 	resetAt: string;
 }
+
+export interface ContributionsCollection {
+	commitContributionsByRepository: {
+		contributions: {
+			nodes: {
+				occurredAt: string;
+			}[];
+		};
+		repository: {
+			nameWithOwner: string;
+		};
+	}[];
+}
+
+export interface UserResponse {
+	user: {
+		login: string;
+		avatarUrl?: string;
+		bio?: string;
+		company?: string;
+		location?: string;
+		name: string;
+		contributionsCollection: ContributionsCollection;
+		url: string;
+	};
+}
