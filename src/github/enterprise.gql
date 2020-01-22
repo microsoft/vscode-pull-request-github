@@ -149,6 +149,20 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 	}
 }
 
+query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Comment
+					...AssignedEvent
+				}
+			}
+		}
+	}
+}
+
 fragment ReviewComment on PullRequestReviewComment {
 	id databaseId url
 	author {
@@ -266,6 +280,57 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 		cost
 		remaining
 		resetAt
+	}
+}
+
+query Issue($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			number
+			url
+			state
+			body
+			bodyHTML
+			title
+			author {
+				login
+				url
+				avatarUrl
+			}
+			createdAt
+			updatedAt
+			labels(first: 50) {
+				nodes {
+					name
+				}
+			}
+			id
+			databaseId
+		}
+	}
+}
+
+query GetUser($login: String!) {
+	user(login: $login) {
+		login
+		avatarUrl(size: 15)
+		bio
+		name
+		company
+		location
+		contributionsCollection {
+			commitContributionsByRepository(maxRepositories: 50) {
+				contributions(first: 1) {
+					nodes {
+						occurredAt
+					}
+				}
+				repository {
+					nameWithOwner
+				}
+			}
+		}
+		url
 	}
 }
 
@@ -443,5 +508,45 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 		cost
 		remaining
 		resetAt
+	}
+}
+
+query Issues($query: String!) {
+	search(first: 100, type: ISSUE, query: $query) {
+		issueCount
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+		edges {
+			node {
+				... on Issue {
+					number
+					url
+					state
+					body
+					bodyHTML
+					title
+					author {
+						login
+						url
+						avatarUrl
+					}
+					createdAt
+					updatedAt
+					labels(first: 50) {
+						nodes {
+							name
+						}
+					}
+					id
+					databaseId
+					milestone {
+						title
+						dueOn
+					}
+				}
+			}
+		}
 	}
 }

@@ -161,12 +161,6 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 			}
 		}
 	}
-	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
-	}
 }
 
 fragment ReviewComment on PullRequestReviewComment {
@@ -314,12 +308,6 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 			id
 			databaseId
 		}
-	}
-	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
 	}
 }
 
@@ -561,11 +549,5 @@ query Issues($query: String!) {
 				}
 			}
 		}
-	}
-	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
 	}
 }
