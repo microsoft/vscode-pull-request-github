@@ -10,19 +10,23 @@ import Timestamp from './timestamp';
 import { PullRequestStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
 
-export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, }: PullRequest) {
+export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue }: PullRequest) {
 	return <>
-		<Title {...{title, number, url, canEdit, isCurrentlyCheckedOut}} />
+		<Title {...{ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }} />
 		<div className='subtitle'>
 			<div id='status'>{getStatus(state, isDraft)}</div>
-			<Avatar for={author} />
+			{(!isIssue)
+				? <Avatar for={author} />
+				: null}
 			<span className='author'>
-				<Spaced>
-					<AuthorLink for={author} />
-					{getActionText(state)}
-					into <code>{base}</code>
-					from <code>{head}</code>
-				</Spaced>.
+				{(!isIssue)
+					? <Spaced>
+						<AuthorLink for={author} />
+						{getActionText(state)}
+						into <code>{base}</code>
+						from <code>{head}</code>
+					</Spaced>
+					: null}
 			</span>
 			<span className='created-at'>
 				<Spaced>
@@ -33,29 +37,29 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 	</>;
 }
 
-function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<PullRequest>) {
-	const [ inEditMode, setEditMode ] = useState(false);
-	const [ showActionBar, setShowActionBar ] = useState(false);
-	const [ currentTitle, setCurrentTitle ] = useStateProp(title);
+function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: Partial<PullRequest>) {
+	const [inEditMode, setEditMode] = useState(false);
+	const [showActionBar, setShowActionBar] = useState(false);
+	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const { setTitle, refresh } = useContext(PullRequestContext);
 	const editableTitle =
 		inEditMode
 			?
-				<form
-					className='editing-form title-editing-form'
-					onSubmit={
-						async evt => {
-							evt.preventDefault();
-							try {
-								const txt = (evt.target as any).text.value;
-								await setTitle(txt);
-								setCurrentTitle(txt);
-							} finally {
-								setEditMode(false);
-							}
+			<form
+				className='editing-form title-editing-form'
+				onSubmit={
+					async evt => {
+						evt.preventDefault();
+						try {
+							const txt = (evt.target as any).text.value;
+							await setTitle(txt);
+							setCurrentTitle(txt);
+						} finally {
+							setEditMode(false);
 						}
 					}
-				>
+				}
+			>
 				<textarea name='text' style={{ width: '100%' }} defaultValue={currentTitle}></textarea>
 				<div className='form-actions'>
 					<button className='secondary'
@@ -63,7 +67,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<P
 					<input type='submit' value='Update' />
 				</div>
 			</form>
-		:
+			:
 			<h2>
 				{currentTitle} (<a href={url}>#{number}</a>)
 			</h2>;
@@ -81,20 +85,20 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut }: Partial<P
 		{
 			(canEdit && showActionBar && !inEditMode)
 				? <div className='flex-action-bar comment-actions'>
-						{<button onClick={() => setEditMode(true)}>{editIcon}</button>}
-					</div>
+					{<button onClick={() => setEditMode(true)}>{editIcon}</button>}
+				</div>
 				: <div className='flex-action-bar comment-actons'></div>
 		}
 		<div className='button-group'>
-			<CheckoutButtons {...{isCurrentlyCheckedOut}} />
+			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue }} />
 			<button onClick={refresh}>Refresh</button>
 		</div>
 	</div>;
 }
 
-const CheckoutButtons = ({ isCurrentlyCheckedOut }) => {
+const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
 	const { exitReviewMode, checkout } = useContext(PullRequestContext);
-	const [ isBusy, setBusy ] = useState(false);
+	const [isBusy, setBusy] = useState(false);
 
 	const onClick = async (command: string) => {
 		try {
@@ -120,8 +124,10 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut }) => {
 			<button aria-live='polite' className='checkedOut' disabled>{checkIcon} Checked Out</button>
 			<button aria-live='polite' disabled={isBusy} onClick={() => onClick('exitReviewMode')}>Exit Review Mode</button>
 		</>;
-	} else {
+	} else if (!isIssue) {
 		return <button aria-live='polite' disabled={isBusy} onClick={() => onClick('checkout')}>Checkout</button>;
+	} else {
+		return null;
 	}
 };
 

@@ -6,7 +6,7 @@
 
 import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
-import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer } from './interface';
+import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User } from './interface';
 import { IComment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
@@ -117,24 +117,59 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 	} = pullRequest;
 
 	const item: PullRequest = {
-			id,
-			graphNodeId: node_id,
-			number,
-			body,
-			title,
-			url: html_url,
-			user: convertRESTUserToAccount(user, githubRepository),
-			state,
-			merged: (pullRequest as Octokit.PullsGetResponse).merged || false,
-			assignee: assignee ? convertRESTUserToAccount(assignee, githubRepository) : undefined,
-			createdAt: created_at,
-			updatedAt: updated_at,
-			head: convertRESTHeadToIGitHubRef(head),
-			base: convertRESTHeadToIGitHubRef(base),
-			mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable ? PullRequestMergeability.Mergeable : PullRequestMergeability.NotMergeable,
-			labels,
-			isDraft: draft,
-			suggestedReviewers: [] // suggested reviewers only available through GraphQL API
+		id,
+		graphNodeId: node_id,
+		number,
+		body,
+		title,
+		url: html_url,
+		user: convertRESTUserToAccount(user, githubRepository),
+		state,
+		merged: (pullRequest as Octokit.PullsGetResponse).merged || false,
+		assignee: assignee ? convertRESTUserToAccount(assignee, githubRepository) : undefined,
+		createdAt: created_at,
+		updatedAt: updated_at,
+		head: convertRESTHeadToIGitHubRef(head),
+		base: convertRESTHeadToIGitHubRef(base),
+		mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable ? PullRequestMergeability.Mergeable : PullRequestMergeability.NotMergeable,
+		labels,
+		isDraft: draft,
+		suggestedReviewers: [] // suggested reviewers only available through GraphQL API
+	};
+
+	return item;
+}
+
+export function convertRESTIssueToRawPullRequest(pullRequest: Octokit.IssuesCreateResponse | Octokit.IssuesGetResponse | Octokit.IssuesListResponseItem, githubRepository: GitHubRepository): PullRequest {
+	const {
+		number,
+		body,
+		title,
+		html_url,
+		user,
+		state,
+		assignee,
+		created_at,
+		updated_at,
+		labels,
+		node_id,
+		id,
+	} = pullRequest;
+
+	const item: PullRequest = {
+		id,
+		graphNodeId: node_id,
+		number,
+		body,
+		title,
+		url: html_url,
+		user: convertRESTUserToAccount(user, githubRepository),
+		state,
+		assignee: assignee ? convertRESTUserToAccount(assignee, githubRepository) : undefined,
+		createdAt: created_at,
+		updatedAt: updated_at,
+		labels,
+		suggestedReviewers: [] // suggested reviewers only available through GraphQL API
 	};
 
 	return item;
@@ -266,7 +301,7 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 	const reactionConentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
 		prev[curr.title] = curr;
 		return prev;
-	}, {} as { [key:string] : { title: string; label: string; icon?: vscode.Uri } });
+	}, {} as { [key: string]: { title: string; label: string; icon?: vscode.Uri } });
 
 	const reactions = reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
 		const reaction: Reaction = {
@@ -295,11 +330,21 @@ function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
 	}
 }
 
-function parseAuthor(author: {login: string, url: string, avatarUrl: string}, githubRepository: GitHubRepository): IAccount {
+function parseAuthor(author: { login: string, url: string, avatarUrl: string }, githubRepository: GitHubRepository): IAccount {
 	return {
 		login: author.login,
 		url: author.url,
 		avatarUrl: githubRepository.isGitHubDotCom ? author.avatarUrl : undefined
+	};
+}
+
+function parseMilestone(milestone: { title: string, dueOn?: string } | undefined): IMilestone | undefined {
+	if (!milestone) {
+		return undefined;
+	}
+	return {
+		title: milestone.title,
+		dueOn: milestone.dueOn
 	};
 }
 
@@ -336,7 +381,36 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 	};
 }
 
-function parseSuggestedReviewers(suggestedReviewers: GraphQL.SuggestedReviewerResponse[]): ISuggestedReviewer[] {
+export function parseGraphQLSearchRequest(pullRequest: GraphQL.PullRequest, githubRepository: GitHubRepository): PullRequest {
+	const graphQLPullRequest = pullRequest;
+
+	return {
+		id: graphQLPullRequest.databaseId,
+		graphNodeId: graphQLPullRequest.id,
+		url: graphQLPullRequest.url,
+		number: graphQLPullRequest.number,
+		state: graphQLPullRequest.state,
+		body: graphQLPullRequest.body,
+		bodyHTML: graphQLPullRequest.bodyHTML,
+		title: graphQLPullRequest.title,
+		createdAt: graphQLPullRequest.createdAt,
+		updatedAt: graphQLPullRequest.updatedAt,
+		head: parseRef(graphQLPullRequest.headRef),
+		base: parseRef(graphQLPullRequest.baseRef),
+		user: parseAuthor(graphQLPullRequest.author, githubRepository),
+		merged: graphQLPullRequest.merged,
+		mergeable: parseMergeability(graphQLPullRequest.mergeable),
+		labels: graphQLPullRequest.labels.nodes,
+		isDraft: graphQLPullRequest.isDraft,
+		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
+		milestone: parseMilestone(graphQLPullRequest.milestone)
+	};
+}
+
+function parseSuggestedReviewers(suggestedReviewers: GraphQL.SuggestedReviewerResponse[] | undefined): ISuggestedReviewer[] {
+	if (!suggestedReviewers) {
+		return [];
+	}
 	const ret: ISuggestedReviewer[] = suggestedReviewers.map(suggestedReviewer => {
 		return {
 			login: suggestedReviewer.reviewer.login,
@@ -356,7 +430,7 @@ function parseSuggestedReviewers(suggestedReviewers: GraphQL.SuggestedReviewerRe
  */
 export function loginComparator(a: IAccount, b: IAccount) {
 	// sensitivity: 'accent' allows case insensitive comparison
-	return a.login.localeCompare(b.login, 'en', {sensitivity: 'accent'});
+	return a.login.localeCompare(b.login, 'en', { sensitivity: 'accent' });
 }
 
 export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubRepository: GitHubRepository): Common.ReviewEvent {
@@ -463,6 +537,29 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 	});
 
 	return normalizedEvents;
+}
+
+export function parseGraphQLUser(user: GraphQL.UserResponse): User {
+	return {
+		login: user.user.login,
+		name: user.user.name,
+		avatarUrl: user.user.avatarUrl,
+		url: user.user.url,
+		bio: user.user.bio,
+		company: user.user.company,
+		location: user.user.location,
+		commitContributions: parseGraphQLCommitContributions(user.user.contributionsCollection)
+	};
+}
+
+function parseGraphQLCommitContributions(commitComments: GraphQL.ContributionsCollection): { createdAt: Date, repoNameWithOwner: string }[] {
+	const items: { createdAt: Date, repoNameWithOwner: string }[] = [];
+	commitComments.commitContributionsByRepository.forEach(repoCommits => {
+		repoCommits.contributions.nodes.forEach(commit => {
+			items.push({ createdAt: new Date(commit.occurredAt), repoNameWithOwner: repoCommits.repository.nameWithOwner });
+		});
+	});
+	return items;
 }
 
 export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {

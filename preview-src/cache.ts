@@ -41,6 +41,7 @@ export interface PullRequest {
 	mergeMethodsAvailability: MergeMethodsAvailability;
 	reviewers: ReviewState[];
 	isDraft?: boolean;
+	isIssue: boolean;
 }
 
 export function getState(): PullRequest {

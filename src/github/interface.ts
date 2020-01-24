@@ -44,6 +44,11 @@ export interface ISuggestedReviewer extends IAccount {
 	isCommenter: boolean;
 }
 
+export interface IMilestone {
+	title: string;
+	dueOn?: string | null;
+}
+
 export interface MergePullRequest {
 	sha: string;
 	merged: boolean;
@@ -82,10 +87,11 @@ export interface PullRequest {
 	base?: IGitHubRef;
 	user: IAccount;
 	labels: ILabel[];
-	merged: boolean;
-	mergeable: PullRequestMergeability;
+	merged?: boolean;
+	mergeable?: PullRequestMergeability;
 	isDraft?: boolean;
-	suggestedReviewers: ISuggestedReviewer[];
+	suggestedReviewers?: ISuggestedReviewer[];
+	milestone?: IMilestone;
 }
 
 export interface IRawFileChange {
@@ -119,3 +125,13 @@ export type RepoAccessAndMergeMethods = {
 	hasWritePermission: boolean;
 	mergeMethodsAvailability: MergeMethodsAvailability
 };
+
+export interface User extends IAccount {
+	company?: string;
+	location?: string;
+	bio?: string;
+	commitContributions: {
+		createdAt: Date;
+		repoNameWithOwner: string;
+	}[];
+}

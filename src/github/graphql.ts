@@ -351,36 +351,56 @@ export interface SuggestedReviewerResponse {
 	};
 }
 
+export interface PullRequest {
+	id: string;
+	databaseId: number;
+	number: number;
+	url: string;
+	state: 'OPEN' | 'CLOSED' | 'MERGED';
+	body: string;
+	bodyHTML: string;
+	title: string;
+	author: {
+		login: string;
+		url: string;
+		avatarUrl: string;
+	};
+	createdAt: string;
+	updatedAt: string;
+	headRef?: Ref;
+	baseRef?: Ref;
+	labels: {
+		nodes: {
+			name: string;
+		}[];
+	};
+	merged: boolean;
+	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+	isDraft?: boolean;
+	suggestedReviewers: SuggestedReviewerResponse[];
+	milestone?: {
+		title: string,
+		dueOn?: string
+	};
+}
+
 export interface PullRequestResponse {
 	repository: {
-		pullRequest: {
-			id: string;
-			databaseId: number;
-			number: number;
-			url: string;
-			state: 'OPEN' | 'CLOSED' | 'MERGED';
-			body: string;
-			bodyHTML: string;
-			title: string;
-			author: {
-				login: string;
-				url: string;
-				avatarUrl: string;
-			}
-			createdAt: string;
-			updatedAt: string;
-			headRef?: Ref;
-			baseRef?: Ref;
-			labels: {
-				nodes: {
-					name: string;
-				}[];
-			}
-			merged: boolean;
-			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
-			isDraft?: boolean;
-			suggestedReviewers: SuggestedReviewerResponse[];
-		}
+		pullRequest: PullRequest;
+	};
+	rateLimit: RateLimit;
+}
+
+export interface PullRequestSearchResponse {
+	search: {
+		issueCount: number,
+		pageInfo: {
+			hasNextPage: boolean
+			endCursor: string
+		},
+		edges: {
+			node: PullRequest
+		}[]
 	};
 	rateLimit: RateLimit;
 }
@@ -393,4 +413,30 @@ export interface RateLimit {
 	cost: number;
 	remaining: number;
 	resetAt: string;
+}
+
+export interface ContributionsCollection {
+	commitContributionsByRepository: {
+		contributions: {
+			nodes: {
+				occurredAt: string;
+			}[];
+		};
+		repository: {
+			nameWithOwner: string;
+		};
+	}[];
+}
+
+export interface UserResponse {
+	user: {
+		login: string;
+		avatarUrl?: string;
+		bio?: string;
+		company?: string;
+		location?: string;
+		name: string;
+		contributionsCollection: ContributionsCollection;
+		url: string;
+	};
 }

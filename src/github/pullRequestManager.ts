@@ -11,7 +11,7 @@ import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
 import { GitHubRepository, PullRequestData } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability, User } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -20,10 +20,11 @@ import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse } from './graphql';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse, UserResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
+import { Protocol } from '../common/protocol';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -673,7 +674,7 @@ export class PullRequestManager implements vscode.Disposable {
 	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
 	 *   Otherwise, we're in case 3.
 	 */
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<PullRequestsResponseResult> {
+	private async fetchPagedData(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, isPullRequest: boolean, type: PRType = PRType.All, query?: string): Promise<PullRequestsResponseResult> {
 		if (!this._githubRepositories || !this._githubRepositories.length) {
 			return {
 				pullRequests: [],
@@ -682,7 +683,6 @@ export class PullRequestManager implements vscode.Disposable {
 			};
 		}
 
-		const queryId = type.toString() + (query || '');
 		const getTotalFetchedPages = () => this.totalFetchedPages.get(queryId) || 0;
 		const setTotalFetchedPages = (numPages: number) => this.totalFetchedPages.set(queryId, numPages);
 
@@ -717,10 +717,17 @@ export class PullRequestManager implements vscode.Disposable {
 			const remoteId = githubRepository.remote.url.toString() + queryId;
 			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
 
-			const fetchPage = async (pageNumber: number) =>
-				type === PRType.All
-					? await githubRepository.getAllPullRequests(pageNumber)
-					: await githubRepository.getPullRequestsForCategory(query || '', pageNumber);
+			const fetchPage = async (pageNumber: number): Promise<PullRequestData | undefined> => {
+				if (isPullRequest) {
+					if (type === PRType.All) {
+						return githubRepository.getAllPullRequests(pageNumber);
+					} else {
+						return githubRepository.getPullRequestsForCategory(query || '', pageNumber);
+					}
+				} else {
+					githubRepository.getAllIssues(pageInformation.pullRequestPage);
+				}
+			};
 
 			if (options.fetchNextPage) {
 				// Case 2. Fetch a single new page, and increment the global number of pages fetched for this query.
@@ -769,6 +776,15 @@ export class PullRequestManager implements vscode.Disposable {
 			hasMorePages: false,
 			hasUnsearchedRepositories: false
 		};
+	}
+
+	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<PullRequestsResponseResult> {
+		const queryId = type.toString() + (query || '');
+		return this.fetchPagedData(options, queryId, true, type, query);
+	}
+
+	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<PullRequestsResponseResult> {
+		return this.fetchPagedData(options, 'issuesKey', false);
 	}
 
 	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse | undefined> {
@@ -890,6 +906,30 @@ export class PullRequestManager implements vscode.Disposable {
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = parseGraphQLTimelineEvents(ret, githubRepository);
 			await this.addReviewTimelineEventComments(pullRequest, events);
+
+			return events;
+		} catch (e) {
+			console.log(e);
+			return [];
+		}
+	}
+
+	async getIssueTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of PR #${pullRequest.prNumber} - enter`, PullRequestManager.ID);
+		const githubRepository = pullRequest.githubRepository;
+		const { query, remote, schema } = await githubRepository.ensure();
+
+		try {
+			const { data } = await query<TimelineEventsResponse>({
+				query: schema.IssueTimelineEvents,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: pullRequest.prNumber
+				}
+			});
+			const ret = data.repository.pullRequest.timelineItems.nodes;
+			const events = parseGraphQLTimelineEvents(ret, githubRepository);
 
 			return events;
 		} catch (e) {
@@ -1257,6 +1297,41 @@ export class PullRequestManager implements vscode.Disposable {
 				message: formatError(e)
 			});
 			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
+		}
+	}
+
+	async createIssue(params: Octokit.IssuesCreateParams): Promise<PullRequestModel | undefined> {
+		try {
+			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
+			if (!repo) {
+				throw new Error(`No matching repository ${params.repo} found for ${params.owner}`);
+			}
+
+			await repo.ensure();
+
+			// Create PR
+			const { data } = await repo.octokit.issues.create(params);
+			const item = convertRESTIssueToRawPullRequest(data, repo);
+			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
+
+			/* __GDPR__
+				"issue.create.success" : {
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('issue.create.success');
+			return pullRequestModel;
+		} catch (e) {
+			Logger.appendLine(`GitHubRepository> Creating issue failed: ${formatError(e)}`);
+
+			/* __GDPR__
+				"issue.create.failure" : {
+					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('issue.create.failure', {
+				message: formatError(e)
+			});
+			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
 		}
 	}
 
@@ -1890,18 +1965,49 @@ export class PullRequestManager implements vscode.Disposable {
 
 	//#region Git related APIs
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
-		const githubRepo = this._githubRepositories.find(repo => {
+	private async resolveItem(owner: string, repositoryName: string, pullRequestNumber: number): Promise<GitHubRepository | undefined> {
+		let githubRepo = this._githubRepositories.find(repo => {
 			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
 			return ret;
 		});
 
 		if (!githubRepo) {
-			return;
+			// try to create the repository
+			githubRepo = this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		}
+		return githubRepo;
+	}
 
-		const pr = await githubRepo.getPullRequest(pullRequestNumber);
-		return pr;
+	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
+		const githubRepo = await this.resolveItem(owner, repositoryName, pullRequestNumber);
+		if (githubRepo) {
+			return githubRepo.getPullRequest(pullRequestNumber);
+		}
+	}
+
+	async resolveIssue(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
+		const githubRepo = await this.resolveItem(owner, repositoryName, pullRequestNumber);
+		if (githubRepo) {
+			return githubRepo.getIssue(pullRequestNumber);
+		}
+	}
+
+	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
+		Logger.debug(`Fetch user ${login}`, PullRequestManager.ID);
+		const githubRepository = this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
+		const { query, schema } = await githubRepository.ensure();
+
+		try {
+			const { data } = await query<UserResponse>({
+				query: schema.GetUser,
+				variables: {
+					login
+				}
+			});
+			return parseGraphQLUser(data);
+		} catch (e) {
+			console.log(e);
+		}
 	}
 
 	async resolvePullRequestMergeability(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestMergeability> {
@@ -2011,6 +2117,11 @@ export class PullRequestManager implements vscode.Disposable {
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
 		return new GitHubRepository(remote, credentialStore);
+	}
+
+	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
+		const uri = `https://github.com/${owner}/${name}`;
+		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore);
 	}
 
 	dispose() {
