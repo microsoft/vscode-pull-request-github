@@ -6,9 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import Octokit = require('@octokit/rest');
-import { PullRequestStateEnum, ReviewEvent, ReviewState, ILabel, IAccount, MergeMethodsAvailability, MergeMethod, PullRequestMergeability, ISuggestedReviewer } from './interface';
-import { onDidUpdatePR } from '../commands';
+import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, PullRequestMergeability, ISuggestedReviewer } from './interface';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../api/api';
 import { IComment } from '../common/comment';
@@ -19,39 +17,23 @@ import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { PullRequestManager } from './pullRequestManager';
 import { PullRequestModel } from './pullRequestModel';
 import { TimelineEvent, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
+import { issueAsPullRequest } from './utils';
+import { IssueOverviewPanel, IRequestMessage } from './issueOverview';
 
-interface IRequestMessage<T> {
-	req: string;
-	command: string;
-	args: T;
-}
-
-interface IReplyMessage {
-	seq?: string;
-	err?: any;
-	res?: any;
-}
-
-export class PullRequestOverviewPanel {
+export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	public static ID: string = 'PullRequestOverviewPanel';
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
 	public static currentPanel?: PullRequestOverviewPanel;
 
-	private static readonly _viewType = 'PullRequestOverview';
+	protected static readonly _viewType: string = 'PullRequestOverview';
 
-	private readonly _panel: vscode.WebviewPanel;
-	private readonly _extensionPath: string;
-	private _disposables: vscode.Disposable[] = [];
-	private _descriptionNode: DescriptionNode;
-	private _pullRequest: PullRequestModel;
+	protected _item: PullRequestModel;
 	private _repositoryDefaultBranch: string;
-	private _pullRequestManager: PullRequestManager;
-	private _scrollPosition = { x: 0, y: 0 };
 	private _existingReviewers: ReviewState[];
 
-	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, issue: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -63,11 +45,15 @@ export class PullRequestOverviewPanel {
 		if (PullRequestOverviewPanel.currentPanel) {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
-			const title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
+			const title = `Pull Request #${issue.githubNumber.toString()}`;
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
 		}
 
-		await PullRequestOverviewPanel.currentPanel!.update(pullRequestModel, descriptionNode);
+		await PullRequestOverviewPanel.currentPanel!.update(issue, descriptionNode);
+	}
+
+	protected set _currentPanel(panel: PullRequestOverviewPanel | undefined) {
+		PullRequestOverviewPanel.currentPanel = panel;
 	}
 
 	public static refresh(): void {
@@ -76,66 +62,16 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
-		this._extensionPath = extensionPath;
-		this._pullRequestManager = pullRequestManager;
-		this._descriptionNode = descriptionNode;
-
-		// Create and show a new webview panel
-		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel._viewType, title, column, {
-			// Enable javascript in the webview
-			enableScripts: true,
-			retainContextWhenHidden: true,
-
-			// And restrict the webview to only loading content from our extension's `media` directory.
-			localResourceRoots: [
-				vscode.Uri.file(path.join(this._extensionPath, 'media'))
-			]
-		});
-
-		// Listen for when the panel is disposed
-		// This happens when the user closes the panel or when the panel is closed programatically
-		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-
-		// Handle messages from the webview
-		this._panel.webview.onDidReceiveMessage(async message => {
-			await this._onDidReceiveMessage(message);
-		}, null, this._disposables);
-
-		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
-			if (this._pullRequestManager && this._pullRequest) {
-				const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
-				this._postMessage({
-					command: 'pr.update-checkout-status',
-					isCurrentlyCheckedOut: isCurrentlyCheckedOut
-				});
-			}
-		}, null, this._disposables);
-
-		onDidUpdatePR(pr => {
-			if (pr) {
-				this._pullRequest.update(pr);
-			}
-
-			this._postMessage({
-				command: 'update-state',
-				state: this._pullRequest.state,
-			});
-		}, null, this._disposables);
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
+		super(extensionPath, column, title, pullRequestManager, descriptionNode, PullRequestOverviewPanel._viewType);
 	}
 
 	private async checkMergeability(): Promise<PullRequestMergeability> {
 		return this._pullRequestManager.resolvePullRequestMergeability(
-			this._pullRequest.remote.owner,
-			this._pullRequest.remote.repositoryName,
-			this._pullRequest.prNumber
+			this._item.remote.owner,
+			this._item.remote.repositoryName,
+			this._item.githubNumber
 		);
-	}
-
-	public async refreshPanel(): Promise<void> {
-		if (this._panel && this._panel.visible) {
-			this.update(this._pullRequest, this._descriptionNode);
-		}
 	}
 
 	/**
@@ -200,7 +136,7 @@ export class PullRequestOverviewPanel {
 			this._pullRequestManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
 				pullRequestModel.remote.repositoryName,
-				pullRequestModel.prNumber
+				pullRequestModel.githubNumber
 			),
 			this._pullRequestManager.getTimelineEvents(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
@@ -210,107 +146,50 @@ export class PullRequestOverviewPanel {
 		]).then(result => {
 			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, { hasWritePermission, mergeMethodsAvailability }] = result;
 			if (!pullRequest) {
-				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
+				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.githubNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
 
-			this._pullRequest = pullRequest;
+			this._item = pullRequest;
 			this._repositoryDefaultBranch = defaultBranch;
-			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
+			this._panel.title = `Pull Request #${pullRequestModel.githubNumber.toString()}`;
 
-			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
-			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._pullRequest);
+			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activeItem);
+			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._item);
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
-			const defaultMergeMethod = getDetaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: {
-					number: this._pullRequest.prNumber,
-					title: this._pullRequest.title,
-					url: this._pullRequest.html_url,
-					createdAt: this._pullRequest.createdAt,
-					body: this._pullRequest.body,
-					bodyHTML: this._pullRequest.bodyHTML,
-					labels: this._pullRequest.prItem.labels,
+					number: pullRequest.githubNumber,
+					title: pullRequest.title,
+					url: pullRequest.html_url,
+					createdAt: pullRequest.createdAt,
+					body: pullRequest.body,
+					bodyHTML: pullRequest.bodyHTML,
+					labels: pullRequest.item.labels,
 					author: {
-						login: this._pullRequest.author.login,
-						name: this._pullRequest.author.name,
-						avatarUrl: this._pullRequest.userAvatar,
-						url: this._pullRequest.author.url
+						login: pullRequest.author.login,
+						name: pullRequest.author.name,
+						avatarUrl: pullRequest.userAvatar,
+						url: pullRequest.author.url
 					},
-					state: this._pullRequest.state,
+					state: pullRequest.state,
 					events: timelineEvents,
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					base: this._pullRequest.base && this._pullRequest.base.label || 'UNKNOWN',
-					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
+					base: pullRequest.base && pullRequest.base.label || 'UNKNOWN',
+					head: pullRequest.head && pullRequest.head.label || 'UNKNOWN',
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
 					hasWritePermission,
 					status: status ? status : { statuses: [] },
-					mergeable: this._pullRequest.prItem.mergeable,
-					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, this._pullRequest.author),
-					isDraft: this._pullRequest.isDraft,
+					mergeable: pullRequest.item.mergeable,
+					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, pullRequest.author),
+					isDraft: pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
 					isIssue: false
-				}
-			});
-		}).catch(e => {
-			vscode.window.showErrorMessage(formatError(e));
-		});
-	}
-
-	public async updateIssue(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
-		return Promise.all([
-			this._pullRequestManager.resolveIssue(
-				pullRequestModel.remote.owner,
-				pullRequestModel.remote.repositoryName,
-				pullRequestModel.prNumber
-			),
-			this._pullRequestManager.getIssueTimelineEvents(pullRequestModel),
-			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-			this._pullRequestManager.getStatusChecks(pullRequestModel)
-		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch, status] = result;
-			if (!pullRequest) {
-				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.prNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
-			}
-
-			this._pullRequest = pullRequest;
-			this._repositoryDefaultBranch = defaultBranch;
-			this._panel.title = `Pull Request #${pullRequestModel.prNumber.toString()}`;
-
-			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
-
-			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			this._postMessage({
-				command: 'pr.initialize',
-				pullrequest: {
-					number: this._pullRequest.prNumber,
-					title: this._pullRequest.title,
-					url: this._pullRequest.html_url,
-					createdAt: this._pullRequest.createdAt,
-					body: this._pullRequest.body,
-					bodyHTML: this._pullRequest.bodyHTML,
-					labels: this._pullRequest.prItem.labels,
-					author: {
-						login: this._pullRequest.author.login,
-						name: this._pullRequest.author.name,
-						avatarUrl: this._pullRequest.userAvatar,
-						url: this._pullRequest.author.url
-					},
-					state: this._pullRequest.state,
-					events: timelineEvents,
-					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					base: this._pullRequest.base && this._pullRequest.base.label || 'UNKNOWN',
-					head: this._pullRequest.head && this._pullRequest.head.label || 'UNKNOWN',
-					repositoryDefaultBranch: defaultBranch,
-					canEdit: true,
-					status: status ? status : { statuses: [] },
-					mergeable: this._pullRequest.prItem.mergeable,
-					isDraft: this._pullRequest.isDraft,
-					isIssue: true
 				}
 			});
 		}).catch(e => {
@@ -325,42 +204,17 @@ export class PullRequestOverviewPanel {
 			scrollPosition: this._scrollPosition,
 		});
 
-		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.prNumber.toString());
+		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.githubNumber.toString());
 
-		if (pullRequestModel.isIssue) {
-			return this.updateIssue(pullRequestModel, descriptionNode);
-		} else {
-			return this.updatePullRequest(pullRequestModel, descriptionNode);
+		return this.updatePullRequest(pullRequestModel, descriptionNode);
+	}
+
+	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+		const result = await super._onDidReceiveMessage(message);
+		if (result !== this.MESSAGE_UNHANDLED) {
+			return;
 		}
-	}
-
-	private async _postMessage(message: any) {
-		this._panel.webview.postMessage({
-			res: message
-		});
-	}
-
-	private async _replyMessage(originalMessage: IRequestMessage<any>, message: any) {
-		const reply: IReplyMessage = {
-			seq: originalMessage.req,
-			res: message
-		};
-		this._panel.webview.postMessage(reply);
-	}
-
-	private async _throwError(originalMessage: IRequestMessage<any>, error: any) {
-		const reply: IReplyMessage = {
-			seq: originalMessage.req,
-			err: error
-		};
-		this._panel.webview.postMessage(reply);
-	}
-
-	private async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		switch (message.command) {
-			case 'alert':
-				vscode.window.showErrorMessage(message.args);
-				return;
 			case 'pr.checkout':
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
@@ -369,8 +223,6 @@ export class PullRequestOverviewPanel {
 				return this.deleteBranch(message);
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
-			case 'pr.close':
-				return this.closePullRequest(message);
 			case 'pr.approve':
 				return this.approvePullRequest(message);
 			case 'pr.request-changes':
@@ -379,38 +231,16 @@ export class PullRequestOverviewPanel {
 				return this.submitReview(message);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
-			case 'pr.comment':
-				return this.createComment(message);
-			case 'scroll':
-				this._scrollPosition = message.args;
-				return;
-			case 'pr.edit-comment':
-				return this.editComment(message);
-			case 'pr.delete-comment':
-				return this.deleteComment(message);
-			case 'pr.edit-description':
-				return this.editDescription(message);
 			case 'pr.apply-patch':
 				return this.applyPatch(message);
 			case 'pr.open-diff':
 				return this.openDiff(message);
-			case 'pr.edit-title':
-				return this.editTitle(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this.checkMergeability());
-			case 'pr.refresh':
-				this.refreshPanel();
-				return;
 			case 'pr.add-reviewers':
 				return this.addReviewers(message);
 			case 'pr.remove-reviewer':
 				return this.removeReviewer(message);
-			case 'pr.add-labels':
-				return this.addLabels(message);
-			case 'pr.remove-label':
-				return this.removeLabel(message);
-			case 'pr.debug':
-				return this.webviewDebug(message);
 		}
 	}
 
@@ -421,7 +251,7 @@ export class PullRequestOverviewPanel {
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([
-			this._pullRequest.author.login,
+			this._item.author.login,
 			...this._existingReviewers.map(reviewer => reviewer.reviewer.login)
 		]);
 
@@ -464,12 +294,15 @@ export class PullRequestOverviewPanel {
 	}
 
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
+		if (!issueAsPullRequest(this._item)) {
+			return;
+		}
 		try {
 			const allAssignableUsers = await this._pullRequestManager.getAssignableUsers();
-			const assignableUsers = allAssignableUsers[this._pullRequest.remote.remoteName];
+			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
 
 			const reviewersToAdd = await vscode.window.showQuickPick(
-				this.getReviewersQuickPickItems(assignableUsers, this._pullRequest.suggestedReviewers),
+				this.getReviewersQuickPickItems(assignableUsers, this._item.suggestedReviewers),
 				{
 					canPickMany: true,
 					matchOnDescription: true
@@ -477,7 +310,7 @@ export class PullRequestOverviewPanel {
 			);
 
 			if (reviewersToAdd) {
-				await this._pullRequestManager.requestReview(this._pullRequest, reviewersToAdd.map(r => r.label));
+				await this._pullRequestManager.requestReview(this._item, reviewersToAdd.map(r => r.label));
 				const addedReviewers: ReviewState[] = reviewersToAdd.map(reviewer => {
 					return {
 						// assumes that suggested reviewers will be a subset of assignable users
@@ -497,8 +330,11 @@ export class PullRequestOverviewPanel {
 	}
 
 	private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
+		if (!issueAsPullRequest(this._item)) {
+			return;
+		}
 		try {
-			await this._pullRequestManager.deleteRequestedReview(this._pullRequest, message.args);
+			await this._pullRequestManager.deleteRequestedReview(this._item, message.args);
 
 			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
 			this._existingReviewers.splice(index, 1);
@@ -507,54 +343,6 @@ export class PullRequestOverviewPanel {
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
-	}
-
-	private async addLabels(message: IRequestMessage<void>): Promise<void> {
-		try {
-			let newLabels: ILabel[] = [];
-			async function getLabelOptions(prManager: PullRequestManager, pr: PullRequestModel): Promise<vscode.QuickPickItem[]> {
-				const allLabels = await prManager.getLabels(pr);
-				newLabels = allLabels.filter(l => !pr.prItem.labels.some(label => label.name === l.name));
-
-				return newLabels.map(label => {
-					return {
-						label: label.name
-					};
-				});
-			}
-
-			const labelsToAdd = await vscode.window.showQuickPick(await getLabelOptions(this._pullRequestManager, this._pullRequest), { canPickMany: true });
-
-			if (labelsToAdd) {
-				await this._pullRequestManager.addLabels(this._pullRequest, labelsToAdd.map(r => r.label));
-				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
-
-				this._pullRequest.prItem.labels = this._pullRequest.prItem.labels.concat(...addedLabels);
-
-				this._replyMessage(message, {
-					added: addedLabels
-				});
-			}
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-		}
-	}
-
-	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
-		try {
-			await this._pullRequestManager.removeLabel(this._pullRequest, message.args);
-
-			const index = this._pullRequest.prItem.labels.findIndex(label => label.name === message.args);
-			this._pullRequest.prItem.labels.splice(index, 1);
-
-			this._replyMessage(message, {});
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-		}
-	}
-
-	private webviewDebug(message: IRequestMessage<string>): void {
-		Logger.debug(message.args, PullRequestOverviewPanel.ID);
 	}
 
 	private applyPatch(message: IRequestMessage<{ comment: IComment }>): void {
@@ -605,72 +393,22 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private editDescription(message: IRequestMessage<{ text: string }>) {
-		this._pullRequestManager.editPullRequest(this._pullRequest, { body: message.args.text }).then(result => {
-			this._replyMessage(message, { body: result.body, bodyHTML: result.bodyHTML });
-		}).catch(e => {
-			this._throwError(message, e);
-			vscode.window.showErrorMessage(`Editing description failed: ${formatError(e)}`);
-		});
-
-	}
-	private editTitle(message: IRequestMessage<{ text: string }>) {
-		this._pullRequestManager.editPullRequest(this._pullRequest, { title: message.args.text }).then(result => {
-			this._replyMessage(message, { text: result.title });
-		}).catch(e => {
-			this._throwError(message, e);
-			vscode.window.showErrorMessage(`Editing title failed: ${formatError(e)}`);
-		});
-	}
-
-	private editComment(message: IRequestMessage<{ comment: IComment, text: string }>) {
-		const { comment, text } = message.args;
-		const editCommentPromise = comment.pullRequestReviewId !== undefined
-			? this._pullRequestManager.editReviewComment(this._pullRequest, comment, text)
-			: this._pullRequestManager.editIssueComment(this._pullRequest, comment, text);
-
-		editCommentPromise.then(result => {
-			this._replyMessage(message, {
-				body: result.body,
-				bodyHTML: result.bodyHTML
-			});
-		}).catch(e => {
-			this._throwError(message, e);
-			vscode.window.showErrorMessage(formatError(e));
-		});
-	}
-
-	private deleteComment(message: IRequestMessage<IComment>) {
-		const comment = message.args;
-		vscode.window.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete').then(value => {
-			if (value === 'Delete') {
-				const deleteCommentPromise = comment.pullRequestReviewId !== undefined
-					? this._pullRequestManager.deleteReviewComment(this._pullRequest, comment.id.toString())
-					: this._pullRequestManager.deleteIssueComment(this._pullRequest, comment.id.toString());
-
-				deleteCommentPromise.then(result => {
-					this._replyMessage(message, {});
-				}).catch(e => {
-					this._throwError(message, e);
-					vscode.window.showErrorMessage(formatError(e));
-				});
-			}
-		});
-	}
-
 	private checkoutPullRequest(message: IRequestMessage<any>): void {
-		vscode.commands.executeCommand('pr.pick', this._pullRequest).then(() => {
-			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+		vscode.commands.executeCommand('pr.pick', this._item).then(() => {
+			const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeItem);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 		}, () => {
-			const isCurrentlyCheckedOut = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+			const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeItem);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 		});
 	}
 
 	private mergePullRequest(message: IRequestMessage<{ title: string, description: string, method: 'merge' | 'squash' | 'rebase' }>): void {
 		const { title, description, method } = message.args;
-		this._pullRequestManager.mergePullRequest(this._pullRequest, title, description, method).then(result => {
+		if (!issueAsPullRequest(this._item)) {
+			return;
+		}
+		this._pullRequestManager.mergePullRequest(this._item, title, description, method).then(result => {
 			vscode.commands.executeCommand('pr.refreshList');
 
 			if (!result.merged) {
@@ -678,7 +416,7 @@ export class PullRequestOverviewPanel {
 			}
 
 			this._replyMessage(message, {
-				state: result.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Open
+				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open
 			});
 		}).catch(e => {
 			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
@@ -687,15 +425,15 @@ export class PullRequestOverviewPanel {
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {
-		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._pullRequest);
+		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._item);
 		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
 
-		if (this._pullRequest.isResolved()) {
-			const branchHeadRef = this._pullRequest.head.ref;
+		if (this._item.isResolved()) {
+			const branchHeadRef = this._item.head.ref;
 
 			actions.push({
-				label: `Delete remote branch ${this._pullRequest.remote.remoteName}/${branchHeadRef}`,
-				description: `${this._pullRequest.remote.normalizedHost}/${this._pullRequest.remote.owner}/${this._pullRequest.remote.repositoryName}`,
+				label: `Delete remote branch ${this._item.remote.remoteName}/${branchHeadRef}`,
+				description: `${this._item.remote.normalizedHost}/${this._item.remote.owner}/${this._item.remote.repositoryName}`,
 				type: 'upstream',
 				picked: true
 			});
@@ -721,7 +459,7 @@ export class PullRequestOverviewPanel {
 		}
 
 		if (!actions.length) {
-			vscode.window.showWarningMessage(`There is no longer an upstream or local branch for Pull Request #${this._pullRequest.prNumber}`);
+			vscode.window.showWarningMessage(`There is no longer an upstream or local branch for Pull Request #${this._item.githubNumber}`);
 			this._replyMessage(message, {
 				cancelled: true
 			});
@@ -735,12 +473,12 @@ export class PullRequestOverviewPanel {
 		});
 
 		if (selectedActions) {
-			const isBranchActive = this._pullRequest.equals(this._pullRequestManager.activePullRequest);
+			const isBranchActive = this._item.equals(this._pullRequestManager.activeItem);
 
 			const promises = selectedActions.map(async (action) => {
 				switch (action.type) {
 					case 'upstream':
-						return this._pullRequestManager.deleteBranch(this._pullRequest);
+						return this._pullRequestManager.deleteBranch(this._item);
 					case 'local':
 						if (isBranchActive) {
 							if (this._pullRequestManager.repository.state.workingTreeChanges.length) {
@@ -775,23 +513,13 @@ export class PullRequestOverviewPanel {
 	}
 
 	private setReadyForReview(message: IRequestMessage<{}>): void {
-		this._pullRequestManager.setReadyForReview(this._pullRequest).then(isDraft => {
+		this._pullRequestManager.setReadyForReview(this._item).then(isDraft => {
 			vscode.commands.executeCommand('pr.refreshList');
 
 			this._replyMessage(message, { isDraft });
 		}).catch(e => {
 			vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
 			this._throwError(message, {});
-		});
-	}
-
-	private closePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Octokit.PullsGetResponse>('pr.close', this._pullRequest, message.args).then(comment => {
-			if (comment) {
-				this._replyMessage(message, {
-					value: comment
-				});
-			}
 		});
 	}
 
@@ -822,14 +550,6 @@ export class PullRequestOverviewPanel {
 		}
 	}
 
-	private createComment(message: IRequestMessage<string>) {
-		this._pullRequestManager.createIssueComment(this._pullRequest, message.args).then(comment => {
-			this._replyMessage(message, {
-				value: comment
-			});
-		});
-	}
-
 	private updateReviewers(review?: CommonReviewEvent): void {
 		if (review) {
 			const existingReviewer = this._existingReviewers.find(reviewer => review.user.login === reviewer.reviewer.login);
@@ -845,7 +565,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<CommonReviewEvent>('pr.approve', this._pullRequest, message.args).then(review => {
+		vscode.commands.executeCommand<CommonReviewEvent>('pr.approve', this._item, message.args).then(review => {
 			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
@@ -859,7 +579,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<CommonReviewEvent>('pr.requestChanges', this._pullRequest, message.args).then(review => {
+		vscode.commands.executeCommand<CommonReviewEvent>('pr.requestChanges', this._item, message.args).then(review => {
 			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
@@ -872,7 +592,7 @@ export class PullRequestOverviewPanel {
 	}
 
 	private submitReview(message: IRequestMessage<string>): void {
-		this._pullRequestManager.submitReview(this._pullRequest, ReviewEvent.Comment, message.args).then(review => {
+		this._pullRequestManager.submitReview(this._item, ReviewEvent.Comment, message.args).then(review => {
 			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
@@ -883,58 +603,10 @@ export class PullRequestOverviewPanel {
 			this._throwError(message, `${formatError(e)}`);
 		});
 	}
-
-	public dispose() {
-		PullRequestOverviewPanel.currentPanel = undefined;
-
-		// Clean up our resources
-		this._panel.dispose();
-
-		while (this._disposables.length) {
-			const x = this._disposables.pop();
-			if (x) {
-				x.dispose();
-			}
-		}
-	}
-
-	private getHtmlForWebview(number: string) {
-		const scriptPathOnDisk = vscode.Uri.file(path.join(this._extensionPath, 'media', 'index.js'));
-		const scriptUri = this._panel.webview.asWebviewUri(scriptPathOnDisk);
-		const nonce = getNonce();
-
-		return `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
-
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Pull Request #${number}</title>
-			</head>
-			<body class="${process.platform}">
-				<div id=app></div>
-				<script nonce="${nonce}" src="${scriptUri}"></script>
-			</body>
-			</html>`;
-	}
-
-	public getCurrentTitle(): string {
-		return this._panel.title;
-	}
 }
 
-function getNonce() {
-	let text = '';
-	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	for (let i = 0; i < 32; i++) {
-		text += possible.charAt(Math.floor(Math.random() * possible.length));
-	}
-	return text;
-}
-
-function getDetaultMergeMethod(methodsAvailability: MergeMethodsAvailability, userPreferred: MergeMethod | undefined): MergeMethod {
-	// Use default merge method specified by user if it is avaialbe
+function getDefaultMergeMethod(methodsAvailability: MergeMethodsAvailability, userPreferred: MergeMethod | undefined): MergeMethod {
+	// Use default merge method specified by user if it is available
 	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
 		return userPreferred;
 	}

@@ -130,7 +130,7 @@ export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit
 		headCommit: headCommit,
 		isBase: base,
 		fileName: fileName,
-		prNumber: pullRequestModel.prNumber,
+		prNumber: pullRequestModel.githubNumber,
 		status: status,
 		remoteName: pullRequestModel.githubRepository.remote.remoteName
 	};

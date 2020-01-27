@@ -56,8 +56,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | DescriptionNode | PullRequestModel) => {
 		if (!e) {
-			if (prManager.activePullRequest) {
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
+			if (prManager.activeItem) {
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activeItem.html_url));
 			}
 		} else if (e instanceof PRNode || e instanceof DescriptionNode) {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
@@ -107,7 +107,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
 
-			const tempFilePath = pathLib.join(prManager.repository.rootUri.path, '.git', `${prManager.activePullRequest.prNumber}.diff`);
+			const tempFilePath = pathLib.join(prManager.repository.rootUri.path, '.git', `${prManager.activePullRequest.githubNumber}.diff`);
 			writeFile(tempFilePath, diff, {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;
@@ -249,7 +249,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.SourceControl,
-			title: `Switching to Pull Request #${pullRequestModel.prNumber}`,
+			title: `Switching to Pull Request #${pullRequestModel.githubNumber}`,
 		}, async (progress, token) => {
 			await reviewManager.switch(pullRequestModel);
 		});

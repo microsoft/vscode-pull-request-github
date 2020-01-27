@@ -126,7 +126,7 @@ export class ReviewManager {
 		}));
 
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
-			if (prNode.pullRequestModel.equals(this._prManager.activePullRequest)) {
+			if (prNode.pullRequestModel.equals(this._prManager.activeItem)) {
 				this.updateComments();
 			}
 
@@ -295,7 +295,7 @@ export class ReviewManager {
 			return;
 		}
 
-		this._prManager.activePullRequest = pr;
+		this._prManager.activeItem = pr;
 		this._lastCommitSha = pr.head.sha;
 
 		Logger.appendLine('Review> Fetching pull request data');
@@ -323,7 +323,7 @@ export class ReviewManager {
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) { return; }
 
-		if (this._prNumber === undefined || !this._prManager.activePullRequest) {
+		if (this._prNumber === undefined || !this._prManager.activeItem) {
 			return;
 		}
 
@@ -478,7 +478,7 @@ export class ReviewManager {
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
-		Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - start`);
+		Logger.appendLine(`Review> switch to Pull Request #${pr.githubNumber} - start`);
 		this.statusBarItem.text = '$(sync~spin) Switching to Review Mode';
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
@@ -508,7 +508,7 @@ export class ReviewManager {
 		}
 
 		try {
-			this.statusBarItem.text = `$(sync~spin) Fetching additional data: pr/${pr.prNumber}`;
+			this.statusBarItem.text = `$(sync~spin) Fetching additional data: pr/${pr.githubNumber}`;
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 
@@ -518,10 +518,10 @@ export class ReviewManager {
 				"pr.checkout" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.checkout');
-			Logger.appendLine(`Review> switch to Pull Request #${pr.prNumber} - done`, ReviewManager.ID);
+			Logger.appendLine(`Review> switch to Pull Request #${pr.githubNumber} - done`, ReviewManager.ID);
 		} finally {
 			this.switchingToReviewMode = false;
-			this.statusBarItem.text = `Pull Request #${pr.prNumber}`;
+			this.statusBarItem.text = `Pull Request #${pr.githubNumber}`;
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 			await this._repository.status();
@@ -813,7 +813,7 @@ export class ReviewManager {
 			const pullRequestModel = await this._prManager.createPullRequest(createParams);
 
 			if (pullRequestModel) {
-				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.prNumber} Created` });
+				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.githubNumber} Created` });
 				await this.updateState();
 				await vscode.commands.executeCommand('pr.openDescription');
 				progress.report({ increment: 30 });
@@ -831,7 +831,7 @@ export class ReviewManager {
 
 		if (quitReviewMode) {
 			this._prNumber = undefined;
-			this._prManager.activePullRequest = undefined;
+			this._prManager.activeItem = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();

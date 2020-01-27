@@ -15,14 +15,19 @@ import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchR
 import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLSearchRequest } from './utils';
 import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, PullRequestSearchResponse } from './graphql';
+import { IssueModel } from './issueModel';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
 const GRAPHQL_COMPONENT_ID = 'GraphQL';
 
-export interface PullRequestData {
-	pullRequests: PullRequestModel[];
+export interface IssueData {
+	items: IssueModel[];
 	hasMorePages: boolean;
+}
+
+export interface PullRequestData extends IssueData {
+	items: PullRequestModel[];
 }
 
 export interface IMetadata extends Octokit.ReposGetResponse {
@@ -225,7 +230,7 @@ export class GitHubRepository implements vscode.Disposable {
 				// Log a warning and return an empty set.
 				Logger.appendLine(`Warning: no result data for ${remote.owner}/${remote.repositoryName} Status: ${result.status}`);
 				return {
-					pullRequests: [],
+					items: [],
 					hasMorePages: false,
 				};
 			}
@@ -247,7 +252,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 			Logger.debug(`Fetch all pull requests - done`, GitHubRepository.ID);
 			return {
-				pullRequests,
+				items: pullRequests,
 				hasMorePages
 			};
 		} catch (e) {
@@ -261,7 +266,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getAllIssues(page?: number): Promise<PullRequestData | undefined> {
+	async getAllIssues(page?: number): Promise<IssueData | undefined> {
 		try {
 			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
@@ -273,16 +278,16 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
 
-			const pullRequests: PullRequestModel[] = [];
+			const issues: IssueModel[] = [];
 			if (data && data.search && data.search.edges) {
 				data.search.edges.forEach(raw => {
 					if (raw.node.id) {
-						pullRequests.push(new PullRequestModel(this, remote, parseGraphQLSearchRequest(raw.node, this)));
+						issues.push(new IssueModel(this, remote, parseGraphQLSearchRequest(raw.node, this)));
 					}
 				});
 			}
 			return {
-				pullRequests,
+				items: issues,
 				hasMorePages: data.search.pageInfo.hasNextPage
 			};
 		} catch (e) {
@@ -330,7 +335,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, GitHubRepository.ID);
 
 			return {
-				pullRequests,
+				items: pullRequests,
 				hasMorePages
 			};
 		} catch (e) {
@@ -366,7 +371,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getIssue(id: number): Promise<PullRequestModel | undefined> {
+	async getIssue(id: number): Promise<IssueModel | undefined> {
 		try {
 			Logger.debug(`Fetch issue ${id} - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
@@ -381,7 +386,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch issue ${id} - done`, GitHubRepository.ID);
 
-			return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
+			return new IssueModel(this, remote, parseGraphQLPullRequest(data, this));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;

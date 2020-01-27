@@ -16,6 +16,12 @@ import { uniqBy } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
+import { IssueModel } from './issueModel';
+import { PullRequestModel } from './pullRequestModel';
+
+export function issueAsPullRequest(issueModel: IssueModel | undefined): issueModel is PullRequestModel {
+	return issueModel instanceof PullRequestModel;
+}
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;

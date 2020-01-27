@@ -15,7 +15,7 @@ export enum ReviewEvent {
 	Comment = 'COMMENT'
 }
 
-export enum PullRequestStateEnum {
+export enum GithubItemStateEnum {
 	Open,
 	Merged,
 	Closed,
@@ -71,7 +71,7 @@ export interface ILabel {
 	name: string;
 }
 
-export interface PullRequest {
+export interface Issue {
 	id: number;
 	graphNodeId: string;
 	url: string;
@@ -83,15 +83,18 @@ export interface PullRequest {
 	assignee?: IAccount;
 	createdAt: string;
 	updatedAt: string;
-	head?: IGitHubRef;
-	base?: IGitHubRef;
 	user: IAccount;
 	labels: ILabel[];
+	isDraft?: boolean;
+	milestone?: IMilestone;
+}
+
+export interface PullRequest extends Issue {
+	head?: IGitHubRef;
+	base?: IGitHubRef;
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
-	isDraft?: boolean;
 	suggestedReviewers?: ISuggestedReviewer[];
-	milestone?: IMilestone;
 }
 
 export interface IRawFileChange {

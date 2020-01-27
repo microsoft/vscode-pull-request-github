@@ -1,6 +1,6 @@
 import { createBuilderClass } from '../../../src/test/builders/base';
 import { PullRequest } from '../../cache';
-import { PullRequestStateEnum, PullRequestMergeability } from '../../../src/github/interface';
+import { GithubItemStateEnum, PullRequestMergeability } from '../../../src/github/interface';
 import { CombinedStatusBuilder } from '../../../src/test/builders/rest/combinedStatusBuilder';
 
 import { AccountBuilder } from './account';
@@ -13,7 +13,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	body: { default: 'the *default* body' },
 	bodyHTML: { default: 'the <b>default</b> body' },
 	author: { linked: AccountBuilder },
-	state: { default: PullRequestStateEnum.Open },
+	state: { default: GithubItemStateEnum.Open },
 	events: { default: [] },
 	isCurrentlyCheckedOut: { default: true },
 	base: { default: 'master' },

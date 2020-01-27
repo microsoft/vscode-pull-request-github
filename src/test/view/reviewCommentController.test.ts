@@ -67,7 +67,7 @@ describe('ReviewCommentController', function () {
 		const repo = new GitHubRepository(remote, credentialStore);
 		activePullRequest = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
-		manager.activePullRequest = activePullRequest;
+		manager.activeItem = activePullRequest;
 	});
 
 	afterEach(function () {

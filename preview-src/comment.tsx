@@ -8,7 +8,7 @@ import { IComment } from '../src/common/comment';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { editIcon, deleteIcon, commentIcon } from './icon';
-import { PullRequestStateEnum } from '../src/github/interface';
+import { GithubItemStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
 import emitter from './events';
 
@@ -286,7 +286,7 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 			{hasWritePermission && !isIssue
 				? <button id='close'
 					className='secondary'
-					disabled={isBusy || state !== PullRequestStateEnum.Open}
+					disabled={isBusy || state !== GithubItemStateEnum.Open}
 					onClick={onClick}
 					data-command='close'>Close Pull Request</button>
 				: null}

@@ -13,11 +13,11 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { ApiImpl } from '../../api/api1';
 
-describe('PullRequestManager', function() {
+describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
 	let manager: PullRequestManager;
 
-	beforeEach(function() {
+	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
@@ -30,12 +30,12 @@ describe('PullRequestManager', function() {
 		sinon.restore();
 	});
 
-	describe('activePullRequest', function() {
-		it('gets and sets the active pull request', function() {
-			assert.strictEqual(manager.activePullRequest, undefined);
+	describe('activePullRequest', function () {
+		it('gets and sets the active pull request', function () {
+			assert.strictEqual(manager.activeItem, undefined);
 
 			const changeFired = sinon.spy();
-			manager.onDidChangeActivePullRequest(changeFired);
+			manager.onDidChangeActiveItem(changeFired);
 
 			const url = 'https://github.com/aaa/bbb.git';
 			const protocol = new Protocol(url);
@@ -44,9 +44,9 @@ describe('PullRequestManager', function() {
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(repository, remote, prItem);
 
-			manager.activePullRequest = pr;
+			manager.activeItem = pr;
 			assert(changeFired.called);
-			assert.deepStrictEqual(manager.activePullRequest, pr);
+			assert.deepStrictEqual(manager.activeItem, pr);
 		});
 	});
 });
