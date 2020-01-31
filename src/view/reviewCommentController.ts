@@ -108,7 +108,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		private _localFileChanges: GitFileChangeNode[],
 		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		private _comments: IComment[]) {
-		this._commentController = vscode.comments.createCommentController(`review-${_prManager.activeItem!.githubNumber}`, _prManager.activeItem!.title);
+		this._commentController = vscode.comments.createCommentController(`review-${_prManager.activeItem!.number}`, _prManager.activeItem!.title);
 		this._commentController.commentingRangeProvider = this;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
@@ -167,7 +167,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				}
 
 				const params = fromPRUri(editor.document.uri);
-				return !!params && params.prNumber === this._prManager.activeItem!.githubNumber;
+				return !!params && params.prNumber === this._prManager.activeItem!.number;
 			});
 
 			this._prDocumentCommentThreads.maybeDisposeThreads(prEditors, (editor: vscode.TextEditor, fileName: string, isBase: boolean) => {
@@ -253,7 +253,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (editor.document.uri.scheme === 'pr') {
 			const params = fromPRUri(editor.document.uri);
 
-			if (params && params.prNumber === this._prManager.activeItem!.githubNumber) {
+			if (params && params.prNumber === this._prManager.activeItem!.number) {
 				const existingPRThreads = this._prDocumentCommentThreads.getThreadsForDocument(params.fileName, params.isBase);
 				if (existingPRThreads) {
 					return;
@@ -354,7 +354,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 		if (thread.uri.scheme === 'pr') {
 			const params = fromPRUri(thread.uri);
-			if (this._prManager.activeItem && params && this._prManager.activeItem.githubNumber === params.prNumber) {
+			if (this._prManager.activeItem && params && this._prManager.activeItem.number === params.prNumber) {
 				return true;
 			} else {
 				return false;
@@ -410,7 +410,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (document.uri.scheme === 'pr') {
 			const params = fromPRUri(document.uri);
 
-			if (!params || params.prNumber !== this._prManager.activePullRequest!.githubNumber) {
+			if (!params || params.prNumber !== this._prManager.activePullRequest!.number) {
 				return;
 			}
 

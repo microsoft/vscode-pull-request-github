@@ -17,8 +17,8 @@ import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { PullRequestManager } from './pullRequestManager';
 import { PullRequestModel } from './pullRequestModel';
 import { TimelineEvent, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
-import { issueAsPullRequest } from './utils';
 import { IssueOverviewPanel, IRequestMessage } from './issueOverview';
+import { onDidUpdatePR } from '../commands';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -45,7 +45,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		if (PullRequestOverviewPanel.currentPanel) {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
-			const title = `Pull Request #${issue.githubNumber.toString()}`;
+			const title = `Pull Request #${issue.number.toString()}`;
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
 		}
 
@@ -64,13 +64,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
 		super(extensionPath, column, title, pullRequestManager, descriptionNode, PullRequestOverviewPanel._viewType);
+
+		onDidUpdatePR(pr => {
+			if (pr) {
+				this._item.update(pr);
+			}
+
+			this._postMessage({
+				command: 'update-state',
+				state: this._item.state,
+			});
+		}, null, this._disposables);
 	}
 
 	private async checkMergeability(): Promise<PullRequestMergeability> {
 		return this._pullRequestManager.resolvePullRequestMergeability(
 			this._item.remote.owner,
 			this._item.remote.repositoryName,
-			this._item.githubNumber
+			this._item.number
 		);
 	}
 
@@ -136,7 +147,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this._pullRequestManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
 				pullRequestModel.remote.repositoryName,
-				pullRequestModel.githubNumber
+				pullRequestModel.number
 			),
 			this._pullRequestManager.getTimelineEvents(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
@@ -146,12 +157,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		]).then(result => {
 			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, { hasWritePermission, mergeMethodsAvailability }] = result;
 			if (!pullRequest) {
-				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.githubNumber} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
+				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
 
 			this._item = pullRequest;
 			this._repositoryDefaultBranch = defaultBranch;
-			this._panel.title = `Pull Request #${pullRequestModel.githubNumber.toString()}`;
+			this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activeItem);
 			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._item);
@@ -162,7 +173,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: {
-					number: pullRequest.githubNumber,
+					number: pullRequest.number,
 					title: pullRequest.title,
 					url: pullRequest.html_url,
 					createdAt: pullRequest.createdAt,
@@ -204,7 +215,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			scrollPosition: this._scrollPosition,
 		});
 
-		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.githubNumber.toString());
+		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.number.toString());
 
 		return this.updatePullRequest(pullRequestModel, descriptionNode);
 	}
@@ -294,9 +305,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
-		if (!issueAsPullRequest(this._item)) {
-			return;
-		}
 		try {
 			const allAssignableUsers = await this._pullRequestManager.getAssignableUsers();
 			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
@@ -330,9 +338,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
-		if (!issueAsPullRequest(this._item)) {
-			return;
-		}
 		try {
 			await this._pullRequestManager.deleteRequestedReview(this._item, message.args);
 
@@ -405,9 +410,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	private mergePullRequest(message: IRequestMessage<{ title: string, description: string, method: 'merge' | 'squash' | 'rebase' }>): void {
 		const { title, description, method } = message.args;
-		if (!issueAsPullRequest(this._item)) {
-			return;
-		}
 		this._pullRequestManager.mergePullRequest(this._item, title, description, method).then(result => {
 			vscode.commands.executeCommand('pr.refreshList');
 
@@ -459,7 +461,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 
 		if (!actions.length) {
-			vscode.window.showWarningMessage(`There is no longer an upstream or local branch for Pull Request #${this._item.githubNumber}`);
+			vscode.window.showWarningMessage(`There is no longer an upstream or local branch for Pull Request #${this._item.number}`);
 			this._replyMessage(message, {
 				cancelled: true
 			});

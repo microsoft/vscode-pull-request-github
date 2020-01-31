@@ -478,7 +478,7 @@ export class ReviewManager {
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
-		Logger.appendLine(`Review> switch to Pull Request #${pr.githubNumber} - start`);
+		Logger.appendLine(`Review> switch to Pull Request #${pr.number} - start`);
 		this.statusBarItem.text = '$(sync~spin) Switching to Review Mode';
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
@@ -508,7 +508,7 @@ export class ReviewManager {
 		}
 
 		try {
-			this.statusBarItem.text = `$(sync~spin) Fetching additional data: pr/${pr.githubNumber}`;
+			this.statusBarItem.text = `$(sync~spin) Fetching additional data: pr/${pr.number}`;
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 
@@ -518,10 +518,10 @@ export class ReviewManager {
 				"pr.checkout" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.checkout');
-			Logger.appendLine(`Review> switch to Pull Request #${pr.githubNumber} - done`, ReviewManager.ID);
+			Logger.appendLine(`Review> switch to Pull Request #${pr.number} - done`, ReviewManager.ID);
 		} finally {
 			this.switchingToReviewMode = false;
-			this.statusBarItem.text = `Pull Request #${pr.githubNumber}`;
+			this.statusBarItem.text = `Pull Request #${pr.number}`;
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 			await this._repository.status();
@@ -813,7 +813,7 @@ export class ReviewManager {
 			const pullRequestModel = await this._prManager.createPullRequest(createParams);
 
 			if (pullRequestModel) {
-				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.githubNumber} Created` });
+				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.number} Created` });
 				await this.updateState();
 				await vscode.commands.executeCommand('pr.openDescription');
 				progress.report({ increment: 30 });

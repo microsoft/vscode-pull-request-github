@@ -120,7 +120,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	// #region Tree
 	async getChildren(): Promise<TreeNode[]> {
-		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.githubNumber}`, PRNode.ID);
+		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
 		try {
 			if (this.childrenDisposables && this.childrenDisposables.length) {
 				this.childrenDisposables.forEach(dp => dp.dispose());
@@ -138,7 +138,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			this._fileChanges = await this.resolveFileChanges();
 
 			if (!this._inMemPRContentProvider) {
-				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(this.pullRequestModel.githubNumber, this.provideDocumentContent.bind(this));
+				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(this.pullRequestModel.number, this.provideDocumentContent.bind(this));
 			}
 
 			// The review manager will register a document comment's controller, so the node does not need to
@@ -152,7 +152,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				await this.refreshContextKey(vscode.window.activeTextEditor);
 			} else {
 				await this.pullRequestModel.githubRepository.ensureCommentsController();
-				this.pullRequestModel.githubRepository.commentsHandler!.clearCommentThreadCache(this.pullRequestModel.githubNumber);
+				this.pullRequestModel.githubRepository.commentsHandler!.clearCommentThreadCache(this.pullRequestModel.number);
 			}
 
 			const result: TreeNode[] = [descriptionNode];
@@ -188,7 +188,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		await this.pullRequestModel.githubRepository.ensureCommentsController();
 		this._commentController = this.pullRequestModel.githubRepository.commentsController!;
-		this._prCommentController = this.pullRequestModel.githubRepository.commentsHandler!.registerCommentController(this.pullRequestModel.githubNumber, this);
+		this._prCommentController = this.pullRequestModel.githubRepository.commentsHandler!.registerCommentController(this.pullRequestModel.number, this);
 
 		this.registerListeners();
 
@@ -298,7 +298,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			const params = fromPRUri(editor.document.uri);
 
-			if (!params || params.prNumber !== this.pullRequestModel.githubNumber) {
+			if (!params || params.prNumber !== this.pullRequestModel.number) {
 				return false;
 			}
 
@@ -380,7 +380,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 
 		const params = fromPRUri(editorUri);
-		if (!params || params.prNumber !== this.pullRequestModel.githubNumber) {
+		if (!params || params.prNumber !== this.pullRequestModel.number) {
 			return;
 		}
 
@@ -430,7 +430,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		const {
 			title,
-			githubNumber,
+			number,
 			author,
 			isDraft,
 			html_url
@@ -442,7 +442,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
 		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
-		const formattedPRNumber = githubNumber.toString();
+		const formattedPRNumber = number.toString();
 		const label = `${labelPrefix}${title}`;
 		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by @${login}`;
 		const description = `#${formattedPRNumber}${isDraft ? '(draft)' : ''} by @${login}`;
@@ -468,13 +468,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return false;
 		}
 
-		if (this._prManager.activeItem && this._prManager.activeItem.githubNumber === this.pullRequestModel.githubNumber) {
+		if (this._prManager.activeItem && this._prManager.activeItem.number === this.pullRequestModel.number) {
 			return false;
 		}
 
 		const params = fromPRUri(thread.uri);
 
-		if (!params || params.prNumber !== this.pullRequestModel.githubNumber) {
+		if (!params || params.prNumber !== this.pullRequestModel.number) {
 			return false;
 		}
 
@@ -531,7 +531,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (document.uri.scheme === 'pr') {
 			const params = fromPRUri(document.uri);
 
-			if (!params || params.prNumber !== this.pullRequestModel.githubNumber) {
+			if (!params || params.prNumber !== this.pullRequestModel.number) {
 				return;
 			}
 

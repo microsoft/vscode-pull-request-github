@@ -11,7 +11,7 @@ import { IAccount, Issue, GithubItemStateEnum, IMilestone } from './interface';
 export class IssueModel {
 	public id: number;
 	public graphNodeId: string;
-	public githubNumber: number;
+	public number: number;
 	public title: string;
 	public html_url: string;
 	public state: GithubItemStateEnum = GithubItemStateEnum.Open;
@@ -96,7 +96,7 @@ export class IssueModel {
 	update(issue: Issue): void {
 		this.id = issue.id;
 		this.graphNodeId = issue.graphNodeId;
-		this.githubNumber = issue.number;
+		this.number = issue.number;
 		this.title = issue.title;
 		this.bodyHTML = issue.bodyHTML;
 		this.html_url = issue.url;
@@ -116,7 +116,7 @@ export class IssueModel {
 			return false;
 		}
 
-		if (this.githubNumber !== other.githubNumber) {
+		if (this.number !== other.number) {
 			return false;
 		}
 

@@ -73,7 +73,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			return true;
 		}
 
-		const reason = `There is no upstream branch for Pull Request #${this.githubNumber}. View it on GitHub for more details`;
+		const reason = `There is no upstream branch for Pull Request #${this.number}. View it on GitHub for more details`;
 
 		if (message) {
 			message += `: ${reason}`;

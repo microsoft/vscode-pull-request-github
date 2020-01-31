@@ -8,7 +8,6 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import Octokit = require('@octokit/rest');
 import { ILabel } from './interface';
-import { onDidUpdatePR } from '../commands';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -40,7 +39,7 @@ export class IssueOverviewPanel {
 
 	protected readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionPath: string;
-	private _disposables: vscode.Disposable[] = [];
+	protected _disposables: vscode.Disposable[] = [];
 	protected _descriptionNode: DescriptionNode;
 	protected _item: IssueModel;
 	protected _pullRequestManager: PullRequestManager;
@@ -60,7 +59,7 @@ export class IssueOverviewPanel {
 		if (IssueOverviewPanel.currentPanel) {
 			IssueOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
-			const title = `Issue #${issue.githubNumber.toString()}`;
+			const title = `Issue #${issue.number.toString()}`;
 			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
 		}
 
@@ -108,17 +107,6 @@ export class IssueOverviewPanel {
 				});
 			}
 		}, null, this._disposables);
-
-		onDidUpdatePR(pr => {
-			if (pr) {
-				this._item.update(pr);
-			}
-
-			this._postMessage({
-				command: 'update-state',
-				state: this._item.state,
-			});
-		}, null, this._disposables);
 	}
 
 	public async refreshPanel(): Promise<void> {
@@ -132,24 +120,24 @@ export class IssueOverviewPanel {
 			this._pullRequestManager.resolveIssue(
 				issueModel.remote.owner,
 				issueModel.remote.repositoryName,
-				issueModel.githubNumber
+				issueModel.number
 			),
 			this._pullRequestManager.getIssueTimelineEvents(issueModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(issueModel),
 		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch] = result;
-			if (!pullRequest) {
-				throw new Error(`Fail to resolve Pull Request #${issueModel.githubNumber} in ${issueModel.remote.owner}/${issueModel.remote.repositoryName}`);
+			const [issue, timelineEvents, defaultBranch] = result;
+			if (!issue) {
+				throw new Error(`Fail to resolve issue #${issueModel.number} in ${issueModel.remote.owner}/${issueModel.remote.repositoryName}`);
 			}
 
-			this._item = pullRequest;
-			this._panel.title = `Pull Request #${issueModel.githubNumber.toString()}`;
+			this._item = issue;
+			this._panel.title = `Pull Request #${issueModel.number.toString()}`;
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: {
-					number: this._item.githubNumber,
+					number: this._item.number,
 					title: this._item.title,
 					url: this._item.html_url,
 					createdAt: this._item.createdAt,
@@ -176,15 +164,15 @@ export class IssueOverviewPanel {
 		});
 	}
 
-	public async update(pullRequestModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async update(issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
 		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
 
-		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.githubNumber.toString());
-		return this.updateIssue(pullRequestModel, descriptionNode);
+		this._panel.webview.html = this.getHtmlForWebview(issueModel.number.toString());
+		return this.updateIssue(issueModel, descriptionNode);
 	}
 
 	protected async _postMessage(message: any) {
