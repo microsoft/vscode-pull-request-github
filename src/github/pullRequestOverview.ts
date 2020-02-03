@@ -164,7 +164,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this._repositoryDefaultBranch = defaultBranch;
 			this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
 
-			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activeItem);
+			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._item);
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
@@ -400,10 +400,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	private checkoutPullRequest(message: IRequestMessage<any>): void {
 		vscode.commands.executeCommand('pr.pick', this._item).then(() => {
-			const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeItem);
+			const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 		}, () => {
-			const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeItem);
+			const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 		});
 	}
@@ -475,7 +475,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		});
 
 		if (selectedActions) {
-			const isBranchActive = this._item.equals(this._pullRequestManager.activeItem);
+			const isBranchActive = this._item.equals(this._pullRequestManager.activePullRequest);
 
 			const promises = selectedActions.map(async (action) => {
 				switch (action.type) {
@@ -604,6 +604,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
 		});
+	}
+
+	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
+		return this._pullRequestManager.editReviewComment(this._item, comment, text);
+	}
+
+	protected deleteCommentPromise(comment: IComment): Promise<void> {
+		return this._pullRequestManager.deleteReviewComment(this._item, comment.id.toString());
 	}
 }
 

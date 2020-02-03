@@ -14,7 +14,6 @@ import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { PullRequestManager } from './pullRequestManager';
 import { IssueModel } from './issueModel';
-import { issueAsPullRequest } from './utils';
 
 export interface IRequestMessage<T> {
 	req: string;
@@ -98,9 +97,9 @@ export class IssueOverviewPanel {
 			await this._onDidReceiveMessage(message);
 		}, null, this._disposables);
 
-		this._pullRequestManager.onDidChangeActiveItem(_ => {
+		this._pullRequestManager.onDidChangeActiveIssue(_ => {
 			if (this._pullRequestManager && this._item) {
-				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeItem);
+				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeIssue);
 				this._postMessage({
 					command: 'pr.update-checkout-status',
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
@@ -155,7 +154,6 @@ export class IssueOverviewPanel {
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: true,
 					status: status ? status : { statuses: [] },
-					isDraft: this._item.isDraft,
 					isIssue: true
 				}
 			});
@@ -297,13 +295,12 @@ export class IssueOverviewPanel {
 		});
 	}
 
-	private editComment(message: IRequestMessage<{ comment: IComment, text: string }>) {
-		const { comment, text } = message.args;
-		const editCommentPromise = (issueAsPullRequest(this._item) && comment.pullRequestReviewId !== undefined)
-			? this._pullRequestManager.editReviewComment(this._item, comment, text)
-			: this._pullRequestManager.editIssueComment(this._item, comment, text);
+	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
+		return this._pullRequestManager.editIssueComment(this._item, comment, text);
+	}
 
-		editCommentPromise.then(result => {
+	private editComment(message: IRequestMessage<{ comment: IComment, text: string }>) {
+		this.editCommentPromise(message.args.comment, message.args.text).then(result => {
 			this._replyMessage(message, {
 				body: result.body,
 				bodyHTML: result.bodyHTML
@@ -314,15 +311,14 @@ export class IssueOverviewPanel {
 		});
 	}
 
+	protected deleteCommentPromise(comment: IComment): Promise<void> {
+		return this._pullRequestManager.deleteIssueComment(this._item, comment.id.toString());
+	}
+
 	private deleteComment(message: IRequestMessage<IComment>) {
-		const comment = message.args;
 		vscode.window.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete').then(value => {
 			if (value === 'Delete') {
-				const deleteCommentPromise = (issueAsPullRequest(this._item) && comment.pullRequestReviewId !== undefined)
-					? this._pullRequestManager.deleteReviewComment(this._item, comment.id.toString())
-					: this._pullRequestManager.deleteIssueComment(this._item, comment.id.toString());
-
-				deleteCommentPromise.then(result => {
+				this.deleteCommentPromise(message.args).then(result => {
 					this._replyMessage(message, {});
 				}).catch(e => {
 					this._throwError(message, e);

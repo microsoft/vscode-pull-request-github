@@ -142,7 +142,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 
 			// The review manager will register a document comment's controller, so the node does not need to
-			if (!this.pullRequestModel.equals(this._prManager.activeItem)) {
+			if (!this.pullRequestModel.equals(this._prManager.activePullRequest)) {
 				if (!this._prCommentController || !this._commentController) {
 					await this.resolvePRCommentController();
 				}
@@ -426,7 +426,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activeItem);
+		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
 
 		const {
 			title,
@@ -468,7 +468,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return false;
 		}
 
-		if (this._prManager.activeItem && this._prManager.activeItem.number === this.pullRequestModel.number) {
+		if (this._prManager.activePullRequest && this._prManager.activePullRequest.number === this.pullRequestModel.number) {
 			return false;
 		}
 

@@ -20,7 +20,7 @@ import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest, parseGraphQLUser, issueAsPullRequest } from './utils';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
 import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse, UserResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
@@ -111,7 +111,8 @@ export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
 
 	private _subs: vscode.Disposable[];
-	private _activeGithubItem?: IssueModel | PullRequestModel;
+	private _activePullRequest?: PullRequestModel;
+	private _activeIssue?: IssueModel;
 	private _githubRepositories: GitHubRepository[];
 	private _allGitHubRemotes: Remote[] = [];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
@@ -122,8 +123,10 @@ export class PullRequestManager implements vscode.Disposable {
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
-	private _onDidChangeActiveItem = new vscode.EventEmitter<void>();
-	readonly onDidChangeActiveItem: vscode.Event<void> = this._onDidChangeActiveItem.event;
+	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
+	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
+	private _onDidChangeActiveIssue = new vscode.EventEmitter<void>();
+	readonly onDidChangeActiveIssue: vscode.Event<void> = this._onDidChangeActiveIssue.event;
 
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
@@ -243,9 +246,9 @@ export class PullRequestManager implements vscode.Disposable {
 							const params = fromPRUri(visiblePREditor.document.uri);
 							prNumber = params!.prNumber;
 							remoteName = params!.remoteName;
-						} else if (this._activeGithubItem) {
-							prNumber = this._activeGithubItem.number;
-							remoteName = this._activeGithubItem.remote.remoteName;
+						} else if (this._activePullRequest) {
+							prNumber = this._activePullRequest.number;
+							remoteName = this._activePullRequest.remote.remoteName;
 						}
 
 						if (lastPullRequest && prNumber && prNumber === lastPullRequest.number) {
@@ -373,20 +376,22 @@ export class PullRequestManager implements vscode.Disposable {
 
 	}
 
+	get activeIssue(): IssueModel | undefined {
+		return this._activeIssue;
+	}
+
+	set activeIssue(issue: IssueModel | undefined) {
+		this._activeIssue = issue;
+		this._onDidChangeActiveIssue.fire();
+	}
+
 	get activePullRequest(): PullRequestModel | undefined {
-		if (issueAsPullRequest(this._activeGithubItem)) {
-			return this._activeGithubItem;
-		}
-		return undefined;
+		return this._activePullRequest;
 	}
 
-	get activeItem(): (IssueModel | undefined) {
-		return this._activeGithubItem;
-	}
-
-	set activeItem(issue: (IssueModel | undefined)) {
-		this._activeGithubItem = issue;
-		this._onDidChangeActiveItem.fire();
+	set activePullRequest(pullRequest: PullRequestModel | undefined) {
+		this._activePullRequest = pullRequest;
+		this._onDidChangeActivePullRequest.fire();
 	}
 
 	get repository(): Repository {
@@ -1053,7 +1058,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async updateDraftModeContext(pullRequest: IssueModel) {
-		if (this._activeGithubItem && this._activeGithubItem.number === pullRequest.number) {
+		if (this._activePullRequest && this._activePullRequest.number === pullRequest.number) {
 			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', pullRequest.inDraftMode);
 		}
 	}

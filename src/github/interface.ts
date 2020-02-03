@@ -85,11 +85,11 @@ export interface Issue {
 	updatedAt: string;
 	user: IAccount;
 	labels: ILabel[];
-	isDraft?: boolean;
 	milestone?: IMilestone;
 }
 
 export interface PullRequest extends Issue {
+	isDraft?: boolean;
 	head?: IGitHubRef;
 	base?: IGitHubRef;
 	merged?: boolean;

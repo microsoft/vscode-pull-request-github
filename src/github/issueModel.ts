@@ -19,7 +19,6 @@ export class IssueModel {
 	public assignee: IAccount;
 	public createdAt: string;
 	public updatedAt: string;
-	public isDraft?: boolean;
 	public milestone?: IMilestone;
 	public readonly githubRepository: GitHubRepository;
 	public readonly remote: Remote;
@@ -101,8 +100,8 @@ export class IssueModel {
 		this.bodyHTML = issue.bodyHTML;
 		this.html_url = issue.url;
 		this.author = issue.user;
-		this.isDraft = issue.isDraft;
 		this.milestone = issue.milestone;
+		this.createdAt = issue.createdAt;
 
 		this.updateState(issue.state);
 

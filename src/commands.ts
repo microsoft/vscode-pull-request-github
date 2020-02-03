@@ -56,8 +56,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | DescriptionNode | PullRequestModel) => {
 		if (!e) {
-			if (prManager.activeItem) {
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activeItem.html_url));
+			if (prManager.activePullRequest) {
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
 			}
 		} else if (e instanceof PRNode || e instanceof DescriptionNode) {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));

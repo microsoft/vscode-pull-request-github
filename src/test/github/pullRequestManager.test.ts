@@ -32,10 +32,10 @@ describe('PullRequestManager', function () {
 
 	describe('activePullRequest', function () {
 		it('gets and sets the active pull request', function () {
-			assert.strictEqual(manager.activeItem, undefined);
+			assert.strictEqual(manager.activePullRequest, undefined);
 
 			const changeFired = sinon.spy();
-			manager.onDidChangeActiveItem(changeFired);
+			manager.onDidChangeActivePullRequest(changeFired);
 
 			const url = 'https://github.com/aaa/bbb.git';
 			const protocol = new Protocol(url);
@@ -44,9 +44,9 @@ describe('PullRequestManager', function () {
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(repository, remote, prItem);
 
-			manager.activeItem = pr;
+			manager.activePullRequest = pr;
 			assert(changeFired.called);
-			assert.deepStrictEqual(manager.activeItem, pr);
+			assert.deepStrictEqual(manager.activePullRequest, pr);
 		});
 	});
 });

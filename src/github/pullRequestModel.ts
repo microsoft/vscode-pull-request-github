@@ -19,6 +19,7 @@ export interface IResolvedPullRequestModel extends IPullRequestModel {
 }
 
 export class PullRequestModel extends IssueModel implements IPullRequestModel {
+	public isDraft?: boolean;
 	public item: PullRequest;
 	public localBranchName?: string;
 	public mergeBase?: string;
@@ -45,6 +46,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 
 	update(item: PullRequest): void {
 		super.update(item);
+		this.isDraft = item.isDraft;
 		this.suggestedReviewers = item.suggestedReviewers;
 
 		if (item.head) {

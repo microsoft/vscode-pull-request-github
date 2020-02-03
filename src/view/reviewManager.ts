@@ -126,7 +126,7 @@ export class ReviewManager {
 		}));
 
 		this._disposables.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
-			if (prNode.pullRequestModel.equals(this._prManager.activeItem)) {
+			if (prNode.pullRequestModel.equals(this._prManager.activePullRequest)) {
 				this.updateComments();
 			}
 
@@ -295,7 +295,7 @@ export class ReviewManager {
 			return;
 		}
 
-		this._prManager.activeItem = pr;
+		this._prManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
 		Logger.appendLine('Review> Fetching pull request data');
@@ -323,7 +323,7 @@ export class ReviewManager {
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) { return; }
 
-		if (this._prNumber === undefined || !this._prManager.activeItem) {
+		if (this._prNumber === undefined || !this._prManager.activePullRequest) {
 			return;
 		}
 
@@ -831,7 +831,7 @@ export class ReviewManager {
 
 		if (quitReviewMode) {
 			this._prNumber = undefined;
-			this._prManager.activeItem = undefined;
+			this._prManager.activePullRequest = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();

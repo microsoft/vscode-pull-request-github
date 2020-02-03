@@ -214,7 +214,7 @@ describe('GitHub Pull Requests view', function() {
 			sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(true));
 			await manager.updateRepositories();
 			provider.initialize(manager);
-			manager.activeItem = pullRequest1;
+			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();
 			const localNode = rootNodes.find(node => node.getTreeItem().label === 'Local Pull Request Branches');
