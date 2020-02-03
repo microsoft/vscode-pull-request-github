@@ -88,6 +88,8 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 		});
 	});
 
+	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
+
 	/* __GDPR__
 		"startup" : {}
 	*/

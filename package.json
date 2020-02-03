@@ -614,17 +614,17 @@
       "view/title": [
         {
           "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
           "group": "navigation"
         },
         {
           "command": "pr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
           "group": "navigation"
         },
         {
           "command": "pr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
           "group": "navigation"
         },
         {
