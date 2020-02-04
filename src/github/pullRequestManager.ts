@@ -1046,7 +1046,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return;
 	}
 
-	async validateDraftMode(pullRequest: IssueModel): Promise<boolean> {
+	async validateDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
 		const inDraftMode = !!await this.getPendingReviewId(pullRequest);
 		if (inDraftMode !== pullRequest.inDraftMode) {
 			pullRequest.inDraftMode = inDraftMode;
@@ -1057,7 +1057,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return inDraftMode;
 	}
 
-	async updateDraftModeContext(pullRequest: IssueModel) {
+	async updateDraftModeContext(pullRequest: PullRequestModel) {
 		if (this._activePullRequest && this._activePullRequest.number === pullRequest.number) {
 			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', pullRequest.inDraftMode);
 		}

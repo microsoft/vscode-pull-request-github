@@ -24,6 +24,9 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	public localBranchName?: string;
 	public mergeBase?: string;
 	public suggestedReviewers?: ISuggestedReviewer[];
+	private _inDraftMode: boolean = false;
+	private _onDidChangeDraftMode: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
+	public onDidChangeDraftMode = this._onDidChangeDraftMode.event;
 
 	constructor(githubRepository: GitHubRepository, remote: Remote, item: PullRequest) {
 		super(githubRepository, remote, item);
@@ -31,6 +34,17 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 
 	public get isMerged(): boolean {
 		return this.state === GithubItemStateEnum.Merged;
+	}
+
+	public get inDraftMode(): boolean {
+		return this._inDraftMode;
+	}
+
+	public set inDraftMode(inDraftMode: boolean) {
+		if (this._inDraftMode !== inDraftMode) {
+			this._inDraftMode = inDraftMode;
+			this._onDidChangeDraftMode.fire(this._inDraftMode);
+		}
 	}
 
 	public head: GitHubRef | null;
