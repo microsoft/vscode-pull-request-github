@@ -120,7 +120,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	// #region Tree
 	async getChildren(): Promise<TreeNode[]> {
-		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.prNumber}`, PRNode.ID);
+		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
 		try {
 			if (this.childrenDisposables && this.childrenDisposables.length) {
 				this.childrenDisposables.forEach(dp => dp.dispose());
@@ -138,7 +138,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			this._fileChanges = await this.resolveFileChanges();
 
 			if (!this._inMemPRContentProvider) {
-				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(this.pullRequestModel.prNumber, this.provideDocumentContent.bind(this));
+				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(this.pullRequestModel.number, this.provideDocumentContent.bind(this));
 			}
 
 			// The review manager will register a document comment's controller, so the node does not need to
@@ -152,7 +152,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				await this.refreshContextKey(vscode.window.activeTextEditor);
 			} else {
 				await this.pullRequestModel.githubRepository.ensureCommentsController();
-				this.pullRequestModel.githubRepository.commentsHandler!.clearCommentThreadCache(this.pullRequestModel.prNumber);
+				this.pullRequestModel.githubRepository.commentsHandler!.clearCommentThreadCache(this.pullRequestModel.number);
 			}
 
 			const result: TreeNode[] = [descriptionNode];
@@ -188,7 +188,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		await this.pullRequestModel.githubRepository.ensureCommentsController();
 		this._commentController = this.pullRequestModel.githubRepository.commentsController!;
-		this._prCommentController = this.pullRequestModel.githubRepository.commentsHandler!.registerCommentController(this.pullRequestModel.prNumber, this);
+		this._prCommentController = this.pullRequestModel.githubRepository.commentsHandler!.registerCommentController(this.pullRequestModel.number, this);
 
 		this.registerListeners();
 
@@ -298,7 +298,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			const params = fromPRUri(editor.document.uri);
 
-			if (!params || params.prNumber !== this.pullRequestModel.prNumber) {
+			if (!params || params.prNumber !== this.pullRequestModel.number) {
 				return false;
 			}
 
@@ -324,7 +324,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 
 		if (!incremental) {
-			// it's tiggerred by file opening, so we only take care newly opened documents.
+			// it's triggered by file opening, so we only take care newly opened documents.
 			currentPRDocuments = currentPRDocuments.filter(editor => commentThreadCache[editor.fileName] === undefined);
 		}
 
@@ -380,7 +380,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 
 		const params = fromPRUri(editorUri);
-		if (!params || params.prNumber !== this.pullRequestModel.prNumber) {
+		if (!params || params.prNumber !== this.pullRequestModel.number) {
 			return;
 		}
 
@@ -430,7 +430,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		const {
 			title,
-			prNumber,
+			number,
 			author,
 			isDraft,
 			html_url
@@ -442,7 +442,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
 		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
-		const formattedPRNumber = prNumber.toString();
+		const formattedPRNumber = number.toString();
 		const label = `${labelPrefix}${title}`;
 		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by @${login}`;
 		const description = `#${formattedPRNumber}${isDraft ? '(draft)' : ''} by @${login}`;
@@ -468,13 +468,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return false;
 		}
 
-		if (this._prManager.activePullRequest && this._prManager.activePullRequest.prNumber === this.pullRequestModel.prNumber) {
+		if (this._prManager.activePullRequest && this._prManager.activePullRequest.number === this.pullRequestModel.number) {
 			return false;
 		}
 
 		const params = fromPRUri(thread.uri);
 
-		if (!params || params.prNumber !== this.pullRequestModel.prNumber) {
+		if (!params || params.prNumber !== this.pullRequestModel.number) {
 			return false;
 		}
 
@@ -531,7 +531,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (document.uri.scheme === 'pr') {
 			const params = fromPRUri(document.uri);
 
-			if (!params || params.prNumber !== this.pullRequestModel.prNumber) {
+			if (!params || params.prNumber !== this.pullRequestModel.number) {
 				return;
 			}
 
@@ -772,7 +772,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 	}
 
-	private async createFirstCommentInThread(thread:GHPRCommentThread, input: string, fileChange: InMemFileChangeNode): Promise<IComment | undefined> {
+	private async createFirstCommentInThread(thread: GHPRCommentThread, input: string, fileChange: InMemFileChangeNode): Promise<IComment | undefined> {
 		const position = this.calculateCommentPosition(fileChange, thread);
 		const rawComment = await this._prManager.createComment(this.pullRequestModel, input, fileChange.fileName, position);
 
@@ -791,31 +791,31 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	public async editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		const fileChange = await this.findMatchingFileNode(thread.uri);
 
-			if (comment instanceof GHPRComment) {
-				const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
-				try {
-					const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
+		if (comment instanceof GHPRComment) {
+			const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
+			try {
+				const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
 
-					const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
-					if (index > -1) {
-						fileChange.comments.splice(index, 1, rawComment);
+				const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
+				if (index > -1) {
+					fileChange.comments.splice(index, 1, rawComment);
+				}
+
+				this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Editing comment failed ${e}`);
+
+				thread.comments = thread.comments.map(c => {
+					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
+						return new GHPRComment(comment._rawComment, thread);
 					}
 
-					this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
-				} catch (e) {
-					vscode.window.showErrorMessage(`Editing comment failed ${e}`);
-
-					thread.comments = thread.comments.map(c => {
-						if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-							return new GHPRComment(comment._rawComment, thread);
-						}
-
-						return c;
-					});
-				}
-			} else {
-				this.createOrReplyComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
+					return c;
+				});
 			}
+		} else {
+			this.createOrReplyComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
+		}
 	}
 
 	public async deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {

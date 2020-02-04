@@ -13,11 +13,11 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { ApiImpl } from '../../api/api1';
 
-describe('PullRequestManager', function() {
+describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
 	let manager: PullRequestManager;
 
-	beforeEach(function() {
+	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
@@ -30,8 +30,8 @@ describe('PullRequestManager', function() {
 		sinon.restore();
 	});
 
-	describe('activePullRequest', function() {
-		it('gets and sets the active pull request', function() {
+	describe('activePullRequest', function () {
+		it('gets and sets the active pull request', function () {
 			assert.strictEqual(manager.activePullRequest, undefined);
 
 			const changeFired = sinon.spy();

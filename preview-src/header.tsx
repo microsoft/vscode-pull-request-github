@@ -7,7 +7,7 @@ import { Spaced } from './space';
 import PullRequestContext from './context';
 import { checkIcon, editIcon } from './icon';
 import Timestamp from './timestamp';
-import { PullRequestStateEnum } from '../src/github/interface';
+import { GithubItemStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
 
 export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue }: PullRequest) {
@@ -131,18 +131,18 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
 	}
 };
 
-export function getStatus(state: PullRequestStateEnum, isDraft: boolean) {
-	if (state === PullRequestStateEnum.Merged) {
+export function getStatus(state: GithubItemStateEnum, isDraft: boolean) {
+	if (state === GithubItemStateEnum.Merged) {
 		return 'Merged';
-	} else if (state === PullRequestStateEnum.Open) {
+	} else if (state === GithubItemStateEnum.Open) {
 		return isDraft ? 'Draft' : 'Open';
 	} else {
 		return 'Closed';
 	}
 }
 
-function getActionText(state: PullRequestStateEnum) {
-	if (state === PullRequestStateEnum.Merged) {
+function getActionText(state: GithubItemStateEnum) {
+	if (state === GithubItemStateEnum.Merged) {
 		return 'merged changes';
 	} else {
 		return 'wants to merge changes';

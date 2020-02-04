@@ -3,7 +3,7 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { PullRequestStateEnum } from '../../github/interface';
+import { GithubItemStateEnum } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
 import { Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
@@ -37,20 +37,20 @@ describe('PullRequestModel', function () {
 		const pr = new PullRequestBuilder().state('open').build();
 		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
-		assert.equal(open.state, PullRequestStateEnum.Open);
+		assert.equal(open.state, GithubItemStateEnum.Open);
 	});
 
 	it('should return `state` properly as `closed`', function () {
 		const pr = new PullRequestBuilder().state('closed').build();
 		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
-		assert.equal(open.state, PullRequestStateEnum.Closed);
+		assert.equal(open.state, GithubItemStateEnum.Closed);
 	});
 
 	it('should return `state` properly as `merged`', function () {
 		const pr = new PullRequestBuilder().merged(true).state('closed').build();
 		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
-		assert.equal(open.state, PullRequestStateEnum.Merged);
+		assert.equal(open.state, GithubItemStateEnum.Merged);
 	});
 });

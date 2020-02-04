@@ -2,7 +2,7 @@ import * as React from 'react';
 import { PullRequest } from './cache';
 import PullRequestContext from './context';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
-import { PullRequestStateEnum, MergeMethod, PullRequestMergeability } from '../src/github/interface';
+import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../src/github/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
@@ -38,14 +38,14 @@ export const StatusChecks = (pr: PullRequest) => {
 	});
 
 	return <div id='status-checks'>{
-		state === PullRequestStateEnum.Merged
+		state === GithubItemStateEnum.Merged
 			?
 			<>
 				<div className='branch-status-message'>{'Pull request successfully merged'}</div>
 				<DeleteBranch {...pr} />
 			</>
 			:
-			state === PullRequestStateEnum.Closed
+			state === GithubItemStateEnum.Closed
 				?
 				<>
 					<div className='branch-status-message'>{'This pull request is closed'}</div>

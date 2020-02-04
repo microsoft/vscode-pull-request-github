@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { PullRequestStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability } from '../src/github/interface';
+import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability } from '../src/github/interface';
 import { TimelineEvent } from '../src/common/timelineEvent';
 import { ReposGetCombinedStatusForRefResponse } from '@octokit/rest';
 
@@ -16,7 +16,7 @@ export interface PullRequest {
 	body: string;
 	bodyHTML?: string;
 	author: IAccount;
-	state: PullRequestStateEnum;
+	state: GithubItemStateEnum;
 	events: TimelineEvent[];
 	isCurrentlyCheckedOut: boolean;
 	base: string;

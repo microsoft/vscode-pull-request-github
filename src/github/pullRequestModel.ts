@@ -7,7 +7,8 @@ import * as vscode from 'vscode';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { IAccount, PullRequest, PullRequestStateEnum, ISuggestedReviewer, IMilestone } from './interface';
+import { PullRequest, GithubItemStateEnum, ISuggestedReviewer } from './interface';
+import { IssueModel } from './issueModel';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -17,61 +18,23 @@ export interface IResolvedPullRequestModel extends IPullRequestModel {
 	head: GitHubRef;
 }
 
-export class PullRequestModel implements IPullRequestModel {
-	public id: number;
-	public graphNodeId: string;
-	public prNumber: number;
-	public title: string;
-	public html_url: string;
-	public state: PullRequestStateEnum = PullRequestStateEnum.Open;
-	public author: IAccount;
-	public assignee: IAccount;
-	public createdAt: string;
-	public updatedAt: string;
+export class PullRequestModel extends IssueModel implements IPullRequestModel {
+	public isDraft?: boolean;
+	public item: PullRequest;
 	public localBranchName?: string;
 	public mergeBase?: string;
-	public isDraft?: boolean;
 	public suggestedReviewers?: ISuggestedReviewer[];
-	public milestone?: IMilestone;
-
-	public get isIssue(): boolean {
-		return (!this.suggestedReviewers || (this.suggestedReviewers.length === 0)) && (this.mergeBase === undefined) && (this.localBranchName === undefined);
-	}
-
-	public get isOpen(): boolean {
-		return this.state === PullRequestStateEnum.Open;
-	}
-	public get isMerged(): boolean {
-		return this.state === PullRequestStateEnum.Merged;
-	}
-
-	public get userAvatar(): string | undefined {
-		if (this.prItem) {
-			return this.prItem.user.avatarUrl;
-		}
-
-		return undefined;
-	}
-	public get userAvatarUri(): vscode.Uri | undefined {
-		if (this.prItem) {
-			const key = this.userAvatar;
-			if (key) {
-				const uri = vscode.Uri.parse(`${key}&s=${64}`);
-
-				// hack, to ensure queries are not wrongly encoded.
-				const originalToStringFn = uri.toString;
-				uri.toString = function (skipEncoding?: boolean | undefined) {
-					return originalToStringFn.call(uri, true);
-				};
-
-				return uri;
-			}
-		}
-
-		return undefined;
-	}
-
 	private _inDraftMode: boolean = false;
+	private _onDidChangeDraftMode: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
+	public onDidChangeDraftMode = this._onDidChangeDraftMode.event;
+
+	constructor(githubRepository: GitHubRepository, remote: Remote, item: PullRequest) {
+		super(githubRepository, remote, item);
+	}
+
+	public get isMerged(): boolean {
+		return this.state === GithubItemStateEnum.Merged;
+	}
 
 	public get inDraftMode(): boolean {
 		return this._inDraftMode;
@@ -84,69 +47,41 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 	}
 
-	private _onDidChangeDraftMode: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
-	public onDidChangeDraftMode = this._onDidChangeDraftMode.event;
-
-	public get body(): string {
-		if (this.prItem) {
-			return this.prItem.body;
-		}
-		return '';
-	}
-
-	public bodyHTML?: string;
-
 	public head: GitHubRef | null;
 	public base: GitHubRef;
 
-	constructor(public readonly githubRepository: GitHubRepository, public readonly remote: Remote, public prItem: PullRequest) {
-		this.update(prItem);
+	protected updateState(state: string) {
+		if (state.toLowerCase() === 'open') {
+			this.state = GithubItemStateEnum.Open;
+		} else {
+			this.state = this.item.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Closed;
+		}
 	}
 
-	update(prItem: PullRequest): void {
-		this.id = prItem.id;
-		this.graphNodeId = prItem.graphNodeId;
-		this.prNumber = prItem.number;
-		this.title = prItem.title;
-		this.bodyHTML = prItem.bodyHTML;
-		this.html_url = prItem.url;
-		this.author = prItem.user;
-		this.isDraft = prItem.isDraft;
-		this.suggestedReviewers = prItem.suggestedReviewers;
-		this.milestone = prItem.milestone;
+	update(item: PullRequest): void {
+		super.update(item);
+		this.isDraft = item.isDraft;
+		this.suggestedReviewers = item.suggestedReviewers;
 
-		if (prItem.state.toLowerCase() === 'open') {
-			this.state = PullRequestStateEnum.Open;
-		} else {
-			this.state = prItem.merged ? PullRequestStateEnum.Merged : PullRequestStateEnum.Closed;
+		if (item.head) {
+			this.head = new GitHubRef(item.head.ref, item.head.label, item.head.sha, item.head.repo.cloneUrl);
 		}
 
-		if (prItem.assignee) {
-			this.assignee = prItem.assignee;
-		}
-
-		this.createdAt = prItem.createdAt;
-		this.updatedAt = prItem.updatedAt ? prItem.updatedAt : this.createdAt;
-
-		if (prItem.head) {
-			this.head = new GitHubRef(prItem.head.ref, prItem.head.label, prItem.head.sha, prItem.head.repo.cloneUrl);
-		}
-
-		if (prItem.base) {
-			this.base = new GitHubRef(prItem.base.ref, prItem.base!.label, prItem.base!.sha, prItem.base!.repo.cloneUrl);
+		if (item.base) {
+			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl);
 		}
 	}
 
 	/**
-	 * Valiate if the pull request has a valid HEAD.
-	 * Use only when the method can fail sliently, otherwise use `validatePullRequestModel`
+	 * Validate if the pull request has a valid HEAD.
+	 * Use only when the method can fail silently, otherwise use `validatePullRequestModel`
 	 */
 	isResolved(): this is IResolvedPullRequestModel {
 		return !!this.head;
 	}
 
 	/**
-	 * Valiate if the pull request has a valid HEAD. Show a warning message to users when the pull request is invalid.
+	 * Validate if the pull request has a valid HEAD. Show a warning message to users when the pull request is invalid.
 	 * @param message Human readable action execution failure message.
 	 */
 	validatePullRequestModel(message?: string): this is IResolvedPullRequestModel {
@@ -154,7 +89,7 @@ export class PullRequestModel implements IPullRequestModel {
 			return true;
 		}
 
-		const reason = `There is no upstream branch for Pull Request #${this.prNumber}. View it on GitHub for more details`;
+		const reason = `There is no upstream branch for Pull Request #${this.number}. View it on GitHub for more details`;
 
 		if (message) {
 			message += `: ${reason}`;
@@ -169,21 +104,5 @@ export class PullRequestModel implements IPullRequestModel {
 		});
 
 		return false;
-	}
-
-	equals(other: PullRequestModel | undefined): boolean {
-		if (!other) {
-			return false;
-		}
-
-		if (this.prNumber !== other.prNumber) {
-			return false;
-		}
-
-		if (this.html_url !== other.html_url) {
-			return false;
-		}
-
-		return true;
 	}
 }

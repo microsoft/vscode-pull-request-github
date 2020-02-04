@@ -213,7 +213,7 @@ export class PullRequestGitHelper {
 	}
 
 	static buildPullRequestMetadata(pullRequest: PullRequestModel) {
-		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.prNumber;
+		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.number;
 	}
 
 	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
@@ -271,7 +271,7 @@ export class PullRequestGitHelper {
 	}
 
 	static async calculateUniqueBranchNameForPR(repository: Repository, pullRequest: PullRequestModel): Promise<string> {
-		const branchName = `pr/${pullRequest.author.login}/${pullRequest.prNumber}`;
+		const branchName = `pr/${pullRequest.author.login}/${pullRequest.number}`;
 		let result = branchName;
 		let number = 1;
 
@@ -304,7 +304,7 @@ export class PullRequestGitHelper {
 	}
 
 	static async associateBranchWithPullRequest(repository: Repository, pullRequest: PullRequestModel, branchName: string) {
-		Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.prNumber}`, PullRequestGitHelper.ID);
+		Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
 		const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
 	}

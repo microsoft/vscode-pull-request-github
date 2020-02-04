@@ -107,7 +107,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
 
-			const tempFilePath = pathLib.join(prManager.repository.rootUri.path, '.git', `${prManager.activePullRequest.prNumber}.diff`);
+			const tempFilePath = pathLib.join(prManager.repository.rootUri.path, '.git', `${prManager.activePullRequest.number}.diff`);
 			writeFile(tempFilePath, diff, {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;
@@ -249,7 +249,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.SourceControl,
-			title: `Switching to Pull Request #${pullRequestModel.prNumber}`,
+			title: `Switching to Pull Request #${pullRequestModel.number}`,
 		}, async (progress, token) => {
 			await reviewManager.switch(pullRequestModel);
 		});

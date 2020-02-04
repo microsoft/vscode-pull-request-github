@@ -40,7 +40,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
-		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.prNumber, fileName, status);
+		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.number, fileName, status);
 
 		this.command = {
 			title: 'show remote file',
@@ -91,7 +91,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			preserveFocus: true
 		};
 		this.update(this.comments);
-		this.resourceUri = toResourceUri(vscode.Uri.file(this.fileName), this.pullRequest.prNumber, this.fileName, this.status);
+		this.resourceUri = toResourceUri(vscode.Uri.file(this.fileName), this.pullRequest.number, this.fileName, this.status);
 	}
 
 	private findFirstActiveComment() {
@@ -112,7 +112,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	update(comments: IComment[]) {
 		this.comments = comments;
-		DecorationProvider.updateFileComments(this.resourceUri, this.pullRequest.prNumber, this.fileName, comments.length > 0);
+		DecorationProvider.updateFileComments(this.resourceUri, this.pullRequest.number, this.fileName, comments.length > 0);
 
 		if (comments && comments.length) {
 			const comment = this.findFirstActiveComment();
