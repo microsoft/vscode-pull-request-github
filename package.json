@@ -95,7 +95,7 @@
           "items": {
             "type": "string"
           },
-          "markdownDescription": "List of remotes to fetch pull requests from."
+          "markdownDescription": "List of remotes, by name, to fetch pull requests from."
         },
         "githubPullRequests.includeRemotes": {
           "type": "string",
