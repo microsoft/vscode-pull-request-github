@@ -15,7 +15,7 @@
   "version": "0.14.0",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.40.0"
+    "vscode": "^1.42.0"
   },
   "categories": [
     "Other"
@@ -466,6 +466,11 @@
         "command": "pr.configureRemotes",
         "title": "Configure Remotes...",
         "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "issue.createIssueFromSelection",
+        "title": "Create Issue From Selection",
+        "category": "GitHub Issues"
       }
     ],
     "menus": {
@@ -809,12 +814,14 @@
     "tslint-webpack-plugin": "^2.1.0",
     "tty": "1.0.1",
     "typescript": "^3.4.5",
-    "vscode": "^1.1.33",
+    "vscode": "^1.1.36",
     "webpack": "^4.39.0",
     "webpack-cli": "^3.3.6"
   },
   "dependencies": {
     "@octokit/rest": "^16.21.0",
+    "@types/lru-cache": "^5.1.0",
+    "@types/marked": "^0.7.2",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
     "debounce": "^1.2.0",
@@ -823,6 +830,8 @@
     "git-credential-node": "^1.1.0",
     "graphql": "^14.0.2",
     "js-base64": "^2.4.9",
+    "lru-cache": "^5.1.1",
+    "marked": "^0.8.0",
     "moment": "^2.22.1",
     "node-emoji": "^1.8.1",
     "node-fetch": "^2.1.1",

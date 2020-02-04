@@ -22,6 +22,7 @@ import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitP
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
+import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -89,6 +90,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	});
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
+	context.subscriptions.push(new IssueFeatureRegistrar(context, prManager));
 
 	/* __GDPR__
 		"startup" : {}
