@@ -1188,7 +1188,7 @@ export class PullRequestManager implements vscode.Disposable {
 		if (!this.repository.state.HEAD) {
 			throw new DetachedHeadError(this.repository);
 		}
-		const { origin } = this;
+		const origin = await this.getOrigin();
 		const meta = await origin.getMetadata();
 		const parent = meta.fork
 			? meta.parent
@@ -1216,7 +1216,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return '';
 	}
 
-	get origin(): GitHubRepository {
+	async getOrigin(): Promise<GitHubRepository> {
 		if (!this._githubRepositories.length) {
 			throw new NoGitHubReposError(this.repository);
 		}
@@ -1225,12 +1225,16 @@ export class PullRequestManager implements vscode.Disposable {
 		if (upstreamRef) {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
+
+			// If the upstream wasn't listed in the remotes setting, create a GitHubRepository
+			// object for it if is does point to GitHub.
 			if (!upstream) {
-				vscode.window.showErrorMessage(`Unable to find upstream remote '${upstreamRef.remote}'. Please check your remotes setting.`, 'Configure Remotes').then(result => {
-					if (result === 'Configure Remotes') {
-						vscode.commands.executeCommand('pr.configureRemotes');
-					}
-				});
+				const remote = this.getAllGitHubRemotes().find(r => r.remoteName === upstreamRef.remote);
+				if (remote) {
+					return new GitHubRepository(remote, this._credentialStore);
+				}
+
+				vscode.window.showErrorMessage(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
 
 				// No GitHubRepository? We currently won't try pushing elsewhere,
 				// so fail.
@@ -1239,6 +1243,7 @@ export class PullRequestManager implements vscode.Disposable {
 					upstreamRef,
 					'is not a GitHub repo');
 			}
+
 			// Otherwise, we'll push upstream.
 			return upstream;
 		}

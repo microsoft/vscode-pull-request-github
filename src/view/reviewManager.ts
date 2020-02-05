@@ -529,7 +529,7 @@ export class ReviewManager {
 	}
 
 	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
-		const potentialTargetRemotes = this._prManager.getGitHubRemotes();
+		const potentialTargetRemotes = this._prManager.getAllGitHubRemotes();
 		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch '${branch.name}' to:`))!.remote;
 
 		if (!selectedRemote || branch.name === undefined) {
@@ -758,7 +758,7 @@ export class ReviewManager {
 
 			}
 
-			const headRemote = githubRemotes.find(remote => remote.remoteName === HEAD!.upstream!.remote);
+			const headRemote = this._prManager.getAllGitHubRemotes().find(remote => remote.remoteName === HEAD!.upstream!.remote);
 			if (!headRemote) {
 				return;
 			}
