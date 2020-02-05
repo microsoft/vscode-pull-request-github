@@ -100,7 +100,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 			</div>
 			{
 				event.state !== 'PENDING' && event.body
-					? <CommentBody body={event.body} />
+					? <CommentBody body={event.body} bodyHTML={event.bodyHTML} />
 					: null
 			}
 			<div className='comment-body review-comment-body'>{
