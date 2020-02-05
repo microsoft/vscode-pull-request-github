@@ -713,7 +713,7 @@ export class ReviewManager {
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
 		const githubRemotes = this._prManager.getGitHubRemotes();
 		const targetRemote = await this.getRemote(githubRemotes, 'Select the remote to send the pull request to',
-			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Fork')
+			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Repository')
 		);
 
 		if (!targetRemote) {
