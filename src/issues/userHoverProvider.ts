@@ -27,7 +27,8 @@ export class UserHoverProvider implements vscode.HoverProvider {
 	}
 
 	private async createHover(username: string): Promise<vscode.Hover | undefined> {
-		const user = await this.manager.resolveUser(this.manager.origin.remote.owner, this.manager.origin.remote.repositoryName, username);
+		const origin = await this.manager.getOrigin();
+		const user = await this.manager.resolveUser(origin.remote.owner, origin.remote.repositoryName, username);
 		if (user) {
 			const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 			markdown.appendMarkdown(`![Avatar](${user.avatarUrl}) **${user.name}** [${user.login}](${user.url})`);
@@ -35,7 +36,7 @@ export class UserHoverProvider implements vscode.HoverProvider {
 				markdown.appendText('  \r\n' + user.bio.replace(/\r\n/g, ' '));
 			}
 
-			const date = this.repoCommitDate(user, this.manager.origin.remote.owner + '/' + this.manager.origin.remote.repositoryName);
+			const date = this.repoCommitDate(user, origin.remote.owner + '/' + origin.remote.repositoryName);
 			if (user.location || date) {
 				markdown.appendMarkdown('  \r\n\r\n---');
 			}

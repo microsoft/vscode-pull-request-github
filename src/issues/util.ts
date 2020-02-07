@@ -18,11 +18,12 @@ export async function getIssue(cache: LRUCache<string, IssueModel>, manager: Pul
 		let owner: string | undefined = undefined;
 		let name: string | undefined = undefined;
 		let issueNumber: number | undefined = undefined;
+		const origin = await manager.getOrigin();
 		if (!parsed) {
 			const repoMatch = issueValue.match(ISSUE_EXPRESSION);
 			if (repoMatch && repoMatch.length === 5) {
-				owner = manager.origin.remote.owner;
-				name = manager.origin.remote.repositoryName;
+				owner = origin.remote.owner;
+				name = origin.remote.repositoryName;
 				issueNumber = parseInt(repoMatch[4]);
 
 				if (repoMatch[2] && repoMatch[3]) {
@@ -31,8 +32,8 @@ export async function getIssue(cache: LRUCache<string, IssueModel>, manager: Pul
 				}
 			}
 		} else {
-			owner = parsed.owner ? parsed.owner : manager.origin.remote.owner;
-			name = parsed.name ? parsed.name : manager.origin.remote.repositoryName;
+			owner = parsed.owner ? parsed.owner : origin.remote.owner;
+			name = parsed.name ? parsed.name : origin.remote.repositoryName;
 			issueNumber = parsed.issueNumber;
 		}
 

@@ -46,15 +46,16 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 		const title = await vscode.window.showInputBox({ value: titlePlaceholder, prompt: 'Issue title' });
 		if (title) {
+			const origin = await this.manager.getOrigin();
 			let issueBody: string | undefined;
 			if (this.manager.repository.state.HEAD && this.manager.repository.state.HEAD.commit && (this.manager.repository.state.HEAD.ahead === 0)) {
-				issueBody = `https://github.com/${this.manager.origin.remote.owner}/${this.manager.origin.remote.repositoryName}/blob/${this.manager.repository.state.HEAD.commit}/${vscode.workspace.asRelativePath(document.uri)}#L${range.start.line + 1}-L${range.end.line + 1}`;
+				issueBody = `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${this.manager.repository.state.HEAD.commit}/${vscode.workspace.asRelativePath(document.uri)}#L${range.start.line + 1}-L${range.end.line + 1}`;
 			} else if (this.manager.repository.state.HEAD && this.manager.repository.state.HEAD.ahead && (this.manager.repository.state.HEAD.ahead > 0)) {
-				issueBody = `https://github.com/${this.manager.origin.remote.owner}/${this.manager.origin.remote.repositoryName}/blob/${this.manager.repository.state.HEAD.upstream!.name}/${vscode.workspace.asRelativePath(document.uri)}#L${range.start.line + 1}-L${range.end.line + 1}`;
+				issueBody = `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${this.manager.repository.state.HEAD.upstream!.name}/${vscode.workspace.asRelativePath(document.uri)}#L${range.start.line + 1}-L${range.end.line + 1}`;
 			}
 			const issue = await this.manager.createIssue({
-				owner: this.manager.origin.remote.owner,
-				repo: this.manager.origin.remote.repositoryName,
+				owner: origin.remote.owner,
+				repo: origin.remote.repositoryName,
 				title,
 				body: issueBody
 			});
