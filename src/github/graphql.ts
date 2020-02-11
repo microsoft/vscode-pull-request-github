@@ -405,6 +405,28 @@ export interface PullRequestSearchResponse {
 	rateLimit: RateLimit;
 }
 
+export interface MilestoneIssuesResponse {
+	repository: {
+		milestones: {
+			nodes: {
+				dueOn: string,
+				createdAt: string,
+				title: string,
+				id: string,
+				issues: {
+					edges: {
+						node: PullRequest
+					}[]
+				}
+			}[],
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			}
+		}
+	};
+}
+
 export interface QueryWithRateLimit {
 	rateLimit: RateLimit;
 }

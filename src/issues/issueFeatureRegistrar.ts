@@ -12,6 +12,7 @@ import { IssueLinkProvider } from './issueLinkProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { IssueCompletionProvider } from './issueCompletionProvider';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	constructor(context: vscode.ExtensionContext, private manager: PullRequestManager) {
@@ -21,6 +22,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(manager)));
 		context.subscriptions.push(vscode.languages.registerDocumentLinkProvider('*', new IssueLinkProvider(manager, resolvedIssues)));
 		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider()));
+		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(manager, context), '#'));
 	}
 
 	dispose() { }

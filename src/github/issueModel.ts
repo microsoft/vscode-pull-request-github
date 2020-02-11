@@ -88,6 +88,7 @@ export class IssueModel {
 		this.author = issue.user;
 		this.milestone = issue.milestone;
 		this.createdAt = issue.createdAt;
+		this.updatedAt = issue.updatedAt;
 
 		this.updateState(issue.state);
 

@@ -10,7 +10,7 @@ import { CredentialStore } from './credentials';
 import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
-import { GitHubRepository, PullRequestData } from './githubRepository';
+import { GitHubRepository, PullRequestData, ItemsData } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability, User } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
@@ -26,6 +26,7 @@ import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
+import { MilestoneModel } from "./milestoneModel";
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -43,8 +44,8 @@ interface RestError {
 	resource: string;
 }
 
-interface PullRequestsResponseResult {
-	pullRequests: PullRequestModel[];
+export interface ItemsResponseResult<T> {
+	items: T[];
 	hasMorePages: boolean;
 	hasUnsearchedRepositories: boolean;
 }
@@ -687,10 +688,10 @@ export class PullRequestManager implements vscode.Disposable {
 	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
 	 *   Otherwise, we're in case 3.
 	 */
-	private async fetchPagedData(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, isPullRequest: boolean, type: PRType = PRType.All, query?: string): Promise<PullRequestsResponseResult> {
+	private async fetchPagedData<T>(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, isPullRequest: boolean, type: PRType = PRType.All, query?: string): Promise<ItemsResponseResult<T>> {
 		if (!this._githubRepositories || !this._githubRepositories.length) {
 			return {
-				pullRequests: [],
+				items: [],
 				hasMorePages: false,
 				hasUnsearchedRepositories: false
 			};
@@ -710,12 +711,12 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		let pagesFetched = 0;
-		const pullRequestData: PullRequestData = { hasMorePages: false, items: [] };
+		const itemData: ItemsData = { hasMorePages: false, items: [] };
 		const addPage = (page: PullRequestData | undefined) => {
 			pagesFetched++;
 			if (page) {
-				pullRequestData.items = pullRequestData.items.concat(page.items);
-				pullRequestData.hasMorePages = page.hasMorePages;
+				itemData.items = itemData.items.concat(page.items);
+				itemData.hasMorePages = page.hasMorePages;
 			}
 		};
 
@@ -730,7 +731,7 @@ export class PullRequestManager implements vscode.Disposable {
 			const remoteId = githubRepository.remote.url.toString() + queryId;
 			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
 
-			const fetchPage = async (pageNumber: number): Promise<PullRequestData | undefined> => {
+			const fetchPage = async (pageNumber: number): Promise<{ items: any[], hasMorePages: boolean } | undefined> => {
 				if (isPullRequest) {
 					if (type === PRType.All) {
 						return githubRepository.getAllPullRequests(pageNumber);
@@ -738,7 +739,7 @@ export class PullRequestManager implements vscode.Disposable {
 						return githubRepository.getPullRequestsForCategory(query || '', pageNumber);
 					}
 				} else {
-					githubRepository.getAllIssues(pageInformation.pullRequestPage);
+					return githubRepository.getIssuesForUserByMilestone(pageInformation.pullRequestPage);
 				}
 			};
 
@@ -760,14 +761,14 @@ export class PullRequestManager implements vscode.Disposable {
 				pages.forEach(page => addPage(page));
 			}
 
-			pageInformation.hasMorePages = pullRequestData.hasMorePages;
+			pageInformation.hasMorePages = itemData.hasMorePages;
 
 			// Break early if
 			// 1) we've received data AND
 			// 2) either we're fetching just the next page (case 2)
 			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
 			if (
-				pullRequestData.items.length &&
+				itemData.items.length &&
 				(options.fetchNextPage === true ||
 					(options.fetchNextPage === false && pagesFetched >= getTotalFetchedPages()))
 			) {
@@ -777,7 +778,7 @@ export class PullRequestManager implements vscode.Disposable {
 				}
 
 				return {
-					pullRequests: pullRequestData.items,
+					items: itemData.items,
 					hasMorePages: pageInformation.hasMorePages,
 					hasUnsearchedRepositories: i < githubRepositories.length - 1
 				};
@@ -785,19 +786,19 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		return {
-			pullRequests: [],
+			items: [],
 			hasMorePages: false,
 			hasUnsearchedRepositories: false
 		};
 	}
 
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<PullRequestsResponseResult> {
+	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<ItemsResponseResult<PullRequestModel>> {
 		const queryId = type.toString() + (query || '');
-		return this.fetchPagedData(options, queryId, true, type, query);
+		return this.fetchPagedData<PullRequestModel>(options, queryId, true, type, query);
 	}
 
-	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }): Promise<PullRequestsResponseResult> {
-		return this.fetchPagedData(options, 'issuesKey', false);
+	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<ItemsResponseResult<MilestoneModel>> {
+		return this.fetchPagedData<MilestoneModel>(options, 'issuesKey', false, PRType.All, query);
 	}
 
 	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse | undefined> {

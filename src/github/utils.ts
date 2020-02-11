@@ -6,7 +6,7 @@
 
 import * as Octokit from '@octokit/rest';
 import * as vscode from 'vscode';
-import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User } from './interface';
+import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User, Issue } from './interface';
 import { IComment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
@@ -330,21 +330,30 @@ function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
 	}
 }
 
-function parseAuthor(author: { login: string, url: string, avatarUrl: string }, githubRepository: GitHubRepository): IAccount {
-	return {
-		login: author.login,
-		url: author.url,
-		avatarUrl: githubRepository.isGitHubDotCom ? author.avatarUrl : undefined
-	};
+function parseAuthor(author: { login: string, url: string, avatarUrl: string } | null, githubRepository: GitHubRepository): IAccount {
+	if (author) {
+		return {
+			login: author.login,
+			url: author.url,
+			avatarUrl: githubRepository.isGitHubDotCom ? author.avatarUrl : undefined
+		};
+	} else {
+		return {
+			login: '',
+			url: ''
+		};
+	}
 }
 
-function parseMilestone(milestone: { title: string, dueOn?: string } | undefined): IMilestone | undefined {
+export function parseMilestone(milestone: { title: string, dueOn?: string, createdAt?: string, id?: string } | undefined): IMilestone | undefined {
 	if (!milestone) {
 		return undefined;
 	}
 	return {
 		title: milestone.title,
-		dueOn: milestone.dueOn
+		dueOn: milestone.dueOn,
+		createdAt: milestone.createdAt,
+		id: milestone.id
 	};
 }
 
@@ -378,6 +387,23 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers)
+	};
+}
+
+export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: GitHubRepository): Issue {
+	return {
+		id: issue.databaseId,
+		graphNodeId: issue.id,
+		url: issue.url,
+		number: issue.number,
+		state: issue.state,
+		body: issue.body,
+		bodyHTML: issue.bodyHTML,
+		title: issue.title,
+		createdAt: issue.createdAt,
+		updatedAt: issue.updatedAt,
+		user: parseAuthor(issue.author, githubRepository),
+		labels: issue.labels.nodes
 	};
 }
 

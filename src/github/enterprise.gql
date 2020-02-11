@@ -550,3 +550,60 @@ query Issues($query: String!) {
 		}
 	}
 }
+
+query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
+	repository(owner: $owner, name: $name) {
+		milestones(first: 12, orderBy: {
+			direction: DESC
+			field: DUE_DATE
+		} , states: OPEN) {
+			nodes {
+				dueOn
+				title
+				createdAt,
+				id,
+				issues(first: 100, filterBy: {
+					assignee: $assignee
+				}, orderBy: {
+					direction: DESC
+					field: UPDATED_AT
+				}, states: OPEN) {
+					edges {
+						node {
+							... on Issue {
+								number
+								url
+								state
+								body
+								bodyHTML
+								title
+								author {
+									login
+									url
+									avatarUrl
+								}
+								createdAt
+								updatedAt
+								labels(first: 50) {
+									nodes {
+										name
+									}
+								}
+								id
+								databaseId
+								milestone {
+									title
+									dueOn
+								}
+							}
+						}
+					}
+				}
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+}

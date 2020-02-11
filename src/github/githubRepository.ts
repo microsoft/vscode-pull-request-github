@@ -7,27 +7,37 @@ import * as vscode from 'vscode';
 import Octokit = require('@octokit/rest');
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IAccount, RepoAccessAndMergeMethods, PullRequestMergeability } from './interface';
+import { IAccount, RepoAccessAndMergeMethods, PullRequestMergeability, IMilestone } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
-import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLSearchRequest } from './utils';
-import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, PullRequestSearchResponse } from './graphql';
+import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone } from './utils';
+import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse } from './graphql';
 import { IssueModel } from './issueModel';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
 const GRAPHQL_COMPONENT_ID = 'GraphQL';
 
-export interface IssueData {
+export interface ItemsData {
+	items: any[];
+	hasMorePages: boolean;
+}
+
+export interface IssueData extends ItemsData {
 	items: IssueModel[];
 	hasMorePages: boolean;
 }
 
 export interface PullRequestData extends IssueData {
 	items: PullRequestModel[];
+}
+
+export interface MilestoneData extends ItemsData {
+	items: { milestone: IMilestone, issues: IssueModel[] }[];
+	hasMorePages: boolean;
 }
 
 export interface IMetadata extends Octokit.ReposGetResponse {
@@ -266,29 +276,36 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getAllIssues(page?: number): Promise<IssueData | undefined> {
+	async getIssuesForUserByMilestone(page?: number): Promise<MilestoneData | undefined> {
 		try {
 			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
-			const { data } = await query<PullRequestSearchResponse>({
-				query: schema.Issues,
+			const { data } = await query<MilestoneIssuesResponse>({
+				query: schema.GetMilestones,
 				variables: {
-					query: `assignee:${this._credentialStore.getCurrentUser(remote).login} state:open repo:${remote.owner}/${remote.repositoryName}`
+					owner: remote.owner,
+					name: remote.repositoryName,
+					assignee: this._credentialStore.getCurrentUser(remote).login
 				}
 			});
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
 
-			const issues: IssueModel[] = [];
-			if (data && data.search && data.search.edges) {
-				data.search.edges.forEach(raw => {
-					if (raw.node.id) {
-						issues.push(new IssueModel(this, remote, parseGraphQLSearchRequest(raw.node, this)));
+			const milestones: {milestone: IMilestone, issues: IssueModel[] }[] = [];
+			if (data && data.repository.milestones && data.repository.milestones.nodes) {
+				data.repository.milestones.nodes.forEach(raw => {
+					const milestone = parseMilestone(raw);
+					if (milestone) {
+						const issues: IssueModel[] = [];
+						raw.issues.edges.forEach(issue => {
+							issues.push(new IssueModel(this, remote, parseGraphQLIssue(issue.node, this)));
+						});
+						milestones.push({ milestone, issues });
 					}
 				});
 			}
 			return {
-				items: issues,
-				hasMorePages: data.search.pageInfo.hasNextPage
+				items: milestones,
+				hasMorePages: data.repository.milestones.pageInfo.hasNextPage
 			};
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch issues: ${e}`);
