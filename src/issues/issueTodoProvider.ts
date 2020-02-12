@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ISSUE_EXPRESSION } from './util';
+import { ISSUE_OR_URL_EXPRESSION } from './util';
 
 export interface NewIssue {
 	document: vscode.TextDocument;
@@ -21,7 +21,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 		do {
 			const line = document.lineAt(lineNumber).text;
 			const index = line.toLowerCase().indexOf('todo');
-			const matches = line.match(ISSUE_EXPRESSION);
+			const matches = line.match(ISSUE_OR_URL_EXPRESSION);
 			if ((index >= 0) && !matches) {
 				const codeAction: vscode.CodeAction = new vscode.CodeAction('Create issue from TODO', vscode.CodeActionKind.QuickFix);
 				codeAction.command = {

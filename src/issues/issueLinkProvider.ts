@@ -6,7 +6,7 @@ import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import * as LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
-import { getIssue, ISSUE_EXPRESSION, ParsedIssue } from './util';
+import { getIssue, ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from './util';
 
 const MAX_LINE_COUNT = 2000;
 const MAX_LINE_LENGTH = 150;
@@ -31,9 +31,10 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 			let lineSubstring = line.substring(0, lineLength);
 			while ((searchResult = lineSubstring.search(ISSUE_EXPRESSION)) >= 0) {
 				const match = lineSubstring.match(ISSUE_EXPRESSION);
-				if (match && (match.length > 1)) {
+				const parsed = parseIssueExpressionOutput(match);
+				if (match && parsed) {
 					const link = new IssueDocumentLink(new vscode.Range(new vscode.Position(i, searchResult + lineOffset), new vscode.Position(i, searchResult + lineOffset + match[0].length)),
-						{ value: match[0], parsed: { owner: match[2], name: match[3], issueNumber: parseInt(match[4]) } });
+						{ value: match[0], parsed });
 					links.push(link);
 				}
 				lineOffset += searchResult + (match ? match[0].length : 0) + 1;

@@ -8,7 +8,7 @@ import { PullRequestManager } from '../github/pullRequestManager';
 import * as marked from 'marked';
 import * as LRUCache from 'lru-cache';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { getIssue, ISSUE_EXPRESSION, ParsedIssue } from './util';
+import { getIssue, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from './util';
 import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 
@@ -16,13 +16,14 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: PullRequestManager, private resolvedIssues: LRUCache<string, PullRequestModel>) { }
 
 	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
-		let wordPosition = document.getWordRangeAtPosition(position, ISSUE_EXPRESSION);
+		let wordPosition = document.getWordRangeAtPosition(position, ISSUE_OR_URL_EXPRESSION);
 		if (wordPosition && (wordPosition.start.character > 0)) {
 			wordPosition = new vscode.Range(new vscode.Position(wordPosition.start.line, wordPosition.start.character - 1), wordPosition.end);
 			const word = document.getText(wordPosition);
-			const match = word.match(ISSUE_EXPRESSION);
-			if (match) {
-				return this.createHover(match[0], { owner: match[2], name: match[3], issueNumber: parseInt(match[4]) });
+			const match = word.match(ISSUE_OR_URL_EXPRESSION);
+			const tryParsed = parseIssueExpressionOutput(match);
+			if (tryParsed && match) {
+				return this.createHover(match[0], tryParsed);
 			}
 		} else {
 			return undefined;
