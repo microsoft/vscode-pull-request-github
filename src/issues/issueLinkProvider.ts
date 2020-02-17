@@ -37,8 +37,8 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 						{ value: match[0], parsed });
 					links.push(link);
 				}
-				lineOffset += searchResult + (match ? match[0].length : 0) + 1;
-				lineSubstring = lineSubstring.substring(lineOffset, lineSubstring.length);
+				lineOffset += searchResult + (match ? match[0].length : 0);
+				lineSubstring = line.substring(lineOffset, line.length);
 			}
 		}
 		return links;
