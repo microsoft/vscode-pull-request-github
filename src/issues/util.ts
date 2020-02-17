@@ -11,8 +11,8 @@ import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 
-export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([0-9]+)/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/[^\s]+\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([0-9]+)/;
+export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)/;
+export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/[^\s]+\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)/;
 
 export type ParsedIssue = { owner: string | undefined, name: string | undefined, issueNumber: number };
 
