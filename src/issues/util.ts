@@ -75,17 +75,36 @@ export async function getIssue(cache: LRUCache<string, IssueModel>, manager: Pul
 export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	const date = new Date(issue.createdAt);
-	markdown.appendMarkdown(`${issue.remote.owner}/${issue.remote.repositoryName} on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
+	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
+	markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
 	markdown.appendMarkdown(`**${getIcon(issue)} ${issue.title}** [#${issue.number}](${issue.html_url})  \n`);
-	const body = marked.parse(issue.body, {
+	let body = marked.parse(issue.body, {
 		renderer: new PlainTextRenderer()
 	});
-	markdown.appendMarkdown(((body.length > 85) ? (body.substr(0, 130) + '...') : body) + '  \n');
-	if (issue.item.labels.length > 0) {
-		issue.item.labels.forEach(label => {
-			markdown.appendMarkdown(`_${label.name}_ `);
-		});
+	markdown.appendMarkdown('  \n');
+	body = ((body.length > 200) ? (body.substr(0, 200) + '...') : body);
+	// Check the body for "links"
+	let searchResult = body.search(ISSUE_EXPRESSION);
+	let position = 0;
+	while ((searchResult >= 0) && (searchResult < body.length)) {
+		let newBodyFirstPart: string | undefined;
+		if (searchResult === 0 || body.charAt(searchResult - 1) !== '&') {
+			const match = body.substring(searchResult).match(ISSUE_EXPRESSION)!;
+			const tryParse = parseIssueExpressionOutput(match);
+			if (tryParse) {
+				if (!tryParse.owner || !tryParse.name) {
+					tryParse.owner = issue.remote.owner;
+					tryParse.name = issue.remote.repositoryName;
+				}
+				newBodyFirstPart = body.slice(0, searchResult + position) + `[${match[0]}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
+				body = newBodyFirstPart + body.slice(position + searchResult + match[0].length);
+			}
+		}
+		position = newBodyFirstPart ? newBodyFirstPart.length : searchResult + 1;
+		const newSearchResult = body.substring(position).search(ISSUE_EXPRESSION);
+		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
 	}
+	markdown.appendMarkdown(body + '  \n');
 	return markdown;
 }
 
