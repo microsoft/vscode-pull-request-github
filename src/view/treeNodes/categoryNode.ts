@@ -160,7 +160,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			if (!this.fetchNextPage) {
 				try {
 					const response = await this._prManager.getPullRequests(this._type, { fetchNextPage: false }, this._categoryQuery);
-					this.prs = response.pullRequests;
+					this.prs = response.items;
 					hasMorePages = response.hasMorePages;
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 
@@ -185,7 +185,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			} else {
 				try {
 					const response = await this._prManager.getPullRequests(this._type, { fetchNextPage: true }, this._categoryQuery);
-					this.prs = this.prs.concat(response.pullRequests);
+					this.prs = this.prs.concat(response.items);
 					hasMorePages = response.hasMorePages;
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 				} catch (e) {

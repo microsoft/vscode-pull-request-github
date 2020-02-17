@@ -380,7 +380,9 @@ export interface PullRequest {
 	suggestedReviewers: SuggestedReviewerResponse[];
 	milestone?: {
 		title: string,
-		dueOn?: string
+		dueOn?: string,
+		id: string,
+		createdAt: string
 	};
 }
 
@@ -403,6 +405,28 @@ export interface PullRequestSearchResponse {
 		}[]
 	};
 	rateLimit: RateLimit;
+}
+
+export interface MilestoneIssuesResponse {
+	repository: {
+		milestones: {
+			nodes: {
+				dueOn: string,
+				createdAt: string,
+				title: string,
+				id: string,
+				issues: {
+					edges: {
+						node: PullRequest
+					}[]
+				}
+			}[],
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			}
+		}
+	};
 }
 
 export interface QueryWithRateLimit {

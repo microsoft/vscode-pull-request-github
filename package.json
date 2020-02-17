@@ -201,6 +201,11 @@
               }
             }
           }
+        },
+        "githubIssues.ignoreMilestones": {
+          "type": "array",
+          "default": [],
+          "description": "An array of milestones titles to never show issues from."
         }
       }
     },
