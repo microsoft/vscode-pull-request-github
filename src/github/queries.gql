@@ -545,6 +545,8 @@ query Issues($query: String!) {
 					milestone {
 						title
 						dueOn
+						id
+						createdAt
 					}
 				}
 			}

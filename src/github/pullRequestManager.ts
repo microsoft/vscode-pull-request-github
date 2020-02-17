@@ -26,7 +26,7 @@ import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
-import { MilestoneModel } from "./milestoneModel";
+import { MilestoneModel } from './milestoneModel';
 
 interface PageInformation {
 	pullRequestPage: number;

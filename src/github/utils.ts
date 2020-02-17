@@ -345,7 +345,7 @@ function parseAuthor(author: { login: string, url: string, avatarUrl: string } |
 	}
 }
 
-export function parseMilestone(milestone: { title: string, dueOn?: string, createdAt?: string, id?: string } | undefined): IMilestone | undefined {
+export function parseMilestone(milestone: { title: string, dueOn?: string, createdAt: string, id: string } | undefined): IMilestone | undefined {
 	if (!milestone) {
 		return undefined;
 	}

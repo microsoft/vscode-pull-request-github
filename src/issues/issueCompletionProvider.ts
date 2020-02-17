@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
-import { MilestoneModel } from "../github/milestoneModel";
+import { MilestoneModel } from '../github/milestoneModel';
 import { issueMarkdown } from './util';
 
 // TODO: make exclude from date words configurable

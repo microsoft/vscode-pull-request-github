@@ -380,7 +380,9 @@ export interface PullRequest {
 	suggestedReviewers: SuggestedReviewerResponse[];
 	milestone?: {
 		title: string,
-		dueOn?: string
+		dueOn?: string,
+		id: string,
+		createdAt: string
 	};
 }
 

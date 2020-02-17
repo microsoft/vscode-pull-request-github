@@ -47,8 +47,8 @@ export interface ISuggestedReviewer extends IAccount {
 export interface IMilestone {
 	title: string;
 	dueOn?: string | null;
-	createdAt?: string;
-	id?: string;
+	createdAt: string;
+	id: string;
 }
 
 export interface MergePullRequest {
