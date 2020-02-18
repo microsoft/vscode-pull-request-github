@@ -6,14 +6,6 @@
 import * as vscode from 'vscode';
 import { ISSUE_OR_URL_EXPRESSION } from './util';
 
-export interface NewIssue {
-	document: vscode.TextDocument;
-	lineNumber: number;
-	line: string;
-	insertIndex: number;
-	range: vscode.Range | vscode.Selection;
-}
-
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	async provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.CodeAction[]> {
 		const codeActions: vscode.CodeAction[] = [];

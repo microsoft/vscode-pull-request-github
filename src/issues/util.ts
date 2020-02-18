@@ -120,6 +120,35 @@ function getIcon(issue: IssueModel) {
 	}
 }
 
+export interface NewIssue {
+	document: vscode.TextDocument;
+	lineNumber: number;
+	line: string;
+	insertIndex: number;
+	range: vscode.Range | vscode.Selection;
+}
+
+export async function createGithubPermalink(manager: PullRequestManager, positionInfo?: NewIssue): Promise<string | undefined> {
+	let document: vscode.TextDocument;
+	let range: vscode.Range;
+	if (!positionInfo && vscode.window.activeTextEditor) {
+		document = vscode.window.activeTextEditor.document;
+		range = vscode.window.activeTextEditor.selection;
+	} else if (positionInfo) {
+		document = positionInfo.document;
+		range = positionInfo.range;
+	} else {
+		return undefined;
+	}
+
+	const origin = await manager.getOrigin();
+	if (manager.repository.state.HEAD && manager.repository.state.HEAD.commit && (manager.repository.state.HEAD.ahead === 0)) {
+		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.commit}/${vscode.workspace.asRelativePath(document.uri)}#L${range.start.line + 1}-L${range.end.line + 1}`;
+	} else if (manager.repository.state.HEAD && manager.repository.state.HEAD.ahead && (manager.repository.state.HEAD.ahead > 0)) {
+		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.upstream!.name}/${vscode.workspace.asRelativePath(document.uri)}#L${range.start.line + 1}-L${range.end.line + 1}`;
+	}
+}
+
 export class PlainTextRenderer extends marked.Renderer {
 	code(code: string): string {
 		return code;

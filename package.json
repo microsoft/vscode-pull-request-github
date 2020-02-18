@@ -476,6 +476,16 @@
         "command": "issue.createIssueFromSelection",
         "title": "Create Issue From Selection",
         "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.copyGithubPermalink",
+        "title": "Copy GitHub Permalink",
+        "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.openGithubPermalink",
+        "title": "Open Github Permalink",
+        "category": "GitHub Issues"
       }
     ],
     "menus": {
