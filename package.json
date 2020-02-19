@@ -206,6 +206,18 @@
           "type": "array",
           "default": [],
           "description": "An array of milestones titles to never show issues from."
+        },
+        "githubIssues.createIssueTriggers": {
+          "type": "array",
+          "default": [
+            "TODO",
+            "todo",
+            "BUG",
+            "FIXME",
+            "ISSUE",
+            "HACK"
+          ],
+          "description": "An array of strings that will cause the 'Create issue from comment' code action to show."
         }
       }
     },

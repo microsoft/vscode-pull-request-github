@@ -23,7 +23,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(manager, resolvedIssues)));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(manager)));
 		context.subscriptions.push(vscode.languages.registerDocumentLinkProvider('*', new IssueLinkProvider(manager, resolvedIssues)));
-		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider()));
+		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(context)));
 		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(manager, context), '#'));
 	}
 
@@ -40,7 +40,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			document = newIssue.document;
 			insertIndex = newIssue.insertIndex;
 			lineNumber = newIssue.lineNumber;
-			titlePlaceholder = newIssue.line.substring(insertIndex + 4, newIssue.line.length).trim();
+			titlePlaceholder = newIssue.line.substring(insertIndex, newIssue.line.length).trim();
 		} else {
 			return undefined;
 		}
@@ -58,7 +58,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			if (issue) {
 				if ((insertIndex !== undefined) && (lineNumber !== undefined)) {
 					const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
-					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex + 4), ` #${issue.number}`);
+					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` #${issue.number}`);
 					await vscode.workspace.applyEdit(edit);
 				} else {
 					await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));

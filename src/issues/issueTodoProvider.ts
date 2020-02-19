@@ -7,22 +7,39 @@ import * as vscode from 'vscode';
 import { ISSUE_OR_URL_EXPRESSION } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
+	private expression: RegExp;
+
+	constructor(context: vscode.ExtensionContext) {
+		context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
+			this.updateTriggers();
+		}));
+		this.updateTriggers();
+	}
+
+	private updateTriggers() {
+		const triggers = vscode.workspace.getConfiguration('githubIssues').get('createIssueTriggers', []);
+		this.expression = new RegExp(triggers.join('|'));
+	}
+
 	async provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.CodeAction[]> {
 		const codeActions: vscode.CodeAction[] = [];
 		let lineNumber = range.start.line;
 		do {
 			const line = document.lineAt(lineNumber).text;
-			const index = line.toLowerCase().indexOf('todo');
 			const matches = line.match(ISSUE_OR_URL_EXPRESSION);
-			if ((index >= 0) && !matches) {
-				const codeAction: vscode.CodeAction = new vscode.CodeAction('Create issue from TODO', vscode.CodeActionKind.QuickFix);
-				codeAction.command = {
-					title: 'Create Issue From TODO',
-					command: 'issue.createIssueFromSelection',
-					arguments: [{ document, lineNumber, line, insertIndex: index, range }]
-				};
-				codeActions.push(codeAction);
-				break;
+			if (!matches) {
+				const search = line.search(this.expression);
+				if (search >= 0) {
+					const match = line.match(this.expression);
+					const codeAction: vscode.CodeAction = new vscode.CodeAction('Create issue from comment', vscode.CodeActionKind.QuickFix);
+					codeAction.command = {
+						title: 'Create Issue From Comment',
+						command: 'issue.createIssueFromSelection',
+						arguments: [{ document, lineNumber, line, insertIndex: search + match![0].length, range }]
+					};
+					codeActions.push(codeAction);
+					break;
+				}
 			}
 			lineNumber++;
 		} while (range.end.line >= lineNumber);
