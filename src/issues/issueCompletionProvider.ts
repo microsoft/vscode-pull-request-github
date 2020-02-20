@@ -90,13 +90,12 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				range = new vscode.Range(position.translate(0, -1), position);
 			}
 		}
-
+		
 		const completionItems: vscode.CompletionItem[] = [];
-
 		for (let index = 0; index < milestones.length; index++) {
 			const value = milestones[index];
 			value.issues.forEach(issue => {
-				const item: vscode.CompletionItem = new vscode.CompletionItem(`${issue.number}: ${issue.title}`);
+				const item: vscode.CompletionItem = new vscode.CompletionItem(`${issue.number}: ${issue.title}`, vscode.CompletionItemKind.Constant);
 				if (document.languageId === 'markdown') {
 					item.insertText = `[#${issue.number}](${issue.html_url})`;
 				} else {
