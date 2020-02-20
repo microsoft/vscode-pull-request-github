@@ -8,8 +8,9 @@ import * as marked from 'marked';
 import * as vscode from 'vscode';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
-import { GithubItemStateEnum } from '../github/interface';
+import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { GitHubRepository } from '../github/githubRepository';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/[^\s]+\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)/;
@@ -70,6 +71,40 @@ export async function getIssue(cache: LRUCache<string, IssueModel>, manager: Pul
 		}
 	}
 	return undefined;
+}
+
+
+function repoCommitDate(user: User, repoNameWithOwner: string): string | undefined {
+	let date: string | undefined = undefined;
+	user.commitContributions.forEach(element => {
+		if (repoNameWithOwner.toLowerCase() === element.repoNameWithOwner.toLowerCase()) {
+			date = element.createdAt.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' });
+		}
+	});
+	return date;
+}
+
+export function userMarkdown(origin: GitHubRepository, user: User): vscode.MarkdownString {
+	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
+	markdown.appendMarkdown(`![Avatar](${user.avatarUrl}) **${user.name}** [${user.login}](${user.url})`);
+	if (user.bio) {
+		markdown.appendText('  \r\n' + user.bio.replace(/\r\n/g, ' '));
+	}
+
+	const date = repoCommitDate(user, origin.remote.owner + '/' + origin.remote.repositoryName);
+	if (user.location || date) {
+		markdown.appendMarkdown('  \r\n\r\n---');
+	}
+	if (user.location) {
+		markdown.appendMarkdown(`  \r\n$(location) ${user.location}`);
+	}
+	if (date) {
+		markdown.appendMarkdown(`  \r\n$(git-commit) Committed to this repository on ${date}`);
+	}
+	if (user.company) {
+		markdown.appendMarkdown(`  \r\n$(jersey) Member of ${user.company}`);
+	}
+	return markdown;
 }
 
 export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
