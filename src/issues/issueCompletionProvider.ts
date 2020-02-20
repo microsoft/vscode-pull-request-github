@@ -81,6 +81,10 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		if ((position.character > 0) && (context.triggerKind === vscode.CompletionTriggerKind.Invoke) && (document.getText(new vscode.Range(position.with(undefined, position.character - 1), position)) !== '#')) {
 			return [];
 		}
+		// It's common in markdown to start a line with #s and not want an completion
+		if ((position.character <= 6) && (document.languageId === 'markdown') && (document.getText(new vscode.Range(position.with(undefined, 0), position)) === new Array(position.character + 1).join('#'))) {
+			return [];
+		}
 
 		const milestones = await this._items;
 		let range: vscode.Range = new vscode.Range(position, position);
@@ -90,7 +94,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				range = new vscode.Range(position.translate(0, -1), position);
 			}
 		}
-		
+
 		const completionItems: vscode.CompletionItem[] = [];
 		for (let index = 0; index < milestones.length; index++) {
 			const value = milestones[index];

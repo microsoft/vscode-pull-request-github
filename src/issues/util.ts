@@ -73,7 +73,6 @@ export async function getIssue(cache: LRUCache<string, IssueModel>, manager: Pul
 	return undefined;
 }
 
-
 function repoCommitDate(user: User, repoNameWithOwner: string): string | undefined {
 	let date: string | undefined = undefined;
 	user.commitContributions.forEach(element => {

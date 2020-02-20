@@ -32,7 +32,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private async createItems(): Promise<IAccount[]> {
 		const accounts: IAccount[] = [];
 		const assignableUsers = await this.manager.getAssignableUsers();
-		for (let user in assignableUsers) {
+		for (const user in assignableUsers) {
 			accounts.push(...assignableUsers[user]);
 		}
 		return accounts;
@@ -62,7 +62,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 
 			completionItem.filterText = `@ ${item.login} ${item.name}`;
 			completionItems.push(completionItem);
-		})
+		});
 		return completionItems;
 	}
 
