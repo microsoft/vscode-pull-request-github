@@ -155,16 +155,18 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this._pullRequestManager.getReviewRequests(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, { hasWritePermission, mergeMethodsAvailability }] = result;
+			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, repositoryAccess] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
 
 			this._item = pullRequest;
-			this._repositoryDefaultBranch = defaultBranch;
+			this._repositoryDefaultBranch = defaultBranch!;
 			this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
+			const hasWritePermission = repositoryAccess!.hasWritePermission;
+			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._item);
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
@@ -196,7 +198,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					hasWritePermission,
 					status: status ? status : { statuses: [] },
 					mergeable: pullRequest.item.mergeable,
-					reviewers: this.parseReviewers(requestedReviewers, timelineEvents, pullRequest.author),
+					reviewers: this.parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author),
 					isDraft: pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
