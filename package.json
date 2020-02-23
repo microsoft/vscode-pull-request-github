@@ -221,7 +221,7 @@
             "ISSUE",
             "HACK"
           ],
-          "description": "An array of strings that will cause the 'Create issue from comment' code action to show."
+          "description": "Strings that will cause the 'Create issue from comment' code action to show."
         }
       }
     },
