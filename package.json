@@ -207,25 +207,11 @@
           "default": [],
           "description": "An array of milestones titles to never show issues from."
         },
-
-        "typescript.tsserver.pluginPaths": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "description": "%typescript.tsserver.pluginPaths.item%"
-          },
-          "default": [],
-          "description": "%typescript.tsserver.pluginPaths%",
-          "scope": "machine"
-        },
-
-
-
         "githubIssues.createIssueTriggers": {
           "type": "array",
           "items": {
             "type": "string",
-            "description": "String to trigger the creation of an issue"
+            "description": "String that enables the 'Create issue from comment' code action."
           },
           "default": [
             "TODO",
