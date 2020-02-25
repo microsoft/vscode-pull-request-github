@@ -210,7 +210,7 @@ export class PlainTextRenderer extends marked.Renderer {
 		return '';
 	}
 	paragraph(text: string): string {
-		return text;
+		return text + ' ';
 	}
 	table(header: string, body: string): string {
 		return header + ' ' + body;
