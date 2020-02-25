@@ -7,7 +7,6 @@ import { PullRequestManager } from '../github/pullRequestManager';
 import * as vscode from 'vscode';
 import { IssueHoverProvider } from './issueHoverProvider';
 import * as LRUCache from 'lru-cache';
-import { IssueLinkProvider } from './issueLinkProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -23,7 +22,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', this.openPermalink, this));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(manager, resolvedIssues)));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(manager)));
-		context.subscriptions.push(vscode.languages.registerDocumentLinkProvider('*', new IssueLinkProvider(manager, resolvedIssues)));
 		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(context)));
 		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(manager, context), '#'));
 		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(manager, context), '@'));
