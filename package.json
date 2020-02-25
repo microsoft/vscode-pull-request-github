@@ -209,6 +209,10 @@
         },
         "githubIssues.createIssueTriggers": {
           "type": "array",
+          "items": {
+            "type": "string",
+            "description": "String that enables the 'Create issue from comment' code action."
+          },
           "default": [
             "TODO",
             "todo",
@@ -217,7 +221,7 @@
             "ISSUE",
             "HACK"
           ],
-          "description": "An array of strings that will cause the 'Create issue from comment' code action to show."
+          "description": "Strings that will cause the 'Create issue from comment' code action to show."
         }
       }
     },
