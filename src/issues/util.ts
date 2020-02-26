@@ -130,8 +130,8 @@ export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 					tryParse.owner = issue.remote.owner;
 					tryParse.name = issue.remote.repositoryName;
 				}
-				newBodyFirstPart = body.slice(0, searchResult + position) + `[${match[0]}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
-				body = newBodyFirstPart + body.slice(position + searchResult + match[0].length);
+				newBodyFirstPart = body.slice(0, searchResult) + `[${match[0]}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
+				body = newBodyFirstPart + body.slice(searchResult + match[0].length);
 			}
 		}
 		position = newBodyFirstPart ? newBodyFirstPart.length : searchResult + 1;
