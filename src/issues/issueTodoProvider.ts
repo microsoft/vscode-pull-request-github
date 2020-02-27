@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ISSUE_OR_URL_EXPRESSION } from './util';
+import { ISSUE_OR_URL_EXPRESSION, MAX_LINE_LENGTH } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp;
@@ -26,11 +26,12 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 		let lineNumber = range.start.line;
 		do {
 			const line = document.lineAt(lineNumber).text;
-			const matches = line.match(ISSUE_OR_URL_EXPRESSION);
+			const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
+			const matches = truncatedLine.match(ISSUE_OR_URL_EXPRESSION);
 			if (!matches) {
-				const search = line.search(this.expression);
+				const search = truncatedLine.search(this.expression);
 				if (search >= 0) {
-					const match = line.match(this.expression);
+					const match = truncatedLine.match(this.expression);
 					const codeAction: vscode.CodeAction = new vscode.CodeAction('Create issue from comment', vscode.CodeActionKind.QuickFix);
 					codeAction.command = {
 						title: 'Create Issue From Comment',

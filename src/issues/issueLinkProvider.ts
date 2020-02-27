@@ -6,10 +6,9 @@ import { PullRequestManager } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import * as LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
-import { getIssue, ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from './util';
+import { getIssue, ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, MAX_LINE_LENGTH } from './util';
 
 const MAX_LINE_COUNT = 2000;
-const MAX_LINE_LENGTH = 150;
 
 class IssueDocumentLink extends vscode.DocumentLink {
 	constructor(range: vscode.Range, public readonly mappedLink: { readonly value: string, readonly parsed: ParsedIssue }) {

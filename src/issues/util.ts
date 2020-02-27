@@ -15,6 +15,8 @@ import { GitHubRepository } from '../github/githubRepository';
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/[^\s]+\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
 
+export const MAX_LINE_LENGTH = 150;
+
 export type ParsedIssue = { owner: string | undefined, name: string | undefined, issueNumber: number };
 
 export function parseIssueExpressionOutput(output: RegExpMatchArray | null): ParsedIssue | undefined {
