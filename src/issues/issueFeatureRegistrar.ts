@@ -20,7 +20,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	constructor(private manager: PullRequestManager) { }
 
 	async initialize(context: vscode.ExtensionContext) {
-		await this._stateManager.initialize(this.manager);
+		await this._stateManager.initialize(this.manager, context);
 		context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', this.copyPermalink, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', this.openPermalink, this));
@@ -71,7 +71,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			if (issue) {
 				if ((insertIndex !== undefined) && (lineNumber !== undefined)) {
 					const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
-					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` #${issue.number}`);
+					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` #${issue.number} `);
 					await vscode.workspace.applyEdit(edit);
 				} else {
 					await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
