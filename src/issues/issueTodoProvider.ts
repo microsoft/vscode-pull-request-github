@@ -32,9 +32,9 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 				const search = truncatedLine.search(this.expression);
 				if (search >= 0) {
 					const match = truncatedLine.match(this.expression);
-					const codeAction: vscode.CodeAction = new vscode.CodeAction('Create issue from comment', vscode.CodeActionKind.QuickFix);
+					const codeAction: vscode.CodeAction = new vscode.CodeAction('Create GitHub Issue', vscode.CodeActionKind.QuickFix);
 					codeAction.command = {
-						title: 'Create Issue From Comment',
+						title: 'Create GitHub Issue',
 						command: 'issue.createIssueFromSelection',
 						arguments: [{ document, lineNumber, line, insertIndex: search + match![0].length, range }]
 					};
