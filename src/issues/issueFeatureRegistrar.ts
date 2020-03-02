@@ -11,7 +11,7 @@ import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { IssueCompletionProvider } from './issueCompletionProvider';
-import { NewIssue, createGithubPermalink } from './util';
+import { NewIssue, createGithubPermalink, USER_EXPRESSION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
@@ -36,16 +36,22 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		let titlePlaceholder: string | undefined;
 		let insertIndex: number | undefined;
 		let lineNumber: number | undefined;
+		let assignee: string | undefined;
+		let issueGenerationText: string | undefined;
 		if (!newIssue && vscode.window.activeTextEditor) {
 			document = vscode.window.activeTextEditor.document;
+			issueGenerationText = document.getText(vscode.window.activeTextEditor.selection)
 		} else if (newIssue) {
 			document = newIssue.document;
 			insertIndex = newIssue.insertIndex;
 			lineNumber = newIssue.lineNumber;
 			titlePlaceholder = newIssue.line.substring(insertIndex, newIssue.line.length).trim();
+			issueGenerationText = document.getText(newIssue.range.isEmpty ? document.lineAt(newIssue.range.start.line).range : newIssue.range);
 		} else {
 			return undefined;
 		}
+		const matches = issueGenerationText.match(USER_EXPRESSION);
+		assignee = (matches && matches.length === 2) ? matches[1] : undefined;
 
 		const title = await vscode.window.showInputBox({ value: titlePlaceholder, prompt: 'Issue title' });
 		if (title) {
@@ -55,7 +61,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				owner: origin.remote.owner,
 				repo: origin.remote.repositoryName,
 				title,
-				body: issueBody
+				body: issueBody,
+				assignee
 			});
 			if (issue) {
 				if ((insertIndex !== undefined) && (lineNumber !== undefined)) {

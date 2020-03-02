@@ -5,9 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PullRequestManager } from '../github/pullRequestManager';
-import { userMarkdown } from './util';
-
-const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
+import { userMarkdown, USER_EXPRESSION } from './util';
 
 export class UserHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: PullRequestManager) { }
