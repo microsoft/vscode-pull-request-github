@@ -429,6 +429,20 @@ export interface MilestoneIssuesResponse {
 	};
 }
 
+export interface IssuesResponse {
+	repository: {
+		issues: {
+			edges: {
+				node: PullRequest
+			}[],
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			}
+		}
+	};
+}
+
 export interface QueryWithRateLimit {
 	rateLimit: RateLimit;
 }

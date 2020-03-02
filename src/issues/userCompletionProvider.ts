@@ -14,7 +14,7 @@ class UserCompletion extends vscode.CompletionItem {
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private _items: Promise<IAccount[]> = Promise.resolve([]);
-	
+
 	constructor(private manager: PullRequestManager, context: vscode.ExtensionContext) {
 		if (this.manager.state === PRManagerState.RepositoriesLoaded) {
 			this._items = this.createItems();

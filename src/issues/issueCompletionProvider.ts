@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
+import { PullRequestManager, PRManagerState, NO_MILESTONE } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { issueMarkdown } from './util';
 import { API as GitAPI, GitExtension } from '../typings/git';
@@ -55,11 +55,11 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 	private createItems(): Promise<MilestoneModel[]> {
 		return new Promise(async (resolve) => {
-			const milestones = await this.manager.getIssues({ fetchNextPage: false });
+			const skipMilestones: string[] = vscode.workspace.getConfiguration('githubIssues').get('ignoreMilestones', []);
+			const milestones = await this.manager.getIssues({ fetchNextPage: false }, skipMilestones.indexOf(NO_MILESTONE) < 0);
 			let mostRecentPastTitleTime: Date | undefined = undefined;
 			const milestoneDateMap: Map<string, Date> = new Map();
 			const milestonesToUse: MilestoneModel[] = [];
-			const skipMilestones: string[] = vscode.workspace.getConfiguration('githubIssues').get('ignoreMilestones', []);
 
 			// The number of milestones is expected to be very low, so two passes through is negligible
 			for (let i = 0; i < milestones.items.length; i++) {

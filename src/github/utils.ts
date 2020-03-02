@@ -407,7 +407,7 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 	};
 }
 
-export function parseGraphQLSearchRequest(pullRequest: GraphQL.PullRequest, githubRepository: GitHubRepository): PullRequest {
+export function parseGraphQLIssuesRequest(pullRequest: GraphQL.PullRequest, githubRepository: GitHubRepository): PullRequest {
 	const graphQLPullRequest = pullRequest;
 
 	return {

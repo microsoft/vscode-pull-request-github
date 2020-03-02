@@ -14,7 +14,7 @@ import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone } from './utils';
-import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse } from './graphql';
+import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse } from './graphql';
 import { IssueModel } from './issueModel';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -290,7 +290,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
 
-			const milestones: {milestone: IMilestone, issues: IssueModel[] }[] = [];
+			const milestones: { milestone: IMilestone, issues: IssueModel[] }[] = [];
 			if (data && data.repository.milestones && data.repository.milestones.nodes) {
 				data.repository.milestones.nodes.forEach(raw => {
 					const milestone = parseMilestone(raw);
@@ -309,6 +309,38 @@ export class GitHubRepository implements vscode.Disposable {
 			};
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch issues: ${e}`);
+			return;
+		}
+	}
+
+	async getIssuesWithoutMilestone(page?: number): Promise<IssueData | undefined> {
+		try {
+			Logger.debug(`Fetch issues without milestone- enter`, GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+			const { data } = await query<IssuesResponse>({
+				query: schema.IssuesWithoutMilestone,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					assignee: this._credentialStore.getCurrentUser(remote).login
+				}
+			});
+			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
+
+			const issues: IssueModel[] = [];
+			if (data && data.repository.issues.edges) {
+				data.repository.issues.edges.forEach(raw => {
+					if (raw.node.id) {
+						issues.push(new IssueModel(this, remote, parseGraphQLIssue(raw.node, this)));
+					}
+				});
+			}
+			return {
+				items: issues,
+				hasMorePages: data.repository.issues.pageInfo.hasNextPage
+			};
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch issues without milestone: ${e}`);
 			return;
 		}
 	}

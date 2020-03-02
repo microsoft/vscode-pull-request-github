@@ -108,6 +108,14 @@ export interface PullRequestDefaults {
 	base: string;
 }
 
+export const NO_MILESTONE: string = 'No Milestone';
+
+enum PagedDataType {
+	PullRequest,
+	Milestones,
+	IssuesWithoutMilestone
+}
+
 export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
 
@@ -688,7 +696,7 @@ export class PullRequestManager implements vscode.Disposable {
 	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
 	 *   Otherwise, we're in case 3.
 	 */
-	private async fetchPagedData<T>(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, isPullRequest: boolean, type: PRType = PRType.All, query?: string): Promise<ItemsResponseResult<T>> {
+	private async fetchPagedData<T>(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, pagedDataType: PagedDataType = PagedDataType.PullRequest, type: PRType = PRType.All, query?: string): Promise<ItemsResponseResult<T>> {
 		if (!this._githubRepositories || !this._githubRepositories.length) {
 			return {
 				items: [],
@@ -732,14 +740,20 @@ export class PullRequestManager implements vscode.Disposable {
 			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
 
 			const fetchPage = async (pageNumber: number): Promise<{ items: any[], hasMorePages: boolean } | undefined> => {
-				if (isPullRequest) {
-					if (type === PRType.All) {
-						return githubRepository.getAllPullRequests(pageNumber);
-					} else {
-						return githubRepository.getPullRequestsForCategory(query || '', pageNumber);
+				switch (pagedDataType) {
+					case PagedDataType.PullRequest: {
+						if (type === PRType.All) {
+							return githubRepository.getAllPullRequests(pageNumber);
+						} else {
+							return githubRepository.getPullRequestsForCategory(query || '', pageNumber);
+						}
 					}
-				} else {
-					return githubRepository.getIssuesForUserByMilestone(pageInformation.pullRequestPage);
+					case PagedDataType.Milestones: {
+						return githubRepository.getIssuesForUserByMilestone(pageInformation.pullRequestPage);
+					}
+					case PagedDataType.IssuesWithoutMilestone: {
+						return githubRepository.getIssuesWithoutMilestone(pageInformation.pullRequestPage);
+					}
 				}
 			};
 
@@ -794,11 +808,23 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<ItemsResponseResult<PullRequestModel>> {
 		const queryId = type.toString() + (query || '');
-		return this.fetchPagedData<PullRequestModel>(options, queryId, true, type, query);
+		return this.fetchPagedData<PullRequestModel>(options, queryId, PagedDataType.PullRequest, type, query);
 	}
 
-	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<ItemsResponseResult<MilestoneModel>> {
-		return this.fetchPagedData<MilestoneModel>(options, 'issuesKey', false, PRType.All, query);
+	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }, includeIssuesWithoutMilstone: boolean = false, query?: string): Promise<ItemsResponseResult<MilestoneModel>> {
+		const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(options, 'issuesKey', PagedDataType.Milestones, PRType.All, query);
+		if (includeIssuesWithoutMilstone) {
+			const additionalIssues: ItemsResponseResult<IssueModel> = await this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssuesWithoutMilestone, PRType.All, query);
+			milestones.items.push({
+				milestone: {
+					createdAt: new Date(0).toDateString(),
+					id: '',
+					title: NO_MILESTONE
+				},
+				issues: additionalIssues.items
+			});
+		}
+		return milestones;
 	}
 
 	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse | undefined> {

@@ -512,43 +512,48 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 	}
 }
 
-query Issues($query: String!) {
-	search(first: 100, type: ISSUE, query: $query) {
-		issueCount
-		pageInfo {
-			hasNextPage
-			endCursor
-		}
-		edges {
-			node {
-				... on Issue {
-					number
-					url
-					state
-					body
-					bodyHTML
-					title
-					author {
-						login
+query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!) {
+	repository(owner: $owner, name: $name) {
+		issues(first: 100, states: OPEN, filterBy: {
+			assignee: $assignee,
+			milestone: null
+		}, orderBy: {
+			direction: DESC
+			field: UPDATED_AT
+		}) {
+			edges {
+				node {
+					... on Issue {
+						number
 						url
-						avatarUrl
-					}
-					createdAt
-					updatedAt
-					labels(first: 50) {
-						nodes {
-							name
+						state
+						body
+						bodyHTML
+						title
+						author {
+							login
+							url
+							avatarUrl
+						}
+						createdAt
+						updatedAt
+						labels(first: 50) {
+							nodes {
+								name
+							}
+						}
+						id
+						databaseId
+						milestone {
+							title
+							dueOn
 						}
 					}
-					id
-					databaseId
-					milestone {
-						title
-						dueOn
-						id
-						createdAt
-					}
 				}
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
 			}
 		}
 	}
