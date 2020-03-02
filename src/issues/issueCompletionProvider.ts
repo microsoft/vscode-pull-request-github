@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { issueMarkdown } from './util';
+import { API as GitAPI, GitExtension } from '../typings/git';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
@@ -14,19 +15,42 @@ const now = new Date();
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 	private _items: Promise<MilestoneModel[]> = Promise.resolve([]);
+	private _lastHead: string | undefined;
 
-	constructor(private manager: PullRequestManager, context: vscode.ExtensionContext) {
+	constructor(private manager: PullRequestManager, context: vscode.ExtensionContext, onRefreshCacheNeeded: vscode.Event<void>) {
 		if (this.manager.state === PRManagerState.RepositoriesLoaded) {
-			this._items = this.createItems();
+			this.construct(context, onRefreshCacheNeeded);
 		} else {
 			const disposable = this.manager.onDidChangeState(() => {
 				if (this.manager.state === PRManagerState.RepositoriesLoaded) {
-					this._items = this.createItems();
+					this.construct(context, onRefreshCacheNeeded);
 					disposable.dispose();
 				}
 			});
 			context.subscriptions.push(disposable);
 		}
+	}
+
+	private construct(context: vscode.ExtensionContext, onRefreshCacheNeeded: vscode.Event<void>) {
+		this._lastHead = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.commit : undefined;
+		this._items = this.createItems();
+		this.registerRepositoryChangeEvent(context);
+		context.subscriptions.push(onRefreshCacheNeeded(() => {
+			this._items = this.createItems();
+		}));
+	}
+
+	private registerRepositoryChangeEvent(context: vscode.ExtensionContext) {
+		const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
+		const git: GitAPI = gitExtension.getAPI(1);
+		git.repositories.forEach(repository => {
+			context.subscriptions.push(repository.state.onDidChange(() => {
+				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this._lastHead) {
+					this._lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
+					this._items = this.createItems();
+				}
+			}));
+		});
 	}
 
 	private createItems(): Promise<MilestoneModel[]> {

@@ -15,6 +15,8 @@ import { NewIssue, createGithubPermalink } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
+	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
+
 	constructor(context: vscode.ExtensionContext, private manager: PullRequestManager) {
 		const resolvedIssues: LRUCache<string, PullRequestModel> = new LRUCache(50); // 50 seems big enough
 		context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
@@ -23,7 +25,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(manager, resolvedIssues)));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(manager)));
 		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(context)));
-		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(manager, context), '#'));
+		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(manager, context, this._onRefreshCacheNeeded.event), '#'));
 		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(manager, context), '@'));
 	}
 
@@ -63,6 +65,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				} else {
 					await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
 				}
+				this._onRefreshCacheNeeded.fire();
 			}
 		}
 	}
