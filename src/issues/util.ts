@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as LRUCache from 'lru-cache';
 import * as marked from 'marked';
 import * as vscode from 'vscode';
 import { PullRequestManager } from '../github/pullRequestManager';
@@ -11,6 +10,7 @@ import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { GitHubRepository } from '../github/githubRepository';
+import { StateManager } from './stateManager';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/[^\s]+\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
@@ -41,9 +41,9 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 	}
 }
 
-export async function getIssue(cache: LRUCache<string, IssueModel>, manager: PullRequestManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
-	if (cache.has(issueValue)) {
-		return cache.get(issueValue);
+export async function getIssue(stateManager: StateManager, manager: PullRequestManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
+	if (stateManager.resolvedIssues.has(issueValue)) {
+		return stateManager.resolvedIssues.get(issueValue);
 	} else {
 		let owner: string | undefined = undefined;
 		let name: string | undefined = undefined;
@@ -68,7 +68,7 @@ export async function getIssue(cache: LRUCache<string, IssueModel>, manager: Pul
 				issue = await manager.resolvePullRequest(owner, name, issueNumber);
 			}
 			if (issue) {
-				cache.set(issueValue, issue);
+				stateManager.resolvedIssues.set(issueValue, issue);
 			}
 
 			return issue;

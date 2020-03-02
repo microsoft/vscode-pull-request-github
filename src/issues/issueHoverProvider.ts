@@ -5,12 +5,11 @@
 
 import * as vscode from 'vscode';
 import { PullRequestManager } from '../github/pullRequestManager';
-import * as LRUCache from 'lru-cache';
-import { PullRequestModel } from '../github/pullRequestModel';
 import { getIssue, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, issueMarkdown } from './util';
+import { StateManager } from './stateManager';
 
 export class IssueHoverProvider implements vscode.HoverProvider {
-	constructor(private manager: PullRequestManager, private resolvedIssues: LRUCache<string, PullRequestModel>) { }
+	constructor(private manager: PullRequestManager, private stateManager: StateManager) { }
 
 	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
 		let wordPosition = document.getWordRangeAtPosition(position, ISSUE_OR_URL_EXPRESSION);
@@ -28,7 +27,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 	}
 
 	private async createHover(value: string, parsed: ParsedIssue): Promise<vscode.Hover | undefined> {
-		const issue = await getIssue(this.resolvedIssues, this.manager, value, parsed);
+		const issue = await getIssue(this.stateManager, this.manager, value, parsed);
 		if (issue) {
 			return new vscode.Hover(issueMarkdown(issue));
 		} else {

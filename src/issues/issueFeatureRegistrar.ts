@@ -6,27 +6,29 @@
 import { PullRequestManager } from '../github/pullRequestManager';
 import * as vscode from 'vscode';
 import { IssueHoverProvider } from './issueHoverProvider';
-import * as LRUCache from 'lru-cache';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
-import { PullRequestModel } from '../github/pullRequestModel';
 import { IssueCompletionProvider } from './issueCompletionProvider';
 import { NewIssue, createGithubPermalink, USER_EXPRESSION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
+import { StateManager } from './stateManager';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	private _stateManager: StateManager = new StateManager();
 
-	constructor(context: vscode.ExtensionContext, private manager: PullRequestManager) {
-		const resolvedIssues: LRUCache<string, PullRequestModel> = new LRUCache(50); // 50 seems big enough
+	constructor(private manager: PullRequestManager) { }
+
+	async initialize(context: vscode.ExtensionContext) {
+		await this._stateManager.initialize(this.manager);
 		context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', this.copyPermalink, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', this.openPermalink, this));
-		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(manager, resolvedIssues)));
-		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(manager)));
+		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager)));
+		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(context)));
-		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(manager, context, this._onRefreshCacheNeeded.event), '#'));
-		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(manager, context), '@'));
+		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(this.manager, context, this._onRefreshCacheNeeded.event), '#'));
+		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(this.manager, context), '@'));
 	}
 
 	dispose() { }
@@ -51,7 +53,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			return undefined;
 		}
 		const matches = issueGenerationText.match(USER_EXPRESSION);
-		assignee = (matches && matches.length === 2) ? matches[1] : undefined;
+		if (matches && matches.length === 2 && this._stateManager.userMap.has(matches[1])) {
+			assignee = matches[1];
+		}
 
 		const title = await vscode.window.showInputBox({ value: titlePlaceholder, prompt: 'Issue title' });
 		if (title) {

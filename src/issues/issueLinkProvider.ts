@@ -3,10 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { PullRequestManager } from '../github/pullRequestManager';
-import { PullRequestModel } from '../github/pullRequestModel';
-import * as LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { getIssue, ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, MAX_LINE_LENGTH } from './util';
+import { StateManager } from './stateManager';
 
 const MAX_LINE_COUNT = 2000;
 
@@ -17,7 +16,7 @@ class IssueDocumentLink extends vscode.DocumentLink {
 }
 
 export class IssueLinkProvider implements vscode.DocumentLinkProvider {
-	constructor(private manager: PullRequestManager, private resolvedIssues: LRUCache<string, PullRequestModel>) { }
+	constructor(private manager: PullRequestManager, private stateManager: StateManager) { }
 
 	provideDocumentLinks(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DocumentLink[]> {
 		const links: vscode.DocumentLink[] = [];
@@ -44,7 +43,7 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 	}
 
 	async resolveDocumentLink(link: IssueDocumentLink, _token: vscode.CancellationToken): Promise<vscode.DocumentLink | undefined> {
-		const issue = await getIssue(this.resolvedIssues, this.manager, link.mappedLink.value, link.mappedLink.parsed);
+		const issue = await getIssue(this.stateManager, this.manager, link.mappedLink.value, link.mappedLink.parsed);
 		if (issue) {
 			link.target = await vscode.env.asExternalUri(vscode.Uri.parse(issue.html_url));
 		}
