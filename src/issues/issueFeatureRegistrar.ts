@@ -13,6 +13,7 @@ import { NewIssue, createGithubPermalink, USER_EXPRESSION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
 import { IssuesTreeData } from './issuesView';
+import { IssueModel } from '../github/issueModel';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
@@ -26,6 +27,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', this.copyPermalink, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', this.openPermalink, this));
+		context.subscriptions.push(vscode.commands.registerCommand('issue.openIssue', this.openIssue));
+		context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueNumber', this.copyIssueNumber));
+		context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueUrl', this.copyIssueUrl));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager)));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(context)));
@@ -35,6 +39,24 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	dispose() { }
+
+	openIssue(issueModel: any) {
+		if (issueModel instanceof IssueModel) {
+			return vscode.env.openExternal(vscode.Uri.parse(issueModel.html_url));
+		}
+	}
+
+	copyIssueNumber(issueModel: any) {
+		if (issueModel instanceof IssueModel) {
+			return vscode.env.clipboard.writeText(issueModel.number.toString());
+		}
+	}
+
+	copyIssueUrl(issueModel: any) {
+		if (issueModel instanceof IssueModel) {
+			return vscode.env.clipboard.writeText(issueModel.html_url);
+		}
+	}
 
 	async createTodoIssue(newIssue?: NewIssue) {
 		let document: vscode.TextDocument;

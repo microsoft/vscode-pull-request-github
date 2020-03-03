@@ -512,6 +512,21 @@
         "command": "issue.openGithubPermalink",
         "title": "Open Permalink in Github",
         "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.openIssue",
+        "title": "Open Issue",
+        "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.copyIssueNumber",
+        "title": "Copy Number",
+        "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.copyIssueUrl",
+        "title": "Copy Url",
+        "category": "GitHub Issues"
       }
     ],
     "menus": {
@@ -655,6 +670,18 @@
         {
           "command": "pr.finishReview",
           "when": "false"
+        },
+        {
+          "command": "issue.openIssue",
+          "when": "false"
+        },
+        {
+          "command": "issue.copyIssueNumber",
+          "when": "false"
+        },
+        {
+          "command": "issue.copyIssueUrl",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -730,6 +757,21 @@
         {
           "command": "pr.openModifiedFile",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
+        },
+        {
+          "command": "issue.openIssue",
+          "when": "view == issues:github && viewItem == issue",
+          "group": "issues@0"
+        },
+        {
+          "command": "issue.copyIssueNumber",
+          "when": "view == issues:github && viewItem == issue",
+          "group": "issues@1"
+        },
+        {
+          "command": "issue.copyIssueUrl",
+          "when": "view == issues:github && viewItem == issue",
+          "group": "issues@2"
         }
       ],
       "editor/title": [
