@@ -19,17 +19,17 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 			const match = word.match(ISSUE_OR_URL_EXPRESSION);
 			const tryParsed = parseIssueExpressionOutput(match);
 			if (tryParsed && match) {
-				return this.createHover(match[0], tryParsed);
+				return this.createHover(match[0], tryParsed, wordPosition);
 			}
 		} else {
 			return undefined;
 		}
 	}
 
-	private async createHover(value: string, parsed: ParsedIssue): Promise<vscode.Hover | undefined> {
+	private async createHover(value: string, parsed: ParsedIssue, range: vscode.Range): Promise<vscode.Hover | undefined> {
 		const issue = await getIssue(this.stateManager, this.manager, value, parsed);
 		if (issue) {
-			return new vscode.Hover(issueMarkdown(issue));
+			return new vscode.Hover(issueMarkdown(issue), range);
 		} else {
 			return undefined;
 		}

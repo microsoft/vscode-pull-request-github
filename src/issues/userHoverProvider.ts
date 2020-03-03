@@ -17,16 +17,16 @@ export class UserHoverProvider implements vscode.HoverProvider {
 			const word = document.getText(wordPosition);
 			const match = word.match(USER_EXPRESSION);
 			if (match) {
-				return this.createHover(match[1]);
+				return this.createHover(match[1], wordPosition);
 			}
 		} else {
 			return undefined;
 		}
 	}
 
-	private async createHover(username: string): Promise<vscode.Hover | undefined> {
+	private async createHover(username: string, range: vscode.Range): Promise<vscode.Hover | undefined> {
 		const origin = await this.manager.getOrigin();
 		const user = await this.manager.resolveUser(origin.remote.owner, origin.remote.repositoryName, username);
-		return user ? new vscode.Hover(userMarkdown(origin, user)) : undefined;
+		return user ? new vscode.Hover(userMarkdown(origin, user), range) : undefined;
 	}
 }
