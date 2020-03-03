@@ -227,6 +227,15 @@
           "type": "boolean",
           "default": false,
           "description": "When true, show GitHub issues in the GitHub viewlet."
+        },
+        "githubIssues.createInsertFormat": {
+          "type": "string",
+          "enum": [
+            "number",
+            "url"
+          ],
+          "default": "number",
+          "description": "Controls whether an issue number (ex. #1234) or a full url (ex. https://github.com/owner/name/issues/1234) is inserted when the Create Issue code action is run."
         }
       }
     },

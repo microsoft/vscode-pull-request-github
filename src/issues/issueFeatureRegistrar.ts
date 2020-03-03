@@ -96,7 +96,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			if (issue) {
 				if ((insertIndex !== undefined) && (lineNumber !== undefined)) {
 					const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
-					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` #${issue.number}`);
+					const insertText: string = vscode.workspace.getConfiguration('githubIssues').get('createInsertFormat', 'number') === 'number' ? `#${issue.number}` : issue.html_url;
+					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
 					await vscode.workspace.applyEdit(edit);
 				} else {
 					await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
