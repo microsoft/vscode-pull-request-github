@@ -109,7 +109,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private async getPermalinkWithError(): Promise<string | undefined> {
 		const link: string | undefined = await createGithubPermalink(this.manager);
 		if (!link) {
-			vscode.window.showWarningMessage('Unable to create a GitHub permalink for the selection.');
+			vscode.window.showWarningMessage('Unable to create a GitHub permalink for the selection. Check that your local branch is tracking a remote branch.');
 		}
 		return link;
 	}
