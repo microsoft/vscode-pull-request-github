@@ -16,7 +16,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 	constructor(private stateManager: StateManager, context: vscode.ExtensionContext) {
 		context.subscriptions.push(this.stateManager.onDidChangeMilestones(() => {
 			this._onDidChangeTreeData.fire();
-		}))
+		}));
 	}
 
 	getTreeItem(element: IssueModel | MilestoneModel): vscode.TreeItem {
@@ -28,13 +28,13 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 			treeItem.iconPath = {
 				light: Resource.icons.light.Issues,
 				dark: Resource.icons.dark.Issues
-			}
+			};
 			treeItem.contextValue = 'issue';
 			treeItem.command = {
 				command: 'issue.openIssue',
 				title: 'Open Issue',
 				arguments: [element]
-			}
+			};
 		}
 		return treeItem;
 	}

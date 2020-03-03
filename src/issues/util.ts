@@ -48,30 +48,30 @@ export async function getIssue(stateManager: StateManager, manager: PullRequestM
 		let owner: string | undefined = undefined;
 		let name: string | undefined = undefined;
 		let issueNumber: number | undefined = undefined;
-		const origin = await manager.getOrigin();
-		if (!parsed) {
-			const tryParse = parseIssueExpressionOutput(issueValue.match(ISSUE_OR_URL_EXPRESSION));
-			if (tryParse && (!tryParse.name || !tryParse.owner)) {
-				owner = origin.remote.owner;
-				name = origin.remote.repositoryName;
-			}
-		} else {
-			owner = parsed.owner ? parsed.owner : origin.remote.owner;
-			name = parsed.name ? parsed.name : origin.remote.repositoryName;
-			issueNumber = parsed.issueNumber;
-		}
-
-		if (owner && name && (issueNumber !== undefined)) {
-
-			let issue = await manager.resolveIssue(owner, name, issueNumber);
-			if (!issue) {
-				issue = await manager.resolvePullRequest(owner, name, issueNumber);
-			}
-			if (issue) {
-				stateManager.resolvedIssues.set(issueValue, issue);
+		const remotes = manager.getGitHubRemotes();
+		for (const remote of remotes) {
+			if (!parsed) {
+				const tryParse = parseIssueExpressionOutput(issueValue.match(ISSUE_OR_URL_EXPRESSION));
+				if (tryParse && (!tryParse.name || !tryParse.owner)) {
+					owner = remote.owner;
+					name = remote.repositoryName;
+				}
+			} else {
+				owner = parsed.owner ? parsed.owner : remote.owner;
+				name = parsed.name ? parsed.name : remote.repositoryName;
+				issueNumber = parsed.issueNumber;
 			}
 
-			return issue;
+			if (owner && name && (issueNumber !== undefined)) {
+				let issue = await manager.resolveIssue(owner, name, issueNumber);
+				if (!issue) {
+					issue = await manager.resolvePullRequest(owner, name, issueNumber);
+				}
+				if (issue) {
+					stateManager.resolvedIssues.set(issueValue, issue);
+					return issue;
+				}
+			}
 		}
 	}
 	return undefined;
