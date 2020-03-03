@@ -12,23 +12,26 @@ import { IssueCompletionProvider } from './issueCompletionProvider';
 import { NewIssue, createGithubPermalink, USER_EXPRESSION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
+import { IssuesTreeData } from './issuesView';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
-	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
-	private _stateManager: StateManager = new StateManager();
+	private _stateManager: StateManager;
 
-	constructor(private manager: PullRequestManager) { }
+	constructor(private manager: PullRequestManager) {
+		this._stateManager = new StateManager(this.manager);
+	}
 
 	async initialize(context: vscode.ExtensionContext) {
-		await this._stateManager.initialize(this.manager, context);
+		await this._stateManager.initialize(context);
 		context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', this.copyPermalink, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', this.openPermalink, this));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager)));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(context)));
-		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(this.manager, context, this._onRefreshCacheNeeded.event), '#'));
+		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(this._stateManager), '#'));
 		context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(this.manager, context), '@'));
+		context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, context)));
 	}
 
 	dispose() { }
@@ -42,7 +45,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		let issueGenerationText: string | undefined;
 		if (!newIssue && vscode.window.activeTextEditor) {
 			document = vscode.window.activeTextEditor.document;
-			issueGenerationText = document.getText(vscode.window.activeTextEditor.selection)
+			issueGenerationText = document.getText(vscode.window.activeTextEditor.selection);
 		} else if (newIssue) {
 			document = newIssue.document;
 			insertIndex = newIssue.insertIndex;
@@ -76,7 +79,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				} else {
 					await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
 				}
-				this._onRefreshCacheNeeded.fire();
+				this._stateManager.onRefreshCacheNeeded.fire();
 			}
 		}
 	}

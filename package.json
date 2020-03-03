@@ -222,6 +222,11 @@
             "HACK"
           ],
           "description": "Strings that will cause the 'Create issue from comment' code action to show."
+        },
+        "githubIssues.show": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, show GitHub issues in the GitHub viewlet."
         }
       }
     },
@@ -245,6 +250,11 @@
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
           "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode"
+        },
+        {
+          "id": "issues:github",
+          "name": "Issues",
+          "when": "config.githubIssues.show"
         }
       ],
       "scm": [

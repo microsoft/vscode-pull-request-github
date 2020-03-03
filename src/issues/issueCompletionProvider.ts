@@ -4,101 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestManager, PRManagerState, NO_MILESTONE } from '../github/pullRequestManager';
-import { MilestoneModel } from '../github/milestoneModel';
 import { issueMarkdown } from './util';
-import { API as GitAPI, GitExtension } from '../typings/git';
-
-// TODO: make exclude from date words configurable
-const excludeFromDate: string[] = ['Recovery'];
-const now = new Date();
+import { StateManager } from './stateManager';
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
-	private _items: Promise<MilestoneModel[]> = Promise.resolve([]);
-	private _lastHead: string | undefined;
 
-	constructor(private manager: PullRequestManager, context: vscode.ExtensionContext, onRefreshCacheNeeded: vscode.Event<void>) {
-		if (this.manager.state === PRManagerState.RepositoriesLoaded) {
-			this.construct(context, onRefreshCacheNeeded);
-		} else {
-			const disposable = this.manager.onDidChangeState(() => {
-				if (this.manager.state === PRManagerState.RepositoriesLoaded) {
-					this.construct(context, onRefreshCacheNeeded);
-					disposable.dispose();
-				}
-			});
-			context.subscriptions.push(disposable);
-		}
-	}
-
-	private construct(context: vscode.ExtensionContext, onRefreshCacheNeeded: vscode.Event<void>) {
-		this._lastHead = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.commit : undefined;
-		this._items = this.createItems();
-		this.registerRepositoryChangeEvent(context);
-		context.subscriptions.push(onRefreshCacheNeeded(() => {
-			this._items = this.createItems();
-		}));
-	}
-
-	private registerRepositoryChangeEvent(context: vscode.ExtensionContext) {
-		const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
-		const git: GitAPI = gitExtension.getAPI(1);
-		git.repositories.forEach(repository => {
-			context.subscriptions.push(repository.state.onDidChange(() => {
-				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this._lastHead) {
-					this._lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
-					this._items = this.createItems();
-				}
-			}));
-		});
-	}
-
-	private createItems(): Promise<MilestoneModel[]> {
-		return new Promise(async (resolve) => {
-			const skipMilestones: string[] = vscode.workspace.getConfiguration('githubIssues').get('ignoreMilestones', []);
-			const milestones = await this.manager.getIssues({ fetchNextPage: false }, skipMilestones.indexOf(NO_MILESTONE) < 0);
-			let mostRecentPastTitleTime: Date | undefined = undefined;
-			const milestoneDateMap: Map<string, Date> = new Map();
-			const milestonesToUse: MilestoneModel[] = [];
-
-			// The number of milestones is expected to be very low, so two passes through is negligible
-			for (let i = 0; i < milestones.items.length; i++) {
-				const item = milestones.items[i];
-				const milestone = milestones.items[i].milestone;
-				if ((item.issues && item.issues.length <= 0) || (skipMilestones.indexOf(milestone.title) >= 0)) {
-					continue;
-				}
-				milestonesToUse.push(item);
-				let milestoneDate = milestone.dueOn ? new Date(milestone.dueOn) : undefined;
-				if (!milestoneDate) {
-					milestoneDate = new Date(this.removeDateExcludeStrings(milestone.title));
-					if (isNaN(milestoneDate.getTime())) {
-						milestoneDate = new Date(milestone.createdAt!);
-					}
-				}
-				if ((milestoneDate < now) && ((mostRecentPastTitleTime === undefined) || (milestoneDate > mostRecentPastTitleTime))) {
-					mostRecentPastTitleTime = milestoneDate;
-				}
-				milestoneDateMap.set(milestone.id ? milestone.id : milestone.title, milestoneDate);
-			}
-
-			milestonesToUse.sort((a: MilestoneModel, b: MilestoneModel): number => {
-				const dateA = milestoneDateMap.get(a.milestone.id ? a.milestone.id : a.milestone.title)!;
-				const dateB = milestoneDateMap.get(b.milestone.id ? b.milestone.id : b.milestone.title)!;
-				if (mostRecentPastTitleTime && (dateA >= mostRecentPastTitleTime) && (dateB >= mostRecentPastTitleTime)) {
-					return dateA <= dateB ? -1 : 1;
-				} else {
-					return dateA >= dateB ? -1 : 1;
-				}
-			});
-			resolve(milestonesToUse);
-		});
-	}
-
-	private removeDateExcludeStrings(possibleDate: string): string {
-		excludeFromDate.forEach(exclude => possibleDate = possibleDate.replace(exclude, ''));
-		return possibleDate;
-	}
+	constructor(private stateManager: StateManager) { }
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
@@ -110,7 +21,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		const milestones = await this._items;
+		const milestones = await this.stateManager.milestones;
 		let range: vscode.Range = new vscode.Range(position, position);
 		if (position.character - 1 >= 0) {
 			const wordAtPos = document.getText(new vscode.Range(position.translate(0, -1), position));
@@ -120,6 +31,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		}
 
 		const completionItems: vscode.CompletionItem[] = [];
+		const now = new Date();
+
 		for (let index = 0; index < milestones.length; index++) {
 			const value = milestones[index];
 			value.issues.forEach(issue => {
