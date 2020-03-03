@@ -31,12 +31,13 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 			if (!matches) {
 				const search = truncatedLine.search(this.expression);
 				if (search >= 0) {
-					const match = truncatedLine.match(this.expression);
 					const codeAction: vscode.CodeAction = new vscode.CodeAction('Create GitHub Issue', vscode.CodeActionKind.QuickFix);
+					const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
+					const insertIndex = search + (indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression)![0].length);
 					codeAction.command = {
 						title: 'Create GitHub Issue',
 						command: 'issue.createIssueFromSelection',
-						arguments: [{ document, lineNumber, line, insertIndex: search + match![0].length, range }]
+						arguments: [{ document, lineNumber, line, insertIndex, range }]
 					};
 					codeActions.push(codeAction);
 					break;

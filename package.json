@@ -211,7 +211,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "description": "String that enables the 'Create issue from comment' code action."
+            "description": "String that enables the 'Create issue from comment' code action. Should not container whitespace."
           },
           "default": [
             "TODO",
