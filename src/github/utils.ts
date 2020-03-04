@@ -591,37 +591,44 @@ function parseGraphQLCommitContributions(commitComments: GraphQL.ContributionsCo
 export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
 	const ret = [
 		{
-			title: 'CONFUSED',
-			label: '😕',
-			icon: Resource.icons.reactions.CONFUSED
-		}, {
-			title: 'EYES',
-			label: '👀',
-			icon: Resource.icons.reactions.EYES
-		}, {
-			title: 'HEART',
-			label: '❤️',
-			icon: Resource.icons.reactions.HEART
-		}, {
-			title: 'HOORAY',
-			label: '🎉',
-			icon: Resource.icons.reactions.HOORAY
-		}, {
-			title: 'LAUGH',
-			label: '😄',
-			icon: Resource.icons.reactions.LAUGH
-		}, {
-			title: 'ROCKET',
-			label: '🚀',
-			icon: Resource.icons.reactions.ROCKET
-		}, {
-			title: 'THUMBS_DOWN',
-			label: '👎',
-			icon: Resource.icons.reactions.THUMBS_DOWN
-		}, {
 			title: 'THUMBS_UP',
 			label: '👍',
 			icon: Resource.icons.reactions.THUMBS_UP
+		},
+		{
+			title: 'THUMBS_DOWN',
+			label: '👎',
+			icon: Resource.icons.reactions.THUMBS_DOWN
+		},
+		{
+			title: 'LAUGH',
+			label: '😄',
+			icon: Resource.icons.reactions.LAUGH
+		},
+		{
+			title: 'HOORAY',
+			label: '🎉',
+			icon: Resource.icons.reactions.HOORAY
+		},
+		{
+			title: 'CONFUSED',
+			label: '😕',
+			icon: Resource.icons.reactions.CONFUSED
+		},
+		{
+			title: 'HEART',
+			label: '❤️',
+			icon: Resource.icons.reactions.HEART
+		},
+		{
+			title: 'ROCKET',
+			label: '🚀',
+			icon: Resource.icons.reactions.ROCKET
+		},
+		{
+			title: 'EYES',
+			label: '👀',
+			icon: Resource.icons.reactions.EYES
 		}
 	];
 
