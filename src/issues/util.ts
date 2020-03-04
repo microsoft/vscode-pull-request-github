@@ -110,6 +110,7 @@ export function userMarkdown(origin: GitHubRepository, user: User): vscode.Markd
 	return markdown;
 }
 
+export const ISSUE_BODY_LENGTH: number = 200;
 export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	const date = new Date(issue.createdAt);
@@ -120,7 +121,7 @@ export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 		renderer: new PlainTextRenderer()
 	});
 	markdown.appendMarkdown('  \n');
-	body = ((body.length > 200) ? (body.substr(0, 200) + '...') : body);
+	body = ((body.length > ISSUE_BODY_LENGTH) ? (body.substr(0, ISSUE_BODY_LENGTH) + '...') : body);
 	// Check the body for "links"
 	let searchResult = body.search(ISSUE_EXPRESSION);
 	let position = 0;

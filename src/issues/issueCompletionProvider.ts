@@ -6,6 +6,13 @@
 import * as vscode from 'vscode';
 import { issueMarkdown } from './util';
 import { StateManager } from './stateManager';
+import { IssueModel } from '../github/issueModel';
+
+class IssueCompletionItem extends vscode.CompletionItem {
+	constructor(public readonly issue: IssueModel) {
+		super(`${issue.number}: ${issue.title}`, vscode.CompletionItemKind.Constant);
+	}
+}
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
@@ -36,13 +43,13 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		for (let index = 0; index < milestones.length; index++) {
 			const value = milestones[index];
 			value.issues.forEach(issue => {
-				const item: vscode.CompletionItem = new vscode.CompletionItem(`${issue.number}: ${issue.title}`, vscode.CompletionItemKind.Constant);
+				const item: vscode.CompletionItem = new IssueCompletionItem(issue);
 				if (document.languageId === 'markdown') {
 					item.insertText = `[#${issue.number}](${issue.html_url})`;
 				} else {
 					item.insertText = `#${issue.number}`;
 				}
-				item.documentation = issueMarkdown(issue);
+				item.documentation = issue.body;
 				item.range = range;
 				item.detail = value.milestone.title;
 				let updatedAt: string = (now.getTime() - new Date(issue.updatedAt).getTime()).toString();
@@ -54,5 +61,12 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		}
 
 		return completionItems;
+	}
+
+	resolveCompletionItem(item: vscode.CompletionItem, token: vscode.CancellationToken): vscode.CompletionItem {
+		if (item instanceof IssueCompletionItem) {
+			item.documentation = issueMarkdown(item.issue);
+		}
+		return item;
 	}
 }
