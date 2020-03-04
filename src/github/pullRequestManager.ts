@@ -196,7 +196,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
-				Logger.appendLine(`Resolving GitHub remotes failed: ${formatError(e)}`);
+				Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
 				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
 				return [];
 			});
@@ -463,7 +463,7 @@ export class PullRequestManager implements vscode.Disposable {
 			hasAuthenticated = authenticationResult.some(isAuthd => isAuthd);
 			vscode.commands.executeCommand('setContext', 'github:authenticated', hasAuthenticated);
 		}).catch(e => {
-			Logger.appendLine(`serverAuthPromises failed: ${formatError(e)}`);
+			Logger.appendLine(`serverAuthPromises failed: ${e}`);
 		});
 
 		const repositories: GitHubRepository[] = [];
@@ -874,7 +874,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 			return comments;
 		} catch (e) {
-			Logger.appendLine(`Failed to get pull request review comments: ${formatError(e)}`);
+			Logger.appendLine(`Failed to get pull request review comments: ${e}`);
 			return [];
 		}
 	}
@@ -1329,7 +1329,7 @@ export class PullRequestManager implements vscode.Disposable {
 			this._telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
 			return pullRequestModel;
 		} catch (e) {
-			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${formatError(e)}`);
+			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
 
 			/* __GDPR__
 				"pr.create.failure" : {
@@ -1366,7 +1366,7 @@ export class PullRequestManager implements vscode.Disposable {
 			this._telemetry.sendTelemetryEvent('issue.create.success');
 			return issueModel;
 		} catch (e) {
-			Logger.appendLine(`GitHubRepository> Creating issue failed: ${formatError(e)}`);
+			Logger.appendLine(`GitHubRepository> Creating issue failed: ${e}`);
 
 			/* __GDPR__
 				"issue.create.failure" : {
