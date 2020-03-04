@@ -243,7 +243,7 @@
       "activitybar": [
         {
           "id": "github-pull-requests",
-          "title": "GitHub Pull Requests",
+          "title": "GitHub",
           "icon": "resources/icons/light/github.svg"
         }
       ]
@@ -252,7 +252,7 @@
       "github-pull-requests": [
         {
           "id": "pr:github",
-          "name": "GitHub Pull Requests",
+          "name": "Pull Requests",
           "when": "!config.githubPullRequests.showInSCM && config.git.enabled"
         },
         {
