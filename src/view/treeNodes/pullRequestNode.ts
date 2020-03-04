@@ -331,13 +331,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		currentPRDocuments = uniqBy(currentPRDocuments, editor => editor.fileName);
 
 		if (currentPRDocuments.length) {
-			// initialize before await
-			currentPRDocuments.forEach(async editor => {
-				if (commentThreadCache[editor.fileName]) {
-					commentThreadCache[editor.fileName] = [];
-				}
-			});
-
 			const fileChanges = await this.getFileChanges();
 			await this._prManager.validateDraftMode(this.pullRequestModel);
 			currentPRDocuments.forEach(async editor => {
