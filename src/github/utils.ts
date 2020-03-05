@@ -181,6 +181,7 @@ export function convertRESTReviewEvent(review: Octokit.PullsCreateReviewResponse
 		comments: [],
 		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
 		body: review.body,
+		bodyHTML: review.body,
 		htmlUrl: review.html_url,
 		user: convertRESTUserToAccount(review.user, githubRepository),
 		authorAssociation: review.user.type,
