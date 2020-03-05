@@ -65,6 +65,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
 		super(extensionPath, column, title, pullRequestManager, descriptionNode, PullRequestOverviewPanel._viewType);
 
+		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
+			if (this._pullRequestManager && this._item) {
+				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
+				this._postMessage({
+					command: 'pr.update-checkout-status',
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut
+				});
+			}
+		}, null, this._disposables);
+
 		onDidUpdatePR(pr => {
 			if (pr) {
 				this._item.update(pr);
