@@ -314,7 +314,7 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 query GetUser($login: String!) {
 	user(login: $login) {
 		login
-		avatarUrl(size: 50)
+		avatarUrl(size: 25)
 		bio
 		name
 		company

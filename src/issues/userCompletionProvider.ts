@@ -67,8 +67,8 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	}
 
 	async resolveCompletionItem(item: UserCompletion, token: vscode.CancellationToken): Promise<vscode.CompletionItem> {
-		const repo = await this.manager.getOrigin();
-		const user: User | undefined = await this.manager.resolveUser(repo.remote.owner, repo.remote.remoteName, item.login);
+		const repo = await this.manager.getPullRequestDefaults();
+		const user: User | undefined = await this.manager.resolveUser(repo.owner, repo.repo, item.login);
 		if (user) {
 			item.documentation = userMarkdown(repo, user);
 		}

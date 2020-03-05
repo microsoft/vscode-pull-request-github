@@ -5,11 +5,10 @@
 
 import * as marked from 'marked';
 import * as vscode from 'vscode';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { GitHubRepository } from '../github/githubRepository';
 import { StateManager } from './stateManager';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
@@ -87,14 +86,14 @@ function repoCommitDate(user: User, repoNameWithOwner: string): string | undefin
 	return date;
 }
 
-export function userMarkdown(origin: GitHubRepository, user: User): vscode.MarkdownString {
+export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	markdown.appendMarkdown(`![Avatar](${user.avatarUrl}) **${user.name}** [${user.login}](${user.url})`);
 	if (user.bio) {
 		markdown.appendText('  \r\n' + user.bio.replace(/\r\n/g, ' '));
 	}
 
-	const date = repoCommitDate(user, origin.remote.owner + '/' + origin.remote.repositoryName);
+	const date = repoCommitDate(user, origin.owner + '/' + origin.repo);
 	if (user.location || date) {
 		markdown.appendMarkdown('  \r\n\r\n---');
 	}
