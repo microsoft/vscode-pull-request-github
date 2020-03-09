@@ -25,6 +25,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	async initialize(context: vscode.ExtensionContext) {
 		await this._stateManager.initialize(context);
 		context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
+		context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromClipboard', this.createTodoIssueClipboard, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', this.copyPermalink, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', this.openPermalink, this));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.openIssue', this.openIssue));
@@ -58,7 +59,11 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
-	async createTodoIssue(newIssue?: NewIssue) {
+	async createTodoIssueClipboard() {
+		return this.createTodoIssue(undefined, await vscode.env.clipboard.readText())
+	}
+
+	async createTodoIssue(newIssue?: NewIssue, issueBody?: string) {
 		let document: vscode.TextDocument;
 		let titlePlaceholder: string | undefined;
 		let insertIndex: number | undefined;
@@ -85,12 +90,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const title = await vscode.window.showInputBox({ value: titlePlaceholder, prompt: 'Issue title' });
 		if (title) {
 			const origin = await this.manager.getPullRequestDefaults();
-			const issueBody: string | undefined = await createGithubPermalink(this.manager, newIssue);
+			const body: string | undefined = issueBody ? issueBody : await createGithubPermalink(this.manager, newIssue);
 			const issue = await this.manager.createIssue({
 				owner: origin.owner,
 				repo: origin.repo,
 				title,
-				body: issueBody,
+				body,
 				assignee
 			});
 			if (issue) {

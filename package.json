@@ -513,6 +513,11 @@
         "category": "GitHub Issues"
       },
       {
+        "command": "issue.createIssueFromClipboard",
+        "title": "Create Issue From Clipboard",
+        "category": "GitHub Issues"
+      },
+      {
         "command": "issue.copyGithubPermalink",
         "title": "Copy GitHub Permalink",
         "category": "GitHub Issues"
