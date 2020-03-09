@@ -303,6 +303,7 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 			labels(first: 50) {
 				nodes {
 					name
+					color
 				}
 			}
 			id
@@ -540,6 +541,7 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 						labels(first: 50) {
 							nodes {
 								name
+								color
 							}
 						}
 						id
@@ -595,6 +597,7 @@ query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
 								labels(first: 50) {
 									nodes {
 										name
+										color
 									}
 								}
 								id

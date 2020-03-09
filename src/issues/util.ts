@@ -109,6 +109,51 @@ export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.Ma
 	return markdown;
 }
 
+function convertHexToRgb(hex: string): { r: number, g: number, b: number } | undefined {
+	let result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+	return result ? {
+		r: parseInt(result[1], 16),
+		g: parseInt(result[2], 16),
+		b: parseInt(result[3], 16)
+	} : undefined;
+}
+
+function makeLabel(color: string, text: string): string {
+	const rgbColor = convertHexToRgb(color);
+	let textColor: string = 'white';
+	if (rgbColor) {
+		// Color algorithm from https://stackoverflow.com/questions/1855884/determine-font-color-based-on-background-color
+		const luminance = (0.299 * rgbColor.r + 0.587 * rgbColor.g + 0.114 * rgbColor.b) / 255;
+		if (luminance > 0.5) {
+			textColor = 'black';
+		}
+	}
+
+	return `<svg height="18" width="150" xmlns="http://www.w3.org/2000/svg">
+	<style>
+		:root {
+			--light: 80;
+			--threshold: 60;
+		}
+		.label {
+			font-weight: bold;
+			fill: ${textColor};
+			font-family: sans-serif;
+			--switch: calc((var(--light) - var(--threshold)) * -100%);
+			color: hsl(0, 0%, var(--switch));
+			font-size: 12px;
+		}
+  	</style>
+	<defs>
+		<filter y="-0.1" height="1.3" id="solid">
+			<feFlood flood-color="#${color}"/>
+			<feComposite in="SourceGraphic" />
+		</filter>
+	</defs>
+  	<text filter="url(#solid)" class="label" y="13" xml:space="preserve">  ${text} </text>
+</svg>`;
+}
+
 export const ISSUE_BODY_LENGTH: number = 200;
 export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
@@ -143,6 +188,14 @@ export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
 	}
 	markdown.appendMarkdown(body + '  \n');
+	markdown.appendMarkdown('&nbsp;  \n');
+
+	if (issue.item.labels.length > 0) {
+		issue.item.labels.forEach(label => {
+			const uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(makeLabel(label.color, label.name));
+			markdown.appendMarkdown(`[![](${uri})](https://github.com/${ownerName}/labels/${label.name}) `);
+		});
+	}
 	return markdown;
 }
 

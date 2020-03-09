@@ -71,6 +71,7 @@ export interface IGitHubRef {
 
 export interface ILabel {
 	name: string;
+	color: string;
 }
 
 export interface Issue {

@@ -372,6 +372,7 @@ export interface PullRequest {
 	labels: {
 		nodes: {
 			name: string;
+			color: string;
 		}[];
 	};
 	merged: boolean;
