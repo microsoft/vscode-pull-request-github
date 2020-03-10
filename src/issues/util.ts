@@ -88,7 +88,7 @@ function repoCommitDate(user: User, repoNameWithOwner: string): string | undefin
 
 export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
-	markdown.appendMarkdown(`![Avatar](${user.avatarUrl}) **${user.name}** [${user.login}](${user.url})`);
+	markdown.appendMarkdown(`![Avatar](${user.avatarUrl}|height=50,width=50) **${user.name}** [${user.login}](${user.url})`);
 	if (user.bio) {
 		markdown.appendText('  \r\n' + user.bio.replace(/\r\n/g, ' '));
 	}

@@ -315,7 +315,7 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 query GetUser($login: String!) {
 	user(login: $login) {
 		login
-		avatarUrl(size: 25)
+		avatarUrl(size: 50)
 		bio
 		name
 		company
@@ -534,7 +534,7 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 						author {
 							login
 							url
-							avatarUrl
+							avatarUrl(size: 50)
 						}
 						createdAt
 						updatedAt
@@ -590,7 +590,7 @@ query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
 								author {
 									login
 									url
-									avatarUrl
+									avatarUrl(size: 50)
 								}
 								createdAt
 								updatedAt
