@@ -27,6 +27,6 @@ export class UserHoverProvider implements vscode.HoverProvider {
 	private async createHover(username: string, range: vscode.Range): Promise<vscode.Hover | undefined> {
 		const origin = await this.manager.getPullRequestDefaults();
 		const user = await this.manager.resolveUser(origin.owner, origin.repo, username);
-		return user ? new vscode.Hover(userMarkdown(origin, user), range) : undefined;
+		return (user && user.name) ? new vscode.Hover(userMarkdown(origin, user), range) : undefined;
 	}
 }
