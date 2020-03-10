@@ -168,24 +168,24 @@ export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 	markdown.appendMarkdown('  \n');
 	body = ((body.length > ISSUE_BODY_LENGTH) ? (body.substr(0, ISSUE_BODY_LENGTH) + '...') : body);
 	// Check the body for "links"
-	let searchResult = body.search(ISSUE_EXPRESSION);
+	let searchResult = body.search(ISSUE_OR_URL_EXPRESSION);
 	let position = 0;
 	while ((searchResult >= 0) && (searchResult < body.length)) {
 		let newBodyFirstPart: string | undefined;
 		if (searchResult === 0 || body.charAt(searchResult - 1) !== '&') {
-			const match = body.substring(searchResult).match(ISSUE_EXPRESSION)!;
+			const match = body.substring(searchResult).match(ISSUE_OR_URL_EXPRESSION)!;
 			const tryParse = parseIssueExpressionOutput(match);
 			if (tryParse) {
 				if (!tryParse.owner || !tryParse.name) {
 					tryParse.owner = issue.remote.owner;
 					tryParse.name = issue.remote.repositoryName;
 				}
-				newBodyFirstPart = body.slice(0, searchResult) + `[${match[0]}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
+				newBodyFirstPart = body.slice(0, searchResult) + `[#${tryParse.issueNumber}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
 				body = newBodyFirstPart + body.slice(searchResult + match[0].length);
 			}
 		}
 		position = newBodyFirstPart ? newBodyFirstPart.length : searchResult + 1;
-		const newSearchResult = body.substring(position).search(ISSUE_EXPRESSION);
+		const newSearchResult = body.substring(position).search(ISSUE_OR_URL_EXPRESSION);
 		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
 	}
 	markdown.appendMarkdown(body + '  \n');
