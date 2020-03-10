@@ -247,6 +247,10 @@
             "python"
           ],
           "description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
+        },
+        "githubIssues.customQuery": {
+          "type": "string",
+          "description": "A custom query that will be used to populate the issues view and the issues completion suggestions. This will likely be less efficient than the default query method and gets the first 100 issues. Example: assignee:alexr00 state:open repo:Microsoft/vscode sort:updated-desc"
         }
       }
     },

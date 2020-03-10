@@ -14,7 +14,7 @@ import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone } from './utils';
-import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse } from './graphql';
+import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse } from './graphql';
 import { IssueModel } from './issueModel';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -341,6 +341,36 @@ export class GitHubRepository implements vscode.Disposable {
 			};
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch issues without milestone: ${e}`);
+			return;
+		}
+	}
+
+	async getIssues(page?: number, queryString?: string): Promise<IssueData | undefined> {
+		try {
+			Logger.debug(`Fetch issues with query - enter`, GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+			const { data } = await query<IssuesSearchResponse>({
+				query: schema.Issues,
+				variables: {
+					query: queryString
+				}
+			});
+			Logger.debug(`Fetch issues with query - done`, GitHubRepository.ID);
+
+			const issues: IssueModel[] = [];
+			if (data && data.search.edges) {
+				data.search.edges.forEach(raw => {
+					if (raw.node.id) {
+						issues.push(new IssueModel(this, remote, parseGraphQLIssue(raw.node, this)));
+					}
+				});
+			}
+			return {
+				items: issues,
+				hasMorePages: data.search.pageInfo.hasNextPage
+			};
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch issues with query: ${e}`);
 			return;
 		}
 	}

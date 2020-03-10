@@ -89,6 +89,9 @@ export interface Issue {
 	user: IAccount;
 	labels: ILabel[];
 	milestone?: IMilestone;
+	repositoryOwner?: string;
+	repositoryName?: string;
+	repositoryUrl?: string;
 }
 
 export interface PullRequest extends Issue {

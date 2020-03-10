@@ -404,7 +404,10 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		createdAt: issue.createdAt,
 		updatedAt: issue.updatedAt,
 		user: parseAuthor(issue.author, githubRepository),
-		labels: issue.labels.nodes
+		labels: issue.labels.nodes,
+		repositoryName: issue.repository?.name,
+		repositoryOwner: issue.repository?.owner.login,
+		repositoryUrl: issue.repository?.url
 	};
 }
 

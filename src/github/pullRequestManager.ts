@@ -113,7 +113,8 @@ export const NO_MILESTONE: string = 'No Milestone';
 enum PagedDataType {
 	PullRequest,
 	Milestones,
-	IssuesWithoutMilestone
+	IssuesWithoutMilestone,
+	IssueSearch
 }
 
 export class PullRequestManager implements vscode.Disposable {
@@ -754,6 +755,9 @@ export class PullRequestManager implements vscode.Disposable {
 					case PagedDataType.IssuesWithoutMilestone: {
 						return githubRepository.getIssuesWithoutMilestone(pageInformation.pullRequestPage);
 					}
+					case PagedDataType.IssueSearch: {
+						return githubRepository.getIssues(pageInformation.pullRequestPage, query);
+					}
 				}
 			};
 
@@ -811,7 +815,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return this.fetchPagedData<PullRequestModel>(options, queryId, PagedDataType.PullRequest, type, query);
 	}
 
-	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }, includeIssuesWithoutMilstone: boolean = false, query?: string): Promise<ItemsResponseResult<MilestoneModel>> {
+	async getMilestones(options: IPullRequestsPagingOptions = { fetchNextPage: false }, includeIssuesWithoutMilstone: boolean = false, query?: string): Promise<ItemsResponseResult<MilestoneModel>> {
 		const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(options, 'issuesKey', PagedDataType.Milestones, PRType.All, query);
 		if (includeIssuesWithoutMilstone) {
 			const additionalIssues: ItemsResponseResult<IssueModel> = await this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssuesWithoutMilestone, PRType.All, query);
@@ -825,6 +829,10 @@ export class PullRequestManager implements vscode.Disposable {
 			});
 		}
 		return milestones;
+	}
+
+	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<ItemsResponseResult<IssueModel>> {
+		return this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
 	}
 
 	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse | undefined> {

@@ -14,19 +14,22 @@ import { ISSUES_CONFIGURATION } from './util';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
+const CUSTOM_QUERY_CONFIGURATION = 'customQuery';
 
 export class StateManager {
 	public readonly resolvedIssues: LRUCache<string, IssueModel> = new LRUCache(50); // 50 seems big enough
 	public readonly userMap: Map<string, IAccount> = new Map();
 	private _lastHead: string | undefined;
 	private _milestones: Promise<MilestoneModel[]> = Promise.resolve([]);
+	private _issues: Promise<IssueModel[]> = Promise.resolve([]);
 	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onRefreshCacheNeeded: vscode.Event<void> = this._onRefreshCacheNeeded.event;
-	private _onDidChangeMilestones: vscode.EventEmitter<void> = new vscode.EventEmitter();
-	public onDidChangeMilestones: vscode.Event<void> = this._onDidChangeMilestones.event;
+	private _onDidChangeIssueData: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	public onDidChangeIssueData: vscode.Event<void> = this._onDidChangeIssueData.event;
+	private _query: string | undefined;
 
-	get milestones(): Promise<MilestoneModel[]> {
-		return this._milestones;
+	get issueData(): { byMilestone?: Promise<MilestoneModel[]>, byIssue?: Promise<IssueModel[]> } {
+		return this._query ? { byIssue: this._issues } : { byMilestone: this._milestones };
 	}
 
 	constructor(private manager: PullRequestManager) { }
@@ -56,7 +59,7 @@ export class StateManager {
 			context.subscriptions.push(repository.state.onDidChange(() => {
 				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this._lastHead) {
 					this._lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
-					this.setMilestones();
+					this.setIssueData();
 				}
 			}));
 		});
@@ -67,12 +70,19 @@ export class StateManager {
 	}
 
 	private async doInitialize(context: vscode.ExtensionContext) {
+		this._query = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_CONFIGURATION, undefined);
+		context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(change => {
+			if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${CUSTOM_QUERY_CONFIGURATION}`)) {
+				this._query = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_CONFIGURATION, undefined);
+				this._onRefreshCacheNeeded.fire();
+			}
+		}));
 		this._lastHead = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.commit : undefined;
 		await this.setUsers();
-		await this.setMilestones();
+		await this.setIssueData();
 		this.registerRepositoryChangeEvent(context);
 		context.subscriptions.push(this.onRefreshCacheNeeded(() => {
-			this.setMilestones();
+			this.setIssueData();
 		}));
 	}
 
@@ -85,11 +95,29 @@ export class StateManager {
 		}
 	}
 
-	private setMilestones() {
-		this._milestones = new Promise(async (resolve) => {
+	private setIssueData() {
+		if (this._query) {
+			this._milestones = Promise.resolve([]);
+			this._issues = this.setIssues();
+		} else {
+			this._issues = Promise.resolve([]);
+			this._milestones = this.setMilestones();
+		}
+	}
+
+	private setIssues(): Promise<IssueModel[]> {
+		return new Promise(async (resolve) => {
+			const issues = await this.manager.getIssues({ fetchNextPage: false }, this._query);
+			this._onDidChangeIssueData.fire();
+			resolve(issues.items.map(item => item));
+		});
+	}
+
+	private setMilestones(): Promise<MilestoneModel[]> {
+		return new Promise(async (resolve) => {
 			const now = new Date();
 			const skipMilestones: string[] = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreMilestones', []);
-			const milestones = await this.manager.getIssues({ fetchNextPage: false }, skipMilestones.indexOf(NO_MILESTONE) < 0);
+			const milestones = await this.manager.getMilestones({ fetchNextPage: false }, skipMilestones.indexOf(NO_MILESTONE) < 0);
 			let mostRecentPastTitleTime: Date | undefined = undefined;
 			const milestoneDateMap: Map<string, Date> = new Map();
 			const milestonesToUse: MilestoneModel[] = [];
@@ -124,7 +152,7 @@ export class StateManager {
 					return dateA >= dateB ? -1 : 1;
 				}
 			});
-			this._onDidChangeMilestones.fire();
+			this._onDidChangeIssueData.fire();
 			resolve(milestonesToUse);
 		});
 	}

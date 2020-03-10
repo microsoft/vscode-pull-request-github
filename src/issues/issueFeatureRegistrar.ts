@@ -65,7 +65,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async createTodoIssueClipboard() {
-		return this.createTodoIssue(undefined, await vscode.env.clipboard.readText())
+		return this.createTodoIssue(undefined, await vscode.env.clipboard.readText());
 	}
 
 	async createTodoIssue(newIssue?: NewIssue, issueBody?: string) {

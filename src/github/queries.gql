@@ -618,3 +618,53 @@ query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
 		}
 	}
 }
+
+query Issues($query: String!) {
+	search(first: 100, type: ISSUE, query: $query) {
+		issueCount
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+		edges {
+			node {
+				... on Issue {
+					number
+					url
+					state
+					body
+					bodyHTML
+					title
+					author {
+						login
+						url
+						avatarUrl(size: 50)
+					}
+					createdAt
+					updatedAt
+					labels(first: 50) {
+						nodes {
+							name
+							color
+						}
+					}
+					id
+					databaseId
+					milestone {
+						title
+						dueOn
+						id
+						createdAt
+					}
+					repository {
+						name
+						owner {
+							login
+						}
+						url
+					}
+				}
+			}
+		}
+	}
+}

@@ -385,6 +385,13 @@ export interface PullRequest {
 		id: string,
 		createdAt: string
 	};
+	repository?: {
+		name: string,
+		owner: {
+			login:string
+		},
+		url: string
+	};
 }
 
 export interface PullRequestResponse {
@@ -394,7 +401,7 @@ export interface PullRequestResponse {
 	rateLimit: RateLimit;
 }
 
-export interface PullRequestSearchResponse {
+export interface IssuesSearchResponse {
 	search: {
 		issueCount: number,
 		pageInfo: {

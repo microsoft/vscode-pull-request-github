@@ -14,7 +14,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | null | undefined> = this._onDidChangeTreeData.event;
 
 	constructor(private stateManager: StateManager, context: vscode.ExtensionContext) {
-		context.subscriptions.push(this.stateManager.onDidChangeMilestones(() => {
+		context.subscriptions.push(this.stateManager.onDidChangeIssueData(() => {
 			this._onDidChangeTreeData.fire();
 		}));
 	}
@@ -41,7 +41,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 
 	getChildren(element: IssueModel | MilestoneModel | undefined): Promise<(IssueModel | MilestoneModel)[]> | IssueModel[] {
 		if (element === undefined) {
-			return this.stateManager.milestones;
+			return (this.stateManager.issueData.byMilestone || this.stateManager.issueData.byIssue)!;
 		} else if (!(element instanceof IssueModel)) {
 			return element.issues;
 		} else {
