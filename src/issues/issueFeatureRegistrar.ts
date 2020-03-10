@@ -9,7 +9,7 @@ import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { IssueCompletionProvider } from './issueCompletionProvider';
-import { NewIssue, createGithubPermalink, USER_EXPRESSION } from './util';
+import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
 import { IssuesTreeData } from './issuesView';
@@ -31,6 +31,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		context.subscriptions.push(vscode.commands.registerCommand('issue.openIssue', this.openIssue));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueNumber', this.copyIssueNumber));
 		context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueUrl', this.copyIssueUrl));
+		context.subscriptions.push(vscode.commands.registerCommand('issue.refresh', this.refreshView, this));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager)));
 		context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(context)));
@@ -40,6 +41,10 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	dispose() { }
+
+	refreshView() {
+		this._stateManager.refreshCacheNeeded();
+	}
 
 	openIssue(issueModel: any) {
 		if (issueModel instanceof IssueModel) {
@@ -101,13 +106,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			if (issue) {
 				if ((insertIndex !== undefined) && (lineNumber !== undefined)) {
 					const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
-					const insertText: string = vscode.workspace.getConfiguration('githubIssues').get('createInsertFormat', 'number') === 'number' ? `#${issue.number}` : issue.html_url;
+					const insertText: string = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createInsertFormat', 'number') === 'number' ? `#${issue.number}` : issue.html_url;
 					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
 					await vscode.workspace.applyEdit(edit);
 				} else {
 					await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
 				}
-				this._stateManager.onRefreshCacheNeeded.fire();
+				this._stateManager.refreshCacheNeeded();
 			}
 		}
 	}

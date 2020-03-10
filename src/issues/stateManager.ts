@@ -10,6 +10,7 @@ import { IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState, NO_MILESTONE } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { API as GitAPI, GitExtension } from '../typings/git';
+import { ISSUES_CONFIGURATION } from './util';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
@@ -19,7 +20,8 @@ export class StateManager {
 	public readonly userMap: Map<string, IAccount> = new Map();
 	private _lastHead: string | undefined;
 	private _milestones: Promise<MilestoneModel[]> = Promise.resolve([]);
-	public readonly onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	public onRefreshCacheNeeded: vscode.Event<void> = this._onRefreshCacheNeeded.event;
 	private _onDidChangeMilestones: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onDidChangeMilestones: vscode.Event<void> = this._onDidChangeMilestones.event;
 
@@ -60,12 +62,16 @@ export class StateManager {
 		});
 	}
 
+	refreshCacheNeeded() {
+		this._onRefreshCacheNeeded.fire();
+	}
+
 	private async doInitialize(context: vscode.ExtensionContext) {
 		this._lastHead = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.commit : undefined;
 		await this.setUsers();
 		await this.setMilestones();
 		this.registerRepositoryChangeEvent(context);
-		context.subscriptions.push(this.onRefreshCacheNeeded.event(() => {
+		context.subscriptions.push(this.onRefreshCacheNeeded(() => {
 			this.setMilestones();
 		}));
 	}
@@ -82,7 +88,7 @@ export class StateManager {
 	private setMilestones() {
 		this._milestones = new Promise(async (resolve) => {
 			const now = new Date();
-			const skipMilestones: string[] = vscode.workspace.getConfiguration('githubIssues').get('ignoreMilestones', []);
+			const skipMilestones: string[] = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreMilestones', []);
 			const milestones = await this.manager.getIssues({ fetchNextPage: false }, skipMilestones.indexOf(NO_MILESTONE) < 0);
 			let mostRecentPastTitleTime: Date | undefined = undefined;
 			const milestoneDateMap: Map<string, Date> = new Map();

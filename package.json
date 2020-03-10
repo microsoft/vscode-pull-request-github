@@ -236,6 +236,17 @@
           ],
           "default": "number",
           "description": "Controls whether an issue number (ex. #1234) or a full url (ex. https://github.com/owner/name/issues/1234) is inserted when the Create Issue code action is run."
+        },
+        "githubIssues.ignoreCompletionTrigger": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Language that issue completions should not trigger on '#'."
+          },
+          "default": [
+            "python"
+          ],
+          "description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
         }
       }
     },
@@ -541,6 +552,15 @@
         "command": "issue.copyIssueUrl",
         "title": "Copy Url",
         "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.refresh",
+        "title": "Refresh",
+        "category": "GitHub Issues",
+        "icon": {
+          "dark": "resources/icons/dark/refresh.svg",
+          "light": "resources/icons/light/refresh.svg"
+        }
       }
     ],
     "menus": {
@@ -696,6 +716,10 @@
         {
           "command": "issue.copyIssueUrl",
           "when": "false"
+        },
+        {
+          "command": "issue.refresh",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -717,6 +741,11 @@
         {
           "command": "pr.refreshChanges",
           "when": "view =~ /prStatus/",
+          "group": "navigation"
+        },
+        {
+          "command": "issue.refresh",
+          "when": "view == issues:github",
           "group": "navigation"
         }
       ],

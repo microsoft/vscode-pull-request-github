@@ -19,6 +19,7 @@ export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 export const MAX_LINE_LENGTH = 150;
 
 export type ParsedIssue = { owner: string | undefined, name: string | undefined, issueNumber: number };
+export const ISSUES_CONFIGURATION: string = 'githubIssues';
 
 export function parseIssueExpressionOutput(output: RegExpMatchArray | null): ParsedIssue | undefined {
 	if (!output) {

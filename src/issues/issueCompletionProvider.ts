@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { issueMarkdown } from './util';
+import { issueMarkdown, ISSUES_CONFIGURATION } from './util';
 import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 
@@ -25,6 +25,11 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		}
 		// It's common in markdown to start a line with #s and not want an completion
 		if ((position.character <= 6) && (document.languageId === 'markdown') && (document.getText(new vscode.Range(position.with(undefined, 0), position)) === new Array(position.character + 1).join('#'))) {
+			return [];
+		}
+
+		if ((context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter) &&
+			(<string[]>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreCompletionTrigger', [])).find(value => value === document.languageId)) {
 			return [];
 		}
 

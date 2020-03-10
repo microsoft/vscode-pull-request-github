@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ISSUE_OR_URL_EXPRESSION, MAX_LINE_LENGTH } from './util';
+import { ISSUE_OR_URL_EXPRESSION, MAX_LINE_LENGTH, ISSUES_CONFIGURATION } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp;
@@ -17,7 +17,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 	}
 
 	private updateTriggers() {
-		const triggers = vscode.workspace.getConfiguration('githubIssues').get('createIssueTriggers', []);
+		const triggers = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createIssueTriggers', []);
 		this.expression = new RegExp(triggers.join('|'));
 	}
 
