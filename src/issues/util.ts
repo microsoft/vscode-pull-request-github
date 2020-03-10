@@ -194,7 +194,7 @@ export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 	if (issue.item.labels.length > 0) {
 		issue.item.labels.forEach(label => {
 			const uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(makeLabel(label.color, label.name));
-			markdown.appendMarkdown(`[![](${uri})](https://github.com/${ownerName}/labels/${label.name}) `);
+			markdown.appendMarkdown(`[![](${uri})](https://github.com/${ownerName}/labels/${encodeURIComponent(label.name)}) `);
 		});
 	}
 	return markdown;
