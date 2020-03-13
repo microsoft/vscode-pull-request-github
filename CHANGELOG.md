@@ -1,3 +1,13 @@
+0.15.0
+
+**Bug fixes**
+- Update remotes setting description [1478](https://github.com/microsoft/vscode-pull-request-github/issues/1478)
+- Fix display of review comment summary on description page [1486](https://github.com/microsoft/vscode-pull-request-github/issues/1486)
+- Fix creation of PRs when source branch is not listed in remotes setting [1326](https://github.com/microsoft/vscode-pull-request-github/issues/1326)
+- Improve remote selection wording [866](https://github.com/microsoft/vscode-pull-request-github/issues/866)
+- Reorder comment reaction menu to match GitHub [1532](https://github.com/microsoft/vscode-pull-request-github/issues/1532)
+- Do not duplicate comments on tree refresh [1492](https://github.com/microsoft/vscode-pull-request-github/issues/1492)
+
 0.14.0
 
 **Changes**
