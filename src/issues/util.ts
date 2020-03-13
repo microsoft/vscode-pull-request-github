@@ -242,6 +242,18 @@ export async function createGithubPermalink(manager: PullRequestManager, positio
 	}
 }
 
+const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
+export async function variableSubstitution(value: string, issueModel: IssueModel): Promise<string> {
+	const user = await issueModel.githubRepository.getAuthenticatedUser();
+	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
+		switch (variable) {
+			case 'githubUser': return user;
+			case 'issueNumber': return `${issueModel.number}`;
+			default: return match;
+		}
+	});
+}
+
 export class PlainTextRenderer extends marked.Renderer {
 	code(code: string): string {
 		return code;

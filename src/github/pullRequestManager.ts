@@ -203,7 +203,7 @@ export class PullRequestManager implements vscode.Disposable {
 			});
 	}
 
-	private async getActiveGitHubRemotes(allGitHubRemotes: Remote[]): Promise<Remote[]> {
+	public async getActiveGitHubRemotes(allGitHubRemotes: Remote[]): Promise<Remote[]> {
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 
 		if (!remotesSetting) {

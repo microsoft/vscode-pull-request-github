@@ -17,6 +17,10 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 		context.subscriptions.push(this.stateManager.onDidChangeIssueData(() => {
 			this._onDidChangeTreeData.fire();
 		}));
+
+		context.subscriptions.push(this.stateManager.onDidChangeCurrentIssue(() => {
+			this._onDidChangeTreeData.fire();
+		}))
 	}
 
 	getTreeItem(element: IssueModel | MilestoneModel): vscode.TreeItem {
@@ -25,11 +29,19 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 			treeItem = new vscode.TreeItem(element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 		} else {
 			treeItem = new vscode.TreeItem(`${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
-			treeItem.iconPath = {
-				light: Resource.icons.light.Issues,
-				dark: Resource.icons.dark.Issues
-			};
-			treeItem.contextValue = 'issue';
+			if (this.stateManager.currentIssue?.issue === element) {
+				treeItem.iconPath = {
+					light: Resource.icons.light.Check,
+					dark: Resource.icons.dark.Check
+				};
+				treeItem.contextValue = 'currentissue';
+			} else {
+				treeItem.iconPath = {
+					light: Resource.icons.light.Issues,
+					dark: Resource.icons.dark.Issues
+				};
+				treeItem.contextValue = 'issue';
+			}
 			treeItem.command = {
 				command: 'issue.openIssue',
 				title: 'Open Issue',

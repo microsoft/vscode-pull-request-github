@@ -251,6 +251,30 @@
         "githubIssues.customQuery": {
           "type": "string",
           "description": "A custom query that will be used to populate the issues view and the issues completion suggestions. This will likely be less efficient than the default query method and gets the first 100 issues. Example: assignee:alexr00 state:open repo:Microsoft/vscode sort:updated-desc"
+        },
+        "githubIssues.workingIssueBranch": {
+          "oneOf": [
+            {
+              "type": "string",
+              "default": "${githubUser}/issue${issueNumber}",
+              "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${githubUser} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name."
+            },
+            {
+              "type": "boolean",
+              "default": true,
+              "description": "Indicates whether a branch should be created when you start working on an issue."
+            },
+            {
+              "type": "string",
+              "enum": [
+                "prompt"
+              ],
+              "default": "prompt",
+              "description": "Causes an input prompt to show when creating a branch for working on an issue."
+            }
+          ],
+          "description": "Allows you to configure whether a branch is created when you start working on an issue. To configure the name of the branch that is created, use a string. ${githubUser} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name.",
+          "default": true
         }
       }
     },
@@ -565,6 +589,21 @@
           "dark": "resources/icons/dark/refresh.svg",
           "light": "resources/icons/light/refresh.svg"
         }
+      },
+      {
+        "command": "issue.startWorking",
+        "title": "Start Working on Issue",
+        "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.stopWorking",
+        "title": "Stop Working on Issue",
+        "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.openCurrent",
+        "title": "Open Current Issue",
+        "category": "GitHub Issues"
       }
     ],
     "menus": {
@@ -724,6 +763,18 @@
         {
           "command": "issue.refresh",
           "when": "false"
+        },
+        {
+          "command": "issue.startWorking",
+          "when": "false"
+        },
+        {
+          "command": "issue.stopWorking",
+          "when": "false"
+        },
+        {
+          "command": "issue.openCurrent",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -807,18 +858,28 @@
         },
         {
           "command": "issue.openIssue",
+          "when": "view == issues:github && viewItem =~ /(current)?issue/",
+          "group": "issues_0@0"
+        },
+        {
+          "command": "issue.startWorking",
           "when": "view == issues:github && viewItem == issue",
-          "group": "issues@0"
+          "group": "issues_0@1"
+        },
+        {
+          "command": "issue.stopWorking",
+          "when": "view == issues:github && viewItem == currentissue",
+          "group": "issues_0@1"
         },
         {
           "command": "issue.copyIssueNumber",
-          "when": "view == issues:github && viewItem == issue",
-          "group": "issues@1"
+          "when": "view == issues:github && viewItem =~ /(current)?issue/",
+          "group": "issues_1@1"
         },
         {
           "command": "issue.copyIssueUrl",
-          "when": "view == issues:github && viewItem == issue",
-          "group": "issues@2"
+          "when": "view == issues:github && viewItem =~ /(current)?issue/",
+          "group": "issues_1@2"
         }
       ],
       "editor/title": [

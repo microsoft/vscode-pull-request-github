@@ -375,6 +375,12 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
+	async getAuthenticatedUser(): Promise<string> {
+		const { octokit } = await this.ensure();
+		const user = await octokit.users.getAuthenticated({});
+		return user.data.login;
+	}
+
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
