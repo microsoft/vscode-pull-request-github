@@ -43,7 +43,7 @@ export class CurrentIssue {
 		this.stateManager.currentIssue = this;
 		const branchName = await this.createIssueBranch();
 		if (branchName) {
-			this.setCommitMessageAndGitEvent(branchName);
+			await this.setCommitMessageAndGitEvent(branchName);
 			this.setStatusBar();
 		}
 	}
@@ -65,9 +65,10 @@ export class CurrentIssue {
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		let branchName: string | undefined = state.branch;
 		if (!branchName) {
+			const user = await this.issueModel.githubRepository.getAuthenticatedUser();
 			const createBranchConfig = <string | boolean>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueBranch');
 			if (createBranchConfig === true) {
-				branchName = `${await this.issueModel.githubRepository.getAuthenticatedUser()}/issue${this.issueModel.number}`;
+				branchName = `${user}/issue${this.issueModel.number}`;
 			} else if (createBranchConfig === false) {
 				// Don't create a branch, but the function still succeeded.
 				return this.manager.repository.state.HEAD!.name!;
@@ -77,7 +78,7 @@ export class CurrentIssue {
 						branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });
 						break;
 					}
-					default: branchName = await variableSubstitution(createBranchConfig, this.issue); break;
+					default: branchName = await variableSubstitution(createBranchConfig, this.issue, user); break;
 				}
 			}
 		}
@@ -100,8 +101,11 @@ export class CurrentIssue {
 		return branchName;
 	}
 
-	private setCommitMessageAndGitEvent(branchName: string) {
-		this.repo.inputBox.value = `${this.issueModel.title} \nFixes #${this.issueModel.number}`;
+	private async setCommitMessageAndGitEvent(branchName: string) {
+		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueFormatScm');
+		if (typeof configuration === 'string') {
+			this.repo.inputBox.value = await variableSubstitution(configuration, this.issueModel);
+		}
 		this.repoChangeDisposable = this.repo.state.onDidChange(() => {
 			if (this.repo.state.HEAD?.name !== branchName) {
 				this.stopWorking();
@@ -109,7 +113,6 @@ export class CurrentIssue {
 		});
 		this.context.subscriptions.push(this.repoChangeDisposable!);
 		return;
-
 	}
 
 	private setStatusBar() {

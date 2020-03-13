@@ -243,12 +243,12 @@ export async function createGithubPermalink(manager: PullRequestManager, positio
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
-export async function variableSubstitution(value: string, issueModel: IssueModel): Promise<string> {
-	const user = await issueModel.githubRepository.getAuthenticatedUser();
+export async function variableSubstitution(value: string, issueModel: IssueModel, user?: string): Promise<string> {
 	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
 		switch (variable) {
-			case 'githubUser': return user;
+			case 'githubUser': return user ? user : '';
 			case 'issueNumber': return `${issueModel.number}`;
+			case 'issueTitle': return issueModel.title;
 			default: return match;
 		}
 	});

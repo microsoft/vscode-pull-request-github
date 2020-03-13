@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { issueMarkdown, ISSUES_CONFIGURATION } from './util';
+import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution } from './util';
 import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
@@ -50,27 +50,32 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			const milestones = await issueData.byMilestone;
 			for (let index = 0; index < milestones.length; index++) {
 				const value = milestones[index];
-				value.issues.forEach(issue => {
-					completionItems.push(this.completionItemFromIssue(issue, now, range, document, index, value.milestone));
-				});
+				for (let issue of value.issues) {
+					completionItems.push(await this.completionItemFromIssue(issue, now, range, document, index, value.milestone));
+				}
 			}
 		} else if (issueData.byIssue) {
 			const issues = await issueData.byIssue;
 			let index = 0;
-			issues.forEach(issue => {
-				completionItems.push(this.completionItemFromIssue(issue, now, range, document, index++));
-			});
+			for (let issue of issues) {
+				completionItems.push(await this.completionItemFromIssue(issue, now, range, document, index++));
+			}
 		}
 
 		return completionItems;
 	}
 
-	private completionItemFromIssue(issue: IssueModel, now: Date, range: vscode.Range, document: vscode.TextDocument, index: number, milestone?: IMilestone): IssueCompletionItem {
+	private async completionItemFromIssue(issue: IssueModel, now: Date, range: vscode.Range, document: vscode.TextDocument, index: number, milestone?: IMilestone): Promise<IssueCompletionItem> {
 		const item: IssueCompletionItem = new IssueCompletionItem(issue);
 		if (document.languageId === 'markdown') {
 			item.insertText = `[#${issue.number}](${issue.html_url})`;
 		} else {
-			item.insertText = `#${issue.number}`;
+			const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('issueCompletionFormatScm');
+			if (document.uri.path.match(/scm\/git\/scm\d\/input/) && (typeof configuration === 'string')) {
+				item.insertText = await variableSubstitution(configuration, issue);
+			} else {
+				item.insertText = `#${issue.number}`;
+			}
 		}
 		item.documentation = issue.body;
 		item.range = range;

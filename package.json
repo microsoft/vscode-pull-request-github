@@ -275,6 +275,16 @@
           ],
           "description": "Allows you to configure whether a branch is created when you start working on an issue. To configure the name of the branch that is created, use a string. ${githubUser} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name.",
           "default": true
+        },
+        "githubIssues.issueCompletionFormatScm": {
+          "type": "string",
+          "default": "#${issueNumber}",
+          "description": "Sets the format of issue completions in the SCM inputbox. For example, '#{issueNumber} - ${issueTitle}'"
+        },
+        "githubIssues.workingIssueFormatScm": {
+          "type": "string",
+          "default": "${issueTitle} \nFixes #${issueNumber}",
+          "description": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to '${issueTitle} \nFixes #${issueNumber}'"
         }
       }
     },
