@@ -50,14 +50,15 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			const milestones = await issueData.byMilestone;
 			for (let index = 0; index < milestones.length; index++) {
 				const value = milestones[index];
-				for (let issue of value.issues) {
+				for (const issue of value.issues) {
 					completionItems.push(await this.completionItemFromIssue(issue, now, range, document, index, value.milestone));
 				}
 			}
-		} else if (issueData.byIssue) {
+		}
+		if (issueData.byIssue) {
 			const issues = await issueData.byIssue;
 			let index = 0;
-			for (let issue of issues) {
+			for (const issue of issues) {
 				completionItems.push(await this.completionItemFromIssue(issue, now, range, document, index++));
 			}
 		}

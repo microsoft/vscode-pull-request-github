@@ -9,7 +9,7 @@ import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { IssueCompletionProvider } from './issueCompletionProvider';
-import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION } from './util';
+import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION, CUSTOM_QUERY_CONFIGURATION, CUSTOM_QUERY_VIEW_CONFIGURATION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
 import { IssuesTreeData } from './issuesView';
@@ -41,7 +41,14 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
 		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(this._stateManager), '#'));
 		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(this.manager, this.context), '@'));
-		this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context)));
+		const customQueryView = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_VIEW_CONFIGURATION);
+		const customQuery = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_CONFIGURATION, undefined);
+		if (customQueryView && customQuery && (typeof customQuery === 'string')) {
+			this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context, true)));
+			this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issuesCustom:github', new IssuesTreeData(this._stateManager, this.context, false)));
+		} else {
+			this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context, !(customQuery && (typeof customQuery === 'string')))));
+		}
 	}
 
 	dispose() { }

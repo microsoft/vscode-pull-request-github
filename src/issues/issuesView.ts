@@ -13,14 +13,14 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 	private _onDidChangeTreeData: vscode.EventEmitter<IssueModel | MilestoneModel | null | undefined> = new vscode.EventEmitter();
 	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | null | undefined> = this._onDidChangeTreeData.event;
 
-	constructor(private stateManager: StateManager, context: vscode.ExtensionContext) {
+	constructor(private stateManager: StateManager, context: vscode.ExtensionContext, private useByMilestone: boolean) {
 		context.subscriptions.push(this.stateManager.onDidChangeIssueData(() => {
 			this._onDidChangeTreeData.fire();
 		}));
 
 		context.subscriptions.push(this.stateManager.onDidChangeCurrentIssue(() => {
 			this._onDidChangeTreeData.fire();
-		}))
+		}));
 	}
 
 	getTreeItem(element: IssueModel | MilestoneModel): vscode.TreeItem {
@@ -29,7 +29,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 			treeItem = new vscode.TreeItem(element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 		} else {
 			treeItem = new vscode.TreeItem(`${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
-			if (this.stateManager.currentIssue?.issue === element) {
+			if (this.stateManager.currentIssue?.issue.number === element.number) {
 				treeItem.iconPath = {
 					light: Resource.icons.light.Check,
 					dark: Resource.icons.dark.Check
@@ -53,7 +53,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 
 	getChildren(element: IssueModel | MilestoneModel | undefined): Promise<(IssueModel | MilestoneModel)[]> | IssueModel[] {
 		if (element === undefined) {
-			return (this.stateManager.issueData.byMilestone || this.stateManager.issueData.byIssue)!;
+			return this.useByMilestone ? this.stateManager.issueData.byMilestone || [] : this.stateManager.issueData.byIssue || [];
 		} else if (!(element instanceof IssueModel)) {
 			return element.issues;
 		} else {

@@ -250,7 +250,7 @@
         },
         "githubIssues.customQuery": {
           "type": "string",
-          "description": "A custom query that will be used to populate the issues view and the issues completion suggestions. This will likely be less efficient than the default query method and gets the first 100 issues. Example: assignee:alexr00 state:open repo:Microsoft/vscode sort:updated-desc"
+          "description": "A custom query that will be used to populate the issues view and the issues completion suggestions. This will likely be less efficient than the default query method and gets the first 100 issues. To see the default query and the custom query in two separate views, use the 'customQueryView' setting. Example: assignee:alexr00 state:open repo:Microsoft/vscode sort:updated-desc"
         },
         "githubIssues.workingIssueBranch": {
           "oneOf": [
@@ -285,6 +285,11 @@
           "type": "string",
           "default": "${issueTitle} \nFixes #${issueNumber}",
           "description": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to '${issueTitle} \nFixes #${issueNumber}'"
+        },
+        "githubIssues.customQueryView": {
+          "type": "boolean",
+          "default": false,
+          "description": "When the customQueryView is true it will show in a separate view from the Issues view. When it is false it will show in the Issues view and replace the default query. Requires a reload."
         }
       }
     },
@@ -313,6 +318,11 @@
           "id": "issues:github",
           "name": "Issues",
           "when": "config.githubIssues.show"
+        },
+        {
+          "id": "issuesCustom:github",
+          "name": "Custom Issues",
+          "when": "config.githubIssues.customQueryView && config.githubIssues.customQuery"
         }
       ],
       "scm": [
@@ -810,7 +820,7 @@
         },
         {
           "command": "issue.refresh",
-          "when": "view == issues:github",
+          "when": "view =~ /issues(Custom)?:github/",
           "group": "navigation"
         }
       ],
@@ -868,27 +878,27 @@
         },
         {
           "command": "issue.openIssue",
-          "when": "view == issues:github && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues(Custom)?:github/ && viewItem =~ /(current)?issue/",
           "group": "issues_0@0"
         },
         {
           "command": "issue.startWorking",
-          "when": "view == issues:github && viewItem == issue",
+          "when": "view =~ /issues(Custom)?:github/ && viewItem == issue",
           "group": "issues_0@1"
         },
         {
           "command": "issue.stopWorking",
-          "when": "view == issues:github && viewItem == currentissue",
+          "when": "view =~ /issues(Custom)?:github/ && viewItem == currentissue",
           "group": "issues_0@1"
         },
         {
           "command": "issue.copyIssueNumber",
-          "when": "view == issues:github && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues(Custom)?:github/ && viewItem =~ /(current)?issue/",
           "group": "issues_1@1"
         },
         {
           "command": "issue.copyIssueUrl",
-          "when": "view == issues:github && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues(Custom)?:github/ && viewItem =~ /(current)?issue/",
           "group": "issues_1@2"
         }
       ],

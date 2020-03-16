@@ -8,7 +8,7 @@ import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
 import { ISSUES_CONFIGURATION, variableSubstitution } from './util';
 import { API as GitAPI, GitExtension } from '../typings/git';
-import { Branch } from '../api/api'
+import { Branch } from '../api/api';
 import { StateManager, IssueState } from './stateManager';
 
 export class CurrentIssue {
@@ -91,7 +91,7 @@ export class CurrentIssue {
 		} catch (e) {
 			// branch doesn't exist
 		}
-		state.branch = branchName
+		state.branch = branchName;
 		this.stateManager.setSavedIssueState(this.issueModel.number, state);
 		if (existingBranch) {
 			await this.manager.repository.checkout(branchName);

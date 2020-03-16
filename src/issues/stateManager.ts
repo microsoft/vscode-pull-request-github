@@ -10,12 +10,11 @@ import { IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState, NO_MILESTONE } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { API as GitAPI, GitExtension } from '../typings/git';
-import { ISSUES_CONFIGURATION } from './util';
+import { ISSUES_CONFIGURATION, CUSTOM_QUERY_CONFIGURATION, CUSTOM_QUERY_VIEW_CONFIGURATION } from './util';
 import { CurrentIssue } from './currentIssue';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
-const CUSTOM_QUERY_CONFIGURATION = 'customQuery';
 const CURRENT_ISSUE_KEY = 'currentIssue';
 
 const ISSUES_KEY = 'issues';
@@ -49,7 +48,7 @@ export class StateManager {
 	public readonly onDidChangeCurrentIssue: vscode.Event<void> = this._onDidChangeCurrentIssue.event;
 
 	get issueData(): { byMilestone?: Promise<MilestoneModel[]>, byIssue?: Promise<IssueModel[]> } {
-		return this._query ? { byIssue: this._issues } : { byMilestone: this._milestones };
+		return { byMilestone: this._milestones, byIssue: this._issues };
 	}
 
 	constructor(private manager: PullRequestManager, private context: vscode.ExtensionContext) { }
@@ -111,7 +110,7 @@ export class StateManager {
 		const stateString: string | undefined = this.context.workspaceState.get(ISSUES_KEY);
 		const state: IssuesState = stateString ? JSON.parse(stateString) : { issues: [] };
 		const deleteDate: number = new Date().valueOf() - (30 /*days*/ * 86400000 /*milliseconds in a day*/);
-		for (let issueState in state.issues) {
+		for (const issueState in state.issues) {
 			if (state.issues[issueState].stateModifiedTime < deleteDate) {
 				delete state.issues[issueState];
 			}
@@ -129,7 +128,12 @@ export class StateManager {
 
 	private setIssueData() {
 		if (this._query) {
-			this._milestones = Promise.resolve([]);
+			const customQueryView = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_VIEW_CONFIGURATION, false);
+			if (customQueryView) {
+				this._milestones = this.setMilestones();
+			} else {
+				this._milestones = Promise.resolve([]);
+			}
 			this._issues = this.setIssues();
 		} else {
 			this._issues = Promise.resolve([]);
