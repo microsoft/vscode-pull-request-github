@@ -621,8 +621,8 @@
         "category": "GitHub Issues"
       },
       {
-        "command": "issue.openCurrent",
-        "title": "Open Current Issue",
+        "command": "issue.statusBar",
+        "title": "Current Issue Options",
         "category": "GitHub Issues"
       }
     ],
@@ -793,7 +793,7 @@
           "when": "false"
         },
         {
-          "command": "issue.openCurrent",
+          "command": "issue.statusBar",
           "when": "false"
         }
       ],

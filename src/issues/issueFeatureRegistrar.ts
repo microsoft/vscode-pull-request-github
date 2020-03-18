@@ -15,11 +15,12 @@ import { StateManager } from './stateManager';
 import { IssuesTreeData } from './issuesView';
 import { IssueModel } from '../github/issueModel';
 import { CurrentIssue } from './currentIssue';
+import { ReviewManager } from '../view/reviewManager';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 
-	constructor(private manager: PullRequestManager, private context: vscode.ExtensionContext) {
+	constructor(private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext) {
 		this._stateManager = new StateManager(this.manager, this.context);
 	}
 
@@ -32,7 +33,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openIssue', this.openIssue));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorking', this.startWorking, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.stopWorking', this.stopWorking, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openCurrent', this.openCurrent, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.statusBar', this.statusBar, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueNumber', this.copyIssueNumber));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueUrl', this.copyIssueUrl));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.refresh', this.refreshView, this));
@@ -75,9 +76,17 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
-	async openCurrent() {
+	async statusBar() {
 		if (this._stateManager.currentIssue) {
-			this.openIssue(this._stateManager.currentIssue.issue);
+			const openIssueText: string = `Open #${this._stateManager.currentIssue.issue.number} ${this._stateManager.currentIssue.issue.title}`;
+			const pullRequestText: string = `Create pull request for #${this._stateManager.currentIssue.issue.number}`;
+			const stopWorkingText: string = `Stop working on #${this._stateManager.currentIssue.issue.number}`;
+			const response: string | undefined = await vscode.window.showQuickPick([openIssueText, pullRequestText, stopWorkingText], {placeHolder: 'Current issue options'});
+			switch (response) {
+				case openIssueText: return this.openIssue(this._stateManager.currentIssue.issue);
+				case pullRequestText: return this.reviewManager.createPullRequest(false);
+				case stopWorkingText: return this._stateManager.setCurrentIssue(undefined);
+			}
 		}
 	}
 

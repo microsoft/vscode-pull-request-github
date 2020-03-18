@@ -90,7 +90,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	});
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
-	const issuesFeatures = new IssueFeatureRegistrar(prManager, context);
+	const issuesFeatures = new IssueFeatureRegistrar(prManager, reviewManager, context);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 

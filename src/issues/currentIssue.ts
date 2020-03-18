@@ -113,7 +113,7 @@ export class CurrentIssue {
 		this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
 		this.statusBarItem.text = `Working on #${this.issueModel.number}`;
 		this.statusBarItem.tooltip = this.issueModel.title;
-		this.statusBarItem.command = 'issue.openCurrent';
+		this.statusBarItem.command = 'issue.statusBar';
 		this.statusBarItem.show();
 	}
 }

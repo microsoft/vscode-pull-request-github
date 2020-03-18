@@ -248,7 +248,7 @@ export class StateManager {
 			return;
 		}
 		if (this._currentIssue) {
-			this._currentIssue.dispose();
+			this._currentIssue.stopWorking();
 		}
 		this.context.workspaceState.update(CURRENT_ISSUE_KEY, issue?.issue.number);
 		this._currentIssue = issue;
