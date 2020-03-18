@@ -589,7 +589,11 @@
       {
         "command": "issue.openIssue",
         "title": "Open Issue",
-        "category": "GitHub Issues"
+        "category": "GitHub Issues",
+        "icon": {
+          "light": "resources/icons/light/open-browser.svg",
+          "dark": "resources/icons/dark/open-browser.svg"
+        }
       },
       {
         "command": "issue.copyIssueNumber",
@@ -875,6 +879,11 @@
         {
           "command": "pr.openModifiedFile",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
+        },
+        {
+          "command": "issue.openIssue",
+          "when": "view =~ /issues(Custom)?:github/ && viewItem =~ /(current)?issue/",
+          "group": "inline"
         },
         {
           "command": "issue.openIssue",

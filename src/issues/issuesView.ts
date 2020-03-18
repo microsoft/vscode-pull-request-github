@@ -42,11 +42,6 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 				};
 				treeItem.contextValue = 'issue';
 			}
-			treeItem.command = {
-				command: 'issue.openIssue',
-				title: 'Open Issue',
-				arguments: [element]
-			};
 		}
 		return treeItem;
 	}
