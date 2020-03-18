@@ -22,6 +22,7 @@ export type ParsedIssue = { owner: string | undefined, name: string | undefined,
 export const ISSUES_CONFIGURATION: string = 'githubIssues';
 export const CUSTOM_QUERY_CONFIGURATION = 'customQuery';
 export const CUSTOM_QUERY_VIEW_CONFIGURATION = 'customQueryView';
+export const BRANCH_CONFIGURATION = 'workingIssueBranch';
 
 export function parseIssueExpressionOutput(output: RegExpMatchArray | null): ParsedIssue | undefined {
 	if (!output) {

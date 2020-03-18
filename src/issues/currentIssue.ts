@@ -6,7 +6,7 @@
 import { PullRequestManager } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution } from './util';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_CONFIGURATION } from './util';
 import { API as GitAPI, GitExtension, Repository } from '../typings/git';
 import { Branch } from '../api/api';
 import { StateManager, IssueState } from './stateManager';
@@ -63,16 +63,16 @@ export class CurrentIssue {
 	}
 
 	private async createIssueBranch(): Promise<void> {
+		const createBranchConfig = <string | boolean>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
+		if (createBranchConfig === false) {
+			return;
+		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = state.branch;
 		if (!this._branchName) {
 			const user = await this.issueModel.githubRepository.getAuthenticatedUser();
-			const createBranchConfig = <string | boolean>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueBranch');
 			if (createBranchConfig === true) {
 				this._branchName = `${user}/issue${this.issueModel.number}`;
-			} else if (createBranchConfig === false) {
-				// Don't create a branch, but the function still succeeded.
-				return;
 			} else {
 				switch (createBranchConfig) {
 					case 'prompt': {

@@ -71,7 +71,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async stopWorking(issueModel: any) {
-		if ((issueModel instanceof IssueModel) && (this._stateManager.currentIssue?.issue === issueModel)) {
+		if ((issueModel instanceof IssueModel) && (this._stateManager.currentIssue?.issue.number === issueModel.number)) {
 			await this._stateManager.setCurrentIssue(undefined);
 		}
 	}

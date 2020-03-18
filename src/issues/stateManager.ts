@@ -10,7 +10,7 @@ import { IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState, NO_MILESTONE } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { API as GitAPI, GitExtension } from '../typings/git';
-import { ISSUES_CONFIGURATION, CUSTOM_QUERY_CONFIGURATION, CUSTOM_QUERY_VIEW_CONFIGURATION } from './util';
+import { ISSUES_CONFIGURATION, CUSTOM_QUERY_CONFIGURATION, CUSTOM_QUERY_VIEW_CONFIGURATION, BRANCH_CONFIGURATION } from './util';
 import { CurrentIssue } from './currentIssue';
 
 // TODO: make exclude from date words configurable
@@ -176,6 +176,10 @@ export class StateManager {
 	}
 
 	private async setCurrentIssueFromBranch(branchName: string) {
+		const createBranchConfig = <string | boolean>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
+		if (!createBranchConfig) {
+			return;
+		}
 		const state: IssuesState = this.getSavedState();
 		for (const branch in state.branches) {
 			if (branch === branchName) {
