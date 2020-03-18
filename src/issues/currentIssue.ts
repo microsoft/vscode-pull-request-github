@@ -7,15 +7,16 @@ import { PullRequestManager } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
 import { ISSUES_CONFIGURATION, variableSubstitution } from './util';
-import { API as GitAPI, GitExtension } from '../typings/git';
+import { API as GitAPI, GitExtension, Repository } from '../typings/git';
 import { Branch } from '../api/api';
 import { StateManager, IssueState } from './stateManager';
 
 export class CurrentIssue {
 	private statusBarItem: vscode.StatusBarItem | undefined;
 	private repoChangeDisposable: vscode.Disposable | undefined;
-	private repo: any;
-	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private context: vscode.ExtensionContext) {
+	private _branchName: string | undefined;
+	private repo: Repository;
+	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager) {
 		this.setRepo();
 	}
 
@@ -35,17 +36,18 @@ export class CurrentIssue {
 		}
 	}
 
+	get branchName(): string | undefined {
+		return this._branchName;
+	}
+
 	get issue(): IssueModel {
 		return this.issueModel;
 	}
 
 	public async startWorking() {
-		this.stateManager.currentIssue = this;
-		const branchName = await this.createIssueBranch();
-		if (branchName) {
-			await this.setCommitMessageAndGitEvent(branchName);
-			this.setStatusBar();
-		}
+		await this.createIssueBranch();
+		await this.setCommitMessageAndGitEvent();
+		this.setStatusBar();
 	}
 
 	public dispose() {
@@ -57,61 +59,53 @@ export class CurrentIssue {
 	public async stopWorking() {
 		this.repo.inputBox.value = '';
 		this.manager.repository.checkout((await this.manager.getPullRequestDefaults()).base);
-		this.stateManager.currentIssue = undefined;
 		this.dispose();
 	}
 
-	private async createIssueBranch(): Promise<string | undefined> {
+	private async createIssueBranch(): Promise<void> {
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
-		let branchName: string | undefined = state.branch;
-		if (!branchName) {
+		this._branchName = state.branch;
+		if (!this._branchName) {
 			const user = await this.issueModel.githubRepository.getAuthenticatedUser();
 			const createBranchConfig = <string | boolean>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueBranch');
 			if (createBranchConfig === true) {
-				branchName = `${user}/issue${this.issueModel.number}`;
+				this._branchName = `${user}/issue${this.issueModel.number}`;
 			} else if (createBranchConfig === false) {
 				// Don't create a branch, but the function still succeeded.
-				return this.manager.repository.state.HEAD!.name!;
+				return;
 			} else {
 				switch (createBranchConfig) {
 					case 'prompt': {
-						branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });
+						this._branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });
 						break;
 					}
-					default: branchName = await variableSubstitution(createBranchConfig, this.issue, user); break;
+					default: this._branchName = await variableSubstitution(createBranchConfig, this.issue, user); break;
 				}
 			}
 		}
-		if (!branchName) {
-			branchName = `${await this.issueModel.githubRepository.getAuthenticatedUser()}/issue${this.issueModel.number}`;
+		if (!this._branchName) {
+			this._branchName = `${await this.issueModel.githubRepository.getAuthenticatedUser()}/issue${this.issueModel.number}`;
 		}
 		let existingBranch: Branch | undefined;
 		try {
-			existingBranch = await this.manager.repository.getBranch(branchName);
+			existingBranch = await this.manager.repository.getBranch(this._branchName);
 		} catch (e) {
 			// branch doesn't exist
 		}
-		state.branch = branchName;
-		this.stateManager.setSavedIssueState(this.issueModel.number, state);
+		state.branch = this._branchName;
+		this.stateManager.setSavedIssueState(this.issueModel, state);
 		if (existingBranch) {
-			await this.manager.repository.checkout(branchName);
+			await this.manager.repository.checkout(this._branchName);
 		} else {
-			await this.manager.repository.createBranch(branchName, true);
+			await this.manager.repository.createBranch(this._branchName, true);
 		}
-		return branchName;
 	}
 
-	private async setCommitMessageAndGitEvent(branchName: string) {
+	private async setCommitMessageAndGitEvent() {
 		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueFormatScm');
 		if (typeof configuration === 'string') {
 			this.repo.inputBox.value = await variableSubstitution(configuration, this.issueModel);
 		}
-		this.repoChangeDisposable = this.repo.state.onDidChange(() => {
-			if (this.repo.state.HEAD?.name !== branchName) {
-				this.stopWorking();
-			}
-		});
-		this.context.subscriptions.push(this.repoChangeDisposable!);
 		return;
 	}
 

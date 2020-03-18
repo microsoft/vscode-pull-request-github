@@ -29,6 +29,7 @@ interface TimeStampedIssueState extends IssueState {
 
 interface IssuesState {
 	issues: Record<string, TimeStampedIssueState>;
+	branches: Record<string, { owner: string, repositoryName: string, number: number }>;
 }
 
 export class StateManager {
@@ -75,10 +76,19 @@ export class StateManager {
 		const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
 		const git: GitAPI = gitExtension.getAPI(1);
 		git.repositories.forEach(repository => {
-			this.context.subscriptions.push(repository.state.onDidChange(() => {
+			this.context.subscriptions.push(repository.state.onDidChange(async () => {
 				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this._lastHead) {
 					this._lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
 					this.setIssueData();
+				}
+
+				const newBranch = repository.state.HEAD?.name;
+				if (!this.currentIssue || (newBranch !== this.currentIssue.branchName)) {
+					// currentIssue is cleaned up in the setter
+					await this.setCurrentIssue(undefined);
+					if (newBranch) {
+						this.setCurrentIssueFromBranch(newBranch);
+					}
 				}
 			}));
 		});
@@ -108,10 +118,13 @@ export class StateManager {
 
 	private cleanIssueState() {
 		const stateString: string | undefined = this.context.workspaceState.get(ISSUES_KEY);
-		const state: IssuesState = stateString ? JSON.parse(stateString) : { issues: [] };
+		const state: IssuesState = stateString ? JSON.parse(stateString) : { issues: [], branches: [] };
 		const deleteDate: number = new Date().valueOf() - (30 /*days*/ * 86400000 /*milliseconds in a day*/);
 		for (const issueState in state.issues) {
 			if (state.issues[issueState].stateModifiedTime < deleteDate) {
+				if (state.branches && state.branches[issueState]) {
+					delete state.branches[issueState];
+				}
 				delete state.issues[issueState];
 			}
 		}
@@ -145,19 +158,32 @@ export class StateManager {
 		return new Promise(async (resolve) => {
 			const issues = await this.manager.getIssues({ fetchNextPage: false }, this._query);
 			this._onDidChangeIssueData.fire();
-			this.tryRestoreCurrentIssue(issues.items);
+			await this.tryRestoreCurrentIssue(issues.items);
 			resolve(issues.items);
 		});
 	}
 
-	private tryRestoreCurrentIssue(issues: IssueModel[]) {
+	private async tryRestoreCurrentIssue(issues: IssueModel[]) {
 		const restoreIssueNumber = this.context.workspaceState.get(CURRENT_ISSUE_KEY);
 		if (restoreIssueNumber && this.currentIssue === undefined) {
 			for (let i = 0; i < issues.length; i++) {
 				if (issues[i].number === restoreIssueNumber) {
-					new CurrentIssue(issues[i], this.manager, this, this.context).startWorking();
+					await this.setCurrentIssue(new CurrentIssue(issues[i], this.manager, this));
 					return;
 				}
+			}
+		}
+	}
+
+	private async setCurrentIssueFromBranch(branchName: string) {
+		const state: IssuesState = this.getSavedState();
+		for (const branch in state.branches) {
+			if (branch === branchName) {
+				const issueModel = await this.manager.resolveIssue(state.branches[branch].owner, state.branches[branch].repositoryName, state.branches[branch].number);
+				if (issueModel) {
+					await this.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this));
+				}
+				return;
 			}
 		}
 	}
@@ -179,7 +205,7 @@ export class StateManager {
 					continue;
 				}
 
-				this.tryRestoreCurrentIssue(item.issues);
+				await this.tryRestoreCurrentIssue(item.issues);
 				milestonesToUse.push(item);
 				let milestoneDate = milestone.dueOn ? new Date(milestone.dueOn) : undefined;
 				if (!milestoneDate) {
@@ -217,25 +243,38 @@ export class StateManager {
 		return this._currentIssue;
 	}
 
-	set currentIssue(issue: CurrentIssue | undefined) {
+	async setCurrentIssue(issue: CurrentIssue | undefined) {
+		if (this._currentIssue && (issue?.issue.number === this._currentIssue.issue.number)) {
+			return;
+		}
 		if (this._currentIssue) {
 			this._currentIssue.dispose();
 		}
 		this.context.workspaceState.update(CURRENT_ISSUE_KEY, issue?.issue.number);
 		this._currentIssue = issue;
+		await this._currentIssue?.startWorking();
 		this._onDidChangeCurrentIssue.fire();
 	}
 
-	getSavedIssueState(issueNumber: number): IssueState {
+	private getSavedState(): IssuesState {
 		const stateString: string | undefined = this.context.workspaceState.get(ISSUES_KEY);
-		const state: IssuesState = stateString ? JSON.parse(stateString) : { issues: [] };
+		return stateString ? JSON.parse(stateString) : { issues: Object.create(null), branches: Object.create(null) };
+	}
+
+	getSavedIssueState(issueNumber: number): IssueState {
+		const state: IssuesState = this.getSavedState();
 		return state.issues[`${issueNumber}`] ?? {};
 	}
 
-	setSavedIssueState(issueNumber: number, issueState: IssueState) {
-		const stateString: string | undefined = this.context.workspaceState.get(ISSUES_KEY);
-		const state: IssuesState = stateString ? JSON.parse(stateString) : { issues: Object.create(null) };
-		state.issues[`${issueNumber}`] = { ...issueState, stateModifiedTime: (new Date().valueOf()) };
+	setSavedIssueState(issue: IssueModel, issueState: IssueState) {
+		const state: IssuesState = this.getSavedState();
+		state.issues[`${issue.number}`] = { ...issueState, stateModifiedTime: (new Date().valueOf()) };
+		if (issueState.branch) {
+			if (!state.branches) {
+				state.branches = Object.create(null);
+			}
+			state.branches[issueState.branch] = { number: issue.number, owner: issue.remote.owner, repositoryName: issue.remote.repositoryName };
+		}
 		this.context.workspaceState.update(ISSUES_KEY, JSON.stringify(state));
 	}
 }
