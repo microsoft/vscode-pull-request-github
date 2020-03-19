@@ -9,7 +9,7 @@ import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { IssueCompletionProvider } from './issueCompletionProvider';
-import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION, CUSTOM_QUERY_CONFIGURATION, CUSTOM_QUERY_VIEW_CONFIGURATION } from './util';
+import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
 import { IssuesTreeData } from './issuesView';
@@ -42,14 +42,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
 		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(this._stateManager), '#'));
 		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(this.manager, this.context), '@'));
-		const customQueryView = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_VIEW_CONFIGURATION);
-		const customQuery = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_CONFIGURATION, undefined);
-		if (customQueryView && customQuery && (typeof customQuery === 'string')) {
-			this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context, true)));
-			this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issuesCustom:github', new IssuesTreeData(this._stateManager, this.context, false)));
-		} else {
-			this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context, !(customQuery && (typeof customQuery === 'string')))));
-		}
+		this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context)));
 	}
 
 	dispose() { }
@@ -81,7 +74,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			const openIssueText: string = `Open #${this._stateManager.currentIssue.issue.number} ${this._stateManager.currentIssue.issue.title}`;
 			const pullRequestText: string = `Create pull request for #${this._stateManager.currentIssue.issue.number}`;
 			const stopWorkingText: string = `Stop working on #${this._stateManager.currentIssue.issue.number}`;
-			const response: string | undefined = await vscode.window.showQuickPick([openIssueText, pullRequestText, stopWorkingText], {placeHolder: 'Current issue options'});
+			const response: string | undefined = await vscode.window.showQuickPick([openIssueText, pullRequestText, stopWorkingText], { placeHolder: 'Current issue options' });
 			switch (response) {
 				case openIssueText: return this.openIssue(this._stateManager.currentIssue.issue);
 				case pullRequestText: return this.reviewManager.createPullRequest(false);

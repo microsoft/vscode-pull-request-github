@@ -8,6 +8,7 @@ import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution } from './uti
 import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
+import { MilestoneModel } from '../github/milestoneModel';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
@@ -45,24 +46,26 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		const completionItems: vscode.CompletionItem[] = [];
 		const now = new Date();
 
-		const issueData = this.stateManager.issueData;
-		if (issueData.byMilestone) {
-			const milestones = await issueData.byMilestone;
-			for (let index = 0; index < milestones.length; index++) {
-				const value = milestones[index];
-				for (const issue of value.issues) {
-					completionItems.push(await this.completionItemFromIssue(issue, now, range, document, index, value.milestone));
+		const issueData = this.stateManager.issueCollection;
+		for (const issueQuery of issueData) {
+			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = await issueQuery[1] ?? [];
+			if (issuesOrMilestones.length === 0) {
+				continue;
+			}
+			if (issuesOrMilestones[0] instanceof IssueModel) {
+				let index = 0;
+				for (const issue of issuesOrMilestones) {
+					completionItems.push(await this.completionItemFromIssue(<IssueModel>issue, now, range, document, index++));
+				}
+			} else {
+				for (let index = 0; index < issuesOrMilestones.length; index++) {
+					const value: MilestoneModel = <MilestoneModel>issuesOrMilestones[index];
+					for (const issue of value.issues) {
+						completionItems.push(await this.completionItemFromIssue(issue, now, range, document, index, value.milestone));
+					}
 				}
 			}
 		}
-		if (issueData.byIssue) {
-			const issues = await issueData.byIssue;
-			let index = 0;
-			for (const issue of issues) {
-				completionItems.push(await this.completionItemFromIssue(issue, now, range, document, index++));
-			}
-		}
-
 		return completionItems;
 	}
 
