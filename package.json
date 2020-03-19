@@ -333,11 +333,6 @@
           "id": "issues:github",
           "name": "Issues",
           "when": "config.githubIssues.show"
-        },
-        {
-          "id": "issuesCustom:github",
-          "name": "Custom Issues",
-          "when": "config.githubIssues.customQueryView && config.githubIssues.customQuery"
         }
       ],
       "scm": [
@@ -839,7 +834,7 @@
         },
         {
           "command": "issue.refresh",
-          "when": "view =~ /issues(Custom)?:github/",
+          "when": "view =~ /issues:github/",
           "group": "navigation"
         }
       ],
@@ -897,32 +892,37 @@
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues(Custom)?:github/ && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
           "group": "inline"
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues(Custom)?:github/ && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
           "group": "issues_0@0"
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues(Custom)?:github/ && viewItem == issue",
+          "when": "view =~ /issues:github/ && viewItem == issue",
+          "group": "issues_0@1"
+        },
+        {
+          "command": "pr.create",
+          "when": "view =~ /issues:github/ && viewItem == currentissue",
           "group": "issues_0@1"
         },
         {
           "command": "issue.stopWorking",
-          "when": "view =~ /issues(Custom)?:github/ && viewItem == currentissue",
-          "group": "issues_0@1"
+          "when": "view =~ /issues:github/ && viewItem == currentissue",
+          "group": "issues_0@2"
         },
         {
           "command": "issue.copyIssueNumber",
-          "when": "view =~ /issues(Custom)?:github/ && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
           "group": "issues_1@1"
         },
         {
           "command": "issue.copyIssueUrl",
-          "when": "view =~ /issues(Custom)?:github/ && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
           "group": "issues_1@2"
         }
       ],
