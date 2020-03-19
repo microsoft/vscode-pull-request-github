@@ -33,17 +33,14 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 			treeItem = new vscode.TreeItem(element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 		} else {
 			treeItem = new vscode.TreeItem(`${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
+			treeItem.iconPath = {
+				light: Resource.icons.light.Issues,
+				dark: Resource.icons.dark.Issues
+			};
 			if (this.stateManager.currentIssue?.issue.number === element.number) {
-				treeItem.iconPath = {
-					light: Resource.icons.light.Check,
-					dark: Resource.icons.dark.Check
-				};
+				treeItem.label = `✓ ${treeItem.label}`
 				treeItem.contextValue = 'currentissue';
 			} else {
-				treeItem.iconPath = {
-					light: Resource.icons.light.Issues,
-					dark: Resource.icons.dark.Issues
-				};
 				treeItem.contextValue = 'issue';
 			}
 		}

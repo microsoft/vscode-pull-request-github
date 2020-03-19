@@ -85,10 +85,10 @@ export class StateManager {
 
 				const newBranch = repository.state.HEAD?.name;
 				if (!this.currentIssue || (newBranch !== this.currentIssue.branchName)) {
-					// currentIssue is cleaned up in the setter
-					await this.setCurrentIssue(undefined);
 					if (newBranch) {
-						this.setCurrentIssueFromBranch(newBranch);
+						await this.setCurrentIssueFromBranch(newBranch);
+					} else {
+						await this.setCurrentIssue(undefined);
 					}
 				}
 			}));
