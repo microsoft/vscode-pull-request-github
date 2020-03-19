@@ -248,16 +248,12 @@
           ],
           "description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
         },
-        "githubIssues.customQuery": {
-          "type": "string",
-          "description": "A custom query that will be used to populate the issues view and the issues completion suggestions. This will likely be less efficient than the default query method and gets the first 100 issues. To see the default query and the custom query in two separate views, use the 'customQueryView' setting. Example: assignee:alexr00 state:open repo:Microsoft/vscode sort:updated-desc"
-        },
         "githubIssues.workingIssueBranch": {
           "oneOf": [
             {
               "type": "string",
-              "default": "${githubUser}/issue${issueNumber}",
-              "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${githubUser} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name."
+              "default": "${user}/issue${issueNumber}",
+              "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name."
             },
             {
               "type": "boolean",
@@ -273,7 +269,7 @@
               "description": "Causes an input prompt to show when creating a branch for working on an issue."
             }
           ],
-          "description": "Allows you to configure whether a branch is created when you start working on an issue. To configure the name of the branch that is created, use a string. ${githubUser} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name.",
+          "description": "Allows you to configure whether a branch is created when you start working on an issue. To configure the name of the branch that is created, use a string. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name.",
           "default": true
         },
         "githubIssues.issueCompletionFormatScm": {
@@ -286,10 +282,29 @@
           "default": "${issueTitle} \nFixes #${issueNumber}",
           "description": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to '${issueTitle} \nFixes #${issueNumber}'"
         },
-        "githubIssues.customQueryView": {
-          "type": "boolean",
-          "default": false,
-          "description": "When the customQueryView is true it will show in a separate view from the Issues view. When it is false it will show in the Issues view and replace the default query. Requires a reload."
+        "githubIssues.queries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "The label to display for the query in the Issues tree."
+              },
+              "query": {
+                "type": "string",
+                "description": "The query used for searching issues."
+              }
+            }
+          },
+          "scope": "resource",
+          "markdownDescription": "Specifies what queries should be used in the GitHub issues tree. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. The \"default\" query includes issues assigned to you by Milestone. If you want to preserve these, make sure they are still in the array when you modify the setting. The first query listed will be expanded in the Issues view.",
+          "default": [
+            {
+              "label": "My Issues",
+              "query": "default"
+            }
+          ]
         }
       }
     },

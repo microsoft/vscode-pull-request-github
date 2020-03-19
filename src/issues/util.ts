@@ -20,8 +20,8 @@ export const MAX_LINE_LENGTH = 150;
 
 export type ParsedIssue = { owner: string | undefined, name: string | undefined, issueNumber: number };
 export const ISSUES_CONFIGURATION: string = 'githubIssues';
-export const CUSTOM_QUERY_CONFIGURATION = 'customQuery';
-export const CUSTOM_QUERY_VIEW_CONFIGURATION = 'customQueryView';
+export const QUERIES_CONFIGURATION = 'queries';
+export const DEFAULT_QUERY_CONFIGURATION = 'default';
 export const BRANCH_CONFIGURATION = 'workingIssueBranch';
 
 export function parseIssueExpressionOutput(output: RegExpMatchArray | null): ParsedIssue | undefined {
@@ -249,7 +249,7 @@ const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
 export async function variableSubstitution(value: string, issueModel: IssueModel, user?: string): Promise<string> {
 	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
 		switch (variable) {
-			case 'githubUser': return user ? user : '';
+			case 'user': return user ? user : '';
 			case 'issueNumber': return `${issueModel.number}`;
 			case 'issueTitle': return issueModel.title;
 			default: return match;

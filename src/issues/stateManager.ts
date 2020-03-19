@@ -10,7 +10,7 @@ import { IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState, NO_MILESTONE } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { API as GitAPI, GitExtension } from '../typings/git';
-import { ISSUES_CONFIGURATION, CUSTOM_QUERY_CONFIGURATION, CUSTOM_QUERY_VIEW_CONFIGURATION, BRANCH_CONFIGURATION } from './util';
+import { ISSUES_CONFIGURATION, BRANCH_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION } from './util';
 import { CurrentIssue } from './currentIssue';
 
 // TODO: make exclude from date words configurable
@@ -32,24 +32,25 @@ interface IssuesState {
 	branches: Record<string, { owner: string, repositoryName: string, number: number }>;
 }
 
+const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: 'My Issues', query: 'default' }];
+
 export class StateManager {
 	public readonly resolvedIssues: LRUCache<string, IssueModel> = new LRUCache(50); // 50 seems big enough
 	public readonly userMap: Map<string, IAccount> = new Map();
 	private _lastHead: string | undefined;
-	private _milestones: Promise<MilestoneModel[]> = Promise.resolve([]);
-	private _issues: Promise<IssueModel[]> = Promise.resolve([]);
+	private _issueCollection: Map<string, Promise<MilestoneModel[] | IssueModel[]>> = new Map();
 	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onRefreshCacheNeeded: vscode.Event<void> = this._onRefreshCacheNeeded.event;
 	private _onDidChangeIssueData: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onDidChangeIssueData: vscode.Event<void> = this._onDidChangeIssueData.event;
-	private _query: string | undefined;
+	private _queries: { label: string, query: string }[];
 
 	private _currentIssue: CurrentIssue | undefined;
 	private _onDidChangeCurrentIssue: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeCurrentIssue: vscode.Event<void> = this._onDidChangeCurrentIssue.event;
 
-	get issueData(): { byMilestone?: Promise<MilestoneModel[]>, byIssue?: Promise<IssueModel[]> } {
-		return { byMilestone: this._milestones, byIssue: this._issues };
+	get issueCollection(): Map<string, Promise<MilestoneModel[] | IssueModel[]>> {
+		return this._issueCollection;
 	}
 
 	constructor(private manager: PullRequestManager, private context: vscode.ExtensionContext) { }
@@ -100,10 +101,13 @@ export class StateManager {
 
 	private async doInitialize() {
 		this.cleanIssueState();
-		this._query = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_CONFIGURATION, undefined);
+		this._queries = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
+		if (this._queries.length === 0) {
+			this._queries = DEFAULT_QUERY_CONFIGURATION_VALUE;
+		}
 		this.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(change => {
-			if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${CUSTOM_QUERY_CONFIGURATION}`)) {
-				this._query = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_CONFIGURATION, undefined);
+			if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${QUERIES_CONFIGURATION}`)) {
+				this._queries = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
 				this._onRefreshCacheNeeded.fire();
 			}
 		}));
@@ -140,23 +144,21 @@ export class StateManager {
 	}
 
 	private setIssueData() {
-		if (this._query) {
-			const customQueryView = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(CUSTOM_QUERY_VIEW_CONFIGURATION, false);
-			if (customQueryView) {
-				this._milestones = this.setMilestones();
+		this._issueCollection.clear();
+		for (const query of this._queries) {
+			let items: Promise<IssueModel[] | MilestoneModel[]>;
+			if (query.query === DEFAULT_QUERY_CONFIGURATION) {
+				items = this.setMilestones();
 			} else {
-				this._milestones = Promise.resolve([]);
+				items = this.setIssues(query.query);
 			}
-			this._issues = this.setIssues();
-		} else {
-			this._issues = Promise.resolve([]);
-			this._milestones = this.setMilestones();
+			this._issueCollection.set(query.label, items);
 		}
 	}
 
-	private setIssues(): Promise<IssueModel[]> {
+	private setIssues(query: string): Promise<IssueModel[]> {
 		return new Promise(async (resolve) => {
-			const issues = await this.manager.getIssues({ fetchNextPage: false }, this._query);
+			const issues = await this.manager.getIssues({ fetchNextPage: false }, query);
 			this._onDidChangeIssueData.fire();
 			await this.tryRestoreCurrentIssue(issues.items);
 			resolve(issues.items);
