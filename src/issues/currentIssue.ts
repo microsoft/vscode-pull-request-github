@@ -16,7 +16,7 @@ export class CurrentIssue {
 	private repoChangeDisposable: vscode.Disposable | undefined;
 	private _branchName: string | undefined;
 	private repo: Repository;
-	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager) {
+	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
 		this.setRepo();
 	}
 
@@ -63,12 +63,12 @@ export class CurrentIssue {
 	}
 
 	private async createIssueBranch(): Promise<void> {
-		const createBranchConfig = <string | boolean>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
+		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string | boolean>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
 		if (createBranchConfig === false) {
 			return;
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
-		this._branchName = state.branch;
+		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
 		if (!this._branchName) {
 			const user = await this.issueModel.githubRepository.getAuthenticatedUser();
 			if (createBranchConfig === true) {

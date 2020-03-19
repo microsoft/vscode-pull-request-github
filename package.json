@@ -630,6 +630,11 @@
         "category": "GitHub Issues"
       },
       {
+        "command": "issue.startWorkingBranchPrompt",
+        "title": "Start Working with Branch Prompt",
+        "category": "GitHub Issues"
+      },
+      {
         "command": "issue.stopWorking",
         "title": "Stop Working on Issue",
         "category": "GitHub Issues"
@@ -803,6 +808,10 @@
           "when": "false"
         },
         {
+          "command": "issue.startWorkingBranchPrompt",
+          "when": "false"
+        },
+        {
           "command": "issue.stopWorking",
           "when": "false"
         },
@@ -902,6 +911,7 @@
         },
         {
           "command": "issue.startWorking",
+          "alt": "issue.startWorkingBranchPrompt",
           "when": "view =~ /issues:github/ && viewItem == issue",
           "group": "issues_0@1"
         },
