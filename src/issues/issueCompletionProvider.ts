@@ -12,7 +12,7 @@ import { MilestoneModel } from '../github/milestoneModel';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
-		super(`${issue.number}: ${issue.title}`, vscode.CompletionItemKind.Constant);
+		super(`${issue.number}: ${issue.title}`, vscode.CompletionItemKind.Issue);
 	}
 }
 

@@ -54,7 +54,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 
 		const completionItems: vscode.CompletionItem[] = [];
 		(await this._items).forEach(item => {
-			const completionItem: UserCompletion = new UserCompletion(`${item.name ? item.name : item.login}`, vscode.CompletionItemKind.Variable);
+			const completionItem: UserCompletion = new UserCompletion(`${item.name ? item.name : item.login}`, vscode.CompletionItemKind.User);
 			completionItem.insertText = `@${item.login}`;
 			completionItem.login = item.login;
 			completionItem.range = range;
