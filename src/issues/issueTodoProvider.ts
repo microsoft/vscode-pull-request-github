@@ -22,6 +22,9 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 	}
 
 	async provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.CodeAction[]> {
+		if (context.only && context.only !== vscode.CodeActionKind.QuickFix) {
+			return [];
+		}
 		const codeActions: vscode.CodeAction[] = [];
 		let lineNumber = range.start.line;
 		do {
