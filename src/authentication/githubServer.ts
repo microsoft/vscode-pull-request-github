@@ -46,7 +46,7 @@ export class GitHubManager {
 			return true;
 		}
 
-		const options = GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
+		const options = await GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
 		return new Promise<boolean>((resolve, _) => {
 			const get = https.request(options, res => {
 				const ret = res.headers['x-github-request-id'];
@@ -65,7 +65,7 @@ export class GitHubManager {
 		});
 	}
 
-	public static getOptions(hostUri: vscode.Uri, method: string = 'GET', path: string, token?: string) {
+	public static async getOptions(hostUri: vscode.Uri, method: string = 'GET', path: string, token?: string) {
 		const headers: {
 			'user-agent': string;
 			authorization?: string;
@@ -77,7 +77,7 @@ export class GitHubManager {
 		}
 
 		return {
-			host: HostHelper.getApiHost(hostUri).authority,
+			host: (await HostHelper.getApiHost(hostUri)).authority,
 			port: 443,
 			method,
 			path: HostHelper.getApiPath(hostUri, path),
@@ -200,7 +200,7 @@ export class GitHubServer {
 			token = this.hostConfiguration.token;
 		}
 
-		const options = GitHubManager.getOptions(this.hostUri, 'GET', '/user', token);
+		const options = await GitHubManager.getOptions(this.hostUri, 'GET', '/user', token);
 
 		return new Promise<IHostConfiguration>((resolve, _) => {
 			const get = https.request(options, res => {

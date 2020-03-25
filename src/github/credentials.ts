@@ -209,7 +209,8 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private async createHub(creds: IHostConfiguration): Promise<GitHub> {
-		const baseUrl = `${HostHelper.getApiHost(creds).toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
+		const host = await HostHelper.getApiHost(creds);
+		const baseUrl = `${host.toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
 		const octokit = new Octokit({
 			request: { agent },
 			baseUrl,
