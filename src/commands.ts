@@ -28,6 +28,7 @@ import { PullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 import { ITelemetry } from './common/telemetry';
+import { TreeNode } from './view/treeNodes/treeNode';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -151,7 +152,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
-		const GIT_FETCH_COMMAND = "Run 'git fetch'";
+		const GIT_FETCH_COMMAND = 'Run \'git fetch\'';
 
 		const parentFilePath = fileChangeNode.parentFilePath;
 		const filePath = fileChangeNode.filePath;
@@ -177,15 +178,23 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			const selection = await vscode.window.showInformationMessage('Your local repository is not up to date. Fetch the PR base branch to show full content.', GIT_FETCH_COMMAND);
 			if (selection === GIT_FETCH_COMMAND) {
 				const { remote: { remoteName }, base: { ref } } = fileChangeNode.pullRequest;
-				const fetchPromise = prManager.repository.fetch(remoteName, ref);
+				const prNode = getPRNode();
 				await vscode.window.withProgress({
 					location: vscode.ProgressLocation.Notification,
 					title: `Running 'git fetch ${remoteName} ${ref}'`,
 					cancellable: false
-				}, () => fetchPromise);
+				}, progress => prNode.fetchBaseBranchAndReload(prManager.repository, remoteName, ref, progress));
 
-				// TODO: we shouldn't reload everything, just refresh the bits that changed.
-				vscode.commands.executeCommand('workbench.action.reloadWindow');
+				function getPRNode(): PRNode {
+					let parent: TreeNode | undefined;
+					for (parent = fileChangeNode; parent; parent = parent.getParent()) {
+						if (parent instanceof PRNode) {
+							return parent;
+						}
+					}
+
+					throw new Error('fileChangeNode was not contained in a PRNode');
+				}
 			}
 		}
 	}));

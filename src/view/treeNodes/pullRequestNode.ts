@@ -26,6 +26,7 @@ import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from
 import { ReactionGroup } from '../../github/graphql';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { DirectoryTreeNode } from './directoryTreeNode';
+import { Repository } from '../../api/api';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -290,6 +291,26 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		});
 	}
 
+	async fetchBaseBranchAndReload(
+		repository: Repository,
+		remoteName: string,
+		ref: string,
+		progress: vscode.Progress<{ message?: string; increment?: number }>) {
+
+		await repository.fetch(remoteName, ref);
+		progress.report({ message: 'Reloading document', increment: 50 });
+
+		const changes = await this.getFileChanges();
+		for (const change of changes) {
+			if (change instanceof InMemFileChangeNode) {
+				// The full content is now present for all files in the PR, since we fetched the base branch.
+				change.isPartial = false;
+			}
+		}
+
+		await this.refreshExistingPREditors(vscode.window.visibleTextEditors, false);
+	}
+
 	async refreshExistingPREditors(editors: vscode.TextEditor[], incremental: boolean): Promise<void> {
 		let currentPRDocuments = editors.filter(editor => {
 			if (editor.document.uri.scheme !== 'pr') {
@@ -333,7 +354,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (currentPRDocuments.length) {
 			const fileChanges = await this.getFileChanges();
 			await this._prManager.validateDraftMode(this.pullRequestModel);
-			currentPRDocuments.forEach(async editor => {
+			currentPRDocuments.forEach(editor => {
 				const fileChange = fileChanges.find(fc => fc.fileName === editor.fileName);
 
 				if (!fileChange || fileChange instanceof RemoteFileChangeNode) {

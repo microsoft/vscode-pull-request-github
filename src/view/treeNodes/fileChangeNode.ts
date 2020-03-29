@@ -77,7 +77,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly blobUrl: string | undefined,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public readonly isPartial: boolean,
+		public isPartial: boolean,
 		public readonly diffHunks: DiffHunk[],
 		public comments: IComment[],
 		public readonly sha?: string
@@ -168,7 +168,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		public readonly blobUrl: string,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public readonly isPartial: boolean,
+		public isPartial: boolean,
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
 		public comments: IComment[],
