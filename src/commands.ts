@@ -153,6 +153,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
 		const GIT_FETCH_COMMAND = 'Run \'git fetch\'';
+		const TITLE = "GitHub Pull Requests";
 
 		const parentFilePath = fileChangeNode.parentFilePath;
 		const filePath = fileChangeNode.filePath;
@@ -177,13 +178,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		if (isPartial) {
 			const selection = await vscode.window.showInformationMessage('Your local repository is not up to date. Fetch the PR base branch to show full content.', GIT_FETCH_COMMAND);
 			if (selection === GIT_FETCH_COMMAND) {
-				const { remote: { remoteName }, base: { ref } } = fileChangeNode.pullRequest;
 				const prNode = getPRNode();
 				await vscode.window.withProgress({
 					location: vscode.ProgressLocation.Notification,
-					title: `Running 'git fetch ${remoteName} ${ref}'`,
+					title: TITLE,
 					cancellable: false
-				}, progress => prNode.fetchBaseBranchAndReload(prManager.repository, remoteName, ref, progress));
+				}, progress => prNode.fetchBaseBranchAndReload(progress));
 
 				function getPRNode(): PRNode {
 					let parent: TreeNode | undefined;

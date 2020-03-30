@@ -26,7 +26,6 @@ import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from
 import { ReactionGroup } from '../../github/graphql';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { DirectoryTreeNode } from './directoryTreeNode';
-import { Repository } from '../../api/api';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -291,14 +290,14 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		});
 	}
 
-	async fetchBaseBranchAndReload(
-		repository: Repository,
-		remoteName: string,
-		ref: string,
-		progress: vscode.Progress<{ message?: string; increment?: number }>) {
+	async fetchBaseBranchAndReload(progress: vscode.Progress<{ message?: string; increment?: number }>) {
+		const { remote: { remoteName }, base: { ref } } = this.pullRequestModel;
 
-		await repository.fetch(remoteName, ref);
-		progress.report({ message: 'Reloading document', increment: 50 });
+		progress.report({ message: `Running 'git fetch ${remoteName} ${ref}'`, increment: 0 });
+		await this._prManager.repository.fetch(remoteName, ref);
+
+		const PROGRESS_MESSAGE = 'Reloading document';
+		progress.report({ message: PROGRESS_MESSAGE, increment: 50 });
 
 		const changes = await this.getFileChanges();
 		for (const change of changes) {
@@ -308,6 +307,42 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 		}
 
+		const initiallyVisibleEditors = vscode.window.visibleTextEditors;
+		const numEditors = initiallyVisibleEditors.length;
+		if (numEditors !== 0) {
+			const documentChangedIncrement = 40 / numEditors;
+
+			const allEditorsUpdatedPromise = new Promise(resolve => {
+				const remainingEditors = initiallyVisibleEditors.slice();
+
+				const handler = (document: vscode.TextDocument) => {
+					const index = remainingEditors.findIndex(editor => editor.document == document);
+					if (index !== -1) {
+						remainingEditors.splice(index, 1);
+						progress.report({ message: PROGRESS_MESSAGE, increment: documentChangedIncrement });
+					}
+
+					const anyRemainingDocumentsVisible = remainingEditors.some(editor => vscode.window.visibleTextEditors.indexOf(editor) !== -1);
+					if (!anyRemainingDocumentsVisible || remainingEditors.length === 0) {
+						onChangeDisposable.dispose();
+						onCloseDisposable.dispose();
+						resolve();
+					}
+				};
+
+				const onChangeDisposable = vscode.workspace.onDidChangeTextDocument(e => handler(e.document));
+				const onCloseDisposable = vscode.workspace.onDidCloseTextDocument(handler);
+			});
+
+			const contentProvider = getInMemPRContentProvider();
+			for (const editor of initiallyVisibleEditors) {
+				contentProvider.fireDidChange(editor.document.uri);
+			}
+
+			await allEditorsUpdatedPromise;
+		}
+
+		progress.report({ message: 'Reloading comments', increment: 10 });
 		await this.refreshExistingPREditors(vscode.window.visibleTextEditors, false);
 	}
 
