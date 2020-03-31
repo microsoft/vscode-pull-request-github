@@ -15,7 +15,7 @@ export class CurrentIssue {
 	private statusBarItem: vscode.StatusBarItem | undefined;
 	private repoChangeDisposable: vscode.Disposable | undefined;
 	private _branchName: string | undefined;
-	private repo: Repository;
+	private repo: Repository | undefined;
 	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
 		this.setRepo();
 	}
@@ -103,7 +103,7 @@ export class CurrentIssue {
 
 	private async setCommitMessageAndGitEvent() {
 		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueFormatScm');
-		if (typeof configuration === 'string') {
+		if (this.repo && typeof configuration === 'string') {
 			this.repo.inputBox.value = await variableSubstitution(configuration, this.issueModel);
 		}
 		return;
