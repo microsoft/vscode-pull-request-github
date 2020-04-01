@@ -57,7 +57,9 @@ export class CurrentIssue {
 	}
 
 	public async stopWorking() {
-		this.repo.inputBox.value = '';
+		if (this.repo) {
+			this.repo.inputBox.value = '';
+		}
 		this.manager.repository.checkout((await this.manager.getPullRequestDefaults()).base);
 		this.dispose();
 	}
