@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution } from './util';
+import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution, getIssueNumberLabel } from './util';
 import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
 import { MilestoneModel } from '../github/milestoneModel';
+import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
@@ -18,7 +19,7 @@ class IssueCompletionItem extends vscode.CompletionItem {
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private stateManager: StateManager) { }
+	constructor(private stateManager: StateManager, private pullRequestManager: PullRequestManager) { }
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
@@ -45,7 +46,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 		const completionItems: vscode.CompletionItem[] = [];
 		const now = new Date();
-
+		const repo = await this.pullRequestManager.getPullRequestDefaults();
 		const issueData = this.stateManager.issueCollection;
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = await issueQuery[1] ?? [];
@@ -55,13 +56,13 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			if (issuesOrMilestones[0] instanceof IssueModel) {
 				let index = 0;
 				for (const issue of issuesOrMilestones) {
-					completionItems.push(await this.completionItemFromIssue(<IssueModel>issue, now, range, document, index++));
+					completionItems.push(await this.completionItemFromIssue(repo, <IssueModel>issue, now, range, document, index++));
 				}
 			} else {
 				for (let index = 0; index < issuesOrMilestones.length; index++) {
 					const value: MilestoneModel = <MilestoneModel>issuesOrMilestones[index];
 					for (const issue of value.issues) {
-						completionItems.push(await this.completionItemFromIssue(issue, now, range, document, index, value.milestone));
+						completionItems.push(await this.completionItemFromIssue(repo, issue, now, range, document, index, value.milestone));
 					}
 				}
 			}
@@ -69,16 +70,16 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		return completionItems;
 	}
 
-	private async completionItemFromIssue(issue: IssueModel, now: Date, range: vscode.Range, document: vscode.TextDocument, index: number, milestone?: IMilestone): Promise<IssueCompletionItem> {
+	private async completionItemFromIssue(repo: PullRequestDefaults, issue: IssueModel, now: Date, range: vscode.Range, document: vscode.TextDocument, index: number, milestone?: IMilestone): Promise<IssueCompletionItem> {
 		const item: IssueCompletionItem = new IssueCompletionItem(issue);
 		if (document.languageId === 'markdown') {
-			item.insertText = `[#${issue.number}](${issue.html_url})`;
+			item.insertText = `[${getIssueNumberLabel(issue, repo)}](${issue.html_url})`;
 		} else {
 			const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('issueCompletionFormatScm');
 			if (document.uri.path.match(/scm\/git\/scm\d\/input/) && (typeof configuration === 'string')) {
-				item.insertText = await variableSubstitution(configuration, issue);
+				item.insertText = await variableSubstitution(configuration, issue, undefined, repo);
 			} else {
-				item.insertText = `#${issue.number}`;
+				item.insertText = `${getIssueNumberLabel(issue, repo)}`;
 			}
 		}
 		item.documentation = issue.body;

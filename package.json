@@ -274,12 +274,12 @@
         },
         "githubIssues.issueCompletionFormatScm": {
           "type": "string",
-          "default": "#${issueNumber}",
+          "default": "${issueNumberLabel}",
           "description": "Sets the format of issue completions in the SCM inputbox. For example, '#{issueNumber} - ${issueTitle}'"
         },
         "githubIssues.workingIssueFormatScm": {
           "type": "string",
-          "default": "${issueTitle} \nFixes #${issueNumber}",
+          "default": "${issueTitle} \nFixes ${issueNumberLabel}",
           "description": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to '${issueTitle} \nFixes #${issueNumber}'"
         },
         "githubIssues.queries": {

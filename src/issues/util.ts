@@ -179,11 +179,12 @@ export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 			const match = body.substring(searchResult).match(ISSUE_OR_URL_EXPRESSION)!;
 			const tryParse = parseIssueExpressionOutput(match);
 			if (tryParse) {
+				const issueNumberLabel = getIssueNumberLabelFromParsed(tryParse); // get label before setting owner and name.
 				if (!tryParse.owner || !tryParse.name) {
 					tryParse.owner = issue.remote.owner;
 					tryParse.name = issue.remote.repositoryName;
 				}
-				newBodyFirstPart = body.slice(0, searchResult) + `[#${tryParse.issueNumber}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
+				newBodyFirstPart = body.slice(0, searchResult) + `[${issueNumberLabel}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
 				body = newBodyFirstPart + body.slice(searchResult + match[0].length);
 			}
 		}
@@ -246,15 +247,34 @@ export async function createGithubPermalink(manager: PullRequestManager, positio
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
-export async function variableSubstitution(value: string, issueModel: IssueModel, user?: string): Promise<string> {
+export async function variableSubstitution(value: string, issueModel: IssueModel, user?: string, repo?: PullRequestDefaults): Promise<string> {
 	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
 		switch (variable) {
 			case 'user': return user ? user : '';
 			case 'issueNumber': return `${issueModel.number}`;
+			case 'issueNumberLabel': return `${getIssueNumberLabel(issueModel, repo)}`;
 			case 'issueTitle': return issueModel.title;
 			default: return match;
 		}
 	});
+}
+
+export function getIssueNumberLabel(issue: IssueModel, repo?: PullRequestDefaults) {
+	const parsedIssue: ParsedIssue = { issueNumber: issue.number, owner: undefined, name: undefined };
+	if (repo && ((repo.owner.toLowerCase() !== issue.remote.owner) || (repo.repo.toLowerCase() !== issue.remote.repositoryName))) {
+		parsedIssue.owner = issue.remote.owner;
+		parsedIssue.name = issue.remote.repositoryName;
+	}
+	return getIssueNumberLabelFromParsed(parsedIssue);
+
+}
+
+function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
+	if (!parsed.owner || !parsed.name) {
+		return `#${parsed.issueNumber}`;
+	} else {
+		return `${parsed.owner}/${parsed.name}#${parsed.issueNumber}`;
+	}
 }
 
 export class PlainTextRenderer extends marked.Renderer {

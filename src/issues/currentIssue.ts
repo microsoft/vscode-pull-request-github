@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_CONFIGURATION } from './util';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_CONFIGURATION, getIssueNumberLabel } from './util';
 import { API as GitAPI, GitExtension, Repository } from '../typings/git';
 import { Branch } from '../api/api';
 import { StateManager, IssueState } from './stateManager';
@@ -16,6 +16,7 @@ export class CurrentIssue {
 	private repoChangeDisposable: vscode.Disposable | undefined;
 	private _branchName: string | undefined;
 	private repo: Repository | undefined;
+	private repoDefaults: PullRequestDefaults | undefined;
 	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
 		this.setRepo();
 	}
@@ -45,6 +46,7 @@ export class CurrentIssue {
 	}
 
 	public async startWorking() {
+		this.repoDefaults = await this.manager.getPullRequestDefaults();
 		await this.createIssueBranch();
 		await this.setCommitMessageAndGitEvent();
 		this.setStatusBar();
@@ -106,14 +108,14 @@ export class CurrentIssue {
 	private async setCommitMessageAndGitEvent() {
 		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueFormatScm');
 		if (this.repo && typeof configuration === 'string') {
-			this.repo.inputBox.value = await variableSubstitution(configuration, this.issueModel);
+			this.repo.inputBox.value = await variableSubstitution(configuration, this.issueModel, undefined, this.repoDefaults);
 		}
 		return;
 	}
 
 	private setStatusBar() {
 		this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-		this.statusBarItem.text = `Working on #${this.issueModel.number}`;
+		this.statusBarItem.text = `Issue ${getIssueNumberLabel(this.issueModel, this.repoDefaults)}`;
 		this.statusBarItem.tooltip = this.issueModel.title;
 		this.statusBarItem.command = 'issue.statusBar';
 		this.statusBarItem.show();
