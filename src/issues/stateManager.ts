@@ -182,6 +182,13 @@ export class StateManager {
 		if (!createBranchConfig) {
 			return;
 		}
+
+		const defaults = await this.manager.getPullRequestDefaults();
+		if (branchName === defaults.base) {
+			await this.setCurrentIssue(undefined);
+			return;
+		}
+
 		const state: IssuesState = this.getSavedState();
 		for (const branch in state.branches) {
 			if (branch === branchName) {
