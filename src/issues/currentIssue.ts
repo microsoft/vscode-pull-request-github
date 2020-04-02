@@ -115,7 +115,7 @@ export class CurrentIssue {
 
 	private setStatusBar() {
 		this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-		this.statusBarItem.text = `Issue ${getIssueNumberLabel(this.issueModel, this.repoDefaults)}`;
+		this.statusBarItem.text = `$(issues) Issue ${getIssueNumberLabel(this.issueModel, this.repoDefaults)}`;
 		this.statusBarItem.tooltip = this.issueModel.title;
 		this.statusBarItem.command = 'issue.statusBar';
 		this.statusBarItem.show();
