@@ -8,7 +8,6 @@ import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
 import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_CONFIGURATION, getIssueNumberLabel } from './util';
 import { API as GitAPI, GitExtension, Repository } from '../typings/git';
-import { Branch } from '../api/api';
 import { StateManager, IssueState } from './stateManager';
 
 export class CurrentIssue {
@@ -62,8 +61,30 @@ export class CurrentIssue {
 		if (this.repo) {
 			this.repo.inputBox.value = '';
 		}
-		this.manager.repository.checkout((await this.manager.getPullRequestDefaults()).base);
+		await this.manager.repository.checkout((await this.manager.getPullRequestDefaults()).base);
 		this.dispose();
+	}
+
+	private getBasicBranchName(user: string): string {
+		return `${user}/issue${this.issueModel.number}`;
+	}
+
+	private async branchExists(branch: string): Promise<boolean> {
+		try {
+			const repoBranch = await this.manager.repository.getBranch(branch);
+			return !!repoBranch;
+		} catch (e) {
+			// branch doesn't exist
+		}
+		return false;
+	}
+
+	private async createOrCheckoutBranch(branch: string): Promise<void> {
+		if (await this.branchExists(branch)) {
+			await this.manager.repository.checkout(branch);
+		} else {
+			await this.manager.repository.createBranch(branch, true);
+		}
 	}
 
 	private async createIssueBranch(): Promise<void> {
@@ -73,10 +94,11 @@ export class CurrentIssue {
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
+		let user: string | undefined;
 		if (!this._branchName) {
-			const user = await this.issueModel.githubRepository.getAuthenticatedUser();
+			user = await this.issueModel.githubRepository.getAuthenticatedUser();
 			if (createBranchConfig === true) {
-				this._branchName = `${user}/issue${this.issueModel.number}`;
+				this._branchName = this.getBasicBranchName(user);
 			} else {
 				switch (createBranchConfig) {
 					case 'prompt': {
@@ -88,20 +110,21 @@ export class CurrentIssue {
 			}
 		}
 		if (!this._branchName) {
-			this._branchName = `${await this.issueModel.githubRepository.getAuthenticatedUser()}/issue${this.issueModel.number}`;
+			user = await this.issueModel.githubRepository.getAuthenticatedUser();
+			this._branchName = `${user}/issue${this.issueModel.number}`;
 		}
-		let existingBranch: Branch | undefined;
-		try {
-			existingBranch = await this.manager.repository.getBranch(this._branchName);
-		} catch (e) {
-			// branch doesn't exist
-		}
+
 		state.branch = this._branchName;
 		this.stateManager.setSavedIssueState(this.issueModel, state);
-		if (existingBranch) {
-			await this.manager.repository.checkout(this._branchName);
-		} else {
-			await this.manager.repository.createBranch(this._branchName, true);
+		try {
+			await this.createOrCheckoutBranch(this._branchName);
+		} catch (e) {
+			const basicBranchName = this.getBasicBranchName(user ?? await this.issueModel.githubRepository.getAuthenticatedUser());
+			vscode.window.showErrorMessage(`Unable to create branch with name ${this._branchName}. Using ${basicBranchName} instead.`);
+			this._branchName = basicBranchName;
+			state.branch = this._branchName;
+			this.stateManager.setSavedIssueState(this.issueModel, state);
+			await this.createOrCheckoutBranch(this._branchName);
 		}
 	}
 

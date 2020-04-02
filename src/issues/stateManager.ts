@@ -189,6 +189,10 @@ export class StateManager {
 			return;
 		}
 
+		if (this._currentIssue && (this._currentIssue.branchName === branchName)) {
+			return;
+		}
+
 		const state: IssuesState = this.getSavedState();
 		for (const branch in state.branches) {
 			if (branch === branchName) {
@@ -256,17 +260,23 @@ export class StateManager {
 		return this._currentIssue;
 	}
 
+	private isSettingIssue: boolean = false;
 	async setCurrentIssue(issue: CurrentIssue | undefined) {
+		if (this.isSettingIssue && (issue === undefined)) {
+			return;
+		}
+		this.isSettingIssue = true;
 		if (this._currentIssue && (issue?.issue.number === this._currentIssue.issue.number)) {
 			return;
 		}
 		if (this._currentIssue) {
-			this._currentIssue.stopWorking();
+			await this._currentIssue.stopWorking();
 		}
 		this.context.workspaceState.update(CURRENT_ISSUE_KEY, issue?.issue.number);
 		this._currentIssue = issue;
 		await this._currentIssue?.startWorking();
 		this._onDidChangeCurrentIssue.fire();
+		this.isSettingIssue = false;
 	}
 
 	private getSavedState(): IssuesState {
