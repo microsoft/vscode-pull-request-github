@@ -643,6 +643,11 @@
         "command": "issue.statusBar",
         "title": "Current Issue Options",
         "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.getCurrent",
+        "title": "Get current issue",
+        "category": "GitHub Issues"
       }
     ],
     "menus": {
@@ -817,6 +822,10 @@
         },
         {
           "command": "issue.statusBar",
+          "when": "false"
+        },
+        {
+          "command": "issue.getCurrent",
           "when": "false"
         }
       ],

@@ -38,6 +38,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueNumber', this.copyIssueNumber));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueUrl', this.copyIssueUrl));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.refresh', this.refreshView, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.getCurrent', this.getCurrent, this));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager)));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
@@ -47,6 +48,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	dispose() { }
+
+	getCurrent() {
+		if (this._stateManager.currentIssue) {
+			return { owner: this._stateManager.currentIssue.issue.remote.owner, repo: this._stateManager.currentIssue.issue.remote.repositoryName, number: this._stateManager.currentIssue.issue.number };
+		}
+	}
 
 	refreshView() {
 		this._stateManager.refreshCacheNeeded();
@@ -58,8 +65,16 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
-	async startWorking(issueModel: any) {
-		if (issueModel instanceof IssueModel) {
+	async startWorking(issue: any) {
+		let issueModel: IssueModel | undefined;
+
+		if (issue instanceof IssueModel) {
+			issueModel = issue;
+		} else if (issue && issue.repo && issue.owner && issue.number) {
+			issueModel = await this.manager.resolveIssue(issue.owner, issue.repo, issue.number);
+		}
+
+		if (issueModel) {
 			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager));
 		}
 	}
