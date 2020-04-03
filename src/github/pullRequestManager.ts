@@ -1531,7 +1531,7 @@ export class PullRequestManager implements vscode.Disposable {
 				const { ahead } = this.repository.state.HEAD!;
 				if (ahead &&
 					await vscode.window.showWarningMessage(
-						`You have ${ahead} unpushed ${ahead > 1 ? 'commits' : 'commit'} on this PR branch.\n\nWould you like to proceed anyways?`,
+						`You have ${ahead} unpushed ${ahead > 1 ? 'commits' : 'commit'} on this PR branch.\n\nWould you like to proceed anyway?`,
 						{ modal: true },
 						'Yes') === undefined
 				) {
@@ -1545,7 +1545,7 @@ export class PullRequestManager implements vscode.Disposable {
 			if (workingDirectoryIsDirty) {
 				// We have made changes to the PR that are not committed
 				if (await vscode.window.showWarningMessage(
-					'You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyways?', { modal: true }, 'Yes') === undefined) {
+					'You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?', { modal: true }, 'Yes') === undefined) {
 					return {
 						merged: false,
 						message: 'uncommitted changes'
