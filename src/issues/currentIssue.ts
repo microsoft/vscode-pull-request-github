@@ -6,7 +6,7 @@
 import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_CONFIGURATION, getIssueNumberLabel } from './util';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION } from './util';
 import { API as GitAPI, GitExtension, Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
 
@@ -88,8 +88,8 @@ export class CurrentIssue {
 	}
 
 	private async createIssueBranch(): Promise<void> {
-		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string | boolean>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
-		if (createBranchConfig === false) {
+		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
+		if (createBranchConfig === 'off') {
 			return;
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
@@ -97,21 +97,16 @@ export class CurrentIssue {
 		let user: string | undefined;
 		if (!this._branchName) {
 			user = await this.issueModel.githubRepository.getAuthenticatedUser();
-			if (createBranchConfig === true) {
-				this._branchName = this.getBasicBranchName(user);
+			if (createBranchConfig === 'on') {
+				const branchNameConfig = <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_NAME_CONFIGURATION);
+				this._branchName = await variableSubstitution(branchNameConfig, this.issue, user);
 			} else {
-				switch (createBranchConfig) {
-					case 'prompt': {
-						this._branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });
-						break;
-					}
-					default: this._branchName = await variableSubstitution(createBranchConfig, this.issue, user); break;
-				}
+				this._branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });
 			}
 		}
 		if (!this._branchName) {
 			user = await this.issueModel.githubRepository.getAuthenticatedUser();
-			this._branchName = `${user}/issue${this.issueModel.number}`;
+			this._branchName = this.getBasicBranchName(user);
 		}
 
 		state.branch = this._branchName;

@@ -249,28 +249,24 @@
           "description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
         },
         "githubIssues.workingIssueBranch": {
-          "oneOf": [
-            {
-              "type": "string",
-              "default": "${user}/issue${issueNumber}",
-              "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name."
-            },
-            {
-              "type": "boolean",
-              "default": true,
-              "description": "Indicates whether a branch should be created when you start working on an issue."
-            },
-            {
-              "type": "string",
-              "enum": [
-                "prompt"
-              ],
-              "default": "prompt",
-              "description": "Causes an input prompt to show when creating a branch for working on an issue."
-            }
+          "type": "string",
+          "default": "${user}/issue${issueNumber}",
+          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number."
+        },
+        "githubIssues.useBranchForIssues": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off",
+            "prompt"
           ],
-          "description": "Allows you to configure whether a branch is created when you start working on an issue. To configure the name of the branch that is created, use a string. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. Setting to 'prompt' will instead show in input box for entering the branch name.",
-          "default": true
+          "enumDescriptions": [
+            "A branch will always be checked out when you start working on an issue. If the branch doesn't exist, it will be created.",
+            "A branch will not be created when you start working on an issue. If you have worked on an issue before and a branch was created for it, that same branch will be checked out.",
+            "A prompt will show for setting the name of the branch that will be created and checked out."
+          ],
+          "default": "on",
+          "description": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.workingIssueBranch`."
         },
         "githubIssues.issueCompletionFormatScm": {
           "type": "string",
