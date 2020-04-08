@@ -44,6 +44,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 		}
 
+		await this.stateManager.tryInitializeAndWait();
+
 		const completionItems: vscode.CompletionItem[] = [];
 		const now = new Date();
 		const repo = await this.pullRequestManager.getPullRequestDefaults();

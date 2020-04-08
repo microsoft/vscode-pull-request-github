@@ -25,7 +25,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async initialize() {
-		await this._stateManager.initialize();
+		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(this._stateManager, this.manager), '#'));
+		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(this._stateManager, this.manager, this.context), '@'));
+		await this._stateManager.tryInitializeAndWait();
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromClipboard', this.createTodoIssueClipboard, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', this.copyPermalink, this));
@@ -42,8 +44,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager)));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
-		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(this._stateManager, this.manager), '#'));
-		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(this.manager, this.context), '@'));
 		this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context)));
 	}
 

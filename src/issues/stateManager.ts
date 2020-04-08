@@ -48,6 +48,7 @@ export class StateManager {
 	private _currentIssue: CurrentIssue | undefined;
 	private _onDidChangeCurrentIssue: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeCurrentIssue: vscode.Event<void> = this._onDidChangeCurrentIssue.event;
+	private initializePromise: Promise<void> | undefined;
 
 	get issueCollection(): Map<string, Promise<MilestoneModel[] | IssueModel[]>> {
 		return this._issueCollection;
@@ -55,22 +56,25 @@ export class StateManager {
 
 	constructor(private manager: PullRequestManager, private context: vscode.ExtensionContext) { }
 
-	async initialize() {
-		return new Promise(resolve => {
-			if (this.manager.state === PRManagerState.RepositoriesLoaded) {
-				this.doInitialize();
-				resolve();
-			} else {
-				const disposable = this.manager.onDidChangeState(() => {
-					if (this.manager.state === PRManagerState.RepositoriesLoaded) {
-						this.doInitialize();
-						disposable.dispose();
-						resolve();
-					}
-				});
-				this.context.subscriptions.push(disposable);
-			}
-		});
+	async tryInitializeAndWait() {
+		if (!this.initializePromise) {
+			this.initializePromise = new Promise(resolve => {
+				if (this.manager.state === PRManagerState.RepositoriesLoaded) {
+					this.doInitialize();
+					resolve();
+				} else {
+					const disposable = this.manager.onDidChangeState(() => {
+						if (this.manager.state === PRManagerState.RepositoriesLoaded) {
+							this.doInitialize();
+							disposable.dispose();
+							resolve();
+						}
+					});
+					this.context.subscriptions.push(disposable);
+				}
+			});
+		}
+		return this.initializePromise;
 	}
 
 	private registerRepositoryChangeEvent() {

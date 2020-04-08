@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { User, IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
 import { userMarkdown } from './util';
+import { StateManager } from './stateManager';
 
 class UserCompletion extends vscode.CompletionItem {
 	login: string;
@@ -15,7 +16,7 @@ class UserCompletion extends vscode.CompletionItem {
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private _items: Promise<IAccount[]> = Promise.resolve([]);
 
-	constructor(private manager: PullRequestManager, context: vscode.ExtensionContext) {
+	constructor(private stateManager: StateManager, private manager: PullRequestManager, context: vscode.ExtensionContext) {
 		if (this.manager.state === PRManagerState.RepositoriesLoaded) {
 			this._items = this.createItems();
 		} else {
@@ -30,6 +31,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	}
 
 	private async createItems(): Promise<IAccount[]> {
+		await this.stateManager.tryInitializeAndWait();
 		const accounts: IAccount[] = [];
 		const assignableUsers = await this.manager.getAssignableUsers();
 		for (const user in assignableUsers) {
