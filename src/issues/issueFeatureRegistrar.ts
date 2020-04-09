@@ -94,13 +94,33 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	async statusBar() {
 		if (this._stateManager.currentIssue) {
 			const openIssueText: string = `Open #${this._stateManager.currentIssue.issue.number} ${this._stateManager.currentIssue.issue.title}`;
-			const pullRequestText: string = `Create pull request for #${this._stateManager.currentIssue.issue.number}`;
+			const pullRequestText: string = `Create pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
 			const stopWorkingText: string = `Stop working on #${this._stateManager.currentIssue.issue.number}`;
 			const response: string | undefined = await vscode.window.showQuickPick([openIssueText, pullRequestText, stopWorkingText], { placeHolder: 'Current issue options' });
 			switch (response) {
 				case openIssueText: return this.openIssue(this._stateManager.currentIssue.issue);
-				case pullRequestText: return this.reviewManager.createPullRequest(false);
+				case pullRequestText: return this.pushAndCreatePR();
 				case stopWorkingText: return this._stateManager.setCurrentIssue(undefined);
+			}
+		}
+	}
+
+	private async pushAndCreatePR(): Promise<void> {
+		if (this.manager.repository.state.HEAD?.upstream) {
+			await this.manager.repository.push();
+			return this.reviewManager.createPullRequest(false);
+		} else {
+			let remote: string | undefined;
+			if (this.manager.repository.state.remotes.length === 1) {
+				remote = this.manager.repository.state.remotes[0].name;
+			} else if (this.manager.repository.state.remotes.length > 1) {
+				remote = await vscode.window.showQuickPick(this.manager.repository.state.remotes.map(value => value.name), { placeHolder: 'Remote to push to' });
+			}
+			if (remote) {
+				await this.manager.repository.push(remote, this.manager.repository.state.HEAD?.name, true);
+				return this.reviewManager.createPullRequest(false);
+			} else {
+				vscode.window.showWarningMessage('The current repository has no remotes to push to. Please set up a remote and try again.');
 			}
 		}
 	}
