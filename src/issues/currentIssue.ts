@@ -7,7 +7,7 @@ import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestMa
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
 import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION } from './util';
-import { API as GitAPI, GitExtension, Repository } from '../typings/git';
+import { Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
 
 export class CurrentIssue {
@@ -21,10 +21,8 @@ export class CurrentIssue {
 	}
 
 	private setRepo() {
-		const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
-		const git: GitAPI = gitExtension.getAPI(1);
-		for (let i = 0; i < git.repositories.length; i++) {
-			const repo = git.repositories[i];
+		for (let i = 0; i < this.stateManager.git.repositories.length; i++) {
+			const repo = this.stateManager.git.repositories[i];
 			for (let j = 0; j < repo.state.remotes.length; j++) {
 				const remote = repo.state.remotes[j];
 				if (remote.name === this.issueModel.githubRepository.remote.remoteName &&

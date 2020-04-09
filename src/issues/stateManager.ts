@@ -54,6 +54,15 @@ export class StateManager {
 		return this._issueCollection;
 	}
 
+	private _git: GitAPI | undefined;
+	get git(): GitAPI {
+		if (!this._git) {
+			const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
+			this._git = gitExtension.getAPI(1);
+		}
+		return this._git;
+	}
+
 	constructor(private manager: PullRequestManager, private context: vscode.ExtensionContext) { }
 
 	async tryInitializeAndWait() {
@@ -78,9 +87,7 @@ export class StateManager {
 	}
 
 	private registerRepositoryChangeEvent() {
-		const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
-		const git: GitAPI = gitExtension.getAPI(1);
-		git.repositories.forEach(repository => {
+		this.git.repositories.forEach(repository => {
 			this.context.subscriptions.push(repository.state.onDidChange(async () => {
 				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this._lastHead) {
 					this._lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);

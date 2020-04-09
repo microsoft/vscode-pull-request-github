@@ -783,53 +783,78 @@ declare module 'vscode' {
 
 	//#endregion
 
-		// #region Ben - extension auth flow (desktop+web)
+	// #region Ben - extension auth flow (desktop+web)
 
-		export interface AppUriOptions {
-			payload?: {
-				path?: string;
-				query?: string;
-				fragment?: string;
-			};
-		}
+	export interface AppUriOptions {
+		payload?: {
+			path?: string;
+			query?: string;
+			fragment?: string;
+		};
+	}
 
-		export namespace env {
+	export namespace env {
 
-			/**
-			 * Creates a Uri that - if opened in a browser - will result in a
-			 * registered [UriHandler](#UriHandler) to fire. The handler's
-			 * Uri will be configured with the path, query and fragment of
-			 * [AppUriOptions](#AppUriOptions) if provided, otherwise it will be empty.
-			 *
-			 * Extensions should not make any assumptions about the resulting
-			 * Uri and should not alter it in anyway. Rather, extensions can e.g.
-			 * use this Uri in an authentication flow, by adding the Uri as
-			 * callback query argument to the server to authenticate to.
-			 *
-			 * Note: If the server decides to add additional query parameters to the Uri
-			 * (e.g. a token or secret), it will appear in the Uri that is passed
-			 * to the [UriHandler](#UriHandler).
-			 *
-			 * **Example** of an authentication flow:
-			 * ```typescript
-			 * vscode.window.registerUriHandler({
-			 *   handleUri(uri: vscode.Uri): vscode.ProviderResult<void> {
-			 *     if (uri.path === '/did-authenticate') {
-			 *       console.log(uri.toString());
-			 *     }
-			 *   }
-			 * });
-			 *
-			 * const callableUri = await vscode.env.createAppUri({ payload: { path: '/did-authenticate' } });
-			 * await vscode.env.openExternal(callableUri);
-			 * ```
-			 */
-			export function createAppUri(options?: AppUriOptions): Thenable<Uri>;
+		/**
+		 * Creates a Uri that - if opened in a browser - will result in a
+		 * registered [UriHandler](#UriHandler) to fire. The handler's
+		 * Uri will be configured with the path, query and fragment of
+		 * [AppUriOptions](#AppUriOptions) if provided, otherwise it will be empty.
+		 *
+		 * Extensions should not make any assumptions about the resulting
+		 * Uri and should not alter it in anyway. Rather, extensions can e.g.
+		 * use this Uri in an authentication flow, by adding the Uri as
+		 * callback query argument to the server to authenticate to.
+		 *
+		 * Note: If the server decides to add additional query parameters to the Uri
+		 * (e.g. a token or secret), it will appear in the Uri that is passed
+		 * to the [UriHandler](#UriHandler).
+		 *
+		 * **Example** of an authentication flow:
+		 * ```typescript
+		 * vscode.window.registerUriHandler({
+		 *   handleUri(uri: vscode.Uri): vscode.ProviderResult<void> {
+		 *     if (uri.path === '/did-authenticate') {
+		 *       console.log(uri.toString());
+		 *     }
+		 *   }
+		 * });
+		 *
+		 * const callableUri = await vscode.env.createAppUri({ payload: { path: '/did-authenticate' } });
+		 * await vscode.env.openExternal(callableUri);
+		 * ```
+		 */
+		export function createAppUri(options?: AppUriOptions): Thenable<Uri>;
 
-			export function asExternalUri(target: Uri): Thenable<Uri>;
-		}
+		export function asExternalUri(target: Uri): Thenable<Uri>;
+	}
 
-		//#endregion
+	//#endregion
+
+	export namespace Uri {
+
+		/**
+		 * Create a new uri which path is the result of joining
+		 * the path of the base uri with the provided path segments.
+		 *
+		 * - Note 1: `joinPath` only affects the path component
+		 * and all other components (scheme, authority, query, and fragment) are
+		 * left as they are.
+		 * - Note 2: The base uri must have a path; an error is thrown otherwise.
+		 *
+		 * The path segments are normalized in the following ways:
+		 * - sequences of path separators (`/` or `\`) are replaced with a single separator
+		 * - for `file`-uris on windows, the backslash-character (`\`) is considered a path-separator
+		 * - the `..`-segment denotes the parent segment, the `.` denotes the current segement
+		 * - paths have a root which always remains, for instance on windows drive-letters are roots
+		 * so that is true: `joinPath(Uri.file('file:///c:/root'), '../../other').fsPath === 'c:/other'`
+		 *
+		 * @param base An uri. Must have a path.
+		 * @param pathSegments One more more path fragments
+		 * @returns A new uri which path is joined with the given fragments
+		 */
+		export function joinPath(base: Uri, ...pathSegments: string[]): Uri;
+	}
 
 	//#region https://github.com/microsoft/vscode/issues/91541
 

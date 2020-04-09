@@ -16,6 +16,7 @@ import { IssuesTreeData } from './issuesView';
 import { IssueModel } from '../github/issueModel';
 import { CurrentIssue } from './currentIssue';
 import { ReviewManager } from '../view/reviewManager';
+import { Repository } from '../typings/git';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
@@ -95,13 +96,55 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (this._stateManager.currentIssue) {
 			const openIssueText: string = `Open #${this._stateManager.currentIssue.issue.number} ${this._stateManager.currentIssue.issue.title}`;
 			const pullRequestText: string = `Create pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
+			const defaults = await this.manager.getPullRequestDefaults();
+			const applyPatch: string = `Apply and patch of commits from ${this._stateManager.currentIssue.branchName} to ${defaults.base}`;
 			const stopWorkingText: string = `Stop working on #${this._stateManager.currentIssue.issue.number}`;
-			const response: string | undefined = await vscode.window.showQuickPick([openIssueText, pullRequestText, stopWorkingText], { placeHolder: 'Current issue options' });
+			const choices = this._stateManager.currentIssue.branchName ? [openIssueText, pullRequestText, applyPatch, stopWorkingText] : [openIssueText, pullRequestText, stopWorkingText];
+			const response: string | undefined = await vscode.window.showQuickPick(choices, { placeHolder: 'Current issue options' });
 			switch (response) {
 				case openIssueText: return this.openIssue(this._stateManager.currentIssue.issue);
 				case pullRequestText: return this.pushAndCreatePR();
+				case applyPatch: return this.applyPatch(defaults.base, this._stateManager.currentIssue.branchName!);
 				case stopWorkingText: return this._stateManager.setCurrentIssue(undefined);
 			}
+		}
+	}
+
+	private stringToUint8Array(input: string): Uint8Array {
+		const result = new Uint8Array(input.length);
+		for (let i = 0; i < input.length; i++) {
+			result[i] = input.charCodeAt(i);
+		}
+		return result;
+	}
+
+	private async applyPatch(baseBranch: string, workingBranch: string): Promise<void> {
+		let patch: vscode.Uri | undefined;
+		try {
+			const base = await this.manager.repository.getBranch(baseBranch);
+			const currentHead = this.manager.repository.state.HEAD;
+			if (!base || !currentHead?.commit || !base.commit) {
+				vscode.window.showErrorMessage(`Current branch ${workingBranch} does not have base branch.`);
+				return;
+			}
+			const mergeBase = await this.manager.repository.getMergeBase(currentHead.commit, base.commit);
+			const message = (await this.manager.repository.getCommit(mergeBase)).message;
+			const diffToApply = await this.manager.repository.diffBetween(mergeBase, currentHead.commit, '.');
+			const storagePath = vscode.Uri.file(this.context.storagePath!);
+			try {
+				await vscode.workspace.fs.createDirectory(storagePath);
+			} catch (e) {
+				// do nothing, the file exists
+			}
+			patch = vscode.Uri.joinPath(storagePath, 'diff.patch');
+			await vscode.workspace.fs.writeFile(patch, this.stringToUint8Array(diffToApply));
+
+			await this.manager.repository.checkout(baseBranch);
+			await this.manager.repository.pull();
+			await this.manager.repository.apply(patch.fsPath);
+			(<Repository><any>this.manager.repository).inputBox.value = message;
+		} catch (e) {
+			vscode.window.showErrorMessage('Could not complete patch: ' + e);
 		}
 	}
 
