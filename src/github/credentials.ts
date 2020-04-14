@@ -20,7 +20,6 @@ const SIGNIN_COMMAND = 'Sign in';
 const IGNORE_COMMAND = 'Don\'t show again';
 
 const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
-const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
 const AUTH_PROVIDER_ID = 'github';
 const SCOPES = ['read:user', 'user:email', 'repo', 'write:discussion'];
@@ -33,19 +32,14 @@ export interface GitHub {
 export class CredentialStore implements vscode.Disposable {
 	private _subs: vscode.Disposable[];
 	private _octokits: Map<string, GitHub | undefined>;
-	private _authenticationStatusBarItems: Map<string, vscode.StatusBarItem>;
 
 	constructor(private readonly _telemetry: ITelemetry) {
 		this._subs = [];
 		this._octokits = new Map<string, GitHub>();
-		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 	}
 
 	public reset() {
 		this._octokits = new Map<string, GitHub>();
-
-		this._authenticationStatusBarItems.forEach(statusBarItem => statusBarItem.dispose());
-		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
 	}
 
 	public async hasOctokit(remote: Remote): Promise<boolean> {
@@ -68,7 +62,6 @@ export class CredentialStore implements vscode.Disposable {
 			Logger.debug(`No token found for host ${host}.`, 'Authentication');
 		}
 
-		await this.updateAuthenticationStatusBar(remote);
 		return this._octokits.has(host);
 	}
 
@@ -141,7 +134,6 @@ export class CredentialStore implements vscode.Disposable {
 
 		while (retry) {
 			try {
-				this.willStartLogin(authority);
 				const token = await this.getSessionOrLogin();
 				octokit = await this.createHub(token);
 			} catch (e) {
@@ -149,8 +141,6 @@ export class CredentialStore implements vscode.Disposable {
 				if (e instanceof Error && e.stack) {
 					Logger.appendLine(e.stack);
 				}
-			} finally {
-				this.didEndLogin(authority);
 			}
 
 			if (octokit) {
@@ -173,8 +163,6 @@ export class CredentialStore implements vscode.Disposable {
 			*/
 			this._telemetry.sendTelemetryEvent('auth.fail');
 		}
-
-		this.updateAuthenticationStatusBar(remote);
 
 		return octokit;
 	}
@@ -242,36 +230,6 @@ export class CredentialStore implements vscode.Disposable {
 			statusBarItem.text = text;
 		}
 		statusBarItem.command = command;
-	}
-
-	private willStartLogin(authority: string): void {
-		const status = this._authenticationStatusBarItems.get(authority);
-		if (status) {
-			status.text = `$(mark-github) Signing in to ${authority}...`;
-			status.command = AUTH_INPUT_TOKEN_CMD;
-		}
-	}
-
-	private didEndLogin(authority: string): void {
-		const status = this._authenticationStatusBarItems.get(authority)!;
-		if (status) {
-			status.text = `$(mark-github) Signed in to ${authority}`;
-			status.command = undefined;
-		}
-	}
-
-	private async updateAuthenticationStatusBar(remote: Remote): Promise<void> {
-		const authority = remote.gitProtocol.normalizeUri()!.authority;
-		const statusBarItem = this._authenticationStatusBarItems.get(authority);
-		if (statusBarItem) {
-			await this.updateStatusBarItem(statusBarItem, remote);
-		} else {
-			const newStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-			this._authenticationStatusBarItems.set(authority, newStatusBarItem);
-
-			await this.updateStatusBarItem(newStatusBarItem, remote);
-			newStatusBarItem.show();
-		}
 	}
 
 	dispose() {

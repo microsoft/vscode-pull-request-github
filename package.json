@@ -640,10 +640,6 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "auth.inputTokenCallback",
-          "when": "gitOpenRepositoryCount != 0"
-        },
-        {
           "command": "pr.configureRemotes",
           "when": "gitOpenRepositoryCount != 0"
         },
