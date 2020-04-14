@@ -5,11 +5,9 @@ import Octokit = require('@octokit/rest');
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
 import { PullRequestManager } from '../../github/pullRequestManager';
-import { init as initKeytar } from '../../authentication/keychain';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockKeytar } from '../mocks/mockKeytar';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
@@ -25,7 +23,6 @@ import { ApiImpl } from '../../api/api1';
 describe('GitHub Pull Requests view', function() {
 	let sinon: SinonSandbox;
 	let context: MockExtensionContext;
-	let keytar: MockKeytar;
 	let telemetry: MockTelemetry;
 	let provider: PullRequestsTreeDataProvider;
 	let credentialStore: CredentialStore;
@@ -35,8 +32,6 @@ describe('GitHub Pull Requests view', function() {
 		MockCommandRegistry.install(sinon);
 
 		context = new MockExtensionContext();
-		keytar = new MockKeytar();
-		initKeytar(context, keytar);
 
 		telemetry = new MockTelemetry();
 		provider = new PullRequestsTreeDataProvider(telemetry);
@@ -52,8 +47,7 @@ describe('GitHub Pull Requests view', function() {
 					userAgent: 'GitHub VSCode Pull Requests',
 					previews: ['shadow-cat-preview']
 				}),
-				graphql: null,
-				schema: null,
+				graphql: null
 			};
 
 			return github;

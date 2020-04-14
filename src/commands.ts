@@ -18,7 +18,6 @@ import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
-import { listHosts, deleteToken } from './authentication/keychain';
 import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
@@ -48,11 +47,6 @@ function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel)
 
 export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager,
 	reviewManager: ReviewManager, telemetry: ITelemetry) {
-	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
-		const selection = await vscode.window.showQuickPick(await listHosts(), { canPickMany: true, ignoreFocusOut: true });
-		if (!selection) { return; }
-		await Promise.all(selection.map(host => deleteToken(host)));
-	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | DescriptionNode | PullRequestModel) => {
 		if (!e) {

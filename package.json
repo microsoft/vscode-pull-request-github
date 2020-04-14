@@ -24,7 +24,8 @@
     "*"
   ],
   "extensionDependencies": [
-    "vscode.git"
+    "vscode.git",
+    "vscode.github-authentication"
   ],
   "main": "./media/extension",
   "contributes": {
@@ -346,11 +347,6 @@
     },
     "commands": [
       {
-        "command": "auth.inputTokenCallback",
-        "title": "Manually Provide Authentication Response",
-        "category": "GitHub Pull Requests"
-      },
-      {
         "command": "pr.create",
         "title": "Create Pull Request",
         "icon": {
@@ -366,11 +362,6 @@
           "light": "resources/icons/light/stage.svg",
           "dark": "resources/icons/dark/stage.svg"
         },
-        "category": "GitHub Pull Requests"
-      },
-      {
-        "command": "auth.signout",
-        "title": "Sign out of GitHub",
         "category": "GitHub Pull Requests"
       },
       {
@@ -651,10 +642,6 @@
         {
           "command": "auth.inputTokenCallback",
           "when": "gitOpenRepositoryCount != 0"
-        },
-        {
-          "command": "auth.signout",
-          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
         },
         {
           "command": "pr.configureRemotes",

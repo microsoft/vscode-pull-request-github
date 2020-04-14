@@ -16,6 +16,125 @@
 
 declare module 'vscode' {
 
+	// #region auth provider: https://github.com/microsoft/vscode/issues/88309
+
+	export interface AuthenticationSession {
+		id: string;
+		getAccessToken(): Thenable<string>;
+		accountName: string;
+		scopes: string[]
+	}
+
+	/**
+	 * An [event](#Event) which fires when an [AuthenticationProvider](#AuthenticationProvider) is added or removed.
+	 */
+	export interface AuthenticationProvidersChangeEvent {
+		/**
+		 * The ids of the [authenticationProvider](#AuthenticationProvider)s that have been added.
+		 */
+		readonly added: string[];
+
+		/**
+		 * The ids of the [authenticationProvider](#AuthenticationProvider)s that have been removed.
+		 */
+		readonly removed: string[];
+	}
+
+	/**
+	* An [event](#Event) which fires when an [AuthenticationSession](#AuthenticationSession) is added, removed, or changed.
+	*/
+	export interface AuthenticationSessionsChangeEvent {
+		/**
+		 * The ids of the [AuthenticationSession](#AuthenticationSession)s that have been added.
+		*/
+		readonly added: string[];
+
+		/**
+		 * The ids of the [AuthenticationSession](#AuthenticationSession)s that have been removed.
+		 */
+		readonly removed: string[];
+
+		/**
+		 * The ids of the [AuthenticationSession](#AuthenticationSession)s that have been changed.
+		 */
+		readonly changed: string[];
+	}
+
+	/**
+	 * **WARNING** When writing an AuthenticationProvider, `id` should be treated as part of your extension's
+	 * API, changing it is a breaking change for all extensions relying on the provider. The id is
+	 * treated case-sensitively.
+	 */
+	export interface AuthenticationProvider {
+		/**
+		 * Used as an identifier for extensions trying to work with a particular
+		 * provider: 'microsoft', 'github', etc. id must be unique, registering
+		 * another provider with the same id will fail.
+		 */
+		readonly id: string;
+		readonly displayName: string;
+
+		/**
+		 * Whether the authentication provider supports the user being logged into
+		 * multiple different accounts at the same time.
+		 */
+		supportsMultipleAccounts: boolean;
+
+		/**
+		 * An [event](#Event) which fires when the array of sessions has changed, or data
+		 * within a session has changed.
+		 */
+		readonly onDidChangeSessions: Event<AuthenticationSessionsChangeEvent>;
+
+		/**
+		 * Returns an array of current sessions.
+		 */
+		getSessions(): Thenable<ReadonlyArray<AuthenticationSession>>;
+
+		/**
+		 * Prompts a user to login.
+		 */
+		login(scopes?: string[]): Thenable<AuthenticationSession>;
+		logout(sessionId: string): Thenable<void>;
+	}
+
+	export namespace authentication {
+		export function registerAuthenticationProvider(provider: AuthenticationProvider): Disposable;
+
+		/**
+		 * Fires with the provider id that was registered or unregistered.
+		 */
+		export const onDidChangeAuthenticationProviders: Event<AuthenticationProvidersChangeEvent>;
+
+		/**
+		 * An array of the ids of authentication providers that are currently registered.
+		 */
+		export const providerIds: string[];
+
+		/**
+		 * Get existing authentication sessions. Rejects if a provider with providerId is not
+		 * registered, or if the user does not consent to sharing authentication information with
+		 * the extension.
+		 */
+		export function getSessions(providerId: string, scopes: string[]): Thenable<readonly AuthenticationSession[]>;
+
+		/**
+		* Prompt a user to login to create a new authenticaiton session. Rejects if a provider with
+		* providerId is not registered, or if the user does not consent to sharing authentication
+		* information with the extension.
+		*/
+		export function login(providerId: string, scopes: string[]): Thenable<AuthenticationSession>;
+
+		/**
+		* An [event](#Event) which fires when the array of sessions has changed, or data
+		* within a session has changed for a provider. Fires with the ids of the providers
+		* that have had session data change.
+		*/
+		export const onDidChangeSessions: Event<{ [providerId: string]: AuthenticationSessionsChangeEvent }>;
+	}
+
+	//#endregion
+
 	//#region Alex - resolvers
 
 	export class ResolvedAuthority {

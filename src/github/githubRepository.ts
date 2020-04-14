@@ -16,6 +16,7 @@ import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone } from './utils';
 import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse } from './graphql';
 import { IssueModel } from './issueModel';
+const defaultSchema = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -131,7 +132,7 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	get schema() {
-		return this.hub.schema;
+		return defaultSchema;
 	}
 
 	async getMetadata(): Promise<any> {

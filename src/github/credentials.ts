@@ -8,18 +8,12 @@ import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
 import { agent } from '../common/net';
-import { IHostConfiguration, HostHelper } from '../authentication/configuration';
-import { GitHubServer } from '../authentication/githubServer';
-import { getToken, setToken } from '../authentication/keychain';
 import { Remote } from '../common/remote';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
-import { handler as uriHandler } from '../common/uri';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import { ITelemetry } from '../common/telemetry';
-const defaultSchema = require('./queries.gql');
-const enterpriseSchema = require('./enterprise.gql');
 
 const TRY_AGAIN = 'Try again?';
 const SIGNIN_COMMAND = 'Sign in';
@@ -28,10 +22,12 @@ const IGNORE_COMMAND = 'Don\'t show again';
 const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const AUTH_INPUT_TOKEN_CMD = 'auth.inputTokenCallback';
 
+const AUTH_PROVIDER_ID = 'github';
+const SCOPES = ['read:user', 'user:email', 'repo', 'write:discussion'];
+
 export interface GitHub {
 	octokit: Octokit;
 	graphql: ApolloClient<NormalizedCacheObject> | null;
-	schema: any | null;
 }
 
 export class CredentialStore implements vscode.Disposable {
@@ -43,20 +39,6 @@ export class CredentialStore implements vscode.Disposable {
 		this._subs = [];
 		this._octokits = new Map<string, GitHub>();
 		this._authenticationStatusBarItems = new Map<string, vscode.StatusBarItem>();
-		this._subs.push(vscode.commands.registerCommand(AUTH_INPUT_TOKEN_CMD, async () => {
-			const uriOrToken = await vscode.window.showInputBox({ prompt: 'Token', ignoreFocusOut: true });
-			if (!uriOrToken) { return; }
-			try {
-				const uri = vscode.Uri.parse(uriOrToken);
-				if (!uri.scheme || uri.scheme === 'file') { throw new Error; }
-				uriHandler.handleUri(uri);
-			} catch (error) {
-				// If it doesn't look like a URI, treat it as a token.
-				const host = await vscode.window.showInputBox({ prompt: 'Server', ignoreFocusOut: true, placeHolder: 'github.com' });
-				if (!host) { return; }
-				setToken(host, uriOrToken);
-			}
-		}));
 	}
 
 	public reset() {
@@ -76,23 +58,16 @@ export class CredentialStore implements vscode.Disposable {
 			return true;
 		}
 
-		const server = new GitHubServer(host);
-		const token = await getToken(host);
-		let octokit: GitHub | undefined = undefined;
+		const existingSessions = await vscode.authentication.getSessions(AUTH_PROVIDER_ID, SCOPES);
 
-		if (token) {
-			if (await server.validate(token)) {
-				octokit = await this.createHub({ host, token });
-			} else {
-				Logger.debug(`Token is no longer valid for host ${host}.`, 'Authentication');
-			}
+		if (existingSessions.length) {
+			const token = await existingSessions[0].getAccessToken();
+			const octokit = await this.createHub(token);
+			this._octokits.set(host, octokit);
 		} else {
 			Logger.debug(`No token found for host ${host}.`, 'Authentication');
 		}
 
-		if (octokit) {
-			this._octokits.set(host, octokit);
-		}
 		await this.updateAuthenticationStatusBar(remote);
 		return this._octokits.has(host);
 	}
@@ -139,6 +114,16 @@ export class CredentialStore implements vscode.Disposable {
 		}
 	}
 
+	private async getSessionOrLogin(): Promise<string> {
+		const authenticationSessions = await vscode.authentication.getSessions(AUTH_PROVIDER_ID, SCOPES);
+		if (authenticationSessions.length) {
+			return await authenticationSessions[0].getAccessToken();
+		} else {
+			const session = await vscode.authentication.login(AUTH_PROVIDER_ID, SCOPES);
+			return session.getAccessToken();
+		}
+	}
+
 	public async login(remote: Remote): Promise<GitHub | undefined> {
 
 		/* __GDPR__
@@ -153,16 +138,12 @@ export class CredentialStore implements vscode.Disposable {
 
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
-		const server = new GitHubServer(host);
 
 		while (retry) {
 			try {
 				this.willStartLogin(authority);
-				const login = await server.login();
-				if (login && login.token) {
-					octokit = await this.createHub(login);
-					await setToken(login.host, login.token);
-				}
+				const token = await this.getSessionOrLogin();
+				octokit = await this.createHub(token);
 			} catch (e) {
 				Logger.appendLine(`Error signing in to ${authority}: ${e}`);
 				if (e instanceof Error && e.stack) {
@@ -208,42 +189,19 @@ export class CredentialStore implements vscode.Disposable {
 		return octokit && (octokit as any).currentUser;
 	}
 
-	private async createHub(creds: IHostConfiguration): Promise<GitHub> {
-		const host = await HostHelper.getApiHost(creds);
-		const baseUrl = `${host.toString().slice(0, -1)}${HostHelper.getApiPath(creds, '')}`;
+	private async createHub(token: string): Promise<GitHub> {
 		const octokit = new Octokit({
 			request: { agent },
-			baseUrl,
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
 			previews: ['shadow-cat-preview'],
 			auth() {
-				return `token ${creds.token || ''}`;
+				return `token ${token || ''}`;
 			}
 		});
 
-		// detect which schema to use, currently only supports github.com & enterprise
-		let version = '';
-		const resp = await octokit.request('GET /');
-		if ('x-github-enterprise-version' in resp.headers) {
-			version = resp.headers['x-github-enterprise-version'];
-		}
-		let schema;
-		if (version === '') {
-			// use default github.com schema
-			schema = defaultSchema;
-		} else {
-			schema = enterpriseSchema;
-		}
-
-		let graphQLBaseURL = baseUrl;
-		if (graphQLBaseURL.endsWith('/api/v3')) {
-			// handles github enterprise
-			graphQLBaseURL = baseUrl.replace('/v3', '');
-		}
-
 		const graphql = new ApolloClient({
-			link: link(graphQLBaseURL, creds.token || ''),
+			link: link('https://api.github.com', token || ''),
 			cache: new InMemoryCache,
 			defaultOptions: {
 				query: {
@@ -254,8 +212,7 @@ export class CredentialStore implements vscode.Disposable {
 
 		return {
 			octokit,
-			graphql,
-			schema: schema,
+			graphql
 		};
 	}
 
