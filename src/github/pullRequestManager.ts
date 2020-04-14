@@ -566,8 +566,8 @@ export class PullRequestManager implements vscode.Disposable {
 	/**
 	 * Returns all remotes from the repository.
 	 */
-	getAllGitHubRemotes(): Remote[] {
-		return this._allGitHubRemotes;
+	async getAllGitHubRemotes(): Promise<Remote[]> {
+		return await this.computeAllGitHubRemotes();
 	}
 
 	async authenticate(): Promise<boolean> {
@@ -1264,7 +1264,7 @@ export class PullRequestManager implements vscode.Disposable {
 			// If the upstream wasn't listed in the remotes setting, create a GitHubRepository
 			// object for it if is does point to GitHub.
 			if (!upstream) {
-				const remote = this.getAllGitHubRemotes().find(r => r.remoteName === upstreamRef.remote);
+				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
 				if (remote) {
 					return new GitHubRepository(remote, this._credentialStore);
 				}
