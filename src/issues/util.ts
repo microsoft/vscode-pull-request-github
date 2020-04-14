@@ -262,7 +262,7 @@ export async function variableSubstitution(value: string, issueModel: IssueModel
 
 export function getIssueNumberLabel(issue: IssueModel, repo?: PullRequestDefaults) {
 	const parsedIssue: ParsedIssue = { issueNumber: issue.number, owner: undefined, name: undefined };
-	if (repo && ((repo.owner.toLowerCase() !== issue.remote.owner) || (repo.repo.toLowerCase() !== issue.remote.repositoryName))) {
+	if (repo && ((repo.owner.toLowerCase() !== issue.remote.owner.toLowerCase()) || (repo.repo.toLowerCase() !== issue.remote.repositoryName.toLowerCase()))) {
 		parsedIssue.owner = issue.remote.owner;
 		parsedIssue.name = issue.remote.repositoryName;
 	}

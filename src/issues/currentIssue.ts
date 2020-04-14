@@ -26,7 +26,7 @@ export class CurrentIssue {
 			for (let j = 0; j < repo.state.remotes.length; j++) {
 				const remote = repo.state.remotes[j];
 				if (remote.name === this.issueModel.githubRepository.remote.remoteName &&
-					(remote.fetchUrl?.toLowerCase().search(`${this.issueModel.githubRepository.remote.owner}/${this.issueModel.githubRepository.remote.repositoryName}`) !== -1)) {
+					(remote.fetchUrl?.toLowerCase().search(`${this.issueModel.githubRepository.remote.owner.toLowerCase()}/${this.issueModel.githubRepository.remote.repositoryName.toLowerCase()}`) !== -1)) {
 					this.repo = repo;
 					return;
 				}
