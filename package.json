@@ -1048,7 +1048,7 @@
     "glob": "7.1.6",
     "jsdom": "16.2.0",
     "jsdom-global": "3.0.2",
-    "minimist": "^1.2.2",
+    "minimist": "^1.2.3",
     "mkdirp": "0.5.1",
     "mocha": "^7.0.1",
     "mocha-junit-reporter": "1.23.0",
