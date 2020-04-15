@@ -264,13 +264,15 @@ export async function createGithubPermalink(manager: PullRequestManager, positio
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
-export async function variableSubstitution(value: string, issueModel: IssueModel, user?: string, repo?: PullRequestDefaults): Promise<string> {
+export async function variableSubstitution(value: string, issueModel?: IssueModel, defaults?: PullRequestDefaults, user?: string): Promise<string> {
 	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
 		switch (variable) {
-			case 'user': return user ? user : '';
-			case 'issueNumber': return `${issueModel.number}`;
-			case 'issueNumberLabel': return `${getIssueNumberLabel(issueModel, repo)}`;
-			case 'issueTitle': return issueModel.title;
+			case 'user': return user ? user : match;
+			case 'issueNumber': return issueModel ? `${issueModel.number}` : match;
+			case 'issueNumberLabel': return issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
+			case 'issueTitle': return issueModel ? issueModel.title : match;
+			case 'repository': return defaults ? defaults.repo : match;
+			case 'owner': return defaults ? defaults.owner : match;
 			default: return match;
 		}
 	});
