@@ -12,7 +12,7 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { StateManager } from './stateManager';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/[^\s]+\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
+export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
@@ -30,15 +30,15 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 		return undefined;
 	}
 	const issue: ParsedIssue = { owner: undefined, name: undefined, issueNumber: 0 };
-	if (output.length === 6) {
+	if (output.length === 8) {
 		issue.owner = output[2];
 		issue.name = output[3];
 		issue.issueNumber = parseInt(output[4]);
 		return issue;
-	} else if (output.length === 11) {
-		issue.owner = output[3] || output[7];
-		issue.name = output[4] || output[8];
-		issue.issueNumber = parseInt(output[5] || output[9]);
+	} else if (output.length === 13) {
+		issue.owner = output[3] || output[9];
+		issue.name = output[4] || output[10];
+		issue.issueNumber = parseInt(output[7] || output[11]);
 		return issue;
 	} else {
 		return undefined;
