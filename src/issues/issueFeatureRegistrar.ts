@@ -211,7 +211,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const title = await vscode.window.showInputBox({ value: titlePlaceholder, prompt: 'Issue title' });
 		if (title) {
 			const origin = await this.manager.getPullRequestDefaults();
-			const body: string | undefined = issueBody ? issueBody : await createGithubPermalink(this.manager, newIssue);
+			const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.manager, newIssue);
 			const issue = await this.manager.createIssue({
 				owner: origin.owner,
 				repo: origin.repo,
