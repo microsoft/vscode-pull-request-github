@@ -19,7 +19,7 @@ class IssueCompletionItem extends vscode.CompletionItem {
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private stateManager: StateManager, private pullRequestManager: PullRequestManager) { }
+	constructor(private stateManager: StateManager, private pullRequestManager: PullRequestManager, private context: vscode.ExtensionContext) { }
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
@@ -96,7 +96,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 	resolveCompletionItem(item: vscode.CompletionItem, token: vscode.CancellationToken): vscode.CompletionItem {
 		if (item instanceof IssueCompletionItem) {
-			item.documentation = issueMarkdown(item.issue);
+			item.documentation = issueMarkdown(item.issue, this.context);
 		}
 		return item;
 	}

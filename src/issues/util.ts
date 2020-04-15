@@ -5,6 +5,7 @@
 
 import * as marked from 'marked';
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
@@ -160,12 +161,12 @@ function makeLabel(color: string, text: string): string {
 }
 
 export const ISSUE_BODY_LENGTH: number = 200;
-export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
+export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	const date = new Date(issue.createdAt);
 	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
 	markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
-	markdown.appendMarkdown(`**${getIcon(issue)} ${issue.title}** [#${issue.number}](${issue.html_url})  \n`);
+	markdown.appendMarkdown(`${getIconMarkdown(issue, context)} **${issue.title}** [#${issue.number}](${issue.html_url})  \n`);
 	let body = marked.parse(issue.body, {
 		renderer: new PlainTextRenderer()
 	});
@@ -205,7 +206,7 @@ export function issueMarkdown(issue: IssueModel): vscode.MarkdownString {
 	return markdown;
 }
 
-function getIcon(issue: IssueModel) {
+function getIconString(issue: IssueModel) {
 	switch (issue.state) {
 		case GithubItemStateEnum.Open: {
 			return issue instanceof PullRequestModel ? '$(git-pull-request)' : '$(issues)';
@@ -214,6 +215,21 @@ function getIcon(issue: IssueModel) {
 			return issue instanceof PullRequestModel ? '$(git-pull-request)' : '$(issue-closed)';
 		}
 		case GithubItemStateEnum.Merged: return '$(git-merge)';
+	}
+}
+
+function getIconMarkdown(issue: IssueModel, context: vscode.ExtensionContext) {
+	if (issue instanceof PullRequestModel) {
+		return getIconString(issue);
+	}
+	switch (issue.state) {
+		case GithubItemStateEnum.Open: {
+			return `![Issue State](${vscode.Uri.file(context.asAbsolutePath(path.join('resources', 'icons', 'issues-green.svg'))).toString()})`;
+
+		}
+		case GithubItemStateEnum.Closed: {
+			return `![Issue State](${vscode.Uri.file(context.asAbsolutePath(path.join('resources', 'icons', 'issue-closed-red.svg'))).toString()})`;
+		}
 	}
 }
 

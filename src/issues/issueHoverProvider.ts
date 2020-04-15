@@ -9,7 +9,7 @@ import { getIssue, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOut
 import { StateManager } from './stateManager';
 
 export class IssueHoverProvider implements vscode.HoverProvider {
-	constructor(private manager: PullRequestManager, private stateManager: StateManager) { }
+	constructor(private manager: PullRequestManager, private stateManager: StateManager, private context: vscode.ExtensionContext) { }
 
 	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
 		if (document.lineAt(position.line).range.end.character > 10000) {
@@ -33,7 +33,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 	private async createHover(value: string, parsed: ParsedIssue, range: vscode.Range): Promise<vscode.Hover | undefined> {
 		const issue = await getIssue(this.stateManager, this.manager, value, parsed);
 		if (issue) {
-			return new vscode.Hover(issueMarkdown(issue), range);
+			return new vscode.Hover(issueMarkdown(issue, this.context), range);
 		} else {
 			return;
 		}
