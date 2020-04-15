@@ -9,7 +9,7 @@ import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { IssueCompletionProvider } from './issueCompletionProvider';
-import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION } from './util';
+import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION, QUERIES_CONFIGURATION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
 import { IssuesTreeData } from './issuesView';
@@ -42,6 +42,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueUrl', this.copyIssueUrl));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.refresh', this.refreshView, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.getCurrent', this.getCurrent, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.editQuery', this.editQuery, this));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager)));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
@@ -49,6 +50,28 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	dispose() { }
+
+	async editQuery(query: vscode.TreeItem) {
+		const config = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION);
+		const inspect = config.inspect<{ label: string, query: string }[]>(QUERIES_CONFIGURATION);
+		let command: string;
+		if (inspect?.workspaceValue) {
+			command = 'workbench.action.openWorkspaceSettingsFile';
+		} else {
+			command = 'workbench.action.openSettingsJson';
+		}
+		await vscode.commands.executeCommand(command);
+		const editor = vscode.window.activeTextEditor;
+		if (editor) {
+			const text = editor.document.getText();
+			const search = text.search(query.label!);
+			if (search >= 0) {
+				const position = editor.document.positionAt(search);
+				editor.revealRange(new vscode.Range(position, position));
+				editor.selection = new vscode.Selection(position, position);
+			}
+		}
+	}
 
 	getCurrent() {
 		if (this._stateManager.currentIssue) {

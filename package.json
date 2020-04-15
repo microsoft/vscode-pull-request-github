@@ -644,6 +644,12 @@
         "command": "issue.getCurrent",
         "title": "Get current issue",
         "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.editQuery",
+        "title": "Edit Query",
+        "category": "GitHub Issues",
+        "icon": "$(tools)"
       }
     ],
     "menus": {
@@ -823,6 +829,10 @@
         {
           "command": "issue.getCurrent",
           "when": "false"
+        },
+        {
+          "command": "issue.editQuery",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -939,6 +949,15 @@
           "command": "issue.copyIssueUrl",
           "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
           "group": "issues_1@2"
+        },
+        {
+          "command": "issue.editQuery",
+          "when": "view =~ /issues:github/ && viewItem == query",
+          "group": "inline"
+        },
+        {
+          "command": "issue.editQuery",
+          "when": "view =~ /issues:github/ && viewItem == query"
         }
       ],
       "editor/title": [

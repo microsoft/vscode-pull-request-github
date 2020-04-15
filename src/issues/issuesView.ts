@@ -9,9 +9,9 @@ import { MilestoneModel } from '../github/milestoneModel';
 import { StateManager } from './stateManager';
 import { Resource } from '../common/resources';
 
-export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | MilestoneModel | string> {
-	private _onDidChangeTreeData: vscode.EventEmitter<IssueModel | MilestoneModel | string | null | undefined> = new vscode.EventEmitter();
-	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | string | null | undefined> = this._onDidChangeTreeData.event;
+export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | MilestoneModel | vscode.TreeItem> {
+	private _onDidChangeTreeData: vscode.EventEmitter<IssueModel | MilestoneModel | null | undefined> = new vscode.EventEmitter();
+	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | null | undefined> = this._onDidChangeTreeData.event;
 	private firstLabel: string | undefined;
 
 	constructor(private stateManager: StateManager, context: vscode.ExtensionContext) {
@@ -24,11 +24,11 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 		}));
 	}
 
-	getTreeItem(element: IssueModel | MilestoneModel | string): vscode.TreeItem {
+	getTreeItem(element: IssueModel | MilestoneModel | vscode.TreeItem): vscode.TreeItem {
 		let treeItem: vscode.TreeItem;
-		if (typeof element === 'string') {
-			const collapsibleState: vscode.TreeItemCollapsibleState = element === this.firstLabel ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
-			treeItem = new vscode.TreeItem(element, collapsibleState);
+		if (element instanceof vscode.TreeItem) {
+			treeItem = element;
+			treeItem.collapsibleState = element.label === this.firstLabel ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
 		} else if (!(element instanceof IssueModel)) {
 			treeItem = new vscode.TreeItem(element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 		} else {
@@ -47,7 +47,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 		return treeItem;
 	}
 
-	getChildren(element: IssueModel | MilestoneModel | string | undefined): Promise<(IssueModel | MilestoneModel)[]> | IssueModel[] | string[] {
+	getChildren(element: IssueModel | MilestoneModel | vscode.TreeItem | undefined): Promise<(IssueModel | MilestoneModel)[]> | IssueModel[] | vscode.TreeItem[] {
 		if (element === undefined) {
 			// If there's only one query, don't display a title for it
 			if (this.stateManager.issueCollection.size === 1) {
@@ -55,9 +55,13 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 			}
 			const queryLabels = Array.from(this.stateManager.issueCollection.keys());
 			this.firstLabel = queryLabels[0];
-			return queryLabels;
-		} else if (typeof element === 'string') {
-			return this.stateManager.issueCollection.get(element) ?? [];
+			return queryLabels.map(label => {
+				const item = new vscode.TreeItem(label);
+				item.contextValue = 'query';
+				return item;
+			});
+		} else if (element instanceof vscode.TreeItem) {
+			return this.stateManager.issueCollection.get(element.label!) ?? [];
 		} else if (!(element instanceof IssueModel)) {
 			return element.issues;
 		} else {
