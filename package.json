@@ -248,6 +248,17 @@
           ],
           "description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
         },
+        "githubIssues.ignoreUserCompletionTrigger": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Language that user completions should not trigger on '@'."
+          },
+          "default": [
+            "python"
+          ],
+          "description": "Languages that the '@' character should not be used to trigger user completion suggestions."
+        },
         "githubIssues.workingIssueBranch": {
           "type": "string",
           "default": "${user}/issue${issueNumber}",

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { User, IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
-import { userMarkdown } from './util';
+import { userMarkdown, ISSUES_CONFIGURATION } from './util';
 import { StateManager } from './stateManager';
 
 class UserCompletion extends vscode.CompletionItem {
@@ -43,6 +43,11 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
 		if ((position.character > 0) && (context.triggerKind === vscode.CompletionTriggerKind.Invoke) && (document.getText(new vscode.Range(position.with(undefined, position.character - 1), position)) !== '@')) {
+			return [];
+		}
+
+		if ((context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter) &&
+			(<string[]>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreUserCompletionTrigger', [])).find(value => value === document.languageId)) {
 			return [];
 		}
 
