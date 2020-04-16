@@ -12,6 +12,10 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: PullRequestManager, private stateManager: StateManager) { }
 
 	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
+		if (document.lineAt(position.line).range.end.character > 10000) {
+			return;
+		}
+
 		let wordPosition = document.getWordRangeAtPosition(position, ISSUE_OR_URL_EXPRESSION);
 		if (wordPosition && (wordPosition.start.character > 0)) {
 			wordPosition = new vscode.Range(new vscode.Position(wordPosition.start.line, wordPosition.start.character - 1), wordPosition.end);
@@ -22,7 +26,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 				return this.createHover(match[0], tryParsed, wordPosition);
 			}
 		} else {
-			return undefined;
+			return;
 		}
 	}
 
@@ -31,7 +35,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 		if (issue) {
 			return new vscode.Hover(issueMarkdown(issue), range);
 		} else {
-			return undefined;
+			return;
 		}
 	}
 }

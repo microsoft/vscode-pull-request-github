@@ -11,6 +11,10 @@ export class UserHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: PullRequestManager) { }
 
 	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
+		if (document.lineAt(position).range.end.character > 10000) {
+			return;
+		}
+
 		let wordPosition = document.getWordRangeAtPosition(position, USER_EXPRESSION);
 		if (wordPosition && (wordPosition.start.character > 0)) {
 			wordPosition = new vscode.Range(new vscode.Position(wordPosition.start.line, wordPosition.start.character), wordPosition.end);
@@ -20,7 +24,7 @@ export class UserHoverProvider implements vscode.HoverProvider {
 				return this.createHover(match[1], wordPosition);
 			}
 		} else {
-			return undefined;
+			return;
 		}
 	}
 
