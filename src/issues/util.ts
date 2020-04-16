@@ -166,7 +166,10 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 	const date = new Date(issue.createdAt);
 	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
 	markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
-	markdown.appendMarkdown(`${getIconMarkdown(issue, context)} **${issue.title}** [#${issue.number}](${issue.html_url})  \n`);
+	let title = marked.parse(issue.title, {
+		renderer: new PlainTextRenderer()
+	}).trim();
+	markdown.appendMarkdown(`${getIconMarkdown(issue, context)} **${title}** [#${issue.number}](${issue.html_url})  \n`);
 	let body = marked.parse(issue.body, {
 		renderer: new PlainTextRenderer()
 	});
@@ -341,7 +344,7 @@ export class PlainTextRenderer extends marked.Renderer {
 		return text;
 	}
 	codespan(code: string): string {
-		return code;
+		return `\\\`${code}\\\``;
 	}
 	br(): string {
 		return ' ';
