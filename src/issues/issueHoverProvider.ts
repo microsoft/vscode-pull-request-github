@@ -12,7 +12,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: PullRequestManager, private stateManager: StateManager) { }
 
 	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
-		if (document.lineAt(position.line).range.end.character > 300) {
+		if (document.lineAt(position.line).range.end.character > 10000) {
 			return;
 		}
 
