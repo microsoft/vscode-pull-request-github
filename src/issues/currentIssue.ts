@@ -43,7 +43,12 @@ export class CurrentIssue {
 	}
 
 	public async startWorking() {
-		this.repoDefaults = await this.manager.getPullRequestDefaults();
+		try {
+			this.repoDefaults = await this.manager.getPullRequestDefaults();
+		} catch (e) {
+			// leave repoDefaults undefined
+			vscode.window.showErrorMessage('There is no remote. Can\'t start working on an issue.');
+		}
 		await this.createIssueBranch();
 		await this.setCommitMessageAndGitEvent();
 		this.setStatusBar();
@@ -59,7 +64,9 @@ export class CurrentIssue {
 		if (this.repo) {
 			this.repo.inputBox.value = '';
 		}
-		await this.manager.repository.checkout((await this.manager.getPullRequestDefaults()).base);
+		if (this.repoDefaults) {
+			await this.manager.repository.checkout(this.repoDefaults.base);
+		}
 		this.dispose();
 	}
 

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestManager } from '../github/pullRequestManager';
+import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import * as vscode from 'vscode';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';
@@ -119,15 +119,20 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (this._stateManager.currentIssue) {
 			const openIssueText: string = `Open #${this._stateManager.currentIssue.issue.number} ${this._stateManager.currentIssue.issue.title}`;
 			const pullRequestText: string = `Create pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
-			const defaults = await this.manager.getPullRequestDefaults();
-			const applyPatch: string = `Apply and patch of commits from ${this._stateManager.currentIssue.branchName} to ${defaults.base}`;
+			let defaults: PullRequestDefaults | undefined;
+			try {
+				defaults = await this.manager.getPullRequestDefaults();
+			} catch (e) {
+				// leave defaults undefined
+			}
+			const applyPatch: string = `Apply and patch of commits from ${this._stateManager.currentIssue.branchName} to ${defaults?.base}`;
 			const stopWorkingText: string = `Stop working on #${this._stateManager.currentIssue.issue.number}`;
-			const choices = this._stateManager.currentIssue.branchName ? [openIssueText, pullRequestText, applyPatch, stopWorkingText] : [openIssueText, pullRequestText, stopWorkingText];
+			const choices = this._stateManager.currentIssue.branchName && defaults ? [openIssueText, pullRequestText, applyPatch, stopWorkingText] : [openIssueText, pullRequestText, stopWorkingText];
 			const response: string | undefined = await vscode.window.showQuickPick(choices, { placeHolder: 'Current issue options' });
 			switch (response) {
 				case openIssueText: return this.openIssue(this._stateManager.currentIssue.issue);
 				case pullRequestText: return this.pushAndCreatePR();
-				case applyPatch: return this.applyPatch(defaults.base, this._stateManager.currentIssue.branchName!);
+				case applyPatch: return this.applyPatch(defaults ? defaults.base : '', this._stateManager.currentIssue.branchName!);
 				case stopWorkingText: return this._stateManager.setCurrentIssue(undefined);
 			}
 		}
@@ -233,7 +238,14 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 		const title = await vscode.window.showInputBox({ value: titlePlaceholder, prompt: 'Issue title' });
 		if (title) {
-			const origin = await this.manager.getPullRequestDefaults();
+			let origin: PullRequestDefaults | undefined;
+			try {
+				origin = await this.manager.getPullRequestDefaults();
+			} catch (e) {
+				// There is no remote
+				vscode.window.showErrorMessage('There is no remote. Can\'t create an issue.');
+				return;
+			}
 			const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.manager, newIssue);
 			const issue = await this.manager.createIssue({
 				owner: origin.owner,
