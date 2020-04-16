@@ -661,6 +661,12 @@
         "title": "Edit Query",
         "category": "GitHub Issues",
         "icon": "$(tools)"
+      },
+      {
+        "command": "issue.createIssue",
+        "title": "Create an Issue",
+        "category": "GitHub Issues",
+        "icon": "$(plus)"
       }
     ],
     "menus": {
@@ -844,6 +850,10 @@
         {
           "command": "issue.editQuery",
           "when": "false"
+        },
+        {
+          "command": "issue.createIssue",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -870,6 +880,11 @@
         {
           "command": "issue.refresh",
           "when": "view =~ /issues:github/",
+          "group": "navigation"
+        },
+        {
+          "command": "issue.createIssue",
+          "when": "view =~ /issues:github/ && github:hasGitHubRemotes",
           "group": "navigation"
         }
       ],
