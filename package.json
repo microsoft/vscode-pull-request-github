@@ -320,7 +320,7 @@
         {
           "id": "github-pull-requests",
           "title": "GitHub",
-          "icon": "resources/icons/light/github.svg"
+          "icon": "resources/icons/pull-request.svg"
         }
       ]
     },
