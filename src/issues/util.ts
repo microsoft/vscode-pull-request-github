@@ -166,7 +166,7 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 	const date = new Date(issue.createdAt);
 	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
 	markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
-	let title = marked.parse(issue.title, {
+	const title = marked.parse(issue.title, {
 		renderer: new PlainTextRenderer()
 	}).trim();
 	markdown.appendMarkdown(`${getIconMarkdown(issue, context)} **${title}** [#${issue.number}](${issue.html_url})  \n`);
