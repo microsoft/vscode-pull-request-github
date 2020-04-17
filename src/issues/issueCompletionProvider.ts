@@ -48,7 +48,12 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 		const completionItems: vscode.CompletionItem[] = [];
 		const now = new Date();
-		const repo = await this.pullRequestManager.getPullRequestDefaults();
+		let repo: PullRequestDefaults | undefined;
+		try {
+			repo = await this.pullRequestManager.getPullRequestDefaults();
+		} catch (e) {
+			// leave repo undefined
+		}
 		const issueData = this.stateManager.issueCollection;
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = await issueQuery[1] ?? [];
@@ -72,7 +77,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		return completionItems;
 	}
 
-	private async completionItemFromIssue(repo: PullRequestDefaults, issue: IssueModel, now: Date, range: vscode.Range, document: vscode.TextDocument, index: number, milestone?: IMilestone): Promise<IssueCompletionItem> {
+	private async completionItemFromIssue(repo: PullRequestDefaults | undefined, issue: IssueModel, now: Date, range: vscode.Range, document: vscode.TextDocument, index: number, milestone?: IMilestone): Promise<IssueCompletionItem> {
 		const item: IssueCompletionItem = new IssueCompletionItem(issue);
 		if (document.languageId === 'markdown') {
 			item.insertText = `[${getIssueNumberLabel(issue, repo)}](${issue.html_url})`;

@@ -7,7 +7,7 @@ import * as LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { IssueModel } from '../github/issueModel';
 import { IAccount } from '../github/interface';
-import { PullRequestManager, PRManagerState, NO_MILESTONE } from '../github/pullRequestManager';
+import { PullRequestManager, PRManagerState, NO_MILESTONE, PullRequestDefaults } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { API as GitAPI, GitExtension } from '../typings/git';
 import { ISSUES_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION, BRANCH_CONFIGURATION } from './util';
@@ -194,7 +194,13 @@ export class StateManager {
 			return;
 		}
 
-		const defaults = await this.manager.getPullRequestDefaults();
+		let defaults: PullRequestDefaults | undefined;
+		try {
+			defaults = await this.manager.getPullRequestDefaults();
+		} catch (e) {
+			// No remote, don't try to set the current issue
+			return;
+		}
 		if (branchName === defaults.base) {
 			await this.setCurrentIssue(undefined);
 			return;
