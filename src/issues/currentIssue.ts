@@ -104,7 +104,7 @@ export class CurrentIssue {
 			user = await this.issueModel.githubRepository.getAuthenticatedUser();
 			if (createBranchConfig === 'on') {
 				const branchNameConfig = <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_NAME_CONFIGURATION);
-				this._branchName = await variableSubstitution(branchNameConfig, this.issue, user);
+				this._branchName = await variableSubstitution(branchNameConfig, this.issue, undefined, user);
 			} else {
 				this._branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });
 			}
