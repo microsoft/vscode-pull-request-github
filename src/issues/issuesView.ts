@@ -37,6 +37,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 				light: Resource.icons.light.Issues,
 				dark: Resource.icons.dark.Issues
 			};
+			treeItem.tooltip = `${element.item.labels.length > 0 ? ('▨ ' + element.item.labels.map(label => label.name).join(', ') + '\n') : ''}${element.number}: ${element.title}\n\n${element.body.substring(0, 300)}${element.body.length > 300 ? '...' : ''}`;
 			if (this.stateManager.currentIssue?.issue.number === element.number) {
 				treeItem.label = `✓ ${treeItem.label}`;
 				treeItem.contextValue = 'currentissue';
