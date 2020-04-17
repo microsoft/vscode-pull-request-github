@@ -43,6 +43,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.refresh', this.refreshView, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.getCurrent', this.getCurrent, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.editQuery', this.editQuery, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssue', this.createIssue, this));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context)));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
@@ -50,6 +51,15 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	dispose() { }
+
+	async createIssue() {
+		try {
+			const defaults = await this.manager.getPullRequestDefaults();
+			return vscode.env.openExternal(vscode.Uri.parse(`https://github.com/${defaults.owner}/${defaults.repo}/issues/new/choose`));
+		} catch (e) {
+			vscode.window.showErrorMessage('Unable to determine where to create the issue.');
+		}
+	}
 
 	async editQuery(query: vscode.TreeItem) {
 		const config = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION);
