@@ -654,6 +654,13 @@
         "icon": "$(tools)"
       }
     ],
+    "keybindings":[
+      {
+        "key": "ctrl+shift+space",
+        "command": "issue.refresh",
+        "when": "suggestWidgetVisible"
+      }
+    ],
     "menus": {
       "commandPalette": [
         {
