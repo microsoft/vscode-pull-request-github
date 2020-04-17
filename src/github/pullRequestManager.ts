@@ -153,7 +153,6 @@ export class PullRequestManager implements vscode.Disposable {
 		this._githubRepositories = [];
 		this._githubManager = new GitHubManager();
 
-		this._subs.push(this._credentialStore);
 		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
 				await this.updateRepositories();
