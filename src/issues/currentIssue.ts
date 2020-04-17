@@ -131,7 +131,7 @@ export class CurrentIssue {
 	private async setCommitMessageAndGitEvent() {
 		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueFormatScm');
 		if (this.repo && typeof configuration === 'string') {
-			this.repo.inputBox.value = await variableSubstitution(configuration, this.issueModel, undefined, this.repoDefaults);
+			this.repo.inputBox.value = await variableSubstitution(configuration, this.issueModel, this.repoDefaults);
 		}
 		return;
 	}

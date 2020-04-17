@@ -311,6 +311,10 @@
             {
               "label": "My Issues",
               "query": "default"
+            },
+            {
+              "label": "Created Issues",
+              "query": "author:${user} state:open repo:${owner}/${repository} sort:updated-desc"
             }
           ]
         }
@@ -660,7 +664,7 @@
         "icon": "$(plus)"
       }
     ],
-    "keybindings":[
+    "keybindings": [
       {
         "key": "ctrl+shift+space",
         "command": "issue.refresh",

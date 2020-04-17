@@ -84,7 +84,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		} else {
 			const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('issueCompletionFormatScm');
 			if (document.uri.path.match(/scm\/git\/scm\d\/input/) && (typeof configuration === 'string')) {
-				item.insertText = await variableSubstitution(configuration, issue, undefined, repo);
+				item.insertText = await variableSubstitution(configuration, issue, repo);
 			} else {
 				item.insertText = `${getIssueNumberLabel(issue, repo)}`;
 			}
