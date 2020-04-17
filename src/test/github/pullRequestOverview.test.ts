@@ -15,9 +15,7 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { DescriptionNode } from '../../view/treeNodes/descriptionNode';
 import { TreeNode } from '../../view/treeNodes/treeNode';
-import { init as initKeytar, setToken } from '../../authentication/keychain';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockKeytar } from '../mocks/mockKeytar';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { ApiImpl } from '../../api/api1';
 
@@ -42,9 +40,6 @@ describe('PullRequestOverview', function() {
 		const url = 'https://github.com/aaa/bbb';
 		remote = new Remote('origin', url, new Protocol(url));
 		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, sinon);
-
-		initKeytar(context, new MockKeytar());
-		await setToken('github.com', '1234');
 	});
 
 	afterEach(function() {
