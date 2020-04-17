@@ -325,7 +325,7 @@
         {
           "id": "github-pull-requests",
           "title": "GitHub",
-          "icon": "resources/icons/light/github.svg"
+          "icon": "resources/icons/pull-request.svg"
         }
       ]
     },
@@ -334,17 +334,20 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled"
+          "when": "!config.githubPullRequests.showInSCM && config.git.enabled",
+          "icon": "resources/icons/pull-request.svg"
         },
         {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode"
+          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode",
+          "icon": "resources/icons/pull-request.svg"
         },
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "config.githubIssues.show"
+          "when": "config.githubIssues.show",
+          "icon": "resources/icons/light/issues.svg"
         }
       ],
       "scm": [
