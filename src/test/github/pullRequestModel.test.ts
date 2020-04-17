@@ -29,7 +29,6 @@ describe('PullRequestModel', function () {
 	});
 
 	afterEach(function () {
-		credentials.dispose();
 		sinon.restore();
 	});
 
