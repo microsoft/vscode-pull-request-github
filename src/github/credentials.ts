@@ -24,17 +24,19 @@ const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const AUTH_PROVIDER_ID = 'github';
 const SCOPES = ['read:user', 'user:email', 'repo', 'write:discussion'];
 
+export interface AnnotatedOctokit extends Octokit {
+	currentUser?: Octokit.PullsGetResponseUser;
+}
+
 export interface GitHub {
-	octokit: Octokit;
+	octokit: AnnotatedOctokit;
 	graphql: ApolloClient<NormalizedCacheObject> | null;
 }
 
-export class CredentialStore implements vscode.Disposable {
-	private _subs: vscode.Disposable[];
+export class CredentialStore {
 	private _octokits: Map<string, GitHub | undefined>;
 
 	constructor(private readonly _telemetry: ITelemetry) {
-		this._subs = [];
 		this._octokits = new Map<string, GitHub>();
 	}
 
@@ -58,6 +60,7 @@ export class CredentialStore implements vscode.Disposable {
 			const token = await existingSessions[0].getAccessToken();
 			const octokit = await this.createHub(token);
 			this._octokits.set(host, octokit);
+			await this.setCurrentUser(octokit.octokit);
 		} else {
 			Logger.debug(`No token found for host ${host}.`, 'Authentication');
 		}
@@ -71,7 +74,7 @@ export class CredentialStore implements vscode.Disposable {
 		return this._octokits.get(host);
 	}
 
-	public getOctokit(remote: Remote): Octokit | undefined {
+	public getOctokit(remote: Remote): AnnotatedOctokit | undefined {
 		const hub = this.getHub(remote);
 		return hub && hub.octokit;
 	}
@@ -152,6 +155,7 @@ export class CredentialStore implements vscode.Disposable {
 
 		if (octokit) {
 			this._octokits.set(host, octokit);
+			await this.setCurrentUser(octokit.octokit);
 
 			/* __GDPR__
 				"auth.success" : {}
@@ -169,11 +173,17 @@ export class CredentialStore implements vscode.Disposable {
 
 	public isCurrentUser(username: string, remote: Remote): boolean {
 		const octokit = this.getOctokit(remote);
-		return octokit && (octokit as any).currentUser && (octokit as any).currentUser.login === username;
+		return !!octokit && !!octokit.currentUser && octokit.currentUser.login === username;
+	}
+
+	private async setCurrentUser(octokit: AnnotatedOctokit): Promise<void> {
+		const user = await octokit.users.getAuthenticated({});
+		octokit.currentUser = user.data;
 	}
 
 	public getCurrentUser(remote: Remote): Octokit.PullsGetResponseUser {
 		const octokit = this.getOctokit(remote);
+		// TODO remove cast
 		return octokit && (octokit as any).currentUser;
 	}
 
@@ -202,38 +212,6 @@ export class CredentialStore implements vscode.Disposable {
 			octokit,
 			graphql
 		};
-	}
-
-	private async updateStatusBarItem(statusBarItem: vscode.StatusBarItem, remote: Remote): Promise<void> {
-		const octokit = this.getOctokit(remote);
-		let text: string;
-		let command: string | undefined;
-
-		if (octokit) {
-			try {
-				const user = await octokit.users.getAuthenticated({});
-				(octokit as any).currentUser = user.data;
-				text = `$(mark-github) ${user.data.login}`;
-			} catch (e) {
-				text = '$(mark-github) Signed in';
-			}
-			command = 'pr.configurePRViewlet';
-			// Temporarily show successful sign-in status
-			statusBarItem.text = '$(mark-github) Successfully signed in';
-			setTimeout(async () => {
-				statusBarItem.text = text;
-			}, 2000);
-		} else {
-			const authority = remote.gitProtocol.normalizeUri()!.authority;
-			text = `$(mark-github) Sign in to ${authority}`;
-			command = 'pr.signin';
-			statusBarItem.text = text;
-		}
-		statusBarItem.command = command;
-	}
-
-	dispose() {
-		this._subs.forEach(sub => sub.dispose());
 	}
 }
 
