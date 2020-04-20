@@ -176,16 +176,13 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	// Check if the remotes are authenticated and show a prompt if not, but don't block on user's response
+	// Check if authenticated and show a prompt if not, but don't block on user's response
 	private async showLoginPrompt(): Promise<void> {
-		const activeRemotes = await this.getActiveRemotes();
-		for (const server of uniqBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority)) {
-			this._credentialStore.hasOctokit(server).then(authd => {
-				if (!authd) {
-					this._credentialStore.loginWithConfirmation(server);
-				}
-			});
-		}
+		this._credentialStore.hasOctokit().then(authd => {
+			if (!authd) {
+				this._credentialStore.loginWithConfirmation();
+			}
+		});
 
 		return Promise.resolve();
 	}
@@ -441,35 +438,13 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		const activeRemotes = await this.getActiveRemotes();
-
-		const serverAuthPromises: Promise<boolean>[] = [];
-		const authenticatedRemotes: Remote[] = [];
-
-		const activeRemotesByAuthority = groupBy(activeRemotes, remote => remote.gitProtocol.normalizeUri()!.authority);
-		for (const authority of Object.keys(activeRemotesByAuthority)) {
-			const remotesForAuthority = activeRemotesByAuthority[authority];
-			serverAuthPromises.push(this._credentialStore.hasOctokit(remotesForAuthority[0]).then(authd => {
-				if (!authd) {
-					return false;
-				} else {
-					authenticatedRemotes.push(...remotesForAuthority);
-					return true;
-				}
-			}));
-		}
-
-		let hasAuthenticated = false;
-		await Promise.all(serverAuthPromises).then(authenticationResult => {
-			hasAuthenticated = authenticationResult.some(isAuthd => isAuthd);
-			vscode.commands.executeCommand('setContext', 'github:authenticated', hasAuthenticated);
-		}).catch(e => {
-			Logger.appendLine(`serverAuthPromises failed: ${e}`);
-		});
+		const isAuthenticated = await this._credentialStore.hasOctokit();
+		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
 
 		const repositories: GitHubRepository[] = [];
 		const resolveRemotePromises: Promise<void>[] = [];
 
-		authenticatedRemotes.forEach(remote => {
+		activeRemotes.forEach(remote => {
 			const repository = this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
@@ -485,7 +460,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 			this.getMentionableUsers(repositoriesChanged);
 			this.getAssignableUsers(repositoriesChanged);
-			this.state = hasAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
+			this.state = isAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
 			return Promise.resolve();
 		});
 	}
@@ -570,17 +545,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async authenticate(): Promise<boolean> {
-		let wasSuccessful = false;
-		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
-
-		const promises = uniqBy(activeRemotes, x => x.normalizedHost).map(async remote => {
-			wasSuccessful = !!(await this._credentialStore.login(remote)) || wasSuccessful;
-			return;
-		});
-
-		return Promise.all(promises).then(_ => {
-			return wasSuccessful;
-		});
+		return !!(await this._credentialStore.login());
 	}
 
 	async getLocalPullRequests(): Promise<PullRequestModel[]> {
@@ -1033,7 +998,7 @@ export class PullRequestManager implements vscode.Disposable {
 				in_reply_to: Number(reply_to.id)
 			});
 
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository), remote);
+			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository));
 		} catch (e) {
 			this.handleError(e);
 		}
@@ -1197,7 +1162,7 @@ export class PullRequestManager implements vscode.Disposable {
 				position: position
 			});
 
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository), remote);
+			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository));
 		} catch (e) {
 			this.handleError(e);
 		}
@@ -1453,15 +1418,15 @@ export class PullRequestManager implements vscode.Disposable {
 
 	canEditPullRequest(issueModel: IssueModel): boolean {
 		const username = issueModel.author && issueModel.author.login;
-		return this._credentialStore.isCurrentUser(username, issueModel.remote);
+		return this._credentialStore.isCurrentUser(username);
 	}
 
 	getCurrentUser(issueModel: IssueModel): IAccount {
-		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(issueModel.remote), issueModel.githubRepository);
+		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(), issueModel.githubRepository);
 	}
 
-	private addCommentPermissions(rawComment: IComment, remote: Remote): IComment {
-		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user!.login, remote);
+	private addCommentPermissions(rawComment: IComment): IComment {
+		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user!.login);
 		const notOutdated = rawComment.position !== null;
 		rawComment.canEdit = isCurrentUser && notOutdated;
 		rawComment.canDelete = isCurrentUser && notOutdated;
