@@ -316,7 +316,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				const remainingEditors = initiallyVisibleEditors.slice();
 
 				const handler = (document: vscode.TextDocument) => {
-					const index = remainingEditors.findIndex(editor => editor.document == document);
+					const index = remainingEditors.findIndex(editor => editor.document === document);
 					if (index !== -1) {
 						remainingEditors.splice(index, 1);
 						progress.report({ message: PROGRESS_MESSAGE, increment: documentChangedIncrement });

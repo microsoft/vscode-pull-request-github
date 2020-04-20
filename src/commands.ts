@@ -153,7 +153,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
 		const GIT_FETCH_COMMAND = 'Run \'git fetch\'';
-		const TITLE = "GitHub Pull Requests";
+		const TITLE = 'GitHub Pull Requests';
 
 		const parentFilePath = fileChangeNode.parentFilePath;
 		const filePath = fileChangeNode.filePath;
@@ -162,6 +162,31 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		const opts = fileChangeNode.opts;
 
 		fileChangeNode.reveal(fileChangeNode, { select: true, focus: true });
+
+		if (isPartial) {
+			vscode.window.showInformationMessage('Your local repository is not up to date. Fetch the PR base branch to show full content.', GIT_FETCH_COMMAND)
+				.then(selection => {
+					if (selection === GIT_FETCH_COMMAND) {
+						const prNode = getPRNode();
+						return vscode.window.withProgress({
+							location: vscode.ProgressLocation.Notification,
+							title: TITLE,
+							cancellable: false
+						}, progress => prNode.fetchBaseBranchAndReload(progress));
+
+						function getPRNode(): PRNode {
+							let parent: TreeNode | undefined;
+							for (parent = fileChangeNode; parent; parent = parent.getParent()) {
+								if (parent instanceof PRNode) {
+									return parent;
+								}
+							}
+
+							throw new Error('fileChangeNode was not contained in a PRNode');
+						}
+					}
+				});
+		}
 
 		let parentURI = await asImageDataURI(parentFilePath, prManager.repository) || parentFilePath;
 		let headURI = await asImageDataURI(filePath, prManager.repository) || filePath;
@@ -175,28 +200,6 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 
 		vscode.commands.executeCommand('vscode.diff', parentURI, headURI, fileName, opts);
-		if (isPartial) {
-			const selection = await vscode.window.showInformationMessage('Your local repository is not up to date. Fetch the PR base branch to show full content.', GIT_FETCH_COMMAND);
-			if (selection === GIT_FETCH_COMMAND) {
-				const prNode = getPRNode();
-				await vscode.window.withProgress({
-					location: vscode.ProgressLocation.Notification,
-					title: TITLE,
-					cancellable: false
-				}, progress => prNode.fetchBaseBranchAndReload(progress));
-
-				function getPRNode(): PRNode {
-					let parent: TreeNode | undefined;
-					for (parent = fileChangeNode; parent; parent = parent.getParent()) {
-						if (parent instanceof PRNode) {
-							return parent;
-						}
-					}
-
-					throw new Error('fileChangeNode was not contained in a PRNode');
-				}
-			}
-		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
