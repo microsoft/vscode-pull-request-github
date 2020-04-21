@@ -21,6 +21,9 @@ import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
+import { CredentialStore } from './github/credentials';
+import { GithubRemoteSourceProvider } from './gitExtensionIntegration';
+import { GitExtension } from './typings/git';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -49,7 +52,9 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
 
-	const prManager = new PullRequestManager(repository, telemetry, git);
+	const credentialStore = new CredentialStore(telemetry);
+
+	const prManager = new PullRequestManager(repository, telemetry, git, credentialStore);
 	context.subscriptions.push(prManager);
 
 	const reviewManager = new ReviewManager(context, repository, prManager, tree, telemetry);
@@ -58,6 +63,9 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
 	const gitAPI = gitExtension.getAPI(1);
+
+	const remoteSourceProvider = new GithubRemoteSourceProvider(credentialStore);
+	context.subscriptions.push(gitAPI.registerRemoteSourceProvider(remoteSourceProvider));
 
 	git.onDidChangeState(() => {
 		reviewManager.updateState();
