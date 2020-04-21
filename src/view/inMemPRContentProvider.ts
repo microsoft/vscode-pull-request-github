@@ -11,6 +11,10 @@ export class InMemPRContentProvider implements vscode.TextDocumentContentProvide
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
 
+	fireDidChange(uri: vscode.Uri) {
+		this._onDidChange.fire(uri);
+	}
+
 	private _prFileChangeContentProviders: {[key: number]: (uri: vscode.Uri) => Promise<string>} = {};
 
 	constructor() {}

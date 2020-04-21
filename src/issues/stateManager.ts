@@ -12,6 +12,7 @@ import { MilestoneModel } from '../github/milestoneModel';
 import { GitAPI } from '../typings/git';
 import { ISSUES_CONFIGURATION, BRANCH_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION, variableSubstitution } from './util';
 import { CurrentIssue } from './currentIssue';
+import { ReviewManager } from '../view/reviewManager';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
@@ -19,8 +20,11 @@ const CURRENT_ISSUE_KEY = 'currentIssue';
 
 const ISSUES_KEY = 'issues';
 
+const IGNORE_MILESTONES_CONFIGURATION = 'ignoreMilestones';
+
 export interface IssueState {
 	branch?: string;
+	hasDraftPR?: boolean;
 }
 
 interface TimeStampedIssueState extends IssueState {
@@ -57,6 +61,7 @@ export class StateManager {
 	constructor(
 		readonly gitAPI: GitAPI,
 		private manager: PullRequestManager,
+		private reviewManager: ReviewManager,
 		private context: vscode.ExtensionContext
 	) { }
 
@@ -114,6 +119,8 @@ export class StateManager {
 		this.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(change => {
 			if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${QUERIES_CONFIGURATION}`)) {
 				this._queries = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
+				this._onRefreshCacheNeeded.fire();
+			} else if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${IGNORE_MILESTONES_CONFIGURATION}`)) {
 				this._onRefreshCacheNeeded.fire();
 			}
 		}));
@@ -193,7 +200,7 @@ export class StateManager {
 		if (restoreIssueNumber && this.currentIssue === undefined) {
 			for (let i = 0; i < issues.length; i++) {
 				if (issues[i].number === restoreIssueNumber) {
-					await this.setCurrentIssue(new CurrentIssue(issues[i], this.manager, this));
+					await this.setCurrentIssue(new CurrentIssue(issues[i], this.manager, this.reviewManager, this));
 					return;
 				}
 			}
@@ -227,7 +234,7 @@ export class StateManager {
 			if (branch === branchName) {
 				const issueModel = await this.manager.resolveIssue(state.branches[branch].owner, state.branches[branch].repositoryName, state.branches[branch].number);
 				if (issueModel) {
-					await this.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this));
+					await this.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this.reviewManager, this));
 				}
 				return;
 			}
@@ -237,7 +244,7 @@ export class StateManager {
 	private setMilestones(): Promise<MilestoneModel[]> {
 		return new Promise(async (resolve) => {
 			const now = new Date();
-			const skipMilestones: string[] = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreMilestones', []);
+			const skipMilestones: string[] = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(IGNORE_MILESTONES_CONFIGURATION, []);
 			const milestones = await this.manager.getMilestones({ fetchNextPage: false }, skipMilestones.indexOf(NO_MILESTONE) < 0);
 			let mostRecentPastTitleTime: Date | undefined = undefined;
 			const milestoneDateMap: Map<string, Date> = new Map();

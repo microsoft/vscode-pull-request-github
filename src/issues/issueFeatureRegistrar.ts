@@ -9,7 +9,7 @@ import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { IssueCompletionProvider } from './issueCompletionProvider';
-import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION, QUERIES_CONFIGURATION } from './util';
+import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION, QUERIES_CONFIGURATION, pushAndCreatePR } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
 import { IssuesTreeData } from './issuesView';
@@ -22,7 +22,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 
 	constructor(gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext) {
-		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
+		this._stateManager = new StateManager(gitAPI, this.manager, this.reviewManager, this.context);
 	}
 
 	async initialize() {
@@ -109,13 +109,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 
 		if (issueModel) {
-			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager));
+			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this.reviewManager, this._stateManager));
 		}
 	}
 
 	async startWorkingBranchPrompt(issueModel: any) {
 		if (issueModel instanceof IssueModel) {
-			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager, true));
+			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this.reviewManager, this._stateManager, true));
 		}
 	}
 
@@ -129,6 +129,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (this._stateManager.currentIssue) {
 			const openIssueText: string = `Open #${this._stateManager.currentIssue.issue.number} ${this._stateManager.currentIssue.issue.title}`;
 			const pullRequestText: string = `Create pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
+			const draftPullRequestText: string = `Create draft pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
 			let defaults: PullRequestDefaults | undefined;
 			try {
 				defaults = await this.manager.getPullRequestDefaults();
@@ -137,11 +138,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			}
 			const applyPatch: string = `Apply and patch of commits from ${this._stateManager.currentIssue.branchName} to ${defaults?.base}`;
 			const stopWorkingText: string = `Stop working on #${this._stateManager.currentIssue.issue.number}`;
-			const choices = this._stateManager.currentIssue.branchName && defaults ? [openIssueText, pullRequestText, applyPatch, stopWorkingText] : [openIssueText, pullRequestText, stopWorkingText];
+			const choices = this._stateManager.currentIssue.branchName && defaults ? [openIssueText, pullRequestText, draftPullRequestText, applyPatch, stopWorkingText] : [openIssueText, pullRequestText, draftPullRequestText, stopWorkingText];
 			const response: string | undefined = await vscode.window.showQuickPick(choices, { placeHolder: 'Current issue options' });
 			switch (response) {
 				case openIssueText: return this.openIssue(this._stateManager.currentIssue.issue);
-				case pullRequestText: return this.pushAndCreatePR();
+				case pullRequestText: return pushAndCreatePR(this.manager, this.reviewManager);
+				case draftPullRequestText: return pushAndCreatePR(this.manager, this.reviewManager, true);
 				case applyPatch: return this.applyPatch(defaults ? defaults.base : '', this._stateManager.currentIssue.branchName!);
 				case stopWorkingText: return this._stateManager.setCurrentIssue(undefined);
 			}
@@ -183,26 +185,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			(<Repository><any>this.manager.repository).inputBox.value = message;
 		} catch (e) {
 			vscode.window.showErrorMessage('Could not complete patch: ' + e);
-		}
-	}
-
-	private async pushAndCreatePR(): Promise<void> {
-		if (this.manager.repository.state.HEAD?.upstream) {
-			await this.manager.repository.push();
-			return this.reviewManager.createPullRequest(false);
-		} else {
-			let remote: string | undefined;
-			if (this.manager.repository.state.remotes.length === 1) {
-				remote = this.manager.repository.state.remotes[0].name;
-			} else if (this.manager.repository.state.remotes.length > 1) {
-				remote = await vscode.window.showQuickPick(this.manager.repository.state.remotes.map(value => value.name), { placeHolder: 'Remote to push to' });
-			}
-			if (remote) {
-				await this.manager.repository.push(remote, this.manager.repository.state.HEAD?.name, true);
-				return this.reviewManager.createPullRequest(false);
-			} else {
-				vscode.window.showWarningMessage('The current repository has no remotes to push to. Please set up a remote and try again.');
-			}
 		}
 	}
 
