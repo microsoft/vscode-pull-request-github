@@ -126,7 +126,7 @@ export class CurrentIssue {
 		try {
 			await this.createOrCheckoutBranch(this._branchName);
 		} catch (e) {
-			const basicBranchName = this.getBasicBranchName(await this.getUser() ?? await this.issueModel.githubRepository.getAuthenticatedUser());
+			const basicBranchName = this.getBasicBranchName(await this.getUser());
 			if (this._branchName === basicBranchName) {
 				vscode.window.showErrorMessage(`Unable to checkout branch ${this._branchName}. There may be file conflicts that prevent this branch change.`);
 				this._branchName = undefined;
