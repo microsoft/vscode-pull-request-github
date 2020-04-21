@@ -16,6 +16,7 @@ import fetch from 'node-fetch';
 import { ITelemetry } from '../common/telemetry';
 
 const TRY_AGAIN = 'Try again?';
+const CANCEL = 'Cancel';
 const SIGNIN_COMMAND = 'Sign in';
 const IGNORE_COMMAND = 'Don\'t show again';
 
@@ -149,7 +150,7 @@ export class CredentialStore {
 			if (octokit) {
 				retry = false;
 			} else {
-				retry = (await vscode.window.showErrorMessage(`Error signing in to ${authority}`, TRY_AGAIN)) === TRY_AGAIN;
+				retry = (await vscode.window.showErrorMessage(`Error signing in to ${authority}`, TRY_AGAIN, CANCEL)) === TRY_AGAIN;
 			}
 		}
 
