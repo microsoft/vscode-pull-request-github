@@ -20,6 +20,8 @@ const CURRENT_ISSUE_KEY = 'currentIssue';
 
 const ISSUES_KEY = 'issues';
 
+const IGNORE_MILESTONES_CONFIGURATION = 'ignoreMilestones';
+
 export interface IssueState {
 	branch?: string;
 	hasDraftPR?: boolean;
@@ -121,6 +123,8 @@ export class StateManager {
 		this.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(change => {
 			if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${QUERIES_CONFIGURATION}`)) {
 				this._queries = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
+				this._onRefreshCacheNeeded.fire();
+			} else if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${IGNORE_MILESTONES_CONFIGURATION}`)) {
 				this._onRefreshCacheNeeded.fire();
 			}
 		}));
@@ -244,7 +248,7 @@ export class StateManager {
 	private setMilestones(): Promise<MilestoneModel[]> {
 		return new Promise(async (resolve) => {
 			const now = new Date();
-			const skipMilestones: string[] = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreMilestones', []);
+			const skipMilestones: string[] = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(IGNORE_MILESTONES_CONFIGURATION, []);
 			const milestones = await this.manager.getMilestones({ fetchNextPage: false }, skipMilestones.indexOf(NO_MILESTONE) < 0);
 			let mostRecentPastTitleTime: Date | undefined = undefined;
 			const milestoneDateMap: Map<string, Date> = new Map();
