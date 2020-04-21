@@ -8,14 +8,18 @@ import { CredentialStore, GitHub } from './github/credentials';
 import { Remote } from './common/remote';
 import { Protocol } from './common/protocol';
 
+function asRemoteSource(raw: any) {
+	return { name: raw.full_name, url: raw.clone_url };
+}
+
 export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 	readonly name = 'GitHub';
 	readonly supportsQuery = true;
 
-	constructor(private readonly credentialStore: CredentialStore) {
+	private userReposCache: RemoteSource[] = [];
 
-	}
+	constructor(private readonly credentialStore: CredentialStore) { }
 
 	async getRemoteSources(query?: string): Promise<RemoteSource[]> {
 		const hub = await this.getHub();
@@ -24,7 +28,35 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 			throw new Error('Could not fetch repositories from GitHub.');
 		}
 
-		return [];
+		const [fromUser, fromQuery] = await Promise.all([
+			this.getUserRemoteSources(hub, query),
+			this.getQueryRemoteSources(hub, query)
+		]);
+
+		const userRepos = new Set(fromUser.map(r => r.name));
+
+		return [
+			...fromUser,
+			...fromQuery.filter(r => !userRepos.has(r.name))
+		];
+	}
+
+	private async getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
+		if (!query) {
+			const res = await hub.octokit.repos.list();
+			this.userReposCache = res.data.map(asRemoteSource);
+		}
+
+		return this.userReposCache;
+	}
+
+	private async getQueryRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
+		if (!query) {
+			return [];
+		}
+
+		const raw = await hub.octokit.search.repos({ q: query });
+		return raw.data.items.map(asRemoteSource);
 	}
 
 	private async getHub(): Promise<GitHub | undefined> {
