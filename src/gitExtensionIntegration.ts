@@ -18,10 +18,10 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 	}
 
 	async getRemoteSources(query?: string): Promise<RemoteSource[]> {
-		const hub = this.getHub();
+		const hub = await this.getHub();
 
 		if (!hub) {
-			return [];
+			throw new Error('Could not fetch repositories from GitHub.');
 		}
 
 		return [];
@@ -32,10 +32,14 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 		const url = 'https://github.com/microsoft/vscode.git';
 		const remote = new Remote('origin', url, new Protocol(url));
 
-		if (!await this.credentialStore.hasOctokit(remote)) {
-			return await this.credentialStore.loginWithConfirmation(remote);
-		} else {
-			return await this.credentialStore.getHub(remote);
+		if (await this.credentialStore.hasOctokit(remote)) {
+			return await this.credentialStore.getHub(remote)!;
+		}
+
+		const hub = await this.credentialStore.loginWithConfirmation(remote);
+
+		if (!hub) {
+			return this.credentialStore.login(remote);
 		}
 	}
 }
