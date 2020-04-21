@@ -9,7 +9,7 @@ import { IssueModel } from '../github/issueModel';
 import { IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState, NO_MILESTONE, PullRequestDefaults } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
-import { API as GitAPI, GitExtension } from '../typings/git';
+import { GitAPI } from '../typings/git';
 import { ISSUES_CONFIGURATION, BRANCH_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION, variableSubstitution } from './util';
 import { CurrentIssue } from './currentIssue';
 
@@ -54,16 +54,11 @@ export class StateManager {
 		return this._issueCollection;
 	}
 
-	private _git: GitAPI | undefined;
-	get git(): GitAPI {
-		if (!this._git) {
-			const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
-			this._git = gitExtension.getAPI(1);
-		}
-		return this._git;
-	}
-
-	constructor(private manager: PullRequestManager, private context: vscode.ExtensionContext) { }
+	constructor(
+		readonly gitAPI: GitAPI,
+		private manager: PullRequestManager,
+		private context: vscode.ExtensionContext
+	) { }
 
 	async tryInitializeAndWait() {
 		if (!this.initializePromise) {
@@ -87,7 +82,7 @@ export class StateManager {
 	}
 
 	private registerRepositoryChangeEvent() {
-		this.git.repositories.forEach(repository => {
+		this.gitAPI.repositories.forEach(repository => {
 			this.context.subscriptions.push(repository.state.onDidChange(async () => {
 				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this._lastHead) {
 					this._lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);

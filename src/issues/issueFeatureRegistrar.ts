@@ -16,13 +16,13 @@ import { IssuesTreeData } from './issuesView';
 import { IssueModel } from '../github/issueModel';
 import { CurrentIssue } from './currentIssue';
 import { ReviewManager } from '../view/reviewManager';
-import { Repository } from '../typings/git';
+import { Repository, GitAPI } from '../typings/git';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 
-	constructor(private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext) {
-		this._stateManager = new StateManager(this.manager, this.context);
+	constructor(gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext) {
+		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
 	}
 
 	async initialize() {

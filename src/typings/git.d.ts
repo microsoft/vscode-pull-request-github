@@ -203,7 +203,7 @@ export interface RemoteSourceProvider {
 
 export type APIState = 'uninitialized' | 'initialized';
 
-export interface API {
+export interface GitAPI {
 	readonly state: APIState;
 	readonly onDidChangeState: Event<APIState>;
 	readonly git: Git;
@@ -231,7 +231,7 @@ export interface GitExtension {
 	 * @param version Version number.
 	 * @returns API instance
 	 */
-	getAPI(version: 1): API;
+	getAPI(version: 1): GitAPI;
 }
 
 export const enum GitErrorCodes {

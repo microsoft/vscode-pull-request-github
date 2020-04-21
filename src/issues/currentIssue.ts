@@ -21,8 +21,8 @@ export class CurrentIssue {
 	}
 
 	private setRepo() {
-		for (let i = 0; i < this.stateManager.git.repositories.length; i++) {
-			const repo = this.stateManager.git.repositories[i];
+		for (let i = 0; i < this.stateManager.gitAPI.repositories.length; i++) {
+			const repo = this.stateManager.gitAPI.repositories[i];
 			for (let j = 0; j < repo.state.remotes.length; j++) {
 				const remote = repo.state.remotes[j];
 				if (remote.name === this.issueModel.githubRepository.remote.remoteName &&

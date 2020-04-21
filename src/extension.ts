@@ -56,6 +56,9 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	tree.initialize(prManager);
 	registerCommands(context, prManager, reviewManager, telemetry);
 
+	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
+	const gitAPI = gitExtension.getAPI(1);
+
 	git.onDidChangeState(() => {
 		reviewManager.updateState();
 	});
@@ -82,7 +85,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	});
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
-	const issuesFeatures = new IssueFeatureRegistrar(prManager, reviewManager, context);
+	const issuesFeatures = new IssueFeatureRegistrar(gitAPI, prManager, reviewManager, context);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
