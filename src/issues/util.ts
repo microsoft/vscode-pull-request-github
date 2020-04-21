@@ -11,6 +11,7 @@ import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { StateManager } from './stateManager';
+import { ReviewManager } from '../view/reviewManager';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
@@ -296,6 +297,29 @@ function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 		return `#${parsed.issueNumber}`;
 	} else {
 		return `${parsed.owner}/${parsed.name}#${parsed.issueNumber}`;
+	}
+}
+
+export async function pushAndCreatePR(manager: PullRequestManager, reviewManager: ReviewManager, draft: boolean = false): Promise<boolean> {
+	if (manager.repository.state.HEAD?.upstream) {
+		await manager.repository.push();
+		await reviewManager.createPullRequest(draft);
+		return true;
+	} else {
+		let remote: string | undefined;
+		if (manager.repository.state.remotes.length === 1) {
+			remote = manager.repository.state.remotes[0].name;
+		} else if (manager.repository.state.remotes.length > 1) {
+			remote = await vscode.window.showQuickPick(manager.repository.state.remotes.map(value => value.name), { placeHolder: 'Remote to push to' });
+		}
+		if (remote) {
+			await manager.repository.push(remote, manager.repository.state.HEAD?.name, true);
+			await reviewManager.createPullRequest(draft);
+			return true;
+		} else {
+			vscode.window.showWarningMessage('The current repository has no remotes to push to. Please set up a remote and try again.');
+			return false;
+		}
 	}
 }
 

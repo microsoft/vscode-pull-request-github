@@ -12,6 +12,7 @@ import { MilestoneModel } from '../github/milestoneModel';
 import { API as GitAPI, GitExtension } from '../typings/git';
 import { ISSUES_CONFIGURATION, BRANCH_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION, variableSubstitution } from './util';
 import { CurrentIssue } from './currentIssue';
+import { ReviewManager } from '../view/reviewManager';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
@@ -21,6 +22,7 @@ const ISSUES_KEY = 'issues';
 
 export interface IssueState {
 	branch?: string;
+	hasDraftPR?: boolean;
 }
 
 interface TimeStampedIssueState extends IssueState {
@@ -63,7 +65,7 @@ export class StateManager {
 		return this._git;
 	}
 
-	constructor(private manager: PullRequestManager, private context: vscode.ExtensionContext) { }
+	constructor(private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext) { }
 
 	async tryInitializeAndWait() {
 		if (!this.initializePromise) {
@@ -198,7 +200,7 @@ export class StateManager {
 		if (restoreIssueNumber && this.currentIssue === undefined) {
 			for (let i = 0; i < issues.length; i++) {
 				if (issues[i].number === restoreIssueNumber) {
-					await this.setCurrentIssue(new CurrentIssue(issues[i], this.manager, this));
+					await this.setCurrentIssue(new CurrentIssue(issues[i], this.manager, this.reviewManager, this));
 					return;
 				}
 			}
@@ -232,7 +234,7 @@ export class StateManager {
 			if (branch === branchName) {
 				const issueModel = await this.manager.resolveIssue(state.branches[branch].owner, state.branches[branch].repositoryName, state.branches[branch].number);
 				if (issueModel) {
-					await this.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this));
+					await this.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this.reviewManager, this));
 				}
 				return;
 			}
