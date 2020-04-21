@@ -18,6 +18,7 @@ import { CurrentIssue } from './currentIssue';
 import { ReviewManager } from '../view/reviewManager';
 import { Repository } from '../typings/git';
 import { Resource } from '../common/resources';
+import { IssueFileSystemProvider } from './issueFile';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
@@ -51,6 +52,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
 		this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context)));
+		this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider('newIssue', new IssueFileSystemProvider()));
 	}
 
 	dispose() { }
@@ -77,8 +79,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (indexOfEmptyLine < 0) {
 			return;
 		}
-		let title = text.substring(0, indexOfEmptyLine);
-		let body = text.substring(indexOfEmptyLine + 2);
+		const title = text.substring(0, indexOfEmptyLine);
+		const body = text.substring(indexOfEmptyLine + 2);
 		if (!title || !body) {
 			return;
 		}
@@ -273,41 +275,37 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 		const quickInput = vscode.window.createInputBox();
 		quickInput.value = titlePlaceholder ?? '';
-		quickInput.prompt = 'Set the issue title. Confirm to edit the issue body or use the ✓ to create the issue without editing.';
+		quickInput.prompt = 'Set the issue title. Confirm to create the issue now or use the edit button to edit the issue description.';
 		quickInput.title = 'Create Issue';
 		quickInput.buttons = [
 			{
 				iconPath: {
-					light: Resource.icons.light.Check,
-					dark: Resource.icons.dark.Check
+					light: Resource.icons.light.Edit,
+					dark: Resource.icons.dark.Edit
 				},
-				tooltip: 'Create Issue'
+				tooltip: 'Edit Description'
 			}
 		];
 		quickInput.onDidAccept(async () => {
-			title = quickInput.value;
-			quickInput.busy = true;
-			this.createIssueInfo = { document, newIssue, assignee, lineNumber, insertIndex };
-			const storagePath = vscode.Uri.file(this.context.storagePath!);
-			try {
-				await vscode.workspace.fs.createDirectory(storagePath);
-			} catch (e) {
-				// do nothing, the file exists
-			}
-			const bodyPath = vscode.Uri.joinPath(storagePath, 'NewIssue.md');
-			const text = `${title}\n\n${body ?? ''}\n\n<!--Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line after the title.-->`;
-			await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
-			await vscode.window.showTextDocument(bodyPath);
-			quickInput.busy = false;
-			quickInput.hide();
-		});
-		quickInput.onDidTriggerButton(async () => {
 			title = quickInput.value;
 			if (title) {
 				quickInput.busy = true;
 				await this.doCreateIssue(document, newIssue, title, body, assignee, lineNumber, insertIndex);
 				quickInput.busy = false;
 			}
+			quickInput.hide();
+		});
+		quickInput.onDidTriggerButton(async () => {
+
+			title = quickInput.value;
+			quickInput.busy = true;
+			this.createIssueInfo = { document, newIssue, assignee, lineNumber, insertIndex };
+
+			const bodyPath = vscode.Uri.parse('newIssue:/NewIssue.md');
+			const text = `${title}\n\n${body ?? ''}\n\n<!--Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line after the title.-->`;
+			await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
+			await vscode.window.showTextDocument(bodyPath);
+			quickInput.busy = false;
 			quickInput.hide();
 		});
 		quickInput.show();
