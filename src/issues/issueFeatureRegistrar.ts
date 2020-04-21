@@ -17,9 +17,11 @@ import { IssueModel } from '../github/issueModel';
 import { CurrentIssue } from './currentIssue';
 import { ReviewManager } from '../view/reviewManager';
 import { Repository } from '../typings/git';
+import { Resource } from '../common/resources';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
+	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
 
 	constructor(private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext) {
 		this._stateManager = new StateManager(this.manager, this.context);
@@ -44,6 +46,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.getCurrent', this.getCurrent, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.editQuery', this.editQuery, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssue', this.createIssue, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromFile', this.createIssueFromFile, this));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context)));
 		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
@@ -59,6 +62,29 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		} catch (e) {
 			vscode.window.showErrorMessage('Unable to determine where to create the issue.');
 		}
+	}
+
+	async createIssueFromFile() {
+		if (this.createIssueInfo === undefined) {
+			return;
+		}
+		let text: string;
+		if (!vscode.window.activeTextEditor) {
+			return;
+		}
+		text = vscode.window.activeTextEditor.document.getText();
+		const indexOfEmptyLine = text.indexOf('\n\n');
+		if (indexOfEmptyLine < 0) {
+			return;
+		}
+		let title = text.substring(0, indexOfEmptyLine);
+		let body = text.substring(indexOfEmptyLine + 2);
+		if (!title || !body) {
+			return;
+		}
+		await this.doCreateIssue(this.createIssueInfo.document, this.createIssueInfo.newIssue, title, body, this.createIssueInfo.assignee, this.createIssueInfo.lineNumber, this.createIssueInfo.insertIndex);
+		this.createIssueInfo = undefined;
+		vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 	}
 
 	async editQuery(query: vscode.TreeItem) {
@@ -149,11 +175,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	private stringToUint8Array(input: string): Uint8Array {
-		const result = new Uint8Array(input.length);
-		for (let i = 0; i < input.length; i++) {
-			result[i] = input.charCodeAt(i);
-		}
-		return result;
+		const encoder = new TextEncoder();
+		return encoder.encode(input);
 	}
 
 	private async applyPatch(baseBranch: string, workingBranch: string): Promise<void> {
@@ -245,36 +268,78 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (matches && matches.length === 2 && this._stateManager.userMap.has(matches[1])) {
 			assignee = matches[1];
 		}
+		let title: string | undefined;
+		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.manager, newIssue);
 
-		const title = await vscode.window.showInputBox({ value: titlePlaceholder, prompt: 'Issue title' });
-		if (title) {
-			let origin: PullRequestDefaults | undefined;
+		const quickInput = vscode.window.createInputBox();
+		quickInput.value = titlePlaceholder ?? '';
+		quickInput.prompt = 'Set the issue title. Confirm to edit the issue body or use the ✓ to create the issue without editing.';
+		quickInput.title = 'Create Issue';
+		quickInput.buttons = [
+			{
+				iconPath: {
+					light: Resource.icons.light.Check,
+					dark: Resource.icons.dark.Check
+				},
+				tooltip: 'Create Issue'
+			}
+		];
+		quickInput.onDidAccept(async () => {
+			title = quickInput.value;
+			quickInput.busy = true;
+			this.createIssueInfo = { document, newIssue, assignee, lineNumber, insertIndex };
+			const storagePath = vscode.Uri.file(this.context.storagePath!);
 			try {
-				origin = await this.manager.getPullRequestDefaults();
+				await vscode.workspace.fs.createDirectory(storagePath);
 			} catch (e) {
-				// There is no remote
-				vscode.window.showErrorMessage('There is no remote. Can\'t create an issue.');
-				return;
+				// do nothing, the file exists
 			}
-			const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.manager, newIssue);
-			const issue = await this.manager.createIssue({
-				owner: origin.owner,
-				repo: origin.repo,
-				title,
-				body,
-				assignee
-			});
-			if (issue) {
-				if ((insertIndex !== undefined) && (lineNumber !== undefined)) {
-					const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
-					const insertText: string = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createInsertFormat', 'number') === 'number' ? `#${issue.number}` : issue.html_url;
-					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
-					await vscode.workspace.applyEdit(edit);
-				} else {
-					await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
-				}
-				this._stateManager.refreshCacheNeeded();
+			const bodyPath = vscode.Uri.joinPath(storagePath, 'NewIssue.md');
+			const text = `${title}\n\n${body ?? ''}\n\n<!--Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line after the title.-->`;
+			await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
+			await vscode.window.showTextDocument(bodyPath);
+			quickInput.busy = false;
+			quickInput.hide();
+		});
+		quickInput.onDidTriggerButton(async () => {
+			title = quickInput.value;
+			if (title) {
+				quickInput.busy = true;
+				await this.doCreateIssue(document, newIssue, title, body, assignee, lineNumber, insertIndex);
+				quickInput.busy = false;
 			}
+			quickInput.hide();
+		});
+		quickInput.show();
+	}
+
+	private async doCreateIssue(document: vscode.TextDocument, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined) {
+		let origin: PullRequestDefaults | undefined;
+		try {
+			origin = await this.manager.getPullRequestDefaults();
+		} catch (e) {
+			// There is no remote
+			vscode.window.showErrorMessage('There is no remote. Can\'t create an issue.');
+			return;
+		}
+		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.manager, newIssue);
+		const issue = await this.manager.createIssue({
+			owner: origin.owner,
+			repo: origin.repo,
+			title,
+			body,
+			assignee
+		});
+		if (issue) {
+			if ((insertIndex !== undefined) && (lineNumber !== undefined)) {
+				const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
+				const insertText: string = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createInsertFormat', 'number') === 'number' ? `#${issue.number}` : issue.html_url;
+				edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
+				await vscode.workspace.applyEdit(edit);
+			} else {
+				await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
+			}
+			this._stateManager.refreshCacheNeeded();
 		}
 	}
 

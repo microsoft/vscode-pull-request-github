@@ -665,6 +665,11 @@
         "title": "Create an Issue",
         "category": "GitHub Issues",
         "icon": "$(plus)"
+      },
+      {
+        "command": "issue.createIssueFromFile",
+        "title": "Create Issue",
+        "icon": "$(check)"
       }
     ],
     "keybindings": [
@@ -851,6 +856,10 @@
         {
           "command": "issue.createIssue",
           "when": "false"
+        },
+        {
+          "command": "issue.createIssueFromFile",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -988,6 +997,11 @@
           "command": "review.openFile",
           "group": "navigation",
           "when": "resourceScheme =~ /^review$/"
+        },
+        {
+          "command": "issue.createIssueFromFile",
+          "group": "navigation",
+          "when": "resourceFilename == NewIssue.md"
         }
       ],
       "scm/title": [
