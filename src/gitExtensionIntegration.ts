@@ -9,7 +9,7 @@ import { Remote } from './common/remote';
 import { Protocol } from './common/protocol';
 
 function asRemoteSource(raw: any) {
-	return { name: raw.full_name, url: raw.clone_url };
+	return { name: raw.full_name, url: [raw.clone_url, raw.ssh_url] };
 }
 
 export class GithubRemoteSourceProvider implements RemoteSourceProvider {
