@@ -64,8 +64,11 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, repository: 
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
 	const gitAPI = gitExtension.getAPI(1);
 
-	const remoteSourceProvider = new GithubRemoteSourceProvider(credentialStore);
-	context.subscriptions.push(gitAPI.registerRemoteSourceProvider(remoteSourceProvider));
+	// let's not break compatibility
+	if (gitAPI.registerRemoteSourceProvider) {
+		const remoteSourceProvider = new GithubRemoteSourceProvider(credentialStore);
+		context.subscriptions.push(gitAPI.registerRemoteSourceProvider(remoteSourceProvider));
+	}
 
 	git.onDidChangeState(() => {
 		reviewManager.updateState();
