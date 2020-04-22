@@ -6,8 +6,19 @@
 import { RemoteSourceProvider, RemoteSource } from './typings/git';
 import { CredentialStore, GitHub } from './github/credentials';
 
-function asRemoteSource(raw: any) {
-	return { name: raw.full_name, url: [raw.clone_url, raw.ssh_url] };
+interface Repository {
+	readonly full_name: string;
+	readonly description: string | null;
+	readonly clone_url: string;
+	readonly ssh_url: string;
+}
+
+function asRemoteSource(raw: Repository): RemoteSource {
+	return {
+		name: raw.full_name,
+		description: raw.description || undefined,
+		url: [raw.clone_url, raw.ssh_url]
+	};
 }
 
 export class GithubRemoteSourceProvider implements RemoteSourceProvider {
