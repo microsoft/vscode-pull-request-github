@@ -15,7 +15,7 @@ interface Repository {
 
 function asRemoteSource(raw: Repository): RemoteSource {
 	return {
-		name: raw.full_name,
+		name: `$(github) ${raw.full_name}`,
 		description: raw.description || undefined,
 		url: [raw.clone_url, raw.ssh_url]
 	};
@@ -24,6 +24,7 @@ function asRemoteSource(raw: Repository): RemoteSource {
 export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 	readonly name = 'GitHub';
+	readonly icon = 'github';
 	readonly supportsQuery = true;
 
 	private userReposCache: RemoteSource[] = [];
@@ -52,7 +53,7 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 	private async getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
 		if (!query) {
-			const res = await hub.octokit.repos.list();
+			const res = await hub.octokit.repos.list({ sort: 'pushed', per_page: 100 });
 			this.userReposCache = res.data.map(asRemoteSource);
 		}
 
@@ -64,7 +65,7 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 			return [];
 		}
 
-		const raw = await hub.octokit.search.repos({ q: query });
+		const raw = await hub.octokit.search.repos({ q: query, sort: 'updated' });
 		return raw.data.items.map(asRemoteSource);
 	}
 
