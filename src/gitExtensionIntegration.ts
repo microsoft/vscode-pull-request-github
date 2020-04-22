@@ -5,8 +5,6 @@
 
 import { RemoteSourceProvider, RemoteSource } from './typings/git';
 import { CredentialStore, GitHub } from './github/credentials';
-import { Remote } from './common/remote';
-import { Protocol } from './common/protocol';
 
 function asRemoteSource(raw: any) {
 	return { name: raw.full_name, url: [raw.clone_url, raw.ssh_url] };
@@ -60,18 +58,14 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 	}
 
 	private async getHub(): Promise<GitHub | undefined> {
-		// TODO: eventually remove
-		const url = 'https://github.com/microsoft/vscode.git';
-		const remote = new Remote('origin', url, new Protocol(url));
-
-		if (await this.credentialStore.hasOctokit(remote)) {
-			return await this.credentialStore.getHub(remote)!;
+		if (await this.credentialStore.hasOctokit()) {
+			return await this.credentialStore.getHub()!;
 		}
 
-		const hub = await this.credentialStore.loginWithConfirmation(remote);
+		const hub = await this.credentialStore.loginWithConfirmation();
 
 		if (!hub) {
-			return this.credentialStore.login(remote);
+			return await this.credentialStore.login();
 		}
 	}
 }
