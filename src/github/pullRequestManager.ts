@@ -15,7 +15,7 @@ import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, 
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
-import { formatError, uniqBy, Predicate, groupBy } from '../common/utils';
+import { formatError, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
