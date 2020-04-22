@@ -75,9 +75,19 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			return;
 		}
 		text = vscode.window.activeTextEditor.document.getText();
-		const indexOfEmptyLine = text.indexOf('\n\n');
-		if (indexOfEmptyLine < 0) {
+		const indexOfEmptyLineWindows = text.indexOf('\r\n\r\n');
+		const indexOfEmptyLineOther = text.indexOf('\n\n');
+		let indexOfEmptyLine: number;
+		if (indexOfEmptyLineWindows < 0 && indexOfEmptyLineOther < 0) {
 			return;
+		} else {
+			if (indexOfEmptyLineWindows < 0) {
+				indexOfEmptyLine = indexOfEmptyLineOther;
+			} else if (indexOfEmptyLineOther < 0) {
+				indexOfEmptyLine = indexOfEmptyLineWindows;
+			} else {
+				indexOfEmptyLine = Math.min(indexOfEmptyLineWindows, indexOfEmptyLineOther);
+			}
 		}
 		const title = text.substring(0, indexOfEmptyLine);
 		const body = text.substring(indexOfEmptyLine + 2);
