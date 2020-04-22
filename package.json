@@ -670,6 +670,11 @@
         "title": "Create an Issue",
         "category": "GitHub Issues",
         "icon": "$(plus)"
+      },
+      {
+        "command": "issue.createIssueFromFile",
+        "title": "Create Issue",
+        "icon": "$(check)"
       }
     ],
     "keybindings": [
@@ -677,6 +682,11 @@
         "key": "ctrl+shift+space",
         "command": "issue.refresh",
         "when": "suggestWidgetVisible"
+      },
+      {
+        "key": "ctrl+s",
+        "command": "issue.createIssueFromFile",
+        "when": "resourceScheme == newIssue && config.files.autoSave != off"
       }
     ],
     "menus": {
@@ -856,6 +866,10 @@
         {
           "command": "issue.createIssue",
           "when": "false"
+        },
+        {
+          "command": "issue.createIssueFromFile",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -993,6 +1007,11 @@
           "command": "review.openFile",
           "group": "navigation",
           "when": "resourceScheme =~ /^review$/"
+        },
+        {
+          "command": "issue.createIssueFromFile",
+          "group": "navigation",
+          "when": "resourceFilename == NewIssue.md"
         }
       ],
       "scm/title": [
