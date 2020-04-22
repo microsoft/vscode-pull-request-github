@@ -444,7 +444,8 @@ export class PullRequestManager implements vscode.Disposable {
 		const repositories: GitHubRepository[] = [];
 		const resolveRemotePromises: Promise<void>[] = [];
 
-		activeRemotes.forEach(remote => {
+		const authenticatedRemotes = isAuthenticated ? activeRemotes : [];
+		authenticatedRemotes.forEach(remote => {
 			const repository = this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
