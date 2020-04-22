@@ -42,7 +42,12 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 				treeItem.label = `✓ ${treeItem.label}`;
 				treeItem.contextValue = 'currentissue';
 			} else {
-				treeItem.contextValue = 'issue';
+				const savedState = this.stateManager.getSavedIssueState(element.number);
+				if (savedState.branch) {
+					treeItem.contextValue = 'continueissue';
+				} else {
+					treeItem.contextValue = 'issue';
+				}
 			}
 		}
 		return treeItem;

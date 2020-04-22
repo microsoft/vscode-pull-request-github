@@ -38,6 +38,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', this.openPermalink, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openIssue', this.openIssue));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorking', this.startWorking, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.continueWorking', this.startWorking, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorkingBranchPrompt', this.startWorkingBranchPrompt, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.stopWorking', this.stopWorking, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.statusBar', this.statusBar, this));
