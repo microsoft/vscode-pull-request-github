@@ -92,6 +92,11 @@ export interface Issue {
 	repositoryOwner?: string;
 	repositoryName?: string;
 	repositoryUrl?: string;
+	comments?: {
+		author: IAccount;
+		body: string;
+		databaseId: number;
+	}[];
 }
 
 export interface PullRequest extends Issue {

@@ -312,6 +312,45 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			number
+			url
+			state
+			body
+			bodyHTML
+			title
+			author {
+				login
+				url
+				avatarUrl
+			}
+			createdAt
+			updatedAt
+			labels(first: 50) {
+				nodes {
+					name
+					color
+				}
+			}
+			id
+			databaseId
+			comments(first: 50) {
+				nodes {
+					author {
+						login
+						url
+						avatarUrl
+					}
+					body
+					databaseId
+				}
+			}
+		}
+	}
+}
+
 query GetUser($login: String!) {
 	user(login: $login) {
 		login
