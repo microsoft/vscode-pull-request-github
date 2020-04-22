@@ -156,13 +156,8 @@ export class StateManager {
 		}
 	}
 
-	private async getCurrentUser(defaults: PullRequestDefaults): Promise<string | undefined> {
-		const remotes = this.manager.getGitHubRemotes();
-		for (const remote of remotes) {
-			if (remote.owner === defaults.owner && remote.repositoryName === defaults.repo) {
-				return (await this.manager.credentialStore.getCurrentUser(remote)).login;
-			}
-		}
+	private async getCurrentUser(): Promise<string | undefined> {
+		return (await this.manager.credentialStore.getCurrentUser()).login;
 	}
 
 	private async setIssueData() {
@@ -178,7 +173,7 @@ export class StateManager {
 					defaults = await this.manager.getPullRequestDefaults();
 				}
 				if (!user) {
-					user = await this.getCurrentUser(defaults);
+					user = await this.getCurrentUser();
 				}
 				items = this.setIssues(await variableSubstitution(query.query, undefined, defaults, user));
 			}

@@ -8,7 +8,6 @@ import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
 import { agent } from '../common/net';
-import { Remote } from '../common/remote';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { createHttpLink } from 'apollo-link-http';
@@ -21,6 +20,7 @@ const SIGNIN_COMMAND = 'Sign in';
 const IGNORE_COMMAND = 'Don\'t show again';
 
 const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
+const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
 const AUTH_PROVIDER_ID = 'github';
 const SCOPES = ['read:user', 'user:email', 'repo', 'write:discussion'];
@@ -35,23 +35,16 @@ export interface GitHub {
 }
 
 export class CredentialStore {
-	private _octokits: Map<string, GitHub | undefined>;
+	private _octokit: GitHub | undefined;
 
-	constructor(private readonly _telemetry: ITelemetry) {
-		this._octokits = new Map<string, GitHub>();
-	}
+	constructor(private readonly _telemetry: ITelemetry) { }
 
 	public reset() {
-		this._octokits = new Map<string, GitHub>();
+		this._octokit = undefined;
 	}
 
-	public async hasOctokit(remote: Remote): Promise<boolean> {
-		// the remote url might be http[s]/git/ssh but we always go through https for the api
-		// so use a normalized http[s] url regardless of the original protocol
-		const normalizedUri = remote.gitProtocol.normalizeUri()!;
-		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
-
-		if (this._octokits.has(host)) {
+	public async hasOctokit(): Promise<boolean> {
+		if (this._octokit) {
 			return true;
 		}
 
@@ -60,49 +53,43 @@ export class CredentialStore {
 		if (existingSessions.length) {
 			const token = await existingSessions[0].getAccessToken();
 			const octokit = await this.createHub(token);
-			this._octokits.set(host, octokit);
+			this._octokit = octokit;
 			await this.setCurrentUser(octokit.octokit);
 		} else {
-			Logger.debug(`No token found for host ${host}.`, 'Authentication');
+			Logger.debug(`No token found.`, 'Authentication');
 		}
 
-		return this._octokits.has(host);
+		return !!this._octokit;
 	}
 
-	public getHub(remote: Remote): GitHub | undefined {
-		const normalizedUri = remote.gitProtocol.normalizeUri()!;
-		const host = `${normalizedUri.scheme}://${normalizedUri.authority}`;
-		return this._octokits.get(host);
+	public getHub(): GitHub | undefined {
+		return this._octokit;
 	}
 
-	public getOctokit(remote: Remote): AnnotatedOctokit | undefined {
-		const hub = this.getHub(remote);
+	public getOctokit(): AnnotatedOctokit | undefined {
+		const hub = this.getHub();
 		return hub && hub.octokit;
 	}
 
-	public getGraphQL(remote: Remote) {
-		const hub = this.getHub(remote);
+	public getGraphQL() {
+		const hub = this.getHub();
 		return hub && hub.graphql;
 	}
 
-	public async loginWithConfirmation(remote: Remote): Promise<GitHub | undefined> {
-		const normalizedUri = remote.gitProtocol.normalizeUri()!;
-		const storageKey = `${normalizedUri.scheme}://${normalizedUri.authority}`;
-
-		if (PersistentState.fetch(PROMPT_FOR_SIGN_IN_SCOPE, storageKey) === false) {
+	public async loginWithConfirmation(): Promise<GitHub | undefined> {
+		if (PersistentState.fetch(PROMPT_FOR_SIGN_IN_SCOPE, PROMPT_FOR_SIGN_IN_STORAGE_KEY) === false) {
 			return;
 		}
 
 		const result = await vscode.window.showInformationMessage(
-			`In order to use the Pull Requests functionality, you must sign in to ${normalizedUri.authority}`,
+			`In order to use the Pull Requests functionality, you must sign in to GitHub`,
 			SIGNIN_COMMAND, IGNORE_COMMAND);
 
 		if (result === SIGNIN_COMMAND) {
-			return await this.login(remote);
+			return await this.login();
 		} else {
-			this._octokits.set(storageKey, undefined);
 			// user cancelled sign in, remember that and don't ask again
-			PersistentState.store(PROMPT_FOR_SIGN_IN_SCOPE, storageKey, false);
+			PersistentState.store(PROMPT_FOR_SIGN_IN_SCOPE, PROMPT_FOR_SIGN_IN_STORAGE_KEY, false);
 
 			/* __GDPR__
 				"auth.cancel" : {}
@@ -121,17 +108,12 @@ export class CredentialStore {
 		}
 	}
 
-	public async login(remote: Remote): Promise<GitHub | undefined> {
+	public async login(): Promise<GitHub | undefined> {
 
 		/* __GDPR__
 			"auth.start" : {}
 		*/
 		this._telemetry.sendTelemetryEvent('auth.start');
-
-		// the remote url might be http[s]/git/ssh but we always go through https for the api
-		// so use a normalized http[s] url regardless of the original protocol
-		const { scheme, authority } = remote.gitProtocol.normalizeUri()!;
-		const host = `${scheme}://${authority}`;
 
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
@@ -141,7 +123,7 @@ export class CredentialStore {
 				const token = await this.getSessionOrLogin();
 				octokit = await this.createHub(token);
 			} catch (e) {
-				Logger.appendLine(`Error signing in to ${authority}: ${e}`);
+				Logger.appendLine(`Error signing in to GitHub: ${e}`);
 				if (e instanceof Error && e.stack) {
 					Logger.appendLine(e.stack);
 				}
@@ -150,12 +132,12 @@ export class CredentialStore {
 			if (octokit) {
 				retry = false;
 			} else {
-				retry = (await vscode.window.showErrorMessage(`Error signing in to ${authority}`, TRY_AGAIN, CANCEL)) === TRY_AGAIN;
+				retry = (await vscode.window.showErrorMessage(`Error signing in to GitHub`, TRY_AGAIN, CANCEL)) === TRY_AGAIN;
 			}
 		}
 
 		if (octokit) {
-			this._octokits.set(host, octokit);
+			this._octokit = octokit;
 			await this.setCurrentUser(octokit.octokit);
 
 			/* __GDPR__
@@ -172,8 +154,8 @@ export class CredentialStore {
 		return octokit;
 	}
 
-	public isCurrentUser(username: string, remote: Remote): boolean {
-		const octokit = this.getOctokit(remote);
+	public isCurrentUser(username: string): boolean {
+		const octokit = this.getOctokit();
 		return !!octokit && !!octokit.currentUser && octokit.currentUser.login === username;
 	}
 
@@ -182,8 +164,8 @@ export class CredentialStore {
 		octokit.currentUser = user.data;
 	}
 
-	public getCurrentUser(remote: Remote): Octokit.PullsGetResponseUser {
-		const octokit = this.getOctokit(remote);
+	public getCurrentUser(): Octokit.PullsGetResponseUser {
+		const octokit = this.getOctokit();
 		// TODO remove cast
 		return octokit && (octokit as any).currentUser;
 	}

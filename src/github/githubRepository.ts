@@ -163,10 +163,10 @@ export class GitHubRepository implements vscode.Disposable {
 	async ensure(): Promise<GitHubRepository> {
 		this._initialized = true;
 
-		if (!await this._credentialStore.hasOctokit(this.remote)) {
-			this._hub = await this._credentialStore.loginWithConfirmation(this.remote);
+		if (!await this._credentialStore.hasOctokit()) {
+			this._hub = await this._credentialStore.loginWithConfirmation();
 		} else {
-			this._hub = await this._credentialStore.getHub(this.remote);
+			this._hub = await this._credentialStore.getHub();
 		}
 
 		return this;
@@ -286,7 +286,7 @@ export class GitHubRepository implements vscode.Disposable {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					assignee: this._credentialStore.getCurrentUser(remote).login
+					assignee: this._credentialStore.getCurrentUser().login
 				}
 			});
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
@@ -323,7 +323,7 @@ export class GitHubRepository implements vscode.Disposable {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					assignee: this._credentialStore.getCurrentUser(remote).login
+					assignee: this._credentialStore.getCurrentUser().login
 				}
 			});
 			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
