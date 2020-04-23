@@ -13,7 +13,7 @@ import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileCha
 import { CommitNode } from './view/treeNodes/commitNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { PullRequest } from './github/interface';
-import { formatError, onceEvent } from './common/utils';
+import { formatError } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
@@ -604,22 +604,22 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 			try {
 				quickpick.busy = true;
 				await hub.octokit.repos.get({ owner, repo: repo });
-				quickpick.items = [{ label: `Repository already exists`, description: `$(github) ${owner}/${repo}`, alwaysShow: true }];
+				quickpick.items = [{ label: `$(error) Repository already exists`, description: `$(github) ${owner}/${repo}`, alwaysShow: true }];
 			} catch {
-				quickpick.items = [{ label: `Create repository`, description: `$(github) ${owner}/${repo}`, alwaysShow: true, repo: repo }];
+				quickpick.items = [{ label: `$(repo) Create repository`, description: `$(github) ${owner}/${repo}`, alwaysShow: true, repo: repo }];
 			} finally {
 				quickpick.busy = false;
 			}
 		};
 
-		const dOnDidChangeValue = debounce(throttle(onDidChangeValue), 300);
+		const debouncedOnDidChangeValue = debounce(throttle(onDidChangeValue), 300);
 		quickpick.value = folder.name;
 		onDidChangeValue();
 
 		while (true) {
 			const listener = quickpick.onDidChangeValue(() => {
 				quickpick.items = [];
-				dOnDidChangeValue();
+				debouncedOnDidChangeValue();
 			});
 
 			const pick = await getPick(quickpick);
@@ -695,13 +695,6 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 		}
 	}));
 }
-
-// function getValue(quickpick: vscode.QuickPick<any>): Promise<string | undefined> {
-// 	return Promise.race<string | undefined>([
-// 		new Promise<string>(c => quickpick.onDidAccept(() => c(quickpick.value))),
-// 		new Promise<undefined>(c => quickpick.onDidHide(() => c(undefined)))
-// 	]);
-// }
 
 function getPick<T extends vscode.QuickPickItem>(quickpick: vscode.QuickPick<T>): Promise<T | undefined> {
 	return Promise.race<T | undefined>([
