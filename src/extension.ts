@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { Repository } from './api/api';
 import { ApiImpl } from './api/api1';
-import { registerCommands } from './commands';
+import { registerCommands, registerGlobalCommands } from './commands';
 import Logger from './common/logger';
 import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
@@ -118,6 +118,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
 	context.subscriptions.push(registerLiveShareGitProvider(apiImpl));
 	context.subscriptions.push(apiImpl);
+	registerGlobalCommands(context, gitAPI, credentialStore);
 
 	Logger.appendLine('Looking for git repository');
 

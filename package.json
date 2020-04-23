@@ -680,6 +680,11 @@
         "command": "issue.createIssueFromFile",
         "title": "Create Issue",
         "icon": "$(check)"
+      },
+      {
+        "command": "github.publish",
+        "title": "Publish to GitHub",
+        "category": "GitHub"
       }
     ],
     "keybindings": [
@@ -878,6 +883,10 @@
         },
         {
           "command": "issue.createIssueFromFile",
+          "when": "false"
+        },
+        {
+          "command": "github.publish",
           "when": "false"
         }
       ],
@@ -1096,7 +1105,14 @@
           "when": "commentController =~ /^(browse|review)/"
         }
       ]
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "scm",
+        "contents": "You can also directly publish this folder to a GitHub repository.\n[$(github) Publish to GitHub](command:github.publish)",
+        "when": "config.git.enabled && !git.missing && workbenchState == folder"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "webpack --env.production",

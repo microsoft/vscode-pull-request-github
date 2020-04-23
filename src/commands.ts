@@ -13,7 +13,7 @@ import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileCha
 import { CommitNode } from './view/treeNodes/commitNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { PullRequest } from './github/interface';
-import { formatError } from './common/utils';
+import { formatError, onceEvent } from './common/utils';
 import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
@@ -28,6 +28,9 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 import { ITelemetry } from './common/telemetry';
 import { TreeNode } from './view/treeNodes/treeNode';
+import { CredentialStore, GitHub } from './github/credentials';
+import { debounce, throttle } from './common/async';
+import { GitAPI } from './typings/git';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
 export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
@@ -546,4 +549,162 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			}
 		}
 	}));
+}
+
+function sanitizeRepositoryName(value: string): string {
+	return value.trim().replace(/[^a-z0-9_.]/ig, '-');
+}
+
+export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI: GitAPI, credentialStore: CredentialStore) {
+	// TODO: join with other code from https://github.com/microsoft/vscode-pull-request-github/pull/1661
+	async function getHub(): Promise<GitHub | undefined> {
+		if (await credentialStore.hasOctokit()) {
+			return await credentialStore.getHub()!;
+		}
+
+		const hub = await credentialStore.loginWithConfirmation();
+
+		if (!hub) {
+			return credentialStore.login();
+		}
+	}
+
+	async function publish(): Promise<void> {
+		if (!vscode.workspace.workspaceFolders?.length) {
+			return;
+		}
+
+		const folder = vscode.workspace.workspaceFolders[0]; // TODO
+		const hub = await getHub();
+
+		if (!hub) {
+			return;
+		}
+
+		const owner = hub.octokit.currentUser!.login;
+
+		const quickpick = vscode.window.createQuickPick<vscode.QuickPickItem & { repo?: string, private?: boolean, auth?: 'https' | 'ssh' }>();
+		quickpick.ignoreFocusOut = true;
+		quickpick.totalSteps = 3;
+		quickpick.title = 'Publish to Github';
+
+		quickpick.placeholder = 'Repository Name';
+		quickpick.step = 1;
+		quickpick.show();
+
+		let repo: string | undefined;
+
+		const onDidChangeValue = async () => {
+			const repo = sanitizeRepositoryName(quickpick.value);
+
+			if (!repo) {
+				return;
+			}
+
+			try {
+				quickpick.busy = true;
+				await hub.octokit.repos.get({ owner, repo: repo });
+				quickpick.items = [{ label: `Repository already exists`, description: `$(github) ${owner}/${repo}`, alwaysShow: true }];
+			} catch {
+				quickpick.items = [{ label: `Create repository`, description: `$(github) ${owner}/${repo}`, alwaysShow: true, repo: repo }];
+			} finally {
+				quickpick.busy = false;
+			}
+		};
+
+		const dOnDidChangeValue = debounce(throttle(onDidChangeValue), 300);
+		quickpick.value = folder.name;
+		onDidChangeValue();
+
+		while (true) {
+			const listener = quickpick.onDidChangeValue(() => {
+				quickpick.items = [];
+				dOnDidChangeValue();
+			});
+
+			const pick = await getPick(quickpick);
+			listener.dispose();
+
+			repo = pick?.repo;
+
+			if (repo) {
+				break;
+			}
+		}
+
+		if (!repo) {
+			quickpick.dispose();
+			return;
+		}
+
+		quickpick.value = '';
+		quickpick.placeholder = 'Repository Type';
+		quickpick.step = 2;
+		quickpick.items = [
+			{ label: `Private`, description: `Create a private repository`, alwaysShow: true, private: true },
+			{ label: `Public`, description: `Create a public repository`, alwaysShow: true }
+		];
+
+		let pick = await getPick(quickpick);
+		const isPrivate = pick?.private;
+
+		if (isPrivate === undefined) {
+			quickpick.dispose();
+			return;
+		}
+
+		quickpick.value = '';
+		quickpick.placeholder = 'Authentication Type';
+		quickpick.step = 3;
+		quickpick.items = [
+			{ label: `HTTPS`, description: `Use HTTPS authentication`, alwaysShow: true, auth: 'https' },
+			{ label: `SSH`, description: `Use SSH authentication`, alwaysShow: true, auth: 'ssh' }
+		];
+
+		pick = await getPick(quickpick);
+		const auth = pick?.auth;
+
+		if (!auth) {
+			quickpick.dispose();
+			return;
+		}
+
+		const res = await hub.octokit.repos.createForAuthenticatedUser({
+			name: repo,
+			private: isPrivate
+		});
+
+		const githubRepository = res.data;
+		const repository = await gitAPI.init(folder.uri);
+
+		if (!repository) {
+			return;
+		}
+
+		// TODO: stage and commit
+		await repository.addRemote('origin', auth === 'ssh' ? githubRepository.ssh_url : githubRepository.clone_url);
+		await repository.push('origin', 'master', true);
+	}
+
+	context.subscriptions.push(vscode.commands.registerCommand('github.publish', async () => {
+		try {
+			publish();
+		} catch (err) {
+			vscode.window.showErrorMessage(err.message);
+		}
+	}));
+}
+
+// function getValue(quickpick: vscode.QuickPick<any>): Promise<string | undefined> {
+// 	return Promise.race<string | undefined>([
+// 		new Promise<string>(c => quickpick.onDidAccept(() => c(quickpick.value))),
+// 		new Promise<undefined>(c => quickpick.onDidHide(() => c(undefined)))
+// 	]);
+// }
+
+function getPick<T extends vscode.QuickPickItem>(quickpick: vscode.QuickPick<T>): Promise<T | undefined> {
+	return Promise.race<T | undefined>([
+		new Promise<T>(c => quickpick.onDidAccept(() => quickpick.selectedItems.length > 0 && c(quickpick.selectedItems[0]))),
+		new Promise<undefined>(c => quickpick.onDidHide(() => c(undefined)))
+	]);
 }
