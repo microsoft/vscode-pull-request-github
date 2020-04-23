@@ -386,7 +386,14 @@ mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
 
 mutation StartReview($input: AddPullRequestReviewInput!) {
 	addPullRequestReview(input: $input) {
-		pullRequestReview { id }
+		pullRequestReview {
+			id
+			comments(first:1) {
+				nodes {
+					...ReviewComment
+				}
+			}
+		 }
 	}
 }
 

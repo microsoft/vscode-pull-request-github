@@ -821,11 +821,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 	}
 
-	private async createFirstCommentInThread(thread: GHPRCommentThread, input: string, fileChange: InMemFileChangeNode): Promise<IComment | undefined> {
-		const position = this.calculateCommentPosition(fileChange, thread);
-		const rawComment = await this._prManager.createComment(this.pullRequestModel, input, fileChange.fileName, position);
-
-		// Add new thread to cache
+	private async updateCommentThreadCache(thread: GHPRCommentThread, fileChange: InMemFileChangeNode, comment: IComment): Promise<void> {
 		const commentThreadCache = (await this.resolvePRCommentController()).commentThreadCache;
 		const existingThreads = commentThreadCache[fileChange.fileName];
 		if (existingThreads) {
@@ -833,6 +829,14 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		} else {
 			commentThreadCache[fileChange.fileName] = [thread];
 		}
+	}
+
+	private async createFirstCommentInThread(thread: GHPRCommentThread, input: string, fileChange: InMemFileChangeNode): Promise<IComment | undefined> {
+		const position = this.calculateCommentPosition(fileChange, thread);
+		const rawComment = await this._prManager.createComment(this.pullRequestModel, input, fileChange.fileName, position);
+
+		// Add new thread to cache
+		this.updateCommentThreadCache(thread, fileChange, rawComment!);
 
 		return rawComment;
 	}
@@ -903,9 +907,35 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	// #region Review
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
-		await this._prManager.startReview(this.pullRequestModel);
-		await this.createOrReplyComment(thread, input);
-		this.setContextKey(true);
+		const temporaryCommentId = this.optimisticallyAddComment(thread, input, true);
+
+		try {
+
+			const fileChange = await this.findMatchingFileNode(thread.uri);
+			const position = this.calculateCommentPosition(fileChange, thread);
+			const newComment = await this._prManager.startReview(this.pullRequestModel,
+				{
+					body: input,
+					path: fileChange.fileName,
+					position
+				}
+			);
+
+			await this.updateCommentThreadCache(thread, fileChange, newComment);
+			this.replaceTemporaryComment(thread, newComment, temporaryCommentId);
+			fileChange.update(fileChange.comments.concat(newComment));
+			this.setContextKey(true);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Starting a review failed: ${e}`);
+
+			thread.comments = thread.comments.map(c => {
+				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
+					c.mode = vscode.CommentMode.Editing;
+				}
+
+				return c;
+			});
+		}
 	}
 
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {

@@ -486,3 +486,13 @@ export interface UserResponse {
 		url: string;
 	};
 }
+
+export interface StartReviewResponse {
+	addPullRequestReview: {
+		pullRequestReview: {
+			comments: {
+				nodes: ReviewComment[]
+			}
+		};
+	};
+}
