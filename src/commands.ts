@@ -682,7 +682,7 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 			return;
 		}
 
-		// TODO: stage and commit
+		await repository.commit('first commit', { all: true });
 		await repository.addRemote('origin', auth === 'ssh' ? githubRepository.ssh_url : githubRepository.clone_url);
 		await repository.push('origin', 'master', true);
 	}
