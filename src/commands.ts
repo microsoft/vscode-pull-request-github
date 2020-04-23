@@ -664,8 +664,9 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 		pick = await getPick(quickpick);
 		const auth = pick?.auth;
 
+		quickpick.dispose();
+
 		if (!auth) {
-			quickpick.dispose();
 			return;
 		}
 
