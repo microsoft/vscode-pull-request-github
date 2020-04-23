@@ -29,8 +29,13 @@ export class UserHoverProvider implements vscode.HoverProvider {
 	}
 
 	private async createHover(username: string, range: vscode.Range): Promise<vscode.Hover | undefined> {
-		const origin = await this.manager.getPullRequestDefaults();
-		const user = await this.manager.resolveUser(origin.owner, origin.repo, username);
-		return (user && user.name) ? new vscode.Hover(userMarkdown(origin, user), range) : undefined;
+		try {
+			const origin = await this.manager.getPullRequestDefaults();
+			const user = await this.manager.resolveUser(origin.owner, origin.repo, username);
+			return (user && user.name) ? new vscode.Hover(userMarkdown(origin, user), range) : undefined;
+		} catch (e) {
+			// No need to notify about a hover that doesn't work
+			return;
+		}
 	}
 }
