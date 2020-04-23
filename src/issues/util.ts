@@ -259,11 +259,11 @@ export async function createGithubPermalink(manager: PullRequestManager, positio
 	}
 
 	const origin = await manager.getOrigin();
-	const pathSegment = vscode.Uri.parse(vscode.workspace.asRelativePath(document.uri)).toString().substring(8);
+	const pathSegment = document.uri.path.substring(manager.repository.rootUri.path.length);
 	if (manager.repository.state.HEAD && manager.repository.state.HEAD.commit && (manager.repository.state.HEAD.ahead === 0)) {
-		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.commit}/${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
+		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.commit}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
 	} else if (manager.repository.state.HEAD && manager.repository.state.HEAD.ahead && (manager.repository.state.HEAD.ahead > 0)) {
-		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.upstream!.name}/${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
+		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.upstream!.name}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
 	}
 }
 
