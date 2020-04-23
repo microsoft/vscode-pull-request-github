@@ -2003,10 +2003,10 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	async resolveIssue(owner: string, repositoryName: string, pullRequestNumber: number): Promise<IssueModel | undefined> {
+	async resolveIssue(owner: string, repositoryName: string, pullRequestNumber: number, withComments: boolean = false): Promise<IssueModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName, pullRequestNumber);
 		if (githubRepo) {
-			return githubRepo.getIssue(pullRequestNumber);
+			return githubRepo.getIssue(pullRequestNumber, withComments);
 		}
 	}
 

@@ -387,8 +387,29 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		mergeable: parseMergeability(graphQLPullRequest.mergeable),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
-		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers)
+		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
+		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository)
 	};
+}
+
+function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, githubRepository: GitHubRepository) {
+	if (!comments) {
+		return;
+	}
+	const parsedComments: {
+		author: IAccount;
+		body: string;
+		databaseId: number;
+	}[] = [];
+	for (const comment of comments) {
+		parsedComments.push({
+			author: parseAuthor(comment.author, githubRepository),
+			body: comment.body,
+			databaseId: comment.databaseId
+		});
+	}
+
+	return parsedComments;
 }
 
 export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: GitHubRepository): Issue {

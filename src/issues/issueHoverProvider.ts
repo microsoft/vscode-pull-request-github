@@ -33,7 +33,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 	private async createHover(value: string, parsed: ParsedIssue, range: vscode.Range): Promise<vscode.Hover | undefined> {
 		const issue = await getIssue(this.stateManager, this.manager, value, parsed);
 		if (issue) {
-			return new vscode.Hover(issueMarkdown(issue, this.context), range);
+			return new vscode.Hover(issueMarkdown(issue, this.context, parsed.commentNumber), range);
 		} else {
 			return;
 		}

@@ -457,13 +457,13 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getIssue(id: number): Promise<IssueModel | undefined> {
+	async getIssue(id: number, withComments: boolean = false): Promise<IssueModel | undefined> {
 		try {
 			Logger.debug(`Fetch issue ${id} - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
 
 			const { data } = await query<PullRequestResponse>({
-				query: schema.Issue,
+				query: withComments ? schema.IssueWithComments : schema.Issue,
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
