@@ -640,8 +640,13 @@
         "category": "GitHub Issues"
       },
       {
+        "command": "issue.continueWorking",
+        "title": "Continue Working on Issue",
+        "category": "GitHub Issues"
+      },
+      {
         "command": "issue.startWorkingBranchPrompt",
-        "title": "Start Working with Branch Prompt",
+        "title": "Start Working and Set Branch...",
         "category": "GitHub Issues"
       },
       {
@@ -844,6 +849,10 @@
           "when": "false"
         },
         {
+          "command": "issue.continueWorking",
+          "when": "false"
+        },
+        {
           "command": "issue.startWorkingBranchPrompt",
           "when": "false"
         },
@@ -958,18 +967,23 @@
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
           "group": "inline"
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
           "group": "issues_0@0"
         },
         {
           "command": "issue.startWorking",
           "alt": "issue.startWorkingBranchPrompt",
           "when": "view =~ /issues:github/ && viewItem == issue",
+          "group": "issues_0@1"
+        },
+        {
+          "command": "issue.continueWorking",
+          "when": "view =~ /issues:github/ && viewItem == continueissue",
           "group": "issues_0@1"
         },
         {
@@ -984,12 +998,12 @@
         },
         {
           "command": "issue.copyIssueNumber",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
           "group": "issues_1@1"
         },
         {
           "command": "issue.copyIssueUrl",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
           "group": "issues_1@2"
         },
         {
