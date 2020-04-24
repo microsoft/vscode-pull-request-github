@@ -475,6 +475,7 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 				avatarUrl
 				name
 				url
+				email
 			}
 			pageInfo {
 				hasNextPage

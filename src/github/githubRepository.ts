@@ -544,7 +544,8 @@ export class GitHubRepository implements vscode.Disposable {
 						login: node.login,
 						avatarUrl: node.avatarUrl,
 						name: node.name,
-						url: node.url
+						url: node.url,
+						email: node.email,
 					};
 				}));
 
