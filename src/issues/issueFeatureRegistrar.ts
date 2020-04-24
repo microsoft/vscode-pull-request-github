@@ -166,17 +166,17 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	async statusBar() {
 		if (this._stateManager.currentIssue) {
-			const openIssueText: string = `Open #${this._stateManager.currentIssue.issue.number} ${this._stateManager.currentIssue.issue.title}`;
-			const pullRequestText: string = `Create pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
-			const draftPullRequestText: string = `Create draft pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
+			const openIssueText: string = `$(globe) Open #${this._stateManager.currentIssue.issue.number} ${this._stateManager.currentIssue.issue.title}`;
+			const pullRequestText: string = `$(git-pull-request) Create pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
+			const draftPullRequestText: string = `$(comment-discussion) Create draft pull request for #${this._stateManager.currentIssue.issue.number} (pushes branch)`;
 			let defaults: PullRequestDefaults | undefined;
 			try {
 				defaults = await this.manager.getPullRequestDefaults();
 			} catch (e) {
 				// leave defaults undefined
 			}
-			const applyPatch: string = `Apply and patch of commits from ${this._stateManager.currentIssue.branchName} to ${defaults?.base}`;
-			const stopWorkingText: string = `Stop working on #${this._stateManager.currentIssue.issue.number}`;
+			const applyPatch: string = `$(beaker) Apply and patch of commits from ${this._stateManager.currentIssue.branchName} to ${defaults?.base}`;
+			const stopWorkingText: string = `$(circle-slash) Stop working on #${this._stateManager.currentIssue.issue.number}`;
 			const choices = this._stateManager.currentIssue.branchName && defaults ? [openIssueText, pullRequestText, draftPullRequestText, applyPatch, stopWorkingText] : [openIssueText, pullRequestText, draftPullRequestText, stopWorkingText];
 			const response: string | undefined = await vscode.window.showQuickPick(choices, { placeHolder: 'Current issue options' });
 			switch (response) {
