@@ -641,8 +641,8 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 		quickpick.placeholder = 'Repository Type';
 		quickpick.step = 2;
 		quickpick.items = [
-			{ label: `Private`, description: `Create a private repository`, alwaysShow: true, private: true },
-			{ label: `Public`, description: `Create a public repository`, alwaysShow: true }
+			{ label: `Private`, description: `Sources will be accessible only to you on GitHub`, alwaysShow: true, private: true },
+			{ label: `Public`, description: `Sources will be accessible to anyone on GitHub`, alwaysShow: true }
 		];
 
 		let pick = await getPick(quickpick);
@@ -670,21 +670,42 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 			return;
 		}
 
-		const res = await hub.octokit.repos.createForAuthenticatedUser({
-			name: repo,
-			private: isPrivate
+		const githubRepository = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: false, title: 'Publish to GitHub' }, async progress => {
+			progress.report({ message: 'Creating repository in GitHub', increment: 25 });
+
+			const res = await hub.octokit.repos.createForAuthenticatedUser({
+				name: repo!,
+				private: isPrivate
+			});
+
+			const githubRepository = res.data;
+
+			progress.report({ message: 'Creating first commit', increment: 25 });
+			const repository = await gitAPI.init(folder.uri);
+
+			if (!repository) {
+				return;
+			}
+
+			await repository.commit('first commit', { all: true });
+
+			progress.report({ message: 'Uploading files', increment: 25 });
+			await repository.addRemote('origin', auth === 'ssh' ? githubRepository.ssh_url : githubRepository.clone_url);
+			await repository.push('origin', 'master', true);
+
+			return githubRepository;
 		});
 
-		const githubRepository = res.data;
-		const repository = await gitAPI.init(folder.uri);
-
-		if (!repository) {
+		if (!githubRepository) {
 			return;
 		}
 
-		await repository.commit('first commit', { all: true });
-		await repository.addRemote('origin', auth === 'ssh' ? githubRepository.ssh_url : githubRepository.clone_url);
-		await repository.push('origin', 'master', true);
+		const openInGitHub = 'Open In GitHub';
+		const action = await vscode.window.showInformationMessage(`Successfully published the '${owner}/${repo}' repository on GitHub.`, openInGitHub);
+
+		if (action === openInGitHub) {
+			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(githubRepository.html_url));
+		}
 	}
 
 	context.subscriptions.push(vscode.commands.registerCommand('github.publish', async () => {
