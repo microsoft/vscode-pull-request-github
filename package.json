@@ -224,11 +224,6 @@
           ],
           "description": "Strings that will cause the 'Create issue from comment' code action to show."
         },
-        "githubIssues.show": {
-          "type": "boolean",
-          "default": false,
-          "description": "When true, show GitHub issues in the GitHub viewlet."
-        },
         "githubIssues.createInsertFormat": {
           "type": "string",
           "enum": [
@@ -361,7 +356,7 @@
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "config.githubIssues.show",
+          "when": "config.git.enabled",
           "icon": "resources/icons/light/issues.svg"
         }
       ],
