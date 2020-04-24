@@ -20,6 +20,9 @@ import { Repository, GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
 import { IssueFileSystemProvider } from './issueFile';
 
+const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
+const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
+
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
@@ -29,8 +32,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async initialize() {
-		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new IssueCompletionProvider(this._stateManager, this.manager, this.context), '#'));
-		this.context.subscriptions.push(vscode.languages.registerCompletionItemProvider('*', new UserCompletionProvider(this._stateManager, this.manager, this.context), '@'));
+		this.registerCompletionProviders();
 		await this._stateManager.tryInitializeAndWait();
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromClipboard', this.createTodoIssueClipboard, this));
@@ -57,6 +59,42 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	dispose() { }
+
+	private registerCompletionProviders() {
+		const providers: { provider: (typeof IssueCompletionProvider) | (typeof UserCompletionProvider), trigger: string, disposable: vscode.Disposable | undefined, configuration: string }[] = [
+			{
+				provider: IssueCompletionProvider,
+				trigger: '#',
+				disposable: undefined,
+				configuration: ISSUE_COMPLETIONS_CONFIGURATION
+			},
+			{
+				provider: UserCompletionProvider,
+				trigger: '@',
+				disposable: undefined,
+				configuration: USER_COMPLETIONS_CONFIGURATION
+			}
+		];
+		for (const element of providers) {
+			if (vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(element.configuration, true)) {
+				this.context.subscriptions.push(element.disposable = vscode.languages.registerCompletionItemProvider('*', new element.provider(this._stateManager, this.manager, this.context), element.trigger));
+			}
+		}
+		this.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(change => {
+			for (const element of providers) {
+				if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${element.configuration}`)) {
+					const newValue: boolean = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(element.configuration, true);
+					if (!newValue && element.disposable) {
+						element.disposable.dispose();
+						element.disposable = undefined;
+					} else if (newValue && !element.disposable) {
+						this.context.subscriptions.push(element.disposable = vscode.languages.registerCompletionItemProvider('*', new element.provider(this._stateManager, this.manager, this.context), element.trigger));
+					}
+					break;
+				}
+			}
+		}));
+	}
 
 	async createIssue() {
 		try {

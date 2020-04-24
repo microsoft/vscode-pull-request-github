@@ -238,6 +238,16 @@
           "default": "number",
           "description": "Controls whether an issue number (ex. #1234) or a full url (ex. https://github.com/owner/name/issues/1234) is inserted when the Create Issue code action is run."
         },
+        "githubIssues.issueCompletions.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Controls whether completion suggestions are shown for issues."
+        },
+        "githubIssues.userCompletions.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Controls whether completion suggestions are shown for users."
+        },
         "githubIssues.ignoreCompletionTrigger": {
           "type": "array",
           "items": {
