@@ -170,7 +170,11 @@ export class StateManager {
 				items = this.setMilestones();
 			} else {
 				if (!defaults) {
-					defaults = await this.manager.getPullRequestDefaults();
+					try {
+						defaults = await this.manager.getPullRequestDefaults();
+					} catch (e) {
+						// leave defaults undefined
+					}
 				}
 				if (!user) {
 					user = await this.getCurrentUser();
