@@ -583,9 +583,9 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 
 		const owner = hub.octokit.currentUser!.login;
 
-		const quickpick = vscode.window.createQuickPick<vscode.QuickPickItem & { repo?: string, private?: boolean, auth?: 'https' | 'ssh' }>();
+		const quickpick = vscode.window.createQuickPick<vscode.QuickPickItem & { repo?: string, auth?: 'https' | 'ssh' }>();
 		quickpick.ignoreFocusOut = true;
-		quickpick.totalSteps = 3;
+		quickpick.totalSteps = 2;
 		quickpick.title = 'Publish to Github';
 
 		quickpick.placeholder = 'Repository Name';
@@ -606,7 +606,7 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 				await hub.octokit.repos.get({ owner, repo: repo });
 				quickpick.items = [{ label: `$(error) Repository already exists`, description: `$(github) ${owner}/${repo}`, alwaysShow: true }];
 			} catch {
-				quickpick.items = [{ label: `$(repo) Create repository`, description: `$(github) ${owner}/${repo}`, alwaysShow: true, repo: repo }];
+				quickpick.items = [{ label: `$(repo) Create private repository`, description: `$(github) ${owner}/${repo}`, alwaysShow: true, repo: repo }];
 			} finally {
 				quickpick.busy = false;
 			}
@@ -638,30 +638,14 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 		}
 
 		quickpick.value = '';
-		quickpick.placeholder = 'Repository Type';
-		quickpick.step = 2;
-		quickpick.items = [
-			{ label: `Private`, description: `Sources will be accessible only to you on GitHub`, alwaysShow: true, private: true },
-			{ label: `Public`, description: `Sources will be accessible to anyone on GitHub`, alwaysShow: true }
-		];
-
-		let pick = await getPick(quickpick);
-		const isPrivate = pick?.private;
-
-		if (isPrivate === undefined) {
-			quickpick.dispose();
-			return;
-		}
-
-		quickpick.value = '';
 		quickpick.placeholder = 'Authentication Type';
-		quickpick.step = 3;
+		quickpick.step = 2;
 		quickpick.items = [
 			{ label: `HTTPS`, description: `Use HTTPS authentication`, alwaysShow: true, auth: 'https' },
 			{ label: `SSH`, description: `Use SSH authentication`, alwaysShow: true, auth: 'ssh' }
 		];
 
-		pick = await getPick(quickpick);
+		const pick = await getPick(quickpick);
 		const auth = pick?.auth;
 
 		quickpick.dispose();
@@ -671,11 +655,11 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 		}
 
 		const githubRepository = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: false, title: 'Publish to GitHub' }, async progress => {
-			progress.report({ message: 'Creating repository in GitHub', increment: 25 });
+			progress.report({ message: 'Creating private repository in GitHub', increment: 25 });
 
 			const res = await hub.octokit.repos.createForAuthenticatedUser({
 				name: repo!,
-				private: isPrivate
+				private: true
 			});
 
 			const githubRepository = res.data;
