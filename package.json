@@ -879,6 +879,14 @@
         {
           "command": "issue.createIssueFromFile",
           "when": "false"
+        },
+        {
+          "command": "issue.copyGithubPermalink",
+          "when": "github:authenticated"
+        },
+        {
+          "command": "issue.openGithubPermalink",
+          "when": "github:authenticated"
         }
       ],
       "view/title": [
