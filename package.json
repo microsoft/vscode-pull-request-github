@@ -685,6 +685,14 @@
         "command": "issue.createIssueFromFile",
         "title": "Create Issue",
         "icon": "$(check)"
+      },
+      {
+        "command": "issue.issueCompletion",
+        "title": "Issue Completion Chosen"
+      },
+      {
+        "command": "issue.userCompletion",
+        "title": "User Completion Chosen"
       }
     ],
     "keybindings": [
@@ -892,6 +900,14 @@
         {
           "command": "issue.openGithubPermalink",
           "when": "github:authenticated"
+        },
+        {
+          "command": "issue.issueCompletion",
+          "when": "false"
+        },
+        {
+          "command": "issue.userCompletion",
+          "when": "false"
         }
       ],
       "view/title": [

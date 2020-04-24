@@ -27,32 +27,146 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
 
-	constructor(gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext) {
+	constructor(gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
 		this._stateManager = new StateManager(gitAPI, this.manager, this.reviewManager, this.context);
 	}
 
 	async initialize() {
 		this.registerCompletionProviders();
 		await this._stateManager.tryInitializeAndWait();
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', this.createTodoIssue, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromClipboard', this.createTodoIssueClipboard, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', this.copyPermalink, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', this.openPermalink, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openIssue', this.openIssue));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorking', this.startWorking, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.continueWorking', this.startWorking, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorkingBranchPrompt', this.startWorkingBranchPrompt, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.stopWorking', this.stopWorking, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.statusBar', this.statusBar, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueNumber', this.copyIssueNumber));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueUrl', this.copyIssueUrl));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.refresh', this.refreshView, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.getCurrent', this.getCurrent, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.editQuery', this.editQuery, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssue', this.createIssue, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromFile', this.createIssueFromFile, this));
-		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context)));
-		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager)));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', (newIssue?: NewIssue, issueBody?: string) => {
+			/* __GDPR__
+				"issue.createIssueFromSelection : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.createIssueFromSelection');
+			return this.createTodoIssue(newIssue, issueBody);
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromClipboard', () => {
+			/* __GDPR__
+				"issue.createIssueFromClipboard : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.createIssueFromClipboard');
+			return this.createTodoIssueClipboard();
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', () => {
+			/* __GDPR__
+				"issue.copyGithubPermalink : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
+			return this.copyPermalink();
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', () => {
+			/* __GDPR__
+				"issue.openGithubPermalink : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.openGithubPermalink');
+			return this.openPermalink();
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openIssue', (issueModel: any) => {
+			/* __GDPR__
+				"issue.openIssue : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.openIssue');
+			return this.openIssue(issueModel);
+		}));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorking', (issue: any) => {
+			/* __GDPR__
+				"issue.startWorking : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.startWorking');
+			return this.startWorking(issue);
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.continueWorking', (issue: any) => {
+			/* __GDPR__
+				"issue.continueWorking : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.continueWorking');
+			return this.startWorking(issue);
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorkingBranchPrompt', (issueModel: any) => {
+			/* __GDPR__
+				"issue.startWorkingBranchPrompt : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.startWorkingBranchPrompt');
+			return this.startWorkingBranchPrompt(issueModel);
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.stopWorking', (issueModel: any) => {
+			/* __GDPR__
+				"issue.stopWorking : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.stopWorking');
+			return this.stopWorking(issueModel);
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.statusBar', () => {
+			/* __GDPR__
+				"issue.statusBar : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.statusBar');
+			return this.statusBar();
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueNumber', (issueModel: any) => {
+			/* __GDPR__
+				"issue.copyIssueNumber : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.copyIssueNumber');
+			return this.copyIssueNumber(issueModel);
+		}));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueUrl', (issueModel: any) => {
+			/* __GDPR__
+				"issue.copyIssueUrl : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.copyIssueUrl');
+			return this.copyIssueUrl(issueModel);
+		}));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.refresh', () => {
+			/* __GDPR__
+				"issue.refresh : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.refresh');
+			return this.refreshView();
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.getCurrent', () => {
+			/* __GDPR__
+				"issue.getCurrent : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.getCurrent');
+			return this.getCurrent();
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.editQuery', (query: vscode.TreeItem) => {
+			/* __GDPR__
+				"issue.editQuery : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.editQuery');
+			return this.editQuery(query);
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssue', () => {
+			/* __GDPR__
+				"issue.createIssue : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.createIssue');
+			return this.createIssue();
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromFile', () => {
+			/* __GDPR__
+				"issue.createIssueFromFile : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.createIssueFromFile');
+			return this.createIssueFromFile();
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.issueCompletion', () => {
+			/* __GDPR__
+				"issue.issueCompletion : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.issueCompletion');
+		}));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.userCompletion', () => {
+			/* __GDPR__
+				"issue.userCompletion : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.userCompletion');
+		}));
+		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry)));
+		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)));
 		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
 		this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context)));
 		this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider('newIssue', new IssueFileSystemProvider()));

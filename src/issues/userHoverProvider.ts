@@ -6,9 +6,10 @@
 import * as vscode from 'vscode';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { userMarkdown, USER_EXPRESSION } from './util';
+import { ITelemetry } from '../common/telemetry';
 
 export class UserHoverProvider implements vscode.HoverProvider {
-	constructor(private manager: PullRequestManager) { }
+	constructor(private manager: PullRequestManager, private telemetry: ITelemetry) { }
 
 	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
 		if (document.lineAt(position).range.end.character > 10000) {
@@ -32,7 +33,15 @@ export class UserHoverProvider implements vscode.HoverProvider {
 		try {
 			const origin = await this.manager.getPullRequestDefaults();
 			const user = await this.manager.resolveUser(origin.owner, origin.repo, username);
-			return (user && user.name) ? new vscode.Hover(userMarkdown(origin, user), range) : undefined;
+			if (user && user.name) {
+				/* __GDPR__
+					"issue.userHover : {}
+				*/
+				this.telemetry.sendTelemetryEvent('issues.userHover');
+				return new vscode.Hover(userMarkdown(origin, user), range);
+			} else {
+				return;
+			}
 		} catch (e) {
 			// No need to notify about a hover that doesn't work
 			return;
