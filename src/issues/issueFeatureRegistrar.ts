@@ -19,6 +19,7 @@ import { ReviewManager } from '../view/reviewManager';
 import { Repository, GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
 import { IssueFileSystemProvider } from './issueFile';
+import { ITelemetry } from '../common/telemetry';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
