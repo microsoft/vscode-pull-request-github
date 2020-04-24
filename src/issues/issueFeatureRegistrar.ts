@@ -145,6 +145,10 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (inspect?.workspaceValue) {
 			command = 'workbench.action.openWorkspaceSettingsFile';
 		} else {
+			const value = config.get<{ label: string, query: string }[]>(QUERIES_CONFIGURATION);
+			if (inspect?.defaultValue && JSON.stringify(inspect?.defaultValue) === JSON.stringify(value)) {
+				config.update(QUERIES_CONFIGURATION, inspect.defaultValue, vscode.ConfigurationTarget.Global);
+			}
 			command = 'workbench.action.openSettingsJson';
 		}
 		await vscode.commands.executeCommand(command);
