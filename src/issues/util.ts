@@ -11,15 +11,16 @@ import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { StateManager } from './stateManager';
+import { ReviewManager } from '../view/reviewManager';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+))|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
+export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
 export const MAX_LINE_LENGTH = 150;
 
-export type ParsedIssue = { owner: string | undefined, name: string | undefined, issueNumber: number };
+export type ParsedIssue = { owner: string | undefined, name: string | undefined, issueNumber: number, commentNumber?: number };
 export const ISSUES_CONFIGURATION: string = 'githubIssues';
 export const QUERIES_CONFIGURATION = 'queries';
 export const DEFAULT_QUERY_CONFIGURATION = 'default';
@@ -36,10 +37,11 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 		issue.name = output[3];
 		issue.issueNumber = parseInt(output[4]);
 		return issue;
-	} else if (output.length === 13) {
-		issue.owner = output[3] || output[9];
-		issue.name = output[4] || output[10];
-		issue.issueNumber = parseInt(output[7] || output[11]);
+	} else if (output.length === 15) {
+		issue.owner = output[3] || output[11];
+		issue.name = output[4] || output[12];
+		issue.issueNumber = parseInt(output[7] || output[13]);
+		issue.commentNumber = parseInt(output[9]);
 		return issue;
 	} else {
 		return undefined;
@@ -68,7 +70,7 @@ export async function getIssue(stateManager: StateManager, manager: PullRequestM
 			}
 
 			if (owner && name && (issueNumber !== undefined)) {
-				let issue = await manager.resolveIssue(owner, name, issueNumber);
+				let issue = await manager.resolveIssue(owner, name, issueNumber, !!parsed.commentNumber);
 				if (!issue) {
 					issue = await manager.resolvePullRequest(owner, name, issueNumber);
 				}
@@ -160,22 +162,7 @@ function makeLabel(color: string, text: string): string {
 </svg>`;
 }
 
-export const ISSUE_BODY_LENGTH: number = 200;
-export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext): vscode.MarkdownString {
-	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
-	const date = new Date(issue.createdAt);
-	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
-	markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
-	const title = marked.parse(issue.title, {
-		renderer: new PlainTextRenderer()
-	}).trim();
-	markdown.appendMarkdown(`${getIconMarkdown(issue, context)} **${title}** [#${issue.number}](${issue.html_url})  \n`);
-	let body = marked.parse(issue.body, {
-		renderer: new PlainTextRenderer()
-	});
-	markdown.appendMarkdown('  \n');
-	body = ((body.length > ISSUE_BODY_LENGTH) ? (body.substr(0, ISSUE_BODY_LENGTH) + '...') : body);
-	// Check the body for "links"
+function findLinksInIssue(body: string, issue: IssueModel): string {
 	let searchResult = body.search(ISSUE_OR_URL_EXPRESSION);
 	let position = 0;
 	while ((searchResult >= 0) && (searchResult < body.length)) {
@@ -197,6 +184,26 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 		const newSearchResult = body.substring(position).search(ISSUE_OR_URL_EXPRESSION);
 		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
 	}
+	return body;
+}
+
+export const ISSUE_BODY_LENGTH: number = 200;
+export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, commentNumber?: number): vscode.MarkdownString {
+	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
+	const date = new Date(issue.createdAt);
+	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
+	markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
+	const title = marked.parse(issue.title, {
+		renderer: new PlainTextRenderer()
+	}).trim();
+	markdown.appendMarkdown(`${getIconMarkdown(issue, context)} **${title}** [#${issue.number}](${issue.html_url})  \n`);
+	let body = marked.parse(issue.body, {
+		renderer: new PlainTextRenderer()
+	});
+	markdown.appendMarkdown('  \n');
+	body = ((body.length > ISSUE_BODY_LENGTH) ? (body.substr(0, ISSUE_BODY_LENGTH) + '...') : body);
+	body = findLinksInIssue(body, issue);
+
 	markdown.appendMarkdown(body + '  \n');
 	markdown.appendMarkdown('&nbsp;  \n');
 
@@ -205,6 +212,20 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 			const uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(makeLabel(label.color, label.name));
 			markdown.appendMarkdown(`[![](${uri})](https://github.com/${ownerName}/labels/${encodeURIComponent(label.name)}) `);
 		});
+	}
+
+	if (issue.item.comments && commentNumber) {
+		for (const comment of issue.item.comments) {
+			if (comment.databaseId === commentNumber) {
+				markdown.appendMarkdown('  \r\n\r\n---\r\n');
+				markdown.appendMarkdown('&nbsp;  \n');
+				markdown.appendMarkdown(`![Avatar](${comment.author.avatarUrl}|height=15,width=15) &nbsp;&nbsp;**${comment.author.login}** commented`);
+				markdown.appendMarkdown('&nbsp;  \n');
+				let commentText = marked.parse(((comment.body.length > ISSUE_BODY_LENGTH) ? (comment.body.substr(0, ISSUE_BODY_LENGTH) + '...') : comment.body), { renderer: new PlainTextRenderer() });
+				commentText = findLinksInIssue(commentText, issue);
+				markdown.appendMarkdown(commentText);
+			}
+		}
 	}
 	return markdown;
 }
@@ -258,11 +279,11 @@ export async function createGithubPermalink(manager: PullRequestManager, positio
 	}
 
 	const origin = await manager.getOrigin();
-	const pathSegment = vscode.Uri.parse(vscode.workspace.asRelativePath(document.uri)).toString().substring(8);
+	const pathSegment = document.uri.path.substring(manager.repository.rootUri.path.length);
 	if (manager.repository.state.HEAD && manager.repository.state.HEAD.commit && (manager.repository.state.HEAD.ahead === 0)) {
-		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.commit}/${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
+		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.commit}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
 	} else if (manager.repository.state.HEAD && manager.repository.state.HEAD.ahead && (manager.repository.state.HEAD.ahead > 0)) {
-		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.upstream!.name}/${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
+		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.upstream!.name}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
 	}
 }
 
@@ -296,6 +317,29 @@ function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 		return `#${parsed.issueNumber}`;
 	} else {
 		return `${parsed.owner}/${parsed.name}#${parsed.issueNumber}`;
+	}
+}
+
+export async function pushAndCreatePR(manager: PullRequestManager, reviewManager: ReviewManager, draft: boolean = false): Promise<boolean> {
+	if (manager.repository.state.HEAD?.upstream) {
+		await manager.repository.push();
+		await reviewManager.createPullRequest(draft);
+		return true;
+	} else {
+		let remote: string | undefined;
+		if (manager.repository.state.remotes.length === 1) {
+			remote = manager.repository.state.remotes[0].name;
+		} else if (manager.repository.state.remotes.length > 1) {
+			remote = await vscode.window.showQuickPick(manager.repository.state.remotes.map(value => value.name), { placeHolder: 'Remote to push to' });
+		}
+		if (remote) {
+			await manager.repository.push(remote, manager.repository.state.HEAD?.name, true);
+			await reviewManager.createPullRequest(draft);
+			return true;
+		} else {
+			vscode.window.showWarningMessage('The current repository has no remotes to push to. Please set up a remote and try again.');
+			return false;
+		}
 	}
 }
 

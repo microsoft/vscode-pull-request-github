@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, SourceControlInputBox, Event, CancellationToken } from 'vscode';
+import { Uri, Event, Disposable, ProviderResult } from 'vscode';
+export { ProviderResult } from 'vscode';
 
 export interface Git {
 	readonly path: string;
@@ -41,7 +42,10 @@ export interface Commit {
 	readonly hash: string;
 	readonly message: string;
 	readonly parents: string[];
-	readonly authorEmail?: string | undefined;
+	readonly authorDate?: Date;
+	readonly authorName?: string;
+	readonly authorEmail?: string;
+	readonly commitDate?: Date;
 }
 
 export interface Submodule {
@@ -119,6 +123,14 @@ export interface LogOptions {
 	readonly maxEntries?: number;
 }
 
+export interface CommitOptions {
+	all?: boolean | 'tracked';
+	amend?: boolean;
+	signoff?: boolean;
+	signCommit?: boolean;
+	empty?: boolean;
+}
+
 export interface Repository {
 
 	readonly rootUri: Uri;
@@ -174,17 +186,36 @@ export interface Repository {
 
 	blame(path: string): Promise<string>;
 	log(options?: LogOptions): Promise<Commit[]>;
+
+	commit(message: string, opts?: CommitOptions): Promise<void>;
+}
+
+export interface RemoteSource {
+	readonly name: string;
+	readonly description?: string;
+	readonly url: string | string[];
+}
+
+export interface RemoteSourceProvider {
+	readonly name: string;
+	readonly icon?: string; // codicon name
+	readonly supportsQuery?: boolean;
+	getRemoteSources(query?: string): ProviderResult<RemoteSource[]>;
 }
 
 export type APIState = 'uninitialized' | 'initialized';
 
-export interface API {
+export interface GitAPI {
 	readonly state: APIState;
 	readonly onDidChangeState: Event<APIState>;
 	readonly git: Git;
 	readonly repositories: Repository[];
 	readonly onDidOpenRepository: Event<Repository>;
 	readonly onDidCloseRepository: Event<Repository>;
+
+	toGitUri(uri: Uri, ref: string): Uri;
+	getRepository(uri: Uri): Repository | null;
+	registerRemoteSourceProvider(provider: RemoteSourceProvider): Disposable;
 }
 
 export interface GitExtension {
@@ -202,7 +233,7 @@ export interface GitExtension {
 	 * @param version Version number.
 	 * @returns API instance
 	 */
-	getAPI(version: 1): API;
+	getAPI(version: 1): GitAPI;
 }
 
 export const enum GitErrorCodes {
@@ -238,5 +269,6 @@ export const enum GitErrorCodes {
 	CantLockRef = 'CantLockRef',
 	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
 	PatchDoesNotApply = 'PatchDoesNotApply',
-	NoPathFound = 'NoPathFound'
+	NoPathFound = 'NoPathFound',
+	UnknownPath = 'UnknownPath',
 }

@@ -6,23 +6,25 @@
 import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION } from './util';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, pushAndCreatePR } from './util';
 import { Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
+import { ReviewManager } from '../view/reviewManager';
 
 export class CurrentIssue {
 	private statusBarItem: vscode.StatusBarItem | undefined;
 	private repoChangeDisposable: vscode.Disposable | undefined;
 	private _branchName: string | undefined;
+	private user: string | undefined;
 	private repo: Repository | undefined;
 	private repoDefaults: PullRequestDefaults | undefined;
-	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
+	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private reviewManager: ReviewManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
 		this.setRepo();
 	}
 
 	private setRepo() {
-		for (let i = 0; i < this.stateManager.git.repositories.length; i++) {
-			const repo = this.stateManager.git.repositories[i];
+		for (let i = 0; i < this.stateManager.gitAPI.repositories.length; i++) {
+			const repo = this.stateManager.gitAPI.repositories[i];
 			for (let j = 0; j < repo.state.remotes.length; j++) {
 				const remote = repo.state.remotes[j];
 				if (remote.name === this.issueModel.githubRepository.remote.remoteName &&
@@ -52,6 +54,7 @@ export class CurrentIssue {
 		await this.createIssueBranch();
 		await this.setCommitMessageAndGitEvent();
 		this.setStatusBar();
+		await this.createDraftPR();
 	}
 
 	public dispose() {
@@ -92,6 +95,13 @@ export class CurrentIssue {
 		}
 	}
 
+	private async getUser(): Promise<string> {
+		if (!this.user) {
+			this.user = await this.issueModel.githubRepository.getAuthenticatedUser();
+		}
+		return this.user;
+	}
+
 	private async createIssueBranch(): Promise<void> {
 		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
 		if (createBranchConfig === 'off') {
@@ -99,19 +109,16 @@ export class CurrentIssue {
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
-		let user: string | undefined;
 		if (!this._branchName) {
-			user = await this.issueModel.githubRepository.getAuthenticatedUser();
 			if (createBranchConfig === 'on') {
 				const branchNameConfig = <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_NAME_CONFIGURATION);
-				this._branchName = await variableSubstitution(branchNameConfig, this.issue, undefined, user);
+				this._branchName = await variableSubstitution(branchNameConfig, this.issue, undefined, await this.getUser());
 			} else {
 				this._branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });
 			}
 		}
 		if (!this._branchName) {
-			user = await this.issueModel.githubRepository.getAuthenticatedUser();
-			this._branchName = this.getBasicBranchName(user);
+			this._branchName = this.getBasicBranchName(await this.getUser());
 		}
 
 		state.branch = this._branchName;
@@ -119,7 +126,12 @@ export class CurrentIssue {
 		try {
 			await this.createOrCheckoutBranch(this._branchName);
 		} catch (e) {
-			const basicBranchName = this.getBasicBranchName(user ?? await this.issueModel.githubRepository.getAuthenticatedUser());
+			const basicBranchName = this.getBasicBranchName(await this.getUser());
+			if (this._branchName === basicBranchName) {
+				vscode.window.showErrorMessage(`Unable to checkout branch ${this._branchName}. There may be file conflicts that prevent this branch change.`);
+				this._branchName = undefined;
+				return;
+			}
 			vscode.window.showErrorMessage(`Unable to create branch with name ${this._branchName}. Using ${basicBranchName} instead.`);
 			this._branchName = basicBranchName;
 			state.branch = this._branchName;
@@ -142,5 +154,21 @@ export class CurrentIssue {
 		this.statusBarItem.tooltip = this.issueModel.title;
 		this.statusBarItem.command = 'issue.statusBar';
 		this.statusBarItem.show();
+	}
+
+	private async createDraftPR() {
+		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('alwaysCreateDraftPR');
+		if (configuration && this._branchName) {
+			// It seems that there is no API to tell if a PR or an issue are linked to eachother. Instead of doing something like the following query, we'll just try to push the branch.
+			// const existingDrafts = (await this.manager.getPullRequests(PRType.Query, undefined, `repo:${this.issueModel.remote.owner}/${this.issueModel.remote.repositoryName} is:open linked:issue author:${await this.getUser()} draft:false`)).items;
+			const issueState = this.stateManager.getSavedIssueState(this.issueModel.number);
+			if (!issueState.hasDraftPR) {
+				const succeeded = await pushAndCreatePR(this.manager, this.reviewManager, true);
+				if (succeeded) {
+					issueState.hasDraftPR = true;
+					this.stateManager.setSavedIssueState(this.issueModel, issueState);
+				}
+			}
+		}
 	}
 }

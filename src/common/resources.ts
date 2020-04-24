@@ -26,7 +26,8 @@ export class Resource {
 				Avatar: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'github.svg')),
 				Description: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'git-pull-request.svg')),
 				Issues: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'issues.svg')),
-				Check: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'check.svg'))
+				Check: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'check.svg')),
+				Edit: context.asAbsolutePath(path.join('resources', 'icons', 'light', 'edit.svg')),
 			},
 			dark: {
 				Modified: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'status-modified.svg')),
@@ -41,7 +42,8 @@ export class Resource {
 				Avatar: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'github.svg')),
 				Description: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'git-pull-request.svg')),
 				Issues: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'issues.svg')),
-				Check: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'check.svg'))
+				Check: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'check.svg')),
+				Edit: context.asAbsolutePath(path.join('resources', 'icons', 'dark', 'edit.svg'))
 			},
 			reactions: {
 				THUMBS_UP: context.asAbsolutePath(path.join('resources', 'icons', 'reactions', 'thumbs_up.png')),

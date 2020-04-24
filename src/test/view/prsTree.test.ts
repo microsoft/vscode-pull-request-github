@@ -39,7 +39,7 @@ describe('GitHub Pull Requests view', function() {
 
 		// For tree view unit tests, we don't test the authentication flow, so `loginWithConfirmation` returns
 		// a dummy GitHub/Octokit object.
-		sinon.stub(credentialStore, 'loginWithConfirmation').callsFake(async (remote) => {
+		sinon.stub(credentialStore, 'loginWithConfirmation').callsFake(async () => {
 			const github: GitHub = {
 				octokit: new Octokit({
 					request: {},

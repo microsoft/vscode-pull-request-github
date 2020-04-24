@@ -35,18 +35,21 @@ export interface HeadRefDeletedEvent {
 	headRefName: string;
 }
 
-export interface IssueComment {
-	__typename: string;
-	id: string;
-	databaseId: number;
-	authorAssocation: string;
+export interface AbbreviatedIssueComment {
 	author: {
 		login: string;
 		avatarUrl: string;
 		url: string;
 	};
-	url: string;
 	body: string;
+	databaseId: number;
+}
+
+export interface IssueComment extends AbbreviatedIssueComment {
+	__typename: string;
+	authorAssocation: string;
+	id: string;
+	url: string;
 	bodyHTML: string;
 	updatedAt: string;
 	createdAt: string;
@@ -366,6 +369,9 @@ export interface PullRequest {
 		url: string;
 		avatarUrl: string;
 	};
+	comments?: {
+		nodes: AbbreviatedIssueComment[];
+	};
 	createdAt: string;
 	updatedAt: string;
 	headRef?: Ref;
@@ -389,7 +395,7 @@ export interface PullRequest {
 	repository?: {
 		name: string,
 		owner: {
-			login:string
+			login: string
 		},
 		url: string
 	};
