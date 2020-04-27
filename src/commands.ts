@@ -556,16 +556,11 @@ function sanitizeRepositoryName(value: string): string {
 }
 
 export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI: GitAPI, credentialStore: CredentialStore) {
-	// TODO: join with other code from https://github.com/microsoft/vscode-pull-request-github/pull/1661
 	async function getHub(): Promise<GitHub | undefined> {
 		if (await credentialStore.hasOctokit()) {
 			return await credentialStore.getHub()!;
-		}
-
-		const hub = await credentialStore.loginWithConfirmation();
-
-		if (!hub) {
-			return credentialStore.login();
+		} else {
+			return await credentialStore.login();
 		}
 	}
 
