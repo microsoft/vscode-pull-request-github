@@ -37,132 +37,132 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		await this._stateManager.tryInitializeAndWait();
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', (newIssue?: NewIssue, issueBody?: string) => {
 			/* __GDPR__
-				"issue.createIssueFromSelection : {}
+				"issue.createIssueFromSelection" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.createIssueFromSelection');
 			return this.createTodoIssue(newIssue, issueBody);
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromClipboard', () => {
 			/* __GDPR__
-				"issue.createIssueFromClipboard : {}
+				"issue.createIssueFromClipboard" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.createIssueFromClipboard');
 			return this.createTodoIssueClipboard();
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyGithubPermalink', () => {
 			/* __GDPR__
-				"issue.copyGithubPermalink : {}
+				"issue.copyGithubPermalink" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
 			return this.copyPermalink();
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', () => {
 			/* __GDPR__
-				"issue.openGithubPermalink : {}
+				"issue.openGithubPermalink" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.openGithubPermalink');
 			return this.openPermalink();
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openIssue', (issueModel: any) => {
 			/* __GDPR__
-				"issue.openIssue : {}
+				"issue.openIssue" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.openIssue');
 			return this.openIssue(issueModel);
 		}));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorking', (issue: any) => {
 			/* __GDPR__
-				"issue.startWorking : {}
+				"issue.startWorking" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.startWorking');
 			return this.startWorking(issue);
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.continueWorking', (issue: any) => {
 			/* __GDPR__
-				"issue.continueWorking : {}
+				"issue.continueWorking" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.continueWorking');
 			return this.startWorking(issue);
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorkingBranchPrompt', (issueModel: any) => {
 			/* __GDPR__
-				"issue.startWorkingBranchPrompt : {}
+				"issue.startWorkingBranchPrompt" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.startWorkingBranchPrompt');
 			return this.startWorkingBranchPrompt(issueModel);
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.stopWorking', (issueModel: any) => {
 			/* __GDPR__
-				"issue.stopWorking : {}
+				"issue.stopWorking" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.stopWorking');
 			return this.stopWorking(issueModel);
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.statusBar', () => {
 			/* __GDPR__
-				"issue.statusBar : {}
+				"issue.statusBar" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.statusBar');
 			return this.statusBar();
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueNumber', (issueModel: any) => {
 			/* __GDPR__
-				"issue.copyIssueNumber : {}
+				"issue.copyIssueNumber" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.copyIssueNumber');
 			return this.copyIssueNumber(issueModel);
 		}));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyIssueUrl', (issueModel: any) => {
 			/* __GDPR__
-				"issue.copyIssueUrl : {}
+				"issue.copyIssueUrl" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.copyIssueUrl');
 			return this.copyIssueUrl(issueModel);
 		}));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.refresh', () => {
 			/* __GDPR__
-				"issue.refresh : {}
+				"issue.refresh" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.refresh');
 			return this.refreshView();
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.getCurrent', () => {
 			/* __GDPR__
-				"issue.getCurrent : {}
+				"issue.getCurrent" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.getCurrent');
 			return this.getCurrent();
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.editQuery', (query: vscode.TreeItem) => {
 			/* __GDPR__
-				"issue.editQuery : {}
+				"issue.editQuery" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.editQuery');
 			return this.editQuery(query);
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssue', () => {
 			/* __GDPR__
-				"issue.createIssue : {}
+				"issue.createIssue" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.createIssue');
 			return this.createIssue();
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromFile', () => {
 			/* __GDPR__
-				"issue.createIssueFromFile : {}
+				"issue.createIssueFromFile" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.createIssueFromFile');
 			return this.createIssueFromFile();
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.issueCompletion', () => {
 			/* __GDPR__
-				"issue.issueCompletion : {}
+				"issue.issueCompletion" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.issueCompletion');
 		}));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.userCompletion', () => {
 			/* __GDPR__
-				"issue.userCompletion : {}
+				"issue.userCompletion" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issue.userCompletion');
 		}));
