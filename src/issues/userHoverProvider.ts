@@ -35,7 +35,7 @@ export class UserHoverProvider implements vscode.HoverProvider {
 			const user = await this.manager.resolveUser(origin.owner, origin.repo, username);
 			if (user && user.name) {
 				/* __GDPR__
-					"issue.userHover : {}
+					"issue.userHover" : {}
 				*/
 				this.telemetry.sendTelemetryEvent('issues.userHover');
 				return new vscode.Hover(userMarkdown(origin, user), range);

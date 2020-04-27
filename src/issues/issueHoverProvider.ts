@@ -35,7 +35,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 		const issue = await getIssue(this.stateManager, this.manager, value, parsed);
 		if (issue) {
 			/* __GDPR__
-				"issue.issueHover : {}
+				"issue.issueHover" : {}
 			*/
 			this.telemetry.sendTelemetryEvent('issues.issueHover');
 			return new vscode.Hover(issueMarkdown(issue, this.context, parsed.commentNumber), range);
