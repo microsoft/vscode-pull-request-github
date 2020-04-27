@@ -17,7 +17,7 @@ function asRemoteSource(raw: Repository): RemoteSource {
 	return {
 		name: `$(github) ${raw.full_name}`,
 		description: raw.description || undefined,
-		url: [raw.clone_url, raw.ssh_url]
+		url: raw.clone_url
 	};
 }
 
