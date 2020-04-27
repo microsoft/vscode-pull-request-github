@@ -585,11 +585,8 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 
 		const quickpick = vscode.window.createQuickPick<vscode.QuickPickItem & { repo?: string, auth?: 'https' | 'ssh' }>();
 		quickpick.ignoreFocusOut = true;
-		quickpick.totalSteps = 2;
-		quickpick.title = 'Publish to Github';
 
 		quickpick.placeholder = 'Repository Name';
-		quickpick.step = 1;
 		quickpick.show();
 
 		let repo: string | undefined;
@@ -632,25 +629,9 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 			}
 		}
 
-		if (!repo) {
-			quickpick.dispose();
-			return;
-		}
-
-		quickpick.value = '';
-		quickpick.placeholder = 'Authentication Type';
-		quickpick.step = 2;
-		quickpick.items = [
-			{ label: `HTTPS`, description: `Use HTTPS authentication`, alwaysShow: true, auth: 'https' },
-			{ label: `SSH`, description: `Use SSH authentication`, alwaysShow: true, auth: 'ssh' }
-		];
-
-		const pick = await getPick(quickpick);
-		const auth = pick?.auth;
-
 		quickpick.dispose();
 
-		if (!auth) {
+		if (!repo) {
 			return;
 		}
 
@@ -674,7 +655,7 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 			await repository.commit('first commit', { all: true });
 
 			progress.report({ message: 'Uploading files', increment: 25 });
-			await repository.addRemote('origin', auth === 'ssh' ? githubRepository.ssh_url : githubRepository.clone_url);
+			await repository.addRemote('origin', githubRepository.clone_url);
 			await repository.push('origin', 'master', true);
 
 			return githubRepository;
