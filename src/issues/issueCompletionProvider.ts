@@ -102,6 +102,10 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 	resolveCompletionItem(item: vscode.CompletionItem, token: vscode.CancellationToken): vscode.CompletionItem {
 		if (item instanceof IssueCompletionItem) {
 			item.documentation = issueMarkdown(item.issue, this.context);
+			item.command = {
+				command: 'issues.issueCompletion',
+				title: 'Issue Completion Chose,'
+			};
 		}
 		return item;
 	}

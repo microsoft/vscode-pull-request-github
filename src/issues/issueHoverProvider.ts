@@ -7,9 +7,10 @@ import * as vscode from 'vscode';
 import { PullRequestManager } from '../github/pullRequestManager';
 import { getIssue, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, issueMarkdown } from './util';
 import { StateManager } from './stateManager';
+import { ITelemetry } from '../common/telemetry';
 
 export class IssueHoverProvider implements vscode.HoverProvider {
-	constructor(private manager: PullRequestManager, private stateManager: StateManager, private context: vscode.ExtensionContext) { }
+	constructor(private manager: PullRequestManager, private stateManager: StateManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) { }
 
 	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
 		if (document.lineAt(position.line).range.end.character > 10000) {
@@ -33,6 +34,10 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 	private async createHover(value: string, parsed: ParsedIssue, range: vscode.Range): Promise<vscode.Hover | undefined> {
 		const issue = await getIssue(this.stateManager, this.manager, value, parsed);
 		if (issue) {
+			/* __GDPR__
+				"issue.issueHover : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issues.issueHover');
 			return new vscode.Hover(issueMarkdown(issue, this.context, parsed.commentNumber), range);
 		} else {
 			return;

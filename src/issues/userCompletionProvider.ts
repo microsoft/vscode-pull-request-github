@@ -78,6 +78,10 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		const user: User | undefined = await this.manager.resolveUser(repo.owner, repo.repo, item.login);
 		if (user) {
 			item.documentation = userMarkdown(repo, user);
+			item.command = {
+				command: 'issues.userCompletion',
+				title: 'User Completion Chosen'
+			};
 		}
 		return item;
 	}
