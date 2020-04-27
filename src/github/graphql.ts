@@ -232,6 +232,7 @@ export interface AssignableUsersResponse {
 				avatarUrl: string;
 				name: string;
 				url: string;
+				email: string;
 			}[];
 			pageInfo: {
 				hasNextPage: boolean;
