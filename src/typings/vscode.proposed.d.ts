@@ -22,7 +22,7 @@ declare module 'vscode' {
 		id: string;
 		getAccessToken(): Thenable<string>;
 		accountName: string;
-		scopes: string[]
+		scopes: string[];
 	}
 
 	/**

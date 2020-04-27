@@ -1310,7 +1310,7 @@ export class PullRequestManager implements vscode.Disposable {
 					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryEvent('pr.create.failure', {
+			this._telemetry.sendTelemetryErrorEvent('pr.create.failure', {
 				isDraft: (params.draft || '').toString(),
 				message: formatError(e)
 			});
@@ -1346,7 +1346,7 @@ export class PullRequestManager implements vscode.Disposable {
 					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryEvent('issue.create.failure', {
+			this._telemetry.sendTelemetryErrorEvent('issue.create.failure', {
 				message: formatError(e)
 			});
 			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
@@ -1539,7 +1539,7 @@ export class PullRequestManager implements vscode.Disposable {
 						"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 					}
 				*/
-				this._telemetry.sendTelemetryEvent('pr.merge.failure', { message: formatError(e) });
+				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure', { message: formatError(e) });
 				throw e;
 			});
 	}
@@ -1791,7 +1791,7 @@ export class PullRequestManager implements vscode.Disposable {
 					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryEvent('pr.readyForReview.failure', { message: formatError(e) });
+			this._telemetry.sendTelemetryErrorEvent('pr.readyForReview.failure', { message: formatError(e) });
 			throw e;
 		}
 	}

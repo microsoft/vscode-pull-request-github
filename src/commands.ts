@@ -230,7 +230,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			telemetry.sendTelemetryEvent('pr.deleteLocalPullRequest.failure', {
+			telemetry.sendTelemetryErrorEvent('pr.deleteLocalPullRequest.failure', {
 				message: error
 			});
 			await vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${error}`);
