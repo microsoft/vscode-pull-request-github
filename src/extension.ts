@@ -38,8 +38,6 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
-	PersistentState.init(context);
-
 	vscode.authentication.onDidChangeSessions(async e => {
 		if (e['github']) {
 			await prManager.clearCredentialCache();
@@ -104,6 +102,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	telemetry = new TelemetryReporter(EXTENSION_ID, version, aiKey);
 	context.subscriptions.push(telemetry);
 
+	PersistentState.init(context);
 	const credentialStore = new CredentialStore(telemetry);
 
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
