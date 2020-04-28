@@ -590,37 +590,32 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 			const repo = sanitizeRepositoryName(quickpick.value);
 
 			if (!repo) {
-				return;
-			}
-
-			try {
-				quickpick.busy = true;
-				await hub.octokit.repos.get({ owner, repo: repo });
-				quickpick.items = [{ label: `$(error) Repository already exists`, description: `$(github) ${owner}/${repo}`, alwaysShow: true }];
-			} catch {
+				quickpick.items = [];
+			} else {
 				quickpick.items = [{ label: `$(repo) Create private repository`, description: `$(github) ${owner}/${repo}`, alwaysShow: true, repo: repo }];
-			} finally {
-				quickpick.busy = false;
 			}
 		};
 
-		const debouncedOnDidChangeValue = debounce(throttle(onDidChangeValue), 300);
 		quickpick.value = folder.name;
 		onDidChangeValue();
 
 		while (true) {
-			const listener = quickpick.onDidChangeValue(() => {
-				quickpick.items = [];
-				debouncedOnDidChangeValue();
-			});
-
+			const listener = quickpick.onDidChangeValue(onDidChangeValue);
 			const pick = await getPick(quickpick);
 			listener.dispose();
 
 			repo = pick?.repo;
 
 			if (repo) {
-				break;
+				try {
+					quickpick.busy = true;
+					await hub.octokit.repos.get({ owner, repo: repo });
+					quickpick.items = [{ label: `$(error) Repository already exists`, description: `$(github) ${owner}/${repo}`, alwaysShow: true }];
+				} catch {
+					break;
+				} finally {
+					quickpick.busy = false;
+				}
 			}
 		}
 
