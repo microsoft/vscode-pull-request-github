@@ -29,7 +29,6 @@ import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 import { ITelemetry } from './common/telemetry';
 import { TreeNode } from './view/treeNodes/treeNode';
 import { CredentialStore, GitHub } from './github/credentials';
-import { debounce, throttle } from './common/async';
 import { GitAPI } from './typings/git';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
@@ -590,12 +589,12 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 		let repo: string | undefined;
 
 		const onDidChangeValue = async () => {
-			const repo = sanitizeRepositoryName(quickpick.value);
+			const sanitizedRepo = sanitizeRepositoryName(quickpick.value);
 
-			if (!repo) {
+			if (!sanitizedRepo) {
 				quickpick.items = [];
 			} else {
-				quickpick.items = [{ label: `$(repo) Create private repository`, description: `$(github) ${owner}/${repo}`, alwaysShow: true, repo: repo }];
+				quickpick.items = [{ label: `$(repo) Create private repository`, description: `$(github) ${owner}/${sanitizedRepo}`, alwaysShow: true, repo: sanitizedRepo }];
 			}
 		};
 
@@ -636,7 +635,7 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 				private: true
 			});
 
-			const githubRepository = res.data;
+			const createdGithubRepository = res.data;
 
 			progress.report({ message: 'Creating first commit', increment: 25 });
 			const repository = await gitAPI.init(folder.uri);
@@ -648,10 +647,10 @@ export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI:
 			await repository.commit('first commit', { all: true });
 
 			progress.report({ message: 'Uploading files', increment: 25 });
-			await repository.addRemote('origin', githubRepository.clone_url);
+			await repository.addRemote('origin', createdGithubRepository.clone_url);
 			await repository.push('origin', 'master', true);
 
-			return githubRepository;
+			return createdGithubRepository;
 		});
 
 		if (!githubRepository) {
