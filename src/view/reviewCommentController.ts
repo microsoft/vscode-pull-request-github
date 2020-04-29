@@ -860,7 +860,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		});
 	}
 
-	private async  updateWithNewComment(comment: IComment, matchedFile: GitFileChangeNode): Promise<void> {
+	private async updateWithNewComment(comment: IComment, matchedFile: GitFileChangeNode): Promise<void> {
 		matchedFile.update(matchedFile.comments.concat(comment));
 		this._comments.push(comment);
 
