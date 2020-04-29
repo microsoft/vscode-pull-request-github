@@ -6,10 +6,9 @@
 import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, pushAndCreatePR } from './util';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION } from './util';
 import { Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
-import { ReviewManager } from '../view/reviewManager';
 
 export class CurrentIssue {
 	private statusBarItem: vscode.StatusBarItem | undefined;
@@ -18,7 +17,7 @@ export class CurrentIssue {
 	private user: string | undefined;
 	private repo: Repository | undefined;
 	private repoDefaults: PullRequestDefaults | undefined;
-	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private reviewManager: ReviewManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
+	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
 		this.setRepo();
 	}
 
@@ -54,7 +53,6 @@ export class CurrentIssue {
 		await this.createIssueBranch();
 		await this.setCommitMessageAndGitEvent();
 		this.setStatusBar();
-		await this.createDraftPR();
 	}
 
 	public dispose() {
@@ -154,21 +152,5 @@ export class CurrentIssue {
 		this.statusBarItem.tooltip = this.issueModel.title;
 		this.statusBarItem.command = 'issue.statusBar';
 		this.statusBarItem.show();
-	}
-
-	private async createDraftPR() {
-		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('alwaysCreateDraftPR');
-		if (configuration && this._branchName) {
-			// It seems that there is no API to tell if a PR or an issue are linked to eachother. Instead of doing something like the following query, we'll just try to push the branch.
-			// const existingDrafts = (await this.manager.getPullRequests(PRType.Query, undefined, `repo:${this.issueModel.remote.owner}/${this.issueModel.remote.repositoryName} is:open linked:issue author:${await this.getUser()} draft:false`)).items;
-			const issueState = this.stateManager.getSavedIssueState(this.issueModel.number);
-			if (!issueState.hasDraftPR) {
-				const succeeded = await pushAndCreatePR(this.manager, this.reviewManager, true);
-				if (succeeded) {
-					issueState.hasDraftPR = true;
-					this.stateManager.setSavedIssueState(this.issueModel, issueState);
-				}
-			}
-		}
 	}
 }

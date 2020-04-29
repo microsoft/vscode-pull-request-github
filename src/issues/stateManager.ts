@@ -12,7 +12,6 @@ import { MilestoneModel } from '../github/milestoneModel';
 import { GitAPI } from '../typings/git';
 import { ISSUES_CONFIGURATION, BRANCH_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION, variableSubstitution } from './util';
 import { CurrentIssue } from './currentIssue';
-import { ReviewManager } from '../view/reviewManager';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
@@ -61,7 +60,6 @@ export class StateManager {
 	constructor(
 		readonly gitAPI: GitAPI,
 		private manager: PullRequestManager,
-		private reviewManager: ReviewManager,
 		private context: vscode.ExtensionContext
 	) { }
 
@@ -199,7 +197,7 @@ export class StateManager {
 		if (restoreIssueNumber && this.currentIssue === undefined) {
 			for (let i = 0; i < issues.length; i++) {
 				if (issues[i].number === restoreIssueNumber) {
-					await this.setCurrentIssue(new CurrentIssue(issues[i], this.manager, this.reviewManager, this));
+					await this.setCurrentIssue(new CurrentIssue(issues[i], this.manager, this));
 					return;
 				}
 			}
@@ -233,7 +231,7 @@ export class StateManager {
 			if (branch === branchName) {
 				const issueModel = await this.manager.resolveIssue(state.branches[branch].owner, state.branches[branch].repositoryName, state.branches[branch].number);
 				if (issueModel) {
-					await this.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this.reviewManager, this));
+					await this.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this));
 				}
 				return;
 			}
@@ -301,17 +299,22 @@ export class StateManager {
 			return;
 		}
 		this.isSettingIssue = true;
-		if (this._currentIssue && (issue?.issue.number === this._currentIssue.issue.number)) {
-			return;
+		try {
+			if (this._currentIssue && (issue?.issue.number === this._currentIssue.issue.number)) {
+				return;
+			}
+			if (this._currentIssue) {
+				await this._currentIssue.stopWorking();
+			}
+			this.context.workspaceState.update(CURRENT_ISSUE_KEY, issue?.issue.number);
+			this._currentIssue = issue;
+			await this._currentIssue?.startWorking();
+			this._onDidChangeCurrentIssue.fire();
+		} catch (e) {
+			// Error has already been surfaced
+		} finally {
+			this.isSettingIssue = false;
 		}
-		if (this._currentIssue) {
-			await this._currentIssue.stopWorking();
-		}
-		this.context.workspaceState.update(CURRENT_ISSUE_KEY, issue?.issue.number);
-		this._currentIssue = issue;
-		await this._currentIssue?.startWorking();
-		this._onDidChangeCurrentIssue.fire();
-		this.isSettingIssue = false;
 	}
 
 	private getSavedState(): IssuesState {
