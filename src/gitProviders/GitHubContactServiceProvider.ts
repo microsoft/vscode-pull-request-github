@@ -64,9 +64,9 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 				};
 
 				// if we get initialized and users are available on the pr manager
-				const allMentionableUsers = this.pullRequestManager.getAllAssignableUsers();
-				if (allMentionableUsers) {
-					this.notifySuggestedAccounts(allMentionableUsers);
+				const allAssignableUsers = this.pullRequestManager.getAllAssignableUsers();
+				if (allAssignableUsers) {
+					this.notifySuggestedAccounts(allAssignableUsers);
 				}
 
 				break;
