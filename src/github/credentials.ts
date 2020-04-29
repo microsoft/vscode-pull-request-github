@@ -36,6 +36,7 @@ export interface GitHub {
 
 export class CredentialStore {
 	private _octokit: GitHub | undefined;
+	private _sessionId: string | undefined;
 
 	constructor(private readonly _telemetry: ITelemetry) { }
 
@@ -52,6 +53,7 @@ export class CredentialStore {
 
 		if (existingSessions.length) {
 			const token = await existingSessions[0].getAccessToken();
+			this._sessionId = existingSessions[0].id;
 			const octokit = await this.createHub(token);
 			this._octokit = octokit;
 			await this.setCurrentUser(octokit.octokit);
@@ -101,10 +103,18 @@ export class CredentialStore {
 	private async getSessionOrLogin(): Promise<string> {
 		const authenticationSessions = await vscode.authentication.getSessions(AUTH_PROVIDER_ID, SCOPES);
 		if (authenticationSessions.length) {
+			this._sessionId = authenticationSessions[0].id;
 			return await authenticationSessions[0].getAccessToken();
 		} else {
 			const session = await vscode.authentication.login(AUTH_PROVIDER_ID, SCOPES);
+			this._sessionId = session.id;
 			return session.getAccessToken();
+		}
+	}
+
+	public async logout(): Promise<void> {
+		if (this._sessionId) {
+			vscode.authentication.logout('github', this._sessionId);
 		}
 	}
 
