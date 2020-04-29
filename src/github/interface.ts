@@ -37,6 +37,7 @@ export interface IAccount {
 	name?: string;
 	avatarUrl?: string;
 	url: string;
+	email?: string;
 }
 
 export interface ISuggestedReviewer extends IAccount {

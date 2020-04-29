@@ -141,6 +141,9 @@ export class PullRequestManager implements vscode.Disposable {
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
 
+	private _onDidChangeAssignableUsers = new vscode.EventEmitter<IAccount[]>();
+	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
+
 	private _state: PRManagerState = PRManagerState.Initializing;
 
 	constructor(
@@ -466,6 +469,17 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 	}
 
+	getAllAssignableUsers(): IAccount[] | undefined {
+		if (this._assignableUsers) {
+			const allAssignableUsers: IAccount[] = [];
+			Object.keys(this._assignableUsers).forEach(k => {
+				allAssignableUsers.push(...this._assignableUsers![k]);
+			});
+
+			return allAssignableUsers;
+		}
+	}
+
 	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._mentionableUsers;
@@ -506,10 +520,12 @@ export class PullRequestManager implements vscode.Disposable {
 
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
+			const allAssignableUsers: IAccount[] = [];
 			return this._fetchAssignableUsersPromise = new Promise((resolve) => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getAssignableUsers();
 					cache[githubRepository.remote.remoteName] = data.sort(loginComparator);
+					allAssignableUsers.push(...data);
 					return;
 				});
 
@@ -517,6 +533,7 @@ export class PullRequestManager implements vscode.Disposable {
 					this._assignableUsers = cache;
 					this._fetchAssignableUsersPromise = undefined;
 					resolve(cache);
+					this._onDidChangeAssignableUsers.fire(allAssignableUsers);
 				});
 			});
 		}

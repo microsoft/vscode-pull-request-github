@@ -24,6 +24,8 @@ import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { CredentialStore } from './github/credentials';
 import { GithubRemoteSourceProvider } from './gitExtensionIntegration';
 import { GitExtension, GitAPI } from './typings/git';
+import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
+import { LiveShare } from 'vsls/vscode.js';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -34,7 +36,7 @@ fetch.Promise = PolyfillPromise;
 
 let telemetry: TelemetryReporter;
 
-async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitAPI, credentialStore: CredentialStore, repository: Repository, tree: PullRequestsTreeDataProvider): Promise<void> {
+async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitAPI, credentialStore: CredentialStore, repository: Repository, tree: PullRequestsTreeDataProvider, liveshareApiPromise: Promise<LiveShare | undefined>): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
@@ -53,6 +55,12 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	const prManager = new PullRequestManager(repository, telemetry, git, credentialStore);
 	context.subscriptions.push(prManager);
 
+	liveshareApiPromise.then((api) => {
+		if (api) {
+			// register the pull request provider to suggest PR contacts
+			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(prManager));
+		}
+	});
 	const reviewManager = new ReviewManager(context, repository, prManager, tree, telemetry);
 	tree.initialize(prManager);
 	registerCommands(context, prManager, reviewManager, telemetry, credentialStore);
@@ -115,7 +123,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	}
 
 	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
-	context.subscriptions.push(registerLiveShareGitProvider(apiImpl));
+	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
+	context.subscriptions.push(liveshareGitProvider);
+	const liveshareApiPromise = liveshareGitProvider.initialize();
+
 	context.subscriptions.push(apiImpl);
 	registerGlobalCommands(context, gitAPI, credentialStore);
 
@@ -128,9 +139,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	// so fall back to the first repository if no selected repository is found.
 	const selectedRepository = apiImpl.repositories.find(repository => repository.ui.selected) || apiImpl.repositories[0];
 	if (selectedRepository) {
-		await init(context, apiImpl, gitAPI, credentialStore, selectedRepository, prTree);
+		await init(context, apiImpl, gitAPI, credentialStore, selectedRepository, prTree, liveshareApiPromise);
 	} else {
-		onceEvent(apiImpl.onDidOpenRepository)(r => init(context, apiImpl, gitAPI, credentialStore, r, prTree));
+		onceEvent(apiImpl.onDidOpenRepository)(r => init(context, apiImpl, gitAPI, credentialStore, r, prTree, liveshareApiPromise));
 	}
 
 	return apiImpl;

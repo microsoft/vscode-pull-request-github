@@ -44,10 +44,12 @@ export class LiveShareManager implements vscode.Disposable {
 	) {
 		this._localDisposables = [];
 		this._globalDisposables = [];
-		this.initialize();
 	}
 
-	public async initialize() {
+	/**
+	 * return the liveshare api if available
+	 */
+	public async initialize(): Promise<LiveShare | undefined> {
 		if (!this._liveShareAPI) {
 			this._liveShareAPI = await getVSLSApi();
 		}
@@ -60,6 +62,8 @@ export class LiveShareManager implements vscode.Disposable {
 		if (this._liveShareAPI!.session) {
 			this._onDidChangeSession(this._liveShareAPI!.session);
 		}
+
+		return this._liveShareAPI;
 	}
 
 	private async _onDidChangeSession(session: any) {
