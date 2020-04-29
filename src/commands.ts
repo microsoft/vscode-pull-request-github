@@ -49,8 +49,11 @@ function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel)
 	}
 }
 
-export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager,
-	reviewManager: ReviewManager, telemetry: ITelemetry) {
+export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager, reviewManager: ReviewManager, telemetry: ITelemetry, credentialStore: CredentialStore) {
+
+	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
+		credentialStore.logout();
+	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | DescriptionNode | PullRequestModel) => {
 		if (!e) {
