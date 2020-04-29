@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse, UserResponse } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse, UserResponse, StartReviewResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
@@ -1026,24 +1026,27 @@ export class PullRequestManager implements vscode.Disposable {
 		};
 	}
 
-	async startReview(pullRequest: PullRequestModel): Promise<void> {
+	async startReview(pullRequest: PullRequestModel, initialComment: { body: string, path: string, position: number}): Promise<IComment> {
 		const { mutate, schema } = await pullRequest.githubRepository.ensure();
-		await mutate<void>({
+		const { data } = await mutate<StartReviewResponse>({
 			mutation: schema.StartReview,
 			variables: {
 				input: {
 					body: '',
-					pullRequestId: pullRequest.item.graphNodeId
+					pullRequestId: pullRequest.item.graphNodeId,
+					comments: initialComment
 				}
 			}
-		}).then(x => x.data).catch(e => {
-			Logger.appendLine(`Failed to start review: ${e.message}`);
 		});
+
+		if (!data) {
+			throw new Error('Failed to start review');
+		}
 
 		pullRequest.inDraftMode = true;
 		await this.updateDraftModeContext(pullRequest);
 
-		return;
+		return parseGraphQLComment(data.addPullRequestReview.pullRequestReview.comments.nodes[0]);
 	}
 
 	async validateDraftMode(pullRequest: PullRequestModel): Promise<boolean> {

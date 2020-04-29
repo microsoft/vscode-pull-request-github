@@ -480,7 +480,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #region Helper
 
-	private async createNewThread(thread: GHPRCommentThread, matchedFile: GitFileChangeNode, text: string): Promise<IComment | undefined> {
+	private async getNewCommentPosition(thread: GHPRCommentThread, matchedFile: GitFileChangeNode): Promise<number> {
 		const uri = thread.uri;
 		let isBase = false;
 		if (uri.query) {
@@ -503,7 +503,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 
 		if (!this._prManager.activePullRequest.validatePullRequestModel('Creating new comment failed')) {
-			return;
+			throw new Error('No upstream branch');
 		}
 
 		const headCommitSha = this._prManager.activePullRequest.head.sha;
@@ -517,8 +517,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			throw new Error('Comment position cannot be negative');
 		}
 
-		// there is no thread Id, which means it's a new thread
-		return await this._prManager.createComment(this._prManager.activePullRequest, text, matchedFile.fileName, position);
+		return position;
+	}
+
+	private async createNewThread(thread: GHPRCommentThread, matchedFile: GitFileChangeNode, text: string): Promise<IComment | undefined> {
+		const position = await this.getNewCommentPosition(thread, matchedFile);
+		return await this._prManager.createComment(this._prManager.activePullRequest!, text, matchedFile.fileName, position);
 	}
 
 	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string): Promise<string> {
@@ -717,8 +721,38 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #region Review
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
-		await this._prManager.startReview(this._prManager.activePullRequest!);
-		await this.createOrReplyComment(thread, input);
+		const temporaryCommentId = this.optimisticallyAddComment(thread, input, true);
+
+		try {
+			const matchedFile = this.findMatchedFileByUri(thread.uri);
+			if (!matchedFile) {
+				throw new Error('No matching file found');
+			}
+
+			const position = await this.getNewCommentPosition(thread, matchedFile);
+			const comment = await this._prManager.startReview(this._prManager.activePullRequest!,
+				{
+					body: input,
+					path: matchedFile.fileName,
+					position
+				}
+			);
+
+			thread.threadId = comment.id.toString();
+			this.addToCommentThreadCache(thread);
+			this.replaceTemporaryComment(thread, comment, temporaryCommentId);
+			await this.updateWithNewComment(comment, matchedFile);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Starting review failed: ${e}`);
+
+			thread.comments = thread.comments.map(c => {
+				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
+					c.mode = vscode.CommentMode.Editing;
+				}
+
+				return c;
+			});
+		}
 	}
 
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
@@ -826,6 +860,14 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		});
 	}
 
+	private async updateWithNewComment(comment: IComment, matchedFile: GitFileChangeNode): Promise<void> {
+		matchedFile.update(matchedFile.comments.concat(comment));
+		this._comments.push(comment);
+
+		await this.update(this._localFileChanges, this._obsoleteFileChanges);
+		this._onDidChangeComments.fire(this._comments);
+	}
+
 	// #region Comment
 	async createOrReplyComment(thread: GHPRCommentThread, input: string, inDraft?: boolean): Promise<void> {
 		const hasExistingComments = thread.comments.length;
@@ -853,12 +895,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 
 			this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
-
-			matchedFile.update(matchedFile.comments.concat(rawComment!));
-			this._comments.push(rawComment!);
-
-			await this.update(this._localFileChanges, this._obsoleteFileChanges);
-			this._onDidChangeComments.fire(this._comments);
+			this.updateWithNewComment(rawComment!, matchedFile);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
 
