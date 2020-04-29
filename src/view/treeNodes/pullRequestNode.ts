@@ -910,7 +910,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, true);
 
 		try {
-
 			const fileChange = await this.findMatchingFileNode(thread.uri);
 			const position = this.calculateCommentPosition(fileChange, thread);
 			const newComment = await this._prManager.startReview(this.pullRequestModel,
