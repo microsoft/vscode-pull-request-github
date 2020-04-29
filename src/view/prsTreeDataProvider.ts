@@ -30,6 +30,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _prManager: PullRequestManager;
 	private _initialized: boolean = false;
 	private _queries: IQueryInfo[];
+	private _isVSO: boolean | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -86,7 +87,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	}
 
-	initialize(prManager: PullRequestManager) {
+	async initialize(prManager: PullRequestManager) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}
@@ -96,20 +97,33 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._disposables.push(this._prManager.onDidChangeState(() => {
 			this._onDidChangeTreeData.fire();
 		}));
-		this.initializeCategories();
+		await this.initializeCategories();
 		this.refresh();
 	}
 
-	public updateQueries() {
-		this._queries = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE, this._prManager.repository.rootUri).get<IQueryInfo[]>(QUERIES_SETTING) || [];
+	private async isVSO(): Promise<boolean> {
+		if (this._isVSO !== undefined) {
+			return this._isVSO;
+		}
+
+		const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://vscode.github-authentication`));
+		const isVSO = callbackUri.authority.endsWith('workspaces.github.com');
+		this._isVSO = isVSO;
+		return isVSO;
 	}
 
-	private initializeCategories() {
-		this.updateQueries();
+	public async updateQueries() {
+		this._queries = await this.isVSO()
+			? []
+			: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE, this._prManager.repository.rootUri).get<IQueryInfo[]>(QUERIES_SETTING) || [];
+	}
 
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+	private async initializeCategories() {
+		await this.updateQueries();
+
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES_SETTING}`)) {
-				this.updateQueries();
+				await this.updateQueries();
 				this.refresh();
 			}
 		}));

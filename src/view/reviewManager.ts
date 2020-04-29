@@ -136,7 +136,7 @@ export class ReviewManager {
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
 				if (this._prFileChangesProvider) {
 					this._prFileChangesProvider.dispose();
@@ -149,7 +149,7 @@ export class ReviewManager {
 
 				this._prsTreeDataProvider.dispose();
 				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-				this._prsTreeDataProvider.initialize(this._prManager);
+				await this._prsTreeDataProvider.initialize(this._prManager);
 				this._disposables.push(this._prsTreeDataProvider);
 			}
 		}));
