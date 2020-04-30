@@ -108,6 +108,10 @@ export class StateManager {
 		this._onRefreshCacheNeeded.fire();
 	}
 
+	async refresh(): Promise<void> {
+		return this.setIssueData();
+	}
+
 	private async doInitialize() {
 		this.cleanIssueState();
 		this._queries = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
@@ -127,7 +131,7 @@ export class StateManager {
 		await this.setIssueData();
 		this.registerRepositoryChangeEvent();
 		this.context.subscriptions.push(this.onRefreshCacheNeeded(async () => {
-			await this.setIssueData();
+			await this.refresh();
 		}));
 	}
 

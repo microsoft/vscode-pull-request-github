@@ -640,6 +640,11 @@
         }
       },
       {
+        "command": "issue.suggestRefresh",
+        "title": "Refresh Suggestions",
+        "category": "GitHub Issues"
+      },
+      {
         "command": "issue.startWorking",
         "title": "Start Working on Issue",
         "category": "GitHub Issues",
@@ -705,7 +710,7 @@
     "keybindings": [
       {
         "key": "ctrl+shift+space",
-        "command": "issue.refresh",
+        "command": "issue.suggestRefresh",
         "when": "suggestWidgetVisible"
       },
       {
@@ -866,6 +871,10 @@
         },
         {
           "command": "issue.refresh",
+          "when": "false"
+        },
+        {
+          "command": "issue.suggestRefresh",
           "when": "false"
         },
         {
