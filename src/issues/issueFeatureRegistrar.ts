@@ -126,6 +126,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			this.telemetry.sendTelemetryEvent('issue.refresh');
 			return this.refreshView();
 		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.suggestRefresh', () => {
+			/* __GDPR__
+				"issue.suggestRefresh" : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.suggestRefresh');
+			return this.suggestRefresh();
+		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.getCurrent', () => {
 			/* __GDPR__
 				"issue.getCurrent" : {}
@@ -287,6 +294,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	refreshView() {
 		this._stateManager.refreshCacheNeeded();
+	}
+
+	async suggestRefresh() {
+		await vscode.commands.executeCommand('hideSuggestWidget');
+		await this._stateManager.refresh();
+		return vscode.commands.executeCommand('editor.action.triggerSuggest');
 	}
 
 	openIssue(issueModel: any) {
