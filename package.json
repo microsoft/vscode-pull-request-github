@@ -673,7 +673,7 @@
         "command": "issue.editQuery",
         "title": "Edit Query",
         "category": "GitHub Issues",
-        "icon": "$(tools)"
+        "icon": "$(edit)"
       },
       {
         "command": "issue.createIssue",
