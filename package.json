@@ -12,10 +12,10 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.15.0",
+  "version": "0.16.0",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.44.0"
+    "vscode": "^1.45.0"
   },
   "categories": [
     "Other"
