@@ -322,11 +322,6 @@
               "query": "author:${user} state:open repo:${owner}/${repository} sort:updated-desc"
             }
           ]
-        },
-        "githubIssues.alwaysCreateDraftPR": {
-          "type": "boolean",
-          "default": false,
-          "description": "When true, and when you are working on an issue in a branch, immediately creates a draft PR when you start working on an issue."
         }
       }
     },

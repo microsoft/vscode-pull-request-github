@@ -29,7 +29,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
 
 	constructor(gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
-		this._stateManager = new StateManager(gitAPI, this.manager, this.reviewManager, this.context);
+		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
 	}
 
 	async initialize() {
@@ -305,13 +305,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 
 		if (issueModel) {
-			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this.reviewManager, this._stateManager));
+			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager));
 		}
 	}
 
 	async startWorkingBranchPrompt(issueModel: any) {
 		if (issueModel instanceof IssueModel) {
-			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this.reviewManager, this._stateManager, true));
+			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager, true));
 		}
 	}
 
