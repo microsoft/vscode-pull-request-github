@@ -1,15 +1,22 @@
 [![Build Status](https://rebornix.visualstudio.com/Pull%20Request/_apis/build/status/Pull%20Request%20Build?branchName=master)](https://rebornix.visualstudio.com/Pull%20Request/_build/latest?definitionId=5&branchName=master)
 
-> Review and manage your GitHub pull requests directly in VS Code
+> Review and manage your GitHub pull requests and issues directly in VS Code
 
-This extension allows you to review and manage GitHub pull requests in Visual Studio Code. The support includes:
+This extension allows you to review and manage GitHub pull requests and issues in Visual Studio Code. The support includes:
 - Authenticating and connecting VS Code to GitHub.
 - Listing and browsing PRs from within VS Code.
 - Reviewing PRs from within VS Code with in-editor commenting.
 - Validating PRs from within VS Code with easy checkouts.
 - Terminal integration that enables UI and CLIs to co-exist.
+- Listing and browsing issues from within VS Code.
+- Hover cards for "@" mentioned users and for issues.
+- Completion suggestions for users and issues.
+- A "Start start working on issue" action which can create a branch for you.
+- Code actions to create issues from "todo" comments.
 
-![Demo](.readme/demo.gif)
+![PR Demo](.readme/demo.gif)
+
+![Issue Demo](.readme/issueDemo.gif)
 
 # Getting Started
 It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simply follow these steps to get started.
@@ -50,6 +57,8 @@ To customize the pull request tree, you can use the `githubPullRequests.queries`
 	}
 ]
 ```
+
+Similarly, there is a setting to configure your issues queries: `githubIssues.queries`.
 
 Queries use [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax).
 

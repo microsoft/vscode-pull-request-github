@@ -1,7 +1,7 @@
 {
   "name": "vscode-pull-request-github",
-  "displayName": "GitHub Pull Requests",
-  "description": "Pull Request Provider for GitHub",
+  "displayName": "GitHub Pull Requests and Issues",
+  "description": "Pull Request and Issue Provider for GitHub",
   "icon": "resources/icons/github_logo.png",
   "repository": {
     "type": "git",
