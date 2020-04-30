@@ -643,13 +643,13 @@
         "command": "issue.startWorking",
         "title": "Start Working on Issue",
         "category": "GitHub Issues",
-        "icon": "$(check)"
+        "icon": "$(arrow-right)"
       },
       {
         "command": "issue.continueWorking",
         "title": "Continue Working on Issue",
         "category": "GitHub Issues",
-        "icon": "$(check)"
+        "icon": "$(arrow-right)"
       },
       {
         "command": "issue.startWorkingBranchPrompt",
@@ -660,7 +660,7 @@
         "command": "issue.stopWorking",
         "title": "Stop Working on Issue",
         "category": "GitHub Issues",
-        "icon": "$(circle-slash)"
+        "icon": "$(primitive-square)"
       },
       {
         "command": "issue.statusBar",
