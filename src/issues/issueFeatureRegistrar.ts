@@ -332,7 +332,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			} catch (e) {
 				// leave defaults undefined
 			}
-			const stopWorkingText: string = `$(circle-slash) Stop working on #${this._stateManager.currentIssue.issue.number}`;
+			const stopWorkingText: string = `$(primitive-square) Stop working on #${this._stateManager.currentIssue.issue.number}`;
 			const choices = this._stateManager.currentIssue.branchName && defaults ? [openIssueText, pullRequestText, draftPullRequestText, stopWorkingText] : [openIssueText, pullRequestText, draftPullRequestText, stopWorkingText];
 			const response: string | undefined = await vscode.window.showQuickPick(choices, { placeHolder: 'Current issue options' });
 			switch (response) {

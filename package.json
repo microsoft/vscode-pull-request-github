@@ -642,12 +642,14 @@
       {
         "command": "issue.startWorking",
         "title": "Start Working on Issue",
-        "category": "GitHub Issues"
+        "category": "GitHub Issues",
+        "icon": "$(arrow-right)"
       },
       {
         "command": "issue.continueWorking",
         "title": "Continue Working on Issue",
-        "category": "GitHub Issues"
+        "category": "GitHub Issues",
+        "icon": "$(arrow-right)"
       },
       {
         "command": "issue.startWorkingBranchPrompt",
@@ -657,7 +659,8 @@
       {
         "command": "issue.stopWorking",
         "title": "Stop Working on Issue",
-        "category": "GitHub Issues"
+        "category": "GitHub Issues",
+        "icon": "$(primitive-square)"
       },
       {
         "command": "issue.statusBar",
@@ -1009,12 +1012,22 @@
         {
           "command": "issue.openIssue",
           "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
-          "group": "inline"
+          "group": "inline@2"
         },
         {
           "command": "issue.openIssue",
           "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
           "group": "issues_0@0"
+        },
+        {
+          "command": "issue.startWorking",
+          "when": "view =~ /issues:github/ && viewItem == issue",
+          "group": "inline@1"
+        },
+        {
+          "command": "issue.startWorking",
+          "when": "view =~ /issues:github/ && viewItem == continueissue",
+          "group": "inline@1"
         },
         {
           "command": "issue.startWorking",
@@ -1036,6 +1049,11 @@
           "command": "issue.stopWorking",
           "when": "view =~ /issues:github/ && viewItem == currentissue",
           "group": "issues_0@2"
+        },
+        {
+          "command": "issue.stopWorking",
+          "when": "view =~ /issues:github/ && viewItem == currentissue",
+          "group": "inline@1"
         },
         {
           "command": "issue.copyIssueNumber",
