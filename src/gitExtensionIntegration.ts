@@ -32,7 +32,7 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 	constructor(private readonly credentialStore: CredentialStore) { }
 
 	async getRemoteSources(query?: string): Promise<RemoteSource[]> {
-		const hub = await this.getHub();
+		const hub = await this.credentialStore.getHubOrLogin();
 
 		if (!hub) {
 			throw new Error('Could not fetch repositories from GitHub.');
@@ -67,17 +67,5 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 		const raw = await hub.octokit.search.repos({ q: query, sort: 'updated' });
 		return raw.data.items.map(asRemoteSource);
-	}
-
-	private async getHub(): Promise<GitHub | undefined> {
-		if (await this.credentialStore.hasOctokit()) {
-			return await this.credentialStore.getHub()!;
-		}
-
-		const hub = await this.credentialStore.loginWithConfirmation();
-
-		if (!hub) {
-			return await this.credentialStore.login();
-		}
 	}
 }

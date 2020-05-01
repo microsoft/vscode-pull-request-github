@@ -558,21 +558,13 @@ function sanitizeRepositoryName(value: string): string {
 }
 
 export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI: GitAPI, credentialStore: CredentialStore) {
-	async function getHub(): Promise<GitHub | undefined> {
-		if (await credentialStore.hasOctokit()) {
-			return await credentialStore.getHub()!;
-		} else {
-			return await credentialStore.login();
-		}
-	}
-
 	async function publish(): Promise<void> {
 		if (!vscode.workspace.workspaceFolders?.length) {
 			return;
 		}
 
 		const folder = vscode.workspace.workspaceFolders[0]; // TODO
-		const hub = await getHub();
+		const hub = await credentialStore.getHubOrLogin();
 
 		if (!hub) {
 			return;
