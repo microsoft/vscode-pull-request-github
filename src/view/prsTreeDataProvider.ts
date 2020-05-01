@@ -107,7 +107,10 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://vscode.github-authentication`));
-		const isVSO = callbackUri.authority.endsWith('workspaces.github.com');
+		const isVSO = callbackUri.authority.endsWith('workspaces.github.com')
+			|| callbackUri.authority.endsWith('workspaces-dev.github.com')
+			|| callbackUri.authority.endsWith('workspaces-ppe.github.com');
+
 		this._isVSO = isVSO;
 		return isVSO;
 	}
