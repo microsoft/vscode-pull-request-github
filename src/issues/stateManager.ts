@@ -191,21 +191,8 @@ export class StateManager {
 		return new Promise(async (resolve) => {
 			const issues = await this.manager.getIssues({ fetchNextPage: false }, query);
 			this._onDidChangeIssueData.fire();
-			await this.tryRestoreCurrentIssue(issues.items);
 			resolve(issues.items);
 		});
-	}
-
-	private async tryRestoreCurrentIssue(issues: IssueModel[]) {
-		const restoreIssueNumber = this.context.workspaceState.get(CURRENT_ISSUE_KEY);
-		if (restoreIssueNumber && this.currentIssue === undefined) {
-			for (let i = 0; i < issues.length; i++) {
-				if (issues[i].number === restoreIssueNumber) {
-					await this.setCurrentIssue(new CurrentIssue(issues[i], this.manager, this));
-					return;
-				}
-			}
-		}
 	}
 
 	private async setCurrentIssueFromBranch(branchName: string) {
@@ -259,7 +246,6 @@ export class StateManager {
 					continue;
 				}
 
-				await this.tryRestoreCurrentIssue(item.issues);
 				milestonesToUse.push(item);
 				let milestoneDate = milestone.dueOn ? new Date(milestone.dueOn) : undefined;
 				if (!milestoneDate) {
