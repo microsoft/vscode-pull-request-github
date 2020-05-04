@@ -18,6 +18,7 @@ import { TreeNode } from '../../view/treeNodes/treeNode';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { ApiImpl } from '../../api/api1';
+import { CredentialStore } from '../../github/credentials';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
@@ -35,7 +36,8 @@ describe('PullRequestOverview', function() {
 
 		const repository = new MockRepository();
 		const telemetry = new MockTelemetry();
-		pullRequestManager = new PullRequestManager(repository, telemetry, new ApiImpl());
+		const credentialStore = new CredentialStore(telemetry);
+		pullRequestManager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new Remote('origin', url, new Protocol(url));

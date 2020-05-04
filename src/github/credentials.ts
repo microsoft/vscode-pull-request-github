@@ -35,50 +35,42 @@ export interface GitHub {
 }
 
 export class CredentialStore {
-	private _octokit: GitHub | undefined;
+	private _githubAPI: GitHub | undefined;
 	private _sessionId: string | undefined;
 
 	constructor(private readonly _telemetry: ITelemetry) { }
 
-	public reset() {
-		this._octokit = undefined;
-	}
-
-	public async hasOctokit(): Promise<boolean> {
-		if (this._octokit) {
-			return true;
-		}
-
+	public async initialize(): Promise<void> {
 		const existingSessions = await vscode.authentication.getSessions(AUTH_PROVIDER_ID, SCOPES);
 
 		if (existingSessions.length) {
 			const token = await existingSessions[0].getAccessToken();
 			this._sessionId = existingSessions[0].id;
 			const octokit = await this.createHub(token);
-			this._octokit = octokit;
+			this._githubAPI = octokit;
 			await this.setCurrentUser(octokit.octokit);
 		} else {
 			Logger.debug(`No token found.`, 'Authentication');
 		}
+	}
 
-		return !!this._octokit;
+	public reset() {
+		this._githubAPI = undefined;
+	}
+
+	public isAuthenticated(): boolean {
+		return !!this._githubAPI;
 	}
 
 	public getHub(): GitHub | undefined {
-		return this._octokit;
+		return this._githubAPI;
 	}
 
-	public getOctokit(): AnnotatedOctokit | undefined {
-		const hub = this.getHub();
-		return hub && hub.octokit;
+	public async getHubOrLogin(): Promise<GitHub | undefined> {
+		return this._githubAPI ?? await this.login();
 	}
 
-	public getGraphQL() {
-		const hub = this.getHub();
-		return hub && hub.graphql;
-	}
-
-	public async loginWithConfirmation(): Promise<GitHub | undefined> {
+	public async showSignInNotification(): Promise<GitHub | undefined> {
 		if (PersistentState.fetch(PROMPT_FOR_SIGN_IN_SCOPE, PROMPT_FOR_SIGN_IN_STORAGE_KEY) === false) {
 			return;
 		}
@@ -97,18 +89,6 @@ export class CredentialStore {
 				"auth.cancel" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('auth.cancel');
-		}
-	}
-
-	private async getSessionOrLogin(): Promise<string> {
-		const authenticationSessions = await vscode.authentication.getSessions(AUTH_PROVIDER_ID, SCOPES);
-		if (authenticationSessions.length) {
-			this._sessionId = authenticationSessions[0].id;
-			return await authenticationSessions[0].getAccessToken();
-		} else {
-			const session = await vscode.authentication.login(AUTH_PROVIDER_ID, SCOPES);
-			this._sessionId = session.id;
-			return session.getAccessToken();
 		}
 	}
 
@@ -147,7 +127,7 @@ export class CredentialStore {
 		}
 
 		if (octokit) {
-			this._octokit = octokit;
+			this._githubAPI = octokit;
 			await this.setCurrentUser(octokit.octokit);
 
 			/* __GDPR__
@@ -165,8 +145,13 @@ export class CredentialStore {
 	}
 
 	public isCurrentUser(username: string): boolean {
-		const octokit = this.getOctokit();
-		return !!octokit && !!octokit.currentUser && octokit.currentUser.login === username;
+		return this._githubAPI?.octokit?.currentUser?.login === username;
+	}
+
+	public getCurrentUser(): Octokit.PullsGetResponseUser {
+		const octokit = this._githubAPI?.octokit;
+		// TODO remove cast
+		return octokit && (octokit as any).currentUser;
 	}
 
 	private async setCurrentUser(octokit: AnnotatedOctokit): Promise<void> {
@@ -174,10 +159,16 @@ export class CredentialStore {
 		octokit.currentUser = user.data;
 	}
 
-	public getCurrentUser(): Octokit.PullsGetResponseUser {
-		const octokit = this.getOctokit();
-		// TODO remove cast
-		return octokit && (octokit as any).currentUser;
+	private async getSessionOrLogin(): Promise<string> {
+		const authenticationSessions = await vscode.authentication.getSessions(AUTH_PROVIDER_ID, SCOPES);
+		if (authenticationSessions.length) {
+			this._sessionId = authenticationSessions[0].id;
+			return await authenticationSessions[0].getAccessToken();
+		} else {
+			const session = await vscode.authentication.login(AUTH_PROVIDER_ID, SCOPES);
+			this._sessionId = session.id;
+			return session.getAccessToken();
+		}
 	}
 
 	private async createHub(token: string): Promise<GitHub> {

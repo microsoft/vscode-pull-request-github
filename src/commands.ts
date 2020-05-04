@@ -28,7 +28,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 import { ITelemetry } from './common/telemetry';
 import { TreeNode } from './view/treeNodes/treeNode';
-import { CredentialStore, GitHub } from './github/credentials';
+import { CredentialStore } from './github/credentials';
 import { GitAPI } from './typings/git';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
@@ -558,21 +558,13 @@ function sanitizeRepositoryName(value: string): string {
 }
 
 export function registerGlobalCommands(context: vscode.ExtensionContext, gitAPI: GitAPI, credentialStore: CredentialStore) {
-	async function getHub(): Promise<GitHub | undefined> {
-		if (await credentialStore.hasOctokit()) {
-			return await credentialStore.getHub()!;
-		} else {
-			return await credentialStore.login();
-		}
-	}
-
 	async function publish(): Promise<void> {
 		if (!vscode.workspace.workspaceFolders?.length) {
 			return;
 		}
 
 		const folder = vscode.workspace.workspaceFolders[0]; // TODO
-		const hub = await getHub();
+		const hub = await credentialStore.getHubOrLogin();
 
 		if (!hub) {
 			return;

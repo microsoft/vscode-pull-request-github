@@ -60,7 +60,7 @@ describe('ReviewCommentController', function () {
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return new MockGitHubRepository(r, cStore, sinon);
 		});
-		sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(false));
+		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();
 
 		const pr = new PullRequestBuilder().build();

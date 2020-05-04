@@ -37,9 +37,9 @@ describe('GitHub Pull Requests view', function() {
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		credentialStore = new CredentialStore(telemetry);
 
-		// For tree view unit tests, we don't test the authentication flow, so `loginWithConfirmation` returns
+		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
 		// a dummy GitHub/Octokit object.
-		sinon.stub(credentialStore, 'loginWithConfirmation').callsFake(async () => {
+		sinon.stub(credentialStore, 'showSignInNotification').callsFake(async () => {
 			const github: GitHub = {
 				octokit: new Octokit({
 					request: {},
@@ -115,7 +115,7 @@ describe('GitHub Pull Requests view', function() {
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockGitHubRepository(remote, cStore, sinon);
 		});
-		sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(false));
+		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();
 		await provider.initialize(manager);
 
@@ -138,7 +138,7 @@ describe('GitHub Pull Requests view', function() {
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockGitHubRepository(remote, cStore, sinon);
 		});
-		sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(true));
+		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.updateRepositories();
 		await provider.initialize(manager);
 
@@ -205,7 +205,7 @@ describe('GitHub Pull Requests view', function() {
 				assert.strictEqual(cs, credentialStore);
 				return gitHubRepository;
 			});
-			sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(true));
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();
 			await provider.initialize(manager);
 			manager.activePullRequest = pullRequest1;

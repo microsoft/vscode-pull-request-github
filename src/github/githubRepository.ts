@@ -163,8 +163,8 @@ export class GitHubRepository implements vscode.Disposable {
 	async ensure(): Promise<GitHubRepository> {
 		this._initialized = true;
 
-		if (!await this._credentialStore.hasOctokit()) {
-			this._hub = await this._credentialStore.loginWithConfirmation();
+		if (!this._credentialStore.isAuthenticated()) {
+			this._hub = await this._credentialStore.showSignInNotification();
 		} else {
 			this._hub = await this._credentialStore.getHub();
 		}

@@ -112,6 +112,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 
 	PersistentState.init(context);
 	const credentialStore = new CredentialStore(telemetry);
+	await credentialStore.initialize();
 
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
 	const gitAPI = gitExtension.getAPI(1);

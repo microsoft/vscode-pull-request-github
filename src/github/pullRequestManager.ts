@@ -150,7 +150,7 @@ export class PullRequestManager implements vscode.Disposable {
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
 		private _git: ApiImpl,
-		private _credentialStore: CredentialStore = new CredentialStore(_telemetry),
+		private _credentialStore: CredentialStore,
 	) {
 		this._subs = [];
 		this._githubRepositories = [];
@@ -180,14 +180,11 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	// Check if authenticated and show a prompt if not, but don't block on user's response
-	private async showLoginPrompt(): Promise<void> {
-		this._credentialStore.hasOctokit().then(authd => {
-			if (!authd) {
-				this._credentialStore.loginWithConfirmation();
-			}
-		});
-
-		return Promise.resolve();
+	private showLoginPrompt(): void {
+		const authd = this._credentialStore.isAuthenticated();
+		if (!authd) {
+			this._credentialStore.showSignInNotification();
+		}
 	}
 
 	private computeAllGitHubRemotes(): Promise<Remote[]> {
@@ -441,7 +438,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		const activeRemotes = await this.getActiveRemotes();
-		const isAuthenticated = await this._credentialStore.hasOctokit();
+		const isAuthenticated = this._credentialStore.isAuthenticated();
 		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
 
 		const repositories: GitHubRepository[] = [];
