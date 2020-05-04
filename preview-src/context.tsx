@@ -164,12 +164,10 @@ export class PRContext {
 	}
 
 	postMessage(message: any) {
-		console.log('sending', message);
 		return this._handler.postMessage(message);
 	}
 
 	handleMessage = (message: any) => {
-		console.log('message from host:', message);
 		switch (message.command) {
 			case 'pr.initialize':
 				return this.setPR(message.pullrequest);

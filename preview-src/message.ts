@@ -45,7 +45,6 @@ export class MessageHandler {
 	// handle message should resolve promises
 	private handleMessage(event: any) {
 		const message: IReplyMessage = event.data; // The json data that the extension sent
-		console.log('Message:', message);
 		if (message.seq) {
 			// this is a reply
 			const pendingReply = this.pendingReplies[message.seq];
