@@ -28,7 +28,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 import { ITelemetry } from './common/telemetry';
 import { TreeNode } from './view/treeNodes/treeNode';
-import { CredentialStore, GitHub } from './github/credentials';
+import { CredentialStore } from './github/credentials';
 import { GitAPI } from './typings/git';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
