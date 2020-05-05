@@ -31,8 +31,8 @@ import { TreeNode } from './view/treeNodes/treeNode';
 import { CredentialStore, GitHub } from './github/credentials';
 import { GitAPI } from './typings/git';
 
-const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | undefined>();
-export const onDidUpdatePR: vscode.Event<PullRequest | undefined> = _onDidUpdatePR.event;
+const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
+export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
 
 function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.

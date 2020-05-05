@@ -23,10 +23,10 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
-				"${workspaceFolder}/out/test",
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/test"
 			],
+			"preLaunchTask": "npm: preprocess",
 			"outFiles": [
 				"${workspaceFolder}/out/test/**/*.js"
 			]
