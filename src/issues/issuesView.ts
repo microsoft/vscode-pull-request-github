@@ -10,8 +10,8 @@ import { StateManager } from './stateManager';
 import { Resource } from '../common/resources';
 
 export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | MilestoneModel | vscode.TreeItem> {
-	private _onDidChangeTreeData: vscode.EventEmitter<IssueModel | MilestoneModel | null | undefined> = new vscode.EventEmitter();
-	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | null | undefined> = this._onDidChangeTreeData.event;
+	private _onDidChangeTreeData: vscode.EventEmitter<IssueModel | MilestoneModel | null | undefined | void> = new vscode.EventEmitter();
+	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | null | undefined | void> = this._onDidChangeTreeData.event;
 	private firstLabel: string | undefined;
 
 	constructor(private stateManager: StateManager, context: vscode.ExtensionContext) {

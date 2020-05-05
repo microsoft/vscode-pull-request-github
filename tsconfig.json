@@ -17,7 +17,8 @@
 			"./src/typings/"
 		],
 		"noImplicitAny": true,
-		"strictNullChecks": true
+		"strictNullChecks": true,
+		"skipLibCheck": true
 	},
 	"include": [
 		"src/**/*"
