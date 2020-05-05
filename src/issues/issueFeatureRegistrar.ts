@@ -406,7 +406,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 		const quickInput = vscode.window.createInputBox();
 		quickInput.value = titlePlaceholder ?? '';
-		quickInput.prompt = 'Set the issue title. Confirm to create the issue now or use the edit button to edit the issue description.';
+		quickInput.prompt = 'Set the issue title. Confirm to create the issue now or use the edit button to edit the issue title and description.';
 		quickInput.title = 'Create Issue';
 		quickInput.buttons = [
 			{
