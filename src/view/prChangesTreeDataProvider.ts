@@ -14,7 +14,7 @@ import { PullRequestManager, SETTINGS_NAMESPACE } from '../github/pullRequestMan
 import { PullRequestModel } from '../github/pullRequestModel';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
-	private _onDidChangeTreeData = new vscode.EventEmitter<GitFileChangeNode | DescriptionNode>();
+	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _disposables: vscode.Disposable[] = [];
 

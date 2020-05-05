@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference path='./vscode.d.ts'/>
 /// <reference path='./vscode.proposed.d.ts'/>
 /// <reference path='./git-credential-node.d.ts'/>
 /// <reference path='./graphql.d.ts'/>

@@ -27,7 +27,7 @@ export function createVSCodeCommentThread(thread: ThreadData, commentController:
 		[]
 	);
 
-	vscodeThread.threadId = thread.threadId;
+	(vscodeThread as GHPRCommentThread).threadId = thread.threadId;
 
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
 
