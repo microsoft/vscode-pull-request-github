@@ -94,6 +94,10 @@ function repoCommitDate(user: User, repoNameWithOwner: string): string | undefin
 	return date;
 }
 
+export class UserCompletion extends vscode.CompletionItem {
+	login: string;
+}
+
 export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	markdown.appendMarkdown(`![Avatar](${user.avatarUrl}|height=50,width=50) **${user.name}** [${user.login}](${user.url})`);

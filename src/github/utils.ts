@@ -674,14 +674,14 @@ export function getRelatedUsersFromTimelineEvents(timelineEvents: Common.Timelin
 		if (Common.isReviewEvent(event)) {
 			ret.push({
 				login: event.user.login,
-				name: event.user.login
+				name: event.user.name ?? event.user.login
 			});
 		}
 
 		if (Common.isCommentEvent(event)) {
 			ret.push({
 				login: event.user.login,
-				name: event.user.login
+				name: event.user.name ?? event.user.login
 			});
 		}
 	});

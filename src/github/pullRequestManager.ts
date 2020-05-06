@@ -27,6 +27,7 @@ import { ApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
+import { userMarkdown, UserCompletion } from '../issues/util';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -223,7 +224,7 @@ export class PullRequestManager implements vscode.Disposable {
 	private setUpCompletionItemProvider() {
 		let lastPullRequest: PullRequestModel | undefined = undefined;
 		let lastPullRequestTimelineEvents: TimelineEvent[] = [];
-		let cachedUsers: vscode.CompletionItem[] = [];
+		let cachedUsers: UserCompletion[] = [];
 
 		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
 			provideCompletionItems: async (document, position, token) => {
@@ -349,11 +350,13 @@ export class PullRequestManager implements vscode.Disposable {
 								}
 
 								cachedUsers.push({
-									label: `@${user.login}`,
-									insertText: `${user.login}`,
+									label: user.login,
+									insertText: user.login,
 									filterText: `${user.login}` + (user.name && user.name !== user.login ? `_${user.name.toLowerCase().replace(' ', '_')}` : ''),
 									sortText: `${priority}_${user.login}`,
-									detail: `${user.name}`
+									detail: user.name,
+									kind: vscode.CompletionItemKind.User,
+									login: user.login
 								});
 							}
 						});
@@ -363,11 +366,13 @@ export class PullRequestManager implements vscode.Disposable {
 						if (!secondMap[user]) {
 							// if the mentionable api call fails partially, we should still populate related users from timeline events into the completion list
 							cachedUsers.push({
-								label: `@${prRelatedUsersMap[user].login}`,
+								label: prRelatedUsersMap[user].login,
 								insertText: `${prRelatedUsersMap[user].login}`,
 								filterText: `${prRelatedUsersMap[user].login}` + (prRelatedUsersMap[user].name && prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login ? `_${prRelatedUsersMap[user].name!.toLowerCase().replace(' ', '_')}` : ''),
 								sortText: `0_${prRelatedUsersMap[user].login}`,
-								detail: `${prRelatedUsersMap[user].name}`
+								detail: prRelatedUsersMap[user].name,
+								kind: vscode.CompletionItemKind.User,
+								login: prRelatedUsersMap[user].login
 							});
 						}
 					}
@@ -377,6 +382,18 @@ export class PullRequestManager implements vscode.Disposable {
 				} catch (e) {
 					return [];
 				}
+			},
+			resolveCompletionItem: async (item: vscode.CompletionItem, token: vscode.CancellationToken) => {
+				try {
+					const repo = await this.getPullRequestDefaults();
+					const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, item.label);
+					if (user) {
+						item.documentation = userMarkdown(repo, user);
+					}
+				} catch (e) {
+					// The user might not be resolvable in the repo, since users from outside the repo are included in the list.
+				}
+				return item;
 			}
 		}, '@');
 
@@ -1040,7 +1057,7 @@ export class PullRequestManager implements vscode.Disposable {
 		};
 	}
 
-	async startReview(pullRequest: PullRequestModel, initialComment: { body: string, path: string, position: number}): Promise<IComment> {
+	async startReview(pullRequest: PullRequestModel, initialComment: { body: string, path: string, position: number }): Promise<IComment> {
 		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 		const { data } = await mutate<StartReviewResponse>({
 			mutation: schema.StartReview,

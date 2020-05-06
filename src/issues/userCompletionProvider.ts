@@ -6,12 +6,8 @@
 import * as vscode from 'vscode';
 import { User, IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
-import { userMarkdown, ISSUES_CONFIGURATION } from './util';
+import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion } from './util';
 import { StateManager } from './stateManager';
-
-class UserCompletion extends vscode.CompletionItem {
-	login: string;
-}
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private _items: Promise<IAccount[]> = Promise.resolve([]);
@@ -61,12 +57,11 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 
 		const completionItems: vscode.CompletionItem[] = [];
 		(await this._items).forEach(item => {
-			const completionItem: UserCompletion = new UserCompletion(`${item.name ? item.name : item.login}`, vscode.CompletionItemKind.User);
+			const completionItem: UserCompletion = new UserCompletion(item.login, vscode.CompletionItemKind.User);
 			completionItem.insertText = `@${item.login}`;
 			completionItem.login = item.login;
 			completionItem.range = range;
-			completionItem.detail = item.login;
-
+			completionItem.detail = item.name;
 			completionItem.filterText = `@ ${item.login} ${item.name}`;
 			completionItems.push(completionItem);
 		});
