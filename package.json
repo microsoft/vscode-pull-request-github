@@ -951,7 +951,7 @@
         },
         {
           "command": "pr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):/",
           "group": "navigation"
         },
         {
@@ -962,11 +962,6 @@
         {
           "command": "pr.refreshChanges",
           "when": "view =~ /prStatus/",
-          "group": "navigation"
-        },
-        {
-          "command": "pr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /issues:/",
           "group": "navigation"
         },
         {
