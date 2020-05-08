@@ -54,8 +54,9 @@ export class CredentialStore {
 		}
 	}
 
-	public reset() {
+	public async reset() {
 		this._githubAPI = undefined;
+		await this.initialize();
 	}
 
 	public isAuthenticated(): boolean {
