@@ -34,7 +34,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	async initialize() {
 		this.registerCompletionProviders();
-		await this._stateManager.tryInitializeAndWait();
+		this.context.subscriptions.push(vscode.window.createTreeView('issues:github', { showCollapseAll: true, treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context) }));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', (newIssue?: NewIssue, issueBody?: string) => {
 			/* __GDPR__
 				"issue.createIssueFromSelection" : {}
@@ -173,11 +173,15 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			*/
 			this.telemetry.sendTelemetryEvent('issue.userCompletion');
 		}));
-		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry)));
-		this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)));
-		this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
-		this.context.subscriptions.push(vscode.window.registerTreeDataProvider('issues:github', new IssuesTreeData(this._stateManager, this.context)));
-		this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider('newIssue', new IssueFileSystemProvider()));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.signinAndRefreshList', async () => {
+			return this.manager.authenticate();
+		}));
+		return this._stateManager.tryInitializeAndWait().then(() => {
+			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry)));
+			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)));
+			this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
+			this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider('newIssue', new IssueFileSystemProvider()));
+		});
 	}
 
 	dispose() { }

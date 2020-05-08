@@ -703,6 +703,11 @@
         "title": "User Completion Chosen"
       },
       {
+        "command": "issue.signinAndRefreshList",
+        "title": "Sign in and Refresh",
+        "category": "GitHub Issues"
+      },
+      {
         "command": "github.publish",
         "title": "Publish to GitHub"
       }
@@ -930,6 +935,10 @@
           "when": "false"
         },
         {
+          "command": "issue.signinAndRefreshList",
+          "when": "false"
+        },
+        {
           "command": "github.publish",
           "when": "false"
         }
@@ -942,7 +951,7 @@
         },
         {
           "command": "pr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):/",
           "group": "navigation"
         },
         {

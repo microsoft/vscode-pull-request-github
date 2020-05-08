@@ -430,7 +430,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async clearCredentialCache(): Promise<void> {
-		this._credentialStore.reset();
+		await this._credentialStore.reset();
 		this.state = PRManagerState.Initializing;
 	}
 
