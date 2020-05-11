@@ -319,7 +319,7 @@
             },
             {
               "label": "Created Issues",
-              "query": "author:${user} state:open repo:${owner}/${repository} sort:updated-desc"
+              "query": "author:${user} state:open repo:${owner}/${repository} sort:created-desc"
             }
           ]
         }
