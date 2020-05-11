@@ -114,7 +114,7 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 class LiveShareRepositoryProxyHandler {
 	constructor() { }
 
-	get (obj: any, prop: any) {
+	get(obj: any, prop: any) {
 		if (prop in obj) {
 			return obj[prop];
 		}
