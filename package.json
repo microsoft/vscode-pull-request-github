@@ -306,12 +306,12 @@
               },
               "query": {
                 "type": "string",
-                "description": "The query used for searching issues."
+                "markdownDescription": "The search query using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax) with variables. The variable `${user}` can be used to specify the logged in user within a search. `${owner}` and `${repository}` can be used to specify the repository by using `repo:${owner}/${repository}`."
               }
             }
           },
           "scope": "resource",
-          "markdownDescription": "Specifies what queries should be used in the GitHub issues tree. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. `${owner}` and `${repository}` can be used to specify the repository by using `repo:${owner}/${repository}`. The \"default\" query includes issues assigned to you by Milestone. If you want to preserve these, make sure they are still in the array when you modify the setting. The first query listed will be expanded in the Issues view.",
+          "markdownDescription": "Specifies what queries should be used in the GitHub issues tree using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax) with variables. The first query listed will be expanded in the Issues view. The \"default\" query includes issues assigned to you by Milestone. If you want to preserve these, make sure they are still in the array when you modify the setting.",
           "default": [
             {
               "label": "My Issues",
