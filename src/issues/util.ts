@@ -354,8 +354,8 @@ export class PlainTextRenderer extends marked.Renderer {
 	blockquote(quote: string): string {
 		return quote;
 	}
-	html(html: string): string {
-		return html;
+	html(_html: string): string {
+		return '';
 	}
 	heading(text: string, _level: 1 | 2 | 3 | 4 | 5 | 6, _raw: string, _slugger: marked.Slugger): string {
 		return text + ' ';
