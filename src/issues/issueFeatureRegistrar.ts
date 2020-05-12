@@ -24,6 +24,8 @@ import { ITelemetry } from '../common/telemetry';
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
 
+const NEW_ISSUE_SCHEME = 'newIssue'
+
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
@@ -180,7 +182,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry)));
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)));
 			this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
-			this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider('newIssue', new IssueFileSystemProvider()));
+			this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()));
 		});
 	}
 
@@ -223,20 +225,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async createIssue() {
-		try {
-			const defaults = await this.manager.getPullRequestDefaults();
-			return vscode.env.openExternal(vscode.Uri.parse(`https://github.com/${defaults.owner}/${defaults.repo}/issues/new/choose`));
-		} catch (e) {
-			vscode.window.showErrorMessage('Unable to determine where to create the issue.');
-		}
+		return this.makeNewIssueFile();
 	}
 
 	async createIssueFromFile() {
-		if (this.createIssueInfo === undefined) {
-			return;
-		}
 		let text: string;
-		if (!vscode.window.activeTextEditor) {
+		if (!vscode.window.activeTextEditor || (vscode.window.activeTextEditor.document.uri.scheme !== NEW_ISSUE_SCHEME)) {
 			return;
 		}
 		text = vscode.window.activeTextEditor.document.getText();
@@ -259,9 +253,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (!title || !body) {
 			return;
 		}
-		await this.doCreateIssue(this.createIssueInfo.document, this.createIssueInfo.newIssue, title, body, this.createIssueInfo.assignee, this.createIssueInfo.lineNumber, this.createIssueInfo.insertIndex);
+		await this.doCreateIssue(this.createIssueInfo?.document, this.createIssueInfo?.newIssue, title, body, this.createIssueInfo?.assignee, this.createIssueInfo?.lineNumber, this.createIssueInfo?.insertIndex);
 		this.createIssueInfo = undefined;
-		vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 	}
 
 	async editQuery(query: vscode.TreeItem) {
@@ -431,22 +425,25 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			quickInput.hide();
 		});
 		quickInput.onDidTriggerButton(async () => {
-
 			title = quickInput.value;
 			quickInput.busy = true;
 			this.createIssueInfo = { document, newIssue, assignee, lineNumber, insertIndex };
 
-			const bodyPath = vscode.Uri.parse('newIssue:/NewIssue.md');
-			const text = `${title}\n\n${body ?? ''}\n\n<!--Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line after the title.-->`;
-			await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
-			await vscode.window.showTextDocument(bodyPath);
+			this.makeNewIssueFile(title, body);
 			quickInput.busy = false;
 			quickInput.hide();
 		});
 		quickInput.show();
 	}
 
-	private async doCreateIssue(document: vscode.TextDocument, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined) {
+	private async makeNewIssueFile(title?: string, body?: string) {
+		const bodyPath = vscode.Uri.parse(`${NEW_ISSUE_SCHEME}:/NewIssue.md`);
+		const text = `${title ?? 'Issue Title'}\n\n${body ?? ''}\n\n<!--Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line after the title.-->`;
+		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
+		await vscode.window.showTextDocument(bodyPath);
+	}
+
+	private async doCreateIssue(document: vscode.TextDocument | undefined, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined) {
 		let origin: PullRequestDefaults | undefined;
 		try {
 			origin = await this.manager.getPullRequestDefaults();
@@ -464,13 +461,20 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			assignee
 		});
 		if (issue) {
-			if ((insertIndex !== undefined) && (lineNumber !== undefined)) {
+			if ((document !== undefined) && (insertIndex !== undefined) && (lineNumber !== undefined)) {
 				const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
 				const insertText: string = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createInsertFormat', 'number') === 'number' ? `#${issue.number}` : issue.html_url;
 				edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
 				await vscode.workspace.applyEdit(edit);
 			} else {
-				await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
+				const copyIssueUrl = 'Copy URL';
+				const openIssue = 'Open Issue';
+				vscode.window.showInformationMessage('Issue created', copyIssueUrl, openIssue).then(async (result) => {
+					switch (result) {
+						case copyIssueUrl: await vscode.env.clipboard.writeText(issue.html_url); break;
+						case openIssue: await vscode.env.openExternal(vscode.Uri.parse(issue.html_url)); break;
+					}
+				})
 			}
 			this._stateManager.refreshCacheNeeded();
 		}

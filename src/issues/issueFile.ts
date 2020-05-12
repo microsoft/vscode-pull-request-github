@@ -29,7 +29,9 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	writeFile(_uri: vscode.Uri, content: Uint8Array, _options: { create: boolean; overwrite: boolean; } = { create: false, overwrite: false }): void | Thenable<void> {
 		this.content = content;
 	}
-	delete(_uri: vscode.Uri, _options: { recursive: boolean; }): void | Thenable<void> { }
+	delete(_uri: vscode.Uri, _options: { recursive: boolean; }): void | Thenable<void> {
+		this.content = undefined;
+	}
 
 	rename(_oldUri: vscode.Uri, _newUri: vscode.Uri, _options: { overwrite: boolean; }): void | Thenable<void> { }
 }
