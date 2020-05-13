@@ -1178,7 +1178,7 @@
       {
         "view": "scm",
         "contents": "You can also directly publish this folder to a GitHub repository.\n[$(github) Publish to GitHub](command:github.publish)",
-        "when": "config.git.enabled && !git.missing && workbenchState == folder"
+        "when": "config.git.enabled && git.state == initialized && workbenchState == folder"
       }
     ]
   },
