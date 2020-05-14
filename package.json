@@ -372,19 +372,13 @@
       {
         "command": "pr.create",
         "title": "Create Pull Request",
-        "icon": {
-          "light": "resources/icons/light/stage.svg",
-          "dark": "resources/icons/dark/stage.svg"
-        },
+        "icon": "$(plus)",
         "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.createDraft",
         "title": "Create Draft Pull Request",
-        "icon": {
-          "light": "resources/icons/light/stage.svg",
-          "dark": "resources/icons/dark/stage.svg"
-        },
+        "icon": "$(plus)",
         "category": "GitHub Pull Requests"
       },
       {
@@ -446,10 +440,7 @@
         "command": "pr.openDiffView",
         "title": "Open Diff View",
         "category": "GitHub Pull Requests",
-        "icon": {
-          "light": "resources/icons/light/open-change.svg",
-          "dark": "resources/icons/dark/open-change.svg"
-        }
+        "icon": "$(compare-changes)"
       },
       {
         "command": "pr.openChangedFile",
@@ -465,10 +456,7 @@
       {
         "command": "pr.openDescriptionToTheSide",
         "title": "Open Pull Request Description to the Side",
-        "icon": {
-          "light": "resources/icons/light/split-editor-horizontal.svg",
-          "dark": "resources/icons/dark/split-editor-horizontal-inverse.svg"
-        }
+        "icon": "$(split-horizontal)"
       },
       {
         "command": "pr.refreshDescription",
@@ -478,10 +466,7 @@
       {
         "command": "review.openFile",
         "title": "Open File",
-        "icon": {
-          "light": "resources/icons/light/open-file.svg",
-          "dark": "resources/icons/dark/open-file.svg"
-        }
+        "icon": "$(go-to-file)"
       },
       {
         "command": "review.suggestDiff",
@@ -490,29 +475,20 @@
       {
         "command": "pr.refreshList",
         "title": "Refresh Pull Requests List",
-        "icon": {
-          "dark": "resources/icons/dark/refresh.svg",
-          "light": "resources/icons/light/refresh.svg"
-        },
+        "icon": "$(refresh)",
         "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.refreshChanges",
         "title": "Refresh",
-        "icon": {
-          "dark": "resources/icons/dark/refresh.svg",
-          "light": "resources/icons/light/refresh.svg"
-        },
+        "icon": "$(refresh)",
         "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.configurePRViewlet",
         "title": "Configure...",
         "category": "GitHub Pull Requests",
-        "icon": {
-          "light": "resources/icons/light/gear.svg",
-          "dark": "resources/icons/dark/gear.svg"
-        }
+        "icon": "$(gear)"
       },
       {
         "command": "pr.deleteLocalBranch",
@@ -550,10 +526,7 @@
         "command": "pr.editComment",
         "title": "Edit Comment",
         "category": "GitHub Pull Requests",
-        "icon": {
-          "light": "resources/icons/light/edit.svg",
-          "dark": "resources/icons/dark/edit.svg"
-        }
+        "icon": "$(edit)"
       },
       {
         "command": "pr.cancelEditComment",
@@ -570,10 +543,7 @@
         "command": "pr.deleteComment",
         "title": "Delete Comment",
         "category": "GitHub Pull Requests",
-        "icon": {
-          "light": "resources/icons/light/delete.svg",
-          "dark": "resources/icons/dark/delete.svg"
-        }
+        "icon": "$(close)"
       },
       {
         "command": "pr.finishReview",
@@ -615,10 +585,7 @@
         "command": "issue.openIssue",
         "title": "Open Issue",
         "category": "GitHub Issues",
-        "icon": {
-          "light": "resources/icons/light/open-browser.svg",
-          "dark": "resources/icons/dark/open-browser.svg"
-        }
+        "icon": "$(globe)"
       },
       {
         "command": "issue.copyIssueNumber",
@@ -634,10 +601,7 @@
         "command": "issue.refresh",
         "title": "Refresh",
         "category": "GitHub Issues",
-        "icon": {
-          "dark": "resources/icons/dark/refresh.svg",
-          "light": "resources/icons/light/refresh.svg"
-        }
+        "icon": "$(refresh)"
       },
       {
         "command": "issue.suggestRefresh",
