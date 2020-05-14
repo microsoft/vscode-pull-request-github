@@ -142,6 +142,9 @@ export class PullRequestManager implements vscode.Disposable {
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
 
+	private _onDidChangeRepositories = new vscode.EventEmitter<void>();
+	readonly onDidChangeRepositories: vscode.Event<void> = this._onDidChangeRepositories.event;
+
 	private _onDidChangeAssignableUsers = new vscode.EventEmitter<IAccount[]>();
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
 
@@ -479,6 +482,7 @@ export class PullRequestManager implements vscode.Disposable {
 			this.getMentionableUsers(repositoriesChanged);
 			this.getAssignableUsers(repositoriesChanged);
 			this.state = isAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
+			this._onDidChangeRepositories.fire();
 			return Promise.resolve();
 		});
 	}
