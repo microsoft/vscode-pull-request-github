@@ -46,7 +46,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 		await this.stateManager.tryInitializeAndWait();
 
-		const completionItems: vscode.CompletionItem[] = [];
+		const completionItems: Map<string, vscode.CompletionItem> = new Map();
 		const now = new Date();
 		let repo: PullRequestDefaults | undefined;
 		try {
@@ -63,18 +63,18 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			if (issuesOrMilestones[0] instanceof IssueModel) {
 				let index = 0;
 				for (const issue of issuesOrMilestones) {
-					completionItems.push(await this.completionItemFromIssue(repo, <IssueModel>issue, now, range, document, index++));
+					completionItems.set(getIssueNumberLabel(<IssueModel>issue), await this.completionItemFromIssue(repo, <IssueModel>issue, now, range, document, index++));
 				}
 			} else {
 				for (let index = 0; index < issuesOrMilestones.length; index++) {
 					const value: MilestoneModel = <MilestoneModel>issuesOrMilestones[index];
 					for (const issue of value.issues) {
-						completionItems.push(await this.completionItemFromIssue(repo, issue, now, range, document, index, value.milestone));
+						completionItems.set(getIssueNumberLabel(issue), await this.completionItemFromIssue(repo, issue, now, range, document, index, value.milestone));
 					}
 				}
 			}
 		}
-		return completionItems;
+		return [...completionItems.values()];
 	}
 
 	private async completionItemFromIssue(repo: PullRequestDefaults | undefined, issue: IssueModel, now: Date, range: vscode.Range, document: vscode.TextDocument, index: number, milestone?: IMilestone): Promise<IssueCompletionItem> {
