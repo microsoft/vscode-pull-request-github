@@ -488,7 +488,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const link = await this.getPermalinkWithError();
 		if (link) {
 			vscode.env.clipboard.writeText(link);
-			vscode.window.showInformationMessage('Link copied to clipboard.');
 		}
 	}
 
