@@ -80,7 +80,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 		});
 	});
 
-	git.onDidOpenRepository(async (repo) => {
+	git.onDidOpenRepository(repo => {
 		repo.ui.onDidChange(() => {
 			if (repo.ui.selected) {
 				prManager.repository = repo;
@@ -88,9 +88,11 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 				tree.updateQueries();
 			}
 		});
-		await repo.status();
-		prManager.repository = repo;
-		reviewManager.setRepository(repo, true);
+		const disposable = repo.state.onDidChange(() => {
+			prManager.repository = repo;
+			reviewManager.setRepository(repo, true);
+			disposable.dispose();
+		});
 	});
 
 	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editorChange => {
