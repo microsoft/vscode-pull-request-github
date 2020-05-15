@@ -74,21 +74,38 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 			// No multi-select support, always show last selected repo
 			if (repo.ui.selected) {
 				prManager.repository = repo;
-				reviewManager.repository = repo;
+				reviewManager.setRepository(repo, false);
 				tree.updateQueries();
 			}
 		});
 	});
 
-	git.onDidOpenRepository(repo => {
+	git.onDidOpenRepository(async (repo) => {
 		repo.ui.onDidChange(() => {
 			if (repo.ui.selected) {
 				prManager.repository = repo;
-				reviewManager.repository = repo;
+				reviewManager.setRepository(repo, false);
 				tree.updateQueries();
 			}
 		});
+		await repo.status();
+		prManager.repository = repo;
+		reviewManager.setRepository(repo, true);
 	});
+
+	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editorChange => {
+		if (!editorChange) {
+			return;
+		}
+		for (const repo of git.repositories) {
+			if (editorChange.document.uri.fsPath.toLowerCase().startsWith(repo.rootUri.fsPath.toLowerCase()) &&
+				(repo.rootUri.fsPath.toLowerCase() !== prManager.repository.rootUri.fsPath.toLowerCase())) {
+				prManager.repository = repo;
+				reviewManager.setRepository(repo, true);
+				return;
+			}
+		}
+	}));
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 	const issuesFeatures = new IssueFeatureRegistrar(gitAPI, prManager, reviewManager, context, telemetry);

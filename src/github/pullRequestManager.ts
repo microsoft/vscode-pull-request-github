@@ -163,7 +163,6 @@ export class PullRequestManager implements vscode.Disposable {
 		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
 				await this.updateRepositories();
-				vscode.commands.executeCommand('pr.refreshList');
 			}
 		}));
 
@@ -452,7 +451,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return activeRemotes;
 	}
 
-	async updateRepositories(): Promise<void> {
+	async updateRepositories(silent: boolean = false): Promise<void> {
 		if (this._git.state === 'uninitialized') {
 			return;
 		}
@@ -482,7 +481,9 @@ export class PullRequestManager implements vscode.Disposable {
 			this.getMentionableUsers(repositoriesChanged);
 			this.getAssignableUsers(repositoriesChanged);
 			this.state = isAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
-			this._onDidChangeRepositories.fire();
+			if (!silent) {
+				this._onDidChangeRepositories.fire();
+			}
 			return Promise.resolve();
 		});
 	}

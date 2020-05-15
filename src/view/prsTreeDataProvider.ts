@@ -97,6 +97,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._disposables.push(this._prManager.onDidChangeState(() => {
 			this._onDidChangeTreeData.fire();
 		}));
+		this._disposables.push(this._prManager.onDidChangeRepositories(() => {
+			this._onDidChangeTreeData.fire();
+		}));
 		await this.initializeCategories();
 		this.refresh();
 	}
