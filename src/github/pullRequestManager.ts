@@ -1904,11 +1904,30 @@ export class PullRequestManager implements vscode.Disposable {
 			base: `${pullRequest.base.repositoryCloneUrl.owner}:${encodeURIComponent(pullRequest.base.ref)}`,
 			head: `${pullRequest.head.repositoryCloneUrl.owner}:${encodeURIComponent(pullRequest.head.ref)}`
 		});
-
 		pullRequest.mergeBase = data.merge_base_commit.sha;
 
+		Logger.debug(`Fetching file changes of PR #${pullRequest.number}`, PullRequestManager.ID);
+		const files: Array<IRawFileChange> = [];
+		let hasNext = false;
+		let page = 0;
+		do {
+			Logger.debug(`Fetch file changes page ${page} of PR #${pullRequest.number}`, PullRequestManager.ID);
+			const response = await octokit.pulls.listFiles({
+				owner: pullRequest.base.repositoryCloneUrl.owner,
+				pull_number: pullRequest.number,
+				repo: remote.repositoryName,
+				per_page: 100,
+				page: page
+			});
+			response.data.forEach(i => files.push(i));
+			hasNext = response.headers.link.includes('rel="next"');
+			page++;
+		} while (hasNext);
+
+		// const files = await octokit.paginate(, );
+
 		Logger.debug(`Fetch file changes and merge base of PR #${pullRequest.number} - done`, PullRequestManager.ID);
-		return data.files;
+		return files;
 	}
 
 	/**
