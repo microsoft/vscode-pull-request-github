@@ -11,7 +11,7 @@ This extension allows you to review and manage GitHub pull requests and issues i
 - Listing and browsing issues from within VS Code.
 - Hover cards for "@" mentioned users and for issues.
 - Completion suggestions for users and issues.
-- A "Start start working on issue" action which can create a branch for you.
+- A "Start working on issue" action which can create a branch for you.
 - Code actions to create issues from "todo" comments.
 
 ![PR Demo](.readme/demo.gif)
