@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { Repository } from './api/api';
 import { ApiImpl } from './api/api1';
-import { registerCommands, registerGlobalCommands } from './commands';
+import { registerCommands } from './commands';
 import Logger from './common/logger';
 import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
@@ -22,7 +22,6 @@ import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { CredentialStore } from './github/credentials';
-import { GithubRemoteSourceProvider } from './gitExtensionIntegration';
 import { GitExtension, GitAPI } from './typings/git';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { LiveShare } from 'vsls/vscode.js';
@@ -116,19 +115,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
 	const gitAPI = gitExtension.getAPI(1);
 
-	// let's not break compatibility
-	if (gitAPI.registerRemoteSourceProvider) {
-		const remoteSourceProvider = new GithubRemoteSourceProvider(credentialStore);
-		context.subscriptions.push(gitAPI.registerRemoteSourceProvider(remoteSourceProvider));
-	}
-
 	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
 	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
 	context.subscriptions.push(liveshareGitProvider);
 	const liveshareApiPromise = liveshareGitProvider.initialize();
 
 	context.subscriptions.push(apiImpl);
-	registerGlobalCommands(context, gitAPI, credentialStore);
 
 	Logger.appendLine('Looking for git repository');
 
