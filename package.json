@@ -15,7 +15,7 @@
   "version": "0.16.0",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.45.0"
+    "vscode": "^1.46.0"
   },
   "categories": [
     "Other"
@@ -670,10 +670,6 @@
         "command": "issue.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "GitHub Issues"
-      },
-      {
-        "command": "github.publish",
-        "title": "Publish to GitHub"
       }
     ],
     "keybindings": [
@@ -1137,14 +1133,7 @@
           "when": "commentController =~ /^(browse|review)/"
         }
       ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "scm",
-        "contents": "You can also directly publish this folder to a GitHub repository.\n[$(github) Publish to GitHub](command:github.publish)",
-        "when": "config.git.enabled && git.state == initialized && workbenchState == folder"
-      }
-    ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "webpack --env.production",
