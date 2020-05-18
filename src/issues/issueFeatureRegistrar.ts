@@ -30,7 +30,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
 
-	constructor(gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
+	constructor(private gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
 	}
 
@@ -400,7 +400,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			assignee = matches[1];
 		}
 		let title: string | undefined;
-		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.manager, newIssue);
+		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.gitAPI, newIssue);
 
 		const quickInput = vscode.window.createInputBox();
 		quickInput.value = titlePlaceholder ?? '';
@@ -452,7 +452,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			vscode.window.showErrorMessage('There is no remote. Can\'t create an issue.');
 			return;
 		}
-		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.manager, newIssue);
+		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.gitAPI, newIssue);
 		const issue = await this.manager.createIssue({
 			owner: origin.owner,
 			repo: origin.repo,
@@ -481,7 +481,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	private async getPermalinkWithError(): Promise<string | undefined> {
-		const link: string | undefined = await createGithubPermalink(this.manager);
+		const link: string | undefined = await createGithubPermalink(this.gitAPI);
 		if (!link) {
 			vscode.window.showWarningMessage('Unable to create a GitHub permalink for the selection. Check that your local branch is tracking a remote branch.');
 		}
