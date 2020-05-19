@@ -897,10 +897,6 @@
         {
           "command": "issue.signinAndRefreshList",
           "when": "false"
-        },
-        {
-          "command": "github.publish",
-          "when": "false"
         }
       ],
       "view/title": [
