@@ -12,6 +12,7 @@ import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
+import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
@@ -269,7 +270,45 @@ export interface NewIssue {
 	range: vscode.Range | vscode.Selection;
 }
 
-export async function createGithubPermalink(manager: PullRequestManager, positionInfo?: NewIssue): Promise<string | undefined> {
+function getRepositoryForFile(gitAPI: GitAPI, file: vscode.Uri): Repository | undefined {
+	for (const repository of gitAPI.repositories) {
+		if (file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase())) {
+			return repository;
+		}
+	}
+	return undefined;
+}
+
+const UPSTREAM = 1;
+const UPS = 2;
+const ORIGIN = 3;
+const OTHER = 4;
+const REMOTE_CONVENTIONS = new Map([['upstream', UPSTREAM], ['ups', UPS], ['origin', ORIGIN]]);
+
+async function getUpstream(repository: Repository, commit: Commit): Promise<Remote | undefined> {
+	const remotes = (await repository.getBranches({ contains: commit.hash, remote: true })).filter(value => value.remote && value.name);
+	let bestRemotes: Ref[] = [];
+	if (remotes.length === 1) {
+		bestRemotes.push(remotes[0]);
+	} else if (remotes.length > 1) {
+		bestRemotes = remotes.sort((a, b) => {
+			const aVal = REMOTE_CONVENTIONS.get(a.remote!) ?? OTHER;
+			const bVal = REMOTE_CONVENTIONS.get(b.remote!) ?? OTHER;
+			return aVal - bVal;
+		});
+	}
+
+	if (bestRemotes.length > 0) {
+		for (const remote of repository.state.remotes) {
+			if (remote.name === bestRemotes[0].remote) {
+				return remote;
+			}
+		}
+	}
+	return undefined;
+}
+
+export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIssue): Promise<string | undefined> {
 	let document: vscode.TextDocument;
 	let range: vscode.Range;
 	if (!positionInfo && vscode.window.activeTextEditor) {
@@ -282,13 +321,27 @@ export async function createGithubPermalink(manager: PullRequestManager, positio
 		return undefined;
 	}
 
-	const origin = await manager.getOrigin();
-	const pathSegment = document.uri.path.substring(manager.repository.rootUri.path.length);
-	if (manager.repository.state.HEAD && manager.repository.state.HEAD.commit && (manager.repository.state.HEAD.ahead === 0)) {
-		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.commit}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
-	} else if (manager.repository.state.HEAD && manager.repository.state.HEAD.ahead && (manager.repository.state.HEAD.ahead > 0)) {
-		return `https://github.com/${origin.remote.owner}/${origin.remote.repositoryName}/blob/${manager.repository.state.HEAD.upstream!.name}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
+	const repository = getRepositoryForFile(gitAPI, document.uri);
+	if (!repository) {
+		return undefined;
 	}
+
+	const log = await repository.log({ maxEntries: 1, path: document.uri.fsPath });
+	if (log.length === 0) {
+		return undefined;
+	}
+
+	const upstream = await getUpstream(repository, log[0]);
+	if (!upstream) {
+		return undefined;
+	}
+	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
+	const expr = /^((git\@github\.com\:)|(https:\/\/github\.com\/))(.+\/.+)\.git$/;
+	const match = upstream.fetchUrl?.match(expr);
+	if (!match) {
+		return undefined;
+	}
+	return `https://github.com/${match[4]}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
