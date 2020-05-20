@@ -1,3 +1,8 @@
+0.16.1
+
+**Bug fixes**
+- Fix extension activation in VSCode insiders from duplicated command [1821](https://github.com/microsoft/vscode-pull-request-github/issues/1821)
+
 0.16.0
 
 We have been working on a new set of GitHub issue related features. Take a look at our [documentation](https://github.com/microsoft/vscode-pull-request-github/blob/master/documentation/IssueFeatures.md) for more details on these and how to use them!
