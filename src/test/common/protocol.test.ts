@@ -10,7 +10,7 @@ import { Protocol, ProtocolType } from '../../common/protocol';
 const SSH_CONFIG_WITH_HOST_ALIASES = `
 Host gh
   User git
-  HostName github.com
+  Hostname github.com
 `;
 
 const str = (x: any) => JSON.stringify(x);
