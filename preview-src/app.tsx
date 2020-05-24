@@ -19,5 +19,5 @@ export function Root({ children }) {
 		setPR(ctx.pr);
 	}, []);
 	ctx.postMessage({ command: 'pr.debug', args: ('initialized ' + (pr ? 'with PR' : 'without PR'))});
-	return pr ? children(pr) : 'Loading...';
+	return pr ? children(pr) : <div className='loading-indicator'>Loading...</div>;
 }
