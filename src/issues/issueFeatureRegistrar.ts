@@ -25,10 +25,12 @@ const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
 
 const NEW_ISSUE_SCHEME = 'newIssue'
+const ASSIGNEES = 'Assignees:';
+const LABELS = 'Labels:';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
-	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
+	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
 
 	constructor(private gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
@@ -249,11 +251,34 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			}
 		}
 		const title = text.substring(0, indexOfEmptyLine);
-		const body = text.substring(indexOfEmptyLine + 2);
+		let assignees: string[] | undefined;
+		text = text.substring(indexOfEmptyLine + 2).trim();
+		if (text.startsWith(ASSIGNEES)) {
+			const lines = text.split(/\r\n|\n/, 1);
+			if (lines.length === 1) {
+				assignees = lines[0].substring(ASSIGNEES.length).split(',').map(value => {
+					value = value.trim();
+					if (value.startsWith('@')) {
+						value = value.substring(1);
+					}
+					return value;
+				});
+				text = text.substring(lines[0].length).trim();
+			}
+		}
+		let labels: string[] | undefined;
+		if (text.startsWith(LABELS)) {
+			const lines = text.split(/\r\n|\n/, 1);
+			if (lines.length === 1) {
+				labels = lines[0].substring(LABELS.length).split(',').map(value => value.trim());
+				text = text.substring(lines[0].length).trim();
+			}
+		}
+		const body = text;
 		if (!title || !body) {
 			return;
 		}
-		await this.doCreateIssue(this.createIssueInfo?.document, this.createIssueInfo?.newIssue, title, body, this.createIssueInfo?.assignee, this.createIssueInfo?.lineNumber, this.createIssueInfo?.insertIndex);
+		await this.doCreateIssue(this.createIssueInfo?.document, this.createIssueInfo?.newIssue, title, body, assignees, labels, this.createIssueInfo?.lineNumber, this.createIssueInfo?.insertIndex);
 		this.createIssueInfo = undefined;
 		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 	}
@@ -381,7 +406,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		let titlePlaceholder: string | undefined;
 		let insertIndex: number | undefined;
 		let lineNumber: number | undefined;
-		let assignee: string | undefined;
+		let assignee: string[] | undefined;
 		let issueGenerationText: string | undefined;
 		if (!newIssue && vscode.window.activeTextEditor) {
 			document = vscode.window.activeTextEditor.document;
@@ -397,7 +422,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 		const matches = issueGenerationText.match(USER_EXPRESSION);
 		if (matches && matches.length === 2 && this._stateManager.userMap.has(matches[1])) {
-			assignee = matches[1];
+			assignee = [matches[1]];
 		}
 		let title: string | undefined;
 		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.gitAPI, newIssue);
@@ -419,7 +444,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			title = quickInput.value;
 			if (title) {
 				quickInput.busy = true;
-				await this.doCreateIssue(document, newIssue, title, body, assignee, lineNumber, insertIndex);
+				await this.doCreateIssue(document, newIssue, title, body, assignee, undefined, lineNumber, insertIndex);
 				quickInput.busy = false;
 			}
 			quickInput.hide();
@@ -427,23 +452,34 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		quickInput.onDidTriggerButton(async () => {
 			title = quickInput.value;
 			quickInput.busy = true;
-			this.createIssueInfo = { document, newIssue, assignee, lineNumber, insertIndex };
+			this.createIssueInfo = { document, newIssue, lineNumber, insertIndex };
 
-			this.makeNewIssueFile(title, body);
+			this.makeNewIssueFile(title, body, assignee);
 			quickInput.busy = false;
 			quickInput.hide();
 		});
 		quickInput.show();
 	}
 
-	private async makeNewIssueFile(title?: string, body?: string) {
+	private async makeNewIssueFile(title?: string, body?: string, assignees?: string[] | undefined) {
 		const bodyPath = vscode.Uri.parse(`${NEW_ISSUE_SCHEME}:/NewIssue.md`);
-		const text = `${title ?? 'Issue Title'}\n\n${body ?? ''}\n\n<!--Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line after the title.-->`;
+		const assigneeLine = `${ASSIGNEES} ${assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''}`;
+		const labelLine = `${LABELS} `;
+		const text =
+			`${title ?? 'Issue Title'}\n
+${assigneeLine}
+${labelLine}\n
+${body ?? ''}\n
+<!-- Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line before beginning the body of the issue. -->`;
 		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
-		await vscode.window.showTextDocument(bodyPath);
+		const editor = await vscode.window.showTextDocument(bodyPath);
+		const assigneesDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated usernames, either @username or just username.', fontStyle: 'italic' } })
+		const labelsDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated labels.', fontStyle: 'italic' } });
+		editor.setDecorations(assigneesDecoration, [new vscode.Range(new vscode.Position(2, 0), new vscode.Position(2, assigneeLine.length))]);
+		editor.setDecorations(labelsDecoration, [new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelLine.length))]);
 	}
 
-	private async doCreateIssue(document: vscode.TextDocument | undefined, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignee: string | undefined, lineNumber: number | undefined, insertIndex: number | undefined) {
+	private async doCreateIssue(document: vscode.TextDocument | undefined, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignees: string[] | undefined, labels: string[] | undefined, lineNumber: number | undefined, insertIndex: number | undefined) {
 		let origin: PullRequestDefaults | undefined;
 		try {
 			origin = await this.manager.getPullRequestDefaults();
@@ -458,7 +494,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			repo: origin.repo,
 			title,
 			body,
-			assignee
+			assignees,
+			labels
 		});
 		if (issue) {
 			if ((document !== undefined) && (insertIndex !== undefined) && (lineNumber !== undefined)) {
