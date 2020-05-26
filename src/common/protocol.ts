@@ -70,8 +70,8 @@ export class Protocol {
 	private parseSshProtocol(uriString: string): boolean {
 		const sshConfig = resolve(uriString);
 		if (!sshConfig) { return false; }
-		const { HostName, path } = sshConfig;
-		this.host = HostName;
+		const { Hostname, HostName, path } = sshConfig;
+		this.host = HostName || Hostname;
 		this.owner = this.getOwnerName(path) || '';
 		this.repositoryName = this.getRepositoryName(path) || '';
 		this.type = ProtocolType.SSH;

@@ -87,7 +87,7 @@ const parse = (url: string): Config | undefined => {
 function baseResolver(config: Config) {
 	return {
 		...config,
-		HostName: config.Host,
+		Hostname: config.Host,
 	};
 }
 
