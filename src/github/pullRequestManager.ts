@@ -86,6 +86,7 @@ export class BadUpstreamError extends Error {
 
 export const SETTINGS_NAMESPACE = 'githubPullRequests';
 export const REMOTES_SETTING = 'remotes';
+const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 300;
 
 interface NewCommentPosition {
 	path: string;
@@ -1906,27 +1907,27 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 		pullRequest.mergeBase = data.merge_base_commit.sha;
 
-		Logger.debug(`Fetching file changes of PR #${pullRequest.number}`, PullRequestManager.ID);
-		const files: Array<IRawFileChange> = [];
-		let hasNext = false;
-		let page = 0;
-		do {
-			Logger.debug(`Fetch file changes page ${page} of PR #${pullRequest.number}`, PullRequestManager.ID);
-			const response = await octokit.pulls.listFiles({
+		let files: Array<IRawFileChange> = [];
+		if (data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
+			// compareCommits will return a maximum of 300 changed files
+			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
+			Logger.debug(`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${pullRequest.number}`, PullRequestManager.ID);
+			// @ts-ignore
+			files = await octokit.paginate(`GET /repos/:owner/:repo/pulls/:pull_number/files`, {
 				owner: pullRequest.base.repositoryCloneUrl.owner,
 				pull_number: pullRequest.number,
 				repo: remote.repositoryName,
-				per_page: 100,
-				page: page
+				per_page: 100
+			}, (r) => {
+				Logger.debug(`Fetched another batch of ${r.data.length} file changes for PR #${pullRequest.number}`, PullRequestManager.ID);
+				return r;
 			});
-			response.data.forEach(i => files.push(i));
-			hasNext = response.headers.link.includes('rel="next"');
-			page++;
-		} while (hasNext);
+		} else {
+			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
+			files = data.files;
+		}
 
-		// const files = await octokit.paginate(, );
-
-		Logger.debug(`Fetch file changes and merge base of PR #${pullRequest.number} - done`, PullRequestManager.ID);
+		Logger.debug(`Fetch file changes and merge base of PR #${pullRequest.number} - done. Found ${files.length} file changes.`, PullRequestManager.ID);
 		return files;
 	}
 
