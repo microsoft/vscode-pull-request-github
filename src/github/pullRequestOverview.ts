@@ -152,6 +152,18 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		return reviewers;
 	}
 
+	/**
+	 * Find curently configured user's review status for the current PR
+	 * @param reviewers All the reviewers who have been requested to review the current PR
+	 * @param pullRequestModel Model of the PR
+	 */
+	private parseReviewsAndGetState(reviewers:ReviewState[],pullRequestModel:PullRequestModel): String | undefined {
+		const user = this._pullRequestManager.getCurrentUser(pullRequestModel);
+		const review = reviewers.find(r => r.reviewer.login === user.login);
+		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
+		return review?.state;
+	}
+
 	public async updatePullRequest(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
 		return Promise.all([
 			this._pullRequestManager.resolvePullRequest(
@@ -180,6 +192,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._item);
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+			const parsedReviewers = this.parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			this._postMessage({
@@ -208,11 +221,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					hasWritePermission,
 					status: status ? status : { statuses: [] },
 					mergeable: pullRequest.item.mergeable,
-					reviewers: this.parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author),
+					reviewers: parsedReviewers,
 					isDraft: pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
-					isIssue: false
+					isIssue: false,
+					reviewState: this.parseReviewsAndGetState(parsedReviewers,pullRequestModel)
 				}
 			});
 		}).catch(e => {
