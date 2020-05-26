@@ -585,6 +585,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				review: review,
 				reviewers: this._existingReviewers
 			});
+			//just making sure that pr review status is approved on git servers
+			setTimeout(()=>vscode.commands.executeCommand('pr.refreshList'),1000);
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
