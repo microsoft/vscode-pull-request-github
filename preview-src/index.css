@@ -45,6 +45,13 @@ a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	margin-left: 5px;
 }
 
+.loading-indicator{
+	position: fixed;
+	top: 50%;
+	left: 40%;
+	transform: translate(-50%,-50%);
+}
+
 .comment-body li div {
 	display: inline;
 }
