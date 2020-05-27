@@ -23,7 +23,7 @@ const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
 const AUTH_PROVIDER_ID = 'github';
-const SCOPES = ['read:user', 'user:email', 'repo'];
+const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
 
 export interface AnnotatedOctokit extends Octokit {
 	currentUser?: Octokit.PullsGetResponseUser;
