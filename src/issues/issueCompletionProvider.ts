@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution, getIssueNumberLabel } from './util';
+import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution, getIssueNumberLabel, isComment } from './util';
 import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
@@ -33,6 +33,10 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 		if ((context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter) &&
 			(<string[]>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreCompletionTrigger', [])).find(value => value === document.languageId)) {
+			return [];
+		}
+
+		if (!(await isComment(document, position))) {
 			return [];
 		}
 
