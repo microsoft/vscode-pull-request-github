@@ -33,7 +33,7 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 		return undefined;
 	}
 	const issue: ParsedIssue = { owner: undefined, name: undefined, issueNumber: 0 };
-	if (output.length === 8) {
+	if ((output.length === 8) || (output.length === 6)) {
 		issue.owner = output[2];
 		issue.name = output[3];
 		issue.issueNumber = parseInt(output[4]);
@@ -398,6 +398,24 @@ export async function pushAndCreatePR(manager: PullRequestManager, reviewManager
 			return false;
 		}
 	}
+}
+
+export async function isComment(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
+	if ((document.languageId !== 'markdown') && (document.languageId !== 'plaintext')) {
+		const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
+		if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
+			return false;
+		}
+	}
+	return true;
+}
+
+export async function shouldShowHover(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
+	if (document.lineAt(position.line).range.end.character > 10000) {
+		return false;
+	}
+
+	return isComment(document, position);
 }
 
 export class PlainTextRenderer extends marked.Renderer {

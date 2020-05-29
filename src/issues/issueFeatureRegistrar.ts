@@ -20,11 +20,12 @@ import { GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
 import { IssueFileSystemProvider } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
+import { IssueLinkProvider } from './issueLinkProvider';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
 
-const NEW_ISSUE_SCHEME = 'newIssue'
+const NEW_ISSUE_SCHEME = 'newIssue';
 const ASSIGNEES = 'Assignees:';
 const LABELS = 'Labels:';
 
@@ -38,6 +39,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	async initialize() {
 		this.registerCompletionProviders();
+		this.context.subscriptions.push(vscode.languages.registerDocumentLinkProvider('*', new IssueLinkProvider(this.manager, this._stateManager)));
 		this.context.subscriptions.push(vscode.window.createTreeView('issues:github', { showCollapseAll: true, treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context) }));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', (newIssue?: NewIssue, issueBody?: string) => {
 			/* __GDPR__
@@ -473,7 +475,7 @@ ${body ?? ''}\n
 <!-- Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line before beginning the body of the issue. -->`;
 		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
 		const editor = await vscode.window.showTextDocument(bodyPath);
-		const assigneesDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated usernames, either @username or just username.', fontStyle: 'italic' } })
+		const assigneesDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated usernames, either @username or just username.', fontStyle: 'italic' } });
 		const labelsDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated labels.', fontStyle: 'italic' } });
 		editor.setDecorations(assigneesDecoration, [new vscode.Range(new vscode.Position(2, 0), new vscode.Position(2, assigneeLine.length))]);
 		editor.setDecorations(labelsDecoration, [new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelLine.length))]);
@@ -511,7 +513,7 @@ ${body ?? ''}\n
 						case copyIssueUrl: await vscode.env.clipboard.writeText(issue.html_url); break;
 						case openIssue: await vscode.env.openExternal(vscode.Uri.parse(issue.html_url)); break;
 					}
-				})
+				});
 			}
 			this._stateManager.refreshCacheNeeded();
 		}

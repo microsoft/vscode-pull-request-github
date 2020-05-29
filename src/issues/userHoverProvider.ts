@@ -5,14 +5,14 @@
 
 import * as vscode from 'vscode';
 import { PullRequestManager } from '../github/pullRequestManager';
-import { userMarkdown, USER_EXPRESSION } from './util';
+import { userMarkdown, USER_EXPRESSION, shouldShowHover } from './util';
 import { ITelemetry } from '../common/telemetry';
 
 export class UserHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: PullRequestManager, private telemetry: ITelemetry) { }
 
-	provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover | undefined> {
-		if (document.lineAt(position).range.end.character > 10000) {
+	async provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | undefined> {
+		if (!(await shouldShowHover(document, position))) {
 			return;
 		}
 

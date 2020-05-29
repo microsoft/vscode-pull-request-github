@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { User, IAccount } from '../github/interface';
 import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
-import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion } from './util';
+import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion, isComment } from './util';
 import { StateManager } from './stateManager';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
@@ -44,6 +44,10 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 
 		if ((context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter) &&
 			(<string[]>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreUserCompletionTrigger', [])).find(value => value === document.languageId)) {
+			return [];
+		}
+
+		if (!(await isComment(document, position))) {
 			return [];
 		}
 
