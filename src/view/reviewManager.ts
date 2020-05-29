@@ -217,9 +217,9 @@ export class ReviewManager {
 		return this._statusBarItem;
 	}
 
-	set repository(repository: Repository) {
+	setRepository(repository: Repository, silent: boolean) {
 		this._repository = repository;
-		this.updateState();
+		this.updateState(silent);
 	}
 
 	private pollForStatusChange() {
@@ -231,27 +231,30 @@ export class ReviewManager {
 		}, 1000 * 60 * 5);
 	}
 
-	public async updateState() {
+	public async updateState(silent: boolean = false) {
 		if (this.switchingToReviewMode) {
 			return;
 		}
 		if (!this._validateStatusInProgress) {
 			Logger.appendLine('Review> Validate state in progress');
-			this._validateStatusInProgress = this.validateState();
+			this._validateStatusInProgress = this.validateState(silent);
 			return this._validateStatusInProgress;
 		} else {
 			Logger.appendLine('Review> Queuing additional validate state');
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
-				return await this.validateState();
+				return await this.validateState(silent);
 			});
 
 			return this._validateStatusInProgress;
 		}
 	}
 
-	private async validateState() {
+	private async validateState(silent: boolean) {
 		Logger.appendLine('Review> Validating state...');
-		await this._prManager.updateRepositories();
+		await this._prManager.updateRepositories(silent);
+		if (silent) {
+			return;
+		}
 
 		if (!this._repository.state.HEAD) {
 			this.clear(true);
@@ -644,7 +647,7 @@ export class ReviewManager {
 		return selected;
 	}
 
-	private async getPullRequestTitleAndDescriptionDefaults(progress: vscode.Progress<{message?: string, increment?: number}>): Promise<{ title: string, description: string } | undefined> {
+	private async getPullRequestTitleAndDescriptionDefaults(progress: vscode.Progress<{ message?: string, increment?: number }>): Promise<{ title: string, description: string } | undefined> {
 		const pullRequestTemplates = await this._prManager.getPullRequestTemplates();
 		let template: vscode.Uri | undefined;
 
@@ -709,7 +712,7 @@ export class ReviewManager {
 		return method;
 	}
 
-	public async createPullRequest(draft=false): Promise<void> {
+	public async createPullRequest(draft = false): Promise<void> {
 		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
 		const githubRemotes = this._prManager.getGitHubRemotes();
 		const targetRemote = await this.getRemote(githubRemotes, 'Select the remote to send the pull request to',
