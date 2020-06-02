@@ -38,6 +38,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async initialize() {
+		this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()));
 		this.registerCompletionProviders();
 		this.context.subscriptions.push(vscode.languages.registerDocumentLinkProvider('*', new IssueLinkProvider(this.manager, this._stateManager)));
 		this.context.subscriptions.push(vscode.window.createTreeView('issues:github', { showCollapseAll: true, treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context) }));
@@ -186,7 +187,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry)));
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)));
 			this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
-			this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()));
 		});
 	}
 
