@@ -472,11 +472,11 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 ${assigneeLine}
 ${labelLine}\n
 ${body ?? ''}\n
-<!-- Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line before beginning the body of the issue. -->`;
+<!-- Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Assignees and Labels follow after a blank line. Leave an empty line before beginning the body of the issue. -->`;
 		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
 		const editor = await vscode.window.showTextDocument(bodyPath);
-		const assigneesDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated usernames, either @username or just username.', fontStyle: 'italic' } });
-		const labelsDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated labels.', fontStyle: 'italic' } });
+		const assigneesDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: ' Comma-separated usernames, either @username or just username.', fontStyle: 'italic', color: new vscode.ThemeColor('issues.newIssueDecoration') } });
+		const labelsDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: ' Comma-separated labels.', fontStyle: 'italic', color: new vscode.ThemeColor('issues.newIssueDecoration') } });
 		editor.setDecorations(assigneesDecoration, [new vscode.Range(new vscode.Position(2, 0), new vscode.Position(2, assigneeLine.length))]);
 		editor.setDecorations(labelsDecoration, [new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelLine.length))]);
 	}
