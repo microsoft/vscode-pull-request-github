@@ -47,7 +47,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if (!(await isComment(document, position))) {
+		if ((document.languageId !== 'scminput') && !(await isComment(document, position))) {
 			return [];
 		}
 
