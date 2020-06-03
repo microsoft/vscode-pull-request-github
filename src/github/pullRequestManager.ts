@@ -1918,9 +1918,6 @@ export class PullRequestManager implements vscode.Disposable {
 				pull_number: pullRequest.number,
 				repo: remote.repositoryName,
 				per_page: 100
-			}, (r) => {
-				Logger.debug(`Fetched another batch of ${r.data.length} file changes for PR #${pullRequest.number}`, PullRequestManager.ID);
-				return r;
 			});
 		} else {
 			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
