@@ -21,7 +21,8 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "*",
+    "onFileSystem:newIssue"
   ],
   "extensionDependencies": [
     "vscode.git",
