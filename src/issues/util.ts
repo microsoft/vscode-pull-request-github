@@ -14,8 +14,8 @@ import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
 import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
 
-export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
+export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
+export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
