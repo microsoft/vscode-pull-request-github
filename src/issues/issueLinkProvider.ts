@@ -8,6 +8,7 @@ import { getIssue, ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, MA
 import { StateManager } from './stateManager';
 
 const MAX_LINE_COUNT = 2000;
+const MAX_LINKS = 20;
 
 class IssueDocumentLink extends vscode.DocumentLink {
 	constructor(range: vscode.Range, public readonly mappedLink: { readonly value: string, readonly parsed: ParsedIssue }) {
@@ -21,13 +22,13 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 	async provideDocumentLinks(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.DocumentLink[]> {
 		const links: vscode.DocumentLink[] = [];
 		const wraps: boolean = vscode.workspace.getConfiguration('editor', document).get('wordWrap', 'off') !== 'off';
-		for (let i = 0; i < Math.min(document.lineCount, MAX_LINE_COUNT); i++) {
+		for (let i = 0; (i < Math.min(document.lineCount, MAX_LINE_COUNT)) && (links.length <= MAX_LINKS); i++) {
 			let searchResult = -1;
 			let lineOffset = 0;
 			const line = document.lineAt(i).text;
 			const lineLength = wraps ? line.length : Math.min(line.length, MAX_LINE_LENGTH);
 			let lineSubstring = line.substring(0, lineLength);
-			while ((searchResult = lineSubstring.search(ISSUE_EXPRESSION)) >= 0) {
+			while (((searchResult = lineSubstring.search(ISSUE_EXPRESSION)) >= 0) && (links.length <= MAX_LINKS)) {
 				const match = lineSubstring.match(ISSUE_EXPRESSION);
 				const parsed = parseIssueExpressionOutput(match);
 				if (match && parsed) {
