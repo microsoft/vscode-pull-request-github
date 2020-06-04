@@ -167,7 +167,6 @@ export class PullRequestManager implements vscode.Disposable {
 		}));
 
 		this.setUpCompletionItemProvider();
-		this.showLoginPrompt();
 	}
 
 	get state() {
@@ -179,14 +178,6 @@ export class PullRequestManager implements vscode.Disposable {
 		this._state = state;
 		if (stateChange) {
 			this._onDidChangeState.fire();
-		}
-	}
-
-	// Check if authenticated and show a prompt if not, but don't block on user's response
-	private showLoginPrompt(): void {
-		const authd = this._credentialStore.isAuthenticated();
-		if (!authd) {
-			this._credentialStore.showSignInNotification();
 		}
 	}
 
