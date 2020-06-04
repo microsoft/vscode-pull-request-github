@@ -21,6 +21,7 @@ import { Resource } from '../common/resources';
 import { IssueFileSystemProvider } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
 import { IssueLinkProvider } from './issueLinkProvider';
+import Octokit = require('@octokit/rest');
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
@@ -485,6 +486,15 @@ ${body ?? ''}\n
 		editor.setDecorations(labelsDecoration, [new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelLine.length))]);
 	}
 
+	private async verifyLabels(createParams: Octokit.IssuesCreateParams) {
+		if (!createParams.labels) {
+			return;
+		}
+		const allLabels = await this.manager.getLabels(undefined, createParams);
+		const filteredLabels = allLabels.filter(label => createParams.labels?.includes(label.name)).map(label => label.name);
+		createParams.labels = filteredLabels;
+	}
+
 	private async doCreateIssue(document: vscode.TextDocument | undefined, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignees: string[] | undefined, labels: string[] | undefined, lineNumber: number | undefined, insertIndex: number | undefined) {
 		let origin: PullRequestDefaults | undefined;
 		try {
@@ -495,14 +505,16 @@ ${body ?? ''}\n
 			return;
 		}
 		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.gitAPI, newIssue);
-		const issue = await this.manager.createIssue({
+		const createParams: Octokit.IssuesCreateParams = {
 			owner: origin.owner,
 			repo: origin.repo,
 			title,
 			body,
 			assignees,
 			labels
-		});
+		};
+		await this.verifyLabels(createParams);
+		const issue = await this.manager.createIssue(createParams);
 		if (issue) {
 			if ((document !== undefined) && (insertIndex !== undefined) && (lineNumber !== undefined)) {
 				const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
