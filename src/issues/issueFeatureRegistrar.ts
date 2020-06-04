@@ -465,7 +465,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	private async makeNewIssueFile(title?: string, body?: string, assignees?: string[] | undefined) {
 		const bodyPath = vscode.Uri.parse(`${NEW_ISSUE_SCHEME}:/NewIssue.md`);
-		if (vscode.window.visibleTextEditors.filter(editor => editor.document.uri.scheme === NEW_ISSUE_SCHEME).length > 0) {
+		if (vscode.window.visibleTextEditors.filter(visibleEditor => visibleEditor.document.uri.scheme === NEW_ISSUE_SCHEME).length > 0) {
 			return;
 		}
 		await vscode.workspace.fs.delete(bodyPath);
