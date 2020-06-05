@@ -20,7 +20,6 @@ import { GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
 import { IssueFileSystemProvider } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
-import { IssueLinkProvider } from './issueLinkProvider';
 import Octokit = require('@octokit/rest');
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
@@ -41,7 +40,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	async initialize() {
 		this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()));
 		this.registerCompletionProviders();
-		this.context.subscriptions.push(vscode.languages.registerDocumentLinkProvider('*', new IssueLinkProvider(this.manager, this._stateManager)));
 		this.context.subscriptions.push(vscode.window.createTreeView('issues:github', { showCollapseAll: true, treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context) }));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', (newIssue?: NewIssue, issueBody?: string) => {
 			/* __GDPR__
