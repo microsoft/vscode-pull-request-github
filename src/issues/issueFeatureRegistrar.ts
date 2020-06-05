@@ -193,6 +193,18 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	dispose() { }
 
+	private documentFilters: Array<vscode.DocumentFilter | string> = [
+		{ language: 'php' }, { language: 'powershell' }, { language: 'jade' }, { language: 'python' }, { language: 'r' }, { language: 'razor' },
+		{ language: 'ruby' }, { language: 'rust' }, { language: 'scss' }, { language: 'search-result' }, { language: 'shaderlab' },
+		{ language: 'shellscript' }, { language: 'sql' }, { language: 'swift' }, { language: 'typescript' }, { language: 'vb' },
+		{ language: 'xml' }, { language: 'yaml' }, { language: 'markdown' }, { language: 'bat' }, { language: 'clojure' },
+		{ language: 'coffeescript' }, { language: 'jsonc' }, { language: 'c' }, { language: 'cpp' }, { language: 'csharp' },
+		{ language: 'css' }, { language: 'dockerfile' }, { language: 'fsharp' }, { language: 'git-commit' }, { language: 'go' },
+		{ language: 'groovy' }, { language: 'handlebars' }, { language: 'hlsl' }, { language: 'ini' }, { language: 'java' },
+		{ language: 'javascriptreact' }, { language: 'javascript' }, { language: 'json' }, { language: 'less' }, { language: 'log' },
+		{ language: 'lua' }, { language: 'makefile' }, { language: 'ignore' }, { language: 'properties' }, { language: 'objective-c' },
+		{ language: 'perl' }, { language: 'perl6' }, '*'
+	];
 	private registerCompletionProviders() {
 		const providers: { provider: (typeof IssueCompletionProvider) | (typeof UserCompletionProvider), trigger: string, disposable: vscode.Disposable | undefined, configuration: string }[] = [
 			{
@@ -210,7 +222,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		];
 		for (const element of providers) {
 			if (vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(element.configuration, true)) {
-				this.context.subscriptions.push(element.disposable = vscode.languages.registerCompletionItemProvider('*', new element.provider(this._stateManager, this.manager, this.context), element.trigger));
+				this.context.subscriptions.push(element.disposable = vscode.languages.registerCompletionItemProvider(this.documentFilters, new element.provider(this._stateManager, this.manager, this.context), element.trigger));
 			}
 		}
 		this.context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(change => {
@@ -221,7 +233,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 						element.disposable.dispose();
 						element.disposable = undefined;
 					} else if (newValue && !element.disposable) {
-						this.context.subscriptions.push(element.disposable = vscode.languages.registerCompletionItemProvider('*', new element.provider(this._stateManager, this.manager, this.context), element.trigger));
+						this.context.subscriptions.push(element.disposable = vscode.languages.registerCompletionItemProvider(this.documentFilters, new element.provider(this._stateManager, this.manager, this.context), element.trigger));
 					}
 					break;
 				}
