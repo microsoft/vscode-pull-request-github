@@ -21,7 +21,8 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "*",
+    "onFileSystem:newIssue"
   ],
   "extensionDependencies": [
     "vscode.git",
@@ -1129,7 +1130,18 @@
           "when": "commentController =~ /^(browse|review)/"
         }
       ]
-    }
+    },
+    "colors": [
+      {
+        "id": "issues.newIssueDecoration",
+        "defaults": {
+          "dark": "#ffffff48",
+          "light": "#00000048",
+          "highContrast": "editor.foreground"
+        },
+        "description": "The color used for the assignees and labels fields in a new issue editor."
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "webpack --env.production",

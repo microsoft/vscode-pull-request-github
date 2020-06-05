@@ -14,9 +14,9 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	stat(_uri: vscode.Uri): vscode.FileStat {
 		return {
 			type: vscode.FileType.File,
-			ctime: 0,
-			mtime: 0,
-			size: 0
+			ctime: new Date().getTime(),
+			mtime: new Date().getTime(),
+			size: this.content?.length ?? 0
 		};
 	}
 	readDirectory(_uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {

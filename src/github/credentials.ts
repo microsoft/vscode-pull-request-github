@@ -41,11 +41,11 @@ export class CredentialStore {
 	constructor(private readonly _telemetry: ITelemetry) { }
 
 	public async initialize(): Promise<void> {
-		const existingSessions = await vscode.authentication.getSessions(AUTH_PROVIDER_ID, SCOPES);
+		const session = await vscode.authentication.getSession(AUTH_PROVIDER_ID, SCOPES, { createIfNone: false });
 
-		if (existingSessions.length) {
-			const token = await existingSessions[0].getAccessToken();
-			this._sessionId = existingSessions[0].id;
+		if (session) {
+			const token = session.accessToken;
+			this._sessionId = session.id;
 			const octokit = await this.createHub(token);
 			this._githubAPI = octokit;
 			await this.setCurrentUser(octokit.octokit);
@@ -161,15 +161,9 @@ export class CredentialStore {
 	}
 
 	private async getSessionOrLogin(): Promise<string> {
-		const authenticationSessions = await vscode.authentication.getSessions(AUTH_PROVIDER_ID, SCOPES);
-		if (authenticationSessions.length) {
-			this._sessionId = authenticationSessions[0].id;
-			return await authenticationSessions[0].getAccessToken();
-		} else {
-			const session = await vscode.authentication.login(AUTH_PROVIDER_ID, SCOPES);
-			this._sessionId = session.id;
-			return session.getAccessToken();
-		}
+		const session = await vscode.authentication.getSession(AUTH_PROVIDER_ID, SCOPES, { createIfNone: true });
+		this._sessionId = session.id;
+		return session.accessToken;
 	}
 
 	private async createHub(token: string): Promise<GitHub> {

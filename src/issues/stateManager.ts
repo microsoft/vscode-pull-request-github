@@ -61,7 +61,9 @@ export class StateManager {
 		readonly gitAPI: GitAPI,
 		private manager: PullRequestManager,
 		private context: vscode.ExtensionContext
-	) { }
+	) {
+		this.context.subscriptions.push(this.manager.onDidChangeRepositories(() => this.refresh()));
+	}
 
 	async tryInitializeAndWait() {
 		if (!this.initializePromise) {

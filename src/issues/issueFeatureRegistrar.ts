@@ -20,11 +20,13 @@ import { GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
 import { IssueFileSystemProvider } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
+import { IssueLinkProvider } from './issueLinkProvider';
+import Octokit = require('@octokit/rest');
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
 
-const NEW_ISSUE_SCHEME = 'newIssue'
+const NEW_ISSUE_SCHEME = 'newIssue';
 const ASSIGNEES = 'Assignees:';
 const LABELS = 'Labels:';
 
@@ -37,7 +39,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async initialize() {
+		this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()));
 		this.registerCompletionProviders();
+		this.context.subscriptions.push(vscode.languages.registerDocumentLinkProvider('*', new IssueLinkProvider(this.manager, this._stateManager)));
 		this.context.subscriptions.push(vscode.window.createTreeView('issues:github', { showCollapseAll: true, treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context) }));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.createIssueFromSelection', (newIssue?: NewIssue, issueBody?: string) => {
 			/* __GDPR__
@@ -184,7 +188,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry)));
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)));
 			this.context.subscriptions.push(vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)));
-			this.context.subscriptions.push(vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()));
 		});
 	}
 
@@ -463,6 +466,10 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	private async makeNewIssueFile(title?: string, body?: string, assignees?: string[] | undefined) {
 		const bodyPath = vscode.Uri.parse(`${NEW_ISSUE_SCHEME}:/NewIssue.md`);
+		if (vscode.window.visibleTextEditors.filter(visibleEditor => visibleEditor.document.uri.scheme === NEW_ISSUE_SCHEME).length > 0) {
+			return;
+		}
+		await vscode.workspace.fs.delete(bodyPath);
 		const assigneeLine = `${ASSIGNEES} ${assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''}`;
 		const labelLine = `${LABELS} `;
 		const text =
@@ -470,13 +477,22 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 ${assigneeLine}
 ${labelLine}\n
 ${body ?? ''}\n
-<!-- Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Leave an empty line before beginning the body of the issue. -->`;
+<!-- Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Assignees and Labels follow after a blank line. Leave an empty line before beginning the body of the issue. -->`;
 		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
 		const editor = await vscode.window.showTextDocument(bodyPath);
-		const assigneesDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated usernames, either @username or just username.', fontStyle: 'italic' } })
-		const labelsDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: 'Comma-separated labels.', fontStyle: 'italic' } });
+		const assigneesDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: ' Comma-separated usernames, either @username or just username.', fontStyle: 'italic', color: new vscode.ThemeColor('issues.newIssueDecoration') } });
+		const labelsDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: ' Comma-separated labels.', fontStyle: 'italic', color: new vscode.ThemeColor('issues.newIssueDecoration') } });
 		editor.setDecorations(assigneesDecoration, [new vscode.Range(new vscode.Position(2, 0), new vscode.Position(2, assigneeLine.length))]);
 		editor.setDecorations(labelsDecoration, [new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelLine.length))]);
+	}
+
+	private async verifyLabels(createParams: Octokit.IssuesCreateParams) {
+		if (!createParams.labels) {
+			return;
+		}
+		const allLabels = await this.manager.getLabels(undefined, createParams);
+		const filteredLabels = allLabels.filter(label => createParams.labels?.includes(label.name)).map(label => label.name);
+		createParams.labels = filteredLabels;
 	}
 
 	private async doCreateIssue(document: vscode.TextDocument | undefined, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignees: string[] | undefined, labels: string[] | undefined, lineNumber: number | undefined, insertIndex: number | undefined) {
@@ -489,14 +505,16 @@ ${body ?? ''}\n
 			return;
 		}
 		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.gitAPI, newIssue);
-		const issue = await this.manager.createIssue({
+		const createParams: Octokit.IssuesCreateParams = {
 			owner: origin.owner,
 			repo: origin.repo,
 			title,
 			body,
 			assignees,
 			labels
-		});
+		};
+		await this.verifyLabels(createParams);
+		const issue = await this.manager.createIssue(createParams);
 		if (issue) {
 			if ((document !== undefined) && (insertIndex !== undefined) && (lineNumber !== undefined)) {
 				const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
@@ -511,7 +529,7 @@ ${body ?? ''}\n
 						case copyIssueUrl: await vscode.env.clipboard.writeText(issue.html_url); break;
 						case openIssue: await vscode.env.openExternal(vscode.Uri.parse(issue.html_url)); break;
 					}
-				})
+				});
 			}
 			this._stateManager.refreshCacheNeeded();
 		}

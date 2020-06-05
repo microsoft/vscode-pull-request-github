@@ -14,8 +14,8 @@ import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
 import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
 
-export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
+export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
+export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
@@ -33,7 +33,7 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 		return undefined;
 	}
 	const issue: ParsedIssue = { owner: undefined, name: undefined, issueNumber: 0 };
-	if (output.length === 8) {
+	if ((output.length === 8) || (output.length === 6)) {
 		issue.owner = output[2];
 		issue.name = output[3];
 		issue.issueNumber = parseInt(output[4]);
@@ -133,38 +133,17 @@ function convertHexToRgb(hex: string): { r: number, g: number, b: number } | und
 
 function makeLabel(color: string, text: string): string {
 	const rgbColor = convertHexToRgb(color);
-	let textColor: string = 'white';
+	let textColor: string = 'ffffff';
 	if (rgbColor) {
 		// Color algorithm from https://stackoverflow.com/questions/1855884/determine-font-color-based-on-background-color
 		const luminance = (0.299 * rgbColor.r + 0.587 * rgbColor.g + 0.114 * rgbColor.b) / 255;
 		if (luminance > 0.5) {
-			textColor = 'black';
+			textColor = '000000';
 		}
 	}
 
-	return `<svg height="18" width="150" xmlns="http://www.w3.org/2000/svg">
-	<style>
-		:root {
-			--light: 80;
-			--threshold: 60;
-		}
-		.label {
-			font-weight: bold;
-			fill: ${textColor};
-			font-family: sans-serif;
-			--switch: calc((var(--light) - var(--threshold)) * -100%);
-			color: hsl(0, 0%, var(--switch));
-			font-size: 12px;
-		}
-  	</style>
-	<defs>
-		<filter y="-0.1" height="1.3" id="solid">
-			<feFlood flood-color="#${color}"/>
-			<feComposite in="SourceGraphic" />
-		</filter>
-	</defs>
-  	<text filter="url(#solid)" class="label" y="13" xml:space="preserve">  ${text} </text>
-</svg>`;
+	return `<span style="color:#${textColor};background-color:#${color};">&nbsp;&nbsp;${text}&nbsp;&nbsp;</span>`;
+
 }
 
 function findLinksInIssue(body: string, issue: IssueModel): string {
@@ -195,6 +174,7 @@ function findLinksInIssue(body: string, issue: IssueModel): string {
 export const ISSUE_BODY_LENGTH: number = 200;
 export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, commentNumber?: number): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
+	markdown.isTrusted = true;
 	const date = new Date(issue.createdAt);
 	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
 	markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
@@ -214,8 +194,7 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 
 	if (issue.item.labels.length > 0) {
 		issue.item.labels.forEach(label => {
-			const uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(makeLabel(label.color, label.name));
-			markdown.appendMarkdown(`[![](${uri})](https://github.com/${ownerName}/labels/${encodeURIComponent(label.name)}) `);
+			markdown.appendMarkdown(`[${makeLabel(label.color, label.name)}](https://github.com/${ownerName}/labels/${encodeURIComponent(label.name)}) `);
 		});
 	}
 
@@ -398,6 +377,24 @@ export async function pushAndCreatePR(manager: PullRequestManager, reviewManager
 			return false;
 		}
 	}
+}
+
+export async function isComment(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
+	if ((document.languageId !== 'markdown') && (document.languageId !== 'plaintext')) {
+		const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
+		if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
+			return false;
+		}
+	}
+	return true;
+}
+
+export async function shouldShowHover(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
+	if (document.lineAt(position.line).range.end.character > 10000) {
+		return false;
+	}
+
+	return isComment(document, position);
 }
 
 export class PlainTextRenderer extends marked.Renderer {
