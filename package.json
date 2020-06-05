@@ -873,7 +873,7 @@
         },
         {
           "command": "issue.createIssue",
-          "when": "false"
+          "when": "github:hasGitHubRemotes && github:authenticated"
         },
         {
           "command": "issue.createIssueFromFile",
@@ -881,11 +881,11 @@
         },
         {
           "command": "issue.copyGithubPermalink",
-          "when": "github:authenticated"
+          "when": "github:hasGitHubRemotes && github:authenticated"
         },
         {
           "command": "issue.openGithubPermalink",
-          "when": "github:authenticated"
+          "when": "github:hasGitHubRemotes && github:authenticated"
         },
         {
           "command": "issue.issueCompletion",
