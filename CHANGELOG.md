@@ -7,12 +7,12 @@
 - Improved display of labels in issue hovers by swapping out the existing svg version of the labels for a newly supported html version.
 
 ![Markdown labels](.\documentation\changelog\0.17.0\markdown-label.png)
-
 - When creating a GitHub permalink, we now try to pick the "best" remote if the currently opened repository has several remotes. The priority of remote is `upstream`, `ups`, `origin`, then other names. The first remote from that ordering which contains the same commit that the current branch is on will be used in the permalink.
 - Issue creation now better takes into account the file that you're coming from when you create an issue instead of only listening for repository change when a different repository is selected in the SCM view.
 - The new issue editor now lets you edit the title, assignees, labels, and description.
 
 ![New issue editor](.\documentation\changelog\0.17.0\new-issue-editor.gif)
+- User and issue completions now only show in plaintext and in comments! No more noisy issue suggestions when you trigger suggest in code.
 
 ### Notable fixes
 
