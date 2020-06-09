@@ -320,7 +320,7 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 	if (!match) {
 		return undefined;
 	}
-	return `https://github.com/${match[4]}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
+	return `https://github.com/${match[4].toLowerCase()}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
