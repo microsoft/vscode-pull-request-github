@@ -288,7 +288,7 @@
         },
         "githubIssues.issueCompletionFormatScm": {
           "type": "string",
-          "default": "#${issueNumber} - ${issueTitle}",
+          "default": "${issueTitle} ${issueNumberLabel}",
           "description": "Sets the format of issue completions in the SCM inputbox. For example, '${issueNumberLabel}'"
         },
         "githubIssues.workingIssueFormatScm": {
