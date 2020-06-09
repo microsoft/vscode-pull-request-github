@@ -16,7 +16,7 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 			if (e.length === 0 && e[0].type === vscode.FileChangeType.Deleted) {
 				disposable.dispose();
 			}
-		})
+		});
 		return disposable;
 	}
 	stat(_uri: vscode.Uri): vscode.FileStat {
