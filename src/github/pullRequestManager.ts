@@ -831,6 +831,19 @@ export class PullRequestManager implements vscode.Disposable {
 		return this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
 	}
 
+	async getMaxIssue(): Promise<number> {
+		const maxIssues = await Promise.all(this._githubRepositories.map(repository => {
+			return repository.getMaxIssue();
+		}));
+		let max: number = 0;
+		for (const issueNumber of maxIssues) {
+			if (issueNumber !== undefined) {
+				max = Math.max(max, issueNumber);
+			}
+		}
+		return max;
+	}
+
 	async getStatusChecks(pullRequest: PullRequestModel): Promise<Octokit.ReposGetCombinedStatusForRefResponse | undefined> {
 		if (!pullRequest.isResolved()) {
 			return;
