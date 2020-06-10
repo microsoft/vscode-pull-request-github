@@ -310,7 +310,19 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 		return undefined;
 	}
 
-	const upstream = await getUpstream(repository, log[0]);
+	const upstream: Remote | undefined = await Promise.race([getUpstream(repository, log[0]),
+	new Promise<Remote | undefined>(resolve => {
+		setTimeout(() => {
+			if (repository.state.HEAD?.upstream) {
+				for (const remote of repository.state.remotes) {
+					if (repository.state.HEAD.upstream.remote === remote.name) {
+						resolve(remote);
+					}
+				}
+			}
+		}, 2000);
+	})
+	]);
 	if (!upstream) {
 		return undefined;
 	}
