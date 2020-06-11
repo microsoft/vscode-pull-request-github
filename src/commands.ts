@@ -315,7 +315,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode, message?: string) => {
 		const pullRequest = ensurePR(prManager, pr);
-		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`,{ modal:true }, 'Yes', 'No').then(async value => {
+		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, { modal: true }, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
 					let newComment: IComment | undefined = undefined;
