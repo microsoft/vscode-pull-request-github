@@ -434,7 +434,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			return undefined;
 		}
 		const matches = issueGenerationText.match(USER_EXPRESSION);
-		if (matches && matches.length === 2 && this._stateManager.userMap.has(matches[1])) {
+		if (matches && matches.length === 2 && (await this._stateManager.userMap).has(matches[1])) {
 			assignee = [matches[1]];
 		}
 		let title: string | undefined;

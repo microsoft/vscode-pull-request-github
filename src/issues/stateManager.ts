@@ -39,7 +39,7 @@ const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: 'My Issues', query: 'default
 
 export class StateManager {
 	public readonly resolvedIssues: LRUCache<string, IssueModel> = new LRUCache(50); // 50 seems big enough
-	public readonly userMap: Map<string, IAccount> = new Map();
+	private _userMap: Promise<Map<string, IAccount>> | undefined;
 	private _lastHead: string | undefined;
 	private _issueCollection: Map<string, Promise<MilestoneModel[] | IssueModel[]>> = new Map();
 	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
@@ -129,7 +129,6 @@ export class StateManager {
 			}
 		}));
 		this._lastHead = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.commit : undefined;
-		await this.setUsers();
 		await this.setIssueData();
 		this.registerRepositoryChangeEvent();
 		this.context.subscriptions.push(this.onRefreshCacheNeeded(async () => {
@@ -151,13 +150,26 @@ export class StateManager {
 		}
 	}
 
-	async setUsers() {
+	private async getUsers(): Promise<Map<string, IAccount>> {
+		await this.initializePromise;
 		const assignableUsers = await this.manager.getAssignableUsers();
+		let userMap: Map<string, IAccount> = new Map();
 		for (const remote in assignableUsers) {
 			assignableUsers[remote].forEach(account => {
-				this.userMap.set(account.login, account);
+				userMap.set(account.login, account);
 			});
 		}
+		return userMap;
+	}
+
+	get userMap(): Promise<Map<string, IAccount>> {
+		if (!this.initializePromise) {
+			return Promise.resolve(new Map());
+		}
+		if (!this._userMap) {
+			this._userMap = this.getUsers();
+		}
+		return this._userMap;
 	}
 
 	private async getCurrentUser(): Promise<string | undefined> {
