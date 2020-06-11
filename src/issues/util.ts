@@ -360,7 +360,7 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 	const expr = /^((git\@github\.com\:)|(https:\/\/github\.com\/))(.+\/.+)\.git$/;
 	const match = upstream.fetchUrl?.match(expr);
 	if (!match) {
-		return { permalink: undefined, error: 'Can\'t get the owner and repository from the git remote url.' };
+		return { permalink: undefined, error: 'Can\'t to get the owner and repository from the git remote url.' };
 	}
 	return { permalink: `https://github.com/${match[4].toLowerCase()}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };
 }
