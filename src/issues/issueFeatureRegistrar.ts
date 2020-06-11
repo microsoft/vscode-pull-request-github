@@ -438,7 +438,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			assignee = [matches[1]];
 		}
 		let title: string | undefined;
-		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.gitAPI, newIssue);
+		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : (await createGithubPermalink(this.gitAPI, newIssue)).permalink;
 
 		const quickInput = vscode.window.createInputBox();
 		quickInput.value = titlePlaceholder ?? '';
@@ -514,7 +514,7 @@ ${body ?? ''}\n
 			vscode.window.showErrorMessage('There is no remote. Can\'t create an issue.');
 			return;
 		}
-		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : await createGithubPermalink(this.gitAPI, newIssue);
+		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : (await createGithubPermalink(this.gitAPI, newIssue)).permalink;
 		const createParams: Octokit.IssuesCreateParams = {
 			owner: origin.owner,
 			repo: origin.repo,
@@ -546,11 +546,11 @@ ${body ?? ''}\n
 	}
 
 	private async getPermalinkWithError(): Promise<string | undefined> {
-		const link: string | undefined = await createGithubPermalink(this.gitAPI);
-		if (!link) {
-			vscode.window.showWarningMessage('Unable to create a GitHub permalink for the selection. Check that your local branch is tracking a remote branch.');
+		const link = await createGithubPermalink(this.gitAPI);
+		if (link.error) {
+			vscode.window.showWarningMessage(`Unable to create a GitHub permalink for the selection. ${link.error}`);
 		}
-		return link;
+		return link.permalink;
 	}
 
 	async copyPermalink() {
