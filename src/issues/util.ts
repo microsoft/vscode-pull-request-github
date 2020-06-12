@@ -287,7 +287,7 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	return undefined;
 }
 
-export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIssue): Promise<string | undefined> {
+export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIssue): Promise<{ permalink: string | undefined, error: string | undefined }> {
 	let document: vscode.TextDocument;
 	let range: vscode.Range;
 	if (!positionInfo && vscode.window.activeTextEditor) {
@@ -297,17 +297,17 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 		document = positionInfo.document;
 		range = positionInfo.range;
 	} else {
-		return undefined;
+		return { permalink: undefined, error: 'No active text editor position to create permalink from.' };
 	}
 
 	const repository = getRepositoryForFile(gitAPI, document.uri);
 	if (!repository) {
-		return undefined;
+		return { permalink: undefined, error: 'The current file isn\'t part of repository.' };
 	}
 
 	const log = await repository.log({ maxEntries: 1, path: document.uri.fsPath });
 	if (log.length === 0) {
-		return undefined;
+		return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.' };
 	}
 
 	const upstream: Remote | undefined = await Promise.race([getUpstream(repository, log[0]),
@@ -324,15 +324,15 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 	})
 	]);
 	if (!upstream) {
-		return undefined;
+		return { permalink: undefined, error: 'There is no suitable remote.' };
 	}
 	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
 	const expr = /^((git\@github\.com\:)|(https:\/\/github\.com\/))(.+\/.+)\.git$/;
 	const match = upstream.fetchUrl?.match(expr);
 	if (!match) {
-		return undefined;
+		return { permalink: undefined, error: 'Can\'t get the owner and repository from the git remote url.' };
 	}
-	return `https://github.com/${match[4].toLowerCase()}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
+	return { permalink: `https://github.com/${match[4].toLowerCase()}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
