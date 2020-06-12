@@ -8,6 +8,7 @@ import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
 import moment = require('moment');
 import { HookError } from '@octokit/rest';
+import { isArray } from 'util';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -94,6 +95,25 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
+function isHookError(e: Error): e is HookError {
+	return !!(e as HookError).errors;
+}
+
+function hasFieldErrors(e: any): e is (Error & { errors: { value: string, field: string, code: string }[] }) {
+	let areFieldErrors = true;
+	if (!!e.errors && isArray(e.errors)) {
+		for (const error of e.errors) {
+			if (!error.field && !error.value && !error.code) {
+				areFieldErrors = false;
+				break;
+			}
+		}
+	} else {
+		areFieldErrors = false;
+	}
+	return areFieldErrors;
+}
+
 export function formatError(e: HookError | any): string {
 	if (!(e instanceof Error)) {
 		if (typeof e === 'string') {
@@ -108,13 +128,20 @@ export function formatError(e: HookError | any): string {
 	}
 
 	let errorMessage = e.message;
-	const furtherInfo = (e as HookError).errors && (e as HookError).errors!.map((error: any) => {
-		if (typeof error === 'string') {
-			return error;
-		} else {
-			return error.message;
-		}
-	}).join(', ');
+	let furtherInfo: string | undefined
+	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
+		furtherInfo = e.errors.map(error => {
+			return `Value ${error.value} cannot be set for field ${error.field} (code: ${error.code})`;
+		}).join(', ');
+	} else if (isHookError(e) && e.errors) {
+		furtherInfo = e.errors.map((error: any) => {
+			if (typeof error === 'string') {
+				return error;
+			} else {
+				return error.message;
+			}
+		}).join(', ');
+	}
 	if (furtherInfo) {
 		errorMessage = `${errorMessage}: ${furtherInfo}`;
 	}

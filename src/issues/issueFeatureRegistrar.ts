@@ -291,9 +291,11 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (!title || !body) {
 			return;
 		}
-		await this.doCreateIssue(this.createIssueInfo?.document, this.createIssueInfo?.newIssue, title, body, assignees, labels, this.createIssueInfo?.lineNumber, this.createIssueInfo?.insertIndex);
+		const createSucceeded = await this.doCreateIssue(this.createIssueInfo?.document, this.createIssueInfo?.newIssue, title, body, assignees, labels, this.createIssueInfo?.lineNumber, this.createIssueInfo?.insertIndex);
 		this.createIssueInfo = undefined;
-		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		if (createSucceeded) {
+			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		}
 	}
 
 	async editQuery(query: vscode.TreeItem) {
@@ -505,14 +507,15 @@ ${body ?? ''}\n
 		createParams.labels = filteredLabels;
 	}
 
-	private async doCreateIssue(document: vscode.TextDocument | undefined, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignees: string[] | undefined, labels: string[] | undefined, lineNumber: number | undefined, insertIndex: number | undefined) {
+	private async doCreateIssue(document: vscode.TextDocument | undefined, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignees: string[] | undefined,
+		labels: string[] | undefined, lineNumber: number | undefined, insertIndex: number | undefined): Promise<boolean> {
 		let origin: PullRequestDefaults | undefined;
 		try {
 			origin = await this.manager.getPullRequestDefaults();
 		} catch (e) {
 			// There is no remote
 			vscode.window.showErrorMessage('There is no remote. Can\'t create an issue.');
-			return;
+			return false;
 		}
 		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : (await createGithubPermalink(this.gitAPI, newIssue)).permalink;
 		const createParams: Octokit.IssuesCreateParams = {
@@ -542,7 +545,9 @@ ${body ?? ''}\n
 				});
 			}
 			this._stateManager.refreshCacheNeeded();
+			return true;
 		}
+		return false;
 	}
 
 	private async getPermalinkWithError(): Promise<string | undefined> {
