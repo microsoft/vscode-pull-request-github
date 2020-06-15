@@ -128,10 +128,10 @@ export function formatError(e: HookError | any): string {
 	}
 
 	let errorMessage = e.message;
-	let furtherInfo: string | undefined
+	let furtherInfo: string | undefined;
 	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
 		furtherInfo = e.errors.map(error => {
-			return `Value ${error.value} cannot be set for field ${error.field} (code: ${error.code})`;
+			return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
 		}).join(', ');
 	} else if (isHookError(e) && e.errors) {
 		furtherInfo = e.errors.map((error: any) => {
