@@ -498,13 +498,35 @@ ${body ?? ''}\n
 		editor.setDecorations(labelsDecoration, [new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelLine.length))]);
 	}
 
-	private async verifyLabels(createParams: Octokit.IssuesCreateParams) {
+	private async verifyLabels(createParams: Octokit.IssuesCreateParams): Promise<boolean> {
 		if (!createParams.labels) {
-			return;
+			return true;
 		}
-		const allLabels = await this.manager.getLabels(undefined, createParams);
-		const filteredLabels = allLabels.filter(label => createParams.labels?.includes(label.name)).map(label => label.name);
-		createParams.labels = filteredLabels;
+		const allLabels = (await this.manager.getLabels(undefined, createParams)).map(label => label.name);
+		const newLabels: string[] = [];
+		const filteredLabels: string[] = [];
+		createParams.labels?.forEach(label => {
+			if (allLabels.includes(label)) {
+				filteredLabels.push(label);
+			} else {
+				newLabels.push(label);
+			}
+		});
+
+		if (newLabels.length > 0) {
+			const yes = 'Yes';
+			const no = 'No';
+			const promptResult = await vscode.window.showInformationMessage(`The following labels don't exist in this repository: ${newLabels.join(', ')}. \nDo you want to create these labels?`, { modal: true }, yes, no);
+			switch (promptResult) {
+				case yes: return true;
+				case no: {
+					createParams.labels = filteredLabels;
+					return true;
+				}
+				default: return false;
+			}
+		}
+		return true;
 	}
 
 	private async doCreateIssue(document: vscode.TextDocument | undefined, newIssue: NewIssue | undefined, title: string, issueBody: string | undefined, assignees: string[] | undefined,
@@ -526,7 +548,9 @@ ${body ?? ''}\n
 			assignees,
 			labels
 		};
-		await this.verifyLabels(createParams);
+		if (!(await this.verifyLabels(createParams))) {
+			return;
+		}
 		const issue = await this.manager.createIssue(createParams);
 		if (issue) {
 			if ((document !== undefined) && (insertIndex !== undefined) && (lineNumber !== undefined)) {
