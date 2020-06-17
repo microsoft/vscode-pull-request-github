@@ -275,7 +275,7 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	// To do this, create very specific remote+branch patterns to look for and sort from "best" to "worst".
 	// Then, call getBranches with each pattern until one of them succeeds.
 	const remoteNames: { name: string, remote?: Remote }[] = repository.state.remotes.map(remote => {
-		return { name: remote.name, remote }
+		return { name: remote.name, remote };
 	}).filter(value => {
 		// While we're already here iterating through all values, find the current remote for use later.
 		if (value.name === currentRemoteName) {
