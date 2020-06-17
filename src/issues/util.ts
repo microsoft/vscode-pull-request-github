@@ -345,6 +345,7 @@ export async function variableSubstitution(value: string, issueModel?: IssueMode
 			case 'issueTitle': return issueModel ? issueModel.title : match;
 			case 'repository': return defaults ? defaults.repo : match;
 			case 'owner': return defaults ? defaults.owner : match;
+			case 'issueTitleNoSpaces': return issueModel ? issueModel.title.replace(/[~^:?*[\]@\\{}]|\/\//g, '').trim().replace(/\s+/g, '-') : match; // check what characters are permitted
 			default: return match;
 		}
 	});
