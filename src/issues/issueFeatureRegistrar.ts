@@ -549,7 +549,7 @@ ${body ?? ''}\n
 			labels
 		};
 		if (!(await this.verifyLabels(createParams))) {
-			return;
+			return false;
 		}
 		const issue = await this.manager.createIssue(createParams);
 		if (issue) {
