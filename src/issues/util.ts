@@ -27,6 +27,7 @@ export const QUERIES_CONFIGURATION = 'queries';
 export const DEFAULT_QUERY_CONFIGURATION = 'default';
 export const BRANCH_NAME_CONFIGURATION = 'workingIssueBranch';
 export const BRANCH_CONFIGURATION = 'useBranchForIssues';
+export const SCM_MESSAGE_CONFIGURATION = 'workingIssueFormatScm';
 
 export function parseIssueExpressionOutput(output: RegExpMatchArray | null): ParsedIssue | undefined {
 	if (!output) {
@@ -398,7 +399,38 @@ function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 	}
 }
 
-export async function pushAndCreatePR(manager: PullRequestManager, reviewManager: ReviewManager, draft: boolean = false): Promise<boolean> {
+async function commitWithDefault(manager: PullRequestManager, stateManager: StateManager, all: boolean) {
+	const message = await stateManager.currentIssue?.getCommitMessage();
+	if (message) {
+		return manager.repository.commit(message, { all });
+	}
+}
+
+const commitStaged = 'Commit Staged';
+const commitAll = 'Commit All';
+export async function pushAndCreatePR(manager: PullRequestManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
+	if (manager.repository.state.workingTreeChanges || manager.repository.state.indexChanges) {
+		const responseOptions: string[] = [];
+		if (manager.repository.state.indexChanges) {
+			responseOptions.push(commitStaged);
+		}
+		if (manager.repository.state.workingTreeChanges) {
+			responseOptions.push(commitAll);
+		}
+		const changesResponse = await vscode.window.showInformationMessage('There are uncommitted changes. Do you want to commit them with the default commit message?', { modal: true }, ...responseOptions);
+		switch (changesResponse) {
+			case commitStaged: {
+				await commitWithDefault(manager, stateManager, false);
+				break;
+			}
+			case commitAll: {
+				await commitWithDefault(manager, stateManager, true);
+				break;
+			}
+			default: return false;
+		}
+	}
+
 	if (manager.repository.state.HEAD?.upstream) {
 		await manager.repository.push();
 		await reviewManager.createPullRequest(draft);

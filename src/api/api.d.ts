@@ -34,6 +34,10 @@ export interface Commit {
 	readonly hash: string;
 	readonly message: string;
 	readonly parents: string[];
+	readonly authorDate?: Date;
+	readonly authorName?: string;
+	readonly authorEmail?: string;
+	readonly commitDate?: Date;
 }
 
 export interface Submodule {
@@ -49,7 +53,7 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
-export enum Status {
+export const enum Status {
 	INDEX_MODIFIED,
 	INDEX_ADDED,
 	INDEX_DELETED,
@@ -101,6 +105,14 @@ export interface RepositoryState {
 export interface RepositoryUIState {
 	readonly selected: boolean;
 	readonly onDidChange: Event<void>;
+}
+
+export interface CommitOptions {
+	all?: boolean | 'tracked';
+	amend?: boolean;
+	signoff?: boolean;
+	signCommit?: boolean;
+	empty?: boolean;
 }
 
 export interface Repository {
@@ -188,6 +200,8 @@ export interface Repository {
 
 	blame(path: string): Promise<string>;
 	log(options?: LogOptions): Promise<Commit[]>;
+
+	commit(message: string, opts?: CommitOptions): Promise<void>;
 }
 
 /**
