@@ -158,7 +158,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		if (!this._prManager.getGitHubRemotes().length) {
 			if (this._prManager.state === PRManagerState.NeedsAuthentication) {
-				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Login)]);
+				return Promise.resolve([]);
 			}
 
 			const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
