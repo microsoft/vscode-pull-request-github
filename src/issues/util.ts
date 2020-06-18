@@ -42,7 +42,7 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 		issue.owner = output[3] || output[11];
 		issue.name = output[4] || output[12];
 		issue.issueNumber = parseInt(output[7] || output[14]);
-		issue.commentNumber = parseInt(output[9]);
+		issue.commentNumber = output[9] !== undefined ? parseInt(output[9]) : undefined;
 		return issue;
 	} else {
 		return undefined;
