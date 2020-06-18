@@ -4,6 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PullRequestManager } from '../github/pullRequestManager';
+
+export const NEW_ISSUE_SCHEME = 'newIssue';
+export const ASSIGNEES = 'Assignees:';
+export const LABELS = 'Labels:';
 
 export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	private content: Uint8Array | undefined;
@@ -53,4 +58,25 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	}
 
 	rename(_oldUri: vscode.Uri, _newUri: vscode.Uri, _options: { overwrite: boolean; }): void | Thenable<void> { }
+}
+
+export class LabelCompletionProvider implements vscode.CompletionItemProvider {
+
+	constructor(private manager: PullRequestManager) { }
+
+	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
+		if (!document.lineAt(position.line).text.startsWith(LABELS)) {
+			return [];
+		}
+		const defaults = await this.manager.getPullRequestDefaults();
+		const labels = await this.manager.getLabels(undefined, defaults);
+		return labels.map(label => {
+			const item = new vscode.CompletionItem(label.name, vscode.CompletionItemKind.Keyword);
+			item.documentation = new vscode.MarkdownString();
+			item.documentation.appendMarkdown(`<span style="background-color:#${label.color};">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>`);
+			item.documentation.isTrusted = true;
+			return item;
+		});
+	}
+
 }
