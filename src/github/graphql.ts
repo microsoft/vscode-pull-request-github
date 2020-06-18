@@ -459,6 +459,18 @@ export interface IssuesResponse {
 	};
 }
 
+export interface MaxIssueResponse {
+	repository: {
+		issues: {
+			edges: {
+				node: {
+					number: number
+				}
+			}[]
+		}
+	};
+}
+
 export interface QueryWithRateLimit {
 	rateLimit: RateLimit;
 }

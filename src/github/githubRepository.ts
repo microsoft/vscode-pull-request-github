@@ -14,7 +14,7 @@ import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone } from './utils';
-import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse } from './graphql';
+import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse, MaxIssueResponse } from './graphql';
 import { IssueModel } from './issueModel';
 const defaultSchema = require('./queries.gql');
 
@@ -370,6 +370,29 @@ export class GitHubRepository implements vscode.Disposable {
 				items: issues,
 				hasMorePages: data.search.pageInfo.hasNextPage
 			};
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch issues with query: ${e}`);
+			return;
+		}
+	}
+
+	async getMaxIssue(): Promise<number | undefined> {
+		try {
+			Logger.debug(`Fetch max issue - enter`, GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+			const { data } = await query<MaxIssueResponse>({
+				query: schema.MaxIssue,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName
+				}
+			});
+			Logger.debug(`Fetch max issue - done`, GitHubRepository.ID);
+
+			if (data && data.repository.issues.edges.length === 1) {
+				return data.repository.issues.edges[0].node.number;
+			}
+			return;
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch issues with query: ${e}`);
 			return;
