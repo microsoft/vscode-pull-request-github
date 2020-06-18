@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.16.0",
+  "version": "0.17.0",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.46.0"
@@ -21,7 +21,8 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "*",
+    "onFileSystem:newIssue"
   ],
   "extensionDependencies": [
     "vscode.git",
@@ -268,7 +269,7 @@
         "githubIssues.workingIssueBranch": {
           "type": "string",
           "default": "${user}/issue${issueNumber}",
-          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number."
+          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${issueTitleNoSpaces}."
         },
         "githubIssues.useBranchForIssues": {
           "type": "string",
@@ -287,7 +288,7 @@
         },
         "githubIssues.issueCompletionFormatScm": {
           "type": "string",
-          "default": "#${issueNumber} - ${issueTitle}",
+          "default": "${issueTitle} ${issueNumberLabel}",
           "description": "Sets the format of issue completions in the SCM inputbox. For example, '${issueNumberLabel}'"
         },
         "githubIssues.workingIssueFormatScm": {
@@ -872,7 +873,7 @@
         },
         {
           "command": "issue.createIssue",
-          "when": "false"
+          "when": "github:hasGitHubRemotes && github:authenticated"
         },
         {
           "command": "issue.createIssueFromFile",
@@ -880,11 +881,11 @@
         },
         {
           "command": "issue.copyGithubPermalink",
-          "when": "github:authenticated"
+          "when": "github:hasGitHubRemotes && github:authenticated"
         },
         {
           "command": "issue.openGithubPermalink",
-          "when": "github:authenticated"
+          "when": "github:hasGitHubRemotes && github:authenticated"
         },
         {
           "command": "issue.issueCompletion",
@@ -1129,7 +1130,18 @@
           "when": "commentController =~ /^(browse|review)/"
         }
       ]
-    }
+    },
+    "colors": [
+      {
+        "id": "issues.newIssueDecoration",
+        "defaults": {
+          "dark": "#ffffff48",
+          "light": "#00000048",
+          "highContrast": "editor.foreground"
+        },
+        "description": "The color used for the assignees and labels fields in a new issue editor."
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "webpack --env.production",

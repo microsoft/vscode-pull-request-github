@@ -7,16 +7,24 @@ import * as vscode from 'vscode';
 
 export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	private content: Uint8Array | undefined;
-	onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = new vscode.EventEmitter<vscode.FileChangeEvent[]>().event;
+	private createTime: number = 0;
+	private modifiedTime: number = 0;
+	private _onDidChangeFile: vscode.EventEmitter<vscode.FileChangeEvent[]> = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
+	onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._onDidChangeFile.event;
 	watch(_uri: vscode.Uri, _options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
-		return new vscode.Disposable(() => { });
+		const disposable = this.onDidChangeFile(e => {
+			if (e.length === 0 && e[0].type === vscode.FileChangeType.Deleted) {
+				disposable.dispose();
+			}
+		});
+		return disposable;
 	}
 	stat(_uri: vscode.Uri): vscode.FileStat {
 		return {
 			type: vscode.FileType.File,
-			ctime: 0,
-			mtime: 0,
-			size: 0
+			ctime: this.createTime,
+			mtime: this.modifiedTime,
+			size: this.content?.length ?? 0
 		};
 	}
 	readDirectory(_uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
@@ -26,11 +34,22 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	readFile(_uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
 		return this.content ?? new Uint8Array(0);
 	}
-	writeFile(_uri: vscode.Uri, content: Uint8Array, _options: { create: boolean; overwrite: boolean; } = { create: false, overwrite: false }): void | Thenable<void> {
+	writeFile(uri: vscode.Uri, content: Uint8Array, _options: { create: boolean; overwrite: boolean; } = { create: false, overwrite: false }): void | Thenable<void> {
+		const oldContent = this.content;
 		this.content = content;
+		if (oldContent === undefined) {
+			this.createTime = new Date().getTime();
+			this._onDidChangeFile.fire([{ uri: uri, type: vscode.FileChangeType.Created }]);
+		} else {
+			this.modifiedTime = new Date().getTime();
+			this._onDidChangeFile.fire([{ uri: uri, type: vscode.FileChangeType.Changed }]);
+		}
 	}
-	delete(_uri: vscode.Uri, _options: { recursive: boolean; }): void | Thenable<void> {
+	delete(uri: vscode.Uri, _options: { recursive: boolean; }): void | Thenable<void> {
 		this.content = undefined;
+		this.createTime = 0;
+		this.modifiedTime = 0;
+		this._onDidChangeFile.fire([{ uri: uri, type: vscode.FileChangeType.Deleted }]);
 	}
 
 	rename(_oldUri: vscode.Uri, _newUri: vscode.Uri, _options: { overwrite: boolean; }): void | Thenable<void> { }

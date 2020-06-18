@@ -8,7 +8,11 @@ import * as ssh from '../../common/ssh';
 import { Protocol, ProtocolType } from '../../common/protocol';
 
 const SSH_CONFIG_WITH_HOST_ALIASES = `
-Host gh
+Host gh_nocap
+  User git
+  Hostname github.com
+
+Host gh_cap
   User git
   HostName github.com
 `;
@@ -120,7 +124,15 @@ describe('Protocol', () => {
 			ssh.Resolvers.current = ssh.Resolvers.default);
 
 		testRemote({
-			uri: 'gh:queerviolet/vscode',
+			uri: 'gh_cap:queerviolet/vscode',
+			expectedType: ProtocolType.SSH,
+			expectedHost: 'github.com',
+			expectedOwner: 'queerviolet',
+			expectedRepositoryName: 'vscode'
+		});
+
+		testRemote({
+			uri: 'gh_nocap:queerviolet/vscode',
 			expectedType: ProtocolType.SSH,
 			expectedHost: 'github.com',
 			expectedOwner: 'queerviolet',

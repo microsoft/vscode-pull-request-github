@@ -14,8 +14,8 @@ import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
 import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
 
-export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=])/;
+export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
+export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
@@ -33,7 +33,7 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 		return undefined;
 	}
 	const issue: ParsedIssue = { owner: undefined, name: undefined, issueNumber: 0 };
-	if (output.length === 8) {
+	if ((output.length === 8) || (output.length === 6)) {
 		issue.owner = output[2];
 		issue.name = output[3];
 		issue.issueNumber = parseInt(output[4]);
@@ -133,38 +133,17 @@ function convertHexToRgb(hex: string): { r: number, g: number, b: number } | und
 
 function makeLabel(color: string, text: string): string {
 	const rgbColor = convertHexToRgb(color);
-	let textColor: string = 'white';
+	let textColor: string = 'ffffff';
 	if (rgbColor) {
 		// Color algorithm from https://stackoverflow.com/questions/1855884/determine-font-color-based-on-background-color
 		const luminance = (0.299 * rgbColor.r + 0.587 * rgbColor.g + 0.114 * rgbColor.b) / 255;
 		if (luminance > 0.5) {
-			textColor = 'black';
+			textColor = '000000';
 		}
 	}
 
-	return `<svg height="18" width="150" xmlns="http://www.w3.org/2000/svg">
-	<style>
-		:root {
-			--light: 80;
-			--threshold: 60;
-		}
-		.label {
-			font-weight: bold;
-			fill: ${textColor};
-			font-family: sans-serif;
-			--switch: calc((var(--light) - var(--threshold)) * -100%);
-			color: hsl(0, 0%, var(--switch));
-			font-size: 12px;
-		}
-  	</style>
-	<defs>
-		<filter y="-0.1" height="1.3" id="solid">
-			<feFlood flood-color="#${color}"/>
-			<feComposite in="SourceGraphic" />
-		</filter>
-	</defs>
-  	<text filter="url(#solid)" class="label" y="13" xml:space="preserve">  ${text} </text>
-</svg>`;
+	return `<span style="color:#${textColor};background-color:#${color};">&nbsp;&nbsp;${text}&nbsp;&nbsp;</span>`;
+
 }
 
 function findLinksInIssue(body: string, issue: IssueModel): string {
@@ -195,6 +174,7 @@ function findLinksInIssue(body: string, issue: IssueModel): string {
 export const ISSUE_BODY_LENGTH: number = 200;
 export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, commentNumber?: number): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
+	markdown.isTrusted = true;
 	const date = new Date(issue.createdAt);
 	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
 	markdown.appendMarkdown(`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })}  \n`);
@@ -214,8 +194,7 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 
 	if (issue.item.labels.length > 0) {
 		issue.item.labels.forEach(label => {
-			const uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(makeLabel(label.color, label.name));
-			markdown.appendMarkdown(`[![](${uri})](https://github.com/${ownerName}/labels/${encodeURIComponent(label.name)}) `);
+			markdown.appendMarkdown(`[${makeLabel(label.color, label.name)}](https://github.com/${ownerName}/labels/${encodeURIComponent(label.name)}) `);
 		});
 	}
 
@@ -279,6 +258,7 @@ function getRepositoryForFile(gitAPI: GitAPI, file: vscode.Uri): Repository | un
 	return undefined;
 }
 
+const HEAD = 'HEAD';
 const UPSTREAM = 1;
 const UPS = 2;
 const ORIGIN = 3;
@@ -286,29 +266,57 @@ const OTHER = 4;
 const REMOTE_CONVENTIONS = new Map([['upstream', UPSTREAM], ['ups', UPS], ['origin', ORIGIN]]);
 
 async function getUpstream(repository: Repository, commit: Commit): Promise<Remote | undefined> {
-	const remotes = (await repository.getBranches({ contains: commit.hash, remote: true })).filter(value => value.remote && value.name);
-	let bestRemotes: Ref[] = [];
-	if (remotes.length === 1) {
-		bestRemotes.push(remotes[0]);
-	} else if (remotes.length > 1) {
-		bestRemotes = remotes.sort((a, b) => {
-			const aVal = REMOTE_CONVENTIONS.get(a.remote!) ?? OTHER;
-			const bVal = REMOTE_CONVENTIONS.get(b.remote!) ?? OTHER;
-			return aVal - bVal;
-		});
+	const currentRemoteName: string | undefined = repository.state.HEAD?.upstream && !REMOTE_CONVENTIONS.has(repository.state.HEAD.upstream.remote) ? repository.state.HEAD.upstream.remote : undefined;
+	let currentRemote: Remote | undefined;
+	// getBranches is slow if we don't pass a very specific pattern
+	// so we can't just get all branches then filter/sort.
+	// Instead, we need to create parameters for getBranches such that there is only ever on possible return value,
+	// which makes it much faster.
+	// To do this, create very specific remote+branch patterns to look for and sort from "best" to "worst".
+	// Then, call getBranches with each pattern until one of them succeeds.
+	const remoteNames: { name: string, remote?: Remote }[] = repository.state.remotes.map(remote => {
+		return { name: remote.name, remote };
+	}).filter(value => {
+		// While we're already here iterating through all values, find the current remote for use later.
+		if (value.name === currentRemoteName) {
+			currentRemote = value.remote;
+		}
+		return REMOTE_CONVENTIONS.has(value.name);
+	}).sort((a, b): number => {
+		const aVal = REMOTE_CONVENTIONS.get(a.name) ?? OTHER;
+		const bVal = REMOTE_CONVENTIONS.get(b.name) ?? OTHER;
+		return aVal - bVal;
+	});
+
+	if (currentRemoteName) {
+		remoteNames.push({ name: currentRemoteName, remote: currentRemote });
 	}
 
-	if (bestRemotes.length > 0) {
-		for (const remote of repository.state.remotes) {
-			if (remote.name === bestRemotes[0].remote) {
-				return remote;
+	const branchNames = [HEAD];
+	if (repository.state.HEAD?.name && (repository.state.HEAD.name !== HEAD)) {
+		branchNames.unshift(repository.state.HEAD?.name);
+	}
+	let bestRef: Ref | undefined;
+	let bestRemote: Remote | undefined;
+	for (let branchIndex = 0; (branchIndex < branchNames.length) && !bestRef; branchIndex++) {
+		for (let remoteIndex = 0; (remoteIndex < remoteNames.length) && !bestRef; remoteIndex++) {
+			const remotes = (await repository.getBranches({
+				contains: commit.hash,
+				remote: true,
+				pattern: `remotes/${remoteNames[remoteIndex].name}/${branchNames[branchIndex]}`,
+				count: 1
+			})).filter(value => value.remote && value.name);
+			if (remotes && remotes.length > 0) {
+				bestRef = remotes[0];
+				bestRemote = remoteNames[remoteIndex].remote;
 			}
 		}
 	}
-	return undefined;
+
+	return bestRemote;
 }
 
-export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIssue): Promise<string | undefined> {
+export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIssue): Promise<{ permalink: string | undefined, error: string | undefined }> {
 	let document: vscode.TextDocument;
 	let range: vscode.Range;
 	if (!positionInfo && vscode.window.activeTextEditor) {
@@ -318,30 +326,42 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 		document = positionInfo.document;
 		range = positionInfo.range;
 	} else {
-		return undefined;
+		return { permalink: undefined, error: 'No active text editor position to create permalink from.' };
 	}
 
 	const repository = getRepositoryForFile(gitAPI, document.uri);
 	if (!repository) {
-		return undefined;
+		return { permalink: undefined, error: 'The current file isn\'t part of repository.' };
 	}
 
 	const log = await repository.log({ maxEntries: 1, path: document.uri.fsPath });
 	if (log.length === 0) {
-		return undefined;
+		return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.' };
 	}
 
-	const upstream = await getUpstream(repository, log[0]);
+	const upstream: Remote | undefined = await Promise.race([getUpstream(repository, log[0]),
+	new Promise<Remote | undefined>(resolve => {
+		setTimeout(() => {
+			if (repository.state.HEAD?.upstream) {
+				for (const remote of repository.state.remotes) {
+					if (repository.state.HEAD.upstream.remote === remote.name) {
+						resolve(remote);
+					}
+				}
+			}
+		}, 2000);
+	})
+	]);
 	if (!upstream) {
-		return undefined;
+		return { permalink: undefined, error: 'There is no suitable remote.' };
 	}
 	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
 	const expr = /^((git\@github\.com\:)|(https:\/\/github\.com\/))(.+\/.+)\.git$/;
 	const match = upstream.fetchUrl?.match(expr);
 	if (!match) {
-		return undefined;
+		return { permalink: undefined, error: 'Can\'t get the owner and repository from the git remote url.' };
 	}
-	return `https://github.com/${match[4]}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`;
+	return { permalink: `https://github.com/${match[4].toLowerCase()}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
@@ -354,6 +374,7 @@ export async function variableSubstitution(value: string, issueModel?: IssueMode
 			case 'issueTitle': return issueModel ? issueModel.title : match;
 			case 'repository': return defaults ? defaults.repo : match;
 			case 'owner': return defaults ? defaults.owner : match;
+			case 'issueTitleNoSpaces': return issueModel ? issueModel.title.replace(/[~^:?*[\]@\\{}]|\/\//g, '').trim().replace(/\s+/g, '-') : match; // check what characters are permitted
 			default: return match;
 		}
 	});
@@ -398,6 +419,24 @@ export async function pushAndCreatePR(manager: PullRequestManager, reviewManager
 			return false;
 		}
 	}
+}
+
+export async function isComment(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
+	if ((document.languageId !== 'markdown') && (document.languageId !== 'plaintext')) {
+		const tokenInfo = await vscode.languages.getTokenInformationAtPosition(document, position);
+		if (tokenInfo.type !== vscode.StandardTokenType.Comment) {
+			return false;
+		}
+	}
+	return true;
+}
+
+export async function shouldShowHover(document: vscode.TextDocument, position: vscode.Position): Promise<boolean> {
+	if (document.lineAt(position.line).range.end.character > 10000) {
+		return false;
+	}
+
+	return isComment(document, position);
 }
 
 export class PlainTextRenderer extends marked.Renderer {

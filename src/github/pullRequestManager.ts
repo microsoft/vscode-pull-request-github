@@ -142,6 +142,9 @@ export class PullRequestManager implements vscode.Disposable {
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
 
+	private _onDidChangeRepositories = new vscode.EventEmitter<void>();
+	readonly onDidChangeRepositories: vscode.Event<void> = this._onDidChangeRepositories.event;
+
 	private _onDidChangeAssignableUsers = new vscode.EventEmitter<IAccount[]>();
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
 
@@ -160,12 +163,10 @@ export class PullRequestManager implements vscode.Disposable {
 		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
 				await this.updateRepositories();
-				vscode.commands.executeCommand('pr.refreshList');
 			}
 		}));
 
 		this.setUpCompletionItemProvider();
-		this.showLoginPrompt();
 	}
 
 	get state() {
@@ -177,14 +178,6 @@ export class PullRequestManager implements vscode.Disposable {
 		this._state = state;
 		if (stateChange) {
 			this._onDidChangeState.fire();
-		}
-	}
-
-	// Check if authenticated and show a prompt if not, but don't block on user's response
-	private showLoginPrompt(): void {
-		const authd = this._credentialStore.isAuthenticated();
-		if (!authd) {
-			this._credentialStore.showSignInNotification();
 		}
 	}
 
@@ -449,7 +442,7 @@ export class PullRequestManager implements vscode.Disposable {
 		return activeRemotes;
 	}
 
-	async updateRepositories(): Promise<void> {
+	async updateRepositories(silent: boolean = false): Promise<void> {
 		if (this._git.state === 'uninitialized') {
 			return;
 		}
@@ -479,6 +472,9 @@ export class PullRequestManager implements vscode.Disposable {
 			this.getMentionableUsers(repositoriesChanged);
 			this.getAssignableUsers(repositoriesChanged);
 			this.state = isAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
+			if (!silent) {
+				this._onDidChangeRepositories.fire();
+			}
 			return Promise.resolve();
 		});
 	}
@@ -616,9 +612,13 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 	}
 
-	async getLabels(issue: IssueModel): Promise<ILabel[]> {
-		const { remote, octokit } = await issue.githubRepository.ensure();
+	async getLabels(issue?: IssueModel, params?: Octokit.IssuesCreateParams): Promise<ILabel[]> {
+		const repo = issue ? issue.githubRepository : this._githubRepositories.find(r => r.remote.owner === params?.owner && r.remote.repositoryName === params?.repo);
+		if (!repo) {
+			throw new Error(`No matching repository found for getting labels.`);
+		}
 
+		const { remote, octokit } = await repo.ensure();
 		let hasNextPage = false;
 		let page = 1;
 		let results: ILabel[] = [];
