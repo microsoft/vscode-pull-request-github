@@ -14,8 +14,8 @@ import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
 import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
 
-export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?#([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
+export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
+export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
@@ -33,16 +33,16 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 		return undefined;
 	}
 	const issue: ParsedIssue = { owner: undefined, name: undefined, issueNumber: 0 };
-	if ((output.length === 8) || (output.length === 6)) {
+	if (output.length === 7) {
 		issue.owner = output[2];
 		issue.name = output[3];
-		issue.issueNumber = parseInt(output[4]);
+		issue.issueNumber = parseInt(output[5]);
 		return issue;
-	} else if (output.length === 15) {
+	} else if (output.length === 16) {
 		issue.owner = output[3] || output[11];
 		issue.name = output[4] || output[12];
-		issue.issueNumber = parseInt(output[7] || output[13]);
-		issue.commentNumber = parseInt(output[9]);
+		issue.issueNumber = parseInt(output[7] || output[14]);
+		issue.commentNumber = output[9] !== undefined ? parseInt(output[9]) : undefined;
 		return issue;
 	} else {
 		return undefined;
