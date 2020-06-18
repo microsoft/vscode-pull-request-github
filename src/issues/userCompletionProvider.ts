@@ -4,36 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { User, IAccount } from '../github/interface';
-import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
+import { User } from '../github/interface';
+import { PullRequestManager } from '../github/pullRequestManager';
 import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion, isComment } from './util';
 import { StateManager } from './stateManager';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
-	private _items: Promise<IAccount[]> = Promise.resolve([]);
-
 	constructor(private stateManager: StateManager, private manager: PullRequestManager, context: vscode.ExtensionContext) {
-		if (this.manager.state === PRManagerState.RepositoriesLoaded) {
-			this._items = this.createItems();
-		} else {
-			const disposable = this.manager.onDidChangeState(() => {
-				if (this.manager.state === PRManagerState.RepositoriesLoaded) {
-					this._items = this.createItems();
-					disposable.dispose();
-				}
-			});
-			context.subscriptions.push(disposable);
-		}
-	}
-
-	private async createItems(): Promise<IAccount[]> {
-		await this.stateManager.tryInitializeAndWait();
-		const accounts: IAccount[] = [];
-		const assignableUsers = await this.manager.getAssignableUsers();
-		for (const user in assignableUsers) {
-			accounts.push(...assignableUsers[user]);
-		}
-		return accounts;
 	}
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
@@ -60,7 +37,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		}
 
 		const completionItems: vscode.CompletionItem[] = [];
-		(await this._items).forEach(item => {
+		(await this.stateManager.userMap).forEach(item => {
 			const completionItem: UserCompletion = new UserCompletion(item.login, vscode.CompletionItemKind.User);
 			completionItem.insertText = `@${item.login}`;
 			completionItem.login = item.login;
