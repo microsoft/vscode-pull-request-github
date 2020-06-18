@@ -1151,8 +1151,8 @@
     "watch": "webpack --watch --env.development",
     "test": "yarn run preprocess && node ./out/test/runTests.js",
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
-    "preprocess-gql": "scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
-    "preprocess-svg": "scripts/preprocess-svg --in resources/ --out preview-src/dist/resources"
+    "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
+    "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources"
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
