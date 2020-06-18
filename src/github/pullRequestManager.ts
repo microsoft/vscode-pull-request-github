@@ -612,8 +612,8 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 	}
 
-	async getLabels(issue?: IssueModel, params?: Octokit.IssuesCreateParams): Promise<ILabel[]> {
-		const repo = issue ? issue.githubRepository : this._githubRepositories.find(r => r.remote.owner === params?.owner && r.remote.repositoryName === params?.repo);
+	async getLabels(issue?: IssueModel, repoInfo?: {owner: string, repo: string}): Promise<ILabel[]> {
+		const repo = issue ? issue.githubRepository : this._githubRepositories.find(r => r.remote.owner === repoInfo?.owner && r.remote.repositoryName === repoInfo?.repo);
 		if (!repo) {
 			throw new Error(`No matching repository found for getting labels.`);
 		}
