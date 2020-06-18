@@ -52,6 +52,7 @@ export class StateManager {
 	private _onDidChangeCurrentIssue: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeCurrentIssue: vscode.Event<void> = this._onDidChangeCurrentIssue.event;
 	private initializePromise: Promise<void> | undefined;
+	private _maxIssueNumber: number = 0;
 
 	get issueCollection(): Map<string, Promise<MilestoneModel[] | IssueModel[]>> {
 		return this._issueCollection;
@@ -187,6 +188,7 @@ export class StateManager {
 			}
 			this._issueCollection.set(query.label, items);
 		}
+		this._maxIssueNumber = await this.manager.getMaxIssue();
 	}
 
 	private setIssues(query: string): Promise<IssueModel[]> {
@@ -283,6 +285,10 @@ export class StateManager {
 
 	get currentIssue(): CurrentIssue | undefined {
 		return this._currentIssue;
+	}
+
+	get maxIssueNumber(): number {
+		return this._maxIssueNumber;
 	}
 
 	private isSettingIssue: boolean = false;

@@ -609,6 +609,23 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 	}
 }
 
+query MaxIssue($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		issues(first: 1, orderBy: {
+			direction: DESC
+			field: CREATED_AT
+		}) {
+			edges {
+				node {
+					... on Issue {
+						number
+					}
+				}
+			}
+		}
+	}
+}
+
 query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
 	repository(owner: $owner, name: $name) {
 		milestones(first: 12, orderBy: {

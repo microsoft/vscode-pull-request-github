@@ -23,7 +23,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 			const word = document.getText(wordPosition);
 			const match = word.match(ISSUE_OR_URL_EXPRESSION);
 			const tryParsed = parseIssueExpressionOutput(match);
-			if (tryParsed && match) {
+			if (tryParsed && match && tryParsed.issueNumber <= this.stateManager.maxIssueNumber) {
 				return this.createHover(match[0], tryParsed, wordPosition);
 			}
 		} else {
