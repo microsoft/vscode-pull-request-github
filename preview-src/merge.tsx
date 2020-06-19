@@ -209,7 +209,7 @@ function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
 		case 'merge':
 			return `Merge pull request #${pr.number} from ${pr.head}`;
 		case 'squash':
-			return pr.title;
+			return `${pr.title} (#${pr.number})`;
 		default:
 			return '';
 	}
