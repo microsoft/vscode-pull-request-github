@@ -9,12 +9,13 @@ import { MilestoneModel } from '../github/milestoneModel';
 import { StateManager } from './stateManager';
 import { Resource } from '../common/resources';
 import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
+import { issueMarkdown } from './util';
 
 export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | MilestoneModel | vscode.TreeItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<IssueModel | MilestoneModel | null | undefined | void> = new vscode.EventEmitter();
 	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | null | undefined | void> = this._onDidChangeTreeData.event;
 
-	constructor(private stateManager: StateManager, private manager: PullRequestManager, context: vscode.ExtensionContext) {
+	constructor(private stateManager: StateManager, private manager: PullRequestManager, private context: vscode.ExtensionContext) {
 		context.subscriptions.push(this.manager.onDidChangeState(() => {
 			this._onDidChangeTreeData.fire();
 		}));
@@ -28,7 +29,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 	}
 
 	getTreeItem(element: IssueModel | MilestoneModel | vscode.TreeItem): vscode.TreeItem {
-		let treeItem: vscode.TreeItem;
+		let treeItem: vscode.TreeItem2;
 		if (element instanceof vscode.TreeItem) {
 			treeItem = element;
 		} else if (!(element instanceof IssueModel)) {
@@ -39,7 +40,8 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 				light: Resource.icons.light.Issues,
 				dark: Resource.icons.dark.Issues
 			};
-			treeItem.tooltip = `${element.item.labels.length > 0 ? ('▨ ' + element.item.labels.map(label => label.name).join(', ') + '\n') : ''}${element.number}: ${element.title}\n\n${element.body.substring(0, 300)}${element.body.length > 300 ? '...' : ''}`;
+			const markdown: vscode.MarkdownString = issueMarkdown(element, this.context);
+			treeItem.tooltip = markdown;
 			if (this.stateManager.currentIssue?.issue.number === element.number) {
 				treeItem.label = `✓ ${treeItem.label}`;
 				treeItem.contextValue = 'currentissue';
