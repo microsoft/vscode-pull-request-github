@@ -36,8 +36,8 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 		} else {
 			treeItem = new vscode.TreeItem(`${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
 			treeItem.iconPath = {
-				light: Resource.icons.light.Issues,
-				dark: Resource.icons.dark.Issues
+				light: element.isOpen ? Resource.icons.light.Issues : Resource.icons.light.IssueClosed,
+				dark: element.isOpen ? Resource.icons.dark.Issues : Resource.icons.dark.IssueClosed
 			};
 			treeItem.tooltip = `${element.item.labels.length > 0 ? ('▨ ' + element.item.labels.map(label => label.name).join(', ') + '\n') : ''}${element.number}: ${element.title}\n\n${element.body.substring(0, 300)}${element.body.length > 300 ? '...' : ''}`;
 			if (this.stateManager.currentIssue?.issue.number === element.number) {
