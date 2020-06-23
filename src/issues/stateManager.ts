@@ -154,7 +154,7 @@ export class StateManager {
 	private async getUsers(): Promise<Map<string, IAccount>> {
 		await this.initializePromise;
 		const assignableUsers = await this.manager.getAssignableUsers();
-		let userMap: Map<string, IAccount> = new Map();
+		const userMap: Map<string, IAccount> = new Map();
 		for (const remote in assignableUsers) {
 			assignableUsers[remote].forEach(account => {
 				userMap.set(account.login, account);
