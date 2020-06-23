@@ -585,6 +585,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				review: review,
 				reviewers: this._existingReviewers
 			});
+			//refresh the pr list as this one is approved
+			vscode.commands.executeCommand('pr.refreshList');
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
