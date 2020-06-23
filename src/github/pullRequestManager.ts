@@ -97,10 +97,12 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
+export const PRManagerStateContext: string = 'PRManagerStateContext';
+
 export enum PRManagerState {
-	Initializing,
-	NeedsAuthentication,
-	RepositoriesLoaded
+	Initializing = 'Initializing',
+	NeedsAuthentication = 'NeedsAuthentication',
+	RepositoriesLoaded = 'RepositoriesLoaded'
 }
 
 export interface PullRequestDefaults {
@@ -159,6 +161,7 @@ export class PullRequestManager implements vscode.Disposable {
 		this._subs = [];
 		this._githubRepositories = [];
 		this._githubManager = new GitHubManager();
+		vscode.commands.executeCommand('setContext', PRManagerStateContext, this._state);
 
 		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
@@ -177,6 +180,7 @@ export class PullRequestManager implements vscode.Disposable {
 		const stateChange = state !== this._state;
 		this._state = state;
 		if (stateChange) {
+			vscode.commands.executeCommand('setContext', PRManagerStateContext, state);
 			this._onDidChangeState.fire();
 		}
 	}
@@ -612,7 +616,7 @@ export class PullRequestManager implements vscode.Disposable {
 		});
 	}
 
-	async getLabels(issue?: IssueModel, repoInfo?: {owner: string, repo: string}): Promise<ILabel[]> {
+	async getLabels(issue?: IssueModel, repoInfo?: { owner: string, repo: string }): Promise<ILabel[]> {
 		const repo = issue ? issue.githubRepository : this._githubRepositories.find(r => r.remote.owner === repoInfo?.owner && r.remote.repositoryName === repoInfo?.repo);
 		if (!repo) {
 			throw new Error(`No matching repository found for getting labels.`);

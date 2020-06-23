@@ -20,7 +20,7 @@ import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
 import { ApiImpl } from '../../api/api1';
 
-describe('GitHub Pull Requests view', function() {
+describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
 	let context: MockExtensionContext;
 	let telemetry: MockTelemetry;
@@ -62,7 +62,7 @@ describe('GitHub Pull Requests view', function() {
 		sinon.restore();
 	});
 
-	it('displays a message when no workspace folders are open', async function() {
+	it('displays a message when no workspace folders are open', async function () {
 		sinon.stub(vscode.workspace, 'workspaceFolders').value(undefined);
 
 		const rootNodes = await provider.getChildren();
@@ -75,9 +75,9 @@ describe('GitHub Pull Requests view', function() {
 		assert.strictEqual(onlyItem.command, undefined);
 	});
 
-	it('displays a message when no GitHub remotes are available', async function() {
+	it('displays a message when no GitHub remotes are available', async function () {
 		sinon.stub(vscode.workspace, 'workspaceFolders').value([
-			{index: 0, name: __dirname, uri: vscode.Uri.file(__dirname)},
+			{ index: 0, name: __dirname, uri: vscode.Uri.file(__dirname) },
 		]);
 
 		const rootNodes = await provider.getChildren();
@@ -90,7 +90,7 @@ describe('GitHub Pull Requests view', function() {
 		assert.strictEqual(onlyItem.command, undefined);
 	});
 
-	it('displays a message when repositories have not yet been initialized', async function() {
+	it('displays a message when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
@@ -107,30 +107,8 @@ describe('GitHub Pull Requests view', function() {
 		assert.strictEqual(onlyItem.command, undefined);
 	});
 
-	it('displays a message when the user has not signed in', async function() {
-		const repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
-		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
-			return new MockGitHubRepository(remote, cStore, sinon);
-		});
-		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
-		await manager.updateRepositories();
-		await provider.initialize(manager);
-
-		const rootNodes = await provider.getChildren();
-		assert.strictEqual(rootNodes.length, 1);
-
-		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
-		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
-		assert.strictEqual(onlyItem.label, 'Sign in');
-		assert.strictEqual(!!onlyItem.command, true);
-		assert.strictEqual(onlyItem.command!.command, 'pr.signinAndRefreshList');
-	});
-
-	it('opens the viewlet and displays the default categories', async function() {
+	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
@@ -154,8 +132,8 @@ describe('GitHub Pull Requests view', function() {
 		]);
 	});
 
-	describe('Local Pull Request Branches', function() {
-		it('creates a node for each local pull request', async function() {
+	describe('Local Pull Request Branches', function () {
+		it('creates a node for each local pull request', async function () {
 			const url = 'git@github.com:aaa/bbb';
 			const remote = new Remote('origin', url, new Protocol(url));
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, sinon);

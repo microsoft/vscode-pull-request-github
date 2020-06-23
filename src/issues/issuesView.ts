@@ -65,13 +65,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 
 	getStateChildren(): vscode.TreeItem[] {
 		if (this.manager.state === PRManagerState.NeedsAuthentication) {
-			const item = new vscode.TreeItem('Sign in');
-			item.command = {
-				title: 'Sign in',
-				command: 'issue.signinAndRefreshList',
-				arguments: []
-			};
-			return [item];
+			return [];
 		} else {
 			return [new vscode.TreeItem('Loading...')];
 		}
