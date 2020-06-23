@@ -96,7 +96,7 @@ function getExtensionConfig(env) {
 		resolve: {
 			extensions: ['.tsx', '.ts', '.js'],
 			alias: {
-				"node-fetch": path.resolve(__dirname, 'node_modules/node-fetch/lib/index.js'),
+				"node-fetch": path.resolve(__dirname, 'node_modules/node-fetch/dist/index.cjs'),
 			}
 		},
 		devtool: !env.production ? 'source-map' : undefined,
@@ -118,7 +118,7 @@ function getExtensionConfig(env) {
 	return config;
 }
 
-module.exports =  function(env) {
+module.exports = function (env) {
 	env = env || {};
 	env.production = !!env.production;
 	return [getExtensionConfig(env), getWebviewConfig(env)];
