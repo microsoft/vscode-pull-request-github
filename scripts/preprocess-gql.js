@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 const fs = require('fs');
 const minimist = require('minimist');
 const gqlLoader = require('graphql-tag/loader');
