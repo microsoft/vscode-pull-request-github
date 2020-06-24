@@ -40,8 +40,6 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 				light: Resource.icons.light.Issues,
 				dark: Resource.icons.dark.Issues
 			};
-			const markdown: vscode.MarkdownString = issueMarkdown(element, this.context);
-			treeItem.tooltip = markdown;
 			if (this.stateManager.currentIssue?.issue.number === element.number) {
 				treeItem.label = `✓ ${treeItem.label}`;
 				treeItem.contextValue = 'currentissue';
@@ -63,6 +61,13 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 		} else {
 			return this.getIssuesChildren(element);
 		}
+	}
+
+	resolveTreeItem(element: IssueModel | MilestoneModel | vscode.TreeItem, item: vscode.TreeItem2): vscode.TreeItem2 {
+		if (element instanceof IssueModel) {
+			item.tooltip = issueMarkdown(element, this.context);
+		}
+		return item;
 	}
 
 	getStateChildren(): vscode.TreeItem[] {
