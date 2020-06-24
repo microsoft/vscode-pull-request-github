@@ -339,6 +339,7 @@ media
 *.vsix
 package-lock.json
 src/typings/vscode.d.ts
+src/typings/vscode.proposed.d.ts
 
 # CI
 package.insiders.json
