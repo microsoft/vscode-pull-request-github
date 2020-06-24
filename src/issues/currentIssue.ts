@@ -6,7 +6,7 @@
 import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION } from './util';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION } from './util';
 import { Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
 
@@ -138,10 +138,17 @@ export class CurrentIssue {
 		}
 	}
 
+	public async getCommitMessage(): Promise<string | undefined> {
+		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(SCM_MESSAGE_CONFIGURATION);
+		if (typeof configuration === 'string') {
+			return variableSubstitution(configuration, this.issueModel, this.repoDefaults);
+		}
+	}
+
 	private async setCommitMessageAndGitEvent() {
-		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('workingIssueFormatScm');
-		if (this.repo && typeof configuration === 'string') {
-			this.repo.inputBox.value = await variableSubstitution(configuration, this.issueModel, this.repoDefaults);
+		const message = await this.getCommitMessage();
+		if (this.repo && message) {
+			this.repo.inputBox.value = message;
 		}
 		return;
 	}

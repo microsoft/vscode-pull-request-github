@@ -135,6 +135,11 @@ export class StateManager {
 		this.context.subscriptions.push(this.onRefreshCacheNeeded(async () => {
 			await this.refresh();
 		}));
+		const branch = this.manager.repository.state.HEAD?.name;
+		if (!this.currentIssue && branch) {
+			await this.setCurrentIssueFromBranch(branch);
+
+		}
 	}
 
 	private cleanIssueState() {

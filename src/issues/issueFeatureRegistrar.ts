@@ -385,8 +385,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			const response: string | undefined = await vscode.window.showQuickPick(choices, { placeHolder: 'Current issue options' });
 			switch (response) {
 				case openIssueText: return this.openIssue(this._stateManager.currentIssue.issue);
-				case pullRequestText: return pushAndCreatePR(this.manager, this.reviewManager);
-				case draftPullRequestText: return pushAndCreatePR(this.manager, this.reviewManager, true);
+				case pullRequestText: return pushAndCreatePR(this.manager, this.reviewManager, this._stateManager);
+				case draftPullRequestText: return pushAndCreatePR(this.manager, this.reviewManager, this._stateManager, true);
 				case stopWorkingText: return this._stateManager.setCurrentIssue(undefined);
 			}
 		}
