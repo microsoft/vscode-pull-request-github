@@ -264,6 +264,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				return this.addReviewers(message);
 			case 'pr.remove-reviewer':
 				return this.removeReviewer(message);
+			case 'pr.copy-prlink':
+				return this.copyPrLink(message);
 		}
 	}
 
@@ -618,6 +620,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
 		});
+	}
+
+	private async copyPrLink(message: IRequestMessage<string>): Promise<void>{
+		await vscode.env.clipboard.writeText(this._item.html_url);
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {

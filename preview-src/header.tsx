@@ -41,7 +41,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 	const [inEditMode, setEditMode] = useState(false);
 	const [showActionBar, setShowActionBar] = useState(false);
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
-	const { setTitle, refresh } = useContext(PullRequestContext);
+	const { setTitle, refresh,copyPrLink } = useContext(PullRequestContext);
 	const editableTitle =
 		inEditMode
 			?
@@ -86,6 +86,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 			(canEdit && showActionBar && !inEditMode)
 				? <div className='flex-action-bar comment-actions'>
 					{<button onClick={() => setEditMode(true)}>{editIcon}</button>}
+					{<button onClick={copyPrLink}>Copy Link</button>}
 				</div>
 				: <div className='flex-action-bar comment-actons'></div>
 		}
