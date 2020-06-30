@@ -78,6 +78,23 @@
           "default": "ask",
           "description": "The title used when creating pull requests."
         },
+        "githubPullRequests.pullRequestDescription": {
+          "type": "string",
+          "enum": [
+            "template",
+            "commit",
+            "custom",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "Use a pull request template, or use the commit description if no templates were found",
+            "Use the latest commit message",
+            "Specify a custom description",
+            "Ask which of the above methods to use"
+          ],
+          "default": "template",
+          "description": "The description used when creating pull requests."
+        },
         "githubPullRequests.logLevel": {
           "type": "string",
           "enum": [
