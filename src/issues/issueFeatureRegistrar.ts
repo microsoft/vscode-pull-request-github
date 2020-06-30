@@ -21,6 +21,7 @@ import { Resource } from '../common/resources';
 import { IssueFileSystemProvider, NEW_ISSUE_SCHEME, ASSIGNEES, LABELS, LabelCompletionProvider } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
 import Octokit = require('@octokit/rest');
+import { TermLinkProv, IssueDocumentLinkProvider } from './issueLinkProvider';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
@@ -179,6 +180,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.signinAndRefreshList', async () => {
 			return this.manager.authenticate();
 		}));
+		this.context.subscriptions.push(vscode.window.registerTerminalLinkProvider(new TermLinkProv(this.manager, this._stateManager)));
+		this.context.subscriptions.push(vscode.languages.registerDocumentLinkProvider({ language: 'markdown', scheme: 'file' }, new IssueDocumentLinkProvider(this.manager, this._stateManager)));
 		return this._stateManager.tryInitializeAndWait().then(() => {
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry)));
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)));
