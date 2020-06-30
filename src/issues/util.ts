@@ -440,7 +440,12 @@ export async function pushAndCreatePR(manager: PullRequestManager, reviewManager
 			remote = await vscode.window.showQuickPick(manager.repository.state.remotes.map(value => value.name), { placeHolder: 'Remote to push to' });
 		}
 		if (remote) {
-			await manager.repository.push(remote, manager.repository.state.HEAD?.name, true);
+			try {
+				await manager.credentialStore.login();
+				await manager.repository.push(remote, manager.repository.state.HEAD?.name, true);
+			} catch (e) {
+				console.log(e);
+			}
 			await reviewManager.createPullRequest(draft);
 			return true;
 		} else {

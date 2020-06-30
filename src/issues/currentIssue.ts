@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION, BRANCH_NAME_CONFIGURATION_DEPRECATED } from './util';
 import { Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
+import { Remote } from '../common/remote';
 
 export class CurrentIssue {
 	private statusBarItem: vscode.StatusBarItem | undefined;
@@ -17,17 +18,17 @@ export class CurrentIssue {
 	private user: string | undefined;
 	private repo: Repository | undefined;
 	private repoDefaults: PullRequestDefaults | undefined;
-	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
-		this.setRepo();
+	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, remote?: Remote, private shouldPromptForBranch?: boolean) {
+		this.setRepo(remote ?? this.issueModel.githubRepository.remote);
 	}
 
-	private setRepo() {
+	private setRepo(repoRemote: Remote) {
 		for (let i = 0; i < this.stateManager.gitAPI.repositories.length; i++) {
 			const repo = this.stateManager.gitAPI.repositories[i];
 			for (let j = 0; j < repo.state.remotes.length; j++) {
 				const remote = repo.state.remotes[j];
-				if (remote.name === this.issueModel.githubRepository.remote.remoteName &&
-					(remote.fetchUrl?.toLowerCase().search(`${this.issueModel.githubRepository.remote.owner.toLowerCase()}/${this.issueModel.githubRepository.remote.repositoryName.toLowerCase()}`) !== -1)) {
+				if (remote.name === repoRemote?.remoteName &&
+					(remote.fetchUrl?.toLowerCase().search(`${repoRemote.owner.toLowerCase()}/${repoRemote.repositoryName.toLowerCase()}`) !== -1)) {
 					this.repo = repo;
 					return;
 				}
