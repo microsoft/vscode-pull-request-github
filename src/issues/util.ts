@@ -409,7 +409,7 @@ async function commitWithDefault(manager: PullRequestManager, stateManager: Stat
 const commitStaged = 'Commit Staged';
 const commitAll = 'Commit All';
 export async function pushAndCreatePR(manager: PullRequestManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
-	if (manager.repository.state.workingTreeChanges || manager.repository.state.indexChanges) {
+	if (manager.repository.state.workingTreeChanges.length > 0 || manager.repository.state.indexChanges.length > 0) {
 		const responseOptions: string[] = [];
 		if (manager.repository.state.indexChanges) {
 			responseOptions.push(commitStaged);
