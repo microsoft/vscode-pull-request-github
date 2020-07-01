@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { PullRequestManager } from '../github/pullRequestManager';
 
 export const NEW_ISSUE_SCHEME = 'newIssue';
+export const NEW_ISSUE_FILE = 'NewIssue.md';
 export const ASSIGNEES = 'Assignees:';
 export const LABELS = 'Labels:';
 
