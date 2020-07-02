@@ -492,13 +492,13 @@ ${body ?? ''}\n
 		const labelsDecoration = vscode.window.createTextEditorDecorationType({ after: { contentText: ' Comma-separated labels.', fontStyle: 'italic', color: new vscode.ThemeColor('issues.newIssueDecoration') } });
 		const editorChangeDisposable = vscode.window.onDidChangeActiveTextEditor((textEditor => {
 			if (textEditor?.document.uri.scheme === NEW_ISSUE_SCHEME) {
-				const assigneeRange = new vscode.Range(new vscode.Position(2, 0), new vscode.Position(2, assigneeLine.length));
-				if (ASSIGNEES.startsWith(textEditor.document.getText(textEditor.document.getWordRangeAtPosition(assigneeRange.start)))) {
-					textEditor.setDecorations(assigneesDecoration, [assigneeRange]);
+				const assigneeFullLine = textEditor.document.lineAt(2);
+				if (assigneeFullLine.text.startsWith(ASSIGNEES)) {
+					textEditor.setDecorations(assigneesDecoration, [new vscode.Range(new vscode.Position(2, 0), new vscode.Position(2, assigneeFullLine.text.length))]);
 				}
-				const labelsRange = new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelLine.length));
-				if (LABELS.startsWith(textEditor.document.getText(textEditor.document.getWordRangeAtPosition(labelsRange.start)))) {
-					textEditor.setDecorations(labelsDecoration, [labelsRange]);
+				const labelFullLine = textEditor.document.lineAt(3);
+				if (labelFullLine.text.startsWith(LABELS)) {
+					textEditor.setDecorations(labelsDecoration, [new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelFullLine.text.length))]);
 				}
 			}
 		}));
