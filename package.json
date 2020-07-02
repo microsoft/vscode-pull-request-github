@@ -269,7 +269,7 @@
         "githubIssues.workingIssueBranch": {
           "type": "string",
           "default": "${user}/issue${issueNumber}",
-          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${santitizedIssueTitle}."
+          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${sanitizedIssueTitle}."
         },
         "githubIssues.useBranchForIssues": {
           "type": "string",
