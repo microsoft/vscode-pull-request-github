@@ -18,7 +18,7 @@ import { CurrentIssue } from './currentIssue';
 import { ReviewManager } from '../view/reviewManager';
 import { GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
-import { IssueFileSystemProvider, NEW_ISSUE_SCHEME, ASSIGNEES, LABELS, LabelCompletionProvider } from './issueFile';
+import { IssueFileSystemProvider, NEW_ISSUE_SCHEME, ASSIGNEES, LABELS, LabelCompletionProvider, NEW_ISSUE_FILE } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
 import Octokit = require('@octokit/rest');
 
@@ -474,7 +474,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	private async makeNewIssueFile(title?: string, body?: string, assignees?: string[] | undefined) {
-		const bodyPath = vscode.Uri.parse(`${NEW_ISSUE_SCHEME}:/NewIssue.md`);
+		const bodyPath = vscode.Uri.parse(`${NEW_ISSUE_SCHEME}:/${NEW_ISSUE_FILE}`);
 		if (vscode.window.visibleTextEditors.filter(visibleEditor => visibleEditor.document.uri.scheme === NEW_ISSUE_SCHEME).length > 0) {
 			return;
 		}
