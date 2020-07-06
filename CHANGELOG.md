@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.18.0
+
+### Changes
+
+- The Issues view now shows the markdown card on hover.
+![Tree Hover](documentation/changelog/0.18.0/tree-hover.gif)
+- Label suggestions are provided in the new issue editor.
+![Label Suggestion](documentation/changelog/0.18.0/label-suggestion.gif)
+- Hovers work for issues formatted as GH-123.
+- The `githubIssues.workingIssueBranch` setting can take the new variable `${sanitizedIssueTitle}`.
+- If you have uncommitted changes in your issue branch when you try to create a pull request, you'll be prompted to commit them.
+![Commit Prompt](documentation/changelog/0.18.0/commit-prompt.png)
+- Closed issues in the Issues view use the closed icon.
+- The Pull Requests and Issues views use the visually appealing welcome mechanism to display the Sign in button.
+![Welcome View](documentation/changelog/0.18.0/welcome-view.png)
+
+### Notable fixes
+
+- Users are only fetched when needed, not on every startup ([1869](https://github.com/microsoft/vscode-pull-request-github/issues/1869))
+- For hovers, the max issue number for the repo is checked to reduce false positives([1860](https://github.com/microsoft/vscode-pull-request-github/issues/1860))
+
 ## 0.17.0
 
 ### Changes
