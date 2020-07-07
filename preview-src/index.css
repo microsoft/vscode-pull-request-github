@@ -350,10 +350,13 @@ body button.checkedOut {
 	background-color: transparent;
 }
 
-body button.secondary,
+body button.secondary {
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
 body button.secondary:hover {
-	-webkit-filter: grayscale(100%);
-	filter: grayscale(100%);
+	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
 body button svg {
@@ -996,8 +999,8 @@ code {
 	border: 1px solid var(--vscode-contrastActiveBorder);
 }
 
-.vscode-high-contrast button.secondary {
-	-webkit-filter: none;
+.vscode-high-contrast button:hover {
+	border: 1px dotted var(--vscode-contrastActiveBorder);
 }
 
 .vscode-high-contrast .diff .diffLine {
