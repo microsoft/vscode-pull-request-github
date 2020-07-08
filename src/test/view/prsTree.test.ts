@@ -107,7 +107,6 @@ describe('GitHub Pull Requests view', function () {
 		assert.strictEqual(onlyItem.command, undefined);
 	});
 
-
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');

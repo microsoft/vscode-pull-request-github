@@ -268,6 +268,11 @@
         },
         "githubIssues.workingIssueBranch": {
           "type": "string",
+          "deprecationMessage": "This setting is replaced by the better named setting githubIssues.issueBranchTitle and may be removed in the future.",
+          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${sanitizedIssueTitle}."
+        },
+        "githubIssues.issueBranchTitle": {
+          "type": "string",
           "default": "${user}/issue${issueNumber}",
           "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${sanitizedIssueTitle}."
         },
@@ -284,7 +289,7 @@
             "A prompt will show for setting the name of the branch that will be created and checked out."
           ],
           "default": "on",
-          "description": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.workingIssueBranch`."
+          "description": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.issueBranchTitle`."
         },
         "githubIssues.issueCompletionFormatScm": {
           "type": "string",
