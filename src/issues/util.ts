@@ -357,7 +357,7 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 		return { permalink: undefined, error: 'There is no suitable remote.' };
 	}
 	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
-	const expr = /^((git\@github\.com\:)|(https:\/\/github\.com\/))(.+\/.+)\.git$/;
+	const expr = /^((git\@github\.com\:)|(https:\/\/github\.com\/))(.+\/.+)(\.git)?$/;
 	const match = upstream.fetchUrl?.match(expr);
 	if (!match) {
 		return { permalink: undefined, error: 'Can\'t get the owner and repository from the git remote url.' };
