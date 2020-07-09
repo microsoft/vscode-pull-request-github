@@ -113,7 +113,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return rsp;
 	}
 
-	mutate = async <T>(mutation: MutationOptions): Promise<FetchResult<T>> => {
+	mutate = async <T>(mutation: MutationOptions<T>): Promise<FetchResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
