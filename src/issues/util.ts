@@ -13,6 +13,7 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
 import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
+import { Protocol } from '../common/protocol';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
@@ -353,16 +354,11 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 		}, 2000);
 	})
 	]);
-	if (!upstream) {
+	if (!upstream || !upstream.fetchUrl) {
 		return { permalink: undefined, error: 'There is no suitable remote.' };
 	}
 	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
-	const expr = /^((git\@github\.com\:)|(https:\/\/github\.com\/))(.+\/.+)(\.git)?$/;
-	const match = upstream.fetchUrl?.match(expr);
-	if (!match) {
-		return { permalink: undefined, error: 'Can\'t get the owner and repository from the git remote url.' };
-	}
-	return { permalink: `https://github.com/${match[4].toLowerCase()}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };
+	return { permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
