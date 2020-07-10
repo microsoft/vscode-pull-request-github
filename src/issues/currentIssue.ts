@@ -85,11 +85,17 @@ export class CurrentIssue {
 		return false;
 	}
 
-	private async createOrCheckoutBranch(branch: string): Promise<void> {
-		if (await this.branchExists(branch)) {
-			await this.manager.repository.checkout(branch);
-		} else {
-			await this.manager.repository.createBranch(branch, true);
+	private async createOrCheckoutBranch(branch: string): Promise<boolean> {
+		try {
+			if (await this.branchExists(branch)) {
+				await this.manager.repository.checkout(branch);
+			} else {
+				await this.manager.repository.createBranch(branch, true);
+			}
+			return true;
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to checkout branch ${branch}. There may be file conflicts that prevent this branch change. Git error: ${e.error}`);
+			return false;
 		}
 	}
 
@@ -121,20 +127,8 @@ export class CurrentIssue {
 
 		state.branch = this._branchName;
 		this.stateManager.setSavedIssueState(this.issueModel, state);
-		try {
-			await this.createOrCheckoutBranch(this._branchName);
-		} catch (e) {
-			const basicBranchName = this.getBasicBranchName(await this.getUser());
-			if (this._branchName === basicBranchName) {
-				vscode.window.showErrorMessage(`Unable to checkout branch ${this._branchName}. There may be file conflicts that prevent this branch change.`);
-				this._branchName = undefined;
-				return;
-			}
-			vscode.window.showErrorMessage(`Unable to create branch with name ${this._branchName}. Using ${basicBranchName} instead.`);
-			this._branchName = basicBranchName;
-			state.branch = this._branchName;
-			this.stateManager.setSavedIssueState(this.issueModel, state);
-			await this.createOrCheckoutBranch(this._branchName);
+		if (!await this.createOrCheckoutBranch(this._branchName)) {
+			this._branchName = undefined;
 		}
 	}
 

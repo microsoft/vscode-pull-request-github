@@ -80,6 +80,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			this.telemetry.sendTelemetryEvent('issue.startWorking');
 			return this.startWorking(issue);
 		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.startWorkingBranchDescriptiveTitle', (issue: any) => {
+			/* __GDPR__
+				"issue.startWorking" : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.startWorking');
+			return this.startWorking(issue);
+		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.continueWorking', (issue: any) => {
 			/* __GDPR__
 				"issue.continueWorking" : {}
@@ -95,6 +102,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			return this.startWorkingBranchPrompt(issueModel);
 		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.stopWorking', (issueModel: any) => {
+			/* __GDPR__
+				"issue.stopWorking" : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.stopWorking');
+			return this.stopWorking(issueModel);
+		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.stopWorkingBranchDescriptiveTitle', (issueModel: any) => {
 			/* __GDPR__
 				"issue.stopWorking" : {}
 			*/
