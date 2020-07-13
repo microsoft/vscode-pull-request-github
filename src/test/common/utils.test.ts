@@ -28,6 +28,16 @@ describe('utils', () => {
 			const error = new HookError('Validation Failed', ['Can not approve your own pull request']);
 			assert.equal(utils.formatError(error), 'Validation Failed: Can not approve your own pull request');
 		});
+
+		it('should format an error with field errors', () => {
+			const error = new HookError('Validation Failed', [{ field: 'title', value: 'garbage', code: 'custom' }]);
+			assert.equal(utils.formatError(error), 'Validation Failed: Value "garbage" cannot be set for field title (code: custom)');
+		});
+
+		it('should format an error with custom ', () => {
+			const error = new HookError('Validation Failed', [{ message: 'Cannot push to this repo', code: 'custom '}]);
+			assert.equal(utils.formatError(error), 'Validation Failed: Cannot push to this repo');
+		});
 	});
 
 	describe('promiseFromEvent', () => {

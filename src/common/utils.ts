@@ -8,7 +8,6 @@ import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
 import moment = require('moment');
 import { HookError } from '@octokit/rest';
-import { isArray } from 'util';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -101,9 +100,9 @@ function isHookError(e: Error): e is HookError {
 
 function hasFieldErrors(e: any): e is (Error & { errors: { value: string, field: string, code: string }[] }) {
 	let areFieldErrors = true;
-	if (!!e.errors && isArray(e.errors)) {
+	if (!!e.errors && Array.isArray(e.errors)) {
 		for (const error of e.errors) {
-			if (!error.field && !error.value && !error.code) {
+			if (!error.field || !error.value || !error.code) {
 				areFieldErrors = false;
 				break;
 			}
