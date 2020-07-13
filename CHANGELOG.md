@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.1
+
+### Changes
+
+- Adopt latest authentication provider API changes
+
 ## 0.18.0
 
 ### Changes
