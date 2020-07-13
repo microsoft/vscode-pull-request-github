@@ -234,7 +234,6 @@ body .comment-container .review-comment-header {
 }
 
 #status-checks svg {
-	fill: var(--vscode-foreground);
 	margin-right: 6px;
 	width: 16px;
 }
@@ -359,18 +358,14 @@ body button.secondary:hover {
 	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-body button svg {
-	fill: var(--vscode-button-foreground);
+body button svg, body button svg path {
+	fill: var(--vscode-foreground);
 }
 
 body button .icon {
 	width: 1em;
 	height: 1em;
 	margin-right: 6px;
-}
-
-body button.checkedOut svg {
-	fill: var(--vscode-foreground);
 }
 
 .prIcon {
@@ -468,7 +463,6 @@ body .overview-title .button-group button {
 }
 
 .section svg {
-	fill: var(--vscode-foreground);
 	width: 16px;
 	height: 16px;
 	display: block;
@@ -482,14 +476,6 @@ body .overview-title .button-group button {
 .section-item .login {
 	width: 129px;
 	flex-shrink: 0;
-}
-
-.vscode-dark .section svg path {
-	fill: #C5C5C5;
-}
-
-.vscode-light .section svg path {
-	fill: #424242;
 }
 
 .section-item {
@@ -517,7 +503,6 @@ body .overview-title .button-group button {
 	height: auto;
 	margin-right: 8px;
 	flex-shrink: 0;
-	fill: var(--vscode-foreground);
 }
 
 .comment-container.commit,
@@ -585,7 +570,6 @@ body .overview-title .button-group button {
     height: auto;
     margin-right: 8px;
     flex-shrink: 0;
-    fill: var(--vscode-foreground);
 }
 
 .details {
@@ -846,14 +830,6 @@ code {
 .vscode-light .comment-body pre:not(.hljs),
 .vscode-light .comment-body code > div {
 	background-color: rgba(220, 220, 220, 0.4);
-}
-
-.vscode-light .comment-actions svg {
-	fill: #424242;
-}
-
-.vscode-dark .comment-actions svg {
-	fill: #C5C5C5;
 }
 
 .vscode-dark .comment-body pre:not(.hljs),
