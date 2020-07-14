@@ -213,7 +213,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "description": "String that enables the 'Create issue from comment' code action. Should not container whitespace."
+            "description": "String that enables the 'Create issue from comment' code action. Should not contain whitespace."
           },
           "default": [
             "TODO",
@@ -274,7 +274,7 @@
         "githubIssues.issueBranchTitle": {
           "type": "string",
           "default": "${user}/issue${issueNumber}",
-          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${sanitizedIssueTitle}."
+          "markdownDescription": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters removed"
         },
         "githubIssues.useBranchForIssues": {
           "type": "string",
@@ -294,12 +294,12 @@
         "githubIssues.issueCompletionFormatScm": {
           "type": "string",
           "default": "${issueTitle} ${issueNumberLabel}",
-          "description": "Sets the format of issue completions in the SCM inputbox. For example, '${issueNumberLabel}'"
+          "markdownDescription": "Sets the format of issue completions in the SCM inputbox. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${issueNumberLabel}` will be replaced with a label formatted as #number or owner/repository#number, depending on whether the issue is in the current repository"
         },
         "githubIssues.workingIssueFormatScm": {
           "type": "string",
           "default": "${issueTitle} \nFixes ${issueNumberLabel}",
-          "description": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to '${issueTitle} \nFixes #${issueNumber}'"
+          "markdownDescription": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`"
         },
         "githubIssues.queries": {
           "type": "array",
