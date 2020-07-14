@@ -46,7 +46,7 @@ export class StateManager {
 	public onRefreshCacheNeeded: vscode.Event<void> = this._onRefreshCacheNeeded.event;
 	private _onDidChangeIssueData: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onDidChangeIssueData: vscode.Event<void> = this._onDidChangeIssueData.event;
-	private _queries: { label: string, query: string }[];
+	private _queries: { label: string, query: string }[] = [];
 
 	private _currentIssue: CurrentIssue | undefined;
 	private _onDidChangeCurrentIssue: vscode.EventEmitter<void> = new vscode.EventEmitter();

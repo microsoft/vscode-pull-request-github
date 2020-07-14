@@ -6,7 +6,7 @@
 import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION } from './util';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION, BRANCH_NAME_CONFIGURATION_DEPRECATED } from './util';
 import { Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
 
@@ -100,6 +100,26 @@ export class CurrentIssue {
 		return this.user;
 	}
 
+	// TODO: #1972 Delete the deprecated setting
+	private async ensureBranchTitleConfigMigrated(): Promise<string> {
+		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION);
+		const deprecatedConfigInspect = configuration.inspect(BRANCH_NAME_CONFIGURATION_DEPRECATED);
+		function migrate(value: any, target: vscode.ConfigurationTarget) {
+			configuration.update(BRANCH_NAME_CONFIGURATION, value, target);
+			configuration.update(BRANCH_NAME_CONFIGURATION_DEPRECATED, undefined, target);
+		}
+		if (deprecatedConfigInspect?.globalValue) {
+			migrate(deprecatedConfigInspect.globalValue, vscode.ConfigurationTarget.Global);
+		}
+		if (deprecatedConfigInspect?.workspaceValue) {
+			migrate(deprecatedConfigInspect.workspaceValue, vscode.ConfigurationTarget.Workspace);
+		}
+		if (deprecatedConfigInspect?.workspaceFolderValue) {
+			migrate(deprecatedConfigInspect.workspaceFolderValue, vscode.ConfigurationTarget.WorkspaceFolder);
+		}
+		return vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_NAME_CONFIGURATION) ?? this.getBasicBranchName(await this.getUser());
+	}
+
 	private async createIssueBranch(): Promise<void> {
 		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
 		if (createBranchConfig === 'off') {
@@ -109,7 +129,7 @@ export class CurrentIssue {
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
 		if (!this._branchName) {
 			if (createBranchConfig === 'on') {
-				const branchNameConfig = <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_NAME_CONFIGURATION);
+				const branchNameConfig = await this.ensureBranchTitleConfigMigrated();
 				this._branchName = await variableSubstitution(branchNameConfig, this.issue, undefined, await this.getUser());
 			} else {
 				this._branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });

@@ -78,5 +78,5 @@ From the issues view you can start working on an issue. This creates a branch, p
 
 ![Start Working](images/startWorking.gif)
 
-**Start Working** is customizable. If you don't want a branch to be created, use `"githubIssues.useBranchForIssues": "off"`. If you always want to be prompted to enter the name of the branch use the `"prompt"` option of the setting. If you have a different naming scheme for your branches you can use `"githubIssues.workingIssueBranch": "${user}/issue${issueNumber}"` to configure it.
+**Start Working** is customizable. If you don't want a branch to be created, use `"githubIssues.useBranchForIssues": "off"`. If you always want to be prompted to enter the name of the branch use the `"prompt"` option of the setting. If you have a different naming scheme for your branches you can use `"githubIssues.issueBranchTitle": "${user}/issue${issueNumber}"` to configure it.
 

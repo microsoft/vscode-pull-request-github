@@ -17,7 +17,7 @@
 
 ![Label Suggestion](documentation/changelog/0.18.0/label-suggestion.gif)
 - Hovers work for issues formatted as GH-123.
-- The `githubIssues.workingIssueBranch` setting can take the new variable `${sanitizedIssueTitle}`.
+- The `githubIssues.issueBranchTitle` setting can take the new variable `${sanitizedIssueTitle}`.
 - If you have uncommitted changes in your issue branch when you try to create a pull request, you'll be prompted to commit them.
 
 ![Commit Prompt](documentation/changelog/0.18.0/commit-prompt.png)
