@@ -72,10 +72,8 @@ export class LabelCompletionProvider implements vscode.CompletionItemProvider {
 		const defaults = await this.manager.getPullRequestDefaults();
 		const labels = await this.manager.getLabels(undefined, defaults);
 		return labels.map(label => {
-			const item = new vscode.CompletionItem(label.name, vscode.CompletionItemKind.Keyword);
-			item.documentation = new vscode.MarkdownString();
-			item.documentation.appendMarkdown(`<span style="background-color:#${label.color};">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>`);
-			item.documentation.isTrusted = true;
+			const item = new vscode.CompletionItem(label.name, vscode.CompletionItemKind.Color);
+			item.documentation = `#${label.color}`;
 			return item;
 		});
 	}
