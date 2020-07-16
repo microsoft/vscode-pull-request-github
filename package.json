@@ -621,6 +621,12 @@
         "icon": "$(arrow-right)"
       },
       {
+        "command": "issue.startWorkingBranchDescriptiveTitle",
+        "title": "Start Working on Issue and Checkout Topic Branch",
+        "category": "GitHub Issues",
+        "icon": "$(arrow-right)"
+      },
+      {
         "command": "issue.continueWorking",
         "title": "Continue Working on Issue",
         "category": "GitHub Issues",
@@ -634,6 +640,12 @@
       {
         "command": "issue.stopWorking",
         "title": "Stop Working on Issue",
+        "category": "GitHub Issues",
+        "icon": "$(primitive-square)"
+      },
+      {
+        "command": "issue.stopWorkingBranchDescriptiveTitle",
+        "title": "Stop Working on Issue and Leave Topic Branch",
         "category": "GitHub Issues",
         "icon": "$(primitive-square)"
       },
@@ -865,6 +877,10 @@
           "when": "false"
         },
         {
+          "command": "issue.startWorkingBranchDescriptiveTitle",
+          "when": "false"
+        },
+        {
           "command": "issue.continueWorking",
           "when": "false"
         },
@@ -874,6 +890,10 @@
         },
         {
           "command": "issue.stopWorking",
+          "when": "false"
+        },
+        {
+          "command": "issue.stopWorkingBranchDescriptiveTitle",
           "when": "false"
         },
         {
@@ -1013,12 +1033,22 @@
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem == issue",
+          "when": "view =~ /issues:github/ && viewItem == issue && config.githubIssues.useBranchForIssues != on",
+          "group": "inline@1"
+        },
+        {
+          "command": "issue.startWorkingBranchDescriptiveTitle",
+          "when": "view =~ /issues:github/ && viewItem == issue && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem == continueissue",
+          "when": "view =~ /issues:github/ && viewItem == continueissue && config.githubIssues.useBranchForIssues != on",
+          "group": "inline@1"
+        },
+        {
+          "command": "issue.startWorkingBranchDescriptiveTitle",
+          "when": "view =~ /issues:github/ && viewItem == continueissue && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
@@ -1044,7 +1074,12 @@
         },
         {
           "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem == currentissue",
+          "when": "view =~ /issues:github/ && viewItem == currentissue && config.githubIssues.useBranchForIssues != on",
+          "group": "inline@1"
+        },
+        {
+          "command": "issue.stopWorkingBranchDescriptiveTitle",
+          "when": "view =~ /issues:github/ && viewItem == currentissue && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
@@ -1165,7 +1200,7 @@
     "postinstall": "cd src/typings && npx vscode-dts master && npx vscode-dts dev master",
     "compile": "tsc -p ./",
     "clean": "rm -r out/ media/ preview-src/dist/",
-    "watch": "webpack --watch --env.development",
+    "watch": "webpack --watch --env.development --info-verbosity verbose",
     "test": "yarn run preprocess && node ./out/test/runTests.js",
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
     "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
