@@ -45,6 +45,9 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			completionItem.range = range;
 			completionItem.detail = item.name;
 			completionItem.filterText = `@ ${item.login} ${item.name}`;
+			if (document.uri.scheme === NEW_ISSUE_SCHEME) {
+				completionItem.commitCharacters = [' ', ','];
+			}
 			completionItems.push(completionItem);
 		});
 		return completionItems;

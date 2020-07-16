@@ -74,6 +74,7 @@ export class LabelCompletionProvider implements vscode.CompletionItemProvider {
 		return labels.map(label => {
 			const item = new vscode.CompletionItem(label.name, vscode.CompletionItemKind.Color);
 			item.documentation = `#${label.color}`;
+			item.commitCharacters = [' ', ','];
 			return item;
 		});
 	}
