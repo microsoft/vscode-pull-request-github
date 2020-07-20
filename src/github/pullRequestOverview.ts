@@ -65,22 +65,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
 		super(extensionPath, column, title, pullRequestManager, descriptionNode, PullRequestOverviewPanel._viewType);
 
-		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
+		this._pullRequestManager.onDidChangeActivePullRequest(async (_) => {
 			if (this._pullRequestManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
-				this._postMessage({
+				await this._postMessage({
 					command: 'pr.update-checkout-status',
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
 				});
 			}
 		}, null, this._disposables);
 
-		onDidUpdatePR(pr => {
+		onDidUpdatePR(async (pr) => {
 			if (pr) {
 				this._item.update(pr);
 			}
 
-			this._postMessage({
+			await this._postMessage({
 				command: 'update-state',
 				state: this._item.state,
 			});
@@ -164,7 +164,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this._pullRequestManager.getStatusChecks(pullRequestModel),
 			this._pullRequestManager.getReviewRequests(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-		]).then(result => {
+		]).then(async (result) => {
 			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, repositoryAccess] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
@@ -182,7 +182,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			this._postMessage({
+			await this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: {
 					number: pullRequest.number,
@@ -222,7 +222,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	public async update(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
 		this._descriptionNode = descriptionNode;
-		this._postMessage({
+		await this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
@@ -516,7 +516,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this.refreshPanel();
 			vscode.commands.executeCommand('pr.refreshList');
 
-			this._postMessage({
+			await this._postMessage({
 				command: 'pr.deleteBranch'
 			});
 		} else {

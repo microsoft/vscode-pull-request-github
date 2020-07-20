@@ -1,4 +1,4 @@
-import Octokit = require('@octokit/rest');
+import { Octokit } from '@octokit/rest';
 import { UserBuilder } from './userBuilder';
 import { RefBuilder } from './refBuilder';
 import { createLink, createBuilderClass } from '../base';

@@ -41,7 +41,7 @@ export interface MilestoneData extends ItemsData {
 	hasMorePages: boolean;
 }
 
-export interface IMetadata extends Octokit.ReposGetResponse {
+export interface IMetadata extends Octokit.Octokit.ReposGetResponse {
 	currentUser: any;
 }
 
@@ -87,7 +87,7 @@ export class GitHubRepository implements vscode.Disposable {
 		this._toDispose.forEach(d => d.dispose());
 	}
 
-	public get octokit(): Octokit {
+	public get octokit(): Octokit.Octokit {
 		return this.hub && this.hub.octokit;
 	}
 
@@ -417,7 +417,7 @@ export class GitHubRepository implements vscode.Disposable {
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			const promises: Promise<Octokit.Response<Octokit.PullsGetResponse>>[] = [];
+			const promises: Promise<Octokit.Octokit.Response<Octokit.Octokit.PullsGetResponse>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
 					const prData = await octokit.pulls.get({

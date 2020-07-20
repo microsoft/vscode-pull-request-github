@@ -7,7 +7,7 @@
 import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
 import moment = require('moment');
-import { HookError } from '@octokit/rest';
+import { Octokit } from '@octokit/rest';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -94,8 +94,8 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
-function isHookError(e: Error): e is HookError {
-	return !!(e as HookError).errors;
+function isHookError(e: Error): e is Octokit.HookError {
+	return !!(e as Octokit.HookError).errors;
 }
 
 function hasFieldErrors(e: any): e is (Error & { errors: { value: string, field: string, code: string }[] }) {
@@ -113,7 +113,7 @@ function hasFieldErrors(e: any): e is (Error & { errors: { value: string, field:
 	return areFieldErrors;
 }
 
-export function formatError(e: HookError | any): string {
+export function formatError(e: Octokit.HookError | any): string {
 	if (!(e instanceof Error)) {
 		if (typeof e === 'string') {
 			return e;

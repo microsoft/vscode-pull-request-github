@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as Octokit from '@octokit/rest';
+import { Octokit } from '@octokit/rest';
 import * as vscode from 'vscode';
 import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User, Issue } from './interface';
 import { IComment, Reaction } from '../common/comment';

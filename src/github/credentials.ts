@@ -13,6 +13,7 @@ import * as PersistentState from '../common/persistentState';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import { ITelemetry } from '../common/telemetry';
+const { tokenAuth } = require('@octokit/auth-token');
 
 const TRY_AGAIN = 'Try again?';
 const CANCEL = 'Cancel';
@@ -25,8 +26,8 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 const AUTH_PROVIDER_ID = 'github';
 const SCOPES = ['read:user', 'user:email', 'repo'];
 
-export interface AnnotatedOctokit extends Octokit {
-	currentUser?: Octokit.PullsGetResponseUser;
+export interface AnnotatedOctokit extends Octokit.Octokit {
+	currentUser?: Octokit.Octokit.PullsGetResponseUser;
 }
 
 export interface GitHub {
@@ -149,7 +150,7 @@ export class CredentialStore {
 		return this._githubAPI?.octokit?.currentUser?.login === username;
 	}
 
-	public getCurrentUser(): Octokit.PullsGetResponseUser {
+	public getCurrentUser(): Octokit.Octokit.PullsGetResponseUser {
 		const octokit = this._githubAPI?.octokit;
 		// TODO remove cast
 		return octokit && (octokit as any).currentUser;
@@ -167,11 +168,12 @@ export class CredentialStore {
 	}
 
 	private async createHub(token: string): Promise<GitHub> {
-		const octokit = new Octokit({
+		const octokit = new Octokit.Octokit({
 			request: { agent },
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
 			previews: ['shadow-cat-preview'],
+			authStrategy: tokenAuth,
 			auth() {
 				return `token ${token || ''}`;
 			}

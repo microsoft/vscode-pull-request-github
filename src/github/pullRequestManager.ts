@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import Octokit = require('@octokit/rest');
+import { Octokit } from '@octokit/rest';
 import { CredentialStore } from './credentials';
 import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
@@ -28,6 +28,7 @@ import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { userMarkdown, UserCompletion } from '../issues/util';
+import { isArray } from 'util';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -938,15 +939,19 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async getFile(pullRequest: PullRequestModel, filePath: string, commit: string) {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		const fileContent = await octokit.repos.getContents({
+		const fileContent: Octokit.Response<Octokit.ReposGetContentsResponse> = await octokit.repos.getContents({
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			path: filePath,
 			ref: commit
 		});
 
-		const contents = fileContent.data.content;
-		const buff = new Buffer(contents, fileContent.data.encoding);
+		if (isArray(fileContent.data)) {
+			throw new Error(`Unexpected array response when getting file ${filePath}`);
+		}
+
+		const contents = fileContent.data.content ?? '';
+		const buff = new Buffer(contents, <any>fileContent.data.encoding);
 		return buff.toString();
 	}
 
@@ -1036,18 +1041,20 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 
 		const githubRepository = pullRequest.githubRepository;
-		const { octokit, remote } = await githubRepository.ensure();
+		/*const { octokit, remote } =*/ await githubRepository.ensure();
 
 		try {
-			const ret = await octokit.pulls.createCommentReply({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: pullRequest.number,
-				body: body,
-				in_reply_to: Number(reply_to.id)
-			});
+			// TODO: @RMacfarlane apparently createCommentReply has been replaced with createComment, but the conversion isn't obvious.
+			// const ret = await octokit.pulls.createCommentReply({
+			// 	owner: remote.owner,
+			// 	repo: remote.repositoryName,
+			// 	pull_number: pullRequest.number,
+			// 	body: body,
+			// 	in_reply_to: Number(reply_to.id)
+			// });
 
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository));
+			// return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository));
+			return undefined;
 		} catch (e) {
 			this.handleError(e);
 		}

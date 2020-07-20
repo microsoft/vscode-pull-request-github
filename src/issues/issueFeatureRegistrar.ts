@@ -20,7 +20,7 @@ import { GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
 import { IssueFileSystemProvider, NEW_ISSUE_SCHEME, ASSIGNEES, LABELS, LabelCompletionProvider, NEW_ISSUE_FILE } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
-import Octokit = require('@octokit/rest');
+import { Octokit } from '@octokit/rest';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';

@@ -97,10 +97,10 @@ export class IssueOverviewPanel {
 			await this._onDidReceiveMessage(message);
 		}, null, this._disposables);
 
-		this._pullRequestManager.onDidChangeActiveIssue(_ => {
+		this._pullRequestManager.onDidChangeActiveIssue(async (_) => {
 			if (this._pullRequestManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeIssue);
-				this._postMessage({
+				await this._postMessage({
 					command: 'pr.update-checkout-status',
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
 				});
@@ -123,7 +123,7 @@ export class IssueOverviewPanel {
 			),
 			this._pullRequestManager.getIssueTimelineEvents(issueModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(issueModel),
-		]).then(result => {
+		]).then(async (result) => {
 			const [issue, timelineEvents, defaultBranch] = result;
 			if (!issue) {
 				throw new Error(`Fail to resolve issue #${issueModel.number} in ${issueModel.remote.owner}/${issueModel.remote.repositoryName}`);
@@ -133,7 +133,7 @@ export class IssueOverviewPanel {
 			this._panel.title = `Pull Request #${issueModel.number.toString()}`;
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
-			this._postMessage({
+			await this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: {
 					number: this._item.number,
@@ -164,7 +164,7 @@ export class IssueOverviewPanel {
 
 	public async update(issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
 		this._descriptionNode = descriptionNode;
-		this._postMessage({
+		await this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
@@ -174,7 +174,7 @@ export class IssueOverviewPanel {
 	}
 
 	protected async _postMessage(message: any) {
-		this._panel.webview.postMessage({
+		return this._panel.webview.postMessage({
 			res: message
 		});
 	}
@@ -329,7 +329,7 @@ export class IssueOverviewPanel {
 	}
 
 	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Octokit.PullsGetResponse>('pr.close', this._item, message.args).then(comment => {
+		vscode.commands.executeCommand<Octokit.Octokit.PullsGetResponse>('pr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
