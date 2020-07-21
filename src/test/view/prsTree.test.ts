@@ -41,12 +41,14 @@ describe('GitHub Pull Requests view', function () {
 		// a dummy GitHub/Octokit object.
 		sinon.stub(credentialStore, 'showSignInNotification').callsFake(async () => {
 			const github: GitHub = {
-				octokit: new Octokit({
-					request: {},
-					baseUrl: 'https://github.com',
-					userAgent: 'GitHub VSCode Pull Requests',
-					previews: ['shadow-cat-preview']
-				}),
+				octokit: {
+					octokit: new Octokit({
+						request: {},
+						baseUrl: 'https://github.com',
+						userAgent: 'GitHub VSCode Pull Requests',
+						previews: ['shadow-cat-preview']
+					})
+				},
 				graphql: null
 			};
 

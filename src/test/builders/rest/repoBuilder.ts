@@ -1,15 +1,17 @@
-import { Octokit } from '@octokit/rest';
+import * as OctokitTypes from '@octokit/types';
 import { UserBuilder } from './userBuilder';
 import { OrganizationBuilder } from './organizationBuilder';
 import { createBuilderClass, createLink } from '../base';
+import { OctokitCommon } from '../../../github/common';
 
 export type RepoUnion =
-	Octokit.ReposGetResponse &
-	Octokit.PullsListResponseItemHeadRepo &
-	Octokit.PullsListResponseItemBaseRepo;
+	OctokitTypes.ReposGetResponseData &
+	OctokitCommon.PullsListResponseItemHeadRepo &
+	OctokitCommon.PullsListResponseItemBaseRepo;
 
 type License = RepoUnion['license'];
 type Permissions = RepoUnion['permissions'];
+type CodeOfConduct = RepoUnion['code_of_conduct'];
 
 export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 	id: { default: 0 },
@@ -68,7 +70,7 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 	hooks_url: { default: 'http://api.github.com/repos/octocat/reponame/hooks' },
 	svn_url: { default: 'https://svn.github.com/octocat/reponame' },
 	homepage: { default: 'https://github.com' },
-	language: { default: null },
+	language: { default: '' },
 	license: createLink<License>()({
 		key: { default: 'mit' },
 		name: { default: 'MIT License' },
@@ -95,7 +97,9 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 	permissions: createLink<Permissions>()({
 		admin: { default: false },
 		push: { default: false },
-		pull: { default: true }
+		pull: { default: true },
+		maintain: { default: false },
+		triage: { default: false }
 	}),
 	allow_rebase_merge: { default: true },
 	allow_squash_merge: { default: true },
@@ -104,8 +108,15 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 	network_count: { default: 0 },
 	is_template: { default: false },
 	temp_clone_token: { default: '' },
-	template_repository: { default: null },
-	visibility: { default: '' }
+	template_repository: { default: <any>'' }, // TODO: Is something more needed here?
+	visibility: { default: '' },
+	delete_branch_on_merge: { default: false },
+	code_of_conduct: createLink<CodeOfConduct>()({
+		html_url: { default: 'https://github.com/octocat/reponame' },
+		key: { default: 'key' },
+		name: { default: 'name' },
+		url: { default: 'https://github.com/octocat/reponame' }
+	})
 });
 
 export type RepositoryBuilder = InstanceType<typeof RepositoryBuilder>;

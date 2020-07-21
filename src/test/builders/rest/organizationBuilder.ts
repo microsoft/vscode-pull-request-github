@@ -1,7 +1,7 @@
-import { Octokit } from '@octokit/rest';
 import { createBuilderClass } from '../base';
+import { OctokitCommon } from '../../../github/common';
 
-export const OrganizationBuilder = createBuilderClass<Octokit.ReposGetResponseOrganization>()({
+export const OrganizationBuilder = createBuilderClass<OctokitCommon.ReposGetResponseOrganization>()({
 	login: {default: 'octocat'},
 	id: {default: 1},
 	node_id: {default: 'MDQ6VXNlcjE='},

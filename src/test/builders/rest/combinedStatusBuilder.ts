@@ -1,9 +1,10 @@
-import { Octokit } from '@octokit/rest';
+import * as OctokitTypes from '@octokit/types';
 
 import { createBuilderClass } from '../base';
 import { RepositoryBuilder } from './repoBuilder';
+import { OctokitCommon } from '../../../github/common';
 
-export const StatusItemBuilder = createBuilderClass<Octokit.ReposGetCombinedStatusForRefResponseStatusesItem>()({
+export const StatusItemBuilder = createBuilderClass<OctokitCommon.ReposGetCombinedStatusForRefResponseStatusesItem>()({
 	url: { default: 'https://api.github.com/repos/octocat/Hello-World/statuses/0000000000000000000000000000000000000000' },
 	avatar_url: { default: 'https://github.com/images/error/hubot_happy.gif' },
 	id: { default: 1 },
@@ -18,7 +19,7 @@ export const StatusItemBuilder = createBuilderClass<Octokit.ReposGetCombinedStat
 
 export type StatusItemBuilder = InstanceType<typeof StatusItemBuilder>;
 
-export const CombinedStatusBuilder = createBuilderClass<Octokit.ReposGetCombinedStatusForRefResponse>()({
+export const CombinedStatusBuilder = createBuilderClass<OctokitTypes.ReposGetCombinedStatusForRefResponseData>()({
 	state: { default: 'success' },
 	statuses: { default: [] },
 	sha: { default: '0000000000000000000000000000000000000000' },

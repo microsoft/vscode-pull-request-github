@@ -1,9 +1,9 @@
-import { Octokit } from '@octokit/rest';
+import * as  OctokitTypes from '@octokit/types';
 
 import { UserBuilder } from './userBuilder';
 import { createBuilderClass } from '../base';
 
-export const TimelineEventItemBuilder = createBuilderClass<Octokit.IssuesListEventsForTimelineResponseItem>()({
+export const TimelineEventItemBuilder = createBuilderClass<OctokitTypes.IssuesListEventsForTimelineResponseData[0]>()({
 	id: { default: 1 },
 	node_id: { default: 'MDEwOklzc3VlRXZlbnQx' },
 	url: { default: 'https://api.github.com/repos/octocat/Hello-World/issues/events/1' },

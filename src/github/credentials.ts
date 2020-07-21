@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import Octokit = require('@octokit/rest');
+import { Octokit } from '@octokit/rest';
+import * as OctokitTypes from '@octokit/types';
 import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
@@ -26,8 +27,9 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 const AUTH_PROVIDER_ID = 'github';
 const SCOPES = ['read:user', 'user:email', 'repo'];
 
-export interface AnnotatedOctokit extends Octokit.Octokit {
-	currentUser?: Octokit.Octokit.PullsGetResponseUser;
+export interface AnnotatedOctokit {
+	octokit: Octokit;
+	currentUser?: OctokitTypes.PullsGetResponseData['user'];
 }
 
 export interface GitHub {
@@ -150,14 +152,14 @@ export class CredentialStore {
 		return this._githubAPI?.octokit?.currentUser?.login === username;
 	}
 
-	public getCurrentUser(): Octokit.Octokit.PullsGetResponseUser {
+	public getCurrentUser(): OctokitTypes.PullsGetResponseData['user'] {
 		const octokit = this._githubAPI?.octokit;
 		// TODO remove cast
 		return octokit && (octokit as any).currentUser;
 	}
 
 	private async setCurrentUser(octokit: AnnotatedOctokit): Promise<void> {
-		const user = await octokit.users.getAuthenticated({});
+		const user = await octokit.octokit.users.getAuthenticated({});
 		octokit.currentUser = user.data;
 	}
 
@@ -168,15 +170,13 @@ export class CredentialStore {
 	}
 
 	private async createHub(token: string): Promise<GitHub> {
-		const octokit = new Octokit.Octokit({
-			request: { agent },
-			userAgent: 'GitHub VSCode Pull Requests',
+		const octokit = new Octokit({
+			// request: { agent },
+			// userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
-			previews: ['shadow-cat-preview'],
-			authStrategy: tokenAuth,
-			auth() {
-				return `token ${token || ''}`;
-			}
+			// previews: ['shadow-cat-preview'],
+			auth: `${token || ''}`
+
 		});
 
 		const graphql = new ApolloClient({
@@ -190,7 +190,9 @@ export class CredentialStore {
 		});
 
 		return {
-			octokit,
+			octokit: {
+				octokit
+			},
 			graphql
 		};
 	}

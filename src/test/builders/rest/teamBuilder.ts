@@ -1,7 +1,7 @@
-import { Octokit } from '@octokit/rest';
 import { createBuilderClass } from '../base';
+import { OctokitCommon } from '../../../github/common';
 
-export type TeamUnion = Octokit.PullsListReviewRequestsResponseTeamsItem;
+export type TeamUnion = OctokitCommon.PullsListReviewRequestsResponseTeamsItem;
 
 export const TeamBuilder = createBuilderClass<TeamUnion>()({
 	id: { default: 1 },
@@ -14,7 +14,7 @@ export const TeamBuilder = createBuilderClass<TeamUnion>()({
 	permission: { default: 'admin' },
 	members_url: { default: 'https://api.github.com/teams/1/members{/member}' },
 	repositories_url: { default: 'https://api.github.com/teams/1/repos' },
-	parent: { default: null },
+	parent: { default: { test: 'test' } },
 	html_url: { default: 'https://api.github.com/teams/1' }
 });
 

@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Octokit = require('@octokit/rest');
+import { Octokit } from '@octokit/rest';
+import * as OctokitTypes from '@octokit/types';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
 import { IAccount, RepoAccessAndMergeMethods, PullRequestMergeability, IMilestone } from './interface';
@@ -41,7 +42,7 @@ export interface MilestoneData extends ItemsData {
 	hasMorePages: boolean;
 }
 
-export interface IMetadata extends Octokit.Octokit.ReposGetResponse {
+export interface IMetadata extends OctokitTypes.ReposGetResponseData {
 	currentUser: any;
 }
 
@@ -87,8 +88,8 @@ export class GitHubRepository implements vscode.Disposable {
 		this._toDispose.forEach(d => d.dispose());
 	}
 
-	public get octokit(): Octokit.Octokit {
-		return this.hub && this.hub.octokit;
+	public get octokit(): Octokit {
+		return this.hub && this.hub.octokit.octokit;
 	}
 
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
@@ -417,7 +418,7 @@ export class GitHubRepository implements vscode.Disposable {
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			const promises: Promise<Octokit.Octokit.Response<Octokit.Octokit.PullsGetResponse>>[] = [];
+			const promises: Promise<OctokitTypes.OctokitResponse<OctokitTypes.PullsGetResponseData>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
 					const prData = await octokit.pulls.get({

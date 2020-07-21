@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import Octokit = require('@octokit/rest');
+import * as OctokitTypes from '@octokit/types';
 import { ILabel } from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
@@ -329,7 +329,7 @@ export class IssueOverviewPanel {
 	}
 
 	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Octokit.Octokit.PullsGetResponse>('pr.close', this._item, message.args).then(comment => {
+		vscode.commands.executeCommand<OctokitTypes.PullsGetResponseData>('pr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment

@@ -1,8 +1,8 @@
-import { Octokit } from '@octokit/rest';
+import * as OctokitTypes from '@octokit/types';
 
 import { createBuilderClass } from '../base';
 
-export const ReviewRequestsBuilder = createBuilderClass<Octokit.PullsListReviewRequestsResponse>()({
+export const ReviewRequestsBuilder = createBuilderClass<OctokitTypes.PullsListRequestedReviewersResponseData>()({
 	users: { default: [] },
 	teams: { default: [] },
 });

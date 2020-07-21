@@ -1,11 +1,11 @@
-import { Octokit } from '@octokit/rest';
 import { UserBuilder } from './userBuilder';
 import { RepositoryBuilder } from './repoBuilder';
 import { createBuilderClass } from '../base';
+import { OctokitCommon } from '../../../github/common';
 
 type RefUnion =
-	Octokit.PullsListResponseItemHead &
-	Octokit.PullsListResponseItemBase;
+	OctokitCommon.PullsListResponseItemHead &
+	OctokitCommon.PullsListResponseItemBase;
 
 export const RefBuilder = createBuilderClass<RefUnion>()({
 	label: { default: 'octocat:new-feature' },
