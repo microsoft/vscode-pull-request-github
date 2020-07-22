@@ -1937,8 +1937,8 @@ export class PullRequestManager implements vscode.Disposable {
 		const { data } = await octokit.repos.compareCommits({
 			repo: remote.repositoryName,
 			owner: remote.owner,
-			base: `${pullRequest.base.repositoryCloneUrl.owner}:${encodeURIComponent(pullRequest.base.ref)}`,
-			head: `${pullRequest.head.repositoryCloneUrl.owner}:${encodeURIComponent(pullRequest.head.ref)}`,
+			base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
+			head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`,
 
 		});
 
@@ -2026,8 +2026,8 @@ export class PullRequestManager implements vscode.Disposable {
 				const { data } = await octokit.repos.compareCommits({
 					repo: remote.repositoryName,
 					owner: remote.owner,
-					base: `${pullRequest.base.repositoryCloneUrl.owner}:${encodeURIComponent(pullRequest.base.ref)}`,
-					head: `${pullRequest.head.repositoryCloneUrl.owner}:${encodeURIComponent(pullRequest.head.ref)}`
+					base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
+					head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`
 				});
 
 				pullRequest.mergeBase = data.merge_base_commit.sha;
