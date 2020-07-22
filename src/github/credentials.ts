@@ -14,7 +14,6 @@ import * as PersistentState from '../common/persistentState';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import { ITelemetry } from '../common/telemetry';
-const { tokenAuth } = require('@octokit/auth-token');
 
 const TRY_AGAIN = 'Try again?';
 const CANCEL = 'Cancel';
@@ -171,10 +170,10 @@ export class CredentialStore {
 
 	private async createHub(token: string): Promise<GitHub> {
 		const octokit = new Octokit({
-			// request: { agent },
-			// userAgent: 'GitHub VSCode Pull Requests',
+			request: { agent },
+			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
-			// previews: ['shadow-cat-preview'],
+			previews: ['shadow-cat-preview'],
 			auth: `${token || ''}`
 
 		});
