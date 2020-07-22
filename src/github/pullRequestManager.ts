@@ -1123,14 +1123,14 @@ export class PullRequestManager implements vscode.Disposable {
 			return undefined;
 		}
 
-		const { query, octokit, schema } = await pullRequest.githubRepository.ensure();
-		const { currentUser = '' } = octokit as any;
+		const { query, schema } = await pullRequest.githubRepository.ensure();
+		const currentUser = await pullRequest.githubRepository.getAuthenticatedUser();
 		try {
 			const { data } = await query<PendingReviewIdResponse>({
 				query: schema.GetPendingReviewId,
 				variables: {
 					pullRequestId: pullRequest.item.graphNodeId,
-					author: currentUser.login
+					author: currentUser
 				}
 			});
 			return data.node.reviews.nodes[0].id;
