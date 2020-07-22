@@ -174,6 +174,10 @@ export class IssueOverviewPanel {
 	}
 
 	protected async _postMessage(message: any) {
+		// @RMacfarlane, put a breakpoint on the following line then try to open a PR description.
+		// Wait for maybe 3 seconds the second time the break point hits, and the webview will load as expected.
+		// I suspect this just revealed an existing problem. Even before the octokit upgrade, I would see the description
+		// fail to load about 25% of the time.
 		return this._panel.webview.postMessage({
 			res: message
 		});
