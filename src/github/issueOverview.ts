@@ -100,7 +100,7 @@ export class IssueOverviewPanel {
 		this._pullRequestManager.onDidChangeActiveIssue(async (_) => {
 			if (this._pullRequestManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeIssue);
-				await this._postMessage({
+				this._postMessage({
 					command: 'pr.update-checkout-status',
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
 				});
@@ -133,7 +133,7 @@ export class IssueOverviewPanel {
 			this._panel.title = `Pull Request #${issueModel.number.toString()}`;
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
-			await this._postMessage({
+			this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: {
 					number: this._item.number,
@@ -164,7 +164,7 @@ export class IssueOverviewPanel {
 
 	public async update(issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
 		this._descriptionNode = descriptionNode;
-		await this._postMessage({
+		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
@@ -173,11 +173,21 @@ export class IssueOverviewPanel {
 		return this.updateIssue(issueModel, descriptionNode);
 	}
 
+	private isWebviewReady = false;
 	protected async _postMessage(message: any) {
-		// @RMacfarlane, put a breakpoint on the following line then try to open a PR description.
-		// Wait for maybe 3 seconds the second time the break point hits, and the webview will load as expected.
-		// I suspect this just revealed an existing problem. Even before the octokit upgrade, I would see the description
-		// fail to load about 25% of the time.
+		// Without the following ready check, we can end up in a state where the message handler in the webview
+		// isn't ready for any of the messages we post.
+		if (!this.isWebviewReady) {
+			await new Promise(resolve => {
+				const interval = setInterval(async () => {
+					this._panel.webview.postMessage({ res: { command: 'confirm-ready' } });
+					if (this.isWebviewReady) {
+						clearInterval(interval);
+						resolve();
+					}
+				}, 500);
+			});
+		}
 		return this._panel.webview.postMessage({
 			res: message
 		});
@@ -228,6 +238,9 @@ export class IssueOverviewPanel {
 				return this.removeLabel(message);
 			case 'pr.debug':
 				return this.webviewDebug(message);
+			case 'ready':
+				this.isWebviewReady = true;
+				return;
 			default:
 				return this.MESSAGE_UNHANDLED;
 		}

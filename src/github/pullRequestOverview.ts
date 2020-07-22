@@ -68,7 +68,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		this._pullRequestManager.onDidChangeActivePullRequest(async (_) => {
 			if (this._pullRequestManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
-				await this._postMessage({
+				this._postMessage({
 					command: 'pr.update-checkout-status',
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
 				});
@@ -80,7 +80,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				this._item.update(pr);
 			}
 
-			await this._postMessage({
+			this._postMessage({
 				command: 'update-state',
 				state: this._item.state,
 			});
@@ -182,7 +182,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			await this._postMessage({
+			this._postMessage({
 				command: 'pr.initialize',
 				pullrequest: {
 					number: pullRequest.number,
@@ -222,7 +222,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	public async update(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
 		this._descriptionNode = descriptionNode;
-		await this._postMessage({
+		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
@@ -516,7 +516,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this.refreshPanel();
 			vscode.commands.executeCommand('pr.refreshList');
 
-			await this._postMessage({
+			this._postMessage({
 				command: 'pr.deleteBranch'
 			});
 		} else {

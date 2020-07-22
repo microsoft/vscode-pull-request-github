@@ -171,6 +171,8 @@ export class PRContext {
 		switch (message.command) {
 			case 'pr.initialize':
 				return this.setPR(message.pullrequest);
+			case 'confirm-ready':
+				return this.postMessage({command: 'ready'});
 			case 'update-state':
 				return this.updatePR({ state: message.state });
 			case 'pr.update-checkout-status':
