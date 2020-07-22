@@ -108,7 +108,7 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 	network_count: { default: 0 },
 	is_template: { default: false },
 	temp_clone_token: { default: '' },
-	template_repository: { default: <any>'' }, // TODO: Is something more needed here?
+	template_repository: { default: <any>'' },
 	visibility: { default: '' },
 	delete_branch_on_merge: { default: false },
 	code_of_conduct: createLink<CodeOfConduct>()({

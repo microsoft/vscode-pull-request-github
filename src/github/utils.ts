@@ -16,6 +16,7 @@ import { uniqBy } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
+import { OctokitCommon } from './common';
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
@@ -80,7 +81,7 @@ export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode
 	});
 }
 
-export function convertRESTUserToAccount(user: OctokitTypes.PullsListResponseData[0]['user'], githubRepository: GitHubRepository): IAccount {
+export function convertRESTUserToAccount(user: OctokitCommon.PullsListResponseItemUser, githubRepository: GitHubRepository): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
@@ -88,7 +89,7 @@ export function convertRESTUserToAccount(user: OctokitTypes.PullsListResponseDat
 	};
 }
 
-export function convertRESTHeadToIGitHubRef(head: OctokitTypes.PullsListResponseData[0]['head']) {
+export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead) {
 	return {
 		label: head.label,
 		ref: head.ref,
@@ -97,7 +98,7 @@ export function convertRESTHeadToIGitHubRef(head: OctokitTypes.PullsListResponse
 	};
 }
 
-export function convertRESTPullRequestToRawPullRequest(pullRequest: OctokitTypes.PullsCreateResponseData | OctokitTypes.PullsGetResponseData | OctokitTypes.PullsListResponseData[0], githubRepository: GitHubRepository): PullRequest {
+export function convertRESTPullRequestToRawPullRequest(pullRequest: OctokitTypes.PullsCreateResponseData | OctokitTypes.PullsGetResponseData | OctokitCommon.PullsListResponseItem, githubRepository: GitHubRepository): PullRequest {
 	const {
 		number,
 		body,

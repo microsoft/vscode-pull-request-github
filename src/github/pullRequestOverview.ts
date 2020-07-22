@@ -65,7 +65,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
 		super(extensionPath, column, title, pullRequestManager, descriptionNode, PullRequestOverviewPanel._viewType);
 
-		this._pullRequestManager.onDidChangeActivePullRequest(async (_) => {
+		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
 			if (this._pullRequestManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
 				this._postMessage({
@@ -75,7 +75,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			}
 		}, null, this._disposables);
 
-		onDidUpdatePR(async (pr) => {
+		onDidUpdatePR(pr => {
 			if (pr) {
 				this._item.update(pr);
 			}
@@ -164,7 +164,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this._pullRequestManager.getStatusChecks(pullRequestModel),
 			this._pullRequestManager.getReviewRequests(pullRequestModel),
 			this._pullRequestManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-		]).then(async (result) => {
+		]).then(result => {
 			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, repositoryAccess] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);

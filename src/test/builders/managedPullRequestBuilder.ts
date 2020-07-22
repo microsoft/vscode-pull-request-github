@@ -2,7 +2,11 @@ import {
 	PullRequestResponse as PullRequestGraphQL,
 	TimelineEventsResponse as TimelineEventsGraphQL
 } from '../../github/graphql';
-import * as OctokitTypes from '@octokit/types';
+import {
+	ReposGetCombinedStatusForRefResponseData as CombinedStatusREST,
+	PullsListRequestedReviewersResponseData as ReviewRequestsREST,
+	IssuesListEventsForTimelineResponseData as TimelineEventREST,
+} from '@octokit/types';
 
 import { PullRequestBuilder as PullRequestGraphQLBuilder } from './graphql/pullRequestBuilder';
 import { PullRequestBuilder as PullRequestRESTBuilder, PullRequestUnion as PullRequestREST } from './rest/pullRequestBuilder';
@@ -16,10 +20,10 @@ type ResponseFlavor<APIFlavor, GQL, RST> = APIFlavor extends 'graphql' ? GQL : R
 
 export interface ManagedPullRequest<APIFlavor> {
 	pullRequest: ResponseFlavor<APIFlavor, PullRequestGraphQL, PullRequestREST>;
-	timelineEvents: ResponseFlavor<APIFlavor, TimelineEventsGraphQL, OctokitTypes.IssuesListEventsForTimelineResponseData>;
+	timelineEvents: ResponseFlavor<APIFlavor, TimelineEventsGraphQL, TimelineEventREST[]>;
 	repositoryREST: RepositoryREST;
-	combinedStatusREST: OctokitTypes.ReposGetCombinedStatusForRefResponseData;
-	reviewRequestsREST: OctokitTypes.PullsListRequestedReviewersResponseData;
+	combinedStatusREST: CombinedStatusREST;
+	reviewRequestsREST: ReviewRequestsREST;
 }
 
 export const ManagedGraphQLPullRequestBuilder = createBuilderClass<ManagedPullRequest<'graphql'>>()({

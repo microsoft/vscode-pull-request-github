@@ -6,7 +6,7 @@
 import { vscode } from './message';
 import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability } from '../src/github/interface';
 import { TimelineEvent } from '../src/common/timelineEvent';
-import * as OctokitTypes from '@octokit/types';
+import { ReposGetCombinedStatusForRefResponseData } from '@octokit/types';
 
 export interface PullRequest {
 	number: number;
@@ -35,7 +35,7 @@ export interface PullRequest {
 	hasWritePermission: boolean;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string; };
-	status: OctokitTypes.ReposGetCombinedStatusForRefResponseData;
+	status: ReposGetCombinedStatusForRefResponseData;
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;
 	mergeMethodsAvailability: MergeMethodsAvailability;

@@ -97,7 +97,7 @@ export class IssueOverviewPanel {
 			await this._onDidReceiveMessage(message);
 		}, null, this._disposables);
 
-		this._pullRequestManager.onDidChangeActiveIssue(async (_) => {
+		this._pullRequestManager.onDidChangeActiveIssue(_ => {
 			if (this._pullRequestManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeIssue);
 				this._postMessage({
@@ -123,7 +123,7 @@ export class IssueOverviewPanel {
 			),
 			this._pullRequestManager.getIssueTimelineEvents(issueModel),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(issueModel),
-		]).then(async (result) => {
+		]).then(result => {
 			const [issue, timelineEvents, defaultBranch] = result;
 			if (!issue) {
 				throw new Error(`Fail to resolve issue #${issueModel.number} in ${issueModel.remote.owner}/${issueModel.remote.repositoryName}`);
@@ -188,7 +188,7 @@ export class IssueOverviewPanel {
 				}, 500);
 			});
 		}
-		return this._panel.webview.postMessage({
+		this._panel.webview.postMessage({
 			res: message
 		});
 	}

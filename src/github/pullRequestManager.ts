@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as Octokit from '@octokit/rest';
 import * as OctokitTypes from '@octokit/types';
 import { CredentialStore } from './credentials';
 import { IComment } from '../common/comment';
@@ -29,7 +28,6 @@ import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { userMarkdown, UserCompletion } from '../issues/util';
-import { isArray } from 'util';
 import { OctokitCommon } from './common';
 
 interface PageInformation {
@@ -912,6 +910,7 @@ export class PullRequestManager implements vscode.Disposable {
 				repo: remote.repositoryName
 			});
 			Logger.debug(`Fetch commits of PR #${pullRequest.number} - done`, PullRequestManager.ID);
+
 			return commitData.data;
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching commits failed: ${formatError(e)}`);
@@ -926,7 +925,7 @@ export class PullRequestManager implements vscode.Disposable {
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				ref: commit.sha,
+				ref: commit.sha
 			});
 			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.number} - done`, PullRequestManager.ID);
 
@@ -946,7 +945,7 @@ export class PullRequestManager implements vscode.Disposable {
 			ref: commit
 		});
 
-		if (isArray(fileContent.data)) {
+		if (Array.isArray(fileContent.data)) {
 			throw new Error(`Unexpected array response when getting file ${filePath}`);
 		}
 
@@ -1374,7 +1373,7 @@ export class PullRequestManager implements vscode.Disposable {
 		}
 	}
 
-	async createIssue(params: Octokit.RestEndpointMethodTypes['issues']['create']['parameters']): Promise<IssueModel | undefined> {
+	async createIssue(params: OctokitCommon.IssuesCreateParams): Promise<IssueModel | undefined> {
 		try {
 			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
 			if (!repo) {

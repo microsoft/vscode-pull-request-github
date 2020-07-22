@@ -5,7 +5,7 @@
 
 import { RemoteSourceProvider, RemoteSource } from './typings/git';
 import { CredentialStore, GitHub } from './github/credentials';
-import * as OctokitTypes from '@octokit/types';
+import { OctokitCommon } from './github/common';
 
 interface Repository {
 	readonly full_name: string;
@@ -14,7 +14,7 @@ interface Repository {
 	readonly ssh_url: string;
 }
 
-function repoResponseAsRemoteSource(raw: OctokitTypes.SearchReposResponseData['items'][0]): RemoteSource {
+function repoResponseAsRemoteSource(raw: OctokitCommon.SearchReposResponseItem): RemoteSource {
 	return {
 		name: `$(github) ${raw.full_name}`,
 		description: raw.description || undefined,
