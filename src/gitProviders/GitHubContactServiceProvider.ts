@@ -98,7 +98,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 	private async getCurrentUserLogin(): Promise<string | undefined> {
 		const origin = await this.pullRequestManager.getOrigin();
 		if (origin) {
-			const currentUser = origin.hub.octokit.currentUser;
+			const currentUser = origin.hub.currentUser;
 			if (currentUser) {
 				return currentUser.login;
 			}

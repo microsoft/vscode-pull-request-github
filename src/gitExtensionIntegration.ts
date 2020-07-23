@@ -62,7 +62,7 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 	private async getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
 		if (!query) {
-			const res = await hub.octokit.octokit.repos.listForAuthenticatedUser({ sort: 'pushed', per_page: 100 });
+			const res = await hub.octokit.repos.listForAuthenticatedUser({ sort: 'pushed', per_page: 100 });
 			this.userReposCache = res.data.map(asRemoteSource);
 		}
 
@@ -74,7 +74,7 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 			return [];
 		}
 
-		const raw = await hub.octokit.octokit.search.repos({ q: query, sort: 'updated' });
+		const raw = await hub.octokit.search.repos({ q: query, sort: 'updated' });
 		return raw.data.items.map(repoResponseAsRemoteSource);
 	}
 }

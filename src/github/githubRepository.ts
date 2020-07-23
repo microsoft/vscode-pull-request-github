@@ -89,7 +89,7 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	public get octokit(): Octokit {
-		return this.hub && this.hub.octokit.octokit;
+		return this.hub && this.hub.octokit;
 	}
 
 	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
