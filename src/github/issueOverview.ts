@@ -43,6 +43,8 @@ export class IssueOverviewPanel {
 	protected _item: IssueModel;
 	protected _pullRequestManager: PullRequestManager;
 	protected _scrollPosition = { x: 0, y: 0 };
+	private _waitForReady: Promise<void>;
+	private _onIsReady: vscode.EventEmitter<void> = new vscode.EventEmitter();
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 
@@ -86,6 +88,13 @@ export class IssueOverviewPanel {
 			localResourceRoots: [
 				vscode.Uri.file(path.join(this._extensionPath, 'media'))
 			]
+		});
+
+		this._waitForReady = new Promise(resolve => {
+			const disposable = this._onIsReady.event(() => {
+				disposable.dispose();
+				resolve();
+			});
 		});
 
 		// Listen for when the panel is disposed
@@ -173,21 +182,10 @@ export class IssueOverviewPanel {
 		return this.updateIssue(issueModel, descriptionNode);
 	}
 
-	private isWebviewReady = false;
 	protected async _postMessage(message: any) {
 		// Without the following ready check, we can end up in a state where the message handler in the webview
 		// isn't ready for any of the messages we post.
-		if (!this.isWebviewReady) {
-			await new Promise(resolve => {
-				const interval = setInterval(async () => {
-					this._panel.webview.postMessage({ res: { command: 'confirm-ready' } });
-					if (this.isWebviewReady) {
-						clearInterval(interval);
-						resolve();
-					}
-				}, 500);
-			});
-		}
+		await this._waitForReady;
 		this._panel.webview.postMessage({
 			res: message
 		});
@@ -239,7 +237,7 @@ export class IssueOverviewPanel {
 			case 'pr.debug':
 				return this.webviewDebug(message);
 			case 'ready':
-				this.isWebviewReady = true;
+				this._onIsReady.fire();
 				return;
 			default:
 				return this.MESSAGE_UNHANDLED;
