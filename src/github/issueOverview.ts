@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import Octokit = require('@octokit/rest');
+import * as OctokitTypes from '@octokit/types';
 import { ILabel } from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
@@ -43,6 +43,8 @@ export class IssueOverviewPanel {
 	protected _item: IssueModel;
 	protected _pullRequestManager: PullRequestManager;
 	protected _scrollPosition = { x: 0, y: 0 };
+	private _waitForReady: Promise<void>;
+	private _onIsReady: vscode.EventEmitter<void> = new vscode.EventEmitter();
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 
@@ -86,6 +88,13 @@ export class IssueOverviewPanel {
 			localResourceRoots: [
 				vscode.Uri.file(path.join(this._extensionPath, 'media'))
 			]
+		});
+
+		this._waitForReady = new Promise(resolve => {
+			const disposable = this._onIsReady.event(() => {
+				disposable.dispose();
+				resolve();
+			});
 		});
 
 		// Listen for when the panel is disposed
@@ -174,6 +183,9 @@ export class IssueOverviewPanel {
 	}
 
 	protected async _postMessage(message: any) {
+		// Without the following ready check, we can end up in a state where the message handler in the webview
+		// isn't ready for any of the messages we post.
+		await this._waitForReady;
 		this._panel.webview.postMessage({
 			res: message
 		});
@@ -224,6 +236,9 @@ export class IssueOverviewPanel {
 				return this.removeLabel(message);
 			case 'pr.debug':
 				return this.webviewDebug(message);
+			case 'ready':
+				this._onIsReady.fire();
+				return;
 			default:
 				return this.MESSAGE_UNHANDLED;
 		}
@@ -329,7 +344,7 @@ export class IssueOverviewPanel {
 	}
 
 	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Octokit.PullsGetResponse>('pr.close', this._item, message.args).then(comment => {
+		vscode.commands.executeCommand<OctokitTypes.PullsGetResponseData>('pr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment

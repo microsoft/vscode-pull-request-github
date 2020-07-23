@@ -1,6 +1,5 @@
 import { inspect } from 'util';
-
-import Octokit = require('@octokit/rest');
+import { Octokit } from '@octokit/rest';
 import { ApolloQueryResult, QueryOptions, DocumentNode, OperationVariables, MutationOptions, FetchResult } from 'apollo-boost';
 import { SinonSandbox, SinonStubbedInstance } from 'sinon';
 
@@ -40,7 +39,7 @@ export class QueryProvider {
 			throw new Error('Empty GraphQL query used in expectation. Is the GraphQL loader configured properly?');
 		}
 
-		const cannedResponse: RecordedQueryResult<T> = {variables: q.variables, result};
+		const cannedResponse: RecordedQueryResult<T> = { variables: q.variables, result };
 
 		const cannedResponses = this._graphqlQueryResponses.get(q.query) || [];
 		if (cannedResponses.length === 0) {
@@ -51,7 +50,7 @@ export class QueryProvider {
 	}
 
 	expectGraphQLMutation<T>(m: MutationOptions, result: FetchResult<T>) {
-		const cannedResponse: RecordedMutationResult<T> = {variables: m.variables, result};
+		const cannedResponse: RecordedMutationResult<T> = { variables: m.variables, result };
 
 		const cannedResponses = this._graphqlMutationResponses.get(m.mutation) || [];
 		if (cannedResponses.length === 0) {
@@ -73,7 +72,7 @@ export class QueryProvider {
 			}
 			currentStub = nextStub;
 		});
-		currentStub.withArgs(...args).resolves({data: response});
+		currentStub.withArgs(...args).resolves({ data: response });
 	}
 
 	emulateGraphQLQuery<T>(q: QueryOptions): ApolloQueryResult<T> {
@@ -84,8 +83,8 @@ export class QueryProvider {
 		} else {
 			if (cannedResponses.length > 0) {
 				let message = 'Variables did not match any expected queries:\n';
-				for (const {variables} of cannedResponses) {
-					message += `  ${inspect(variables, {depth: 3})}\n`;
+				for (const { variables } of cannedResponses) {
+					message += `  ${inspect(variables, { depth: 3 })}\n`;
 				}
 				console.error(message);
 			}
@@ -101,8 +100,8 @@ export class QueryProvider {
 		} else {
 			if (cannedResponses.length > 0) { } {
 				let message = 'Variables did not match any expected queries:\n';
-				for (const {variables} of cannedResponses) {
-					message += `  ${inspect(variables, {depth: 3})}\n`;
+				for (const { variables } of cannedResponses) {
+					message += `  ${inspect(variables, { depth: 3 })}\n`;
 				}
 				console.error(message);
 			}

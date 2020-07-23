@@ -1251,7 +1251,8 @@
     "webpack-cli": "^3.3.11"
   },
   "dependencies": {
-    "@octokit/rest": "^16.21.0",
+    "@octokit/rest": "^18.0.0",
+    "@octokit/types": "^5.1.0",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
     "debounce": "^1.2.0",

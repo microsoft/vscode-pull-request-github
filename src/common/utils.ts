@@ -7,7 +7,6 @@
 import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
 import moment = require('moment');
-import { HookError } from '@octokit/rest';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -94,8 +93,12 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
+interface HookError extends Error {
+	errors: any;
+}
+
 function isHookError(e: Error): e is HookError {
-	return !!(e as HookError).errors;
+	return !!(<any>e).errors;
 }
 
 function hasFieldErrors(e: any): e is (Error & { errors: { value: string, field: string, code: string }[] }) {

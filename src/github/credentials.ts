@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import Octokit = require('@octokit/rest');
+import { Octokit } from '@octokit/rest';
+import * as OctokitTypes from '@octokit/types';
 import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
@@ -25,13 +26,10 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 const AUTH_PROVIDER_ID = 'github';
 const SCOPES = ['read:user', 'user:email', 'repo'];
 
-export interface AnnotatedOctokit extends Octokit {
-	currentUser?: Octokit.PullsGetResponseUser;
-}
-
 export interface GitHub {
-	octokit: AnnotatedOctokit;
+	octokit: Octokit;
 	graphql: ApolloClient<NormalizedCacheObject> | null;
+	currentUser?: OctokitTypes.PullsGetResponseData['user'];
 }
 
 export class CredentialStore {
@@ -48,7 +46,7 @@ export class CredentialStore {
 			this._sessionId = session.id;
 			const octokit = await this.createHub(token);
 			this._githubAPI = octokit;
-			await this.setCurrentUser(octokit.octokit);
+			await this.setCurrentUser(octokit);
 		} else {
 			Logger.debug(`No token found.`, 'Authentication');
 		}
@@ -129,7 +127,7 @@ export class CredentialStore {
 
 		if (octokit) {
 			this._githubAPI = octokit;
-			await this.setCurrentUser(octokit.octokit);
+			await this.setCurrentUser(octokit);
 
 			/* __GDPR__
 				"auth.success" : {}
@@ -146,18 +144,18 @@ export class CredentialStore {
 	}
 
 	public isCurrentUser(username: string): boolean {
-		return this._githubAPI?.octokit?.currentUser?.login === username;
+		return this._githubAPI?.currentUser?.login === username;
 	}
 
-	public getCurrentUser(): Octokit.PullsGetResponseUser {
+	public getCurrentUser(): OctokitTypes.PullsGetResponseData['user'] {
 		const octokit = this._githubAPI?.octokit;
 		// TODO remove cast
-		return octokit && (octokit as any).currentUser;
+		return octokit && (this._githubAPI as any).currentUser;
 	}
 
-	private async setCurrentUser(octokit: AnnotatedOctokit): Promise<void> {
-		const user = await octokit.users.getAuthenticated({});
-		octokit.currentUser = user.data;
+	private async setCurrentUser(github: GitHub): Promise<void> {
+		const user = await github.octokit.users.getAuthenticated({});
+		github.currentUser = user.data;
 	}
 
 	private async getSessionOrLogin(): Promise<string> {
@@ -172,9 +170,8 @@ export class CredentialStore {
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
 			previews: ['shadow-cat-preview'],
-			auth() {
-				return `token ${token || ''}`;
-			}
+			auth: `${token || ''}`
+
 		});
 
 		const graphql = new ApolloClient({
@@ -187,10 +184,12 @@ export class CredentialStore {
 			}
 		});
 
-		return {
+		const github: GitHub = {
 			octokit,
 			graphql
 		};
+		await this.setCurrentUser(github);
+		return github;
 	}
 }
 

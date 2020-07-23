@@ -5,12 +5,21 @@
 
 import { RemoteSourceProvider, RemoteSource } from './typings/git';
 import { CredentialStore, GitHub } from './github/credentials';
+import { OctokitCommon } from './github/common';
 
 interface Repository {
 	readonly full_name: string;
 	readonly description: string | null;
 	readonly clone_url: string;
 	readonly ssh_url: string;
+}
+
+function repoResponseAsRemoteSource(raw: OctokitCommon.SearchReposResponseItem): RemoteSource {
+	return {
+		name: `$(github) ${raw.full_name}`,
+		description: raw.description || undefined,
+		url: raw.url
+	};
 }
 
 function asRemoteSource(raw: Repository): RemoteSource {
@@ -53,7 +62,7 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 	private async getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
 		if (!query) {
-			const res = await hub.octokit.repos.list({ sort: 'pushed', per_page: 100 });
+			const res = await hub.octokit.repos.listForAuthenticatedUser({ sort: 'pushed', per_page: 100 });
 			this.userReposCache = res.data.map(asRemoteSource);
 		}
 
@@ -66,6 +75,6 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 		}
 
 		const raw = await hub.octokit.search.repos({ q: query, sort: 'updated' });
-		return raw.data.items.map(asRemoteSource);
+		return raw.data.items.map(repoResponseAsRemoteSource);
 	}
 }

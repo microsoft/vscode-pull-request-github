@@ -20,7 +20,7 @@ import { GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
 import { IssueFileSystemProvider, NEW_ISSUE_SCHEME, ASSIGNEES, LABELS, LabelCompletionProvider, NEW_ISSUE_FILE } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
-import Octokit = require('@octokit/rest');
+import { OctokitCommon } from '../github/common';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
@@ -526,7 +526,7 @@ ${body ?? ''}\n
 		});
 	}
 
-	private async verifyLabels(createParams: Octokit.IssuesCreateParams): Promise<boolean> {
+	private async verifyLabels(createParams: OctokitCommon.IssuesCreateParams): Promise<boolean> {
 		if (!createParams.labels) {
 			return true;
 		}
@@ -568,7 +568,7 @@ ${body ?? ''}\n
 			return false;
 		}
 		const body: string | undefined = issueBody || newIssue?.document.isUntitled ? issueBody : (await createGithubPermalink(this.gitAPI, newIssue)).permalink;
-		const createParams: Octokit.IssuesCreateParams = {
+		const createParams: OctokitCommon.IssuesCreateParams = {
 			owner: origin.owner,
 			repo: origin.repo,
 			title,
