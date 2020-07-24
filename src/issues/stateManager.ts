@@ -322,8 +322,9 @@ export class StateManager {
 				await this._currentIssue.stopWorking();
 			}
 			this.context.workspaceState.update(CURRENT_ISSUE_KEY, issue?.issue.number);
-			this._currentIssue = issue;
-			await this._currentIssue?.startWorking();
+			if (!issue || await issue.startWorking()) {
+				this._currentIssue = issue;
+			}
 			this._onDidChangeCurrentIssue.fire();
 		} catch (e) {
 			// Error has already been surfaced
