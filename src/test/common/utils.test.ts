@@ -35,7 +35,7 @@ describe('utils', () => {
 		});
 
 		it('should format an error with custom ', () => {
-			const error = new HookError('Validation Failed', [{ message: 'Cannot push to this repo', code: 'custom '}]);
+			const error = new HookError('Validation Failed', [{ message: 'Cannot push to this repo', code: 'custom ' }]);
 			assert.equal(utils.formatError(error), 'Validation Failed: Cannot push to this repo');
 		});
 	});
@@ -131,10 +131,10 @@ describe('utils', () => {
 					password === 'sesame'
 						? resolve(true)
 						:
-					password === 'mellon'
-						? reject(new Error('wrong fable'))
-						:
-						{/* the door is silent */};
+						password === 'mellon'
+							? reject(new Error('wrong fable'))
+							:
+							{/* the door is silent */ };
 
 			const tick = () => new Promise(resolve => setImmediate(resolve));
 			it('should stay subscribed until the adapter resolves', async () => {

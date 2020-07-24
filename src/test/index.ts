@@ -17,7 +17,7 @@ if (!tty.getWindowSize) {
 
 function addTests(mocha: Mocha, root: string): Promise<void> {
 	return new Promise((resolve, reject) => {
-		glob('**/**.test.js', {cwd: root}, (error, files) => {
+		glob('**/**.test.js', { cwd: root }, (error, files) => {
 			if (error) {
 				return reject(error);
 			}

@@ -10,8 +10,8 @@ import { GHPRCommentThread, GHPRComment } from '../github/prComment';
 import { CommentReactionHandler } from '../github/utils';
 
 export class PRCommentController implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
-	private _prCommentControllers: {[key: number]: vscode.CommentingRangeProvider & CommentReactionHandler } = {};
-	private _prDocumentCommentThreadMap: {[key: number]: { [key: string]: GHPRCommentThread[] } } = {};
+	private _prCommentControllers: { [key: number]: vscode.CommentingRangeProvider & CommentReactionHandler } = {};
+	private _prDocumentCommentThreadMap: { [key: number]: { [key: string]: GHPRCommentThread[] } } = {};
 
 	constructor(
 		public commentsController: vscode.CommentController

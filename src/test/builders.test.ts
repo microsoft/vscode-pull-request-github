@@ -6,7 +6,7 @@ interface IGrandChild {
 }
 
 const GrandChildBuilder = createBuilderClass<IGrandChild>()({
-	attr: {default: 10},
+	attr: { default: 10 },
 });
 
 interface IChild {
@@ -15,8 +15,8 @@ interface IChild {
 }
 
 const ChildBuilder = createBuilderClass<IChild>()({
-	name: {default: ''},
-	grandchild: {linked: GrandChildBuilder},
+	name: { default: '' },
+	grandchild: { linked: GrandChildBuilder },
 });
 
 const b = new ChildBuilder();
@@ -30,10 +30,10 @@ interface IParent {
 }
 
 const ParentBuilder = createBuilderClass<IParent>()({
-	aStringProp: {default: 'abc'},
-	aNumberProp: {default: 123},
-	aBooleanProp: {default: true},
-	aChildProp: {linked: ChildBuilder},
+	aStringProp: { default: 'abc' },
+	aNumberProp: { default: 123 },
+	aBooleanProp: { default: true },
+	aChildProp: { linked: ChildBuilder },
 });
 
 describe('Builders', function () {
@@ -81,11 +81,11 @@ describe('Builders', function () {
 		}
 
 		const InlineBuilder = createBuilderClass<IInline>()({
-			stringProp: {default: 'abc'},
+			stringProp: { default: 'abc' },
 			child: createLink<IInline['child']>()({
-				numberProp: {default: 123},
+				numberProp: { default: 123 },
 				grandchild: createLink<IInline['child']['grandchild']>()({
-					boolProp: {default: true}
+					boolProp: { default: true }
 				})
 			})
 		});

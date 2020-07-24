@@ -178,7 +178,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		this.command = {
 			title: 'show diff',
 			command: 'pr.openDiffView',
-			arguments: [ this ]
+			arguments: [this]
 		};
 	}
 }

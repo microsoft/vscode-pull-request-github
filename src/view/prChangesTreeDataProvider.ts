@@ -139,7 +139,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 				this._filesCategoryNode = new FilesCategoryNode(this._view, this._localFileChanges);
 				this._commitsCategoryNode = new CommitsNode(this._view, this._pullRequestManager, this._pullrequest, this._comments);
 			}
-			return [ this._descriptionNode, this._filesCategoryNode, this._commitsCategoryNode ];
+			return [this._descriptionNode, this._filesCategoryNode, this._commitsCategoryNode];
 		} else {
 			return await element.getChildren();
 		}

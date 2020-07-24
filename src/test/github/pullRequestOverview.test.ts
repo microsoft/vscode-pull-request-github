@@ -22,14 +22,14 @@ import { CredentialStore } from '../../github/credentials';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
-describe('PullRequestOverview', function() {
+describe('PullRequestOverview', function () {
 	let sinon: SinonSandbox;
 	let pullRequestManager: PullRequestManager;
 	let context: MockExtensionContext;
 	let remote: Remote;
 	let repo: MockGitHubRepository;
 
-	beforeEach(async function() {
+	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 		context = new MockExtensionContext();
@@ -44,7 +44,7 @@ describe('PullRequestOverview', function() {
 		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, sinon);
 	});
 
-	afterEach(function() {
+	afterEach(function () {
 		if (PullRequestOverviewPanel.currentPanel) {
 			PullRequestOverviewPanel.currentPanel.dispose();
 		}
@@ -54,8 +54,8 @@ describe('PullRequestOverview', function() {
 		sinon.restore();
 	});
 
-	describe('createOrShow', function() {
-		it('creates a new panel', async function() {
+	describe('createOrShow', function () {
+		it('creates a new panel', async function () {
 			assert.strictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
@@ -95,7 +95,7 @@ describe('PullRequestOverview', function() {
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 		});
 
-		it('reveals and updates an existing panel', async function() {
+		it('reveals and updates an existing panel', async function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
 			repo.addGraphQLPullRequest((builder) => {

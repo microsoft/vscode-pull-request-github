@@ -20,7 +20,7 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 		public description: string,
 		public remote?: Remote,
 		public label = `${owner}:${name}`,
-	) {}
+	) { }
 }
 
 export type PullRequestTitleSource = 'commit' | 'branch' | 'custom' | 'ask';

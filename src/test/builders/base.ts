@@ -284,5 +284,5 @@ export function createBuilderClass<R>() {
  * });
  */
 export function createLink<R>(): <T extends Template<R>>(template: T) => LinkedFieldTemplate<R, T> {
-	return <T extends Template<R>>(template: T) => ({linked: createBuilderClass<R>()(template)});
+	return <T extends Template<R>>(template: T) => ({ linked: createBuilderClass<R>()(template) });
 }

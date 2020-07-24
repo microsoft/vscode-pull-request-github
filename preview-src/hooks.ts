@@ -8,11 +8,11 @@ import { Dispatch, SetStateAction, useState, useEffect } from 'react';
  * @param prop S the prop to track
  */
 export function useStateProp<S>(prop: S): [S, Dispatch<SetStateAction<S>>] {
-	const [ state, setState ] = useState(prop);
+	const [state, setState] = useState(prop);
 	useEffect(() => {
 		if (state !== prop) {
 			setState(prop);
 		}
-	}, [ prop ]);
-	return [ state, setState ];
+	}, [prop]);
+	return [state, setState];
 }

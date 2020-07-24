@@ -10,7 +10,10 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
-			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
 			"smartStep": true,
 			"sourceMaps": true,
 			"outFiles": [

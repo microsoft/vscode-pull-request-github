@@ -50,7 +50,7 @@ export type ConfigResolver = (config: Config) => Config;
  * @param {ConfigResolver?} resolveConfig ssh config resolver (default: from ~/.ssh/config)
  * @returns {Config}
  */
-export const resolve = (url: string, resolveConfig=Resolvers.current) => {
+export const resolve = (url: string, resolveConfig = Resolvers.current) => {
 	const config = parse(url);
 	return config && resolveConfig(config);
 };
@@ -81,7 +81,7 @@ const parse = (url: string): Config | undefined => {
 	const match = SSH_URL_RE.exec(url);
 	if (!match) { return; }
 	const [, User, Host, path] = match;
-	return {User, Host, path};
+	return { User, Host, path };
 };
 
 function baseResolver(config: Config) {
@@ -91,7 +91,7 @@ function baseResolver(config: Config) {
 	};
 }
 
-function resolverFromConfigFile(configPath=join(homedir(), '.ssh', 'config')): ConfigResolver | undefined {
+function resolverFromConfigFile(configPath = join(homedir(), '.ssh', 'config')): ConfigResolver | undefined {
 	try {
 		const config = readFileSync(configPath).toString();
 		return resolverFromConfig(config);
@@ -107,7 +107,7 @@ export function resolverFromConfig(text: string): ConfigResolver {
 
 function chainResolvers(...chain: (ConfigResolver | undefined)[]): ConfigResolver {
 	const resolvers = chain.filter(x => !!x) as ConfigResolver[];
-	return  (config: Config) => resolvers
+	return (config: Config) => resolvers
 		.reduce((resolved, next) => ({
 			...resolved,
 			...next(resolved),

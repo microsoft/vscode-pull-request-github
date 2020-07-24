@@ -64,6 +64,6 @@ export class MessageHandler {
 	}
 }
 
-export function getMessageHandler(handler:  ((message: any) => void) | null) {
+export function getMessageHandler(handler: ((message: any) => void) | null) {
 	return new MessageHandler(handler);
 }

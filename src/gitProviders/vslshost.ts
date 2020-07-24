@@ -54,7 +54,7 @@ export class VSLSHost implements vscode.Disposable {
 
 			if (type === 'show') {
 				const path = commandArgs[1];
-				const vslsFileUri = workspaceFolderUri.with({path: path});
+				const vslsFileUri = workspaceFolderUri.with({ path: path });
 				const localFileUri = this._liveShareAPI.convertSharedUriToLocal(vslsFileUri);
 				commandArgs[1] = localFileUri.fsPath;
 
