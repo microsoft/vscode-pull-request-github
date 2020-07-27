@@ -10,7 +10,7 @@ import { TreeNode } from './treeNodes/treeNode';
 import { FilesCategoryNode } from './treeNodes/filesCategoryNode';
 import { CommitsNode } from './treeNodes/commitsCategoryNode';
 import { IComment } from '../common/comment';
-import { PullRequestManager, SETTINGS_NAMESPACE } from '../github/pullRequestManager';
+import { FolderPullRequestManager, SETTINGS_NAMESPACE } from '../github/pullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
@@ -21,7 +21,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _comments: IComment[] = [];
 	private _pullrequest?: PullRequestModel;
-	private _pullRequestManager: PullRequestManager;
+	private _pullRequestManager: FolderPullRequestManager;
 	private _view: vscode.TreeView<TreeNode>;
 
 	public get view(): vscode.TreeView<TreeNode> {
@@ -55,7 +55,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._onDidChangeTreeData.fire();
 	}
 
-	async showPullRequestFileChanges(pullRequestManager: PullRequestManager, pullrequest: PullRequestModel, fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: IComment[]) {
+	async showPullRequestFileChanges(pullRequestManager: FolderPullRequestManager, pullrequest: PullRequestModel, fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: IComment[]) {
 		this._pullRequestManager = pullRequestManager;
 		this._pullrequest = pullrequest;
 		this._comments = comments;

@@ -5,13 +5,13 @@
 
 import * as vscode from 'vscode';
 import { User } from '../github/interface';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/pullRequestManager';
 import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion, isComment } from './util';
 import { StateManager } from './stateManager';
 import { NEW_ISSUE_SCHEME } from './issueFile';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
-	constructor(private stateManager: StateManager, private manager: PullRequestManager, context: vscode.ExtensionContext) {
+	constructor(private stateManager: StateManager, private manager: FolderPullRequestManager, context: vscode.ExtensionContext) {
 	}
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {

@@ -12,7 +12,7 @@ import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPosition
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
 import { Repository } from '../api/api';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/pullRequestManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
 import { parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, updateCommentReviewState, CommentReactionHandler, generateCommentReactions } from '../github/utils';
@@ -103,7 +103,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	protected _visibleNormalTextEditors: vscode.TextEditor[] = [];
 
 	constructor(
-		private _prManager: PullRequestManager,
+		private _prManager: FolderPullRequestManager,
 		private _repository: Repository,
 		private _localFileChanges: GitFileChangeNode[],
 		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],

@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/pullRequestManager';
 import { getIssue, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, issueMarkdown, shouldShowHover } from './util';
 import { StateManager } from './stateManager';
 import { ITelemetry } from '../common/telemetry';
 
 export class IssueHoverProvider implements vscode.HoverProvider {
-	constructor(private manager: PullRequestManager, private stateManager: StateManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) { }
+	constructor(private manager: FolderPullRequestManager, private stateManager: StateManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) { }
 
 	async provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | undefined> {
 		if (!(await shouldShowHover(document, position))) {

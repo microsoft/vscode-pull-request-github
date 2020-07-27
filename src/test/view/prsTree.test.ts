@@ -4,7 +4,7 @@ import assert = require('assert');
 import { Octokit } from '@octokit/rest';
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/pullRequestManager';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
@@ -94,7 +94,7 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
+		const manager = new FolderPullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 		await provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
@@ -111,7 +111,7 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
+		const manager = new FolderPullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockGitHubRepository(remote, cStore, sinon);
 		});
@@ -176,7 +176,7 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
+			const manager = new FolderPullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);

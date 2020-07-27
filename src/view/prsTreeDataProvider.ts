@@ -8,7 +8,7 @@ import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { PRType } from '../github/interface';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { PullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/pullRequestManager';
+import { FolderPullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/pullRequestManager';
 import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
 
@@ -27,7 +27,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _disposables: vscode.Disposable[];
 	private _childrenDisposables: vscode.Disposable[];
 	private _view: vscode.TreeView<TreeNode>;
-	private _prManager: PullRequestManager;
+	private _prManager: FolderPullRequestManager;
 	private _initialized: boolean = false;
 	private _queries: IQueryInfo[];
 	private _isVSO: boolean | undefined;
@@ -87,7 +87,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	}
 
-	async initialize(prManager: PullRequestManager) {
+	async initialize(prManager: FolderPullRequestManager) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}

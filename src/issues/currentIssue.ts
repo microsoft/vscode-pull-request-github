@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
 import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION, BRANCH_NAME_CONFIGURATION_DEPRECATED } from './util';
@@ -17,7 +17,7 @@ export class CurrentIssue {
 	private user: string | undefined;
 	private repo: Repository | undefined;
 	private repoDefaults: PullRequestDefaults | undefined;
-	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
+	constructor(private issueModel: IssueModel, private manager: FolderPullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
 		this.setRepo();
 	}
 

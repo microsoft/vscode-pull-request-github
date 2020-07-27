@@ -7,7 +7,7 @@ import * as LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { IssueModel } from '../github/issueModel';
 import { IAccount } from '../github/interface';
-import { PullRequestManager, PRManagerState, NO_MILESTONE, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PRManagerState, NO_MILESTONE, PullRequestDefaults } from '../github/pullRequestManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { GitAPI } from '../typings/git';
 import { ISSUES_CONFIGURATION, BRANCH_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION, variableSubstitution } from './util';
@@ -60,7 +60,7 @@ export class StateManager {
 
 	constructor(
 		readonly gitAPI: GitAPI,
-		private manager: PullRequestManager,
+		private manager: FolderPullRequestManager,
 		private context: vscode.ExtensionContext
 	) {
 		this.context.subscriptions.push(this.manager.onDidChangeRepositories(() => this.refresh()));

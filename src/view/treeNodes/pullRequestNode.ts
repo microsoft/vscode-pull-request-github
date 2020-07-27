@@ -19,7 +19,7 @@ import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { IComment } from '../../common/comment';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { createVSCodeCommentThread, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions, CommentReactionHandler } from '../../github/utils';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../../commentHandlerResolver';
@@ -109,7 +109,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
-		private _prManager: PullRequestManager,
+		private _prManager: FolderPullRequestManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean
 	) {

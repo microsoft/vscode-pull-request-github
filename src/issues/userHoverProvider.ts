@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/pullRequestManager';
 import { userMarkdown, USER_EXPRESSION, shouldShowHover } from './util';
 import { ITelemetry } from '../common/telemetry';
 
 export class UserHoverProvider implements vscode.HoverProvider {
-	constructor(private manager: PullRequestManager, private telemetry: ITelemetry) { }
+	constructor(private manager: FolderPullRequestManager, private telemetry: ITelemetry) { }
 
 	async provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | undefined> {
 		if (!(await shouldShowHover(document, position))) {
