@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
 
-import { FolderPullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/folderPullRequestManager';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';

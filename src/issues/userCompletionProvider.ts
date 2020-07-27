@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { User } from '../github/interface';
-import { FolderPullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/folderPullRequestManager';
 import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion, isComment } from './util';
 import { StateManager } from './stateManager';
 import { NEW_ISSUE_SCHEME } from './issueFile';

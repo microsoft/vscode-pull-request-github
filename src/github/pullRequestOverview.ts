@@ -14,7 +14,7 @@ import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
-import { FolderPullRequestManager } from './pullRequestManager';
+import { FolderPullRequestManager } from './folderPullRequestManager';
 import { PullRequestModel } from './pullRequestModel';
 import { TimelineEvent, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
 import { IssueOverviewPanel, IRequestMessage } from './issueOverview';

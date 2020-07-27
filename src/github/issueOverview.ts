@@ -12,7 +12,7 @@ import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { FolderPullRequestManager } from './pullRequestManager';
+import { FolderPullRequestManager } from './folderPullRequestManager';
 import { IssueModel } from './issueModel';
 
 export interface IRequestMessage<T> {

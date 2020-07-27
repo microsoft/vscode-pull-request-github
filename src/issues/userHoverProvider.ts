@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { FolderPullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/folderPullRequestManager';
 import { userMarkdown, USER_EXPRESSION, shouldShowHover } from './util';
 import { ITelemetry } from '../common/telemetry';
 

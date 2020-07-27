@@ -10,7 +10,7 @@ import { GitFileChangeNode } from './fileChangeNode';
 import { toReviewUri } from '../../common/uri';
 import { getGitChangeType } from '../../common/diffHunk';
 import { IComment } from '../../common/comment';
-import { FolderPullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/folderPullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { OctokitCommon } from '../../github/common';
 

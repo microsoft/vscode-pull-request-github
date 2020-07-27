@@ -10,7 +10,7 @@ import { TreeNode } from './treeNodes/treeNode';
 import { FilesCategoryNode } from './treeNodes/filesCategoryNode';
 import { CommitsNode } from './treeNodes/commitsCategoryNode';
 import { IComment } from '../common/comment';
-import { FolderPullRequestManager, SETTINGS_NAMESPACE } from '../github/pullRequestManager';
+import { FolderPullRequestManager, SETTINGS_NAMESPACE } from '../github/folderPullRequestManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {

@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { TreeNode } from './treeNode';
 import { CommitNode } from './commitNode';
 import { IComment } from '../../common/comment';
-import { FolderPullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/folderPullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {

@@ -9,7 +9,7 @@ import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
 import { MilestoneModel } from '../github/milestoneModel';
-import { FolderPullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PullRequestDefaults } from '../github/folderPullRequestManager';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {

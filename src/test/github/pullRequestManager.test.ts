@@ -1,7 +1,7 @@
 import assert = require('assert');
 import { createSandbox, SinonSandbox } from 'sinon';
 
-import { FolderPullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/folderPullRequestManager';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';

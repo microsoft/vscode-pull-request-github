@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { FolderPullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/folderPullRequestManager';
 import { IAccount } from '../github/interface';
 
 /**
