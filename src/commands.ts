@@ -23,7 +23,7 @@ import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
 import { IComment } from './common/comment';
 import { GHPRComment, TemporaryComment } from './github/prComment';
-import { PullRequestManager } from './github/pullRequestManager';
+import { FolderPullRequestManager } from './github/pullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 import { ITelemetry } from './common/telemetry';
@@ -33,7 +33,7 @@ import { CredentialStore } from './github/credentials';
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
 
-function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
+function ensurePR(prManager: FolderPullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
 		if (!prManager.activePullRequest) {
@@ -47,7 +47,7 @@ function ensurePR(prManager: PullRequestManager, pr?: PRNode | PullRequestModel)
 	}
 }
 
-export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager, reviewManager: ReviewManager, telemetry: ITelemetry, credentialStore: CredentialStore) {
+export function registerCommands(context: vscode.ExtensionContext, prManager: FolderPullRequestManager, reviewManager: ReviewManager, telemetry: ITelemetry, credentialStore: CredentialStore) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
 		credentialStore.logout();

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import * as vscode from 'vscode';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';
@@ -29,7 +29,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
 
-	constructor(private gitAPI: GitAPI, private manager: PullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
+	constructor(private gitAPI: GitAPI, private manager: FolderPullRequestManager, private reviewManager: ReviewManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
 	}
 

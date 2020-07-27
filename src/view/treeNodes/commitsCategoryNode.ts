@@ -7,17 +7,17 @@ import * as vscode from 'vscode';
 import { TreeNode } from './treeNode';
 import { CommitNode } from './commitNode';
 import { IComment } from '../../common/comment';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Commits';
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	private _prManager: PullRequestManager;
+	private _prManager: FolderPullRequestManager;
 	private _pr: PullRequestModel;
 	private _comments: IComment[];
 
-	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, prManager: PullRequestManager, pr: PullRequestModel, comments: IComment[]) {
+	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, prManager: FolderPullRequestManager, pr: PullRequestModel, comments: IComment[]) {
 		super();
 		this.parent = parent;
 		this._pr = pr;

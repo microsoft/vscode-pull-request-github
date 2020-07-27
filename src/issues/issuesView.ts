@@ -8,14 +8,14 @@ import { IssueModel } from '../github/issueModel';
 import { MilestoneModel } from '../github/milestoneModel';
 import { StateManager } from './stateManager';
 import { Resource } from '../common/resources';
-import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PRManagerState } from '../github/pullRequestManager';
 import { issueMarkdown } from './util';
 
 export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | MilestoneModel | vscode.TreeItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<IssueModel | MilestoneModel | null | undefined | void> = new vscode.EventEmitter();
 	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | null | undefined | void> = this._onDidChangeTreeData.event;
 
-	constructor(private stateManager: StateManager, private manager: PullRequestManager, private context: vscode.ExtensionContext) {
+	constructor(private stateManager: StateManager, private manager: FolderPullRequestManager, private context: vscode.ExtensionContext) {
 		context.subscriptions.push(this.manager.onDidChangeState(() => {
 			this._onDidChangeTreeData.fire();
 		}));

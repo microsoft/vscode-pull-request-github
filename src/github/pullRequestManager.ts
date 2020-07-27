@@ -121,7 +121,7 @@ enum PagedDataType {
 	IssueSearch
 }
 
-export class PullRequestManager implements vscode.Disposable {
+export class FolderPullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
 
 	private _subs: vscode.Disposable[];
@@ -212,7 +212,7 @@ export class PullRequestManager implements vscode.Disposable {
 			}
 		});
 
-		Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, PullRequestManager.ID);
+		Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, FolderPullRequestManager.ID);
 
 		return remotesSetting
 			.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
@@ -263,7 +263,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 					const prRelatedUsersPromise = new Promise(async resolve => {
 						if (prNumber && remoteName) {
-							Logger.debug('get Timeline Events and parse users', PullRequestManager.ID);
+							Logger.debug('get Timeline Events and parse users', FolderPullRequestManager.ID);
 							if (lastPullRequest && lastPullRequest.number === prNumber) {
 								return lastPullRequestTimelineEvents;
 							}
@@ -285,7 +285,7 @@ export class PullRequestManager implements vscode.Disposable {
 					const fileRelatedUsersNamesPromise = new Promise(async resolve => {
 						if (activeTextEditors.length) {
 							try {
-								Logger.debug('git blame and parse users', PullRequestManager.ID);
+								Logger.debug('git blame and parse users', FolderPullRequestManager.ID);
 								const fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
 								let blames: string | undefined;
 								if (this._gitBlameCache[fsPath]) {
@@ -306,7 +306,7 @@ export class PullRequestManager implements vscode.Disposable {
 									}
 								}
 							} catch (err) {
-								Logger.debug(err, PullRequestManager.ID);
+								Logger.debug(err, FolderPullRequestManager.ID);
 							}
 						}
 
@@ -314,7 +314,7 @@ export class PullRequestManager implements vscode.Disposable {
 					});
 
 					const getMentionableUsersPromise = new Promise(async resolve => {
-						Logger.debug('get mentionable users', PullRequestManager.ID);
+						Logger.debug('get mentionable users', FolderPullRequestManager.ID);
 						mentionableUsers = await this.getMentionableUsers();
 						resolve();
 					});
@@ -323,7 +323,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 					cachedUsers = [];
 					const prRelatedUsersMap: { [key: string]: { login: string; name?: string; } } = {};
-					Logger.debug('prepare user suggestions', PullRequestManager.ID);
+					Logger.debug('prepare user suggestions', FolderPullRequestManager.ID);
 
 					prRelatedusers.forEach(user => {
 						if (!prRelatedUsersMap[user.login]) {
@@ -375,7 +375,7 @@ export class PullRequestManager implements vscode.Disposable {
 						}
 					}
 
-					Logger.debug('done', PullRequestManager.ID);
+					Logger.debug('done', FolderPullRequestManager.ID);
 					return cachedUsers;
 				} catch (e) {
 					return [];
@@ -906,14 +906,14 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 	async getPullRequestCommits(pullRequest: PullRequestModel): Promise<OctokitTypes.PullsListCommitsResponseData> {
 		try {
-			Logger.debug(`Fetch commits of PR #${pullRequest.number} - enter`, PullRequestManager.ID);
+			Logger.debug(`Fetch commits of PR #${pullRequest.number} - enter`, FolderPullRequestManager.ID);
 			const { remote, octokit } = await pullRequest.githubRepository.ensure();
 			const commitData = await octokit.pulls.listCommits({
 				pull_number: pullRequest.number,
 				owner: remote.owner,
 				repo: remote.repositoryName
 			});
-			Logger.debug(`Fetch commits of PR #${pullRequest.number} - done`, PullRequestManager.ID);
+			Logger.debug(`Fetch commits of PR #${pullRequest.number} - done`, FolderPullRequestManager.ID);
 
 			return commitData.data;
 		} catch (e) {
@@ -924,14 +924,14 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async getCommitChangedFiles(pullRequest: PullRequestModel, commit: OctokitTypes.PullsListCommitsResponseData[0]): Promise<OctokitTypes.ReposGetCommitResponseData['files']> {
 		try {
-			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.number} - enter`, PullRequestManager.ID);
+			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.number} - enter`, FolderPullRequestManager.ID);
 			const { octokit, remote } = await pullRequest.githubRepository.ensure();
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				ref: commit.sha
 			});
-			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.number} - done`, PullRequestManager.ID);
+			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.number} - done`, FolderPullRequestManager.ID);
 
 			return fullCommit.data.files.filter(file => !!file.patch);
 		} catch (e) {
@@ -959,7 +959,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
-		Logger.debug(`Fetch timeline events of PR #${pullRequest.number} - enter`, PullRequestManager.ID);
+		Logger.debug(`Fetch timeline events of PR #${pullRequest.number} - enter`, FolderPullRequestManager.ID);
 		const githubRepository = pullRequest.githubRepository;
 		const { query, remote, schema } = await githubRepository.ensure();
 
@@ -984,7 +984,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async getIssueTimelineEvents(issue: IssueModel): Promise<TimelineEvent[]> {
-		Logger.debug(`Fetch timeline events of PR #${issue.number} - enter`, PullRequestManager.ID);
+		Logger.debug(`Fetch timeline events of PR #${issue.number} - enter`, FolderPullRequestManager.ID);
 		const githubRepository = issue.githubRepository;
 		const { query, remote, schema } = await githubRepository.ensure();
 
@@ -1008,7 +1008,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async getIssueComments(pullRequest: PullRequestModel): Promise<OctokitTypes.IssuesListCommentsResponseData> {
-		Logger.debug(`Fetch issue comments of PR #${pullRequest.number} - enter`, PullRequestManager.ID);
+		Logger.debug(`Fetch issue comments of PR #${pullRequest.number} - enter`, FolderPullRequestManager.ID);
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		const promise = await octokit.issues.listComments({
@@ -1017,7 +1017,7 @@ export class PullRequestManager implements vscode.Disposable {
 			issue_number: pullRequest.number,
 			per_page: 100
 		});
-		Logger.debug(`Fetch issue comments of PR #${pullRequest.number} - done`, PullRequestManager.ID);
+		Logger.debug(`Fetch issue comments of PR #${pullRequest.number} - done`, FolderPullRequestManager.ID);
 
 		return promise.data;
 	}
@@ -1924,7 +1924,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async getPullRequestFileChangesInfo(pullRequest: PullRequestModel & IResolvedPullRequestModel): Promise<IRawFileChange[]> {
-		Logger.debug(`Fetch file changes, base, head and merge base of PR #${pullRequest.number} - enter`, PullRequestManager.ID);
+		Logger.debug(`Fetch file changes, base, head and merge base of PR #${pullRequest.number} - enter`, FolderPullRequestManager.ID);
 		const githubRepository = pullRequest.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
 
@@ -1947,7 +1947,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 		pullRequest.mergeBase = data.merge_base_commit.sha;
 
-		Logger.debug(`Fetch file changes and merge base of PR #${pullRequest.number} - done`, PullRequestManager.ID);
+		Logger.debug(`Fetch file changes and merge base of PR #${pullRequest.number} - done`, FolderPullRequestManager.ID);
 		return data.files;
 	}
 
@@ -2012,7 +2012,7 @@ export class PullRequestManager implements vscode.Disposable {
 				return;
 			}
 
-			Logger.debug(`Fullfill pull request missing info - start`, PullRequestManager.ID);
+			Logger.debug(`Fullfill pull request missing info - start`, FolderPullRequestManager.ID);
 			const githubRepository = pullRequest.githubRepository;
 			const { octokit, remote } = await githubRepository.ensure();
 
@@ -2038,7 +2038,7 @@ export class PullRequestManager implements vscode.Disposable {
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
-		Logger.debug(`Fullfill pull request missing info - done`, PullRequestManager.ID);
+		Logger.debug(`Fullfill pull request missing info - done`, FolderPullRequestManager.ID);
 	}
 
 	//#region Git related APIs
@@ -2071,7 +2071,7 @@ export class PullRequestManager implements vscode.Disposable {
 	}
 
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
-		Logger.debug(`Fetch user ${login}`, PullRequestManager.ID);
+		Logger.debug(`Fetch user ${login}`, FolderPullRequestManager.ID);
 		const githubRepository = this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		const { query, schema } = await githubRepository.ensure();
 

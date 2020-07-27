@@ -9,7 +9,7 @@ import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
 import { formatError } from '../../common/utils';
 import { AuthenticationError } from '../../common/authentication';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/pullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ITelemetry } from '../../common/telemetry';
 
@@ -116,7 +116,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
-		private _prManager: PullRequestManager,
+		private _prManager: FolderPullRequestManager,
 		private _telemetry: ITelemetry,
 		private _type: PRType,
 		_categoryLabel?: string,

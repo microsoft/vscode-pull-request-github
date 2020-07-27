@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import { PullRequestManager, PRManagerState } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PRManagerState } from '../github/pullRequestManager';
 import * as vscode from 'vscode';
 import { getIssue, ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, MAX_LINE_LENGTH, isComment } from './util';
 import { StateManager } from './stateManager';
@@ -16,7 +16,7 @@ class IssueDocumentLink extends vscode.DocumentLink {
 }
 
 export class IssueLinkProvider implements vscode.DocumentLinkProvider {
-	constructor(private manager: PullRequestManager, private stateManager: StateManager) { }
+	constructor(private manager: FolderPullRequestManager, private stateManager: StateManager) { }
 
 	async provideDocumentLinks(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.DocumentLink[]> {
 		const links: vscode.DocumentLink[] = [];

@@ -9,7 +9,7 @@ import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
 import { MilestoneModel } from '../github/milestoneModel';
-import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
@@ -19,7 +19,7 @@ class IssueCompletionItem extends vscode.CompletionItem {
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private stateManager: StateManager, private pullRequestManager: PullRequestManager, private context: vscode.ExtensionContext) { }
+	constructor(private stateManager: StateManager, private pullRequestManager: FolderPullRequestManager, private context: vscode.ExtensionContext) { }
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character

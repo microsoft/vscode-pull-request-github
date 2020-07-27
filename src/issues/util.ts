@@ -6,7 +6,7 @@
 import * as marked from 'marked';
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -52,7 +52,7 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 	}
 }
 
-export async function getIssue(stateManager: StateManager, manager: PullRequestManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
+export async function getIssue(stateManager: StateManager, manager: FolderPullRequestManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
 	if (stateManager.resolvedIssues.has(issueValue)) {
 		return stateManager.resolvedIssues.get(issueValue);
 	} else {
@@ -396,7 +396,7 @@ function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 	}
 }
 
-async function commitWithDefault(manager: PullRequestManager, stateManager: StateManager, all: boolean) {
+async function commitWithDefault(manager: FolderPullRequestManager, stateManager: StateManager, all: boolean) {
 	const message = await stateManager.currentIssue?.getCommitMessage();
 	if (message) {
 		return manager.repository.commit(message, { all });
@@ -405,7 +405,7 @@ async function commitWithDefault(manager: PullRequestManager, stateManager: Stat
 
 const commitStaged = 'Commit Staged';
 const commitAll = 'Commit All';
-export async function pushAndCreatePR(manager: PullRequestManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
+export async function pushAndCreatePR(manager: FolderPullRequestManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
 	if (manager.repository.state.workingTreeChanges.length > 0 || manager.repository.state.indexChanges.length > 0) {
 		const responseOptions: string[] = [];
 		if (manager.repository.state.indexChanges) {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/pullRequestManager';
 
 export const NEW_ISSUE_SCHEME = 'newIssue';
 export const NEW_ISSUE_FILE = 'NewIssue.md';
@@ -63,7 +63,7 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 
 export class LabelCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private manager: PullRequestManager) { }
+	constructor(private manager: FolderPullRequestManager) { }
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		if (!document.lineAt(position.line).text.startsWith(LABELS)) {

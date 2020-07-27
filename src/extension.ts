@@ -15,7 +15,7 @@ import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
-import { PullRequestManager } from './github/pullRequestManager';
+import { FolderPullRequestManager } from './github/pullRequestManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
@@ -51,7 +51,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
 
-	const prManager = new PullRequestManager(repository, telemetry, git, credentialStore);
+	const prManager = new FolderPullRequestManager(repository, telemetry, git, credentialStore);
 	context.subscriptions.push(prManager);
 
 	liveshareApiPromise.then((api) => {

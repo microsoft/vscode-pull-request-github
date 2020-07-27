@@ -1,7 +1,7 @@
 import assert = require('assert');
 import { createSandbox, SinonSandbox } from 'sinon';
 
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderPullRequestManager } from '../../github/pullRequestManager';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -16,7 +16,7 @@ import { CredentialStore } from '../../github/credentials';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
-	let manager: PullRequestManager;
+	let manager: FolderPullRequestManager;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -25,7 +25,7 @@ describe('PullRequestManager', function () {
 		const telemetry = new MockTelemetry();
 		const repository = new MockRepository();
 		const credentialStore = new CredentialStore(telemetry);
-		manager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
+		manager = new FolderPullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
 	});
 
 	afterEach(function () {

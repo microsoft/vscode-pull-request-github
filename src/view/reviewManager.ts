@@ -21,7 +21,7 @@ import { PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum } from './quickpick';
-import { PullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
+import { FolderPullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
@@ -64,7 +64,7 @@ export class ReviewManager {
 	constructor(
 		private _context: vscode.ExtensionContext,
 		private _repository: Repository,
-		private _prManager: PullRequestManager,
+		private _prManager: FolderPullRequestManager,
 		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
 		private _telemetry: ITelemetry
 	) {
