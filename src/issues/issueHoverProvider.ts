@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { FolderPullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/folderPullRequestManager';
 import { getIssue, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, issueMarkdown, shouldShowHover } from './util';
 import { StateManager } from './stateManager';
 import { ITelemetry } from '../common/telemetry';

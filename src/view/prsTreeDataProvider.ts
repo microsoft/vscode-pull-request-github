@@ -8,7 +8,7 @@ import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { PRType } from '../github/interface';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { FolderPullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/pullRequestManager';
+import { FolderPullRequestManager, SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/folderPullRequestManager';
 import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
 

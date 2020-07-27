@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { FolderPullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PullRequestDefaults } from '../github/folderPullRequestManager';
 import * as vscode from 'vscode';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';

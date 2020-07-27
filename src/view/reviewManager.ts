@@ -21,7 +21,7 @@ import { PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum } from './quickpick';
-import { FolderPullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
+import { FolderPullRequestManager, titleAndBodyFrom } from '../github/folderPullRequestManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';

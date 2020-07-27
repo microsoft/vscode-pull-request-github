@@ -8,7 +8,7 @@ import { IssueModel } from '../github/issueModel';
 import { MilestoneModel } from '../github/milestoneModel';
 import { StateManager } from './stateManager';
 import { Resource } from '../common/resources';
-import { FolderPullRequestManager, PRManagerState } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PRManagerState } from '../github/folderPullRequestManager';
 import { issueMarkdown } from './util';
 
 export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | MilestoneModel | vscode.TreeItem> {

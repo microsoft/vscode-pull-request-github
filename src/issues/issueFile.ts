@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { FolderPullRequestManager } from '../github/pullRequestManager';
+import { FolderPullRequestManager } from '../github/folderPullRequestManager';
 
 export const NEW_ISSUE_SCHEME = 'newIssue';
 export const NEW_ISSUE_FILE = 'NewIssue.md';

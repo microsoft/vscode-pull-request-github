@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import { FolderPullRequestManager, PRManagerState } from '../github/pullRequestManager';
+import { FolderPullRequestManager, PRManagerState } from '../github/folderPullRequestManager';
 import * as vscode from 'vscode';
 import { getIssue, ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput, MAX_LINE_LENGTH, isComment } from './util';
 import { StateManager } from './stateManager';

@@ -15,7 +15,7 @@ import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
-import { FolderPullRequestManager } from './github/pullRequestManager';
+import { FolderPullRequestManager } from './github/folderPullRequestManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
