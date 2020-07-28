@@ -18,7 +18,7 @@ const excludeFromDate: string[] = ['Recovery'];
 const CURRENT_ISSUE_KEY = 'currentIssue';
 
 const ISSUES_KEY = 'issues';
-const GLOBAL_ISSUE_KEY = 'issue';
+
 const IGNORE_MILESTONES_CONFIGURATION = 'ignoreMilestones';
 
 export interface IssueState {
@@ -40,8 +40,7 @@ const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: 'My Issues', query: 'default
 export class StateManager {
 	public readonly resolvedIssues: LRUCache<string, IssueModel> = new LRUCache(50); // 50 seems big enough
 	private _userMap: Promise<Map<string, IAccount>> | undefined;
-	private lastHead: string | undefined;
-	private lastBranch: string | undefined;
+	private _lastHead: string | undefined;
 	private _issueCollection: Map<string, Promise<MilestoneModel[] | IssueModel[]>> = new Map();
 	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onRefreshCacheNeeded: vscode.Event<void> = this._onRefreshCacheNeeded.event;
@@ -91,23 +90,19 @@ export class StateManager {
 	private registerRepositoryChangeEvent() {
 		this.gitAPI.repositories.forEach(repository => {
 			this.context.subscriptions.push(repository.state.onDidChange(async () => {
-				const newHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
-				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this.lastHead) {
+				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this._lastHead) {
+					this._lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
 					await this.setIssueData();
 				}
 
 				const newBranch = repository.state.HEAD?.name;
-				if (((this.lastHead !== newHead) || (this.lastBranch !== newBranch)) &&
-					(!this.currentIssue || (newBranch !== this.currentIssue.branchName))) {
-
+				if (!this.currentIssue || (newBranch !== this.currentIssue.branchName)) {
 					if (newBranch) {
 						await this.setCurrentIssueFromBranch(newBranch);
 					} else {
 						await this.setCurrentIssue(undefined);
 					}
 				}
-				this.lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
-				this.lastBranch = (repository.state.HEAD ? repository.state.HEAD.name : undefined);
 			}));
 		});
 	}
@@ -134,29 +129,16 @@ export class StateManager {
 				this._onRefreshCacheNeeded.fire();
 			}
 		}));
-		this.lastHead = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.commit : undefined;
-		this.lastBranch = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.name : undefined;
+		this._lastHead = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.commit : undefined;
 		await this.setIssueData();
 		this.registerRepositoryChangeEvent();
 		this.context.subscriptions.push(this.onRefreshCacheNeeded(async () => {
 			await this.refresh();
 		}));
 		const branch = this.manager.repository.state.HEAD?.name;
-		const globalCurrentIssue = this.getGlobalCurrentIssue();
-		if (globalCurrentIssue) {
-			try {
-				const defaults = await this.manager.getPullRequestDefaults();
-				const issue = await this.manager.resolveIssue(defaults.owner, defaults.repo, globalCurrentIssue);
-				if (issue) {
-					await this.setCurrentIssue(new CurrentIssue(issue, this.manager, this));
-				}
-			} catch (e) {
-				vscode.window.showErrorMessage('Unable to start working on issue in forked repository folder');
-			} finally {
-				this.setGlobalCurrentIssue(undefined);
-			}
-		} else if (!this.currentIssue && branch) {
+		if (!this.currentIssue && branch) {
 			await this.setCurrentIssueFromBranch(branch);
+
 		}
 	}
 
@@ -371,13 +353,5 @@ export class StateManager {
 			state.branches[issueState.branch] = { number: issue.number, owner: issue.remote.owner, repositoryName: issue.remote.repositoryName };
 		}
 		this.context.workspaceState.update(ISSUES_KEY, JSON.stringify(state));
-	}
-
-	setGlobalCurrentIssue(issue: IssueModel | undefined): void {
-		this.context.globalState.update(GLOBAL_ISSUE_KEY, issue?.number);
-	}
-
-	getGlobalCurrentIssue(): number | undefined {
-		return this.context.globalState.get(GLOBAL_ISSUE_KEY);
 	}
 }

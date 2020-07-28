@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
 import { IAccount, Issue, GithubItemStateEnum, IMilestone } from './interface';
+import { Protocol } from '../common/protocol';
 
 export class IssueModel {
 	public id: number;
@@ -27,7 +28,11 @@ export class IssueModel {
 
 	constructor(githubRepository: GitHubRepository, remote: Remote, item: Issue) {
 		this.githubRepository = githubRepository;
-		this.remote = remote;
+		if (item.repositoryName && item.repositoryOwner && item.repositoryUrl) {
+			this.remote = new Remote(item.repositoryName, item.repositoryUrl, new Protocol(item.repositoryUrl));
+		} else {
+			this.remote = remote;
+		}
 		this.item = item;
 		this.update(item);
 	}

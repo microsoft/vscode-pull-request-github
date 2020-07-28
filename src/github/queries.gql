@@ -733,19 +733,3 @@ query Issues($query: String!) {
 		}
 	}
 }
-
-query GetViewerPermission($owner: String!, $name: String!) {
-	repository(owner: $owner, name: $name) {
-		viewerPermission
-	}
-}
-
-query GetRepositoryForkDetails($owner: String!, $name: String!) {
-	repository(owner:$owner, name: $name) {
-		isFork
-		parent {
-			name
-			owner
-		}
-	}
-}
