@@ -99,7 +99,7 @@ export class PullRequestManager implements vscode.Disposable {
 			return undefined;
 		}
 		for (const folderManager of this.folderManagers) {
-			if (folderManager.gitHubRepositories.includes(issueModel.githubRepository)) {
+			if (folderManager.gitHubRepositories.map(repo => repo.remote.url).includes(issueModel.remote.url)) {
 				return folderManager;
 			}
 		}
@@ -134,12 +134,6 @@ export class PullRequestManager implements vscode.Disposable {
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
 		return new GitHubRepository(remote, credentialStore);
-	}
-
-	async updateRepositories(silent: boolean) {
-		for (const folderManager of this.folderManagers) {
-			await folderManager.updateRepositories(silent);
-		}
 	}
 
 	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {

@@ -43,8 +43,8 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	vscode.authentication.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {
 			await prManager.clearCredentialCache();
-			if (reviewManager) {
-				reviewManager.updateState();
+			if (reviewManagers) {
+				reviewManagers.forEach(reviewManager => reviewManager.updateState());
 			}
 		}
 	});
@@ -63,18 +63,20 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(prManager));
 		}
 	});
-	// TODO: fix review manager
-	const reviewManager = new ReviewManager(context, folderManagers[0].repository, folderManagers[0], prManager, tree, telemetry);
+	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(context, folderManager.repository, folderManager, prManager, tree, telemetry));
 	await tree.initialize(prManager);
-	registerCommands(context, prManager, reviewManager, telemetry, credentialStore);
+	registerCommands(context, prManager, reviewManagers, telemetry, credentialStore, tree);
 
 	git.onDidChangeState(() => {
-		reviewManager.updateState();
+		reviewManagers.forEach(reviewManager => reviewManager.updateState());
 	});
 
 	git.onDidOpenRepository(repo => {
 		const disposable = repo.state.onDidChange(() => {
-			prManager.folderManagers.push(new FolderPullRequestManager(repo, telemetry, git, credentialStore));
+			const newFolderManager = new FolderPullRequestManager(repo, telemetry, git, credentialStore);
+			prManager.folderManagers.push(newFolderManager);
+			const newReviewManager = new ReviewManager(context, newFolderManager.repository, newFolderManager, prManager, tree, telemetry);
+			reviewManagers.push(newReviewManager);
 			tree.refresh();
 			disposable.dispose();
 		});
@@ -82,7 +84,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 	// TODO: update issues features
-	const issuesFeatures = new IssueFeatureRegistrar(gitAPI, folderManagers[0], reviewManager, context, telemetry);
+	const issuesFeatures = new IssueFeatureRegistrar(gitAPI, folderManagers[0], reviewManagers, context, telemetry);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 

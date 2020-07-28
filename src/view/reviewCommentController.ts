@@ -366,7 +366,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			return false;
 		}
 
-		if (thread.uri.scheme === currentWorkspace.uri.scheme) {
+		if ((thread.uri.scheme === currentWorkspace.uri.scheme) && thread.uri.fsPath.startsWith(this._repository.rootUri.fsPath)) {
 			return true;
 		}
 
