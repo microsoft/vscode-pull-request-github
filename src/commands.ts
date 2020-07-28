@@ -30,6 +30,7 @@ import { ITelemetry } from './common/telemetry';
 import { TreeNode } from './view/treeNodes/treeNode';
 import { CredentialStore } from './github/credentials';
 import { PullRequestManager } from './github/pullRequestManager';
+import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
@@ -53,19 +54,18 @@ async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue
 		return activePullRequests[0];
 	}
 	interface Item extends vscode.QuickPickItem {
-		itemValue: T
+		itemValue: T;
 	}
 	const items: Item[] = activePullRequests.map(currentItem => {
 		return {
 			label: propertyGetter(currentItem),
 			itemValue: currentItem
-		}
+		};
 	});
 	return (await vscode.window.showQuickPick(items))?.itemValue;
 }
 
-
-export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager, reviewManager: ReviewManager, telemetry: ITelemetry, credentialStore: CredentialStore) {
+export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager, reviewManagers: ReviewManager[], telemetry: ITelemetry, credentialStore: CredentialStore, tree: PullRequestsTreeDataProvider) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
 		credentialStore.logout();
@@ -281,12 +281,16 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 	}));
 
+	function chooseReviewManager() {
+		return chooseItem<ReviewManager>(reviewManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath));
+	}
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async () => {
-		reviewManager.createPullRequest();
+		(await chooseReviewManager())?.createPullRequest();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.createDraft', async () => {
-		reviewManager.createPullRequest(true);
+		(await chooseReviewManager())?.createPullRequest(true);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
@@ -310,7 +314,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			location: vscode.ProgressLocation.SourceControl,
 			title: `Switching to Pull Request #${pullRequestModel.number}`,
 		}, async (progress, token) => {
-			await reviewManager.switch(pullRequestModel);
+			await ReviewManager.getReviewManagerForRepository(reviewManagers, pullRequestModel.githubRepository)?.switch(pullRequestModel);
 		});
 	}));
 
@@ -408,7 +412,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		}
 		if (!descriptionNode) {
 			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
-			const rootNodes = await reviewManager.prFileChangesProvider.getChildren();
+			const rootNodes = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)!.prFileChangesProvider.getChildren();
 			descriptionNode = rootNodes[0] as DescriptionNode;
 		}
 		const pullRequest = ensurePR(folderManager, descriptionNode.pullRequestModel);
@@ -615,5 +619,53 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 				await handler.deleteComment(comment.parent, comment);
 			}
 		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
+		const uri = value instanceof GitFileChangeNode ? value.filePath : value;
+
+		if (value instanceof GitFileChangeNode) {
+			value.reveal(value, { select: true, focus: true });
+		}
+
+		const activeTextEditor = vscode.window.activeTextEditor;
+		const opts: vscode.TextDocumentShowOptions = {
+			preserveFocus: true,
+			viewColumn: vscode.ViewColumn.Active
+		};
+
+		// Check if active text editor has same path as other editor. we cannot compare via
+		// URI.toString() here because the schemas can be different. Instead we just go by path.
+		if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
+			opts.selection = activeTextEditor.selection;
+		}
+
+		vscode.commands.executeCommand('vscode.open', uri, opts);
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openChangedFile', (value: GitFileChangeNode) => {
+		const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
+		if (openDiff) {
+			return vscode.commands.executeCommand('pr.openDiffView', value);
+		} else {
+			return vscode.commands.executeCommand('review.openFile', value);
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
+		reviewManagers.forEach(reviewManager => {
+			reviewManager.updateComments();
+			PullRequestOverviewPanel.refresh();
+			reviewManager.prFileChangesProvider.refresh();
+		});
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
+		const folderManager = prManager.getManagerForIssueModel(prNode.pullRequestModel);
+		if (folderManager && prNode.pullRequestModel.equals(folderManager?.activePullRequest)) {
+			ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)?.updateComments();
+		}
+
+		PullRequestOverviewPanel.refresh();
+		tree.refresh(prNode);
 	}));
 }
