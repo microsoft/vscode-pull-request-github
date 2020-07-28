@@ -48,16 +48,38 @@ function ensurePR(prManager: FolderPullRequestManager, pr?: PRNode | PullRequest
 	}
 }
 
+async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue: T) => string): Promise<T | undefined> {
+	if (activePullRequests.length === 1) {
+		return activePullRequests[0];
+	}
+	interface Item extends vscode.QuickPickItem {
+		itemValue: T
+	}
+	const items: Item[] = activePullRequests.map(currentItem => {
+		return {
+			label: propertyGetter(currentItem),
+			itemValue: currentItem
+		}
+	});
+	return (await vscode.window.showQuickPick(items))?.itemValue;
+}
+
+
 export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager, reviewManager: ReviewManager, telemetry: ITelemetry, credentialStore: CredentialStore) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
 		credentialStore.logout();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', (e: PRNode | DescriptionNode | PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', async (e: PRNode | DescriptionNode | PullRequestModel) => {
 		if (!e) {
-			if (prManager.activePullRequest) {
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(prManager.activePullRequest.html_url));
+			const activePullRequests: PullRequestModel[] = prManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
+
+			if (activePullRequests.length >= 1) {
+				const result = await chooseItem<PullRequestModel>(activePullRequests, (itemValue) => itemValue.html_url);
+				if (result) {
+					vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(result.html_url));
+				}
 			}
 		} else if (e instanceof PRNode || e instanceof DescriptionNode) {
 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
@@ -73,8 +95,8 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
 		try {
-			const folderManager = prManager.getManagerForIssueModel(prManager.activePullRequest);
-			if (!folderManager || !prManager.activePullRequest) {
+			const folderManager = await chooseItem<FolderPullRequestManager>(prManager.folderManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath));
+			if (!folderManager || !folderManager.activePullRequest) {
 				return;
 			}
 
@@ -103,12 +125,12 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 			}
 
 			const suggestEditText = `${suggestEditMessage}\`\`\`diff\n${diff}\n\`\`\``;
-			await folderManager.createIssueComment(prManager.activePullRequest, suggestEditText);
+			await folderManager.createIssueComment(folderManager.activePullRequest, suggestEditText);
 
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
 
-			const tempFilePath = pathLib.join(folderManager.repository.rootUri.path, '.git', `${prManager.activePullRequest.number}.diff`);
+			const tempFilePath = pathLib.join(folderManager.repository.rootUri.path, '.git', `${folderManager.activePullRequest.number}.diff`);
 			writeFile(tempFilePath, diff, {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;

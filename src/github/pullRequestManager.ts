@@ -8,7 +8,6 @@ import { CredentialStore } from './credentials';
 import { Remote } from '../common/remote';
 import { EventType } from '../common/timelineEvent';
 import { GitHubRepository } from './githubRepository';
-import { PullRequestModel } from './pullRequestModel';
 import { Repository, UpstreamRef } from '../api/api';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
@@ -77,13 +76,6 @@ export class PullRequestManager implements vscode.Disposable {
 	static ID = 'PullRequestManager';
 
 	private _subs: vscode.Disposable[];
-	private _activePullRequest?: PullRequestModel;
-	private _activeIssue?: IssueModel;
-
-	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
-	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
-	private _onDidChangeActiveIssue = new vscode.EventEmitter<void>();
-	readonly onDidChangeActiveIssue: vscode.Event<void> = this._onDidChangeActiveIssue.event;
 
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
@@ -114,10 +106,6 @@ export class PullRequestManager implements vscode.Disposable {
 		return undefined;
 	}
 
-	getManagerForActivePullRequest() {
-		return this.getManagerForIssueModel(this._activePullRequest);
-	}
-
 	get state() {
 		return this._state;
 	}
@@ -129,24 +117,6 @@ export class PullRequestManager implements vscode.Disposable {
 			vscode.commands.executeCommand('setContext', PRManagerStateContext, state);
 			this._onDidChangeState.fire();
 		}
-	}
-
-	get activeIssue(): IssueModel | undefined {
-		return this._activeIssue;
-	}
-
-	set activeIssue(issue: IssueModel | undefined) {
-		this._activeIssue = issue;
-		this._onDidChangeActiveIssue.fire();
-	}
-
-	get activePullRequest(): PullRequestModel | undefined {
-		return this._activePullRequest;
-	}
-
-	set activePullRequest(pullRequest: PullRequestModel | undefined) {
-		this._activePullRequest = pullRequest;
-		this._onDidChangeActivePullRequest.fire();
 	}
 
 	get credentialStore(): CredentialStore {
