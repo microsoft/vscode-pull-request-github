@@ -10,7 +10,7 @@ import { CredentialStore } from './credentials';
 import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
-import { GitHubRepository, PullRequestData, ItemsData } from './githubRepository';
+import { GitHubRepository, PullRequestData, ItemsData, ViewerPermission } from './githubRepository';
 import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability, User } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
@@ -425,6 +425,10 @@ export class PullRequestManager implements vscode.Disposable {
 
 	get credentialStore(): CredentialStore {
 		return this._credentialStore;
+	}
+
+	get repositories(): GitHubRepository[] {
+		return this._githubRepositories;
 	}
 
 	async clearCredentialCache(): Promise<void> {
@@ -2196,6 +2200,91 @@ export class PullRequestManager implements vscode.Disposable {
 	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
 		const uri = `https://github.com/${owner}/${name}`;
 		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore);
+	}
+
+	async findUpstreamForItem(item: {remote: Remote, githubRepository: GitHubRepository}): Promise<{ needsFork: boolean, upstream?: GitHubRepository, remote?: Remote }> {
+		let upstream: GitHubRepository | undefined;
+		let existingForkRemote: Remote | undefined;
+		for (const githubRepo of this.repositories) {
+			if (!upstream && (githubRepo.remote.owner === item.remote.owner) &&
+				(githubRepo.remote.repositoryName === item.remote.repositoryName)) {
+				upstream = githubRepo;
+				continue;
+			}
+			const forkDetails = await githubRepo.getRepositoryForkDetails();
+			if (forkDetails && forkDetails.isFork && (forkDetails.parent.owner === item.remote.owner) &&
+				(forkDetails.parent.name === item.remote.repositoryName)) {
+				const foundforkPermission = await githubRepo.getViewerPermission();
+				if ((foundforkPermission === ViewerPermission.Admin) || (foundforkPermission === ViewerPermission.Maintain) ||
+					(foundforkPermission === ViewerPermission.Write)) {
+					existingForkRemote = githubRepo.remote;
+					break;
+				}
+			}
+		}
+		let needsFork = false;
+		if (upstream && !existingForkRemote) {
+			const permission = await item.githubRepository.getViewerPermission();
+			if ((permission === ViewerPermission.Read) || (permission === ViewerPermission.Triage) || (permission === ViewerPermission.Unknown)) {
+				needsFork = true;
+			}
+		}
+		return { needsFork, upstream, remote: existingForkRemote };
+	}
+
+	async forkWithProgress(progress: vscode.Progress<{ message?: string; increment?: number }>, githubRepository: GitHubRepository, repoString: string, matchingRepo: Repository): Promise<true | undefined> {
+		progress.report({ message: `Forking ${repoString}...` });
+		const result = await githubRepository.fork();
+		progress.report({ increment: 50 });
+		if (!result) {
+			vscode.window.showErrorMessage(`Unable to create a fork of ${repoString}. Check that your GitHub credentials are correct.`);
+			return;
+		}
+
+		const workingRemoteName: string = matchingRepo.state.remotes.length > 1 ? 'origin' : matchingRepo.state.remotes[0].name;
+		progress.report({ message: 'Adding remotes. This may take a few moments.' });
+		await matchingRepo.renameRemote(workingRemoteName, 'upstream');
+		await matchingRepo.addRemote(workingRemoteName, result);
+		// Now the extension is responding to all the git changes.
+		await new Promise((resolve) => {
+			if (this.repositories.length === 0) {
+				const disposable = this.onDidChangeRepositories(() => {
+					if (this.repositories.length > 0) {
+						disposable.dispose();
+						resolve();
+					}
+				});
+			} else {
+				resolve();
+			}
+		});
+		progress.report({ increment: 50 });
+		return true;
+	}
+
+	async doFork(githubRepository: GitHubRepository, repoString: string, matchingRepo: Repository): Promise<true | undefined> {
+		return vscode.window.withProgress<true | undefined>({ location: vscode.ProgressLocation.Notification, title: 'Creating Fork' }, async (progress) => {
+			try {
+				return this.forkWithProgress(progress, githubRepository, repoString, matchingRepo);
+			} catch (e) {
+				vscode.window.showErrorMessage('Creating fork failed: ' + e);
+			}
+		});
+	}
+
+	async tryOfferToFork(githubRepository: GitHubRepository): Promise<boolean | undefined> {
+		const repoString = `${githubRepository.remote.owner}\\${githubRepository.remote.repositoryName}`;
+
+		const fork = 'Fork';
+		const dontFork = 'Don\'t Fork';
+		const response = await vscode.window.showInformationMessage(`You don't have permission to push to ${repoString}. Do you want to fork ${repoString}? This will modify your git remotes to set \`origin\` to the fork, and \`upstream\` to ${repoString}.`, { modal: true }, fork, dontFork);
+		switch (response) {
+			case fork: {
+				return this.doFork(githubRepository, repoString, this.repository);
+			}
+			case dontFork: return false;
+			default: return undefined;
+		}
 	}
 
 	dispose() {

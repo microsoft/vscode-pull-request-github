@@ -10,6 +10,9 @@ export class MockRepository implements Repository {
 	commit(message: string, opts?: CommitOptions): Promise<void> {
 		return Promise.reject(new Error(`Unexpected commit(${message}, ${opts})`));
 	}
+	renameRemote(name: string, newName: string): Promise<void> {
+		return Promise.reject(new Error(`Unexpected renameRemote (${name}, ${newName})`));
+	}
 	getGlobalConfig(key: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected getGlobalConfig(${key})`));
 	}

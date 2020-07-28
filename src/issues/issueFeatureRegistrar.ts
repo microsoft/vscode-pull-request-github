@@ -357,6 +357,16 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
+	async doStartWorking(issueModel: IssueModel, needsBranchPrompt?: boolean) {
+		const remoteNameResult = await this.manager.findUpstreamForItem(issueModel);
+		if (remoteNameResult.needsFork) {
+			if ((await this.manager.tryOfferToFork(issueModel.githubRepository)) === undefined) {
+				return;
+			}
+		}
+		await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager, remoteNameResult.remote, needsBranchPrompt));
+	}
+
 	async startWorking(issue: any) {
 		let issueModel: IssueModel | undefined;
 
@@ -367,13 +377,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 
 		if (issueModel) {
-			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager));
+			this.doStartWorking(issueModel);
 		}
 	}
 
 	async startWorkingBranchPrompt(issueModel: any) {
 		if (issueModel instanceof IssueModel) {
-			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager, true));
+			this.doStartWorking(issueModel, true);
 		}
 	}
 

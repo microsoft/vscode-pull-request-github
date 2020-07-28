@@ -13,7 +13,7 @@ import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
 import { uniqBy } from '../common/utils';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, ViewerPermission } from './githubRepository';
 import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
 import { OctokitCommon } from './common';
@@ -688,4 +688,13 @@ export function getRelatedUsersFromTimelineEvents(timelineEvents: Common.Timelin
 	});
 
 	return ret;
+}
+
+export function parseGraphQLViewerPermission(viewerPermissionResponse: GraphQL.ViewerPermissionResponse): ViewerPermission {
+	if (viewerPermissionResponse && viewerPermissionResponse.repository.viewerPermission) {
+		if ((<string[]>Object.values(ViewerPermission)).includes(viewerPermissionResponse.repository.viewerPermission)) {
+			return <ViewerPermission>viewerPermissionResponse.repository.viewerPermission;
+		}
+	}
+	return ViewerPermission.Unknown;
 }

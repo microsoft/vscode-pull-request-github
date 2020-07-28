@@ -40,7 +40,8 @@ const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: 'My Issues', query: 'default
 export class StateManager {
 	public readonly resolvedIssues: LRUCache<string, IssueModel> = new LRUCache(50); // 50 seems big enough
 	private _userMap: Promise<Map<string, IAccount>> | undefined;
-	private _lastHead: string | undefined;
+	private lastHead: string | undefined;
+	private lastBranch: string | undefined;
 	private _issueCollection: Map<string, Promise<MilestoneModel[] | IssueModel[]>> = new Map();
 	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onRefreshCacheNeeded: vscode.Event<void> = this._onRefreshCacheNeeded.event;
@@ -90,19 +91,23 @@ export class StateManager {
 	private registerRepositoryChangeEvent() {
 		this.gitAPI.repositories.forEach(repository => {
 			this.context.subscriptions.push(repository.state.onDidChange(async () => {
-				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this._lastHead) {
-					this._lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
+				const newHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
+				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== this.lastHead) {
 					await this.setIssueData();
 				}
 
 				const newBranch = repository.state.HEAD?.name;
-				if (!this.currentIssue || (newBranch !== this.currentIssue.branchName)) {
+				if (((this.lastHead !== newHead) || (this.lastBranch !== newBranch)) &&
+					(!this.currentIssue || (newBranch !== this.currentIssue.branchName))) {
+
 					if (newBranch) {
 						await this.setCurrentIssueFromBranch(newBranch);
 					} else {
 						await this.setCurrentIssue(undefined);
 					}
 				}
+				this.lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
+				this.lastBranch = (repository.state.HEAD ? repository.state.HEAD.name : undefined);
 			}));
 		});
 	}
@@ -129,7 +134,8 @@ export class StateManager {
 				this._onRefreshCacheNeeded.fire();
 			}
 		}));
-		this._lastHead = this.manager.repository.state.HEAD ? this.manager.repository.state.HEAD.commit : undefined;
+		this.lastHead = this.manager.repository.state.HEAD?.commit;
+		this.lastBranch = this.manager.repository.state.HEAD?.name;
 		await this.setIssueData();
 		this.registerRepositoryChangeEvent();
 		this.context.subscriptions.push(this.onRefreshCacheNeeded(async () => {
@@ -138,7 +144,6 @@ export class StateManager {
 		const branch = this.manager.repository.state.HEAD?.name;
 		if (!this.currentIssue && branch) {
 			await this.setCurrentIssueFromBranch(branch);
-
 		}
 	}
 
@@ -179,7 +184,7 @@ export class StateManager {
 	}
 
 	private async getCurrentUser(): Promise<string | undefined> {
-		return (await this.manager.credentialStore.getCurrentUser()).login;
+		return (await this.manager.credentialStore.getCurrentUser())?.login;
 	}
 
 	private async setIssueData() {
