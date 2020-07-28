@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ForkDetails } from './githubRepository';
+
 export interface MergedEvent {
 	__typename: string;
 	id: string;
@@ -469,6 +471,16 @@ export interface MaxIssueResponse {
 			}[]
 		}
 	};
+}
+
+export interface ViewerPermissionResponse {
+	repository: {
+		viewerPermission: string
+	};
+}
+
+export interface ForkDetailsResponse {
+	repository: ForkDetails;
 }
 
 export interface QueryWithRateLimit {

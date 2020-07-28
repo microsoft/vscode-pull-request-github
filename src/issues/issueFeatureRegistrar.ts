@@ -21,6 +21,9 @@ import { Resource } from '../common/resources';
 import { IssueFileSystemProvider, NEW_ISSUE_SCHEME, ASSIGNEES, LABELS, LabelCompletionProvider, NEW_ISSUE_FILE } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
 import { OctokitCommon } from '../github/common';
+import { ViewerPermission, GitHubRepository } from '../github/githubRepository';
+import { Repository } from '../api/api';
+import { Remote } from '../common/remote';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
@@ -357,6 +360,118 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
+	async doFork(issueModel: IssueModel, repoString: string, matchingRepo: Repository): Promise<true | undefined> {
+		const addRemote = { label: `Fork by re-using the current folder.`, detail: `This will modify your git remotes to set \`origin\` to the fork, and \`upstream\` to ${repoString}.` };
+		const newFolder = { label: `Fork and clone fork into a new folder.`, detail: `You will get to choose the location.` };
+		const forkOptionResponse = await vscode.window.showQuickPick<{ label: string, detail: string }>([addRemote, newFolder], { placeHolder: `How should ${repoString} be forked?` });
+		if (forkOptionResponse !== undefined) {
+			return vscode.window.withProgress<true | undefined>({ location: vscode.ProgressLocation.Notification, title: 'Creating Fork' }, async (progress) => {
+				try {
+					progress.report({ message: `Forking ${repoString}...` });
+					const result = await issueModel.githubRepository.fork();
+					progress.report({ increment: 50 });
+					if (result) {
+						if ((forkOptionResponse === addRemote) && matchingRepo) {
+							const workingRemoteName: string = matchingRepo.state.remotes.length > 1 ? 'origin' : matchingRepo.state.remotes[0].name;
+							progress.report({ message: 'Adding remotes. This may take a few moments.' });
+							await matchingRepo.renameRemote(workingRemoteName, 'upstream');
+							await matchingRepo.addRemote(workingRemoteName, result);
+							// Now the extension is responding to all the git changes.
+							await new Promise((resolve) => {
+								if (this.manager.repositories.length === 0) {
+									const disposable = this.manager.onDidChangeRepositories(() => {
+										if (this.manager.repositories.length > 0) {
+											disposable.dispose();
+											resolve();
+										}
+									});
+								} else {
+									resolve();
+								}
+							});
+							progress.report({ increment: 50 });
+						} else {
+							const newFolderUri = await vscode.window.showOpenDialog({ openLabel: 'Choose Folder', canSelectFiles: false, canSelectFolders: true, title: 'Choose the folder that your fork will be cloned into' });
+							if (newFolderUri && newFolderUri.length === 1) {
+								progress.report({ message: 'Cloning fork into new folder...' });
+								const newRepo = await this.gitAPI.init(newFolderUri[0]);
+								if (newRepo) {
+									await newRepo.addRemote('origin', result);
+									await newRepo.addRemote('upstream', issueModel.githubRepository.remote.url);
+									progress.report({ message: 'Pulling fork..', increment: 25 });
+									await newRepo.fetch();
+									await newRepo.createBranch('master', true);
+									await newRepo.checkout('master');
+									await newRepo.pull();
+									progress.report({ increment: 25 });
+									const open = 'Open Folder';
+									const openResult = await vscode.window.showInformationMessage('Fork folder is ready.', open);
+									if (openResult === open) {
+										this._stateManager.setGlobalCurrentIssue(issueModel);
+										vscode.commands.executeCommand('vscode.openFolder', newFolderUri[0]);
+									}
+								}
+							}
+						}
+					} else {
+						vscode.window.showErrorMessage(`Unable to create a fork of ${repoString}. Check that your GitHub credentials are correct.`);
+					}
+					return undefined;
+				} catch (e) {
+					vscode.window.showErrorMessage('Creating fork failed: ' + e);
+				}
+			});
+
+		}
+		return undefined;
+	}
+
+	async findRemoteName(issueModel: IssueModel): Promise<{ needsFork: boolean, upstream?: GitHubRepository, remote?: Remote }> {
+		let upstream: GitHubRepository | undefined;
+		let existingForkRemote: Remote | undefined;
+		for (const githubRepo of this.manager.repositories) {
+			if (!upstream && (githubRepo.remote.owner === issueModel.remote.owner) &&
+				(githubRepo.remote.repositoryName === issueModel.remote.repositoryName)) {
+				upstream = githubRepo;
+				continue;
+			}
+			const forkDetails = await githubRepo.getRepositoryForkDetails();
+			if (forkDetails && forkDetails.isFork && (forkDetails.parent.owner === issueModel.remote.owner) &&
+				(forkDetails.parent.name === issueModel.remote.repositoryName)) {
+				const foundforkPermission = await githubRepo.getViewerPermission();
+				if ((foundforkPermission === ViewerPermission.Admin) || (foundforkPermission === ViewerPermission.Maintain) ||
+					(foundforkPermission === ViewerPermission.Write)) {
+					existingForkRemote = githubRepo.remote;
+					break;
+				}
+			}
+		}
+		let needsFork = false;
+		if (upstream && !existingForkRemote) {
+			const permission = await issueModel.githubRepository.getViewerPermission();
+			if ((permission === ViewerPermission.Read) || (permission === ViewerPermission.Triage) || (permission === ViewerPermission.Unknown)) {
+				needsFork = true;
+			}
+		}
+		return { needsFork, upstream, remote: existingForkRemote };
+	}
+
+	async tryOfferToFork(issueModel: IssueModel): Promise<boolean | undefined> {
+		const repoString = `${issueModel.githubRepository.remote.owner}\\${issueModel.githubRepository.remote.repositoryName}`;
+
+		const fork = 'Fork';
+		const dontFork = 'Don\'t Fork';
+		const response = await vscode.window.showInformationMessage(`You don't have permission to push to ${repoString}. Do you want to fork ${repoString}?`, { modal: true }, fork, dontFork);
+		switch (response) {
+			case fork: {
+				// Use current folder and add remote, or fork into a new folder
+				return this.doFork(issueModel, repoString, this.manager.repository);
+			}
+			case dontFork: return false;
+			default: return undefined;
+		}
+	}
+
 	async startWorking(issue: any) {
 		let issueModel: IssueModel | undefined;
 
@@ -367,13 +482,23 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 
 		if (issueModel) {
-			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager));
+			const remoteNameResult = await this.findRemoteName(issueModel);
+			if (remoteNameResult.needsFork) {
+				if ((await this.tryOfferToFork(issueModel)) === undefined) {
+					return;
+				}
+			}
+			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager, remoteNameResult.remote));
 		}
 	}
 
 	async startWorkingBranchPrompt(issueModel: any) {
 		if (issueModel instanceof IssueModel) {
-			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager, true));
+			const remoteNameResult = await this.findRemoteName(issueModel);
+			if (remoteNameResult.needsFork) {
+				await this.tryOfferToFork(issueModel);
+			}
+			await this._stateManager.setCurrentIssue(new CurrentIssue(issueModel, this.manager, this._stateManager, remoteNameResult.remote, true));
 		}
 	}
 
