@@ -6,15 +6,12 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
-import { PRType } from '../github/interface';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/folderPullRequestManager';
 import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
-import { IQueryInfo, WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';
 import { PullRequestManager } from '../github/pullRequestManager';
-
-const QUERIES_SETTING = 'queries';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -26,7 +23,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _view: vscode.TreeView<TreeNode>;
 	private _prManager: PullRequestManager;
 	private _initialized: boolean = false;
-	private _queries: IQueryInfo[];
 	private _isVSO: boolean | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
@@ -117,19 +113,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return isVSO;
 	}
 
-	public async updateQueries() {
-		this._queries = await this.isVSO()
-			? []
-			// TODO: is there a better scope to use?
-			: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE, this._prManager.folderManagers[0]?.repository.rootUri).get<IQueryInfo[]>(QUERIES_SETTING) || [];
-	}
-
 	private async initializeCategories() {
-		await this.updateQueries();
-
 		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES_SETTING}`)) {
-				await this.updateQueries();
 				this.refresh();
 			}
 		}));
@@ -183,17 +169,10 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 			let result: TreeNode[];
 			if (this._prManager.folderManagers.length === 1) {
-				const queryCategories = this._queries.map(queryInfo => new CategoryTreeNode(this._view, this._prManager.folderManagers[0], this._telemetry, PRType.Query, queryInfo.label, queryInfo.query));
-				result = [
-					new CategoryTreeNode(this._view, this._prManager.folderManagers[0], this._telemetry, PRType.LocalPullRequest),
-					...queryCategories,
-					new CategoryTreeNode(this._view, this._prManager.folderManagers[0], this._telemetry, PRType.All)
-				];
+				return WorkspaceFolderNode.getCategoryTreeNodes(this._prManager.folderManagers[0], this._telemetry, await this.isVSO(), this._view);
 			} else {
-				result = [];
-				if (this._queries.length > 0) {
-					result.push(...this._prManager.folderManagers.map(folderManager => new WorkspaceFolderNode(this._view, folderManager.repository.rootUri, this._queries, folderManager, this._telemetry)));
-				}
+				const isVso = await this.isVSO();
+				result = this._prManager.folderManagers.map(folderManager => new WorkspaceFolderNode(this._view, folderManager.repository.rootUri, folderManager, this._telemetry, isVso));
 			}
 
 			this._childrenDisposables = result;

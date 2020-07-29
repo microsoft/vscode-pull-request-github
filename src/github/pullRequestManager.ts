@@ -53,7 +53,6 @@ export class BadUpstreamError extends Error {
 	}
 }
 
-export const SETTINGS_NAMESPACE = 'githubPullRequests';
 export const REMOTES_SETTING = 'remotes';
 
 export const PRManagerStateContext: string = 'PRManagerStateContext';
