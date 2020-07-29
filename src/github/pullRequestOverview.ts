@@ -541,7 +541,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		try {
 			const branch = message.args;
 			// This should be updated for multi-root support and consume the git extension API if possible
-			const branchObj = await this._pullRequestManager.repository.getBranch('@{-1}');
+			const branchObj = await this._pullRequestManager.repository.getBranch(branch);
 
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
 				await this._pullRequestManager.repository.checkout(branch);
