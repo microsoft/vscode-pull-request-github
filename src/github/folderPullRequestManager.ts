@@ -122,7 +122,7 @@ enum PagedDataType {
 }
 
 export class FolderPullRequestManager implements vscode.Disposable {
-	static ID = 'PullRequestManager';
+	static ID = 'FolderPullRequestManager';
 
 	private _subs: vscode.Disposable[];
 	private _activePullRequest?: PullRequestModel;
@@ -142,16 +142,14 @@ export class FolderPullRequestManager implements vscode.Disposable {
 	private _onDidChangeActiveIssue = new vscode.EventEmitter<void>();
 	readonly onDidChangeActiveIssue: vscode.Event<void> = this._onDidChangeActiveIssue.event;
 
-	private _onDidChangeState = new vscode.EventEmitter<void>();
-	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
+	private _onDidLoadRepositories = new vscode.EventEmitter<PRManagerState>();
+	readonly onDidLoadRepositories: vscode.Event<PRManagerState> = this._onDidLoadRepositories.event;
 
 	private _onDidChangeRepositories = new vscode.EventEmitter<void>();
 	readonly onDidChangeRepositories: vscode.Event<void> = this._onDidChangeRepositories.event;
 
 	private _onDidChangeAssignableUsers = new vscode.EventEmitter<IAccount[]>();
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
-
-	private _state: PRManagerState = PRManagerState.Initializing;
 
 	constructor(
 		private _repository: Repository,
@@ -162,7 +160,6 @@ export class FolderPullRequestManager implements vscode.Disposable {
 		this._subs = [];
 		this._githubRepositories = [];
 		this._githubManager = new GitHubManager();
-		vscode.commands.executeCommand('setContext', PRManagerStateContext, this._state);
 
 		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
@@ -173,17 +170,8 @@ export class FolderPullRequestManager implements vscode.Disposable {
 		this.setUpCompletionItemProvider();
 	}
 
-	get state() {
-		return this._state;
-	}
-
-	set state(state: PRManagerState) {
-		const stateChange = state !== this._state;
-		this._state = state;
-		if (stateChange) {
-			vscode.commands.executeCommand('setContext', PRManagerStateContext, state);
-			this._onDidChangeState.fire();
-		}
+	get gitHubRepositories(): GitHubRepository[] {
+		return this._githubRepositories;
 	}
 
 	private computeAllGitHubRemotes(): Promise<Remote[]> {
@@ -219,7 +207,7 @@ export class FolderPullRequestManager implements vscode.Disposable {
 			.filter((repo: Remote | undefined): repo is Remote => !!repo);
 	}
 
-	private setUpCompletionItemProvider() {
+	public setUpCompletionItemProvider() {
 		let lastPullRequest: PullRequestModel | undefined = undefined;
 		let lastPullRequestTimelineEvents: TimelineEvent[] = [];
 		let cachedUsers: UserCompletion[] = [];
@@ -427,15 +415,6 @@ export class FolderPullRequestManager implements vscode.Disposable {
 		return this._credentialStore;
 	}
 
-	get repositories(): GitHubRepository[] {
-		return this._githubRepositories;
-	}
-
-	async clearCredentialCache(): Promise<void> {
-		await this._credentialStore.reset();
-		this.state = PRManagerState.Initializing;
-	}
-
 	private async getActiveRemotes(): Promise<Remote[]> {
 		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
 		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
@@ -480,7 +459,7 @@ export class FolderPullRequestManager implements vscode.Disposable {
 
 			this.getMentionableUsers(repositoriesChanged);
 			this.getAssignableUsers(repositoriesChanged);
-			this.state = isAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication;
+			this._onDidLoadRepositories.fire(isAuthenticated || !activeRemotes.length ? PRManagerState.RepositoriesLoaded : PRManagerState.NeedsAuthentication);
 			if (!silent) {
 				this._onDidChangeRepositories.fire();
 			}
@@ -579,10 +558,6 @@ export class FolderPullRequestManager implements vscode.Disposable {
 	 */
 	async getAllGitHubRemotes(): Promise<Remote[]> {
 		return await this.computeAllGitHubRemotes();
-	}
-
-	async authenticate(): Promise<boolean> {
-		return !!(await this._credentialStore.login());
 	}
 
 	async getLocalPullRequests(): Promise<PullRequestModel[]> {
@@ -2205,7 +2180,7 @@ export class FolderPullRequestManager implements vscode.Disposable {
 	async findUpstreamForItem(item: {remote: Remote, githubRepository: GitHubRepository}): Promise<{ needsFork: boolean, upstream?: GitHubRepository, remote?: Remote }> {
 		let upstream: GitHubRepository | undefined;
 		let existingForkRemote: Remote | undefined;
-		for (const githubRepo of this.repositories) {
+		for (const githubRepo of this.gitHubRepositories) {
 			if (!upstream && (githubRepo.remote.owner === item.remote.owner) &&
 				(githubRepo.remote.repositoryName === item.remote.repositoryName)) {
 				upstream = githubRepo;
@@ -2247,9 +2222,9 @@ export class FolderPullRequestManager implements vscode.Disposable {
 		await matchingRepo.addRemote(workingRemoteName, result);
 		// Now the extension is responding to all the git changes.
 		await new Promise((resolve) => {
-			if (this.repositories.length === 0) {
+			if (this.gitHubRepositories.length === 0) {
 				const disposable = this.onDidChangeRepositories(() => {
-					if (this.repositories.length > 0) {
+					if (this.gitHubRepositories.length > 0) {
 						disposable.dispose();
 						resolve();
 					}
