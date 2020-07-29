@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
 import { IAccount } from '../github/interface';
 
 /**
@@ -37,7 +37,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 
 	public onNotified: vscode.Event<NotifyContactServiceEventArgs> = this.onNotifiedEmitter.event;
 
-	constructor(private readonly pullRequestManager: PullRequestManager) {
+	constructor(private readonly pullRequestManager: RepositoriesManager) {
 		pullRequestManager.folderManagers.forEach(folderManager => {
 			folderManager.onDidChangeAssignableUsers(e => {
 				this.notifySuggestedAccounts(e);

@@ -19,11 +19,11 @@ import Logger from '../common/logger';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum } from './quickpick';
-import { FolderPullRequestManager, titleAndBodyFrom } from '../github/folderPullRequestManager';
+import { FolderRepositoryManager, titleAndBodyFrom } from '../github/folderPullRequestManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
 import { GitHubRepository } from '../github/githubRepository';
 
 export class ReviewManager {
@@ -63,8 +63,8 @@ export class ReviewManager {
 	constructor(
 		private _context: vscode.ExtensionContext,
 		private _repository: Repository,
-		private _folderPrManager: FolderPullRequestManager,
-		private _prManager: PullRequestManager,
+		private _folderRepoManager: FolderRepositoryManager,
+		private _reposManager: RepositoriesManager,
 		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
 		private _telemetry: ITelemetry
 	) {
@@ -94,14 +94,14 @@ export class ReviewManager {
 					this._prFileChangesProvider.dispose();
 					this._prFileChangesProvider = undefined;
 
-					if (this._folderPrManager.activePullRequest) {
-						this.prFileChangesProvider.showPullRequestFileChanges(this._folderPrManager, this._folderPrManager.activePullRequest, this._localFileChanges, this._comments);
+					if (this._folderRepoManager.activePullRequest) {
+						this.prFileChangesProvider.showPullRequestFileChanges(this._folderRepoManager, this._folderRepoManager.activePullRequest, this._localFileChanges, this._comments);
 					}
 				}
 
 				this._prsTreeDataProvider.dispose();
 				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-				await this._prsTreeDataProvider.initialize(this._prManager);
+				await this._prsTreeDataProvider.initialize(this._reposManager);
 				this._disposables.push(this._prsTreeDataProvider);
 			}
 		}));
@@ -203,7 +203,7 @@ export class ReviewManager {
 
 	private async validateState(silent: boolean) {
 		Logger.appendLine('Review> Validating state...');
-		await this._folderPrManager.updateRepositories(silent);
+		await this._folderRepoManager.updateRepositories(silent);
 		if (silent) {
 			return;
 		}
@@ -214,7 +214,7 @@ export class ReviewManager {
 		}
 
 		const branch = this._repository.state.HEAD;
-		const matchingPullRequestMetadata = await this._folderPrManager.getMatchingPullRequestMetadataForBranch();
+		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${this._repository.state.HEAD.name}`);
@@ -243,19 +243,19 @@ export class ReviewManager {
 
 		const { owner, repositoryName } = matchingPullRequestMetadata;
 		Logger.appendLine('Review> Resolving pull request');
-		const pr = await this._folderPrManager.resolvePullRequest(owner, repositoryName, matchingPullRequestMetadata.prNumber);
+		const pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, matchingPullRequestMetadata.prNumber);
 		if (!pr || !pr.isResolved()) {
 			this._prNumber = undefined;
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}
 
-		this._folderPrManager.activePullRequest = pr;
+		this._folderRepoManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
 		Logger.appendLine('Review> Fetching pull request data');
 		await this.getPullRequestData(pr);
-		await this.prFileChangesProvider.showPullRequestFileChanges(this._folderPrManager, pr, this._localFileChanges, this._comments);
+		await this.prFileChangesProvider.showPullRequestFileChanges(this._folderRepoManager, pr, this._localFileChanges, this._comments);
 
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
@@ -272,17 +272,17 @@ export class ReviewManager {
 		const branch = this._repository.state.HEAD;
 		if (!branch) { return; }
 
-		const matchingPullRequestMetadata = await this._folderPrManager.getMatchingPullRequestMetadataForBranch();
+		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 		if (!matchingPullRequestMetadata) { return; }
 
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) { return; }
 
-		if (this._prNumber === undefined || !this._folderPrManager.activePullRequest) {
+		if (this._prNumber === undefined || !this._folderRepoManager.activePullRequest) {
 			return;
 		}
 
-		const pr = await this._folderPrManager.resolvePullRequest(matchingPullRequestMetadata.owner, matchingPullRequestMetadata.repositoryName, this._prNumber);
+		const pr = await this._folderRepoManager.resolvePullRequest(matchingPullRequestMetadata.owner, matchingPullRequestMetadata.repositoryName, this._prNumber);
 
 		if (!pr || !pr.isResolved()) {
 			Logger.appendLine('Review> This PR is no longer valid');
@@ -364,11 +364,11 @@ export class ReviewManager {
 
 	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			this._comments = await this._folderPrManager.getPullRequestComments(pr);
+			this._comments = await this._folderRepoManager.getPullRequestComments(pr);
 			const activeComments = this._comments.filter(comment => comment.position);
 			const outdatedComments = this._comments.filter(comment => !comment.position);
 
-			const data = await this._folderPrManager.getPullRequestFileChangesInfo(pr);
+			const data = await this._folderRepoManager.getPullRequestFileChangesInfo(pr);
 			const mergeBase = pr.mergeBase || pr.base.sha;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase!);
@@ -418,7 +418,7 @@ export class ReviewManager {
 	}
 
 	private async registerCommentController() {
-		this._reviewCommentController = new ReviewCommentController(this._folderPrManager,
+		this._reviewCommentController = new ReviewCommentController(this._folderRepoManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
@@ -440,10 +440,10 @@ export class ReviewManager {
 		this.switchingToReviewMode = true;
 
 		try {
-			const didLocalCheckout = await this._folderPrManager.checkoutExistingPullRequestBranch(pr);
+			const didLocalCheckout = await this._folderRepoManager.checkoutExistingPullRequestBranch(pr);
 
 			if (!didLocalCheckout) {
-				await this._folderPrManager.fetchAndCheckout(pr);
+				await this._folderRepoManager.fetchAndCheckout(pr);
 			}
 		} catch (e) {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);
@@ -467,7 +467,7 @@ export class ReviewManager {
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 
-			await this._folderPrManager.fullfillPullRequestMissingInfo(pr);
+			await this._folderRepoManager.fullfillPullRequestMissingInfo(pr);
 
 			/* __GDPR__
 				"pr.checkout" : {}
@@ -484,7 +484,7 @@ export class ReviewManager {
 	}
 
 	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
-		const potentialTargetRemotes = await this._folderPrManager.getAllGitHubRemotes();
+		const potentialTargetRemotes = await this._folderRepoManager.getAllGitHubRemotes();
 		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch '${branch.name}' to:`))!.remote;
 
 		if (!selectedRemote || branch.name === undefined) {
@@ -499,7 +499,7 @@ export class ReviewManager {
 			const validate = async function (value: string) {
 				try {
 					inputBox.busy = true;
-					const remoteBranch = await this._prManager.getBranch(selectedRemote, value);
+					const remoteBranch = await this._reposManager.getBranch(selectedRemote, value);
 					if (remoteBranch) {
 						inputBox.validationMessage = `Branch ${value} already exists in ${selectedRemote.owner}/${selectedRemote.repositoryName}`;
 					} else {
@@ -600,7 +600,7 @@ export class ReviewManager {
 	}
 
 	private async getPullRequestTitleAndDescriptionDefaults(progress: vscode.Progress<{ message?: string, increment?: number }>): Promise<{ title: string, description: string } | undefined> {
-		const pullRequestTemplates = await this._folderPrManager.getPullRequestTemplates();
+		const pullRequestTemplates = await this._folderRepoManager.getPullRequestTemplates();
 		let template: vscode.Uri | undefined;
 
 		if (pullRequestTemplates.length === 1) {
@@ -628,7 +628,7 @@ export class ReviewManager {
 			progress.report({ increment: 5, message: 'Creating pull request...' });
 		}
 
-		const { title, body } = titleAndBodyFrom(await this._folderPrManager.getHeadCommitMessage());
+		const { title, body } = titleAndBodyFrom(await this._folderRepoManager.getHeadCommitMessage());
 		let description = body;
 		if (template) {
 			try {
@@ -665,8 +665,8 @@ export class ReviewManager {
 	}
 
 	public async createPullRequest(draft = false): Promise<void> {
-		const pullRequestDefaults = await this._folderPrManager.getPullRequestDefaults();
-		const githubRemotes = this._folderPrManager.getGitHubRemotes();
+		const pullRequestDefaults = await this._folderRepoManager.getPullRequestDefaults();
+		const githubRemotes = this._folderRepoManager.getGitHubRemotes();
 		const targetRemote = await this.getRemote(githubRemotes, 'Select the remote to send the pull request to',
 			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Repository')
 		);
@@ -676,7 +676,7 @@ export class ReviewManager {
 		}
 
 		const base: string = targetRemote.remote
-			? (await this._folderPrManager.getMetadata(targetRemote.remote.remoteName)).default_branch
+			? (await this._folderRepoManager.getMetadata(targetRemote.remote.remoteName)).default_branch
 			: pullRequestDefaults.base;
 		const target = await vscode.window.showInputBox({
 			value: base,
@@ -713,7 +713,7 @@ export class ReviewManager {
 
 			}
 
-			const headRemote = (await this._folderPrManager.getAllGitHubRemotes()).find(remote => remote.remoteName === HEAD!.upstream!.remote);
+			const headRemote = (await this._folderRepoManager.getAllGitHubRemotes()).find(remote => remote.remoteName === HEAD!.upstream!.remote);
 			if (!headRemote) {
 				return;
 			}
@@ -765,7 +765,7 @@ export class ReviewManager {
 				draft: draft
 			};
 
-			const pullRequestModel = await this._folderPrManager.createPullRequest(createParams);
+			const pullRequestModel = await this._folderRepoManager.createPullRequest(createParams);
 
 			if (pullRequestModel) {
 				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.number} Created` });
@@ -786,7 +786,7 @@ export class ReviewManager {
 
 		if (quitReviewMode) {
 			this._prNumber = undefined;
-			this._folderPrManager.activePullRequest = undefined;
+			this._folderRepoManager.activePullRequest = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();
@@ -854,10 +854,10 @@ export class ReviewManager {
 	}
 
 	static getReviewManagerForRepository(reviewManagers: ReviewManager[], repository: GitHubRepository): ReviewManager | undefined {
-		return reviewManagers.find(reviewManager => reviewManager._folderPrManager.gitHubRepositories.includes(repository));
+		return reviewManagers.find(reviewManager => reviewManager._folderRepoManager.gitHubRepositories.includes(repository));
 	}
 
-	static getReviewManagerForFolderManager(reviewManagers: ReviewManager[], folderManager: FolderPullRequestManager): ReviewManager | undefined {
-		return reviewManagers.find(reviewManager => reviewManager._folderPrManager === folderManager);
+	static getReviewManagerForFolderManager(reviewManagers: ReviewManager[], folderManager: FolderRepositoryManager): ReviewManager | undefined {
+		return reviewManagers.find(reviewManager => reviewManager._folderRepoManager === folderManager);
 	}
 }

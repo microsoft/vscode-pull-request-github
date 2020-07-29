@@ -10,7 +10,7 @@ import { GitFileChangeNode } from './fileChangeNode';
 import { toReviewUri } from '../../common/uri';
 import { getGitChangeType } from '../../common/diffHunk';
 import { IComment } from '../../common/comment';
-import { FolderPullRequestManager } from '../../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { OctokitCommon } from '../../github/common';
 
@@ -23,7 +23,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
-		private readonly pullRequestManager: FolderPullRequestManager,
+		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
 		private readonly comments: IComment[]

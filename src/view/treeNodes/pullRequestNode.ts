@@ -19,7 +19,7 @@ import { TreeNode } from './treeNode';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { IComment } from '../../common/comment';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
-import { FolderPullRequestManager } from '../../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { createVSCodeCommentThread, parseGraphQLReaction, updateCommentThreadLabel, updateCommentReviewState, updateCommentReactions, CommentReactionHandler } from '../../github/utils';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../../commentHandlerResolver';
@@ -109,7 +109,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
-		private _prManager: FolderPullRequestManager,
+		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean
 	) {
@@ -142,13 +142,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 
 			// The review manager will register a document comment's controller, so the node does not need to
-			if (!this.pullRequestModel.equals(this._prManager.activePullRequest)) {
+			if (!this.pullRequestModel.equals(this._folderReposManager.activePullRequest)) {
 				if (!this._prCommentController || !this._commentController) {
 					await this.resolvePRCommentController();
 				}
 
 				await this.refreshExistingPREditors(vscode.window.visibleTextEditors, true);
-				await this._prManager.validateDraftMode(this.pullRequestModel);
+				await this._folderReposManager.validateDraftMode(this.pullRequestModel);
 				await this.refreshContextKey(vscode.window.activeTextEditor);
 			} else {
 				await this.pullRequestModel.githubRepository.ensureCommentsController();
@@ -244,8 +244,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return [];
 		}
 
-		const comments = await this._prManager.getPullRequestComments(this.pullRequestModel);
-		const data = await this._prManager.getPullRequestFileChangesInfo(this.pullRequestModel);
+		const comments = await this._folderReposManager.getPullRequestComments(this.pullRequestModel);
+		const data = await this._folderReposManager.getPullRequestFileChangesInfo(this.pullRequestModel);
 
 		// Merge base is set as part of getPullRequestFileChangesInfo
 		const mergeBase = this.pullRequestModel.mergeBase;
@@ -253,7 +253,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return [];
 		}
 
-		const rawChanges = await parseDiff(data, this._prManager.repository, mergeBase);
+		const rawChanges = await parseDiff(data, this._folderReposManager.repository, mergeBase);
 
 		return rawChanges.map(change => {
 			const headCommit = this.pullRequestModel.head!.sha;
@@ -266,8 +266,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					change.fileName,
 					change.previousFileName,
 					change.blobUrl,
-					toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
-					toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, parentFileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
+					toPRUri(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
+					toPRUri(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, parentFileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
 				);
 			}
 
@@ -278,8 +278,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				change.fileName,
 				change.previousFileName,
 				change.blobUrl,
-				toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
-				toPRUri(vscode.Uri.file(path.resolve(this._prManager.repository.rootUri.fsPath, parentFileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
+				toPRUri(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, change.fileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
+				toPRUri(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, parentFileName)), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
 				change.isPartial,
 				change.patch,
 				change.diffHunks,
@@ -294,7 +294,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const { remote: { remoteName }, base: { ref } } = this.pullRequestModel;
 
 		progress.report({ message: `Running 'git fetch ${remoteName} ${ref}'`, increment: 0 });
-		await this._prManager.repository.fetch(remoteName, ref);
+		await this._folderReposManager.repository.fetch(remoteName, ref);
 
 		const PROGRESS_MESSAGE = 'Reloading document';
 		progress.report({ message: PROGRESS_MESSAGE, increment: 50 });
@@ -388,7 +388,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		if (currentPRDocuments.length) {
 			const fileChanges = await this.getFileChanges();
-			await this._prManager.validateDraftMode(this.pullRequestModel);
+			await this._folderReposManager.validateDraftMode(this.pullRequestModel);
 			currentPRDocuments.forEach(editor => {
 				const fileChange = fileChanges.find(fc => fc.fileName === editor.fileName);
 
@@ -475,7 +475,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._prManager.activePullRequest);
+		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
 		const {
 			title,
@@ -517,7 +517,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return false;
 		}
 
-		if (this._prManager.activePullRequest && this._prManager.activePullRequest.number === this.pullRequestModel.number) {
+		if (this._folderReposManager.activePullRequest && this._folderReposManager.activePullRequest.number === this.pullRequestModel.number) {
 			return false;
 		}
 
@@ -675,9 +675,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (fileChange instanceof RemoteFileChangeNode) {
 			try {
 				if (params.isBase) {
-					return this._prManager.getFile(this.pullRequestModel, fileChange.previousFileName || fileChange.fileName, params.baseCommit);
+					return this._folderReposManager.getFile(this.pullRequestModel, fileChange.previousFileName || fileChange.fileName, params.baseCommit);
 				} else {
-					return this._prManager.getFile(this.pullRequestModel, fileChange.fileName, params.headCommit);
+					return this._folderReposManager.getFile(this.pullRequestModel, fileChange.fileName, params.headCommit);
 				}
 			} catch (e) {
 				Logger.appendLine(`PR> Fetching file content failed: ${e}`);
@@ -736,8 +736,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 			} else {
 				const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
-				const originalFilePath = path.join(this._prManager.repository.rootUri.fsPath, originalFileName!);
-				const originalContent = await this._prManager.repository.show(params.baseCommit, originalFilePath);
+				const originalFilePath = path.join(this._folderReposManager.repository.rootUri.fsPath, originalFileName!);
+				const originalContent = await this._folderReposManager.repository.show(params.baseCommit, originalFilePath);
 
 				if (params.isBase) {
 					return originalContent;
@@ -781,14 +781,14 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._prManager.getCurrentUser(this.pullRequestModel);
+		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel);
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;
 	}
 
 	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._prManager.getCurrentUser(this.pullRequestModel);
+		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel);
 		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment);
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof GHPRComment && c.commentId === comment.commentId) {
@@ -814,7 +814,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	private reply(thread: GHPRCommentThread, input: string): Promise<IComment | undefined> {
 		const replyingTo = thread.comments[0];
 		if (replyingTo instanceof GHPRComment) {
-			return this._prManager.createCommentReply(this.pullRequestModel, input, replyingTo._rawComment);
+			return this._folderReposManager.createCommentReply(this.pullRequestModel, input, replyingTo._rawComment);
 		} else {
 			// TODO can we do better?
 			throw new Error('Cannot respond to temporary comment');
@@ -833,7 +833,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	private async createFirstCommentInThread(thread: GHPRCommentThread, input: string, fileChange: InMemFileChangeNode): Promise<IComment | undefined> {
 		const position = this.calculateCommentPosition(fileChange, thread);
-		const rawComment = await this._prManager.createComment(this.pullRequestModel, input, fileChange.fileName, position);
+		const rawComment = await this._folderReposManager.createComment(this.pullRequestModel, input, fileChange.fileName, position);
 
 		// Add new thread to cache
 		this.updateCommentThreadCache(thread, fileChange, rawComment!);
@@ -847,7 +847,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (comment instanceof GHPRComment) {
 			const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
 			try {
-				const rawComment = await this._prManager.editReviewComment(this.pullRequestModel, comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
+				const rawComment = await this._folderReposManager.editReviewComment(this.pullRequestModel, comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
 
 				const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 				if (index > -1) {
@@ -873,7 +873,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	public async deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		if (comment instanceof GHPRComment) {
-			await this._prManager.deleteReviewComment(this.pullRequestModel, comment.commentId);
+			await this._folderReposManager.deleteReviewComment(this.pullRequestModel, comment.commentId);
 			const fileChange = await this.findMatchingFileNode(thread.uri);
 			const index = fileChange.comments.findIndex(c => c.id.toString() === comment.commentId);
 			if (index > -1) {
@@ -901,7 +901,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			thread.comments = thread.comments.filter(c => c instanceof TemporaryComment && c.id === comment.id);
 		}
 
-		await this._prManager.validateDraftMode(this.pullRequestModel);
+		await this._folderReposManager.validateDraftMode(this.pullRequestModel);
 	}
 	// #endregion
 
@@ -912,7 +912,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		try {
 			const fileChange = await this.findMatchingFileNode(thread.uri);
 			const position = this.calculateCommentPosition(fileChange, thread);
-			const newComment = await this._prManager.startReview(this.pullRequestModel,
+			const newComment = await this._folderReposManager.startReview(this.pullRequestModel,
 				{
 					body: input,
 					path: fileChange.fileName,
@@ -940,7 +940,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		try {
 			await this.createOrReplyComment(thread, input, false);
-			await this._prManager.submitReview(this.pullRequestModel);
+			await this._folderReposManager.submitReview(this.pullRequestModel);
 			this.setContextKey(false);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
@@ -948,7 +948,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	public async deleteReview(): Promise<void> {
-		const { deletedReviewId, deletedReviewComments } = await this._prManager.deleteReview(this.pullRequestModel);
+		const { deletedReviewId, deletedReviewComments } = await this._folderReposManager.deleteReview(this.pullRequestModel);
 
 		// Group comments by file and then position to create threads.
 		const commentsByPath = groupBy(deletedReviewComments, comment => comment.path || '');
@@ -1008,10 +1008,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		let reactionGroups: ReactionGroup[];
 		if (comment.reactions && !comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)) {
 			// add reaction
-			const result = await this._prManager.addCommentReaction(this.pullRequestModel, comment._rawComment.graphNodeId, reaction);
+			const result = await this._folderReposManager.addCommentReaction(this.pullRequestModel, comment._rawComment.graphNodeId, reaction);
 			reactionGroups = result.addReaction.subject.reactionGroups;
 		} else {
-			const result = await this._prManager.deleteCommentReaction(this.pullRequestModel, comment._rawComment.graphNodeId, reaction);
+			const result = await this._folderReposManager.deleteCommentReaction(this.pullRequestModel, comment._rawComment.graphNodeId, reaction);
 			reactionGroups = result.removeReaction.subject.reactionGroups;
 		}
 

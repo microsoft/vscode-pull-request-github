@@ -23,27 +23,27 @@ import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
 import { IComment } from './common/comment';
 import { GHPRComment, TemporaryComment } from './github/prComment';
-import { FolderPullRequestManager } from './github/folderPullRequestManager';
+import { FolderRepositoryManager } from './github/folderPullRequestManager';
 import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 import { ITelemetry } from './common/telemetry';
 import { TreeNode } from './view/treeNodes/treeNode';
 import { CredentialStore } from './github/credentials';
-import { PullRequestManager } from './github/pullRequestManager';
+import { RepositoriesManager } from './github/repositoriesManager';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
 
-function ensurePR(prManager: FolderPullRequestManager, pr?: PRNode | PullRequestModel): PullRequestModel {
+function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | PullRequestModel): PullRequestModel {
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
-		if (!prManager.activePullRequest) {
+		if (!folderRepoManager.activePullRequest) {
 			vscode.window.showErrorMessage('Unable to find current pull request.');
 			throw new Error('Unable to find current pull request.');
 		}
 
-		return prManager.activePullRequest;
+		return folderRepoManager.activePullRequest;
 	} else {
 		return pr instanceof PRNode ? pr.pullRequestModel : pr;
 	}
@@ -65,7 +65,7 @@ async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue
 	return (await vscode.window.showQuickPick(items))?.itemValue;
 }
 
-export function registerCommands(context: vscode.ExtensionContext, prManager: PullRequestManager, reviewManagers: ReviewManager[], telemetry: ITelemetry, credentialStore: CredentialStore, tree: PullRequestsTreeDataProvider) {
+export function registerCommands(context: vscode.ExtensionContext, reposManager: RepositoriesManager, reviewManagers: ReviewManager[], telemetry: ITelemetry, credentialStore: CredentialStore, tree: PullRequestsTreeDataProvider) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
 		credentialStore.logout();
@@ -73,7 +73,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', async (e: PRNode | DescriptionNode | PullRequestModel) => {
 		if (!e) {
-			const activePullRequests: PullRequestModel[] = prManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
+			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
 
 			if (activePullRequests.length >= 1) {
 				const result = await chooseItem<PullRequestModel>(activePullRequests, (itemValue) => itemValue.html_url);
@@ -95,7 +95,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
 		try {
-			const folderManager = await chooseItem<FolderPullRequestManager>(prManager.folderManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath));
+			const folderManager = await chooseItem<FolderRepositoryManager>(reposManager.folderManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath));
 			if (!folderManager || !folderManager.activePullRequest) {
 				return;
 			}
@@ -165,7 +165,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openOriginalFile', async (e: GitFileChangeNode) => {
 		// if this is an image, encode it as a base64 data URI
-		const folderManager = prManager.getManagerForIssueModel(e.pullRequest);
+		const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
 		if (folderManager) {
 			const imageDataURI = await asImageDataURI(e.parentFilePath, folderManager.repository);
 			vscode.commands.executeCommand('vscode.open', imageDataURI || e.parentFilePath);
@@ -180,7 +180,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 		const GIT_FETCH_COMMAND = 'Run \'git fetch\'';
 		const TITLE = 'GitHub Pull Requests';
 
-		const folderManager = prManager.getManagerForIssueModel(fileChangeNode.pullRequest);
+		const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
 		if (!folderManager) {
 			return;
 		}
@@ -233,7 +233,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
-		const folderManager = prManager.getManagerForIssueModel(e.pullRequestModel);
+		const folderManager = reposManager.getManagerForIssueModel(e.pullRequestModel);
 		if (!folderManager) {
 			return;
 		}
@@ -319,7 +319,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.merge', async (pr?: PRNode) => {
-		const folderManager = prManager.getManagerForIssueModel(pr?.pullRequestModel);
+		const folderManager = reposManager.getManagerForIssueModel(pr?.pullRequestModel);
 		if (!folderManager) {
 			return;
 		}
@@ -340,7 +340,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.readyForReview', async (pr?: PRNode) => {
-		const folderManager = prManager.getManagerForIssueModel(pr?.pullRequestModel);
+		const folderManager = reposManager.getManagerForIssueModel(pr?.pullRequestModel);
 		if (!folderManager) {
 			return;
 		}
@@ -362,7 +362,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode, message?: string) => {
-		const folderManager = prManager.getManagerForIssueModel(pr?.pullRequestModel);
+		const folderManager = reposManager.getManagerForIssueModel(pr?.pullRequestModel);
 		if (!folderManager) {
 			return;
 		}
@@ -390,7 +390,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.approve', async (pr: PullRequestModel, message?: string) => {
-		const folderManager = prManager.getManagerForIssueModel(pr);
+		const folderManager = reposManager.getManagerForIssueModel(pr);
 		if (!folderManager) {
 			return;
 		}
@@ -398,7 +398,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges', async (pr: PullRequestModel, message?: string) => {
-		const folderManager = prManager.getManagerForIssueModel(pr);
+		const folderManager = reposManager.getManagerForIssueModel(pr);
 		if (!folderManager) {
 			return;
 		}
@@ -406,7 +406,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
-		const folderManager = prManager.getManagerForIssueModel(descriptionNode.pullRequestModel);
+		const folderManager = reposManager.getManagerForIssueModel(descriptionNode.pullRequestModel);
 		if (!folderManager) {
 			return;
 		}
@@ -433,7 +433,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
-		const folderManager = prManager.getManagerForIssueModel(descriptionNode.pullRequestModel);
+		const folderManager = reposManager.getManagerForIssueModel(descriptionNode.pullRequestModel);
 		if (!folderManager) {
 			return;
 		}
@@ -499,17 +499,17 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signin', async () => {
-		await prManager.authenticate();
+		await reposManager.authenticate();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
-		for (const folderManager of prManager.folderManagers) {
+		for (const folderManager of reposManager.folderManagers) {
 			await folderManager.deleteLocalBranchesNRemotes();
 		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
-		if (await prManager.authenticate()) {
+		if (await reposManager.authenticate()) {
 			vscode.commands.executeCommand('pr.refreshList');
 		}
 	}));
@@ -660,7 +660,7 @@ export function registerCommands(context: vscode.ExtensionContext, prManager: Pu
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
-		const folderManager = prManager.getManagerForIssueModel(prNode.pullRequestModel);
+		const folderManager = reposManager.getManagerForIssueModel(prNode.pullRequestModel);
 		if (folderManager && prNode.pullRequestModel.equals(folderManager?.activePullRequest)) {
 			ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)?.updateComments();
 		}

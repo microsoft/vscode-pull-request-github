@@ -14,7 +14,7 @@ import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
-import { FolderPullRequestManager } from './folderPullRequestManager';
+import { FolderRepositoryManager } from './folderPullRequestManager';
 import { PullRequestModel } from './pullRequestModel';
 import { TimelineEvent, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
 import { IssueOverviewPanel, IRequestMessage } from './issueOverview';
@@ -33,7 +33,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[];
 
-	public static async createOrShow(extensionPath: string, pullRequestManager: FolderPullRequestManager, issue: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, pullRequestManager: FolderRepositoryManager, issue: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -62,7 +62,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: FolderPullRequestManager, descriptionNode: DescriptionNode) {
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: FolderRepositoryManager, descriptionNode: DescriptionNode) {
 		super(extensionPath, column, title, pullRequestManager, descriptionNode, PullRequestOverviewPanel._viewType);
 
 		this._pullRequestManager.onDidChangeActivePullRequest(_ => {

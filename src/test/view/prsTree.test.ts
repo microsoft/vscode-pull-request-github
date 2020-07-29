@@ -4,7 +4,7 @@ import assert = require('assert');
 import { Octokit } from '@octokit/rest';
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
-import { FolderPullRequestManager } from '../../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
@@ -19,7 +19,7 @@ import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
 import { ApiImpl } from '../../api/api1';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { RepositoriesManager } from '../../github/repositoriesManager';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -95,7 +95,7 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager([new FolderPullRequestManager(repository, telemetry, new ApiImpl(), credentialStore)], credentialStore);
+		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore)], credentialStore);
 		await provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
@@ -112,7 +112,7 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager([new FolderPullRequestManager(repository, telemetry, new ApiImpl(), credentialStore)], credentialStore);
+		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore)], credentialStore);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockGitHubRepository(remote, cStore, sinon);
 		});
@@ -177,8 +177,8 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderPullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
-			const prManager = new PullRequestManager([manager], credentialStore);
+			const manager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
+			const reposManager = new RepositoriesManager([manager], credentialStore);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
@@ -186,7 +186,7 @@ describe('GitHub Pull Requests view', function () {
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();
-			await provider.initialize(prManager);
+			await provider.initialize(reposManager);
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();

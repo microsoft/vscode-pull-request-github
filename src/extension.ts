@@ -15,7 +15,7 @@ import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
-import { FolderPullRequestManager } from './github/folderPullRequestManager';
+import { FolderRepositoryManager } from './github/folderPullRequestManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
@@ -25,7 +25,7 @@ import { CredentialStore } from './github/credentials';
 import { GitExtension, GitAPI } from './typings/git';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { LiveShare } from 'vsls/vscode.js';
-import { PullRequestManager } from './github/pullRequestManager';
+import { RepositoriesManager } from './github/repositoriesManager';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -42,7 +42,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 
 	vscode.authentication.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {
-			await prManager.clearCredentialCache();
+			await reposManager.clearCredentialCache();
 			if (reviewManagers) {
 				reviewManagers.forEach(reviewManager => reviewManager.updateState());
 			}
@@ -52,20 +52,20 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
 
-	const folderManagers = repositories.map(repository => new FolderPullRequestManager(repository, telemetry, git, credentialStore));
+	const folderManagers = repositories.map(repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore));
 	context.subscriptions.push(...folderManagers);
-	const prManager = new PullRequestManager(folderManagers, credentialStore);
-	context.subscriptions.push(prManager);
+	const reposManager = new RepositoriesManager(folderManagers, credentialStore);
+	context.subscriptions.push(reposManager);
 
 	liveshareApiPromise.then((api) => {
 		if (api) {
 			// register the pull request provider to suggest PR contacts
-			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(prManager));
+			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(reposManager));
 		}
 	});
-	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(context, folderManager.repository, folderManager, prManager, tree, telemetry));
-	await tree.initialize(prManager);
-	registerCommands(context, prManager, reviewManagers, telemetry, credentialStore, tree);
+	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(context, folderManager.repository, folderManager, reposManager, tree, telemetry));
+	await tree.initialize(reposManager);
+	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
 
 	git.onDidChangeState(() => {
 		reviewManagers.forEach(reviewManager => reviewManager.updateState());
@@ -73,9 +73,9 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 
 	git.onDidOpenRepository(repo => {
 		const disposable = repo.state.onDidChange(() => {
-			const newFolderManager = new FolderPullRequestManager(repo, telemetry, git, credentialStore);
-			prManager.folderManagers.push(newFolderManager);
-			const newReviewManager = new ReviewManager(context, newFolderManager.repository, newFolderManager, prManager, tree, telemetry);
+			const newFolderManager = new FolderRepositoryManager(repo, telemetry, git, credentialStore);
+			reposManager.folderManagers.push(newFolderManager);
+			const newReviewManager = new ReviewManager(context, newFolderManager.repository, newFolderManager, reposManager, tree, telemetry);
 			reviewManagers.push(newReviewManager);
 			tree.refresh();
 			disposable.dispose();
