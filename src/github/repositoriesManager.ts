@@ -11,7 +11,7 @@ import { GitHubRepository } from './githubRepository';
 import { Repository, UpstreamRef } from '../api/api';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
-import { FolderPullRequestManager } from './folderPullRequestManager';
+import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderPullRequestManager';
 
 export interface ItemsResponseResult<T> {
 	items: T[];
@@ -55,14 +55,6 @@ export class BadUpstreamError extends Error {
 
 export const REMOTES_SETTING = 'remotes';
 
-export const PRManagerStateContext: string = 'PRManagerStateContext';
-
-export enum PRManagerState {
-	Initializing = 'Initializing',
-	NeedsAuthentication = 'NeedsAuthentication',
-	RepositoriesLoaded = 'RepositoriesLoaded'
-}
-
 export interface PullRequestDefaults {
 	owner: string;
 	repo: string;
@@ -71,29 +63,29 @@ export interface PullRequestDefaults {
 
 export const NO_MILESTONE: string = 'No Milestone';
 
-export class PullRequestManager implements vscode.Disposable {
-	static ID = 'PullRequestManager';
+export class RepositoriesManager implements vscode.Disposable {
+	static ID = 'RepositoriesManager';
 
 	private _subs: vscode.Disposable[];
 
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
 
-	private _state: PRManagerState = PRManagerState.Initializing;
+	private _state: ReposManagerState = ReposManagerState.Initializing;
 
 	constructor(
-		public readonly folderManagers: FolderPullRequestManager[],
+		public readonly folderManagers: FolderRepositoryManager[],
 		private _credentialStore: CredentialStore,
 	) {
 		this._subs = [];
-		vscode.commands.executeCommand('setContext', PRManagerStateContext, this._state);
+		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 
 		this._subs.push(...folderManagers.map(folderManager => {
 			return folderManager.onDidLoadRepositories(state => this.state = state);
 		}));
 	}
 
-	getManagerForIssueModel(issueModel: IssueModel | undefined): FolderPullRequestManager | undefined {
+	getManagerForIssueModel(issueModel: IssueModel | undefined): FolderRepositoryManager | undefined {
 		if (issueModel === undefined) {
 			return undefined;
 		}
@@ -109,11 +101,11 @@ export class PullRequestManager implements vscode.Disposable {
 		return this._state;
 	}
 
-	set state(state: PRManagerState) {
+	set state(state: ReposManagerState) {
 		const stateChange = state !== this._state;
 		this._state = state;
 		if (stateChange) {
-			vscode.commands.executeCommand('setContext', PRManagerStateContext, state);
+			vscode.commands.executeCommand('setContext', ReposManagerStateContext, state);
 			this._onDidChangeState.fire();
 		}
 	}
@@ -124,7 +116,7 @@ export class PullRequestManager implements vscode.Disposable {
 
 	async clearCredentialCache(): Promise<void> {
 		await this._credentialStore.reset();
-		this.state = PRManagerState.Initializing;
+		this.state = ReposManagerState.Initializing;
 	}
 
 	async authenticate(): Promise<boolean> {

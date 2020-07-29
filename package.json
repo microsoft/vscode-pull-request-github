@@ -692,12 +692,12 @@
     "viewsWelcome": [
       {
         "view": "pr:github",
-        "when": "PRManagerStateContext == NeedsAuthentication",
+        "when": "ReposManagerStateContext == NeedsAuthentication",
         "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
       },
       {
         "view": "issues:github",
-        "when": "PRManagerStateContext == NeedsAuthentication",
+        "when": "ReposManagerStateContext == NeedsAuthentication",
         "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
       }
     ],

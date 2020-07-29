@@ -7,11 +7,11 @@ import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { SETTINGS_NAMESPACE, REMOTES_SETTING, PRManagerState } from '../github/folderPullRequestManager';
+import { SETTINGS_NAMESPACE, REMOTES_SETTING, ReposManagerState } from '../github/folderPullRequestManager';
 import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
 import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -21,7 +21,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _disposables: vscode.Disposable[];
 	private _childrenDisposables: vscode.Disposable[];
 	private _view: vscode.TreeView<TreeNode>;
-	private _prManager: PullRequestManager;
+	private _reposManager: RepositoriesManager;
 	private _initialized: boolean = false;
 	private _isVSO: boolean | undefined;
 
@@ -54,7 +54,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._childrenDisposables = [];
 
 		this._disposables.push(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
-			const isLoggedIn = this._prManager.state === PRManagerState.RepositoriesLoaded;
+			const isLoggedIn = this._reposManager.state === ReposManagerState.RepositoriesLoaded;
 			const configuration = await vscode.window.showQuickPick(['Configure Remotes...', 'Configure Queries...', ...isLoggedIn ? ['Sign out of GitHub...'] : []]);
 
 			const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
@@ -80,17 +80,17 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	}
 
-	async initialize(prManager: PullRequestManager) {
+	async initialize(reposManager: RepositoriesManager) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}
 
 		this._initialized = true;
-		this._prManager = prManager;
-		this._disposables.push(this._prManager.onDidChangeState(() => {
+		this._reposManager = reposManager;
+		this._disposables.push(this._reposManager.onDidChangeState(() => {
 			this._onDidChangeTreeData.fire();
 		}));
-		this._disposables.push(...this._prManager.folderManagers.map(manager => {
+		this._disposables.push(...this._reposManager.folderManagers.map(manager => {
 			return manager.onDidChangeRepositories(() => {
 				this._onDidChangeTreeData.fire();
 			});
@@ -130,7 +130,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	}
 
 	private needsRemotes() {
-		if (this._prManager.state === PRManagerState.NeedsAuthentication) {
+		if (this._reposManager.state === ReposManagerState.NeedsAuthentication) {
 			return Promise.resolve([]);
 		}
 
@@ -146,7 +146,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	}
 
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
-		if (!this._prManager) {
+		if (!this._reposManager) {
 			if (!vscode.workspace.workspaceFolders) {
 				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.NoOpenFolder)]);
 			} else {
@@ -154,11 +154,11 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 		}
 
-		if (this._prManager.state === PRManagerState.Initializing) {
+		if (this._reposManager.state === ReposManagerState.Initializing) {
 			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Initializing)]);
 		}
 
-		if (this._prManager.folderManagers.filter(manager => manager.getGitHubRemotes().length > 0).length === 0) {
+		if (this._reposManager.folderManagers.filter(manager => manager.getGitHubRemotes().length > 0).length === 0) {
 			return this.needsRemotes();
 		}
 
@@ -168,18 +168,18 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}
 
 			let result: TreeNode[];
-			if (this._prManager.folderManagers.length === 1) {
-				return WorkspaceFolderNode.getCategoryTreeNodes(this._prManager.folderManagers[0], this._telemetry, await this.isVSO(), this._view);
+			if (this._reposManager.folderManagers.length === 1) {
+				return WorkspaceFolderNode.getCategoryTreeNodes(this._reposManager.folderManagers[0], this._telemetry, await this.isVSO(), this._view);
 			} else {
 				const isVso = await this.isVSO();
-				result = this._prManager.folderManagers.map(folderManager => new WorkspaceFolderNode(this._view, folderManager.repository.rootUri, folderManager, this._telemetry, isVso));
+				result = this._reposManager.folderManagers.map(folderManager => new WorkspaceFolderNode(this._view, folderManager.repository.rootUri, folderManager, this._telemetry, isVso));
 			}
 
 			this._childrenDisposables = result;
 			return Promise.resolve(result);
 		}
 
-		if (this._prManager.folderManagers.filter(manager => manager.repository.state.remotes.length > 0).length === 0) {
+		if (this._reposManager.folderManagers.filter(manager => manager.repository.state.remotes.length > 0).length === 0) {
 			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Empty)]);
 		}
 

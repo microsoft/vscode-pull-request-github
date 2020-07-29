@@ -9,7 +9,7 @@ import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { ReviewCommentController } from '../../view/reviewCommentController';
-import { FolderPullRequestManager } from '../../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
 import { MockRepository } from '../mocks/mockRepository';
 import { GitFileChangeNode } from '../../view/treeNodes/fileChangeNode';
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
@@ -42,7 +42,7 @@ describe('ReviewCommentController', function () {
 	let repository: MockRepository;
 	let telemetry: MockTelemetry;
 	let provider: PullRequestsTreeDataProvider;
-	let manager: FolderPullRequestManager;
+	let manager: FolderRepositoryManager;
 	let activePullRequest: PullRequestModel;
 
 	beforeEach(async function () {
@@ -56,7 +56,7 @@ describe('ReviewCommentController', function () {
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
-		manager = new FolderPullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
+		manager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return new MockGitHubRepository(r, cStore, sinon);
 		});
