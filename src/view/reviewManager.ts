@@ -12,18 +12,15 @@ import { IComment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { Repository, GitErrorCodes, Branch } from '../api/api';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
-import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
 import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
-import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum } from './quickpick';
 import { FolderRepositoryManager, titleAndBodyFrom } from '../github/folderPullRequestManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
-import { RepositoriesManager } from '../github/repositoriesManager';
 import { GitHubRepository } from '../github/githubRepository';
 
 export class ReviewManager {
@@ -39,7 +36,6 @@ export class ReviewManager {
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewCommentController: ReviewCommentController;
 
-	private _prFileChangesProvider: PullRequestChangesTreeDataProvider | undefined;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
 	private _previousRepositoryState: {
@@ -61,18 +57,13 @@ export class ReviewManager {
 	}
 
 	constructor(
-		private _context: vscode.ExtensionContext,
 		private _repository: Repository,
 		private _folderRepoManager: FolderRepositoryManager,
-		private _reposManager: RepositoriesManager,
-		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
-		private _telemetry: ITelemetry
+		private _telemetry: ITelemetry,
+		public changesInPrDataProvider: PullRequestChangesTreeDataProvider
 	) {
 		this._switchingToReviewMode = false;
 		this._disposables = [];
-		const gitContentProvider = new GitContentProvider(_repository);
-		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
-		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
 
 		this._previousRepositoryState = {
 			HEAD: _repository.state.HEAD,
@@ -81,31 +72,11 @@ export class ReviewManager {
 
 		this.registerListeners();
 
-		this._disposables.push(this._prsTreeDataProvider);
-
 		this.updateState();
 		this.pollForStatusChange();
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
-				if (this._prFileChangesProvider) {
-					this._prFileChangesProvider.dispose();
-					this._prFileChangesProvider = undefined;
-
-					if (this._folderRepoManager.activePullRequest) {
-						this.prFileChangesProvider.showPullRequestFileChanges(this._folderRepoManager, this._folderRepoManager.activePullRequest, this._localFileChanges, this._comments);
-					}
-				}
-
-				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-				await this._prsTreeDataProvider.initialize(this._reposManager);
-				this._disposables.push(this._prsTreeDataProvider);
-			}
-		}));
-
 		this._disposables.push(this._repository.state.onDidChange(e => {
 			const oldHead = this._previousRepositoryState.HEAD;
 			const newHead = this._repository.state.HEAD;
@@ -148,15 +119,6 @@ export class ReviewManager {
 		}));
 	}
 
-	get prFileChangesProvider() {
-		if (!this._prFileChangesProvider) {
-			this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._context);
-			this._disposables.push(this._prFileChangesProvider);
-		}
-
-		return this._prFileChangesProvider;
-	}
-
 	get statusBarItem() {
 		if (!this._statusBarItem) {
 			this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
@@ -167,6 +129,10 @@ export class ReviewManager {
 
 	get repository(): Repository {
 		return this._repository;
+	}
+
+	get localFileChanges(): GitFileChangeNode[] {
+		return this._localFileChanges;
 	}
 
 	setRepository(repository: Repository, silent: boolean) {
@@ -255,7 +221,7 @@ export class ReviewManager {
 
 		Logger.appendLine('Review> Fetching pull request data');
 		await this.getPullRequestData(pr);
-		await this.prFileChangesProvider.showPullRequestFileChanges(this._folderRepoManager, pr, this._localFileChanges, this._comments);
+		await this.changesInPrDataProvider.addPrToView(this._folderRepoManager, pr, this._localFileChanges, this._comments);
 
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
@@ -331,7 +297,7 @@ export class ReviewManager {
 			const uri = this._repository.rootUri.with({ path: filePath });
 
 			const modifiedFileUri = change.status === GitChangeType.DELETE
-				? toReviewUri(uri, undefined, undefined, '', false, { base: false })
+				? toReviewUri(uri, undefined, undefined, '', false, { base: false }, this._repository.rootUri)
 				: uri;
 
 			const originalFileUri = toReviewUri(
@@ -340,11 +306,12 @@ export class ReviewManager {
 				undefined,
 				change.status === GitChangeType.ADD ? '' : mergeBase,
 				false,
-				{ base: true }
+				{ base: true },
+				this._repository.rootUri
 			);
 
 			const changedItem = new GitFileChangeNode(
-				this.prFileChangesProvider.view,
+				this.changesInPrDataProvider.view,
 				pr,
 				change.status,
 				change.fileName,
@@ -393,13 +360,13 @@ export class ReviewManager {
 					const oldComments = commentsForFile[fileName];
 					const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, fileName));
 					const obsoleteFileChange = new GitFileChangeNode(
-						this.prFileChangesProvider.view,
+						this.changesInPrDataProvider.view,
 						pr,
 						GitChangeType.MODIFY,
 						fileName,
 						undefined,
-						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: false }),
-						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: true }),
+						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: false }, this._repository.rootUri),
+						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: true }, this._repository.rootUri),
 						false,
 						diffHunks,
 						oldComments,
@@ -792,8 +759,8 @@ export class ReviewManager {
 				this._statusBarItem.hide();
 			}
 
-			if (this._prFileChangesProvider) {
-				this.prFileChangesProvider.hide();
+			if (this.changesInPrDataProvider) {
+				this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
 			}
 
 			// Ensure file explorer decorations are removed. When switching to a different PR branch,

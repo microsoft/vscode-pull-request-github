@@ -74,7 +74,7 @@ describe('ReviewCommentController', function () {
 		sinon.restore();
 	});
 
-	function createLocalFileChange(uri: vscode.Uri, fileName: string): GitFileChangeNode {
+	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri): GitFileChangeNode {
 		return new GitFileChangeNode(
 			provider.view,
 			activePullRequest,
@@ -82,7 +82,7 @@ describe('ReviewCommentController', function () {
 			fileName,
 			'https://example.com',
 			uri,
-			toReviewUri(uri, fileName, undefined, '1', false, { base: true }),
+			toReviewUri(uri, fileName, undefined, '1', false, { base: true }, rootUri),
 			false,
 			[
 				{
@@ -127,7 +127,7 @@ describe('ReviewCommentController', function () {
 		it('creates a new comment on an empty thread in a local file', async function () {
 			const fileName = 'data/products.json';
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
-			const localFileChanges = [createLocalFileChange(uri, fileName)];
+			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
 			const reviewCommentController = new TestReviewCommentController(manager, repository, localFileChanges, [], []);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 

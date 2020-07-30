@@ -17,6 +17,7 @@ import { GitHubRepository } from './githubRepository';
 import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
 import { OctokitCommon } from './common';
+import { GitAPI, Repository } from '../typings/git';
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
@@ -688,4 +689,15 @@ export function getRelatedUsersFromTimelineEvents(timelineEvents: Common.Timelin
 	});
 
 	return ret;
+}
+
+export function getRepositoryForFile(gitAPI: GitAPI, file: vscode.Uri): Repository | undefined {
+	for (const repository of gitAPI.repositories) {
+		if ((file.path.toLowerCase() === repository.rootUri.path.toLowerCase()) ||
+			(file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase())
+				&& file.path.substring(repository.rootUri.path.length - 1).startsWith('/'))) {
+			return repository;
+		}
+	}
+	return undefined;
 }

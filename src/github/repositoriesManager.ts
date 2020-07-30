@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { CredentialStore } from './credentials';
 import { Remote } from '../common/remote';
 import { EventType } from '../common/timelineEvent';
@@ -89,8 +90,9 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
+		const issueRemoteUrl = issueModel.remote.url.substring(0, issueModel.remote.url.length - path.extname(issueModel.remote.url).length);
 		for (const folderManager of this.folderManagers) {
-			if (folderManager.gitHubRepositories.map(repo => repo.remote.url).includes(issueModel.remote.url)) {
+			if (folderManager.gitHubRepositories.map(repo => repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length)).includes(issueRemoteUrl)) {
 				return folderManager;
 			}
 		}
