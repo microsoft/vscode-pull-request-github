@@ -25,8 +25,7 @@
     "onFileSystem:newIssue"
   ],
   "extensionDependencies": [
-    "vscode.git",
-    "vscode.github-authentication"
+    "vscode.git"
   ],
   "main": "./media/extension",
   "contributes": {
