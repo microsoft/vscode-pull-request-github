@@ -260,7 +260,7 @@ export class IssueOverviewPanel {
 
 			const labelsToAdd = await vscode.window.showQuickPick(await getLabelOptions(this._pullRequestManager, this._item), { canPickMany: true });
 
-			if (labelsToAdd) {
+			if (labelsToAdd && labelsToAdd.length) {
 				await this._pullRequestManager.addLabels(this._item, labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
