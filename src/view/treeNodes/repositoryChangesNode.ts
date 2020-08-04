@@ -19,7 +19,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	public label: string;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 	public contextValue?: string;
-	
+
 	constructor(public parent: TreeNode | vscode.TreeView<TreeNode>,
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
@@ -27,10 +27,6 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
 		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest);
 		this.label = this._pullRequest.title;
-	}
-	public clear() {
-		this._filesCategoryNode = undefined;
-		this._commitsCategoryNode = undefined;
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
