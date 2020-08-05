@@ -130,6 +130,24 @@ export class CurrentIssue {
 		return vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_NAME_CONFIGURATION) ?? this.getBasicBranchName(await this.getUser());
 	}
 
+	private validateBranchName(branch: string): string | undefined {
+		const VALID_BRANCH_CHARACTERS = /[^ \\@\~\^\?\*\[]+/;
+		const match = branch.match(VALID_BRANCH_CHARACTERS);
+		if (match && match.length > 0 && match[0] !== branch) {
+			return 'Branch name cannot contain a space or the following characters: \\@~^?*[';
+		}
+		return undefined;
+	}
+
+	private showBranchNameError(error: string) {
+		const editSetting = `Edit Setting`;
+		vscode.window.showErrorMessage(error, editSetting).then(result => {
+			if (result === editSetting) {
+				return vscode.commands.executeCommand('workbench.action.openSettings', `${ISSUES_CONFIGURATION}.${BRANCH_NAME_CONFIGURATION}`);
+			}
+		});
+	}
+
 	private async createIssueBranch(): Promise<boolean> {
 		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
 		if (createBranchConfig === 'off') {
@@ -140,6 +158,11 @@ export class CurrentIssue {
 		if (!this._branchName) {
 			const branchNameConfig = await variableSubstitution(await this.ensureBranchTitleConfigMigrated(), this.issue, undefined, await this.getUser());
 			if (createBranchConfig === 'on') {
+				const validateBranchName = this.validateBranchName(branchNameConfig);
+				if (validateBranchName) {
+					this.showBranchNameError(validateBranchName);
+					return false;
+				}
 				this._branchName = branchNameConfig;
 			} else {
 				this._branchName = await vscode.window.showInputBox({ value: branchNameConfig, prompt: 'Enter the label for the new branch.' });
