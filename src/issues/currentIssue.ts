@@ -139,6 +139,15 @@ export class CurrentIssue {
 		return undefined;
 	}
 
+	private showBranchNameError(error: string) {
+		const editSetting = `Edit Setting`;
+		vscode.window.showErrorMessage(error, editSetting).then(result => {
+			if (result === editSetting) {
+				return vscode.commands.executeCommand('workbench.action.openSettings', `${ISSUES_CONFIGURATION}.${BRANCH_NAME_CONFIGURATION}`);
+			}
+		});
+	}
+
 	private async createIssueBranch(): Promise<boolean> {
 		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
 		if (createBranchConfig === 'off') {
@@ -151,7 +160,7 @@ export class CurrentIssue {
 			if (createBranchConfig === 'on') {
 				const validateBranchName = this.validateBranchName(branchNameConfig);
 				if (validateBranchName) {
-					vscode.window.showErrorMessage(validateBranchName);
+					this.showBranchNameError(validateBranchName);
 					return false;
 				}
 				this._branchName = branchNameConfig;
