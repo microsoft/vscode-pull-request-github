@@ -114,18 +114,18 @@ export class CurrentIssue {
 	private async ensureBranchTitleConfigMigrated(): Promise<string> {
 		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION);
 		const deprecatedConfigInspect = configuration.inspect(BRANCH_NAME_CONFIGURATION_DEPRECATED);
-		function migrate(value: any, target: vscode.ConfigurationTarget) {
-			configuration.update(BRANCH_NAME_CONFIGURATION, value, target);
-			configuration.update(BRANCH_NAME_CONFIGURATION_DEPRECATED, undefined, target);
+		async function migrate(value: any, target: vscode.ConfigurationTarget) {
+			await configuration.update(BRANCH_NAME_CONFIGURATION, value, target);
+			await configuration.update(BRANCH_NAME_CONFIGURATION_DEPRECATED, undefined, target);
 		}
 		if (deprecatedConfigInspect?.globalValue) {
-			migrate(deprecatedConfigInspect.globalValue, vscode.ConfigurationTarget.Global);
+			await migrate(deprecatedConfigInspect.globalValue, vscode.ConfigurationTarget.Global);
 		}
 		if (deprecatedConfigInspect?.workspaceValue) {
-			migrate(deprecatedConfigInspect.workspaceValue, vscode.ConfigurationTarget.Workspace);
+			await migrate(deprecatedConfigInspect.workspaceValue, vscode.ConfigurationTarget.Workspace);
 		}
 		if (deprecatedConfigInspect?.workspaceFolderValue) {
-			migrate(deprecatedConfigInspect.workspaceFolderValue, vscode.ConfigurationTarget.WorkspaceFolder);
+			await migrate(deprecatedConfigInspect.workspaceFolderValue, vscode.ConfigurationTarget.WorkspaceFolder);
 		}
 		return vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_NAME_CONFIGURATION) ?? this.getBasicBranchName(await this.getUser());
 	}
