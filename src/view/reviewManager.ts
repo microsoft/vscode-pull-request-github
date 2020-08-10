@@ -136,24 +136,6 @@ export class ReviewManager {
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
-				if (this._prFileChangesProvider) {
-					this._prFileChangesProvider.dispose();
-					this._prFileChangesProvider = undefined;
-
-					if (this._prManager.activePullRequest) {
-						this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, this._prManager.activePullRequest, this._localFileChanges, this._comments);
-					}
-				}
-
-				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-				await this._prsTreeDataProvider.initialize(this._prManager);
-				this._disposables.push(this._prsTreeDataProvider);
-			}
-		}));
-
 		this._disposables.push(this._repository.state.onDidChange(e => {
 			const oldHead = this._previousRepositoryState.HEAD;
 			const newHead = this._repository.state.HEAD;
