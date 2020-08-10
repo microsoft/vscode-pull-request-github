@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.19.0
+
+### Changes
+
+- When you try to Start Working on an issue in a repository where you don't have permission to push, you now have the option to fork the repository. This flow will fork the repository and configure your remotes.
+
+![Offer Fork](documentation/changelog/0.19.0/offer-fork.png)
+- Updated the version of @octokit/rest to ^18.0.0. This is was a big refactor, but should result in better performance.
+
+### Notable fixes
+
+- The setting `githubIssues.workingIssueBranch` is deprecated in favor of the better named `githubIssues.issueBranchTitle`.
+- The `githubIssues.issueBranchTitle` setting is now validated.
+
 ## 0.18.1
 
 ### Changes
