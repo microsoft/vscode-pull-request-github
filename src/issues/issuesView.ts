@@ -9,7 +9,7 @@ import { StateManager, MilestoneItem, IssueItem } from './stateManager';
 import { Resource } from '../common/resources';
 import { issueMarkdown } from './util';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ReposManagerState, FolderRepositoryManager } from '../github/folderPullRequestManager';
+import { ReposManagerState, FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 
 class UriTreeItem extends vscode.TreeItem2 {

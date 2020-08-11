@@ -12,7 +12,7 @@ import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPosition
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
 import { Repository } from '../api/api';
-import { FolderRepositoryManager } from '../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
 import { parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, updateCommentReviewState, CommentReactionHandler, generateCommentReactions } from '../github/utils';

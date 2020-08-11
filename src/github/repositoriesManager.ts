@@ -12,7 +12,7 @@ import { GitHubRepository } from './githubRepository';
 import { Repository, UpstreamRef } from '../api/api';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
-import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderPullRequestManager';
+import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 
 export interface ItemsResponseResult<T> {
 	items: T[];

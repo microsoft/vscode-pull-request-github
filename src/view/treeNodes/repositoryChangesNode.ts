@@ -9,7 +9,7 @@ import { FilesCategoryNode } from './filesCategoryNode';
 import { CommitsNode } from './commitsCategoryNode';
 import { TreeNode } from './treeNode';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IComment } from '../../common/comment';
 import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 

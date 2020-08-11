@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { SETTINGS_NAMESPACE, REMOTES_SETTING, ReposManagerState } from '../github/folderPullRequestManager';
+import { SETTINGS_NAMESPACE, REMOTES_SETTING, ReposManagerState } from '../github/folderRepositoryManager';
 import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
 import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';

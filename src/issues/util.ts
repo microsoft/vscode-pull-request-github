@@ -6,7 +6,7 @@
 import * as marked from 'marked';
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderPullRequestManager';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';

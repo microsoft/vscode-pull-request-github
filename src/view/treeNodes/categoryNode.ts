@@ -9,7 +9,7 @@ import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
 import { formatError } from '../../common/utils';
 import { AuthenticationError } from '../../common/authentication';
-import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ITelemetry } from '../../common/telemetry';
 

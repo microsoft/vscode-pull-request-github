@@ -8,7 +8,7 @@ import { getIssue, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOut
 import { StateManager } from './stateManager';
 import { ITelemetry } from '../common/telemetry';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { FolderRepositoryManager } from '../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 
 export class IssueHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: RepositoriesManager, private stateManager: StateManager, private context: vscode.ExtensionContext, private telemetry: ITelemetry) { }

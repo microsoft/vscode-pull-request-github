@@ -4,7 +4,7 @@ import assert = require('assert');
 import { Octokit } from '@octokit/rest';
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
-import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';

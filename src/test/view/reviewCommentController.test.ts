@@ -9,7 +9,7 @@ import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { ReviewCommentController } from '../../view/reviewCommentController';
-import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
 import { GitFileChangeNode } from '../../view/treeNodes/fileChangeNode';
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';

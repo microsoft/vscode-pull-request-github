@@ -7,7 +7,7 @@ import * as LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { IssueModel } from '../github/issueModel';
 import { IAccount } from '../github/interface';
-import { FolderRepositoryManager, NO_MILESTONE, PullRequestDefaults, ReposManagerState } from '../github/folderPullRequestManager';
+import { FolderRepositoryManager, NO_MILESTONE, PullRequestDefaults, ReposManagerState } from '../github/folderRepositoryManager';
 import { MilestoneModel } from '../github/milestoneModel';
 import { GitAPI } from '../typings/git';
 import { ISSUES_CONFIGURATION, BRANCH_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION, variableSubstitution, getIssueNumberLabel } from './util';
@@ -418,7 +418,7 @@ export class StateManager {
 		if (!shouldShowStatusBarItem) {
 			if (this.statusBarItem) {
 				this.statusBarItem.hide();
-				this.statusBarItem.dispose()
+				this.statusBarItem.dispose();
 				this.statusBarItem = undefined;
 			}
 			return;

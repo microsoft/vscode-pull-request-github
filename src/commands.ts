@@ -23,7 +23,7 @@ import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
 import { IComment } from './common/comment';
 import { GHPRComment, TemporaryComment } from './github/prComment';
-import { FolderRepositoryManager } from './github/folderPullRequestManager';
+import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { PullRequestModel } from './github/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
 import { ITelemetry } from './common/telemetry';

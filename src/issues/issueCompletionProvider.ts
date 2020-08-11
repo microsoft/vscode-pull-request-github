@@ -9,7 +9,7 @@ import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
 import { MilestoneModel } from '../github/milestoneModel';
-import { PullRequestDefaults } from '../github/folderPullRequestManager';
+import { PullRequestDefaults } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 class IssueCompletionItem extends vscode.CompletionItem {

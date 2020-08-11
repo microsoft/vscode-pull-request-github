@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
 import { IComment } from '../common/comment';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderPullRequestManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 
