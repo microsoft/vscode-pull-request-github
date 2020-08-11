@@ -5,13 +5,13 @@
 
 import * as vscode from 'vscode';
 import { User } from '../github/interface';
-import { FolderPullRequestManager } from '../github/folderPullRequestManager';
 import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion, isComment } from './util';
 import { StateManager } from './stateManager';
-import { NEW_ISSUE_SCHEME } from './issueFile';
+import { NEW_ISSUE_SCHEME, extractIssueOriginFromQuery } from './issueFile';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
-	constructor(private stateManager: StateManager, private manager: FolderPullRequestManager, context: vscode.ExtensionContext) {
+	constructor(private stateManager: StateManager, private manager: RepositoriesManager, context: vscode.ExtensionContext) {
 	}
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
@@ -36,12 +36,13 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 				range = new vscode.Range(position.translate(0, -1), position);
 			}
 		}
-
+		const uri = document.uri.scheme === NEW_ISSUE_SCHEME ? (extractIssueOriginFromQuery(document.uri) ?? document.uri) : document.uri;
 		const completionItems: vscode.CompletionItem[] = [];
-		(await this.stateManager.userMap).forEach(item => {
+		(await this.stateManager.getUserMap(uri)).forEach(item => {
 			const completionItem: UserCompletion = new UserCompletion(item.login, vscode.CompletionItemKind.User);
 			completionItem.insertText = `@${item.login}`;
 			completionItem.login = item.login;
+			completionItem.uri = uri;
 			completionItem.range = range;
 			completionItem.detail = item.name;
 			completionItem.filterText = `@ ${item.login} ${item.name}`;
@@ -54,8 +55,12 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	}
 
 	async resolveCompletionItem(item: UserCompletion, token: vscode.CancellationToken): Promise<vscode.CompletionItem> {
-		const repo = await this.manager.getPullRequestDefaults();
-		const user: User | undefined = await this.manager.resolveUser(repo.owner, repo.repo, item.login);
+		const folderManager = this.manager.getManagerForFile(item.uri);
+		if (!folderManager) {
+			return item;
+		}
+		const repo = await folderManager.getPullRequestDefaults();
+		const user: User | undefined = await folderManager.resolveUser(repo.owner, repo.repo, item.login);
 		if (user) {
 			item.documentation = userMarkdown(repo, user);
 			item.command = {

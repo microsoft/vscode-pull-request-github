@@ -9,7 +9,8 @@ import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
 import { MilestoneModel } from '../github/milestoneModel';
-import { FolderPullRequestManager, PullRequestDefaults } from '../github/folderPullRequestManager';
+import { PullRequestDefaults } from '../github/folderPullRequestManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
@@ -19,7 +20,7 @@ class IssueCompletionItem extends vscode.CompletionItem {
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private stateManager: StateManager, private pullRequestManager: FolderPullRequestManager, private context: vscode.ExtensionContext) { }
+	constructor(private stateManager: StateManager, private repositoriesManager: RepositoriesManager, private context: vscode.ExtensionContext) { }
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
@@ -54,11 +55,11 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		const now = new Date();
 		let repo: PullRequestDefaults | undefined;
 		try {
-			repo = await this.pullRequestManager.getPullRequestDefaults();
+			repo = await (await this.repositoriesManager.getManagerForFile(document.uri))?.getPullRequestDefaults();
 		} catch (e) {
 			// leave repo undefined
 		}
-		const issueData = this.stateManager.issueCollection;
+		const issueData = this.stateManager.getIssueCollection(document.uri);
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = await issueQuery[1] ?? [];
 			if (issuesOrMilestones.length === 0) {

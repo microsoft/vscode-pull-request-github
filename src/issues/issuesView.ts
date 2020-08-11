@@ -4,18 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IssueModel } from '../github/issueModel';
-import { MilestoneModel } from '../github/milestoneModel';
-import { StateManager } from './stateManager';
+import * as path from 'path';
+import { StateManager, MilestoneItem, IssueItem } from './stateManager';
 import { Resource } from '../common/resources';
-import { FolderPullRequestManager, PRManagerState } from '../github/folderPullRequestManager';
 import { issueMarkdown } from './util';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { ReposManagerState, FolderRepositoryManager } from '../github/folderPullRequestManager';
+import { IssueModel } from '../github/issueModel';
 
-export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | MilestoneModel | vscode.TreeItem> {
-	private _onDidChangeTreeData: vscode.EventEmitter<IssueModel | MilestoneModel | null | undefined | void> = new vscode.EventEmitter();
-	public onDidChangeTreeData: vscode.Event<IssueModel | MilestoneModel | null | undefined | void> = this._onDidChangeTreeData.event;
+class UriTreeItem extends vscode.TreeItem2 {
+	constructor(public readonly uri: vscode.Uri | undefined, label: string, collapsibleState?: vscode.TreeItemCollapsibleState) {
+		super({ label }, collapsibleState);
+	}
+}
 
-	constructor(private stateManager: StateManager, private manager: FolderPullRequestManager, private context: vscode.ExtensionContext) {
+export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryManager | IssueItem | MilestoneItem | UriTreeItem> {
+	private _onDidChangeTreeData: vscode.EventEmitter<FolderRepositoryManager | IssueItem | MilestoneItem | null | undefined | void> = new vscode.EventEmitter();
+	public onDidChangeTreeData: vscode.Event<FolderRepositoryManager | IssueItem | MilestoneItem | null | undefined | void> = this._onDidChangeTreeData.event;
+
+	constructor(private stateManager: StateManager, private manager: RepositoriesManager, private context: vscode.ExtensionContext) {
 		context.subscriptions.push(this.manager.onDidChangeState(() => {
 			this._onDidChangeTreeData.fire();
 		}));
@@ -28,20 +35,22 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 		}));
 	}
 
-	getTreeItem(element: IssueModel | MilestoneModel | vscode.TreeItem): vscode.TreeItem {
-		let treeItem: vscode.TreeItem2;
-		if (element instanceof vscode.TreeItem) {
+	getTreeItem(element: FolderRepositoryManager | IssueItem | MilestoneItem | UriTreeItem): UriTreeItem {
+		let treeItem: UriTreeItem;
+		if (element instanceof UriTreeItem) {
 			treeItem = element;
+		} else if (element instanceof FolderRepositoryManager) {
+			treeItem = new UriTreeItem(element.repository.rootUri, path.basename(element.repository.rootUri.fsPath), vscode.TreeItemCollapsibleState.Expanded);
 		} else if (!(element instanceof IssueModel)) {
-			treeItem = new vscode.TreeItem(element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
+			treeItem = new UriTreeItem(element.uri, element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 		} else {
-			treeItem = new vscode.TreeItem(`${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
+			treeItem = new UriTreeItem(undefined, `${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
 			treeItem.iconPath = {
 				light: element.isOpen ? Resource.icons.light.Issues : Resource.icons.light.IssueClosed,
 				dark: element.isOpen ? Resource.icons.dark.Issues : Resource.icons.dark.IssueClosed
 			};
-			if (this.stateManager.currentIssue?.issue.number === element.number) {
-				treeItem.label = `✓ ${treeItem.label}`;
+			if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
+				treeItem.label = `✓ ${treeItem.label.label}`;
 				treeItem.contextValue = 'currentissue';
 			} else {
 				const savedState = this.stateManager.getSavedIssueState(element.number);
@@ -55,47 +64,64 @@ export class IssuesTreeData implements vscode.TreeDataProvider<IssueModel | Mile
 		return treeItem;
 	}
 
-	getChildren(element: IssueModel | MilestoneModel | vscode.TreeItem | undefined): Promise<(IssueModel | MilestoneModel)[]> | IssueModel[] | vscode.TreeItem[] {
-		if (element === undefined && this.manager.state !== PRManagerState.RepositoriesLoaded) {
+	getChildren(element: FolderRepositoryManager | IssueItem | MilestoneItem | UriTreeItem | undefined): FolderRepositoryManager[] | Promise<(IssueItem | MilestoneItem)[]> | IssueItem[] | UriTreeItem[] {
+		if ((element === undefined) && (this.manager.state !== ReposManagerState.RepositoriesLoaded)) {
 			return this.getStateChildren();
 		} else {
 			return this.getIssuesChildren(element);
 		}
 	}
 
-	resolveTreeItem(element: IssueModel | MilestoneModel | vscode.TreeItem, item: vscode.TreeItem2): vscode.TreeItem2 {
-		if (element instanceof IssueModel) {
+	resolveTreeItem(element: FolderRepositoryManager | IssueItem | MilestoneItem | vscode.TreeItem, item: vscode.TreeItem2): vscode.TreeItem2 {
+		if (element instanceof IssueItem) {
 			item.tooltip = issueMarkdown(element, this.context);
 		}
 		return item;
 	}
 
-	getStateChildren(): vscode.TreeItem[] {
-		if (this.manager.state === PRManagerState.NeedsAuthentication) {
+	getStateChildren(): UriTreeItem[] {
+		if (this.manager.state === ReposManagerState.NeedsAuthentication) {
 			return [];
 		} else {
-			return [new vscode.TreeItem('Loading...')];
+			return [new UriTreeItem(undefined, 'Loading...')];
 		}
 	}
 
-	getIssuesChildren(element: IssueModel | MilestoneModel | vscode.TreeItem | undefined): Promise<(IssueModel | MilestoneModel)[]> | IssueModel[] | vscode.TreeItem[] {
+	getQueryItems(folderManager: FolderRepositoryManager): Promise<(IssueItem | MilestoneItem)[]> | UriTreeItem[] {
+		const issueCollection = this.stateManager.getIssueCollection(folderManager.repository.rootUri);
+		if (issueCollection.size === 1) {
+			return Array.from(issueCollection.values())[0];
+		}
+		const queryLabels = Array.from(issueCollection.keys());
+		const firstLabel = queryLabels[0];
+		return queryLabels.map(label => {
+			const item = new UriTreeItem(folderManager.repository.rootUri, label);
+			item.contextValue = 'query';
+			item.collapsibleState = label === firstLabel ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+			return item;
+		});
+	}
+
+	getIssuesChildren(element: FolderRepositoryManager | IssueItem | MilestoneItem | UriTreeItem | undefined): FolderRepositoryManager[] | Promise<(IssueItem | MilestoneItem)[]> | IssueItem[] | UriTreeItem[] {
 		if (element === undefined) {
 			// If there's only one query, don't display a title for it
-			if (this.stateManager.issueCollection.size === 1) {
-				return Array.from(this.stateManager.issueCollection.values())[0];
+			if (this.manager.folderManagers.length === 1) {
+				return this.getQueryItems(this.manager.folderManagers[0]);
+			} else if (this.manager.folderManagers.length > 1) {
+				return this.manager.folderManagers;
+			} else {
+				return [];
 			}
-			const queryLabels = Array.from(this.stateManager.issueCollection.keys());
-			const firstLabel = queryLabels[0];
-			return queryLabels.map(label => {
-				const item = new vscode.TreeItem(label);
-				item.contextValue = 'query';
-				item.collapsibleState = label === firstLabel ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
-				return item;
-			});
-		} else if (element instanceof vscode.TreeItem) {
-			return this.stateManager.issueCollection.get(element.label!) ?? [];
+		} else if (element instanceof FolderRepositoryManager) {
+			return this.getQueryItems(element);
+		} else if (element instanceof UriTreeItem) {
+			return element.uri ? this.stateManager.getIssueCollection(element.uri).get(element.label.label!) ?? [] : [];
 		} else if (!(element instanceof IssueModel)) {
-			return element.issues;
+			return element.issues.map(item => {
+				const issueItem: IssueItem = Object.assign(item);
+				issueItem.uri = element.uri;
+				return issueItem;
+			});
 		} else {
 			return [];
 		}

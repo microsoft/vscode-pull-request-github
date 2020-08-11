@@ -26,6 +26,8 @@ import { GitExtension, GitAPI } from './typings/git';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { LiveShare } from 'vsls/vscode.js';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
+import { ReviewsManager } from './view/reviewsManager';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -63,7 +65,11 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(reposManager));
 		}
 	});
-	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(context, folderManager.repository, folderManager, reposManager, tree, telemetry));
+	const changesTree = new PullRequestChangesTreeDataProvider(context);
+	context.subscriptions.push(changesTree);
+	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(folderManager.repository, folderManager, telemetry, changesTree));
+	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, gitAPI);
+	context.subscriptions.push(reviewsManager);
 	await tree.initialize(reposManager);
 	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
 
@@ -75,7 +81,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 		const disposable = repo.state.onDidChange(() => {
 			const newFolderManager = new FolderRepositoryManager(repo, telemetry, git, credentialStore);
 			reposManager.folderManagers.push(newFolderManager);
-			const newReviewManager = new ReviewManager(context, newFolderManager.repository, newFolderManager, reposManager, tree, telemetry);
+			const newReviewManager = new ReviewManager(newFolderManager.repository, newFolderManager, telemetry, changesTree);
 			reviewManagers.push(newReviewManager);
 			tree.refresh();
 			disposable.dispose();
@@ -83,8 +89,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	});
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
-	// TODO: update issues features
-	const issuesFeatures = new IssueFeatureRegistrar(gitAPI, folderManagers[0], reviewManagers, context, telemetry);
+	const issuesFeatures = new IssueFeatureRegistrar(gitAPI, reposManager, reviewManagers, context, telemetry);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 

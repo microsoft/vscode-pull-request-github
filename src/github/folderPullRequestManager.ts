@@ -342,7 +342,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 									sortText: `${priority}_${user.login}`,
 									detail: user.name,
 									kind: vscode.CompletionItemKind.User,
-									login: user.login
+									login: user.login,
+									uri: this.repository.rootUri
 								});
 							}
 						});
@@ -358,7 +359,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 								sortText: `0_${prRelatedUsersMap[user].login}`,
 								detail: prRelatedUsersMap[user].name,
 								kind: vscode.CompletionItemKind.User,
-								login: prRelatedUsersMap[user].login
+								login: prRelatedUsersMap[user].login,
+								uri: this.repository.rootUri
 							});
 						}
 					}

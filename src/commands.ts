@@ -412,7 +412,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 		if (!descriptionNode) {
 			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
-			const rootNodes = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)!.prFileChangesProvider.getChildren();
+			const rootNodes = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)!.changesInPrDataProvider.getChildren();
 			descriptionNode = rootNodes[0] as DescriptionNode;
 		}
 		const pullRequest = ensurePR(folderManager, descriptionNode.pullRequestModel);
@@ -465,14 +465,15 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 
 		// Show the file change in a diff view.
-		const { path, ref, commit } = fromReviewUri(fileChange.filePath);
+		const { path, ref, commit, rootPath } = fromReviewUri(fileChange.filePath);
 		const previousCommit = `${commit}^`;
 		const query: ReviewUriParams = {
 			path: path,
 			ref: ref,
 			commit: previousCommit,
 			base: true,
-			isOutdated: true
+			isOutdated: true,
+			rootPath
 		};
 		const previousFileUri = fileChange.filePath.with({ query: JSON.stringify(query) });
 
@@ -655,7 +656,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		reviewManagers.forEach(reviewManager => {
 			reviewManager.updateComments();
 			PullRequestOverviewPanel.refresh();
-			reviewManager.prFileChangesProvider.refresh();
+			reviewManager.changesInPrDataProvider.refresh();
 		});
 	}));
 
