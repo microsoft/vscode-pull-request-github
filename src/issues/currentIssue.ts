@@ -3,21 +3,22 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { FolderPullRequestManager, PullRequestDefaults } from '../github/folderPullRequestManager';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderPullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION, BRANCH_NAME_CONFIGURATION_DEPRECATED } from './util';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION, BRANCH_NAME_CONFIGURATION_DEPRECATED } from './util';
 import { Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
 
 export class CurrentIssue {
-	private statusBarItem: vscode.StatusBarItem | undefined;
 	private repoChangeDisposable: vscode.Disposable | undefined;
 	private _branchName: string | undefined;
 	private user: string | undefined;
 	private repo: Repository | undefined;
-	private repoDefaults: PullRequestDefaults | undefined;
-	constructor(private issueModel: IssueModel, private manager: FolderPullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
+	private _repoDefaults: PullRequestDefaults | undefined;
+	private _onDidChangeCurrentIssueState: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	public readonly onDidChangeCurrentIssueState: vscode.Event<void> = this._onDidChangeCurrentIssueState.event;
+	constructor(private issueModel: IssueModel, public readonly manager: FolderRepositoryManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
 		this.setRepo();
 	}
 
@@ -39,16 +40,20 @@ export class CurrentIssue {
 		return this._branchName;
 	}
 
+	get repoDefaults(): PullRequestDefaults | undefined {
+		return this._repoDefaults;
+	}
+
 	get issue(): IssueModel {
 		return this.issueModel;
 	}
 
 	public async startWorking(): Promise<boolean> {
 		try {
-			this.repoDefaults = await this.manager.getPullRequestDefaults();
+			this._repoDefaults = await this.manager.getPullRequestDefaults();
 			if (await this.createIssueBranch()) {
 				await this.setCommitMessageAndGitEvent();
-				this.setStatusBar();
+				this._onDidChangeCurrentIssueState.fire();
 				return true;
 			}
 		} catch (e) {
@@ -59,8 +64,6 @@ export class CurrentIssue {
 	}
 
 	public dispose() {
-		this.statusBarItem?.hide();
-		this.statusBarItem?.dispose();
 		this.repoChangeDisposable?.dispose();
 	}
 
@@ -68,9 +71,10 @@ export class CurrentIssue {
 		if (this.repo) {
 			this.repo.inputBox.value = '';
 		}
-		if (this.repoDefaults) {
-			await this.manager.repository.checkout(this.repoDefaults.base);
+		if (this._repoDefaults) {
+			await this.manager.repository.checkout(this._repoDefaults.base);
 		}
+		this._onDidChangeCurrentIssueState.fire();
 		this.dispose();
 	}
 
@@ -160,7 +164,7 @@ export class CurrentIssue {
 	public async getCommitMessage(): Promise<string | undefined> {
 		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(SCM_MESSAGE_CONFIGURATION);
 		if (typeof configuration === 'string') {
-			return variableSubstitution(configuration, this.issueModel, this.repoDefaults);
+			return variableSubstitution(configuration, this.issueModel, this._repoDefaults);
 		}
 	}
 
@@ -170,13 +174,5 @@ export class CurrentIssue {
 			this.repo.inputBox.value = message;
 		}
 		return;
-	}
-
-	private setStatusBar() {
-		this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-		this.statusBarItem.text = `$(issues) Issue ${getIssueNumberLabel(this.issueModel, this.repoDefaults)}`;
-		this.statusBarItem.tooltip = this.issueModel.title;
-		this.statusBarItem.command = 'issue.statusBar';
-		this.statusBarItem.show();
 	}
 }

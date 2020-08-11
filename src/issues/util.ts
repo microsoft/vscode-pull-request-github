@@ -6,7 +6,7 @@
 import * as marked from 'marked';
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { FolderPullRequestManager, PullRequestDefaults } from '../github/folderPullRequestManager';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderPullRequestManager';
 import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -14,6 +14,7 @@ import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
 import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
 import { Protocol } from '../common/protocol';
+import { getRepositoryForFile } from '../github/utils';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
@@ -52,7 +53,7 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 	}
 }
 
-export async function getIssue(stateManager: StateManager, manager: FolderPullRequestManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
+export async function getIssue(stateManager: StateManager, manager: FolderRepositoryManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
 	if (stateManager.resolvedIssues.has(issueValue)) {
 		return stateManager.resolvedIssues.get(issueValue);
 	} else {
@@ -100,6 +101,7 @@ function repoCommitDate(user: User, repoNameWithOwner: string): string | undefin
 
 export class UserCompletion extends vscode.CompletionItem {
 	login: string;
+	uri: vscode.Uri;
 }
 
 export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.MarkdownString {
@@ -252,15 +254,6 @@ export interface NewIssue {
 	range: vscode.Range | vscode.Selection;
 }
 
-function getRepositoryForFile(gitAPI: GitAPI, file: vscode.Uri): Repository | undefined {
-	for (const repository of gitAPI.repositories) {
-		if (file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase())) {
-			return repository;
-		}
-	}
-	return undefined;
-}
-
 const HEAD = 'HEAD';
 const UPSTREAM = 1;
 const UPS = 2;
@@ -396,8 +389,8 @@ function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 	}
 }
 
-async function commitWithDefault(manager: FolderPullRequestManager, stateManager: StateManager, all: boolean) {
-	const message = await stateManager.currentIssue?.getCommitMessage();
+async function commitWithDefault(manager: FolderRepositoryManager, stateManager: StateManager, all: boolean) {
+	const message = await stateManager.currentIssue(manager.repository.rootUri)?.getCommitMessage();
 	if (message) {
 		return manager.repository.commit(message, { all });
 	}
@@ -405,7 +398,7 @@ async function commitWithDefault(manager: FolderPullRequestManager, stateManager
 
 const commitStaged = 'Commit Staged';
 const commitAll = 'Commit All';
-export async function pushAndCreatePR(manager: FolderPullRequestManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
+export async function pushAndCreatePR(manager: FolderRepositoryManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
 	if (manager.repository.state.workingTreeChanges.length > 0 || manager.repository.state.indexChanges.length > 0) {
 		const responseOptions: string[] = [];
 		if (manager.repository.state.indexChanges) {

@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { DescriptionNode } from "./descriptionNode";
-import { FilesCategoryNode } from "./filesCategoryNode";
-import { CommitsNode } from "./commitsCategoryNode";
-import { TreeNode } from "./treeNode";
-import { PullRequestModel } from "../../github/pullRequestModel";
-import { FolderRepositoryManager } from "../../github/folderPullRequestManager";
-import { IComment } from "../../common/comment";
-import { GitFileChangeNode, RemoteFileChangeNode } from "./fileChangeNode";
+import { DescriptionNode } from './descriptionNode';
+import { FilesCategoryNode } from './filesCategoryNode';
+import { CommitsNode } from './commitsCategoryNode';
+import { TreeNode } from './treeNode';
+import { PullRequestModel } from '../../github/pullRequestModel';
+import { FolderRepositoryManager } from '../../github/folderPullRequestManager';
+import { IComment } from '../../common/comment';
+import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 
 export class RepositoryChangesNode extends DescriptionNode implements vscode.TreeItem {
 	private _filesCategoryNode?: FilesCategoryNode;
