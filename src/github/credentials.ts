@@ -198,7 +198,7 @@ const link = (url: string, token: string) =>
 		headers: {
 			...headers,
 			authorization: token ? `Bearer ${token}` : '',
-			Accept: 'application/vnd.github.shadow-cat-preview+json'
+			Accept: 'application/vnd.github.shadow-cat-preview+json, application/vnd.github.antiope-preview+json'
 		}
 	}))).concat(createHttpLink({
 		uri: `${url}/graphql`,

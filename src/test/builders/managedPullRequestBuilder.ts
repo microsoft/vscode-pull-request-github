@@ -3,7 +3,6 @@ import {
 	TimelineEventsResponse as TimelineEventsGraphQL
 } from '../../github/graphql';
 import {
-	ReposGetCombinedStatusForRefResponseData as CombinedStatusREST,
 	PullsListRequestedReviewersResponseData as ReviewRequestsREST,
 	IssuesListEventsForTimelineResponseData as TimelineEventREST,
 } from '@octokit/types';
@@ -15,6 +14,7 @@ import { RepoUnion as RepositoryREST, RepositoryBuilder as RepositoryRESTBuilder
 import { CombinedStatusBuilder as CombinedStatusRESTBuilder } from './rest/combinedStatusBuilder';
 import { ReviewRequestsBuilder as ReviewRequestsRESTBuilder } from './rest/reviewRequestsBuilder';
 import { createBuilderClass } from './base';
+import { PullRequestChecks } from '../../github/interface';
 
 type ResponseFlavor<APIFlavor, GQL, RST> = APIFlavor extends 'graphql' ? GQL : RST;
 
@@ -22,7 +22,7 @@ export interface ManagedPullRequest<APIFlavor> {
 	pullRequest: ResponseFlavor<APIFlavor, PullRequestGraphQL, PullRequestREST>;
 	timelineEvents: ResponseFlavor<APIFlavor, TimelineEventsGraphQL, TimelineEventREST[]>;
 	repositoryREST: RepositoryREST;
-	combinedStatusREST: CombinedStatusREST;
+	combinedStatusREST: PullRequestChecks;
 	reviewRequestsREST: ReviewRequestsREST;
 }
 

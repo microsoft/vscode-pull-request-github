@@ -749,3 +749,45 @@ query GetRepositoryForkDetails($owner: String!, $name: String!) {
 		}
 	}
 }
+
+query GetChecks($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			commits(last: 1) {
+				nodes {
+					commit {
+						statusCheckRollup {
+							state
+							contexts(first: 100) {
+								nodes {
+									...on StatusContext {
+										id
+										state
+										targetUrl
+										description
+										context
+										avatarUrl
+									}
+									...on CheckRun {
+										id
+										conclusion
+										title
+										detailsUrl
+										name
+										resourcePath
+										checkSuite {
+											app {
+												logoUrl
+												url
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

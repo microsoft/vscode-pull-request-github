@@ -150,3 +150,16 @@ export interface User extends IAccount {
 		repoNameWithOwner: string;
 	}[];
 }
+
+export interface PullRequestChecks {
+	state: string;
+	statuses: {
+		id: string;
+		url?: string;
+		avatar_url?: string;
+		state: string;
+		description?: string;
+		target_url?: string;
+		context: string;
+	}[];
+}

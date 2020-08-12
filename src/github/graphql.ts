@@ -528,3 +528,49 @@ export interface StartReviewResponse {
 		};
 	};
 }
+
+export interface StatusContext {
+	id: string;
+	state: string;
+	description?: string;
+	context: string;
+	targetUrl?: string;
+	avatarUrl?: string;
+}
+
+export interface CheckRun {
+	id: string;
+	conclusion?: string;
+	name: string;
+	title?: string;
+	detailsUrl?: string;
+	checkSuite: {
+		app?: {
+			logoUrl: string;
+			url: string;
+		};
+	};
+}
+
+export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
+	return !!(x as CheckRun).conclusion;
+}
+
+export interface GetChecksResponse {
+	repository: {
+		pullRequest: {
+			commits: {
+				nodes: {
+					commit: {
+						statusCheckRollup: {
+							state: string;
+							contexts: {
+								nodes: (StatusContext | CheckRun)[]
+							}
+						}
+					}
+				}[]
+			}
+		}
+	};
+}
