@@ -7,6 +7,11 @@
 - When you try to Start Working on an issue in a repository where you don't have permission to push, you now have the option to fork the repository. This flow will fork the repository and configure your remotes.
 
 ![Offer Fork](documentation/changelog/0.19.0/offer-fork.png)
+
+- When attempting to push to a repository that you do not have permissions to push to, the extension will now prompt you to fork the repository and push to that instead.
+
+![Automatic fork repository](documentation/changelog/0.19.0/fork-github.gif)
+
 - Updated the version of @octokit/rest to ^18.0.0. This is was a big refactor, but should result in better performance.
 
 ### Notable fixes
