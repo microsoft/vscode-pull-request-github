@@ -13,7 +13,6 @@
 
 ![New issue editor](documentation/changelog/0.17.0/new-issue-editor.gif)
 - User and issue completions now only show in plaintext and in comments! No more noisy issue suggestions when you trigger suggest in code.
-- A new setting has been added to set a pull request description to a template, the latest commit message, or a custom message ([1943](https://github.com/microsoft/vscode-pull-request-github/issues/1943))
 
 ### Notable fixes
 
