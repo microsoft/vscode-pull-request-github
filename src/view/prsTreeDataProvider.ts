@@ -43,8 +43,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			this._onDidChangeTreeData.fire(node);
 		}));
 
-		const treeId = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('showInSCM') ? 'pr:scm' : 'pr:github';
-		this._view = vscode.window.createTreeView(treeId, {
+		this._view = vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true
 		});

@@ -170,6 +170,7 @@
         "githubPullRequests.showInSCM": {
           "type": "boolean",
           "default": false,
+          "deprecationMessage": "This setting is deprecated. Views can now be dragged to any location.",
           "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
         },
         "githubPullRequests.fileListLayout": {
@@ -361,13 +362,13 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled",
+          "when": "config.git.enabled",
           "icon": "resources/icons/pull-request.svg"
         },
         {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode",
+          "when": "config.git.enabled && github:inReviewMode",
           "icon": "resources/icons/pull-request.svg"
         },
         {
@@ -375,18 +376,6 @@
           "name": "Issues",
           "when": "config.git.enabled",
           "icon": "resources/icons/light/issues.svg"
-        }
-      ],
-      "scm": [
-        {
-          "id": "pr:scm",
-          "name": "GitHub Pull Requests",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled"
-        },
-        {
-          "id": "prStatus:scm",
-          "name": "Changes In Pull Request",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode"
         }
       ]
     },
