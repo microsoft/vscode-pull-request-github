@@ -61,7 +61,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 		}
 	});
 	const reviewManager = new ReviewManager(context, repository, prManager, tree, telemetry);
-	await tree.initialize(prManager);
+	tree.initialize(prManager);
 	registerCommands(context, prManager, reviewManager, telemetry, credentialStore);
 
 	git.onDidChangeState(() => {
