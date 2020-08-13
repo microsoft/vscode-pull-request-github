@@ -23,7 +23,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _view: vscode.TreeView<TreeNode>;
 	private _reposManager: RepositoriesManager;
 	private _initialized: boolean = false;
-	private _isVSO: boolean | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -80,7 +79,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	}
 
-	async initialize(reposManager: RepositoriesManager) {
+	initialize(reposManager: RepositoriesManager) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}
@@ -95,22 +94,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				this._onDidChangeTreeData.fire();
 			});
 		}));
-		await this.initializeCategories();
+
+		this.initializeCategories();
 		this.refresh();
-	}
-
-	private async isVSO(): Promise<boolean> {
-		if (this._isVSO !== undefined) {
-			return this._isVSO;
-		}
-
-		const callbackUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://vscode.github-authentication`));
-		const isVSO = callbackUri.authority.endsWith('workspaces.github.com')
-			|| callbackUri.authority.endsWith('workspaces-dev.github.com')
-			|| callbackUri.authority.endsWith('workspaces-ppe.github.com');
-
-		this._isVSO = isVSO;
-		return isVSO;
 	}
 
 	private async initializeCategories() {
@@ -169,10 +155,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 			let result: TreeNode[];
 			if (this._reposManager.folderManagers.length === 1) {
-				return WorkspaceFolderNode.getCategoryTreeNodes(this._reposManager.folderManagers[0], this._telemetry, await this.isVSO(), this._view);
+				return WorkspaceFolderNode.getCategoryTreeNodes(this._reposManager.folderManagers[0], this._telemetry, this._view);
 			} else {
-				const isVso = await this.isVSO();
-				result = this._reposManager.folderManagers.map(folderManager => new WorkspaceFolderNode(this._view, folderManager.repository.rootUri, folderManager, this._telemetry, isVso));
+				result = this._reposManager.folderManagers.map(folderManager => new WorkspaceFolderNode(this._view, folderManager.repository.rootUri, folderManager, this._telemetry));
 			}
 
 			this._childrenDisposables = result;
