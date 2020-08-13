@@ -531,7 +531,7 @@ export interface StartReviewResponse {
 
 export interface StatusContext {
 	id: string;
-	state: string;
+	state: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
 	description?: string;
 	context: string;
 	targetUrl?: string;
@@ -540,7 +540,7 @@ export interface StatusContext {
 
 export interface CheckRun {
 	id: string;
-	conclusion?: string;
+	conclusion?: 'ACTION_REQUIRED' | 'CANCELLED' | 'FAILURE' | 'NEUTRAL' | 'SKIPPED' | 'STALE' | 'SUCCESS' | 'TIMED_OUT';
 	name: string;
 	title?: string;
 	detailsUrl?: string;
@@ -562,7 +562,7 @@ export interface GetChecksResponse {
 			commits: {
 				nodes: {
 					commit: {
-						statusCheckRollup: {
+						statusCheckRollup?: {
 							state: string;
 							contexts: {
 								nodes: (StatusContext | CheckRun)[]

@@ -866,6 +866,14 @@ export class PullRequestManager implements vscode.Disposable {
 
 		// We always fetch the status checks for only the last commit, so there should only be one node present
 		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
+
+		if (!statusCheckRollup) {
+			return {
+				state: 'pending',
+				statuses: []
+			};
+		}
+
 		return {
 			state: statusCheckRollup.state.toLowerCase(),
 			statuses: statusCheckRollup.contexts.nodes.map(context => {
