@@ -1,8 +1,7 @@
-import * as OctokitTypes from '@octokit/types';
 
 import { createBuilderClass } from '../base';
-import { RepositoryBuilder } from './repoBuilder';
 import { OctokitCommon } from '../../../github/common';
+import { PullRequestChecks } from '../../../github/interface';
 
 export const StatusItemBuilder = createBuilderClass<OctokitCommon.ReposGetCombinedStatusForRefResponseStatusesItem>()({
 	url: { default: 'https://api.github.com/repos/octocat/Hello-World/statuses/0000000000000000000000000000000000000000' },
@@ -19,14 +18,9 @@ export const StatusItemBuilder = createBuilderClass<OctokitCommon.ReposGetCombin
 
 export type StatusItemBuilder = InstanceType<typeof StatusItemBuilder>;
 
-export const CombinedStatusBuilder = createBuilderClass<OctokitTypes.ReposGetCombinedStatusForRefResponseData>()({
+export const CombinedStatusBuilder = createBuilderClass<PullRequestChecks>()({
 	state: { default: 'success' },
-	statuses: { default: [] },
-	sha: { default: '0000000000000000000000000000000000000000' },
-	commit_url: { default: 'https://api.github.com/repos/octocat/Hello-World/commits/0000000000000000000000000000000000000000' },
-	url: { default: 'https://api.github.com/repos/octocat/Hello-World/0000000000000000000000000000000000000000/status' },
-	total_count: { default: 1 },
-	repository: { linked: RepositoryBuilder },
+	statuses: { default: [] }
 });
 
 export type CombinedStatusBuilder = InstanceType<typeof CombinedStatusBuilder>;

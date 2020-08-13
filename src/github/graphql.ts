@@ -528,3 +528,49 @@ export interface StartReviewResponse {
 		};
 	};
 }
+
+export interface StatusContext {
+	id: string;
+	state: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+	description?: string;
+	context: string;
+	targetUrl?: string;
+	avatarUrl?: string;
+}
+
+export interface CheckRun {
+	id: string;
+	conclusion?: 'ACTION_REQUIRED' | 'CANCELLED' | 'FAILURE' | 'NEUTRAL' | 'SKIPPED' | 'STALE' | 'SUCCESS' | 'TIMED_OUT';
+	name: string;
+	title?: string;
+	detailsUrl?: string;
+	checkSuite: {
+		app?: {
+			logoUrl: string;
+			url: string;
+		};
+	};
+}
+
+export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
+	return !!(x as CheckRun).conclusion;
+}
+
+export interface GetChecksResponse {
+	repository: {
+		pullRequest: {
+			commits: {
+				nodes: {
+					commit: {
+						statusCheckRollup?: {
+							state: string;
+							contexts: {
+								nodes: (StatusContext | CheckRun)[]
+							}
+						}
+					}
+				}[]
+			}
+		}
+	};
+}

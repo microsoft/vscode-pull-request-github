@@ -11,7 +11,7 @@ import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
 import { GitHubRepository, PullRequestData, ItemsData, ViewerPermission } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability, User } from './interface';
+import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability, User, PullRequestChecks } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
@@ -21,7 +21,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse, UserResponse, StartReviewResponse } from './graphql';
+import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse, UserResponse, StartReviewResponse, GetChecksResponse, isCheckRun } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
@@ -830,20 +830,53 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return max;
 	}
 
-	async getStatusChecks(pullRequest: PullRequestModel): Promise<OctokitTypes.ReposGetCombinedStatusForRefResponseData | undefined> {
-		if (!pullRequest.isResolved()) {
-			return;
-		}
-
-		const { remote, octokit } = await pullRequest.githubRepository.ensure();
-
-		const result = await octokit.repos.getCombinedStatusForRef({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			ref: pullRequest.head.sha
+	async getStatusChecks(pullRequest: PullRequestModel): Promise<PullRequestChecks> {
+		const { query, remote, schema } = await pullRequest.githubRepository.ensure();
+		const result = await query<GetChecksResponse>({
+			query: schema.GetChecks,
+			variables: {
+				owner: remote.owner,
+				name: remote.repositoryName,
+				number: pullRequest.number
+			}
 		});
 
-		return result.data;
+		// We always fetch the status checks for only the last commit, so there should only be one node present
+		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
+
+		if (!statusCheckRollup) {
+			return {
+				state: 'pending',
+				statuses: []
+			};
+		}
+
+		return {
+			state: statusCheckRollup.state.toLowerCase(),
+			statuses: statusCheckRollup.contexts.nodes.map(context => {
+				if (isCheckRun(context)) {
+					return {
+						id: context.id,
+						url: context.checkSuite.app?.url,
+						avatar_url: context.checkSuite.app?.logoUrl,
+						state: context.conclusion?.toLowerCase() || 'pending',
+						description: context.title,
+						context: context.name,
+						target_url: context.detailsUrl
+					};
+				} else {
+					return {
+						id: context.id,
+						url: context.targetUrl,
+						avatar_url: context.avatarUrl,
+						state: context.state.toLowerCase(),
+						description: context.description,
+						context: context.context,
+						target_url: context.targetUrl
+					};
+				}
+			})
+		};
 	}
 
 	async getReviewRequests(pullRequest: PullRequestModel): Promise<IAccount[]> {
