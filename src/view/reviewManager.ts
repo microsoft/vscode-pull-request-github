@@ -20,7 +20,7 @@ import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { PRNode } from './treeNodes/pullRequestNode';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum } from './quickpick';
+import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum, PullRequestDescriptionSourceQuickPick, PullRequestDescriptionSource, PullRequestDescriptionSourceEnum } from './quickpick';
 import { PullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
@@ -647,33 +647,37 @@ export class ReviewManager {
 		return selected;
 	}
 
-	private async getPullRequestTitleAndDescriptionDefaults(progress: vscode.Progress<{ message?: string, increment?: number }>): Promise<{ title: string, description: string } | undefined> {
-		const pullRequestTemplates = await this._prManager.getPullRequestTemplates();
+	private async getPullRequestTitleAndDescriptionDefaults(progress: vscode.Progress<{ message?: string, increment?: number }>, pullRequestDescriptionMethod: PullRequestDescriptionSource): Promise<{ title: string, description: string } | undefined> {
 		let template: vscode.Uri | undefined;
 
-		if (pullRequestTemplates.length === 1) {
-			template = pullRequestTemplates[0];
-			progress.report({ increment: 5, message: 'Found pull request template. Creating pull request...' });
-		}
+		// Only fetch pull request templates if requested
+		if (pullRequestDescriptionMethod === PullRequestDescriptionSourceEnum.Template) {
+			const pullRequestTemplates = await this._prManager.getPullRequestTemplates();
 
-		if (pullRequestTemplates.length > 1) {
-			const targetTemplate = await vscode.window.showQuickPick(pullRequestTemplates.map(uri => {
-				return {
-					label: vscode.workspace.asRelativePath(uri.path),
-					uri: uri
-				};
-			}), {
-				ignoreFocusOut: true,
-				placeHolder: 'Select the pull request template to use'
-			});
-
-			// Treat user pressing escape as cancel
-			if (!targetTemplate) {
-				return;
+			if (pullRequestTemplates.length === 1) {
+				template = pullRequestTemplates[0];
+				progress.report({ increment: 5, message: 'Found pull request template. Creating pull request...' });
 			}
 
-			template = targetTemplate.uri;
-			progress.report({ increment: 5, message: 'Creating pull request...' });
+			if (pullRequestTemplates.length > 1) {
+				const targetTemplate = await vscode.window.showQuickPick(pullRequestTemplates.map(uri => {
+					return {
+						label: vscode.workspace.asRelativePath(uri.path),
+						uri: uri
+					};
+				}), {
+					ignoreFocusOut: true,
+					placeHolder: 'Select the pull request template to use'
+				});
+
+				// Treat user pressing escape as cancel
+				if (!targetTemplate) {
+					return;
+				}
+
+				template = targetTemplate.uri;
+				progress.report({ increment: 5, message: 'Creating pull request...' });
+			}
 		}
 
 		const { title, body } = titleAndBodyFrom(await this._prManager.getHeadCommitMessage());
@@ -707,6 +711,25 @@ export class ReviewManager {
 			}
 
 			return titleSource.pullRequestTitleSource;
+		}
+
+		return method;
+	}
+
+	private async getPullRequestDescriptionSetting(): Promise<PullRequestDescriptionSource | undefined> {
+		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestDescriptionSource>('pullRequestDescription', PullRequestDescriptionSourceEnum.Ask);
+
+		if (method === PullRequestDescriptionSourceEnum.Ask) {
+			const descriptionSource = await vscode.window.showQuickPick<PullRequestDescriptionSourceQuickPick>(PullRequestDescriptionSourceQuickPick.allOptions(), {
+				ignoreFocusOut: true,
+				placeHolder: 'Pull Request Description Source'
+			});
+
+			if (!descriptionSource) {
+				return;
+			}
+
+			return descriptionSource.pullRequestDescriptionSource;
 		}
 
 		return method;
@@ -766,20 +789,28 @@ export class ReviewManager {
 				return;
 			}
 
-			const titleAndDescriptionDefaults = await this.getPullRequestTitleAndDescriptionDefaults(progress);
+			const pullRequestTitleMethod = await this.getPullRequestTitleSetting();
+
+			// User cancelled the title selection process, cancel the create process
+			if (!pullRequestTitleMethod) {
+				return;
+			}
+
+			const pullRequestDescriptionMethod = await this.getPullRequestDescriptionSetting();
+
+			// User cancelled the description selection process, cancel the create process
+			if (!pullRequestDescriptionMethod) {
+				return;
+			}
+
+			const titleAndDescriptionDefaults = await this.getPullRequestTitleAndDescriptionDefaults(progress, pullRequestDescriptionMethod);
+
 			// User cancelled a quick input, cancel the create process
 			if (!titleAndDescriptionDefaults) {
 				return;
 			}
 
-			let { title } = titleAndDescriptionDefaults;
-
-			const pullRequestTitleMethod = await this.getPullRequestTitleSetting();
-
-			// User cancelled the name selection process, cancel the create process
-			if (!pullRequestTitleMethod) {
-				return;
-			}
+			let { title, description } = titleAndDescriptionDefaults;
 
 			switch (pullRequestTitleMethod) {
 				case PullRequestTitleSourceEnum.Branch:
@@ -802,9 +833,20 @@ export class ReviewManager {
 					title = nameResult;
 			}
 
+			switch (pullRequestDescriptionMethod) {
+				case PullRequestDescriptionSourceEnum.Custom:
+					const descriptionResult = await vscode.window.showInputBox({
+						value: description,
+						ignoreFocusOut: true,
+						prompt: `Enter PR description`
+					});
+
+					description = descriptionResult || '';
+			}
+
 			const createParams = {
 				title,
-				body: titleAndDescriptionDefaults.description,
+				body: description,
 				base: target,
 				// For cross-repository pull requests, the owner must be listed. Always list to be safe. See https://developer.github.com/v3/pulls/#create-a-pull-request.
 				head: `${headRemote.owner}:${branchName}`,
