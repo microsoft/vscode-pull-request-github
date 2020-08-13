@@ -12,23 +12,19 @@ import { IComment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { Repository, GitErrorCodes, Branch } from '../api/api';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
-import { GitContentProvider } from './gitContentProvider';
 import { DiffChangeType } from '../common/diffHunk';
 import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
-import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { PRNode } from './treeNodes/pullRequestNode';
-import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum, PullRequestDescriptionSourceQuickPick, PullRequestDescriptionSource, PullRequestDescriptionSourceEnum } from './quickpick';
-import { PullRequestManager, titleAndBodyFrom } from '../github/pullRequestManager';
+import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum, PullRequestDescriptionSourceQuickPick, PullRequestDescriptionSource, PullRequestDescriptionSourceEnum  } from './quickpick';
+import { FolderRepositoryManager, titleAndBodyFrom } from '../github/folderRepositoryManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
+import { GitHubRepository } from '../github/githubRepository';
 
 export class ReviewManager {
 	public static ID = 'Review';
-	private static _instance: ReviewManager;
 	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
 
@@ -40,7 +36,6 @@ export class ReviewManager {
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewCommentController: ReviewCommentController;
 
-	private _prFileChangesProvider: PullRequestChangesTreeDataProvider | undefined;
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
 	private _previousRepositoryState: {
@@ -62,98 +57,26 @@ export class ReviewManager {
 	}
 
 	constructor(
-		private _context: vscode.ExtensionContext,
 		private _repository: Repository,
-		private _prManager: PullRequestManager,
-		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
-		private _telemetry: ITelemetry
+		private _folderRepoManager: FolderRepositoryManager,
+		private _telemetry: ITelemetry,
+		public changesInPrDataProvider: PullRequestChangesTreeDataProvider
 	) {
 		this._switchingToReviewMode = false;
 		this._disposables = [];
-		const gitContentProvider = new GitContentProvider(_repository);
-		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
-		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
 
 		this._previousRepositoryState = {
 			HEAD: _repository.state.HEAD,
 			remotes: parseRepositoryRemotes(this._repository)
 		};
 
-		this.registerCommands();
 		this.registerListeners();
-
-		this._disposables.push(this._prsTreeDataProvider);
 
 		this.updateState();
 		this.pollForStatusChange();
 	}
 
-	private registerCommands(): void {
-		this._disposables.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
-			const uri = value instanceof GitFileChangeNode ? value.filePath : value;
-
-			if (value instanceof GitFileChangeNode) {
-				value.reveal(value, { select: true, focus: true });
-			}
-
-			const activeTextEditor = vscode.window.activeTextEditor;
-			const opts: vscode.TextDocumentShowOptions = {
-				preserveFocus: true,
-				viewColumn: vscode.ViewColumn.Active
-			};
-
-			// Check if active text editor has same path as other editor. we cannot compare via
-			// URI.toString() here because the schemas can be different. Instead we just go by path.
-			if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
-				opts.selection = activeTextEditor.selection;
-			}
-
-			vscode.commands.executeCommand('vscode.open', uri, opts);
-		}));
-		this._disposables.push(vscode.commands.registerCommand('pr.openChangedFile', (value: GitFileChangeNode) => {
-			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
-			if (openDiff) {
-				return vscode.commands.executeCommand('pr.openDiffView', value);
-			} else {
-				return vscode.commands.executeCommand('review.openFile', value);
-			}
-		}));
-
-		this._disposables.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
-			this.updateComments();
-			PullRequestOverviewPanel.refresh();
-			this.prFileChangesProvider.refresh();
-		}));
-
-		this._disposables.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
-			if (prNode.pullRequestModel.equals(this._prManager.activePullRequest)) {
-				this.updateComments();
-			}
-
-			PullRequestOverviewPanel.refresh();
-			this._prsTreeDataProvider.refresh(prNode);
-		}));
-	}
-
 	private registerListeners(): void {
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
-				if (this._prFileChangesProvider) {
-					this._prFileChangesProvider.dispose();
-					this._prFileChangesProvider = undefined;
-
-					if (this._prManager.activePullRequest) {
-						this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, this._prManager.activePullRequest, this._localFileChanges, this._comments);
-					}
-				}
-
-				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-				await this._prsTreeDataProvider.initialize(this._prManager);
-				this._disposables.push(this._prsTreeDataProvider);
-			}
-		}));
-
 		this._disposables.push(this._repository.state.onDidChange(e => {
 			const oldHead = this._previousRepositoryState.HEAD;
 			const newHead = this._repository.state.HEAD;
@@ -196,25 +119,20 @@ export class ReviewManager {
 		}));
 	}
 
-	static get instance() {
-		return ReviewManager._instance;
-	}
-
-	get prFileChangesProvider() {
-		if (!this._prFileChangesProvider) {
-			this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._context);
-			this._disposables.push(this._prFileChangesProvider);
-		}
-
-		return this._prFileChangesProvider;
-	}
-
 	get statusBarItem() {
 		if (!this._statusBarItem) {
 			this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 		}
 
 		return this._statusBarItem;
+	}
+
+	get repository(): Repository {
+		return this._repository;
+	}
+
+	get localFileChanges(): GitFileChangeNode[] {
+		return this._localFileChanges;
 	}
 
 	setRepository(repository: Repository, silent: boolean) {
@@ -251,7 +169,7 @@ export class ReviewManager {
 
 	private async validateState(silent: boolean) {
 		Logger.appendLine('Review> Validating state...');
-		await this._prManager.updateRepositories(silent);
+		await this._folderRepoManager.updateRepositories(silent);
 		if (silent) {
 			return;
 		}
@@ -262,7 +180,7 @@ export class ReviewManager {
 		}
 
 		const branch = this._repository.state.HEAD;
-		const matchingPullRequestMetadata = await this._prManager.getMatchingPullRequestMetadataForBranch();
+		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${this._repository.state.HEAD.name}`);
@@ -291,19 +209,19 @@ export class ReviewManager {
 
 		const { owner, repositoryName } = matchingPullRequestMetadata;
 		Logger.appendLine('Review> Resolving pull request');
-		const pr = await this._prManager.resolvePullRequest(owner, repositoryName, matchingPullRequestMetadata.prNumber);
+		const pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, matchingPullRequestMetadata.prNumber);
 		if (!pr || !pr.isResolved()) {
 			this._prNumber = undefined;
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}
 
-		this._prManager.activePullRequest = pr;
+		this._folderRepoManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
 		Logger.appendLine('Review> Fetching pull request data');
 		await this.getPullRequestData(pr);
-		await this.prFileChangesProvider.showPullRequestFileChanges(this._prManager, pr, this._localFileChanges, this._comments);
+		await this.changesInPrDataProvider.addPrToView(this._folderRepoManager, pr, this._localFileChanges, this._comments);
 
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
@@ -316,21 +234,21 @@ export class ReviewManager {
 		this._validateStatusInProgress = undefined;
 	}
 
-	private async updateComments(): Promise<void> {
+	public async updateComments(): Promise<void> {
 		const branch = this._repository.state.HEAD;
 		if (!branch) { return; }
 
-		const matchingPullRequestMetadata = await this._prManager.getMatchingPullRequestMetadataForBranch();
+		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 		if (!matchingPullRequestMetadata) { return; }
 
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) { return; }
 
-		if (this._prNumber === undefined || !this._prManager.activePullRequest) {
+		if (this._prNumber === undefined || !this._folderRepoManager.activePullRequest) {
 			return;
 		}
 
-		const pr = await this._prManager.resolvePullRequest(matchingPullRequestMetadata.owner, matchingPullRequestMetadata.repositoryName, this._prNumber);
+		const pr = await this._folderRepoManager.resolvePullRequest(matchingPullRequestMetadata.owner, matchingPullRequestMetadata.repositoryName, this._prNumber);
 
 		if (!pr || !pr.isResolved()) {
 			Logger.appendLine('Review> This PR is no longer valid');
@@ -379,7 +297,7 @@ export class ReviewManager {
 			const uri = this._repository.rootUri.with({ path: filePath });
 
 			const modifiedFileUri = change.status === GitChangeType.DELETE
-				? toReviewUri(uri, undefined, undefined, '', false, { base: false })
+				? toReviewUri(uri, undefined, undefined, '', false, { base: false }, this._repository.rootUri)
 				: uri;
 
 			const originalFileUri = toReviewUri(
@@ -388,11 +306,12 @@ export class ReviewManager {
 				undefined,
 				change.status === GitChangeType.ADD ? '' : mergeBase,
 				false,
-				{ base: true }
+				{ base: true },
+				this._repository.rootUri
 			);
 
 			const changedItem = new GitFileChangeNode(
-				this.prFileChangesProvider.view,
+				this.changesInPrDataProvider.view,
 				pr,
 				change.status,
 				change.fileName,
@@ -412,11 +331,11 @@ export class ReviewManager {
 
 	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			this._comments = await this._prManager.getPullRequestComments(pr);
+			this._comments = await this._folderRepoManager.getPullRequestComments(pr);
 			const activeComments = this._comments.filter(comment => comment.position);
 			const outdatedComments = this._comments.filter(comment => !comment.position);
 
-			const data = await this._prManager.getPullRequestFileChangesInfo(pr);
+			const data = await this._folderRepoManager.getPullRequestFileChangesInfo(pr);
 			const mergeBase = pr.mergeBase || pr.base.sha;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase!);
@@ -441,13 +360,13 @@ export class ReviewManager {
 					const oldComments = commentsForFile[fileName];
 					const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, fileName));
 					const obsoleteFileChange = new GitFileChangeNode(
-						this.prFileChangesProvider.view,
+						this.changesInPrDataProvider.view,
 						pr,
 						GitChangeType.MODIFY,
 						fileName,
 						undefined,
-						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: false }),
-						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: true }),
+						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: false }, this._repository.rootUri),
+						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: true }, this._repository.rootUri),
 						false,
 						diffHunks,
 						oldComments,
@@ -466,7 +385,7 @@ export class ReviewManager {
 	}
 
 	private async registerCommentController() {
-		this._reviewCommentController = new ReviewCommentController(this._prManager,
+		this._reviewCommentController = new ReviewCommentController(this._folderRepoManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
@@ -488,10 +407,10 @@ export class ReviewManager {
 		this.switchingToReviewMode = true;
 
 		try {
-			const didLocalCheckout = await this._prManager.checkoutExistingPullRequestBranch(pr);
+			const didLocalCheckout = await this._folderRepoManager.checkoutExistingPullRequestBranch(pr);
 
 			if (!didLocalCheckout) {
-				await this._prManager.fetchAndCheckout(pr);
+				await this._folderRepoManager.fetchAndCheckout(pr);
 			}
 		} catch (e) {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);
@@ -515,7 +434,7 @@ export class ReviewManager {
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 
-			await this._prManager.fullfillPullRequestMissingInfo(pr);
+			await this._folderRepoManager.fullfillPullRequestMissingInfo(pr);
 
 			/* __GDPR__
 				"pr.checkout" : {}
@@ -532,7 +451,7 @@ export class ReviewManager {
 	}
 
 	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
-		const potentialTargetRemotes = await this._prManager.getAllGitHubRemotes();
+		const potentialTargetRemotes = await this._folderRepoManager.getAllGitHubRemotes();
 		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch '${branch.name}' to:`))!.remote;
 
 		if (!selectedRemote || branch.name === undefined) {
@@ -547,7 +466,7 @@ export class ReviewManager {
 			const validate = async function (value: string) {
 				try {
 					inputBox.busy = true;
-					const remoteBranch = await this._prManager.getBranch(selectedRemote, value);
+					const remoteBranch = await this._reposManager.getBranch(selectedRemote, value);
 					if (remoteBranch) {
 						inputBox.validationMessage = `Branch ${value} already exists in ${selectedRemote.owner}/${selectedRemote.repositoryName}`;
 					} else {
@@ -652,7 +571,7 @@ export class ReviewManager {
 
 		// Only fetch pull request templates if requested
 		if (pullRequestDescriptionMethod === PullRequestDescriptionSourceEnum.Template) {
-			const pullRequestTemplates = await this._prManager.getPullRequestTemplates();
+			const pullRequestTemplates = await this._folderRepoManager.getPullRequestTemplates();
 
 			if (pullRequestTemplates.length === 1) {
 				template = pullRequestTemplates[0];
@@ -680,7 +599,7 @@ export class ReviewManager {
 			}
 		}
 
-		const { title, body } = titleAndBodyFrom(await this._prManager.getHeadCommitMessage());
+		const { title, body } = titleAndBodyFrom(await this._folderRepoManager.getHeadCommitMessage());
 		let description = body;
 		if (template) {
 			try {
@@ -736,8 +655,8 @@ export class ReviewManager {
 	}
 
 	public async createPullRequest(draft = false): Promise<void> {
-		const pullRequestDefaults = await this._prManager.getPullRequestDefaults();
-		const githubRemotes = this._prManager.getGitHubRemotes();
+		const pullRequestDefaults = await this._folderRepoManager.getPullRequestDefaults();
+		const githubRemotes = this._folderRepoManager.getGitHubRemotes();
 		const targetRemote = await this.getRemote(githubRemotes, 'Select the remote to send the pull request to',
 			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Repository')
 		);
@@ -747,7 +666,7 @@ export class ReviewManager {
 		}
 
 		const base: string = targetRemote.remote
-			? (await this._prManager.getMetadata(targetRemote.remote.remoteName)).default_branch
+			? (await this._folderRepoManager.getMetadata(targetRemote.remote.remoteName)).default_branch
 			: pullRequestDefaults.base;
 		const target = await vscode.window.showInputBox({
 			value: base,
@@ -784,7 +703,7 @@ export class ReviewManager {
 
 			}
 
-			const headRemote = (await this._prManager.getAllGitHubRemotes()).find(remote => remote.remoteName === HEAD!.upstream!.remote);
+			const headRemote = (await this._folderRepoManager.getAllGitHubRemotes()).find(remote => remote.remoteName === HEAD!.upstream!.remote);
 			if (!headRemote) {
 				return;
 			}
@@ -855,7 +774,7 @@ export class ReviewManager {
 				draft: draft
 			};
 
-			const pullRequestModel = await this._prManager.createPullRequest(createParams);
+			const pullRequestModel = await this._folderRepoManager.createPullRequest(createParams);
 
 			if (pullRequestModel) {
 				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.number} Created` });
@@ -876,14 +795,14 @@ export class ReviewManager {
 
 		if (quitReviewMode) {
 			this._prNumber = undefined;
-			this._prManager.activePullRequest = undefined;
+			this._folderRepoManager.activePullRequest = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();
 			}
 
-			if (this._prFileChangesProvider) {
-				this.prFileChangesProvider.hide();
+			if (this.changesInPrDataProvider) {
+				this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
 			}
 
 			// Ensure file explorer decorations are removed. When switching to a different PR branch,
@@ -941,5 +860,13 @@ export class ReviewManager {
 		this._disposables.forEach(d => {
 			d.dispose();
 		});
+	}
+
+	static getReviewManagerForRepository(reviewManagers: ReviewManager[], repository: GitHubRepository): ReviewManager | undefined {
+		return reviewManagers.find(reviewManager => reviewManager._folderRepoManager.gitHubRepositories.includes(repository));
+	}
+
+	static getReviewManagerForFolderManager(reviewManagers: ReviewManager[], folderManager: FolderRepositoryManager): ReviewManager | undefined {
+		return reviewManagers.find(reviewManager => reviewManager._folderRepoManager === folderManager);
 	}
 }

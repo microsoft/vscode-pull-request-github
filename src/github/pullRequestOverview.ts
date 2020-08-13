@@ -14,7 +14,7 @@ import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
-import { PullRequestManager } from './pullRequestManager';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
 import { TimelineEvent, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
 import { IssueOverviewPanel, IRequestMessage } from './issueOverview';
@@ -33,7 +33,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[];
 
-	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, issue: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, pullRequestManager: FolderRepositoryManager, issue: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -62,7 +62,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode) {
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: FolderRepositoryManager, descriptionNode: DescriptionNode) {
 		super(extensionPath, column, title, pullRequestManager, descriptionNode, PullRequestOverviewPanel._viewType);
 
 		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
@@ -541,7 +541,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		try {
 			const branch = message.args;
 			// This should be updated for multi-root support and consume the git extension API if possible
-			const branchObj = await this._pullRequestManager.repository.getBranch('@{-1}');
+			const branchObj = await this._pullRequestManager.repository.getBranch(branch);
 
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
 				await this._pullRequestManager.repository.checkout(branch);

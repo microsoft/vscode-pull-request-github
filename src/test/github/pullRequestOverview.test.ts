@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
 
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
@@ -24,7 +24,7 @@ const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
 describe('PullRequestOverview', function () {
 	let sinon: SinonSandbox;
-	let pullRequestManager: PullRequestManager;
+	let pullRequestManager: FolderRepositoryManager;
 	let context: MockExtensionContext;
 	let remote: Remote;
 	let repo: MockGitHubRepository;
@@ -37,7 +37,7 @@ describe('PullRequestOverview', function () {
 		const repository = new MockRepository();
 		const telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry);
-		pullRequestManager = new PullRequestManager(repository, telemetry, new ApiImpl(), credentialStore);
+		pullRequestManager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new Remote('origin', url, new Protocol(url));

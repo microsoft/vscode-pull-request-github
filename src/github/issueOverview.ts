@@ -12,7 +12,7 @@ import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { PullRequestManager } from './pullRequestManager';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
 
 export interface IRequestMessage<T> {
@@ -41,14 +41,14 @@ export class IssueOverviewPanel {
 	protected _disposables: vscode.Disposable[] = [];
 	protected _descriptionNode: DescriptionNode;
 	protected _item: IssueModel;
-	protected _pullRequestManager: PullRequestManager;
+	protected _pullRequestManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
 	private _waitForReady: Promise<void>;
 	private _onIsReady: vscode.EventEmitter<void> = new vscode.EventEmitter();
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 
-	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, issue: IssueModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, pullRequestManager: FolderRepositoryManager, issue: IssueModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -73,7 +73,7 @@ export class IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode, type: string = IssueOverviewPanel._viewType) {
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: FolderRepositoryManager, descriptionNode: DescriptionNode, type: string = IssueOverviewPanel._viewType) {
 		this._extensionPath = extensionPath;
 		this._pullRequestManager = pullRequestManager;
 		this._descriptionNode = descriptionNode;
@@ -247,8 +247,8 @@ export class IssueOverviewPanel {
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
 		try {
 			let newLabels: ILabel[] = [];
-			async function getLabelOptions(prManager: PullRequestManager, issue: IssueModel): Promise<vscode.QuickPickItem[]> {
-				const allLabels = await prManager.getLabels(issue);
+			async function getLabelOptions(folderRepoManager: FolderRepositoryManager, issue: IssueModel): Promise<vscode.QuickPickItem[]> {
+				const allLabels = await folderRepoManager.getLabels(issue);
 				newLabels = allLabels.filter(l => !issue.item.labels.some(label => label.name === l.name));
 
 				return newLabels.map(label => {
