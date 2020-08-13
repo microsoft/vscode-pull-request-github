@@ -17,6 +17,7 @@ export interface ReviewUriParams {
 	commit?: string;
 	base: boolean;
 	isOutdated: boolean;
+	rootPath: string;
 }
 
 export function fromReviewUri(uri: Uri): ReviewUriParams {
@@ -78,13 +79,14 @@ export async function asImageDataURI(uri: Uri, repository: Repository): Promise<
 	}
 }
 
-export function toReviewUri(uri: Uri, filePath: string | undefined, ref: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions): Uri {
+export function toReviewUri(uri: Uri, filePath: string | undefined, ref: string | undefined, commit: string, isOutdated: boolean, options: GitUriOptions, rootUri: Uri): Uri {
 	const params: ReviewUriParams = {
 		path: filePath ? filePath : uri.path,
 		ref,
 		commit: commit,
 		base: options.base,
-		isOutdated
+		isOutdated,
+		rootPath: rootUri.path
 	};
 
 	let path = uri.path;

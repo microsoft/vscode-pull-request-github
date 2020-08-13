@@ -714,6 +714,6 @@ export class GitHubRepository implements vscode.Disposable {
 
 	private getPRFetchQuery(repo: string, user: string, query: string) {
 		const filter = query.replace('${user}', user);
-		return `is:open ${filter} type:pr repo:${repo}`;
+		return `is:pull-request ${filter} type:pr repo:${repo}`;
 	}
 }

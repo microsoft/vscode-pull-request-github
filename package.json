@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.18.1",
+  "version": "0.19.0",
   "publisher": "GitHub",
   "engines": {
     "vscode": "^1.48.0"
@@ -76,6 +76,23 @@
           ],
           "default": "ask",
           "description": "The title used when creating pull requests."
+        },
+        "githubPullRequests.pullRequestDescription": {
+          "type": "string",
+          "enum": [
+            "template",
+            "commit",
+            "custom",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "Use a pull request template, or use the commit description if no templates were found",
+            "Use the latest commit message",
+            "Specify a custom description",
+            "Ask which of the above methods to use"
+          ],
+          "default": "template",
+          "description": "The description used when creating pull requests."
         },
         "githubPullRequests.logLevel": {
           "type": "string",
@@ -153,6 +170,7 @@
         "githubPullRequests.showInSCM": {
           "type": "boolean",
           "default": false,
+          "deprecationMessage": "This setting is deprecated. Views can now be dragged to any location.",
           "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
         },
         "githubPullRequests.fileListLayout": {
@@ -344,13 +362,13 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled",
+          "when": "config.git.enabled",
           "icon": "resources/icons/pull-request.svg"
         },
         {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode",
+          "when": "config.git.enabled && github:inReviewMode",
           "icon": "resources/icons/pull-request.svg"
         },
         {
@@ -358,18 +376,6 @@
           "name": "Issues",
           "when": "config.git.enabled",
           "icon": "resources/icons/light/issues.svg"
-        }
-      ],
-      "scm": [
-        {
-          "id": "pr:scm",
-          "name": "GitHub Pull Requests",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled"
-        },
-        {
-          "id": "prStatus:scm",
-          "name": "Changes In Pull Request",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode"
         }
       ]
     },
@@ -692,12 +698,12 @@
     "viewsWelcome": [
       {
         "view": "pr:github",
-        "when": "PRManagerStateContext == NeedsAuthentication",
+        "when": "ReposManagerStateContext == NeedsAuthentication",
         "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
       },
       {
         "view": "issues:github",
-        "when": "PRManagerStateContext == NeedsAuthentication",
+        "when": "ReposManagerStateContext == NeedsAuthentication",
         "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
       }
     ],
