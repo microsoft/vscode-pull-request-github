@@ -10,7 +10,7 @@ import { GitFileChangeNode } from './fileChangeNode';
 import { toReviewUri } from '../../common/uri';
 import { getGitChangeType } from '../../common/diffHunk';
 import { IComment } from '../../common/comment';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { OctokitCommon } from '../../github/common';
 
@@ -23,7 +23,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
-		private readonly pullRequestManager: PullRequestManager,
+		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
 		private readonly comments: IComment[]
@@ -62,8 +62,8 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				getGitChangeType(change.status),
 				fileName,
 				undefined,
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: false }),
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: true }),
+				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: false }, this.pullRequestManager.repository.rootUri),
+				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: true }, this.pullRequestManager.repository.rootUri),
 				false,
 				[],
 				matchingComments,
