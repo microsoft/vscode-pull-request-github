@@ -1914,6 +1914,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			pullRequest.update(convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
 		}
 
+		if (pullRequest.item.merged) {
+			const repsonse = await octokit.pulls.listFiles({
+				repo: remote.repositoryName,
+				owner: remote.owner,
+				pull_number: pullRequest.number
+			});
+
+			// Use the original base to compare against for merged PRs
+			pullRequest.mergeBase = pullRequest.base.sha;
+
+			return repsonse.data;
+		}
+
 		const { data } = await octokit.repos.compareCommits({
 			repo: remote.repositoryName,
 			owner: remote.owner,
