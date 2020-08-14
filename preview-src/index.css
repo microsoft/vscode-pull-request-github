@@ -218,6 +218,10 @@ body .comment-container .review-comment-header {
 	padding-bottom: 12px;
 }
 
+.status-section:last-of-type {
+	padding-bottom: 0px;
+}
+
 #status-checks a {
 	margin-left: 10px;
 	cursor: pointer;
