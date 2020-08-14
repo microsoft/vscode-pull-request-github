@@ -2296,7 +2296,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async tryOfferToFork(githubRepository: GitHubRepository): Promise<boolean | undefined> {
-		const repoString = `${githubRepository.remote.owner}\\${githubRepository.remote.repositoryName}`;
+		const repoString = `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`;
 
 		const fork = 'Fork';
 		const dontFork = 'Don\'t Fork';
