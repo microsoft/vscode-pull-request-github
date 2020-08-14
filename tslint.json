@@ -45,5 +45,10 @@
 			"check-branch"
 		],
 		"prefer-const": true
+	},
+	"linterOptions": {
+		"exclude": [
+			"src/typings/**"
+		]
 	}
 }
