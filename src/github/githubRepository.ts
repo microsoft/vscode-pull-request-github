@@ -8,16 +8,17 @@ import { Octokit } from '@octokit/rest';
 import * as OctokitTypes from '@octokit/types';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IAccount, RepoAccessAndMergeMethods, PullRequestMergeability, IMilestone, Issue } from './interface';
+import { IAccount, RepoAccessAndMergeMethods, IMilestone, Issue } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
-import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone, parseGraphQLViewerPermission } from './utils';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone, parseGraphQLViewerPermission } from './utils';
 import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse, MaxIssueResponse, ForkDetailsResponse, ViewerPermissionResponse } from './graphql';
 import { IssueModel } from './issueModel';
 import { Protocol } from '../common/protocol';
+import { ITelemetry } from '../common/telemetry';
 const defaultSchema = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -110,7 +111,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return this.hub && this.hub.octokit;
 	}
 
-	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
+	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore, private readonly _telemetry: ITelemetry) {
 		this.isGitHubDotCom = remote.host.toLowerCase() === 'github.com';
 	}
 
@@ -275,7 +276,7 @@ export class GitHubRepository implements vscode.Disposable {
 							return null;
 						}
 
-						return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
+						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
 					}
 				)
 				.filter(item => item !== null) as PullRequestModel[];
@@ -301,7 +302,7 @@ export class GitHubRepository implements vscode.Disposable {
 			((githubRepository.remote.owner !== parsedIssue.repositoryOwner) ||
 				(githubRepository.remote.repositoryName !== parsedIssue.repositoryName))) {
 			const remote = new Remote(parsedIssue.repositoryName, parsedIssue.repositoryUrl, new Protocol(parsedIssue.repositoryUrl));
-			githubRepository = new GitHubRepository(remote, this._credentialStore);
+			githubRepository = new GitHubRepository(remote, this._credentialStore, this._telemetry);
 		}
 		return githubRepository;
 	}
@@ -526,7 +527,7 @@ export class GitHubRepository implements vscode.Disposable {
 					return null;
 				}
 
-				return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(response.data, this));
+				return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(response.data, this));
 			}).filter(item => item !== null) as PullRequestModel[];
 
 			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, GitHubRepository.ID);
@@ -561,7 +562,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-			return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
+			return new PullRequestModel(this._telemetry, this, remote, parseGraphQLPullRequest(data, this));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
@@ -587,27 +588,6 @@ export class GitHubRepository implements vscode.Disposable {
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
-		}
-	}
-
-	async getPullRequestMergeability(id: number): Promise<PullRequestMergeability> {
-		try {
-			Logger.debug(`Fetch pull request mergeability ${id} - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
-
-			const { data } = await query<PullRequestResponse>({
-				query: schema.PullRequestMergeability,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: id
-				}
-			});
-			Logger.debug(`Fetch pull request mergeability ${id} - done`, GitHubRepository.ID);
-			return parseMergeability(data.repository.pullRequest.mergeable);
-		} catch (e) {
-			Logger.appendLine(`GithubRepository> Unable to fetch PR Mergeability: ${e}`);
-			return PullRequestMergeability.Unknown;
 		}
 	}
 
@@ -710,6 +690,10 @@ export class GitHubRepository implements vscode.Disposable {
 		} while (hasNextPage);
 
 		return ret;
+	}
+
+	isCurrentUser(login: string): boolean {
+		return this._credentialStore.isCurrentUser(login);
 	}
 
 	private getPRFetchQuery(repo: string, user: string, query: string) {

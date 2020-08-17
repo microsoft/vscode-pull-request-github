@@ -5,23 +5,21 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as OctokitTypes from '@octokit/types';
 import { CredentialStore } from './credentials';
-import { IComment } from '../common/comment';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
+import { TimelineEvent, EventType } from '../common/timelineEvent';
 import { GitHubRepository, PullRequestData, ItemsData, ViewerPermission } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, ReviewEvent, IPullRequestEditData, PullRequest, IRawFileChange, IAccount, ILabel, RepoAccessAndMergeMethods, PullRequestMergeability, User, PullRequestChecks } from './interface';
+import { IPullRequestsPagingOptions, PRType, IAccount, ILabel, RepoAccessAndMergeMethods, User } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
-import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
+import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, parseGraphQLTimelineEvents, getRelatedUsersFromTimelineEvents, parseGraphQLComment, getReactionGroup, convertRESTUserToAccount, convertRESTReviewEvent, parseGraphQLReviewEvent, loginComparator, parseGraphQlIssueComment, convertPullRequestsGetCommentsResponseItemToComment, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
-import { PendingReviewIdResponse, TimelineEventsResponse, PullRequestCommentsResponse, AddCommentResponse, SubmitReviewResponse, DeleteReviewResponse, EditCommentResponse, DeleteReactionResponse, AddReactionResponse, MarkPullRequestReadyForReviewResponse, PullRequestState, UpdatePullRequestResponse, EditIssueCommentResponse, AddIssueCommentResponse, UserResponse, StartReviewResponse, GetChecksResponse, isCheckRun } from './graphql';
+import { convertRESTPullRequestToRawPullRequest, getRelatedUsersFromTimelineEvents, convertRESTUserToAccount, loginComparator, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
+import { PullRequestState, UserResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { ApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
@@ -33,17 +31,6 @@ import { OctokitCommon } from './common';
 interface PageInformation {
 	pullRequestPage: number;
 	hasMorePages: boolean | null;
-}
-
-interface RestErrorResult {
-	errors: RestError[];
-	message: string;
-}
-
-interface RestError {
-	code: string;
-	field: string;
-	resource: string;
 }
 
 export interface ItemsResponseResult<T> {
@@ -88,15 +75,6 @@ export class BadUpstreamError extends Error {
 
 export const SETTINGS_NAMESPACE = 'githubPullRequests';
 export const REMOTES_SETTING = 'remotes';
-
-interface NewCommentPosition {
-	path: string;
-	position: number;
-}
-
-interface ReplyCommentPosition {
-	inReplyTo: string;
-}
 
 export const ReposManagerStateContext: string = 'ReposManagerStateContext';
 
@@ -260,7 +238,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 							if (githubRepos.length) {
 								lastPullRequest = await githubRepos[0].getPullRequest(prNumber);
-								lastPullRequestTimelineEvents = await this.getTimelineEvents(lastPullRequest!);
+								lastPullRequestTimelineEvents = await lastPullRequest!.getTimelineEvents();
 							}
 
 							prRelatedusers = getRelatedUsersFromTimelineEvents(lastPullRequestTimelineEvents);
@@ -401,6 +379,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	set activePullRequest(pullRequest: PullRequestModel | undefined) {
+		if (this._activePullRequest) {
+			this._activePullRequest.isActive = false;
+		}
+
+		if (pullRequest) {
+			pullRequest.isActive = true;
+		}
+
 		this._activePullRequest = pullRequest;
 		this._onDidChangeActivePullRequest.fire();
 	}
@@ -830,414 +816,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return max;
 	}
 
-	async getStatusChecks(pullRequest: PullRequestModel): Promise<PullRequestChecks> {
-		const { query, remote, schema } = await pullRequest.githubRepository.ensure();
-		const result = await query<GetChecksResponse>({
-			query: schema.GetChecks,
-			variables: {
-				owner: remote.owner,
-				name: remote.repositoryName,
-				number: pullRequest.number
-			}
-		});
-
-		// We always fetch the status checks for only the last commit, so there should only be one node present
-		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
-
-		if (!statusCheckRollup) {
-			return {
-				state: 'pending',
-				statuses: []
-			};
-		}
-
-		return {
-			state: statusCheckRollup.state.toLowerCase(),
-			statuses: statusCheckRollup.contexts.nodes.map(context => {
-				if (isCheckRun(context)) {
-					return {
-						id: context.id,
-						url: context.checkSuite.app?.url,
-						avatar_url: context.checkSuite.app?.logoUrl,
-						state: context.conclusion?.toLowerCase() || 'pending',
-						description: context.title,
-						context: context.name,
-						target_url: context.detailsUrl
-					};
-				} else {
-					return {
-						id: context.id,
-						url: context.targetUrl,
-						avatar_url: context.avatarUrl,
-						state: context.state.toLowerCase(),
-						description: context.description,
-						context: context.context,
-						target_url: context.targetUrl
-					};
-				}
-			})
-		};
-	}
-
-	async getReviewRequests(pullRequest: PullRequestModel): Promise<IAccount[]> {
-		const githubRepository = pullRequest.githubRepository;
-		const { remote, octokit } = await githubRepository.ensure();
-		const result = await octokit.pulls.listRequestedReviewers({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.number
-		});
-
-		return result.data.users.map((user: any) => convertRESTUserToAccount(user, githubRepository));
-	}
-
-	async getPullRequestComments(pullRequest: PullRequestModel): Promise<IComment[]> {
-		const { remote, query, schema } = await pullRequest.githubRepository.ensure();
-		try {
-			const { data } = await query<PullRequestCommentsResponse>({
-				query: schema.PullRequestComments,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: pullRequest.number,
-				}
-			});
-
-			const comments = data.repository.pullRequest.reviews.nodes
-				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
-				.reduce((prev: any, curr: any) => prev.concat(curr), [])
-				.sort((a: IComment, b: IComment) => { return a.createdAt > b.createdAt ? 1 : -1; });
-
-			return comments;
-		} catch (e) {
-			Logger.appendLine(`Failed to get pull request review comments: ${e}`);
-			return [];
-		}
-	}
-	async getPullRequestCommits(pullRequest: PullRequestModel): Promise<OctokitTypes.PullsListCommitsResponseData> {
-		try {
-			Logger.debug(`Fetch commits of PR #${pullRequest.number} - enter`, FolderRepositoryManager.ID);
-			const { remote, octokit } = await pullRequest.githubRepository.ensure();
-			const commitData = await octokit.pulls.listCommits({
-				pull_number: pullRequest.number,
-				owner: remote.owner,
-				repo: remote.repositoryName
-			});
-			Logger.debug(`Fetch commits of PR #${pullRequest.number} - done`, FolderRepositoryManager.ID);
-
-			return commitData.data;
-		} catch (e) {
-			vscode.window.showErrorMessage(`Fetching commits failed: ${formatError(e)}`);
-			return [];
-		}
-	}
-
-	async getCommitChangedFiles(pullRequest: PullRequestModel, commit: OctokitTypes.PullsListCommitsResponseData[0]): Promise<OctokitTypes.ReposGetCommitResponseData['files']> {
-		try {
-			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.number} - enter`, FolderRepositoryManager.ID);
-			const { octokit, remote } = await pullRequest.githubRepository.ensure();
-			const fullCommit = await octokit.repos.getCommit({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				ref: commit.sha
-			});
-			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${pullRequest.number} - done`, FolderRepositoryManager.ID);
-
-			return fullCommit.data.files.filter(file => !!file.patch);
-		} catch (e) {
-			vscode.window.showErrorMessage(`Fetching commit file changes failed: ${formatError(e)}`);
-			return [];
-		}
-	}
-
-	async getFile(pullRequest: PullRequestModel, filePath: string, commit: string) {
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		const fileContent = await octokit.repos.getContent({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			path: filePath,
-			ref: commit
-		});
-
-		if (Array.isArray(fileContent.data)) {
-			throw new Error(`Unexpected array response when getting file ${filePath}`);
-		}
-
-		const contents = fileContent.data.content ?? '';
-		const buff = new Buffer(contents, <any>fileContent.data.encoding);
-		return buff.toString();
-	}
-
-	async getTimelineEvents(pullRequest: PullRequestModel): Promise<TimelineEvent[]> {
-		Logger.debug(`Fetch timeline events of PR #${pullRequest.number} - enter`, FolderRepositoryManager.ID);
-		const githubRepository = pullRequest.githubRepository;
-		const { query, remote, schema } = await githubRepository.ensure();
-
-		try {
-			const { data } = await query<TimelineEventsResponse>({
-				query: schema.TimelineEvents,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: pullRequest.number
-				}
-			});
-			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, githubRepository);
-			await this.addReviewTimelineEventComments(pullRequest, events);
-
-			return events;
-		} catch (e) {
-			console.log(e);
-			return [];
-		}
-	}
-
-	async getIssueTimelineEvents(issue: IssueModel): Promise<TimelineEvent[]> {
-		Logger.debug(`Fetch timeline events of PR #${issue.number} - enter`, FolderRepositoryManager.ID);
-		const githubRepository = issue.githubRepository;
-		const { query, remote, schema } = await githubRepository.ensure();
-
-		try {
-			const { data } = await query<TimelineEventsResponse>({
-				query: schema.IssueTimelineEvents,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: issue.number
-				}
-			});
-			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, githubRepository);
-
-			return events;
-		} catch (e) {
-			console.log(e);
-			return [];
-		}
-	}
-
-	async getIssueComments(pullRequest: PullRequestModel): Promise<OctokitTypes.IssuesListCommentsResponseData> {
-		Logger.debug(`Fetch issue comments of PR #${pullRequest.number} - enter`, FolderRepositoryManager.ID);
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-
-		const promise = await octokit.issues.listComments({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: pullRequest.number,
-			per_page: 100
-		});
-		Logger.debug(`Fetch issue comments of PR #${pullRequest.number} - done`, FolderRepositoryManager.ID);
-
-		return promise.data;
-	}
-
-	async createIssueComment(issue: IssueModel, text: string): Promise<IComment> {
-		const { mutate, schema } = await issue.githubRepository.ensure();
-		const { data } = await mutate<AddIssueCommentResponse>({
-			mutation: schema.AddIssueComment,
-			variables: {
-				input: {
-					subjectId: issue.graphNodeId,
-					body: text
-				}
-			}
-		});
-
-		return parseGraphQlIssueComment(data!.addComment.commentEdge.node);
-	}
-
-	async createCommentReply(pullRequest: PullRequestModel, body: string, reply_to: IComment): Promise<IComment | undefined> {
-		const pendingReviewId = await this.getPendingReviewId(pullRequest);
-		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { inReplyTo: reply_to.graphNodeId });
-		}
-
-		const githubRepository = pullRequest.githubRepository;
-		const { octokit, remote } = await githubRepository.ensure();
-
-		try {
-			const ret = await octokit.pulls.createReplyForReviewComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: pullRequest.number,
-				body: body,
-				comment_id: Number(reply_to.id)
-			});
-
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository));
-		} catch (e) {
-			this.handleError(e);
-		}
-	}
-
-	async deleteReview(pullRequest: PullRequestModel): Promise<{ deletedReviewId: number, deletedReviewComments: IComment[] }> {
-		const pendingReviewId = await this.getPendingReviewId(pullRequest);
-		const { mutate, schema } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<DeleteReviewResponse>({
-			mutation: schema.DeleteReview,
-			variables: {
-				input: { pullRequestReviewId: pendingReviewId }
-			}
-		});
-
-		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
-
-		pullRequest.inDraftMode = false;
-		await this.updateDraftModeContext(pullRequest);
-
-		return {
-			deletedReviewId: databaseId,
-			deletedReviewComments: comments.nodes.map(parseGraphQLComment)
-		};
-	}
-
-	async startReview(pullRequest: PullRequestModel, initialComment: { body: string, path: string, position: number }): Promise<IComment> {
-		const { mutate, schema } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<StartReviewResponse>({
-			mutation: schema.StartReview,
-			variables: {
-				input: {
-					body: '',
-					pullRequestId: pullRequest.item.graphNodeId,
-					comments: initialComment
-				}
-			}
-		});
-
-		if (!data) {
-			throw new Error('Failed to start review');
-		}
-
-		pullRequest.inDraftMode = true;
-		await this.updateDraftModeContext(pullRequest);
-
-		return parseGraphQLComment(data.addPullRequestReview.pullRequestReview.comments.nodes[0]);
-	}
-
-	async validateDraftMode(pullRequest: PullRequestModel): Promise<boolean> {
-		const inDraftMode = !!await this.getPendingReviewId(pullRequest);
-		if (inDraftMode !== pullRequest.inDraftMode) {
-			pullRequest.inDraftMode = inDraftMode;
-		}
-
-		await this.updateDraftModeContext(pullRequest);
-
-		return inDraftMode;
-	}
-
-	async updateDraftModeContext(pullRequest: PullRequestModel) {
-		if (this._activePullRequest && this._activePullRequest.number === pullRequest.number) {
-			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', pullRequest.inDraftMode);
-		}
-	}
-
-	async getPendingReviewId(pullRequest: IssueModel | undefined = this.activePullRequest): Promise<string | undefined> {
-		if (!pullRequest) {
-			return undefined;
-		}
-
-		const { query, schema } = await pullRequest.githubRepository.ensure();
-		const currentUser = await pullRequest.githubRepository.getAuthenticatedUser();
-		try {
-			const { data } = await query<PendingReviewIdResponse>({
-				query: schema.GetPendingReviewId,
-				variables: {
-					pullRequestId: pullRequest.item.graphNodeId,
-					author: currentUser
-				}
-			});
-			return data.node.reviews.nodes[0].id;
-		} catch (error) {
-			return;
-		}
-	}
-
-	async addCommentToPendingReview(pullRequest: PullRequestModel, reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<IComment> {
-		const { mutate, schema } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<AddCommentResponse>({
-			mutation: schema.AddComment,
-			variables: {
-				input: {
-					pullRequestReviewId: reviewId,
-					body,
-					...position
-				}
-			}
-		});
-
-		const { comment } = data!.addPullRequestReviewComment;
-		return parseGraphQLComment(comment);
-	}
-
-	async addCommentReaction(pullRequest: IssueModel, graphNodeId: string, reaction: vscode.CommentReaction): Promise<AddReactionResponse> {
-		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
-			prev[curr.label] = curr.title;
-			return prev;
-		}, {} as { [key: string]: string });
-		const { mutate, schema } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<AddReactionResponse>({
-			mutation: schema.AddReaction,
-			variables: {
-				input: {
-					subjectId: graphNodeId,
-					content: reactionEmojiToContent[reaction.label!]
-				}
-			}
-		});
-
-		return data!;
-	}
-
-	async deleteCommentReaction(pullRequest: IssueModel, graphNodeId: string, reaction: vscode.CommentReaction): Promise<DeleteReactionResponse> {
-		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
-			prev[curr.label] = curr.title;
-			return prev;
-		}, {} as { [key: string]: string });
-		const { mutate, schema } = await pullRequest.githubRepository.ensure();
-		const { data } = await mutate<DeleteReactionResponse>({
-			mutation: schema.DeleteReaction,
-			variables: {
-				input: {
-					subjectId: graphNodeId,
-					content: reactionEmojiToContent[reaction.label!]
-				}
-			}
-		});
-
-		return data!;
-	}
-
-	async createComment(pullRequest: PullRequestModel, body: string, commentPath: string, position: number): Promise<IComment | undefined> {
-		if (!pullRequest.validatePullRequestModel('Creating comment failed')) {
-			return;
-		}
-
-		const pendingReviewId = await this.getPendingReviewId(pullRequest);
-		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pullRequest, pendingReviewId, body, { path: commentPath, position });
-		}
-
-		const githubRepository = pullRequest.githubRepository;
-		const { octokit, remote } = await githubRepository.ensure();
-
-		try {
-			const ret = await octokit.pulls.createReviewComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: pullRequest.number,
-				body: body,
-				commit_id: pullRequest.head.sha,
-				path: commentPath,
-				position: position
-			});
-
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository));
-		} catch (e) {
-			this.handleError(e);
-		}
-	}
-
 	async getPullRequestTemplates(): Promise<vscode.Uri[]> {
 		/**
 		 * Places a PR template can be:
@@ -1300,7 +878,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!upstream) {
 				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
 				if (remote) {
-					return new GitHubRepository(remote, this._credentialStore);
+					return new GitHubRepository(remote, this._credentialStore, this._telemetry);
 				}
 
 				vscode.window.showErrorMessage(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
@@ -1357,7 +935,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			// Create PR
 			const { data } = await repo.octokit.pulls.create(params);
 			const item = convertRESTPullRequestToRawPullRequest(data, repo);
-			const pullRequestModel = new PullRequestModel(repo, repo.remote, item);
+			const pullRequestModel = new PullRequestModel(this._telemetry, repo, repo.remote, item, true);
 
 			const branchNameSeparatorIndex = params.head.indexOf(':');
 			const branchName = params.head.slice(branchNameSeparatorIndex + 1);
@@ -1422,131 +1000,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	async editIssueComment(pullRequest: IssueModel, comment: IComment, text: string): Promise<IComment> {
-		try {
-			const { mutate, schema } = await pullRequest.githubRepository.ensure();
-
-			const { data } = await mutate<EditIssueCommentResponse>({
-				mutation: schema.EditIssueComment,
-				variables: {
-					input: {
-						id: comment.graphNodeId,
-						body: text
-					}
-				}
-			});
-
-			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
-		} catch (e) {
-			throw new Error(formatError(e));
-		}
-	}
-
-	async editReviewComment(pullRequest: PullRequestModel, comment: IComment, text: string): Promise<IComment> {
-		const { mutate, schema } = await pullRequest.githubRepository.ensure();
-
-		const { data } = await mutate<EditCommentResponse>({
-			mutation: schema.EditComment,
-			variables: {
-				input: {
-					pullRequestReviewCommentId: comment.graphNodeId,
-					body: text
-				}
-			}
-		});
-
-		return parseGraphQLComment(data!.updatePullRequestReviewComment.pullRequestReviewComment);
-	}
-
-	async deleteIssueComment(issue: IssueModel, commentId: string): Promise<void> {
-		try {
-			const { octokit, remote } = await issue.githubRepository.ensure();
-
-			await octokit.issues.deleteComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				comment_id: Number(commentId)
-			});
-		} catch (e) {
-			throw new Error(formatError(e));
-		}
-	}
-
-	async deleteReviewComment(pullRequest: PullRequestModel, commentId: string): Promise<void> {
-		try {
-			const { octokit, remote } = await pullRequest.githubRepository.ensure();
-
-			await octokit.pulls.deleteReviewComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				comment_id: Number(commentId)
-			});
-		} catch (e) {
-			throw new Error(formatError(e));
-		}
-	}
-
-	canEditPullRequest(issueModel: IssueModel): boolean {
-		const username = issueModel.author && issueModel.author.login;
-		return this._credentialStore.isCurrentUser(username);
-	}
-
 	getCurrentUser(issueModel: IssueModel): IAccount {
 		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(), issueModel.githubRepository);
-	}
-
-	private addCommentPermissions(rawComment: IComment): IComment {
-		const isCurrentUser = this._credentialStore.isCurrentUser(rawComment.user!.login);
-		const notOutdated = rawComment.position !== null;
-		rawComment.canEdit = isCurrentUser && notOutdated;
-		rawComment.canDelete = isCurrentUser && notOutdated;
-
-		return rawComment;
-	}
-
-	private async changePullRequestState(state: 'open' | 'closed', pullRequest: PullRequestModel): Promise<[OctokitTypes.PullsUpdateResponseData, GitHubRepository]> {
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-
-		const ret = await octokit.pulls.update({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.number,
-			state: state
-		});
-
-		return [ret.data, pullRequest.githubRepository];
-	}
-
-	async editIssue(pullRequest: IssueModel, toEdit: IPullRequestEditData): Promise<{ body: string, bodyHTML: string, title: string }> {
-		try {
-			const { mutate, schema } = await pullRequest.githubRepository.ensure();
-
-			const { data } = await mutate<UpdatePullRequestResponse>({
-				mutation: schema.UpdatePullRequest,
-				variables: {
-					input: {
-						pullRequestId: pullRequest.graphNodeId,
-						body: toEdit.body,
-						title: toEdit.title
-					}
-				}
-			});
-
-			return data!.updatePullRequest.pullRequest;
-		} catch (e) {
-			throw new Error(formatError(e));
-		}
-	}
-
-	async closePullRequest(pullRequest: PullRequestModel): Promise<PullRequest> {
-		return this.changePullRequestState('closed', pullRequest)
-			.then(x => {
-				/* __GDPR__
-					"pr.close" : {}
-				*/
-				this._telemetry.sendTelemetryEvent('pr.close');
-				return convertRESTPullRequestToRawPullRequest(x[0], x[1]);
-			});
 	}
 
 	async mergePullRequest(pullRequest: PullRequestModel, title?: string, description?: string, method?: 'merge' | 'squash' | 'rebase'): Promise<any> {
@@ -1835,190 +1290,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		});
 	}
 
-	async setReadyForReview(pullRequest: PullRequestModel): Promise<any> {
-		try {
-			const { mutate, schema } = await pullRequest.githubRepository.ensure();
-
-			const { data } = await mutate<MarkPullRequestReadyForReviewResponse>({
-				mutation: schema.ReadyForReview,
-				variables: {
-					input: {
-						pullRequestId: pullRequest.graphNodeId,
-					}
-				}
-			});
-
-			/* __GDPR__
-				"pr.readyForReview.success" : {}
-			*/
-			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
-
-			return data!.markPullRequestReadyForReview.pullRequest.isDraft;
-		} catch (e) {
-			/* __GDPR__
-				"pr.readyForReview.failure" : {
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
-				}
-			*/
-			this._telemetry.sendTelemetryErrorEvent('pr.readyForReview.failure', { message: formatError(e) });
-			throw e;
-		}
-	}
-
-	private async createReview(pullRequest: PullRequestModel, event: ReviewEvent, message?: string): Promise<CommonReviewEvent> {
-		const githubRepository = pullRequest.githubRepository;
-		const { octokit, remote } = await githubRepository.ensure();
-
-		const { data } = await octokit.pulls.createReview({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.number,
-			event: event,
-			body: message,
-		});
-
-		return convertRESTReviewEvent(data, githubRepository);
-	}
-
-	public async submitReview(pullRequest: PullRequestModel, event?: ReviewEvent, body?: string): Promise<CommonReviewEvent> {
-		const pendingReviewId = await this.getPendingReviewId(pullRequest);
-		const githubRepository = pullRequest.githubRepository;
-		const { mutate, schema } = await githubRepository.ensure();
-
-		if (pendingReviewId) {
-			const { data } = await mutate<SubmitReviewResponse>({
-				mutation: schema.SubmitReview,
-				variables: {
-					id: pendingReviewId,
-					event: event || ReviewEvent.Comment,
-					body
-				}
-			});
-
-			pullRequest.inDraftMode = false;
-			await this.updateDraftModeContext(pullRequest);
-
-			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, githubRepository);
-		} else {
-			throw new Error(`Submitting review failed, no pending review for current pull request: ${pullRequest.number}.`);
-		}
-	}
-
-	async requestChanges(pullRequest: PullRequestModel, message?: string): Promise<CommonReviewEvent> {
-		const action: Promise<CommonReviewEvent> = await this.getPendingReviewId(pullRequest)
-			? this.submitReview(pullRequest, ReviewEvent.RequestChanges, message)
-			: this.createReview(pullRequest, ReviewEvent.RequestChanges, message);
-
-		return action
-			.then(x => {
-				/* __GDPR__
-					"pr.requestChanges" : {}
-				*/
-				this._telemetry.sendTelemetryEvent('pr.requestChanges');
-				return x;
-			});
-	}
-
-	async approvePullRequest(pullRequest: PullRequestModel, message?: string): Promise<CommonReviewEvent> {
-		const action: Promise<CommonReviewEvent> = await this.getPendingReviewId(pullRequest)
-			? this.submitReview(pullRequest, ReviewEvent.Approve, message)
-			: this.createReview(pullRequest, ReviewEvent.Approve, message);
-
-		return action.then(x => {
-			/* __GDPR__
-				"pr.approve" : {}
-			*/
-			this._telemetry.sendTelemetryEvent('pr.approve');
-			return x;
-		});
-	}
-
-	async getPullRequestFileChangesInfo(pullRequest: PullRequestModel & IResolvedPullRequestModel): Promise<IRawFileChange[]> {
-		Logger.debug(`Fetch file changes, base, head and merge base of PR #${pullRequest.number} - enter`, FolderRepositoryManager.ID);
-		const githubRepository = pullRequest.githubRepository;
-		const { octokit, remote } = await githubRepository.ensure();
-
-		if (!pullRequest.base) {
-			const info = await octokit.pulls.get({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: pullRequest.number
-			});
-			pullRequest.update(convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
-		}
-
-		if (pullRequest.item.merged) {
-			const repsonse = await octokit.pulls.listFiles({
-				repo: remote.repositoryName,
-				owner: remote.owner,
-				pull_number: pullRequest.number
-			});
-
-			// Use the original base to compare against for merged PRs
-			pullRequest.mergeBase = pullRequest.base.sha;
-
-			return repsonse.data;
-		}
-
-		const { data } = await octokit.repos.compareCommits({
-			repo: remote.repositoryName,
-			owner: remote.owner,
-			base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
-			head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`,
-
-		});
-
-		pullRequest.mergeBase = data.merge_base_commit.sha;
-
-		Logger.debug(`Fetch file changes and merge base of PR #${pullRequest.number} - done`, FolderRepositoryManager.ID);
-		return data.files;
-	}
-
-	/**
-	 * Add reviewers to a pull request
-	 * @param pullRequest The pull request
-	 * @param reviewers A list of GitHub logins
-	 */
-	async requestReview(pullRequest: PullRequestModel, reviewers: string[]): Promise<void> {
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		await octokit.pulls.requestReviewers({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.number,
-			reviewers
-		});
-	}
-
-	async deleteRequestedReview(pullRequest: PullRequestModel, reviewer: string): Promise<void> {
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
-		await octokit.pulls.removeRequestedReviewers({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.number,
-			reviewers: [reviewer]
-		});
-	}
-
-	async addLabels(issue: IssueModel, labels: string[]): Promise<void> {
-		const { octokit, remote } = await issue.githubRepository.ensure();
-		await octokit.issues.addLabels({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: issue.number,
-			labels
-		});
-	}
-
-	async removeLabel(issue: IssueModel, label: string): Promise<void> {
-		const { octokit, remote } = await issue.githubRepository.ensure();
-		await octokit.issues.removeLabel({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: issue.number,
-			name: label
-		});
-	}
-
 	async getPullRequestRepositoryDefaultBranch(issue: IssueModel): Promise<string> {
 		const branch = await issue.githubRepository.getDefaultBranch();
 		return branch;
@@ -2066,7 +1337,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	//#region Git related APIs
 
-	private async resolveItem(owner: string, repositoryName: string, pullRequestNumber: number): Promise<GitHubRepository | undefined> {
+	private async resolveItem(owner: string, repositoryName: string): Promise<GitHubRepository | undefined> {
 		let githubRepo = this._githubRepositories.find(repo => {
 			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
 			return ret;
@@ -2080,14 +1351,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
-		const githubRepo = await this.resolveItem(owner, repositoryName, pullRequestNumber);
+		const githubRepo = await this.resolveItem(owner, repositoryName);
 		if (githubRepo) {
 			return githubRepo.getPullRequest(pullRequestNumber);
 		}
 	}
 
 	async resolveIssue(owner: string, repositoryName: string, pullRequestNumber: number, withComments: boolean = false): Promise<IssueModel | undefined> {
-		const githubRepo = await this.resolveItem(owner, repositoryName, pullRequestNumber);
+		const githubRepo = await this.resolveItem(owner, repositoryName);
 		if (githubRepo) {
 			return githubRepo.getIssue(pullRequestNumber, withComments);
 		}
@@ -2109,19 +1380,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		} catch (e) {
 			console.log(e);
 		}
-	}
-
-	async resolvePullRequestMergeability(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestMergeability> {
-		const githubRepo = this._githubRepositories.find(repo =>
-			repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase()
-		);
-
-		if (!githubRepo) {
-			return PullRequestMergeability.Unknown;
-		}
-
-		return githubRepo.getPullRequestMergeability(pullRequestNumber);
-
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
@@ -2149,80 +1407,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this.repository.checkout(branchName);
 	}
 
-	private handleError(e: any) {
-		if (e.code && e.code === 422) {
-			let errorObject: RestErrorResult;
-			try {
-				errorObject = e.message && JSON.parse(e.message);
-			} catch {
-				// If we failed to parse the JSON re-throw the original error
-				// since it will have a more useful stack
-				throw e;
-			}
-			const firstError = errorObject && errorObject.errors && errorObject.errors[0];
-			if (firstError && firstError.code === 'missing_field' && firstError.field === 'body') {
-				throw new Error('Body can\'t be blank');
-			} else {
-				throw new Error('There is already a pending review for this pull request on GitHub. Please finish or dismiss this review to be able to leave more comments');
-			}
-
-		} else {
-			throw e;
-		}
-	}
-
-	private async addReviewTimelineEventComments(pullRequest: PullRequestModel, events: TimelineEvent[]): Promise<void> {
-		interface CommentNode extends IComment {
-			childComments?: CommentNode[];
-		}
-
-		const reviewEvents = events.filter(isReviewEvent);
-		const reviewComments = await this.getPullRequestComments(pullRequest) as CommentNode[];
-
-		const reviewEventsById = reviewEvents.reduce((index, evt) => {
-			index[evt.id] = evt;
-			evt.comments = [];
-			return index;
-		}, {} as { [key: number]: CommonReviewEvent });
-
-		const commentsById = reviewComments.reduce((index, evt) => {
-			index[evt.id] = evt;
-			return index;
-		}, {} as { [key: number]: CommentNode });
-
-		const roots: CommentNode[] = [];
-		let i = reviewComments.length; while (i-- > 0) {
-			const c: CommentNode = reviewComments[i];
-			if (!c.inReplyToId) {
-				roots.unshift(c);
-				continue;
-			}
-			const parent = commentsById[c.inReplyToId];
-			parent.childComments = parent.childComments || [];
-			parent.childComments = [c, ...(c.childComments || []), ...parent.childComments];
-		}
-
-		roots.forEach(c => {
-			const review = reviewEventsById[c.pullRequestReviewId!];
-			if (review) {
-				review.comments = review.comments.concat(c).concat(c.childComments || []);
-			}
-		});
-
-		const pendingReview = reviewEvents.filter(r => r.state.toLowerCase() === 'pending')[0];
-		if (pendingReview) {
-			// Ensures that pending comments made in reply to other reviews are included for the pending review
-			pendingReview.comments = reviewComments.filter(c => c.isDraft);
-		}
-	}
-
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
-		return new GitHubRepository(remote, credentialStore);
+		return new GitHubRepository(remote, credentialStore, this._telemetry);
 	}
 
 	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
 		const uri = `https://github.com/${owner}/${name}`;
-		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore);
+		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry);
 	}
 
 	async findUpstreamForItem(item: {remote: Remote, githubRepository: GitHubRepository}): Promise<{ needsFork: boolean, upstream?: GitHubRepository, remote?: Remote }> {

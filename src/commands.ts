@@ -125,7 +125,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			}
 
 			const suggestEditText = `${suggestEditMessage}\`\`\`diff\n${diff}\n\`\`\``;
-			await folderManager.createIssueComment(folderManager.activePullRequest, suggestEditText);
+			await folderManager.activePullRequest.createIssueComment(suggestEditText);
 
 			// Reset HEAD and then apply reverse diff
 			await vscode.commands.executeCommand('git.unstageAll');
@@ -349,7 +349,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			let isDraft;
 			if (value === 'Yes') {
 				try {
-					isDraft = await folderManager.setReadyForReview(pullRequest);
+					isDraft = await pullRequest.setReadyForReview();
 					vscode.commands.executeCommand('pr.refreshList');
 					return isDraft;
 				} catch (e) {
@@ -372,10 +372,10 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 				try {
 					let newComment: IComment | undefined = undefined;
 					if (message) {
-						newComment = await folderManager.createIssueComment(pullRequest, message);
+						newComment = await pullRequest.createIssueComment(message);
 					}
 
-					const newPR = await folderManager.closePullRequest(pullRequest);
+					const newPR = await pullRequest.close();
 					vscode.commands.executeCommand('pr.refreshList');
 					_onDidUpdatePR.fire(newPR);
 					return newComment;
@@ -387,22 +387,6 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 
 			_onDidUpdatePR.fire();
 		});
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.approve', async (pr: PullRequestModel, message?: string) => {
-		const folderManager = reposManager.getManagerForIssueModel(pr);
-		if (!folderManager) {
-			return;
-		}
-		return await folderManager.approvePullRequest(pr, message);
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.requestChanges', async (pr: PullRequestModel, message?: string) => {
-		const folderManager = reposManager.getManagerForIssueModel(pr);
-		if (!folderManager) {
-			return;
-		}
-		return await folderManager.requestChanges(pr, message);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {

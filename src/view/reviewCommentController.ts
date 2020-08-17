@@ -124,7 +124,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	async initializeWorkspaceCommentThreads(): Promise<void[]> {
-		await this._reposManager.validateDraftMode(this._reposManager.activePullRequest!);
+		await this._reposManager.activePullRequest!.validateDraftMode();
 		const localFileChangePromises = this._localFileChanges.map(async matchedFile => {
 			const threadData = await this.getWorkspaceFileThreadDatas(matchedFile);
 			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
@@ -220,7 +220,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 		}));
 
-		this._localToDispose.push(this._reposManager.activePullRequest!.onDidChangeDraftMode(newDraftMode => {
+		this._localToDispose.push(this._reposManager.activePullRequest!.onDidChangePendingReviewState(newDraftMode => {
 			[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads].forEach(commentThreadMap => {
 				for (const fileName in commentThreadMap) {
 					commentThreadMap[fileName].forEach(thread => {
@@ -264,7 +264,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				const matchedFileChanges = this._localFileChanges.filter(localFileChange => localFileChange.fileName === params.fileName);
 
 				if (matchedFileChanges.length) {
-					await this._reposManager.validateDraftMode(this._reposManager.activePullRequest!);
+					await this._reposManager.activePullRequest!.validateDraftMode();
 
 					const documentComments = getDocumentThreadDatas(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
 					const newThreads: GHPRCommentThread[] = documentComments.map(thread => createVSCodeCommentThread(thread, this._commentController!));
@@ -315,7 +315,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			this._reviewDocumentCommentThreads.setDocumentThreads(fileName, query.base, []);
 
-			await this._reposManager.validateDraftMode(this._reposManager.activePullRequest!);
+			await this._reposManager.activePullRequest!.validateDraftMode();
 
 			const threadData = this.provideCommentsForReviewUri(editor.document, query);
 			const newThreads = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
@@ -522,7 +522,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	private async createNewThread(thread: GHPRCommentThread, matchedFile: GitFileChangeNode, text: string): Promise<IComment | undefined> {
 		const position = await this.getNewCommentPosition(thread, matchedFile);
-		return await this._reposManager.createComment(this._reposManager.activePullRequest!, text, matchedFile.fileName, position);
+		return await this._reposManager.activePullRequest!.createReviewComment(text, matchedFile.fileName, position);
 	}
 
 	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string): Promise<string> {
@@ -730,7 +730,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 
 			const position = await this.getNewCommentPosition(thread, matchedFile);
-			const comment = await this._reposManager.startReview(this._reposManager.activePullRequest!,
+			const comment = await this._reposManager.activePullRequest!.startReview(
 				{
 					body: input,
 					path: matchedFile.fileName,
@@ -758,7 +758,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		try {
 			await this.createOrReplyComment(thread, input);
-			await this._reposManager.submitReview(this._reposManager.activePullRequest!);
+			await this._reposManager.activePullRequest!.submitReview();
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
@@ -780,7 +780,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	async deleteReview(): Promise<void> {
-		const { deletedReviewComments } = await this._reposManager.deleteReview(this._reposManager.activePullRequest!);
+		const { deletedReviewComments } = await this._reposManager.activePullRequest!.deleteReview();
 
 		[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads].forEach(commentThreadMap => {
 			for (const fileName in commentThreadMap) {
@@ -871,7 +871,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #region Comment
 	async createOrReplyComment(thread: GHPRCommentThread, input: string, inDraft?: boolean): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const isDraft = inDraft !== undefined ? inDraft : this._reposManager.activePullRequest!.inDraftMode;
+		const isDraft = inDraft !== undefined ? inDraft : this._reposManager.activePullRequest!.hasPendingReview;
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
@@ -888,7 +888,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					rawComment = await this._reposManager.createCommentReply(this._reposManager.activePullRequest!, input, comment._rawComment);
+					rawComment = await this._reposManager.activePullRequest!.createReviewCommentReply(input, comment._rawComment);
 				} else {
 					throw new Error('Cannot reply to temporary comment');
 				}
@@ -922,7 +922,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 					throw new Error('Unable to find matching file');
 				}
 
-				const editedComment = await this._reposManager.editReviewComment(this._reposManager.activePullRequest, comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
+				const editedComment = await this._reposManager.activePullRequest.editReviewComment(comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
 
 				// Update the cached comments of the file
 				const matchingCommentIndex = matchedFile.comments.findIndex(c => String(c.id) === comment.commentId);
@@ -966,7 +966,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 
 			if (comment instanceof GHPRComment) {
-				await this._reposManager.deleteReviewComment(this._reposManager.activePullRequest, comment.commentId);
+				await this._reposManager.activePullRequest.deleteReviewComment(comment.commentId);
 				const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
 				if (matchingCommentIndex > -1) {
 					matchedFile.comments.splice(matchingCommentIndex, 1);
@@ -989,9 +989,9 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				updateCommentThreadLabel(thread);
 			}
 
-			const inDraftMode = await this._reposManager.validateDraftMode(this._reposManager.activePullRequest);
-			if (inDraftMode !== this._reposManager.activePullRequest.inDraftMode) {
-				this._reposManager.activePullRequest.inDraftMode = inDraftMode;
+			const inDraftMode = await this._reposManager.activePullRequest.validateDraftMode();
+			if (inDraftMode !== this._reposManager.activePullRequest.hasPendingReview) {
+				this._reposManager.activePullRequest.hasPendingReview = inDraftMode;
 			}
 
 			this.update(this._localFileChanges, this._obsoleteFileChanges);
@@ -1005,7 +1005,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #region Incremental update comments
 	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]): Promise<void> {
-		await this._reposManager.validateDraftMode(this._reposManager.activePullRequest!);
+		await this._reposManager.activePullRequest!.validateDraftMode();
 		// _workspaceFileChangeCommentThreads
 		for (const fileName in this._workspaceFileChangeCommentThreads) {
 			this.updateFileChangeCommentThreads(localFileChanges, fileName, false);
@@ -1087,10 +1087,10 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			let reactionGroups: ReactionGroup[] = [];
 			if (comment.reactions && !comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)) {
-				const result = await this._reposManager.addCommentReaction(this._reposManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
+				const result = await this._reposManager.activePullRequest.addCommentReaction(comment._rawComment.graphNodeId, reaction);
 				reactionGroups = result.addReaction.subject.reactionGroups;
 			} else {
-				const result = await this._reposManager.deleteCommentReaction(this._reposManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
+				const result = await this._reposManager.activePullRequest.deleteCommentReaction(comment._rawComment.graphNodeId, reaction);
 				reactionGroups = result.removeReaction.subject.reactionGroups;
 			}
 

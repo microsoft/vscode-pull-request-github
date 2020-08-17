@@ -38,7 +38,7 @@ describe('PullRequestGitHelper', function () {
 		it('fetches, checks out, and configures a branch from a fork', async function () {
 			const url = 'git@github.com:owner/name.git';
 			const remote = new Remote('elsewhere', url, new Protocol(url));
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, sinon);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 
 			const prItem = convertRESTPullRequestToRawPullRequest(
 				new PullRequestBuilder()
@@ -58,7 +58,7 @@ describe('PullRequestGitHelper', function () {
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);
 			repository.expectPull(true);
 
-			const pullRequest = new PullRequestModel(gitHubRepository, remote, prItem);
+			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, remote, prItem);
 
 			if (!pullRequest.isResolved()) {
 				assert(pullRequest.isResolved(), 'pull request head not resolved successfully');

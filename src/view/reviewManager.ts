@@ -331,11 +331,11 @@ export class ReviewManager {
 
 	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			this._comments = await this._folderRepoManager.getPullRequestComments(pr);
+			this._comments = await pr.getReviewComments();
 			const activeComments = this._comments.filter(comment => comment.position);
 			const outdatedComments = this._comments.filter(comment => !comment.position);
 
-			const data = await this._folderRepoManager.getPullRequestFileChangesInfo(pr);
+			const data = await pr.getFileChangesInfo();
 			const mergeBase = pr.mergeBase || pr.base.sha;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase!);

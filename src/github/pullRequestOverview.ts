@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, PullRequestMergeability, ISuggestedReviewer } from './interface';
+import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, ISuggestedReviewer } from './interface';
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../api/api';
 import { IComment } from '../common/comment';
@@ -87,14 +87,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}, null, this._disposables);
 	}
 
-	private async checkMergeability(): Promise<PullRequestMergeability> {
-		return this._pullRequestManager.resolvePullRequestMergeability(
-			this._item.remote.owner,
-			this._item.remote.repositoryName,
-			this._item.number
-		);
-	}
-
 	/**
 	 * Create a list of reviewers composed of people who have already left reviews on the PR, and
 	 * those that have had a review requested of them. If a reviewer has left multiple reviews, the
@@ -159,10 +151,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				pullRequestModel.remote.repositoryName,
 				pullRequestModel.number
 			),
-			this._pullRequestManager.getTimelineEvents(pullRequestModel),
+			pullRequestModel.getTimelineEvents(),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-			this._pullRequestManager.getStatusChecks(pullRequestModel),
-			this._pullRequestManager.getReviewRequests(pullRequestModel),
+			pullRequestModel.getStatusChecks(),
+			pullRequestModel.getReviewRequests(),
 			this._pullRequestManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 		]).then(result => {
 			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, repositoryAccess] = result;
@@ -177,7 +169,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
 			const hasWritePermission = repositoryAccess!.hasWritePermission;
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
-			const canEdit = hasWritePermission || this._pullRequestManager.canEditPullRequest(this._item);
+			const canEdit = hasWritePermission || this._item.canEdit();
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
@@ -259,7 +251,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			case 'pr.open-diff':
 				return this.openDiff(message);
 			case 'pr.checkMergeability':
-				return this._replyMessage(message, await this.checkMergeability());
+				return this._replyMessage(message, await this._item.getMergability());
 			case 'pr.add-reviewers':
 				return this.addReviewers(message);
 			case 'pr.remove-reviewer':
@@ -330,7 +322,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			);
 
 			if (reviewersToAdd) {
-				await this._pullRequestManager.requestReview(this._item, reviewersToAdd.map(r => r.label));
+				await this._item.requestReview(reviewersToAdd.map(r => r.label));
 				const addedReviewers: ReviewState[] = reviewersToAdd.map(reviewer => {
 					return {
 						// assumes that suggested reviewers will be a subset of assignable users
@@ -351,7 +343,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
 		try {
-			await this._pullRequestManager.deleteRequestedReview(this._item, message.args);
+			await this._item.deleteReviewRequest(message.args);
 
 			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
 			this._existingReviewers.splice(index, 1);
@@ -527,7 +519,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private setReadyForReview(message: IRequestMessage<{}>): void {
-		this._pullRequestManager.setReadyForReview(this._item).then(isDraft => {
+		this._item.setReadyForReview().then(isDraft => {
 			vscode.commands.executeCommand('pr.refreshList');
 
 			this._replyMessage(message, { isDraft });
@@ -579,7 +571,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<CommonReviewEvent>('pr.approve', this._item, message.args).then(review => {
+		this._item.approve().then(review => {
 			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
@@ -595,7 +587,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<CommonReviewEvent>('pr.requestChanges', this._item, message.args).then(review => {
+		this._item.requestChanges(message.args).then(review => {
 			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
@@ -608,7 +600,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private submitReview(message: IRequestMessage<string>): void {
-		this._pullRequestManager.submitReview(this._item, ReviewEvent.Comment, message.args).then(review => {
+		this._item.submitReview(ReviewEvent.Comment, message.args).then(review => {
 			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
@@ -621,11 +613,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
-		return this._pullRequestManager.editReviewComment(this._item, comment, text);
+		return this._item.editReviewComment(comment, text);
 	}
 
 	protected deleteCommentPromise(comment: IComment): Promise<void> {
-		return this._pullRequestManager.deleteReviewComment(this._item, comment.id.toString());
+		return this._item.deleteReviewComment(comment.id.toString());
 	}
 }
 

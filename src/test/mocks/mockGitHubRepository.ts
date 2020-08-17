@@ -8,6 +8,7 @@ import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
 import { ManagedGraphQLPullRequestBuilder, ManagedRESTPullRequestBuilder, ManagedPullRequest } from '../builders/managedPullRequestBuilder';
+import { MockTelemetry } from './mockTelemetry';
 const queries = require('../../github/queries.gql');
 
 export class MockGitHubRepository extends GitHubRepository {
@@ -16,9 +17,10 @@ export class MockGitHubRepository extends GitHubRepository {
 	constructor(
 		remote: Remote,
 		credentialStore: CredentialStore,
-		sinon: SinonSandbox,
+		telemetry: MockTelemetry,
+		sinon: SinonSandbox
 	) {
-		super(remote, credentialStore);
+		super(remote, credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);
 

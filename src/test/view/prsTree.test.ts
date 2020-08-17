@@ -95,7 +95,7 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore)], credentialStore);
+		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore)], credentialStore, telemetry);
 		provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
@@ -112,9 +112,9 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore)], credentialStore);
+		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore)], credentialStore, telemetry);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
-			return new MockGitHubRepository(remote, cStore, sinon);
+			return new MockGitHubRepository(remote, cStore, telemetry, sinon);
 		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.folderManagers[0].updateRepositories();
@@ -136,7 +136,7 @@ describe('GitHub Pull Requests view', function () {
 		it('creates a node for each local pull request', async function () {
 			const url = 'git@github.com:aaa/bbb';
 			const remote = new Remote('origin', url, new Protocol(url));
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, sinon);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 			gitHubRepository.buildMetadata(m => {
 				m.clone_url('https://github.com/aaa/bbb');
 			});
@@ -152,7 +152,7 @@ describe('GitHub Pull Requests view', function () {
 				});
 			}).pullRequest;
 			const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository);
-			const pullRequest0 = new PullRequestModel(gitHubRepository, remote, prItem0);
+			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
 
 			const pr1 = gitHubRepository.addGraphQLPullRequest((builder) => {
 				builder.pullRequest(pr => {
@@ -165,7 +165,7 @@ describe('GitHub Pull Requests view', function () {
 				});
 			}).pullRequest;
 			const prItem1 = parseGraphQLPullRequest(pr1, gitHubRepository);
-			const pullRequest1 = new PullRequestModel(gitHubRepository, remote, prItem1);
+			const pullRequest1 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem1);
 
 			const repository = new MockRepository();
 			await repository.addRemote(remote.remoteName, remote.url);
@@ -178,7 +178,7 @@ describe('GitHub Pull Requests view', function () {
 			await repository.createBranch('non-pr-branch', false);
 
 			const manager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
-			const reposManager = new RepositoriesManager([manager], credentialStore);
+			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);

@@ -58,14 +58,14 @@ describe('ReviewCommentController', function () {
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		manager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
-			return new MockGitHubRepository(r, cStore, sinon);
+			return new MockGitHubRepository(r, cStore, telemetry, sinon);
 		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();
 
 		const pr = new PullRequestBuilder().build();
-		const repo = new GitHubRepository(remote, credentialStore);
-		activePullRequest = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const repo = new GitHubRepository(remote, credentialStore, telemetry);
+		activePullRequest = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		manager.activePullRequest = activePullRequest;
 	});
@@ -131,7 +131,7 @@ describe('ReviewCommentController', function () {
 			const reviewCommentController = new TestReviewCommentController(manager, repository, localFileChanges, [], []);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
-			sinon.stub(manager, 'validateDraftMode').returns(Promise.resolve(false));
+			sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 
 			sinon.stub(manager, 'getCurrentUser').returns({
 				login: 'rmacfarlane',
