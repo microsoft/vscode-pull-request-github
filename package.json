@@ -268,7 +268,8 @@
             "description": "Language that issue completions should not trigger on '#'."
           },
           "default": [
-            "python"
+            "python",
+            "makefile"
           ],
           "description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
         },
