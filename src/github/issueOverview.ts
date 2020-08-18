@@ -130,7 +130,7 @@ export class IssueOverviewPanel {
 				issueModel.remote.repositoryName,
 				issueModel.number
 			),
-			this._pullRequestManager.getIssueTimelineEvents(issueModel),
+			issueModel.getIssueTimelineEvents(),
 			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(issueModel),
 		]).then(result => {
 			const [issue, timelineEvents, defaultBranch] = result;
@@ -261,7 +261,7 @@ export class IssueOverviewPanel {
 			const labelsToAdd = await vscode.window.showQuickPick(await getLabelOptions(this._pullRequestManager, this._item), { canPickMany: true });
 
 			if (labelsToAdd && labelsToAdd.length) {
-				await this._pullRequestManager.addLabels(this._item, labelsToAdd.map(r => r.label));
+				await this._item.addLabels(labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
 				this._item.item.labels = this._item.item.labels.concat(...addedLabels);
@@ -277,7 +277,7 @@ export class IssueOverviewPanel {
 
 	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
 		try {
-			await this._pullRequestManager.removeLabel(this._item, message.args);
+			await this._item.removeLabel(message.args);
 
 			const index = this._item.item.labels.findIndex(label => label.name === message.args);
 			this._item.item.labels.splice(index, 1);
@@ -293,7 +293,7 @@ export class IssueOverviewPanel {
 	}
 
 	private editDescription(message: IRequestMessage<{ text: string }>) {
-		this._pullRequestManager.editIssue(this._item, { body: message.args.text }).then(result => {
+		this._item.edit({ body: message.args.text }).then(result => {
 			this._replyMessage(message, { body: result.body, bodyHTML: result.bodyHTML });
 		}).catch(e => {
 			this._throwError(message, e);
@@ -302,7 +302,7 @@ export class IssueOverviewPanel {
 
 	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
-		this._pullRequestManager.editIssue(this._item, { title: message.args.text }).then(result => {
+		this._item.edit({ title: message.args.text }).then(result => {
 			this._replyMessage(message, { text: result.title });
 		}).catch(e => {
 			this._throwError(message, e);
@@ -311,7 +311,7 @@ export class IssueOverviewPanel {
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
-		return this._pullRequestManager.editIssueComment(this._item, comment, text);
+		return this._item.editIssueComment(comment, text);
 	}
 
 	private editComment(message: IRequestMessage<{ comment: IComment, text: string }>) {
@@ -327,7 +327,7 @@ export class IssueOverviewPanel {
 	}
 
 	protected deleteCommentPromise(comment: IComment): Promise<void> {
-		return this._pullRequestManager.deleteIssueComment(this._item, comment.id.toString());
+		return this._item.deleteIssueComment(comment.id.toString());
 	}
 
 	private deleteComment(message: IRequestMessage<IComment>) {
@@ -354,7 +354,7 @@ export class IssueOverviewPanel {
 	}
 
 	private createComment(message: IRequestMessage<string>) {
-		this._pullRequestManager.createIssueComment(this._item, message.args).then(comment => {
+		this._item.createIssueComment(message.args).then(comment => {
 			this._replyMessage(message, {
 				value: comment
 			});

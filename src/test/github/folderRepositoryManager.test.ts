@@ -17,12 +17,13 @@ import { CredentialStore } from '../../github/credentials';
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
 	let manager: FolderRepositoryManager;
+	let telemetry: MockTelemetry;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
-		const telemetry = new MockTelemetry();
+		telemetry = new MockTelemetry();
 		const repository = new MockRepository();
 		const credentialStore = new CredentialStore(telemetry);
 		manager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
@@ -42,9 +43,9 @@ describe('PullRequestManager', function () {
 			const url = 'https://github.com/aaa/bbb.git';
 			const protocol = new Protocol(url);
 			const remote = new Remote('origin', url, protocol);
-			const repository = new GitHubRepository(remote, manager.credentialStore);
+			const repository = new GitHubRepository(remote, manager.credentialStore, telemetry);
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
-			const pr = new PullRequestModel(repository, remote, prItem);
+			const pr = new PullRequestModel(telemetry, repository, remote, prItem);
 
 			manager.activePullRequest = pr;
 			assert(changeFired.called);

@@ -56,7 +56,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 
 	const folderManagers = repositories.map(repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore));
 	context.subscriptions.push(...folderManagers);
-	const reposManager = new RepositoriesManager(folderManagers, credentialStore);
+	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
 
 	liveshareApiPromise.then((api) => {

@@ -25,7 +25,7 @@ describe('PullRequestModel', function () {
 		MockCommandRegistry.install(sinon);
 
 		credentials = new CredentialStore(telemetry);
-		repo = new GitHubRepository(remote, credentials);
+		repo = new GitHubRepository(remote, credentials, telemetry);
 	});
 
 	afterEach(function () {
@@ -34,21 +34,21 @@ describe('PullRequestModel', function () {
 
 	it('should return `state` properly as `open`', function () {
 		const pr = new PullRequestBuilder().state('open').build();
-		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.equal(open.state, GithubItemStateEnum.Open);
 	});
 
 	it('should return `state` properly as `closed`', function () {
 		const pr = new PullRequestBuilder().state('closed').build();
-		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.equal(open.state, GithubItemStateEnum.Closed);
 	});
 
 	it('should return `state` properly as `merged`', function () {
 		const pr = new PullRequestBuilder().merged(true).state('closed').build();
-		const open = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.equal(open.state, GithubItemStateEnum.Merged);
 	});

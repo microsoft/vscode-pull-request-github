@@ -13,6 +13,7 @@ import { Repository, UpstreamRef } from '../api/api';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
+import { ITelemetry } from '../common/telemetry';
 
 export interface ItemsResponseResult<T> {
 	items: T[];
@@ -77,6 +78,7 @@ export class RepositoriesManager implements vscode.Disposable {
 	constructor(
 		public readonly folderManagers: FolderRepositoryManager[],
 		private _credentialStore: CredentialStore,
+		private _telemetry: ITelemetry
 	) {
 		this._subs = [];
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
@@ -136,12 +138,12 @@ export class RepositoriesManager implements vscode.Disposable {
 	}
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
-		return new GitHubRepository(remote, credentialStore);
+		return new GitHubRepository(remote, credentialStore, this._telemetry);
 	}
 
 	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
 		const uri = `https://github.com/${owner}/${name}`;
-		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore);
+		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry);
 	}
 
 	dispose() {

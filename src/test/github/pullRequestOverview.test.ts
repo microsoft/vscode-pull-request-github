@@ -28,6 +28,7 @@ describe('PullRequestOverview', function () {
 	let context: MockExtensionContext;
 	let remote: Remote;
 	let repo: MockGitHubRepository;
+	let telemetry: MockTelemetry;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -35,13 +36,13 @@ describe('PullRequestOverview', function () {
 		context = new MockExtensionContext();
 
 		const repository = new MockRepository();
-		const telemetry = new MockTelemetry();
+		telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry);
 		pullRequestManager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new Remote('origin', url, new Protocol(url));
-		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, sinon);
+		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, telemetry, sinon);
 	});
 
 	afterEach(function () {
@@ -71,7 +72,7 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(1000).build(),
 				repo,
 			);
-			const prModel = new PullRequestModel(repo, remote, prItem);
+			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
 
 			const descriptionNode = new DescriptionNode(
 				new OrphanedTreeNode(),
@@ -117,7 +118,7 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(1000).build(),
 				repo,
 			);
-			const prModel0 = new PullRequestModel(repo, remote, prItem0);
+			const prModel0 = new PullRequestModel(telemetry, repo, remote, prItem0);
 			const descriptionNode0 = new DescriptionNode(
 				new OrphanedTreeNode(),
 				'label',
@@ -125,7 +126,9 @@ describe('PullRequestOverview', function () {
 				prModel0,
 			);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
-			sinon.stub(pullRequestManager, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0, descriptionNode0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
@@ -136,7 +139,7 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(2000).build(),
 				repo,
 			);
-			const prModel1 = new PullRequestModel(repo, remote, prItem1);
+			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);
 			const descriptionNode1 = new DescriptionNode(
 				new OrphanedTreeNode(),
 				'label',
@@ -144,6 +147,9 @@ describe('PullRequestOverview', function () {
 				prModel1,
 			);
 			resolveStub.resolves(prModel1);
+			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1, descriptionNode1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
