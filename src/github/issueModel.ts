@@ -16,7 +16,7 @@ import Logger from '../common/logger';
 import { TimelineEvent } from '../common/timelineEvent';
 
 export class IssueModel {
-	static ID = 'PullRequestModel';
+	static ID = 'IssueModel';
 	public id: number;
 	public graphNodeId: string;
 	public number: number;
