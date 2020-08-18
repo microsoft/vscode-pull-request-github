@@ -77,7 +77,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly blobUrl: string | undefined,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public isPartial: boolean,
 		public readonly diffHunks: DiffHunk[],
 		public comments: IComment[],
 		public readonly sha?: string
@@ -174,7 +173,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		public comments: IComment[],
 		public readonly sha?: string
 	) {
-		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, isPartial, diffHunks, comments, sha);
+		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {
 			title: 'show diff',
 			command: 'pr.openDiffView',
@@ -204,12 +203,11 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly blobUrl: string | undefined,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public readonly isPartial: boolean,
 		public readonly diffHunks: DiffHunk[],
 		public comments: IComment[] = [],
 		public readonly sha?: string,
 	) {
-		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, isPartial, diffHunks, comments, sha);
+		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {
 			title: 'open changed file',
 			command: 'pr.openChangedFile',
