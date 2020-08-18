@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { User } from '../github/interface';
-import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion, isComment } from './util';
+import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion, isComment, getRootUriFromScmInputUri } from './util';
 import { StateManager } from './stateManager';
 import { NEW_ISSUE_SCHEME, extractIssueOriginFromQuery } from './issueFile';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -36,7 +36,12 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 				range = new vscode.Range(position.translate(0, -1), position);
 			}
 		}
-		const uri = document.uri.scheme === NEW_ISSUE_SCHEME ? (extractIssueOriginFromQuery(document.uri) ?? document.uri) : document.uri;
+		const uri = document.uri.scheme === NEW_ISSUE_SCHEME ? (extractIssueOriginFromQuery(document.uri) ?? document.uri) :
+			(document.languageId === 'scminput' ? getRootUriFromScmInputUri(document.uri) : document.uri);
+		if (!uri) {
+			return [];
+		}
+		
 		const completionItems: vscode.CompletionItem[] = [];
 		(await this.stateManager.getUserMap(uri)).forEach(item => {
 			const completionItem: UserCompletion = new UserCompletion(item.login, vscode.CompletionItemKind.User);

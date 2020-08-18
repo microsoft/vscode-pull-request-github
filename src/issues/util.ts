@@ -461,6 +461,11 @@ export async function shouldShowHover(document: vscode.TextDocument, position: v
 	return isComment(document, position);
 }
 
+export function getRootUriFromScmInputUri(uri: vscode.Uri): vscode.Uri | undefined {
+	const rootUri = new URLSearchParams(uri.query).get('rootUri');
+	return rootUri ? vscode.Uri.parse(rootUri) : undefined;
+}
+
 export class PlainTextRenderer extends marked.Renderer {
 	code(code: string): string {
 		return code;
