@@ -33,7 +33,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[];
 
-	public static async createOrShow(extensionPath: string, pullRequestManager: FolderRepositoryManager, issue: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	private _changeActivePullRequestListener: vscode.Disposable | undefined;
+
+	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -46,10 +48,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${issue.number.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager, descriptionNode);
 		}
 
-		await PullRequestOverviewPanel.currentPanel!.update(issue, descriptionNode);
+		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, issue, descriptionNode);
 	}
 
 	protected set _currentPanel(panel: PullRequestOverviewPanel | undefined) {
@@ -62,18 +64,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: FolderRepositoryManager, descriptionNode: DescriptionNode) {
-		super(extensionPath, column, title, pullRequestManager, descriptionNode, PullRequestOverviewPanel._viewType);
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, descriptionNode: DescriptionNode) {
+		super(extensionPath, column, title, folderRepositoryManager, descriptionNode, PullRequestOverviewPanel._viewType);
 
-		this._pullRequestManager.onDidChangeActivePullRequest(_ => {
-			if (this._pullRequestManager && this._item) {
-				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
-				this._postMessage({
-					command: 'pr.update-checkout-status',
-					isCurrentlyCheckedOut: isCurrentlyCheckedOut
-				});
-			}
-		}, null, this._disposables);
+		this.registerFolderRepositoryListener();
 
 		onDidUpdatePR(pr => {
 			if (pr) {
@@ -85,6 +79,18 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				state: this._item.state,
 			});
 		}, null, this._disposables);
+	}
+
+	registerFolderRepositoryListener() {
+		this._changeActivePullRequestListener = this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
+			if (this._folderRepositoryManager && this._item) {
+				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
+				this._postMessage({
+					command: 'pr.update-checkout-status',
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut
+				});
+			}
+		});
 	}
 
 	/**
@@ -146,16 +152,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	public async updatePullRequest(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
 		return Promise.all([
-			this._pullRequestManager.resolvePullRequest(
+			this._folderRepositoryManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
 				pullRequestModel.remote.repositoryName,
 				pullRequestModel.number
 			),
 			pullRequestModel.getTimelineEvents(),
-			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
+			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			pullRequestModel.getStatusChecks(),
 			pullRequestModel.getReviewRequests(),
-			this._pullRequestManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
+			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 		]).then(result => {
 			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, repositoryAccess] = result;
 			if (!pullRequest) {
@@ -166,7 +172,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this._repositoryDefaultBranch = defaultBranch!;
 			this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
 
-			const isCurrentlyCheckedOut = pullRequestModel.equals(this._pullRequestManager.activePullRequest);
+			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 			const hasWritePermission = repositoryAccess!.hasWritePermission;
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 			const canEdit = hasWritePermission || this._item.canEdit();
@@ -212,7 +218,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		});
 	}
 
-	public async update(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async update(folderRepositoryManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
+		if (this._folderRepositoryManager !== folderRepositoryManager) {
+			this._folderRepositoryManager = folderRepositoryManager;
+			if (this._changeActivePullRequestListener) {
+				this._changeActivePullRequestListener.dispose();
+				this._changeActivePullRequestListener = undefined;
+				this.registerFolderRepositoryListener();
+			}
+		}
+
 		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',
@@ -310,7 +325,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const allAssignableUsers = await this._pullRequestManager.getAssignableUsers();
+			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
 			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
 
 			const reviewersToAdd = await vscode.window.showQuickPick(
@@ -360,14 +375,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
 
-			const tempFilePath = path.join(this._pullRequestManager.repository.rootUri.path, '.git', `${comment.id}.diff`);
+			const tempFilePath = path.join(this._folderRepositoryManager.repository.rootUri.path, '.git', `${comment.id}.diff`);
 			writeFile(tempFilePath, matches![1], {}, async (writeError) => {
 				if (writeError) {
 					throw writeError;
 				}
 
 				try {
-					await this._pullRequestManager.repository.apply(tempFilePath);
+					await this._folderRepositoryManager.repository.apply(tempFilePath);
 
 					// Need to mark conversation as resolved
 					unlink(tempFilePath, (err) => {
@@ -404,17 +419,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	private checkoutPullRequest(message: IRequestMessage<any>): void {
 		vscode.commands.executeCommand('pr.pick', this._item).then(() => {
-			const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
+			const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 		}, () => {
-			const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activePullRequest);
+			const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 		});
 	}
 
 	private mergePullRequest(message: IRequestMessage<{ title: string, description: string, method: 'merge' | 'squash' | 'rebase' }>): void {
 		const { title, description, method } = message.args;
-		this._pullRequestManager.mergePullRequest(this._item, title, description, method).then(result => {
+		this._folderRepositoryManager.mergePullRequest(this._item, title, description, method).then(result => {
 			vscode.commands.executeCommand('pr.refreshList');
 
 			if (!result.merged) {
@@ -431,7 +446,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {
-		const branchInfo = await this._pullRequestManager.getBranchNameForPullRequest(this._item);
+		const branchInfo = await this._folderRepositoryManager.getBranchNameForPullRequest(this._item);
 		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
 
 		if (this._item.isResolved()) {
@@ -479,15 +494,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		});
 
 		if (selectedActions) {
-			const isBranchActive = this._item.equals(this._pullRequestManager.activePullRequest);
+			const isBranchActive = this._item.equals(this._folderRepositoryManager.activePullRequest);
 
 			const promises = selectedActions.map(async (action) => {
 				switch (action.type) {
 					case 'upstream':
-						return this._pullRequestManager.deleteBranch(this._item);
+						return this._folderRepositoryManager.deleteBranch(this._item);
 					case 'local':
 						if (isBranchActive) {
-							if (this._pullRequestManager.repository.state.workingTreeChanges.length) {
+							if (this._folderRepositoryManager.repository.state.workingTreeChanges.length) {
 								const response = await vscode.window.showWarningMessage(`Your local changes will be lost, do you want to continue?`, { modal: true }, 'Yes');
 								if (response === 'Yes') {
 									await vscode.commands.executeCommand('git.cleanAll');
@@ -495,11 +510,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 									return;
 								}
 							}
-							await this._pullRequestManager.repository.checkout(this._repositoryDefaultBranch);
+							await this._folderRepositoryManager.repository.checkout(this._repositoryDefaultBranch);
 						}
-						return await this._pullRequestManager.repository.deleteBranch(branchInfo!.branch, true);
+						return await this._folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
 					case 'remote':
-						return this._pullRequestManager.repository.removeRemote(branchInfo!.remote!);
+						return this._folderRepositoryManager.repository.removeRemote(branchInfo!.remote!);
 				}
 			});
 
@@ -533,10 +548,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		try {
 			const branch = message.args;
 			// This should be updated for multi-root support and consume the git extension API if possible
-			const branchObj = await this._pullRequestManager.repository.getBranch(branch);
+			const branchObj = await this._folderRepositoryManager.repository.getBranch(branch);
 
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
-				await this._pullRequestManager.repository.checkout(branch);
+				await this._folderRepositoryManager.repository.checkout(branch);
 			} else {
 				await vscode.commands.executeCommand('git.checkout');
 			}
@@ -618,6 +633,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	protected deleteCommentPromise(comment: IComment): Promise<void> {
 		return this._item.deleteReviewComment(comment.id.toString());
+	}
+
+	dispose() {
+		super.dispose();
+
+		if (this._changeActivePullRequestListener) {
+			this._changeActivePullRequestListener.dispose();
+		}
 	}
 }
 
