@@ -58,7 +58,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		if (!uri) {
 			return [];
 		}
-		
+
 		try {
 			repo = await (await this.repositoriesManager.getManagerForFile(uri))?.getPullRequestDefaults();
 		} catch (e) {

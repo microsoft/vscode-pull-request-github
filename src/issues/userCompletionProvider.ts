@@ -41,7 +41,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		if (!uri) {
 			return [];
 		}
-		
+
 		const completionItems: vscode.CompletionItem[] = [];
 		(await this.stateManager.getUserMap(uri)).forEach(item => {
 			const completionItem: UserCompletion = new UserCompletion(item.login, vscode.CompletionItemKind.User);
