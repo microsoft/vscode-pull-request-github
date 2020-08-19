@@ -389,17 +389,21 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (descriptionNode: DescriptionNode) => {
-		const folderManager = reposManager.getManagerForIssueModel(descriptionNode.pullRequestModel);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (argument: DescriptionNode | PullRequestModel) => {
+		const pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
+		const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
 		if (!folderManager) {
 			return;
 		}
-		if (!descriptionNode) {
+		let descriptionNode: DescriptionNode;
+		if (!(argument instanceof DescriptionNode)) {
 			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
 			const rootNodes = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)!.changesInPrDataProvider.getChildren();
 			descriptionNode = rootNodes[0] as DescriptionNode;
+		} else {
+			descriptionNode = argument;
 		}
-		const pullRequest = ensurePR(folderManager, descriptionNode.pullRequestModel);
+		const pullRequest = ensurePR(folderManager, pullRequestModel);
 		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 		// Create and show a new webview
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, descriptionNode);
