@@ -531,7 +531,7 @@ export interface StartReviewResponse {
 
 export interface StatusContext {
 	id: string;
-	state: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+	state?: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
 	description?: string;
 	context: string;
 	targetUrl?: string;

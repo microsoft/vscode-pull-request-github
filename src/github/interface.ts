@@ -157,7 +157,7 @@ export interface PullRequestChecks {
 		id: string;
 		url?: string;
 		avatar_url?: string;
-		state: string;
+		state?: string;
 		description?: string;
 		target_url?: string;
 		context: string;
