@@ -704,7 +704,7 @@ export function getRepositoryForFile(gitAPI: GitAPI, file: vscode.Uri): Reposito
 	for (const repository of gitAPI.repositories) {
 		if ((file.path.toLowerCase() === repository.rootUri.path.toLowerCase()) ||
 			(file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase())
-				&& file.path.substring(repository.rootUri.path.length - 1).startsWith('/'))) {
+				&& file.path.substring(repository.rootUri.path.length).startsWith('/'))) {
 			return repository;
 		}
 	}
