@@ -73,7 +73,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 	}
 
 	resolveTreeItem(element: FolderRepositoryManager | IssueItem | MilestoneItem | vscode.TreeItem, item: vscode.TreeItem2): vscode.TreeItem2 {
-		if (element instanceof IssueItem) {
+		if (element instanceof IssueModel) {
 			item.tooltip = issueMarkdown(element, this.context);
 		}
 		return item;
