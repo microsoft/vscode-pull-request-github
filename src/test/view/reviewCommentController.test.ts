@@ -83,7 +83,6 @@ describe('ReviewCommentController', function () {
 			'https://example.com',
 			uri,
 			toReviewUri(uri, fileName, undefined, '1', false, { base: true }, rootUri),
-			false,
 			[
 				{
 					oldLineNumber: 22,

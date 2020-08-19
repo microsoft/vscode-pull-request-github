@@ -278,11 +278,9 @@ export class ReviewManager {
 
 		for (let i = 0; i < contentChanges.length; i++) {
 			const change = contentChanges[i];
-			let isPartial = false;
 			let diffHunks: DiffHunk[] = [];
 
 			if (change instanceof InMemFileChange) {
-				isPartial = change.isPartial;
 				diffHunks = change.diffHunks;
 			} else if (change.status !== GitChangeType.RENAME) {
 				try {
@@ -318,7 +316,6 @@ export class ReviewManager {
 				change.blobUrl,
 				modifiedFileUri,
 				originalFileUri,
-				isPartial,
 				diffHunks,
 				activeComments.filter(comment => comment.path === change.fileName),
 				headSha
@@ -367,7 +364,6 @@ export class ReviewManager {
 						undefined,
 						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: false }, this._repository.rootUri),
 						toReviewUri(uri, fileName, undefined, oldComments[0].originalCommitId!, true, { base: true }, this._repository.rootUri),
-						false,
 						diffHunks,
 						oldComments,
 						commit

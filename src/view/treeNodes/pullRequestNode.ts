@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as uuid from 'uuid';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
-import { getZeroBased, getAbsolutePosition, getPositionInDiff, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
+import { getZeroBased, getAbsolutePosition, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
 import { Resource } from '../../common/resources';
@@ -56,9 +56,7 @@ export function getDocumentThreadDatas(
 		const comments = sections[i];
 
 		const firstComment = comments[0];
-		const commentAbsolutePosition = fileChange.isPartial
-			? getPositionInDiff(firstComment, fileChange.diffHunks, isBase)
-			: getAbsolutePosition(firstComment, fileChange.diffHunks, isBase);
+		const commentAbsolutePosition = getAbsolutePosition(firstComment, fileChange.diffHunks, isBase);
 
 		if (commentAbsolutePosition < 0) {
 			continue;
@@ -290,62 +288,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		});
 	}
 
-	async fetchBaseBranchAndReload(progress: vscode.Progress<{ message?: string; increment?: number }>) {
-		const { remote: { remoteName }, base: { ref } } = this.pullRequestModel;
-
-		progress.report({ message: `Running 'git fetch ${remoteName} ${ref}'`, increment: 0 });
-		await this._folderReposManager.repository.fetch(remoteName, ref);
-
-		const PROGRESS_MESSAGE = 'Reloading document';
-		progress.report({ message: PROGRESS_MESSAGE, increment: 50 });
-
-		const changes = await this.getFileChanges();
-		for (const change of changes) {
-			if (change instanceof InMemFileChangeNode) {
-				// The full content is now present for all files in the PR, since we fetched the base branch.
-				change.isPartial = false;
-			}
-		}
-
-		const initiallyVisibleEditors = vscode.window.visibleTextEditors;
-		const numEditors = initiallyVisibleEditors.length;
-		if (numEditors !== 0) {
-			const documentChangedIncrement = 40 / numEditors;
-
-			const allEditorsUpdatedPromise = new Promise(resolve => {
-				const remainingEditors = initiallyVisibleEditors.slice();
-
-				const handler = (document: vscode.TextDocument) => {
-					const index = remainingEditors.findIndex(editor => editor.document === document);
-					if (index !== -1) {
-						remainingEditors.splice(index, 1);
-						progress.report({ message: PROGRESS_MESSAGE, increment: documentChangedIncrement });
-					}
-
-					const anyRemainingDocumentsVisible = remainingEditors.some(editor => vscode.window.visibleTextEditors.indexOf(editor) !== -1);
-					if (!anyRemainingDocumentsVisible || remainingEditors.length === 0) {
-						onChangeDisposable.dispose();
-						onCloseDisposable.dispose();
-						resolve();
-					}
-				};
-
-				const onChangeDisposable = vscode.workspace.onDidChangeTextDocument(e => handler(e.document));
-				const onCloseDisposable = vscode.workspace.onDidCloseTextDocument(handler);
-			});
-
-			const contentProvider = getInMemPRContentProvider();
-			for (const editor of initiallyVisibleEditors) {
-				contentProvider.fireDidChange(editor.document.uri);
-			}
-
-			await allEditorsUpdatedPromise;
-		}
-
-		progress.report({ message: 'Reloading comments', increment: 10 });
-		await this.refreshExistingPREditors(vscode.window.visibleTextEditors, false);
-	}
-
 	async refreshExistingPREditors(editors: vscode.TextEditor[], incremental: boolean): Promise<void> {
 		let currentPRDocuments = editors.filter(editor => {
 			if (editor.document.uri.scheme !== 'pr') {
@@ -560,6 +502,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return fileChange;
 	}
 
+	/**
+	 * Calculate the position of the comment within the diff of a file.
+	 * @param fileChange The file change information
+	 * @param thread The new comment thread, which has position information about where it is in the content displayed in the editor
+	 */
 	private calculateCommentPosition(fileChange: InMemFileChangeNode, thread: GHPRCommentThread): number {
 		const uri = thread.uri;
 		const params = fromPRUri(uri);
@@ -590,7 +537,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				return;
 			}
 
-			return getCommentingRanges(fileChange.diffHunks, document.lineCount, fileChange.isPartial, params.isBase);
+			return getCommentingRanges(fileChange.diffHunks, params.isBase);
 		}
 	}
 
@@ -672,7 +619,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return '';
 		}
 
-		if (fileChange instanceof RemoteFileChangeNode) {
+		if (fileChange instanceof RemoteFileChangeNode || fileChange.isPartial) {
 			try {
 				if (params.isBase) {
 					return this.pullRequestModel.getFile(fileChange.previousFileName || fileChange.fileName, params.baseCommit);
@@ -693,7 +640,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 
 		if (fileChange instanceof InMemFileChangeNode) {
-			const readContentFromDiffHunk = fileChange.isPartial || fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
+			const readContentFromDiffHunk = fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
 
 			if (readContentFromDiffHunk) {
 				if (params.isBase) {

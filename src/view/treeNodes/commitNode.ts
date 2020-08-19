@@ -64,7 +64,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				undefined,
 				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: false }, this.pullRequestManager.repository.rootUri),
 				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: true }, this.pullRequestManager.repository.rootUri),
-				false,
 				[],
 				matchingComments,
 				this.commit.sha

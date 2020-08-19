@@ -420,7 +420,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return;
 			}
 
-			return getCommentingRanges(fileChange.diffHunks, document.lineCount, fileChange.isPartial, params.isBase);
+			return getCommentingRanges(fileChange.diffHunks, params.isBase);
 		}
 
 		let query: ReviewUriParams | undefined;
@@ -433,7 +433,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
 
 			if (matchedFile) {
-				return getCommentingRanges(matchedFile.diffHunks, document.lineCount, matchedFile.isPartial, query.base);
+				return getCommentingRanges(matchedFile.diffHunks, query.base);
 			}
 		}
 
