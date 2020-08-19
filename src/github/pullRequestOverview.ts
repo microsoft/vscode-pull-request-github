@@ -87,7 +87,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 				this._postMessage({
 					command: 'pr.update-checkout-status',
-					isCurrentlyCheckedOut: isCurrentlyCheckedOut
+					isCurrentlyCheckedOut
 				});
 			}
 		});
