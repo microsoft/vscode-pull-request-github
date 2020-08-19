@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution, getIssueNumberLabel, isComment } from './util';
+import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution, getIssueNumberLabel, isComment, getRootUriFromScmInputUri } from './util';
 import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
@@ -54,12 +54,17 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		const completionItems: Map<string, vscode.CompletionItem> = new Map();
 		const now = new Date();
 		let repo: PullRequestDefaults | undefined;
+		const uri = (document.languageId === 'scminput') ? getRootUriFromScmInputUri(document.uri) : document.uri;
+		if (!uri) {
+			return [];
+		}
+
 		try {
-			repo = await (await this.repositoriesManager.getManagerForFile(document.uri))?.getPullRequestDefaults();
+			repo = await (await this.repositoriesManager.getManagerForFile(uri))?.getPullRequestDefaults();
 		} catch (e) {
 			// leave repo undefined
 		}
-		const issueData = this.stateManager.getIssueCollection(document.uri);
+		const issueData = this.stateManager.getIssueCollection(uri);
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = await issueQuery[1] ?? [];
 			if (issuesOrMilestones.length === 0) {
