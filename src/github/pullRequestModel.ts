@@ -766,7 +766,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 */
 	async getMergability(): Promise<PullRequestMergeability> {
 		try {
-			Logger.debug(`Fetch pull request mergeability ${this.id} - enter`, PullRequestModel.ID);
+			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
 
 			const { data } = await query<PullRequestResponse>({
@@ -774,10 +774,10 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					number: this.id
+					number: this.number
 				}
 			});
-			Logger.debug(`Fetch pull request mergeability ${this.id} - done`, PullRequestModel.ID);
+			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			return parseMergeability(data.repository.pullRequest.mergeable);
 		} catch (e) {
 			Logger.appendLine(`PullRequestModel> Unable to fetch PR Mergeability: ${e}`);
