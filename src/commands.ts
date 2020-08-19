@@ -361,8 +361,9 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode, message?: string) => {
-		const folderManager = reposManager.getManagerForIssueModel(pr?.pullRequestModel);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode | PullRequestModel, message?: string) => {
+		const pullRequestModel = pr instanceof PullRequestModel ? pr : pr?.pullRequestModel;
+		const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
 		if (!folderManager) {
 			return;
 		}
