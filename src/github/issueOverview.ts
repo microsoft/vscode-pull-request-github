@@ -41,14 +41,14 @@ export class IssueOverviewPanel {
 	protected _disposables: vscode.Disposable[] = [];
 	protected _descriptionNode: DescriptionNode;
 	protected _item: IssueModel;
-	protected _pullRequestManager: FolderRepositoryManager;
+	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
 	private _waitForReady: Promise<void>;
 	private _onIsReady: vscode.EventEmitter<void> = new vscode.EventEmitter();
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 
-	public static async createOrShow(extensionPath: string, pullRequestManager: FolderRepositoryManager, issue: IssueModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: IssueModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -61,10 +61,10 @@ export class IssueOverviewPanel {
 			IssueOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Issue #${issue.number.toString()}`;
-			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
+			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager, descriptionNode);
 		}
 
-		await IssueOverviewPanel.currentPanel!.update(issue, descriptionNode);
+		await IssueOverviewPanel.currentPanel!.update(folderRepositoryManager, issue, descriptionNode);
 	}
 
 	public static refresh(): void {
@@ -73,9 +73,9 @@ export class IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: FolderRepositoryManager, descriptionNode: DescriptionNode, type: string = IssueOverviewPanel._viewType) {
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, descriptionNode: DescriptionNode, type: string = IssueOverviewPanel._viewType) {
 		this._extensionPath = extensionPath;
-		this._pullRequestManager = pullRequestManager;
+		this._folderRepositoryManager = folderRepositoryManager;
 		this._descriptionNode = descriptionNode;
 
 		// Create and show a new webview panel
@@ -106,9 +106,9 @@ export class IssueOverviewPanel {
 			await this._onDidReceiveMessage(message);
 		}, null, this._disposables);
 
-		this._pullRequestManager.onDidChangeActiveIssue(_ => {
-			if (this._pullRequestManager && this._item) {
-				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeIssue);
+		this._folderRepositoryManager.onDidChangeActiveIssue(_ => {
+			if (this._folderRepositoryManager && this._item) {
+				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activeIssue);
 				this._postMessage({
 					command: 'pr.update-checkout-status',
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
@@ -119,19 +119,19 @@ export class IssueOverviewPanel {
 
 	public async refreshPanel(): Promise<void> {
 		if (this._panel && this._panel.visible) {
-			this.update(this._item, this._descriptionNode);
+			this.update(this._folderRepositoryManager, this._item, this._descriptionNode);
 		}
 	}
 
 	public async updateIssue(issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
 		return Promise.all([
-			this._pullRequestManager.resolveIssue(
+			this._folderRepositoryManager.resolveIssue(
 				issueModel.remote.owner,
 				issueModel.remote.repositoryName,
 				issueModel.number
 			),
 			issueModel.getIssueTimelineEvents(),
-			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(issueModel),
+			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(issueModel),
 		]).then(result => {
 			const [issue, timelineEvents, defaultBranch] = result;
 			if (!issue) {
@@ -171,7 +171,8 @@ export class IssueOverviewPanel {
 		});
 	}
 
-	public async update(issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async update(foldersManager: FolderRepositoryManager, issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
+		this._folderRepositoryManager = foldersManager;
 		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',
@@ -258,7 +259,7 @@ export class IssueOverviewPanel {
 				});
 			}
 
-			const labelsToAdd = await vscode.window.showQuickPick(await getLabelOptions(this._pullRequestManager, this._item), { canPickMany: true });
+			const labelsToAdd = await vscode.window.showQuickPick(await getLabelOptions(this._folderRepositoryManager, this._item), { canPickMany: true });
 
 			if (labelsToAdd && labelsToAdd.length) {
 				await this._item.addLabels(labelsToAdd.map(r => r.label));
