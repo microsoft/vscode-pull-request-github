@@ -707,7 +707,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 						id: context.id,
 						url: context.targetUrl,
 						avatar_url: context.avatarUrl,
-						state: context.state.toLowerCase(),
+						state: context.state?.toLowerCase(),
 						description: context.description,
 						context: context.context,
 						target_url: context.targetUrl
