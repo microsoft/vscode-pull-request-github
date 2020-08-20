@@ -145,8 +145,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			return [];
 		}
 
-		const headCommitSha = this._reposManager.activePullRequest.head.sha;
-		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
+		const contentDiff = await this._repository.diffWithHEAD(matchedFile.fileName);
 		const fileComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchedFile.comments)
 			.filter(comment => comment.absolutePosition !== undefined);
 
@@ -291,8 +290,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return;
 			}
 
-			const headCommitSha = this._reposManager.activePullRequest!.head.sha;
-			const contentDiff = await this.getContentDiff(editor.document, headCommitSha, fileName);
+			const contentDiff = await this.getContentDiff(editor.document, fileName);
 			mapCommentThreadsToHead(matchedFiles[0].diffHunks, contentDiff, commentThreads);
 			return;
 		}
@@ -451,13 +449,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const matchedFile = gitFileChangeNodeFilter(this._localFileChanges).find(fileChange => fileChange.fileName === fileName);
 			const ranges = [];
 
-			const headCommitSha = this._reposManager.activePullRequest!.head.sha;
 			if (matchedFile) {
 				if (matchedFile.status === GitChangeType.RENAME) {
 					return [];
 				}
 
-				const contentDiff = await this.getContentDiff(document, headCommitSha, matchedFile.fileName);
+				const contentDiff = await this.getContentDiff(document, matchedFile.fileName);
 				const diffHunks = matchedFile.diffHunks;
 
 				for (let i = 0; i < diffHunks.length; i++) {
@@ -506,10 +503,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			throw new Error('No upstream branch');
 		}
 
-		const headCommitSha = this._reposManager.activePullRequest.head.sha;
-
 		// git diff sha -- fileName
-		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
+		const contentDiff = await this._repository.diffWithHEAD(matchedFile.fileName);
 		const position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, thread.range.start.line + 1, isBase);
 		// If this is base and the diff line isn't a deletion, then this should actually be created on the right hand side
 
@@ -522,12 +517,17 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	private async createNewThread(thread: GHPRCommentThread, matchedFile: GitFileChangeNode, text: string): Promise<IComment | undefined> {
 		const position = await this.getNewCommentPosition(thread, matchedFile);
-		return await this._reposManager.activePullRequest!.createReviewComment(text, matchedFile.fileName, position);
+		// Comments created on 'pr' scheme files (those from the pull request tree) are always against the head commit of the PR.
+		// Those on 'review' and 'file' documents are using the local head commit, so may be out of date.
+		const headCommit = thread.uri.scheme !== 'pr' ? this._repository.state.HEAD?.commit : undefined;
+		return await this._reposManager.activePullRequest!.createReviewComment(text, matchedFile.fileName, position, headCommit);
 	}
 
-	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string): Promise<string> {
+	private async getContentDiff(document: vscode.TextDocument, fileName: string): Promise<string> {
 		let contentDiff: string;
+
 		if (document.isDirty) {
+			const headCommitSha = this._repository.state.HEAD!.commit!;
 			const documentText = document.getText();
 			const details = await this._repository.getObjectDetails(headCommitSha, fileName);
 			const idAtLastCommit = details.object;
@@ -537,7 +537,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
 		} else {
 			// git diff sha -- fileName
-			contentDiff = await this._repository.diffWith(headCommitSha, fileName);
+			contentDiff = await this._repository.diffWithHEAD(fileName);
 		}
 
 		return contentDiff;
@@ -730,12 +730,17 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 
 			const position = await this.getNewCommentPosition(thread, matchedFile);
+
+			// Comments created on 'pr' scheme files (those from the pull request tree) are always against the head commit of the PR.
+			// Those on 'review' and 'file' documents are using the local head commit, so may be out of date.
+			const headCommit = thread.uri.scheme !== 'pr' ? this._repository.state.HEAD?.commit : undefined;
 			const comment = await this._reposManager.activePullRequest!.startReview(
 				{
 					body: input,
 					path: matchedFile.fileName,
 					position
-				}
+				},
+				headCommit
 			);
 
 			thread.threadId = comment.id.toString();

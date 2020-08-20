@@ -284,8 +284,9 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	/**
 	 * Start a new review.
 	 * @param initialComment The comment text and position information to begin the review with
+	 * @param commitId The optional commit id to start the review on. Defaults to using the current head commit.
 	 */
-	async startReview(initialComment: { body: string, path: string, position: number }): Promise<IComment> {
+	async startReview(initialComment: { body: string, path: string, position: number }, commitId?: string): Promise<IComment> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<StartReviewResponse>({
 			mutation: schema.StartReview,
@@ -293,7 +294,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				input: {
 					body: '',
 					pullRequestId: this.item.graphNodeId,
-					comments: initialComment
+					comments: initialComment,
+					commitOID: commitId || this.head?.sha
 				}
 			}
 		});
@@ -313,15 +315,16 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 * @param body The text of the new comment
 	 * @param commentPath The file path where the comment should be made
 	 * @param position The line number within the file to add the comment
+	 * @param commitId The optional commit id to comment on. Defaults to using the current head commit.
 	 */
-	async createReviewComment(body: string, commentPath: string, position: number): Promise<IComment | undefined> {
+	async createReviewComment(body: string, commentPath: string, position: number, commitId?: string): Promise<IComment | undefined> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
 
 		const pendingReviewId = await this.getPendingReviewId();
 		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pendingReviewId, body, { path: commentPath, position });
+			return this.addCommentToPendingReview(pendingReviewId, body, { path: commentPath, position }, commitId);
 		}
 
 		const githubRepository = this.githubRepository;
@@ -333,7 +336,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				repo: remote.repositoryName,
 				pull_number: this.number,
 				body: body,
-				commit_id: this.head.sha,
+				commit_id: commitId || this.head.sha,
 				path: commentPath,
 				position: position
 			});
@@ -372,7 +375,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		}
 	}
 
-	private async addCommentToPendingReview(reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition): Promise<IComment> {
+	private async addCommentToPendingReview(reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition, commitId?: string): Promise<IComment> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddCommentResponse>({
 			mutation: schema.AddComment,
@@ -380,7 +383,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				input: {
 					pullRequestReviewId: reviewId,
 					body,
-					...position
+					...position,
+					commitOID: commitId || this.head?.sha
 				}
 			}
 		});
