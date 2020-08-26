@@ -590,7 +590,7 @@
       },
       {
         "command": "issue.openGithubPermalink",
-        "title": "Open Permalink in Github",
+        "title": "Open Permalink in GitHub",
         "category": "GitHub Issues"
       },
       {
