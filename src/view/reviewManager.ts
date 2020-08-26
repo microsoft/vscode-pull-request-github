@@ -56,6 +56,8 @@ export class ReviewManager {
 		}
 	}
 
+	private _isFirstLoad = true;
+
 	constructor(
 		private _repository: Repository,
 		private _folderRepoManager: FolderRepositoryManager,
@@ -149,6 +151,26 @@ export class ReviewManager {
 		}, 1000 * 60 * 5);
 	}
 
+	private async checkBranchUpToDate(pr: IResolvedPullRequestModel): Promise<void> {
+		const branch = this._repository.state.HEAD;
+		if (branch) {
+			const remote = branch.upstream ? branch.upstream.remote : null;
+			if (remote) {
+				await this._repository.fetch(remote, this._repository.state.HEAD?.name);
+				if ((pr.head.sha !== this._lastCommitSha || (branch.behind !== undefined && branch.behind > 0)) && !this._updateMessageShown) {
+					this._updateMessageShown = true;
+					const result = await vscode.window.showInformationMessage('There are updates available for this pull request.', {}, 'Pull');
+
+					if (result === 'Pull') {
+						await vscode.commands.executeCommand('git.pull');
+						this._updateMessageShown = false;
+					}
+				}
+
+			}
+		}
+	}
+
 	public async updateState(silent: boolean = false) {
 		if (this.switchingToReviewMode) {
 			return;
@@ -219,6 +241,11 @@ export class ReviewManager {
 		this._folderRepoManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
+		if (this._isFirstLoad) {
+			this._isFirstLoad = false;
+			this.checkBranchUpToDate(pr);
+		}
+
 		Logger.appendLine('Review> Fetching pull request data');
 		await this.getPullRequestData(pr);
 		await this.changesInPrDataProvider.addPrToView(this._folderRepoManager, pr, this._localFileChanges, this._comments);
@@ -255,15 +282,7 @@ export class ReviewManager {
 			return;
 		}
 
-		if ((pr.head.sha !== this._lastCommitSha || (branch.behind !== undefined && branch.behind > 0)) && !this._updateMessageShown) {
-			this._updateMessageShown = true;
-			const result = await vscode.window.showInformationMessage('There are updates available for this branch.', {}, 'Pull');
-
-			if (result === 'Pull') {
-				await vscode.commands.executeCommand('git.pull');
-				this._updateMessageShown = false;
-			}
-		}
+		await this.checkBranchUpToDate(pr);
 
 		await this.getPullRequestData(pr);
 		await this._reviewCommentController.update(this._localFileChanges, this._obsoleteFileChanges);
