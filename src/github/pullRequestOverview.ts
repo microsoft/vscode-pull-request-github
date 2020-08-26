@@ -586,7 +586,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.approve().then(review => {
+		this._item.approve(message.args).then(review => {
 			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
