@@ -25,7 +25,7 @@ import { Remote } from '../../common/remote';
 import { GHPRCommentThread } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
-import { ApiImpl } from '../../api/api1';
+import { GitApiImpl } from '../../api/api1';
 
 const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new Remote('test', 'github/test', protocol);
@@ -56,7 +56,7 @@ describe('ReviewCommentController', function () {
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
-		manager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
+		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return new MockGitHubRepository(r, cStore, telemetry, sinon);
 		});

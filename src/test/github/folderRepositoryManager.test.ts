@@ -11,7 +11,7 @@ import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { ApiImpl } from '../../api/api1';
+import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 
 describe('PullRequestManager', function () {
@@ -26,7 +26,7 @@ describe('PullRequestManager', function () {
 		telemetry = new MockTelemetry();
 		const repository = new MockRepository();
 		const credentialStore = new CredentialStore(telemetry);
-		manager = new FolderRepositoryManager(repository, telemetry, new ApiImpl(), credentialStore);
+		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 	});
 
 	afterEach(function () {

@@ -9,10 +9,10 @@ import { IssueModel } from '../github/issueModel';
 import { IAccount } from '../github/interface';
 import { FolderRepositoryManager, NO_MILESTONE, PullRequestDefaults, ReposManagerState } from '../github/folderRepositoryManager';
 import { MilestoneModel } from '../github/milestoneModel';
-import { GitAPI } from '../typings/git';
 import { ISSUES_CONFIGURATION, BRANCH_CONFIGURATION, QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION, variableSubstitution, getIssueNumberLabel } from './util';
 import { CurrentIssue } from './currentIssue';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { GitApiImpl } from '../api/api1';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
@@ -81,7 +81,7 @@ export class StateManager {
 	}
 
 	constructor(
-		readonly gitAPI: GitAPI,
+		readonly gitAPI: GitApiImpl,
 		private manager: RepositoriesManager,
 		private context: vscode.ExtensionContext
 	) {

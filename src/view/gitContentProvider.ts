@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as pathLib from 'path';
 import { fromReviewUri } from '../common/uri';
 import { getRepositoryForFile } from '../github/utils';
-import { GitAPI } from '../typings/git';
+import { GitApiImpl } from '../api/api1';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
@@ -16,7 +16,7 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 
 	private _fallback?: ((uri: vscode.Uri) => Promise<string>);
 
-	constructor(private gitAPI: GitAPI) { }
+	constructor(private gitAPI: GitApiImpl) { }
 
 	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
 		if (!this._fallback) {
