@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { Repository } from './api/api';
-import { ApiImpl } from './api/api1';
+import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
 import Logger from './common/logger';
 import { Resource } from './common/resources';
@@ -22,7 +22,6 @@ import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { CredentialStore } from './github/credentials';
-import { GitExtension, GitAPI } from './typings/git';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { LiveShare } from 'vsls/vscode.js';
 import { RepositoriesManager } from './github/repositoriesManager';
@@ -38,7 +37,7 @@ fetch.Promise = PolyfillPromise;
 
 let telemetry: TelemetryReporter;
 
-async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitAPI, credentialStore: CredentialStore, repositories: Repository[], tree: PullRequestsTreeDataProvider, liveshareApiPromise: Promise<LiveShare | undefined>): Promise<void> {
+async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentialStore: CredentialStore, repositories: Repository[], tree: PullRequestsTreeDataProvider, liveshareApiPromise: Promise<LiveShare | undefined>): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
@@ -68,7 +67,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	const changesTree = new PullRequestChangesTreeDataProvider(context);
 	context.subscriptions.push(changesTree);
 	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(folderManager.repository, folderManager, telemetry, changesTree));
-	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, gitAPI);
+	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, git);
 	context.subscriptions.push(reviewsManager);
 	tree.initialize(reposManager);
 	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
@@ -89,7 +88,7 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	});
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
-	const issuesFeatures = new IssueFeatureRegistrar(gitAPI, reposManager, reviewManagers, context, telemetry);
+	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
@@ -99,10 +98,10 @@ async function init(context: vscode.ExtensionContext, git: ApiImpl, gitAPI: GitA
 	telemetry.sendTelemetryEvent('startup');
 }
 
-export async function activate(context: vscode.ExtensionContext): Promise<ApiImpl> {
+export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
 	// initialize resources
 	Resource.initialize(context);
-	const apiImpl = new ApiImpl();
+	const apiImpl = new GitApiImpl();
 
 	const version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
 	telemetry = new TelemetryReporter(EXTENSION_ID, version, aiKey);
@@ -111,9 +110,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	PersistentState.init(context);
 	const credentialStore = new CredentialStore(telemetry);
 	await credentialStore.initialize();
-
-	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
-	const gitAPI = gitExtension.getAPI(1);
 
 	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
 	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
@@ -128,9 +124,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<ApiImp
 	context.subscriptions.push(prTree);
 
 	if (apiImpl.repositories.length > 0) {
-		await init(context, apiImpl, gitAPI, credentialStore, apiImpl.repositories, prTree, liveshareApiPromise);
+		await init(context, apiImpl, credentialStore, apiImpl.repositories, prTree, liveshareApiPromise);
 	} else {
-		onceEvent(apiImpl.onDidOpenRepository)(r => init(context, apiImpl, gitAPI, credentialStore, [r], prTree, liveshareApiPromise));
+		onceEvent(apiImpl.onDidOpenRepository)(r => init(context, apiImpl, credentialStore, [r], prTree, liveshareApiPromise));
 	}
 
 	return apiImpl;

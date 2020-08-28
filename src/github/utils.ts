@@ -17,7 +17,8 @@ import { GitHubRepository, ViewerPermission } from './githubRepository';
 import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
 import { OctokitCommon } from './common';
-import { GitAPI, Repository } from '../typings/git';
+import { GitApiImpl } from '../api/api1';
+import { Repository } from '../api/api';
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
@@ -700,7 +701,7 @@ export function parseGraphQLViewerPermission(viewerPermissionResponse: GraphQL.V
 	return ViewerPermission.Unknown;
 }
 
-export function getRepositoryForFile(gitAPI: GitAPI, file: vscode.Uri): Repository | undefined {
+export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repository | undefined {
 	for (const repository of gitAPI.repositories) {
 		if ((file.path.toLowerCase() === repository.rootUri.path.toLowerCase()) ||
 			(file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase())

@@ -16,12 +16,12 @@ import { IssuesTreeData } from './issuesView';
 import { IssueModel } from '../github/issueModel';
 import { CurrentIssue } from './currentIssue';
 import { ReviewManager } from '../view/reviewManager';
-import { GitAPI } from '../typings/git';
 import { Resource } from '../common/resources';
 import { IssueFileSystemProvider, NEW_ISSUE_SCHEME, ASSIGNEES, LABELS, LabelCompletionProvider, NEW_ISSUE_FILE, extractIssueOriginFromQuery } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
 import { OctokitCommon } from '../github/common';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { GitApiImpl } from '../api/api1';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
@@ -30,7 +30,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
 
-	constructor(private gitAPI: GitAPI, private manager: RepositoriesManager, private reviewManagers: ReviewManager[], private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
+	constructor(private gitAPI: GitApiImpl, private manager: RepositoriesManager, private reviewManagers: ReviewManager[], private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
 	}
 

@@ -7,9 +7,9 @@ import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRe
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
 import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION, BRANCH_NAME_CONFIGURATION_DEPRECATED } from './util';
-import { Repository } from '../typings/git';
 import { StateManager, IssueState } from './stateManager';
 import { Remote } from '../common/remote';
+import { Repository } from '../api/api';
 
 export class CurrentIssue {
 	private repoChangeDisposable: vscode.Disposable | undefined;

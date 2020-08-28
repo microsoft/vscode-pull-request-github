@@ -8,7 +8,7 @@ import { API, IGit, Repository } from './api';
 import { TernarySearchTree } from '../common/utils';
 import { APIState } from '../typings/git';
 
-export class ApiImpl implements API, IGit, vscode.Disposable {
+export class GitApiImpl implements API, IGit, vscode.Disposable {
 	private static _handlePool: number = 0;
 	private _providers = new Map<number, IGit>();
 
@@ -91,7 +91,7 @@ export class ApiImpl implements API, IGit, vscode.Disposable {
 	}
 
 	private _nextHandle(): number {
-		return ApiImpl._handlePool++;
+		return GitApiImpl._handlePool++;
 	}
 
 	dispose() {

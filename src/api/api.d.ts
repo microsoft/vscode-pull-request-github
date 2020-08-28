@@ -6,6 +6,10 @@
 import { Uri, Event, Disposable } from 'vscode';
 import { APIState } from '../typings/git';
 
+export interface InputBox {
+	value: string;
+}
+
 export const enum RefType {
 	Head,
 	RemoteHead,
@@ -115,8 +119,16 @@ export interface CommitOptions {
 	empty?: boolean;
 }
 
+export interface BranchQuery {
+	readonly remote?: boolean;
+	readonly pattern?: string;
+	readonly count?: number;
+	readonly contains?: string;
+}
+
 export interface Repository {
 
+	readonly inputBox: InputBox;
 	readonly rootUri: Uri;
 	readonly state: RepositoryState;
 	readonly ui: RepositoryUIState;
@@ -185,6 +197,7 @@ export interface Repository {
 	createBranch(name: string, checkout: boolean, ref?: string): Promise<void>;
 	deleteBranch(name: string, force?: boolean): Promise<void>;
 	getBranch(name: string): Promise<Branch>;
+	getBranches(query: BranchQuery): Promise<Ref[]>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
 	getMergeBase(ref1: string, ref2: string): Promise<string>;
 
@@ -211,6 +224,7 @@ export interface Repository {
 export interface LogOptions {
 	/** Max number of log entries to retrieve. If not specified, the default is 32. */
 	readonly maxEntries?: number;
+	readonly path?: string;
 }
 
 export const enum GitErrorCodes {

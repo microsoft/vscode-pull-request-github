@@ -12,9 +12,10 @@ import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
-import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
 import { Protocol } from '../common/protocol';
 import { getRepositoryForFile } from '../github/utils';
+import { GitApiImpl } from '../api/api1';
+import { Repository, Commit, Remote, Ref } from '../api/api';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
@@ -312,7 +313,7 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	return bestRemote;
 }
 
-export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIssue): Promise<{ permalink: string | undefined, error: string | undefined }> {
+export async function createGithubPermalink(gitAPI: GitApiImpl, positionInfo?: NewIssue): Promise<{ permalink: string | undefined, error: string | undefined }> {
 	let document: vscode.TextDocument;
 	let range: vscode.Range;
 	if (!positionInfo && vscode.window.activeTextEditor) {

@@ -21,7 +21,7 @@ import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, getRelatedUsersFromTimelineEvents, convertRESTUserToAccount, loginComparator, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
 import { PullRequestState, UserResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
-import { ApiImpl } from '../api/api1';
+import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
@@ -132,7 +132,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	constructor(
 		private _repository: Repository,
 		private readonly _telemetry: ITelemetry,
-		private _git: ApiImpl,
+		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
 	) {
 		this._subs = [];

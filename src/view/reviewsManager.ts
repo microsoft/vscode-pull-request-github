@@ -10,7 +10,7 @@ import { ITelemetry } from '../common/telemetry';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ReviewManager } from './reviewManager';
 import { GitContentProvider } from './gitContentProvider';
-import { GitAPI } from '../typings/git';
+import { GitApiImpl } from '../api/api1';
 
 export class ReviewsManager {
 	public static ID = 'Reviews';
@@ -23,7 +23,7 @@ export class ReviewsManager {
 		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
 		private _prFileChangesProvider: PullRequestChangesTreeDataProvider,
 		private _telemetry: ITelemetry,
-		gitApi: GitAPI
+		gitApi: GitApiImpl
 	) {
 		this._disposables = [];
 		const gitContentProvider = new GitContentProvider(gitApi);
