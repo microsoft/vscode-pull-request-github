@@ -360,9 +360,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
-	async doStartWorking(issueModel: IssueModel, needsBranchPrompt?: boolean) {
-		const repoManager = this.manager.getManagerForIssueModel(issueModel);
+	async doStartWorking(repoManager: FolderRepositoryManager | undefined, issueModel: IssueModel, needsBranchPrompt?: boolean) {
 		if (!repoManager) {
+			vscode.window.showErrorMessage(`There are no repositories open that match ${issueModel.remote.url}`);
 			return;
 		}
 
@@ -380,20 +380,14 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (!(issue instanceof IssueModel)) {
 			return;
 		}
-		const folderManager = this.manager.getManagerForIssueModel(issue);
-		if (folderManager) {
-			this.doStartWorking(issue);
-		}
+		this.doStartWorking(this.manager.getManagerForIssueModel(issue), issue);
 	}
 
 	async startWorkingBranchPrompt(issueModel: any) {
 		if (!(issueModel instanceof IssueModel)) {
 			return;
 		}
-		const folderManager = this.manager.getManagerForIssueModel(issueModel);
-		if (folderManager) {
-			this.doStartWorking(issueModel, true);
-		}
+		this.doStartWorking(this.manager.getManagerForIssueModel(issueModel), issueModel, true);
 	}
 
 	async stopWorking(issueModel: any) {
