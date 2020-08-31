@@ -1210,7 +1210,9 @@
     "test": "yarn run preprocess && node ./out/test/runTests.js",
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
     "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
-    "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources"
+    "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources",
+    "compile-web": "npx webpack-cli --config browser.webpack.config --mode none",
+		"watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
@@ -1234,6 +1236,7 @@
     "glob": "7.1.6",
     "jsdom": "16.2.0",
     "jsdom-global": "3.0.2",
+    "merge-options": "^2.0.0",
     "minimist": "^1.2.3",
     "mkdirp": "0.5.1",
     "mocha": "^7.0.1",
@@ -1247,6 +1250,7 @@
     "style-loader": "^1.1.3",
     "svg-inline-loader": "^0.8.2",
     "temp": "0.9.1",
+    "terser-webpack-plugin": "^4.1.0",
     "ts-loader": "^6.2.1",
     "tslint": "^6.0.0",
     "tslint-webpack-plugin": "^2.1.0",
@@ -1271,7 +1275,7 @@
     "marked": "^0.8.0",
     "moment": "^2.22.1",
     "node-emoji": "^1.8.1",
-    "node-fetch": "3.0.0-beta.7",
+    "node-fetch": "^2.6.0",
     "query-string": "^6.2.0",
     "ssh-config": "^2.0.0-alpha.3",
     "tunnel": "0.0.6",

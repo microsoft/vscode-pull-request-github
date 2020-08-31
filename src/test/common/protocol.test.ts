@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert = require('assert');
-import * as ssh from '../../common/ssh';
+import * as ssh from '../../env/node/ssh';
 import { Protocol, ProtocolType } from '../../common/protocol';
 
 const SSH_CONFIG_WITH_HOST_ALIASES = `

@@ -18,7 +18,6 @@ import { GitChangeType } from './common/file';
 import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
 import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
-import { writeFile, unlink } from 'fs';
 import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
 import { IComment } from './common/comment';
@@ -130,24 +129,12 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			await vscode.commands.executeCommand('git.unstageAll');
 
 			const tempFilePath = pathLib.join(folderManager.repository.rootUri.path, '.git', `${folderManager.activePullRequest.number}.diff`);
-			writeFile(tempFilePath, diff, {}, async (writeError) => {
-				if (writeError) {
-					throw writeError;
-				}
+			const encoder = new TextEncoder();
+			const tempUri = vscode.Uri.parse(tempFilePath);
 
-				try {
-					await folderManager.repository.apply(tempFilePath, true);
-
-					unlink(tempFilePath, (err) => {
-						if (err) {
-							throw err;
-						}
-					});
-				} catch (err) {
-					Logger.appendLine(`Applying patch failed: ${err}`);
-					vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
-				}
-			});
+			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(diff));
+			await folderManager.repository.apply(tempFilePath, true);
+			await vscode.workspace.fs.delete(tempUri);
 		} catch (err) {
 			Logger.appendLine(`Applying patch failed: ${err}`);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
