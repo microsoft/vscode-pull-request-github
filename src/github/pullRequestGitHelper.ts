@@ -14,7 +14,7 @@ import { Repository, Branch } from '../api/api';
 import { PullRequestModel, IResolvedPullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
-const PullRequestMetadataKey = 'github-pr-owner-number';
+export const PullRequestMetadataKey = 'github-pr-owner-number';
 const PullRequestBranchRegex = /branch\.(.+)\.github-pr-owner-number/;
 const PullRequestRemoteRegex = /branch\.(.+)\.remote/;
 
@@ -230,9 +230,13 @@ export class PullRequestGitHelper {
 		}
 	}
 
+	static getMetadataKeyForBranch(branchName: string): string {
+		return `branch.${branchName}.${PullRequestMetadataKey}`;
+	}
+
 	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata | undefined> {
 		try {
-			const configKey = `branch.${branchName}.${PullRequestMetadataKey}`;
+			const configKey = this.getMetadataKeyForBranch(branchName);
 			const configValue = await repository.getConfig(configKey);
 			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
 		} catch (_) {
