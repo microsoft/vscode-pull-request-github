@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import Logger from './logger';
 
-import { resolve } from './ssh';
+import { resolve } from '../env/node/ssh';
 
 export enum ProtocolType {
 	Local,

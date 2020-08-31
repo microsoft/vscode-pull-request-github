@@ -1,7 +1,7 @@
 import * as https from 'https';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
-import { agent } from '../common/net';
+import { agent } from '../env/node/net';
 import { HostHelper } from './configuration';
 
 export class GitHubManager {

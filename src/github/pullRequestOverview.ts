@@ -10,7 +10,6 @@ import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAv
 import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../api/api';
 import { IComment } from '../common/comment';
-import { writeFile, unlink } from 'fs';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
@@ -369,35 +368,20 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	private applyPatch(message: IRequestMessage<{ comment: IComment }>): void {
+	private async applyPatch(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
 
 			const tempFilePath = path.join(this._folderRepositoryManager.repository.rootUri.path, '.git', `${comment.id}.diff`);
-			writeFile(tempFilePath, matches![1], {}, async (writeError) => {
-				if (writeError) {
-					throw writeError;
-				}
 
-				try {
-					await this._folderRepositoryManager.repository.apply(tempFilePath);
+			const encoder = new TextEncoder();
+			const tempUri = vscode.Uri.parse(tempFilePath);
 
-					// Need to mark conversation as resolved
-					unlink(tempFilePath, (err) => {
-						if (err) {
-							throw err;
-						}
-
-						vscode.window.showInformationMessage('The suggested changes have been applied.');
-						this._replyMessage(message, {});
-					});
-				} catch (e) {
-					Logger.appendLine(`Applying patch failed: ${e}`);
-					vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);
-				}
-			});
+			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(matches![1]));
+			await this._folderRepositoryManager.repository.apply(tempFilePath, true);
+			await vscode.workspace.fs.delete(tempUri);
 		} catch (e) {
 			Logger.appendLine(`Applying patch failed: ${e}`);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);

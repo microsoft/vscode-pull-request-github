@@ -340,6 +340,7 @@ media
 package-lock.json
 src/typings/vscode.d.ts
 src/typings/vscode.proposed.d.ts
+dist/**
 
 # CI
 package.insiders.json
