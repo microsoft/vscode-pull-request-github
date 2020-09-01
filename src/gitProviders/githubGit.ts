@@ -281,7 +281,7 @@ export class GithubGitProvider implements IGit, vscode.Disposable {
 				if (folder.uri.scheme !== 'codespace') {
 					continue;
 				}
-				const match = folder.uri.authority.match(/^([A-Za-z0-9_\.-]+)\+([A-Za-z0-9_\.-]+)(\+([A-Za-z0-9_\.-]+))?$/)
+				const match = folder.uri.authority.match(/^([A-Za-z0-9_\.-]+)\+([A-Za-z0-9_\.-]+)(\+([A-Za-z0-9_\.-]+))?$/);
 				if (!match || match.length !== 5) {
 					continue;
 				}
