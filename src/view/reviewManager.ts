@@ -619,6 +619,8 @@ export class ReviewManager {
 		if (template) {
 			try {
 				const templateContent = await vscode.workspace.fs.readFile(template);
+
+				// TODO: Change new lines into spaces.
 				description = templateContent.toString();
 			} catch (e) {
 				Logger.appendLine(`Reading pull request template failed: ${e}`);
