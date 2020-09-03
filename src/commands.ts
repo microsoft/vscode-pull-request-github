@@ -48,7 +48,7 @@ function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | Pull
 	}
 }
 
-async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue: T) => string): Promise<T | undefined> {
+async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue: T) => string, placeHolder?: string): Promise<T | undefined> {
 	if (activePullRequests.length === 1) {
 		return activePullRequests[0];
 	}
@@ -61,7 +61,7 @@ async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue
 			itemValue: currentItem
 		};
 	});
-	return (await vscode.window.showQuickPick(items))?.itemValue;
+	return (await vscode.window.showQuickPick(items, { placeHolder }))?.itemValue;
 }
 
 export function registerCommands(context: vscode.ExtensionContext, reposManager: RepositoriesManager, reviewManagers: ReviewManager[], telemetry: ITelemetry, credentialStore: CredentialStore, tree: PullRequestsTreeDataProvider) {
@@ -332,12 +332,19 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode | PullRequestModel, message?: string) => {
-		const pullRequestModel = pr instanceof PullRequestModel ? pr : pr?.pullRequestModel;
-		const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
-		if (!folderManager) {
+		let pullRequestModel: PullRequestModel | undefined;
+		if (pr) {
+			pullRequestModel = pr instanceof PullRequestModel ? pr : pr.pullRequestModel;
+		} else {
+			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
+			pullRequestModel = await chooseItem<PullRequestModel>(activePullRequests,
+				(itemValue) => `${itemValue.number}: ${itemValue.title}`,
+				'Pull request to close');
+		}
+		if (!pullRequestModel) {
 			return;
 		}
-		const pullRequest = ensurePR(folderManager, pr);
+		const pullRequest: PullRequestModel = pullRequestModel;
 		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, { modal: true }, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
