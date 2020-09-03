@@ -57,7 +57,7 @@ interface SingleRepoState {
 }
 
 export class StateManager {
-	public readonly resolvedIssues: LRUCache<string, IssueModel> = new LRUCache(50); // 50 seems big enough
+	public readonly resolvedIssues: Map<string, LRUCache<string, IssueModel>> = new Map();
 	private _singleRepoStates: Map<string, SingleRepoState | undefined> = new Map();
 	private _onRefreshCacheNeeded: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onRefreshCacheNeeded: vscode.Event<void> = this._onRefreshCacheNeeded.event;

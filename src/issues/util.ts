@@ -16,6 +16,7 @@ import { Protocol } from '../common/protocol';
 import { getRepositoryForFile } from '../github/utils';
 import { GitApiImpl } from '../api/api1';
 import { Repository, Commit, Remote, Ref } from '../api/api';
+import * as LRUCache from 'lru-cache';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -55,8 +56,9 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 }
 
 export async function getIssue(stateManager: StateManager, manager: FolderRepositoryManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
-	if (stateManager.resolvedIssues.has(issueValue)) {
-		return stateManager.resolvedIssues.get(issueValue);
+	const alreadyResolved = stateManager.resolvedIssues.get(manager.repository.rootUri.path)?.get(issueValue)
+	if (alreadyResolved) {
+		return alreadyResolved;
 	} else {
 		let owner: string | undefined = undefined;
 		let name: string | undefined = undefined;
@@ -81,7 +83,13 @@ export async function getIssue(stateManager: StateManager, manager: FolderReposi
 					issue = await manager.resolvePullRequest(owner, name, issueNumber);
 				}
 				if (issue) {
-					stateManager.resolvedIssues.set(issueValue, issue);
+					let cached: LRUCache<string, IssueModel>;
+					if (!stateManager.resolvedIssues.has(manager.repository.rootUri.path)) {
+						stateManager.resolvedIssues.set(manager.repository.rootUri.path, cached = new LRUCache(50));
+					} else {
+						cached = stateManager.resolvedIssues.get(manager.repository.rootUri.path)!;
+					}
+					cached.set(issueValue, issue);
 					return issue;
 				}
 			}
