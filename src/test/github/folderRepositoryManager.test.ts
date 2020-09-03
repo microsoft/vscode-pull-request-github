@@ -1,7 +1,7 @@
 import assert = require('assert');
 import { createSandbox, SinonSandbox } from 'sinon';
 
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -51,5 +51,31 @@ describe('PullRequestManager', function () {
 			assert(changeFired.called);
 			assert.deepStrictEqual(manager.activePullRequest, pr);
 		});
+	});
+});
+
+describe('titleAndBodyFrom', function() {
+	it('separates title and body', function() {
+		const message = 'title\n\ndescription';
+
+		const {title, body} = titleAndBodyFrom(message);
+		assert.strictEqual(title, 'title');
+		assert.strictEqual(body, 'description');
+	});
+
+	it('returns only title with no body', function() {
+		const message = 'title';
+
+		const {title, body} = titleAndBodyFrom(message);
+		assert.strictEqual(title, 'title');
+		assert.strictEqual(body, '');
+	});
+
+	it('returns title and space-delimited body from new lines', function() {
+		const message = 'title\n\ndescription 1\ndescription 2\n\ndescription 3';
+
+		const {title, body} = titleAndBodyFrom(message);
+		assert.strictEqual(title, 'title');
+		assert.strictEqual(body, 'description 1 description 2 description 3');
 	});
 });
