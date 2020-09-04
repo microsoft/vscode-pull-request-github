@@ -34,6 +34,48 @@ describe('diff hunk parsing', () => {
 		assert.deepEqual(diffHunk.diffLines[8], new DiffLine(DiffChangeType.Add, -1, 6, 9, `+}`));
 	});
 
+	// #GH-2000
+	it('should handle parsing diffs of diff patches', () => {
+		const diffDiffHunk = [
+			'@@ -4,9 +4,9 @@ https://bugs.python.org/issue24844',
+			' Compiling python fails in Xcode 4 (clang < 3.3) where existence of \'atomic\'',
+			' is detected by configure, but it is not fully functional.',
+			' ',
+			'---- configure.orig	2019-12-21 15:43:09.000000000 -0500',
+			'-+++ configure	2019-12-21 15:45:31.000000000 -0500',
+			'-@@ -16791,6 +16791,24 @@',
+			'+--- configure.orig	2020-07-13 07:11:53.000000000 -0500',
+			'++++ configure	2020-07-15 10:20:09.000000000 -0500',
+			'+@@ -16837,6 +16837,24 @@',
+			'     volatile int val = 1;',
+			'     int main() {',
+			'       __atomic_load_n(&val, __ATOMIC_SEQ_CST);\''
+		].join('\n');
+
+		const diffHunkReader = parseDiffHunk(diffDiffHunk);
+		const diffHunkIter = diffHunkReader.next();
+		const diffHunk = diffHunkIter.value;
+		assert.strictEqual(diffHunk.diffLines.length, 13);
+		assert.strictEqual(diffHunk.newLength, 9);
+		assert.strictEqual(diffHunk.newLineNumber, 4);
+		assert.strictEqual(diffHunk.oldLength, 9);
+		assert.strictEqual(diffHunk.oldLineNumber, 4);
+
+		assert.deepStrictEqual(diffHunk.diffLines[0], new DiffLine(DiffChangeType.Control, -1, -1, 0, '@@ -4,9 +4,9 @@ https://bugs.python.org/issue24844'));
+		assert.deepStrictEqual(diffHunk.diffLines[1], new DiffLine(DiffChangeType.Context, 4, 4, 1, ' Compiling python fails in Xcode 4 (clang < 3.3) where existence of \'atomic\''));
+		assert.deepStrictEqual(diffHunk.diffLines[2], new DiffLine(DiffChangeType.Context, 5, 5, 2, ' is detected by configure, but it is not fully functional.'));
+		assert.deepStrictEqual(diffHunk.diffLines[3], new DiffLine(DiffChangeType.Context, 6, 6, 3, ' '));
+		assert.deepStrictEqual(diffHunk.diffLines[4], new DiffLine(DiffChangeType.Delete, 7, -1, 4, '---- configure.orig\t2019-12-21 15:43:09.000000000 -0500'));
+		assert.deepStrictEqual(diffHunk.diffLines[5], new DiffLine(DiffChangeType.Delete, 8, -1, 5, '-+++ configure\t2019-12-21 15:45:31.000000000 -0500'));
+		assert.deepStrictEqual(diffHunk.diffLines[6], new DiffLine(DiffChangeType.Delete, 9, -1, 6, '-@@ -16791,6 +16791,24 @@'));
+		assert.deepStrictEqual(diffHunk.diffLines[7], new DiffLine(DiffChangeType.Add, -1, 7, 7, '+--- configure.orig\t2020-07-13 07:11:53.000000000 -0500'));
+		assert.deepStrictEqual(diffHunk.diffLines[8], new DiffLine(DiffChangeType.Add, -1, 8, 8, '++++ configure\t2020-07-15 10:20:09.000000000 -0500'));
+		assert.deepStrictEqual(diffHunk.diffLines[9], new DiffLine(DiffChangeType.Add, -1, 9, 9, '+@@ -16837,6 +16837,24 @@'));
+		assert.deepStrictEqual(diffHunk.diffLines[10], new DiffLine(DiffChangeType.Context, 10, 10, 10, '     volatile int val = 1;'));
+		assert.deepStrictEqual(diffHunk.diffLines[11], new DiffLine(DiffChangeType.Context, 11, 11, 11, '     int main() {'));
+		assert.deepStrictEqual(diffHunk.diffLines[12], new DiffLine(DiffChangeType.Context, 12, 12, 12, '       __atomic_load_n(&val, __ATOMIC_SEQ_CST);\''));
+	});
+
 	it('getDiffLineByPosition', () => {
 		const diffHunkReader = parseDiffHunk(diff_hunk_0);
 		const diffHunkIter = diffHunkReader.next();

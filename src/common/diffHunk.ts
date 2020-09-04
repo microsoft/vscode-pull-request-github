@@ -59,7 +59,7 @@ export class DiffHunk {
 	) { }
 }
 
-export const DIFF_HUNK_HEADER = /@@ \-(\d+)(,(\d+))?( \+(\d+)(,(\d+)?)?)? @@/;
+export const DIFF_HUNK_HEADER = /^@@ \-(\d+)(,(\d+))?( \+(\d+)(,(\d+)?)?)? @@/;
 
 export function countCarriageReturns(text: string): number {
 	let count = 0;
