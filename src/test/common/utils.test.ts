@@ -21,22 +21,22 @@ describe('utils', () => {
 
 		it('should format an error with submessages', () => {
 			const error = new HookError('Validation Failed', [{ message: 'user_id can only have one pending review per pull request' }]);
-			assert.equal(utils.formatError(error), 'Validation Failed: user_id can only have one pending review per pull request');
+			assert.equal(utils.formatError(error), 'user_id can only have one pending review per pull request');
 		});
 
 		it('should format an error with submessages that are strings', () => {
 			const error = new HookError('Validation Failed', ['Can not approve your own pull request']);
-			assert.equal(utils.formatError(error), 'Validation Failed: Can not approve your own pull request');
+			assert.equal(utils.formatError(error), 'Can not approve your own pull request');
 		});
 
 		it('should format an error with field errors', () => {
 			const error = new HookError('Validation Failed', [{ field: 'title', value: 'garbage', code: 'custom' }]);
-			assert.equal(utils.formatError(error), 'Validation Failed: Value "garbage" cannot be set for field title (code: custom)');
+			assert.equal(utils.formatError(error), 'Value "garbage" cannot be set for field title (code: custom)');
 		});
 
 		it('should format an error with custom ', () => {
-			const error = new HookError('Validation Failed', [{ message: 'Cannot push to this repo', code: 'custom ' }]);
-			assert.equal(utils.formatError(error), 'Validation Failed: Cannot push to this repo');
+			const error = new HookError('Validation Failed', [{ message: 'Cannot push to this repo', code: 'custom' }]);
+			assert.equal(utils.formatError(error), 'Cannot push to this repo');
 		});
 	});
 

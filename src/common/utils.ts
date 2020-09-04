@@ -136,7 +136,7 @@ export function formatError(e: HookError | any): string {
 			return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
 		}).join(', ');
 	} else if (isHookError(e) && e.errors) {
-		furtherInfo = e.errors.map((error: any) => {
+		return e.errors.map((error: any) => {
 			if (typeof error === 'string') {
 				return error;
 			} else {
