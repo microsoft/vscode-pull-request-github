@@ -8,6 +8,12 @@
 
 ![Multi-repo](documentation/changelog/0.20.0/multirepo.png)
 
+- There is new setting, `githubPullRequests.pullRequestDescription`, to control how the description is set when creating a pull request. By default, this uses the pull request template in the repository if it exists, but can also be changed to use the latest commit message, a custom message input at create time, or to ask which of these options to use. Thank you to @heaths for this feature!
+
+### Notable fixes
+- GitHub Action based status checks are now rendered on the description page.
+- Commenting on stale pull requests is better handled.
+
 ## 0.19.0
 
 ### Changes
