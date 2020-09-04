@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.0
+
+### Changes
+
+- Pull requests and issues now follows a multi-repo model. This means that if you have folders in your workspace from different repositories you'll see the issues and pull requests from the repositories at the same time. You can also have pull requests checked out from multiple repositories.
+
+![Multi-repo](documentation/changelog/0.20.0/multirepo.png)
+
 ## 0.19.0
 
 ### Changes
