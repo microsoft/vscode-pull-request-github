@@ -21,6 +21,26 @@
 			]
 		},
 		{
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"name": "Launch Extension in Webworker",
+			"debugWebWorkerHost": true,
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+			],
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
+			"smartStep": true,
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceFolder}/dist/browser/*.js"
+			]
+		},
+		{
 			"name": "Extension Tests",
 			"type": "extensionHost",
 			"request": "launch",

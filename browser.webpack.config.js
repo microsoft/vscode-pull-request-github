@@ -23,6 +23,9 @@ function getExtensionConfig(env) {
 
 	/** @type webpack.Configuration */
 	const config = {
+		entry: {
+			extension: './src/extensionWeb.ts'
+		},
 		target: 'webworker',
 		node: {
 			path: true
@@ -41,7 +44,7 @@ function getExtensionConfig(env) {
 		}
 	};
 
-	return merge(baseConfig, config);;
+	return merge(baseConfig, config);
 }
 
 module.exports = function (env) {

@@ -103,9 +103,9 @@ export class RepositoriesManager implements vscode.Disposable {
 
 	getManagerForFile(uri: vscode.Uri): FolderRepositoryManager | undefined {
 		for (const folderManager of this.folderManagers) {
-			const managerPath = folderManager.repository.rootUri.fsPath;
-			const testUriRelativePath = uri.fsPath.substring(managerPath.length);
-			if (path.join(managerPath, testUriRelativePath) === uri.fsPath) {
+			const managerPath = folderManager.repository.rootUri.path;
+			const testUriRelativePath = uri.path.substring(managerPath.length + 1);
+			if (path.join(managerPath, testUriRelativePath) === uri.path) {
 				return folderManager;
 			}
 		}

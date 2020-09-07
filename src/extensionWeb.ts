@@ -12,8 +12,8 @@ import { Resource } from './common/resources';
 import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
-import {  } from './github/folderRepositoryManager';
-import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
+import { } from './github/folderRepositoryManager';
+import { registerLiveShareGitProvider, registerGithubGitProvider } from './gitProviders/api';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { CredentialStore } from './github/credentials';
 import { setTelemetry, aiKey, telemetry, commonDeactivate, init } from './extensionCommon';
@@ -31,7 +31,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	const credentialStore = new CredentialStore(telemetry);
 	await credentialStore.initialize();
 
-	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
+	context.subscriptions.push(registerGithubGitProvider(credentialStore, apiImpl));
 	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
 	context.subscriptions.push(liveshareGitProvider);
 	const liveshareApiPromise = liveshareGitProvider.initialize();
