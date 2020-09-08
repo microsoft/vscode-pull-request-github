@@ -949,6 +949,36 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			this._telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
 			return pullRequestModel;
 		} catch (e) {
+			if (e.message.indexOf('No commits between ') > -1) {
+				// There are unpushed commits
+				if (this._repository.state.HEAD?.ahead) {
+					// Offer to push changes
+					const shouldPush = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to push your local commits and try again?`, 'Yes', 'Cancel');
+					if (shouldPush === 'Yes') {
+						await this._repository.push();
+						return this.createPullRequest(params);
+					}
+
+					if (shouldPush === 'Cancel') {
+						return;
+					}
+				}
+
+				// There are uncommited changes
+				if (this._repository.state.workingTreeChanges.length || this._repository.state.indexChanges.length) {
+					const shouldCommit = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to commit your changes and try again?`, 'Yes', 'Cancel');
+					if (shouldCommit === 'Yes') {
+						await vscode.commands.executeCommand('git.commit');
+						await this._repository.push();
+						return this.createPullRequest(params);
+					}
+
+					if (shouldCommit === 'Cancel') {
+						return;
+					}
+				}
+			}
+
 			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
 
 			/* __GDPR__
