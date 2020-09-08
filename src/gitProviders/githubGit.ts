@@ -116,8 +116,15 @@ class GithubGitRepository implements Repository {
 			throw new Error('treeish or path not found');
 		}
 	}
-	getCommit(ref: string): Promise<Commit> {
-		throw new Error('Method not implemented.');
+	async getCommit(ref: string): Promise<Commit> {
+		const commit = await this._github.octokit.repos.getCommit({ owner: this._owner, repo: this._repo, ref });
+		return {
+			hash: commit.data.sha,
+			parents: commit.data.parents.map(parent => {
+				return parent.sha;
+			}),
+			message: commit.data.commit.message
+		};
 	}
 	clean(paths: string[]): Promise<void> {
 		// Not used in extension
@@ -185,8 +192,9 @@ class GithubGitRepository implements Repository {
 			}
 		};
 	}
-	getBranches(query: BranchQuery): Promise<Ref[]> {
-		throw new Error('Method not implemented.');
+	async getBranches(query: BranchQuery): Promise<Ref[]> {
+		// There is no good way to accomplish this with the available API.
+		return [];
 	}
 	setBranchUpstream(name: string, upstream: string): Promise<void> {
 		throw new Error('Method not implemented.');
@@ -222,8 +230,15 @@ class GithubGitRepository implements Repository {
 	blame(path: string): Promise<string> {
 		throw new Error('Method not implemented.');
 	}
-	log(options?: LogOptions | undefined): Promise<Commit[]> {
-		throw new Error('Method not implemented.');
+	async log(options?: LogOptions | undefined): Promise<Commit[]> {
+		if (!options || !options.maxEntries || (options.maxEntries !== 1) || !options.path) {
+			throw new Error('Log options are required with GitHub git provider.');
+		}
+		const branch = await this.getBranch(this._branch.data.name);
+		if (branch.commit) {
+			return [await this.getCommit(branch.commit)];
+		}
+		return [];
 	}
 	commit(message: string, opts?: CommitOptions | undefined): Promise<void> {
 		throw new Error('Method not implemented.');
