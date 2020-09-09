@@ -25,6 +25,7 @@
     "onFileSystem:newIssue"
   ],
   "browser": "./dist/browser/extension",
+  "main": "./media/extension",
   "contributes": {
     "configuration": {
       "type": "object",

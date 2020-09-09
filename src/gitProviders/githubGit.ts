@@ -86,11 +86,12 @@ class GithubGitRepository implements Repository {
 		throw new Error('Method not implemented.');
 	}
 	async getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number; }> {
-		path = vscode.Uri.file(path).fsPath;
+		const fsPath = vscode.Uri.file(path).fsPath;
+		const itemPath = fsPath.startsWith('/') ? fsPath.substr(1) : fsPath.startsWith('\\') ? fsPath.substr(1) : fsPath;
 		const treeResponse: OctokitTreeResponse = (await this.requestTrees(treeish)).data;
 		for (const item of treeResponse.tree) {
-			if (path) {
-				if ((item.type === 'blob') && ((item.path === path) || vscode.Uri.joinPath(this.rootUri, item.path).fsPath === path)) {
+			if (itemPath) {
+				if ((item.type === 'blob') && ((item.path === itemPath) || vscode.Uri.joinPath(this.rootUri, item.path).fsPath === fsPath)) {
 					return { mode: item.type, object: item.sha, size: item.size ?? 0 };
 				}
 			} else if (item.type === 'tree') {
