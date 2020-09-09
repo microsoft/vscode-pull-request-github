@@ -221,8 +221,8 @@ class GithubGitRepository implements Repository {
 	async fetch(remote?: string | undefined, ref?: string | undefined, depth?: number | undefined): Promise<void> {
 		// Fetch doesn't mean anything because we aren't paying attention to the file system.
 	}
-	pull(unshallow?: boolean | undefined): Promise<void> {
-		throw new Error('Method not implemented.');
+	async pull(unshallow?: boolean | undefined): Promise<void> {
+		// Pull doesn't mean anything because we aren't paying attention to the file system.
 	}
 	push(remoteName?: string | undefined, branchName?: string | undefined, setUpstream?: boolean | undefined): Promise<void> {
 		throw new Error('Method not implemented.');
