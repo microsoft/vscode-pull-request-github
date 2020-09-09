@@ -132,14 +132,16 @@ export class StateManager {
 		this.gitAPI.repositories.forEach(repository => {
 			this.context.subscriptions.push(repository.state.onDidChange(async () => {
 				const state = this.getOrCreateSingleRepoState(repository.rootUri);
+				// setIssueData can cause the last head and branch state to change. Capture them before that can happen.
+				const oldHead = state.lastHead;
+				const oldBranch = state.lastBranch;
 				const newHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
-				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== state.lastHead) {
-					state.lastHead = (repository.state.HEAD ? repository.state.HEAD.commit : undefined);
+				if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== oldHead) {
 					await this.setIssueData(state.folderManager);
 				}
 
 				const newBranch = repository.state.HEAD?.name;
-				if (((state.lastHead !== newHead) || (state.lastBranch !== newBranch)) &&
+				if (((oldHead !== newHead) || (oldBranch !== newBranch)) &&
 					(!state.currentIssue || (newBranch !== state.currentIssue.branchName))) {
 					if (newBranch) {
 						if (state.folderManager) {
