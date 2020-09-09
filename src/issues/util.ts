@@ -56,7 +56,7 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 }
 
 export async function getIssue(stateManager: StateManager, manager: FolderRepositoryManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
-	const alreadyResolved = stateManager.resolvedIssues.get(manager.repository.rootUri.path)?.get(issueValue)
+	const alreadyResolved = stateManager.resolvedIssues.get(manager.repository.rootUri.path)?.get(issueValue);
 	if (alreadyResolved) {
 		return alreadyResolved;
 	} else {
