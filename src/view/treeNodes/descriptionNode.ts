@@ -11,7 +11,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;
 	public contextValue?: string;
 
-	constructor(public parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>, public label: string, public iconPath: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri }, public pullRequestModel: PullRequestModel) {
+	constructor(public parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>, public label: string, public iconPath: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon, public pullRequestModel: PullRequestModel) {
 		super();
 
 		this.command = {

@@ -376,7 +376,7 @@
           "id": "issues:github",
           "name": "Issues",
           "when": "config.git.enabled",
-          "icon": "resources/icons/light/issues.svg"
+          "icon": "resources/icons/issues.svg"
         }
       ]
     },

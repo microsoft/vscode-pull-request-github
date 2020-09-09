@@ -5,7 +5,6 @@
 
 import * as marked from 'marked';
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
@@ -246,11 +245,10 @@ function getIconMarkdown(issue: IssueModel, context: vscode.ExtensionContext) {
 	}
 	switch (issue.state) {
 		case GithubItemStateEnum.Open: {
-			return `![Issue State](${vscode.Uri.file(context.asAbsolutePath(path.join('resources', 'icons', 'issues-green.svg'))).toString()})`;
-
+			return `<span style="color:#2cbe4e;">$(issues)</span>`;
 		}
 		case GithubItemStateEnum.Closed: {
-			return `![Issue State](${vscode.Uri.file(context.asAbsolutePath(path.join('resources', 'icons', 'issue-closed-red.svg'))).toString()})`;
+			return `<span style="color:#cb2431;">$(issue-closed)</span>`;
 		}
 	}
 }

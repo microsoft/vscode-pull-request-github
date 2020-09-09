@@ -10,7 +10,6 @@ import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../..
 import { getZeroBased, getAbsolutePosition, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
-import { Resource } from '../../common/resources';
 import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, uniqBy } from '../../common/utils';
 import { DescriptionNode } from './descriptionNode';
@@ -124,10 +123,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				this.childrenDisposables.forEach(dp => dp.dispose());
 			}
 
-			const descriptionNode = new DescriptionNode(this, 'Description', {
-				light: Resource.icons.light.Description,
-				dark: Resource.icons.dark.Description
-			}, this.pullRequestModel);
+			const descriptionNode = new DescriptionNode(this, 'Description', new vscode.ThemeIcon('git-pull-request'), this.pullRequestModel);
 
 			if (!this.pullRequestModel.isResolved()) {
 				return [descriptionNode];
@@ -447,7 +443,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			contextValue: 'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
 			iconPath: this.pullRequestModel.userAvatarUri
 				? this.pullRequestModel.userAvatarUri
-				: { light: Resource.icons.light.Avatar, dark: Resource.icons.dark.Avatar }
+				: new vscode.ThemeIcon('github')
 		};
 	}
 
