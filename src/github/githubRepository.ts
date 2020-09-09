@@ -86,6 +86,10 @@ export class GitHubRepository implements vscode.Disposable {
 		return this._hub;
 	}
 
+	public equals(repo: GitHubRepository): boolean {
+		return this.remote.equals(repo.remote);
+	}
+
 	public async ensureCommentsController(): Promise<void> {
 		try {
 			if (this.commentsController) {
