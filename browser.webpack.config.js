@@ -34,7 +34,6 @@ function getExtensionConfig(env) {
 		},
 		resolve: {
 			alias: {
-				'node-fetch': path.resolve(__dirname, 'node_modules/node-fetch/browser.js'),
 				'vscode-extension-telemetry': path.resolve(__dirname, 'src/env/browser/vscode-extension-telemetry.js'),
 				'../env/node/net': path.resolve(__dirname, 'src/env/browser/net'),
 				'../env/node/ssh': path.resolve(__dirname, 'src/env/browser/ssh')
