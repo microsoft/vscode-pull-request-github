@@ -3,24 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import { API } from '../api/api';
 import { LiveShareManager } from './vsls';
-import { BuiltinGitProvider } from './builtinGit';
-import { GithubGitProvider } from './githubGit';
-import { CredentialStore } from '../github/credentials';
-
-export function registerBuiltinGitProvider(apiImpl: API): vscode.Disposable {
-	const builtInGitProvider = new BuiltinGitProvider();
-	apiImpl.registerGitProvider(builtInGitProvider);
-	return builtInGitProvider;
-}
-
-export function registerGithubGitProvider(credentialStore: CredentialStore, apiImpl: API): vscode.Disposable {
-	const githubGitProvider = new GithubGitProvider(credentialStore);
-	apiImpl.registerGitProvider(githubGitProvider);
-	return githubGitProvider;
-}
 
 export function registerLiveShareGitProvider(apiImpl: API): LiveShareManager {
 	const liveShareManager = new LiveShareManager(apiImpl);
