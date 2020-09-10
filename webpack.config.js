@@ -24,7 +24,7 @@ function getExtensionConfig(env) {
 		resolve: {
 			extensions: ['.tsx', '.ts', '.js'],
 			alias: {
-				"node-fetch": path.resolve(__dirname, 'node_modules/node-fetch/lib/index.js'),
+				"node-fetch": path.resolve(__dirname, 'node_modules/node-fetch/dist/index.cjs'),
 			}
 		},
 		output: {
