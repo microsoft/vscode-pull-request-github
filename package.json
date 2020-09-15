@@ -361,7 +361,7 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "config.git.enabled",
+          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication",
           "icon": "resources/icons/pull-request.svg"
         },
         {
@@ -373,8 +373,14 @@
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "config.git.enabled",
+          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication",
           "icon": "resources/icons/issues.svg"
+        },
+        {
+          "id": "github:login",
+          "name": "Login",
+          "when": "ReposManagerStateContext == NeedsAuthentication",
+          "icon": "resources/icons/pull-request.svg"
         }
       ]
     },
@@ -696,12 +702,7 @@
     ],
     "viewsWelcome": [
       {
-        "view": "pr:github",
-        "when": "ReposManagerStateContext == NeedsAuthentication",
-        "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
-      },
-      {
-        "view": "issues:github",
+        "view": "github:login",
         "when": "ReposManagerStateContext == NeedsAuthentication",
         "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
       }
