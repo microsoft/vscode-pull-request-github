@@ -878,7 +878,7 @@ export class ReviewManager {
 	}
 
 	static getReviewManagerForRepository(reviewManagers: ReviewManager[], repository: GitHubRepository): ReviewManager | undefined {
-		return reviewManagers.find(reviewManager => reviewManager._folderRepoManager.gitHubRepositories.includes(repository));
+		return reviewManagers.find(reviewManager => reviewManager._folderRepoManager.gitHubRepositories.some(repo => repo.equals(repository)));
 	}
 
 	static getReviewManagerForFolderManager(reviewManagers: ReviewManager[], folderManager: FolderRepositoryManager): ReviewManager | undefined {
