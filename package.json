@@ -1275,7 +1275,7 @@
     "marked": "^0.8.0",
     "moment": "^2.22.1",
     "node-emoji": "^1.8.1",
-    "node-fetch": "3.0.0-beta.7",
+    "node-fetch": "3.0.0-beta.9",
     "query-string": "^6.2.0",
     "ssh-config": "^2.0.0-alpha.3",
     "tunnel": "0.0.6",
