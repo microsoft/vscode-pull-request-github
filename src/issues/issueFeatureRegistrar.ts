@@ -16,7 +16,6 @@ import { IssuesTreeData } from './issuesView';
 import { IssueModel } from '../github/issueModel';
 import { CurrentIssue } from './currentIssue';
 import { ReviewManager } from '../view/reviewManager';
-import { Resource } from '../common/resources';
 import { IssueFileSystemProvider, NEW_ISSUE_SCHEME, ASSIGNEES, LABELS, LabelCompletionProvider, NEW_ISSUE_FILE, extractIssueOriginFromQuery } from './issueFile';
 import { ITelemetry } from '../common/telemetry';
 import { OctokitCommon } from '../github/common';
@@ -505,10 +504,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		quickInput.title = 'Create Issue';
 		quickInput.buttons = [
 			{
-				iconPath: {
-					light: Resource.icons.light.Edit,
-					dark: Resource.icons.dark.Edit
-				},
+				iconPath: new vscode.ThemeIcon('edit'),
 				tooltip: 'Edit Description'
 			}
 		];

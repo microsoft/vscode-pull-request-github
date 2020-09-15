@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { StateManager, MilestoneItem, IssueItem } from './stateManager';
-import { Resource } from '../common/resources';
 import { issueMarkdown } from './util';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ReposManagerState, FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -45,10 +44,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 			treeItem = new UriTreeItem(element.uri, element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 		} else {
 			treeItem = new UriTreeItem(undefined, `${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
-			treeItem.iconPath = {
-				light: element.isOpen ? Resource.icons.light.Issues : Resource.icons.light.IssueClosed,
-				dark: element.isOpen ? Resource.icons.dark.Issues : Resource.icons.dark.IssueClosed
-			};
+			treeItem.iconPath = element.isOpen ? new vscode.ThemeIcon('issues') : new vscode.ThemeIcon('issue-closed');
 			if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
 				treeItem.label = `✓ ${treeItem.label.label}`;
 				treeItem.contextValue = 'currentissue';
