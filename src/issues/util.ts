@@ -344,21 +344,29 @@ export async function createGithubPermalink(gitAPI: GitApiImpl, positionInfo?: N
 		return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.' };
 	}
 
-	const upstream: Remote | undefined = await Promise.race([getUpstream(repository, log[0]),
-	new Promise<Remote | undefined>(resolve => {
-		setTimeout(() => {
-			if (repository.state.HEAD?.upstream) {
-				for (const remote of repository.state.remotes) {
-					if (repository.state.HEAD.upstream.remote === remote.name) {
-						resolve(remote);
-					}
+	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
+		if (repository.state.HEAD?.upstream) {
+			for (const remote of repository.state.remotes) {
+				if (repository.state.HEAD.upstream.remote === remote.name) {
+					resolve(remote);
 				}
 			}
+		}
+	});
+
+	let upstream: Remote | undefined = await Promise.race([getUpstream(repository, log[0]),
+	new Promise<Remote | undefined>(resolve => {
+		setTimeout(() => {
+			resolve(fallbackUpstream);
 		}, 2000);
 	})
 	]);
 	if (!upstream || !upstream.fetchUrl) {
-		return { permalink: undefined, error: 'There is no suitable remote.' };
+		// Check fallback
+		upstream = await fallbackUpstream;
+		if (!upstream || !upstream.fetchUrl) {
+			return { permalink: undefined, error: 'There is no suitable remote.' };
+		}
 	}
 	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
 	return { permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };

@@ -24,9 +24,7 @@
     "onStartupFinished",
     "onFileSystem:newIssue"
   ],
-  "extensionDependencies": [
-    "vscode.git"
-  ],
+  "browser": "./dist/browser/extension",
   "main": "./media/extension",
   "contributes": {
     "configuration": {
@@ -1212,7 +1210,7 @@
     "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
     "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources",
     "compile-web": "npx webpack-cli --config browser.webpack.config --mode none",
-		"watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
+    "watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
@@ -1265,6 +1263,7 @@
     "@octokit/types": "^5.1.0",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
+    "cross-fetch": "^3.0.5",
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",
     "events": "^3.0.0",

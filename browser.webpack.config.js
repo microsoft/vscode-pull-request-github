@@ -34,14 +34,16 @@ function getExtensionConfig(env) {
 		},
 		resolve: {
 			alias: {
+				'node-fetch': 'cross-fetch',
 				'vscode-extension-telemetry': path.resolve(__dirname, 'src/env/browser/vscode-extension-telemetry.js'),
 				'../env/node/net': path.resolve(__dirname, 'src/env/browser/net'),
-				'../env/node/ssh': path.resolve(__dirname, 'src/env/browser/ssh')
+				'../env/node/ssh': path.resolve(__dirname, 'src/env/browser/ssh'),
+				'./env/node/gitProviders/api': path.resolve(__dirname, 'src/env/browser/gitProviders/api')
 			}
 		}
 	};
 
-	return merge(baseConfig, config);;
+	return merge(baseConfig, config);
 }
 
 module.exports = function (env) {

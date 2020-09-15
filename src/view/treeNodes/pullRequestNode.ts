@@ -683,8 +683,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 			} else {
 				const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
-				const originalFilePath = path.join(this._folderReposManager.repository.rootUri.fsPath, originalFileName!);
-				const originalContent = await this._folderReposManager.repository.show(params.baseCommit, originalFilePath);
+				const originalFilePath = vscode.Uri.joinPath(this._folderReposManager.repository.rootUri, originalFileName!);
+				const originalContent = await this._folderReposManager.repository.show(params.baseCommit, originalFilePath.fsPath);
 
 				if (params.isBase) {
 					return originalContent;

@@ -16,7 +16,7 @@ import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
-import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
+import { registerBuiltinGitProvider } from './env/node/gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
@@ -27,6 +27,7 @@ import { LiveShare } from 'vsls/vscode.js';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
+import { registerLiveShareGitProvider } from './gitProviders/api';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -111,7 +112,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	const credentialStore = new CredentialStore(telemetry);
 	await credentialStore.initialize();
 
-	context.subscriptions.push(registerBuiltinGitProvider(apiImpl));
+	context.subscriptions.push(registerBuiltinGitProvider(credentialStore, apiImpl));
 	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
 	context.subscriptions.push(liveshareGitProvider);
 	const liveshareApiPromise = liveshareGitProvider.initialize();
