@@ -1,5 +1,5 @@
 import assert = require('assert');
-import { parseIssueExpressionOutput, ISSUE_OR_URL_EXPRESSION } from '../../issues/util';
+import { parseIssueExpressionOutput, sanitizeIssueTitle, ISSUE_OR_URL_EXPRESSION } from '../../issues/util';
 
 describe('Issues utilities', function () {
 	it('regular expressions', async function () {
@@ -43,5 +43,31 @@ describe('Issues utilities', function () {
 		const notIssue = '#a4';
 		const notIssueParsed = parseIssueExpressionOutput(notIssue.match(ISSUE_OR_URL_EXPRESSION));
 		assert.equal(notIssueParsed, undefined);
+	});
+
+	describe('sanitizeIssueTitle', () => {
+		[
+			{ input: 'Issue', expected: 'Issue' },
+			{ input: 'Issue A', expected: 'Issue-A' },
+			{ input: 'Issue \ A', expected: 'Issue-A' },
+			{ input: 'Issue     A', expected: 'Issue-A' },
+			{ input: 'Issue @ A', expected: 'Issue-A' },
+			{ input: 'Issue \'A\'', expected: 'Issue-A' },
+			{ input: 'Issue "A"', expected: 'Issue-A' },
+			{ input: '@Issue "A"', expected: 'Issue-A' },
+			{ input: 'Issue "A"%', expected: 'Issue-A' },
+			{ input: 'Issue .A', expected: 'Issue-A' },
+			{ input: 'Issue ,A', expected: 'Issue-A' },
+			{ input: 'Issue :A', expected: 'Issue-A' },
+			{ input: 'Issue ;A', expected: 'Issue-A' },
+			{ input: 'Issue ~A', expected: 'Issue-A' },
+			{ input: 'Issue #A', expected: 'Issue-A' },
+		]
+		.forEach((testCase) => {
+			it(`Transforms '${testCase.input}' into '${testCase.expected}'`, () => {
+				const actual = sanitizeIssueTitle(testCase.input);
+				assert.equal(actual, testCase.expected);
+			});
+		});
 	});
 });

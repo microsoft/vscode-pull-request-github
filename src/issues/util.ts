@@ -370,6 +370,15 @@ export async function createGithubPermalink(gitAPI: GitApiImpl, positionInfo?: N
 	return { permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };
 }
 
+export function sanitizeIssueTitle(title: string): string {
+	const regex = /[~^:;'".,~#?%*[\]@\\{}]|\/\//g;
+
+	return title
+		.replace(regex, '')
+		.trim()
+		.replace(/\s+/g, '-');
+}
+
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
 export async function variableSubstitution(value: string, issueModel?: IssueModel, defaults?: PullRequestDefaults, user?: string): Promise<string> {
 	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
@@ -380,7 +389,7 @@ export async function variableSubstitution(value: string, issueModel?: IssueMode
 			case 'issueTitle': return issueModel ? issueModel.title : match;
 			case 'repository': return defaults ? defaults.repo : match;
 			case 'owner': return defaults ? defaults.owner : match;
-			case 'sanitizedIssueTitle': return issueModel ? issueModel.title.replace(/[~^:?*[\]@\\{}]|\/\//g, '').trim().replace(/\s+/g, '-') : match; // check what characters are permitted
+			case 'sanitizedIssueTitle': return issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
 			default: return match;
 		}
 	});
