@@ -167,16 +167,3 @@ export function getEventType(text: string) {
 			return EventType.Other;
 	}
 }
-
-export const titleAndBodyFrom = (message: string): { title: string, body: string } => {
-	const idxLineBreak = message.indexOf('\n');
-	return {
-		title: idxLineBreak === -1
-			? message
-			: message.substr(0, idxLineBreak),
-
-		body: idxLineBreak === -1
-			? ''
-			: message.slice(idxLineBreak + 1),
-	};
-};

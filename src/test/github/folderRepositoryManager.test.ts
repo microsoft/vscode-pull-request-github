@@ -56,11 +56,11 @@ describe('PullRequestManager', function () {
 
 describe('titleAndBodyFrom', function() {
 	it('separates title and body', function() {
-		const message = 'title\n\ndescription';
+		const message = 'title\n\ndescription 1\n\ndescription 2\n';
 
 		const {title, body} = titleAndBodyFrom(message);
 		assert.strictEqual(title, 'title');
-		assert.strictEqual(body, 'description');
+		assert.strictEqual(body, 'description 1\n\ndescription 2');
 	});
 
 	it('returns only title with no body', function() {
@@ -71,11 +71,11 @@ describe('titleAndBodyFrom', function() {
 		assert.strictEqual(body, '');
 	});
 
-	it('returns title and space-delimited body from new lines', function() {
-		const message = 'title\n\ndescription 1\ndescription 2\n\ndescription 3';
+	it('returns only title when body contains only whitespace', function() {
+		const message = 'title\n\n';
 
 		const {title, body} = titleAndBodyFrom(message);
 		assert.strictEqual(title, 'title');
-		assert.strictEqual(body, 'description 1 description 2 description 3');
+		assert.strictEqual(body, '');
 	});
 });
