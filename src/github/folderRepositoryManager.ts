@@ -1570,6 +1570,8 @@ export const titleAndBodyFrom = (message: string): { title: string, body: string
 
 		body: idxLineBreak === -1
 			? ''
-			: message.slice(idxLineBreak + 1),
+			: message
+				.slice(idxLineBreak + 1)
+				.trim(),
 	};
 };

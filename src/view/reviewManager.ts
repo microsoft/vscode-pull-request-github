@@ -770,7 +770,7 @@ export class ReviewManager {
 			switch (pullRequestDescriptionMethod) {
 				case PullRequestDescriptionSourceEnum.Custom:
 					const descriptionResult = await vscode.window.showInputBox({
-						value: description,
+						value: description.replace(/\n+/g, ' '),
 						ignoreFocusOut: true,
 						prompt: `Enter PR description`
 					});
