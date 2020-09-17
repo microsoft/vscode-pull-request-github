@@ -352,7 +352,7 @@
         {
           "id": "github-pull-requests",
           "title": "GitHub",
-          "icon": "resources/icons/pull-request.svg"
+          "icon": "resources/icons/pull-request.png"
         }
       ]
     },
@@ -362,25 +362,25 @@
           "id": "pr:github",
           "name": "Pull Requests",
           "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication",
-          "icon": "resources/icons/pull-request.svg"
+          "icon": "resources/icons/pull-request.png"
         },
         {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
           "when": "config.git.enabled && github:inReviewMode",
-          "icon": "resources/icons/pull-request.svg"
+          "icon": "resources/icons/pull-request.png"
         },
         {
           "id": "issues:github",
           "name": "Issues",
           "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication",
-          "icon": "resources/icons/issues.svg"
+          "icon": "resources/icons/issues.png"
         },
         {
           "id": "github:login",
           "name": "Login",
           "when": "ReposManagerStateContext == NeedsAuthentication",
-          "icon": "resources/icons/pull-request.svg"
+          "icon": "resources/icons/pull-request.png"
         }
       ]
     },
