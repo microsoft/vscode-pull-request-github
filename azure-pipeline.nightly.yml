@@ -36,7 +36,7 @@ jobs:
       mv ./README.insiders.md ./README.md
       mv ./src/constants.ts ./src/constants.ts.bak
       mv ./src/constants.insiders.ts ./src/constants.ts
-      vsce publish -p "$TOKEN" --yarn --noVerify
+      vsce publish -p "$TOKEN" --yarn --noVerify --web
     displayName: Publish
     env:
       TOKEN: $(vsce.token)

@@ -33,7 +33,7 @@ function getWebviewConfig(env) {
 		},
 		devtool: !env.production ? 'inline-source-map' : undefined,
 		output: {
-			filename: '[name].js',
+			filename: 'webviewIndex.js',
 			path: path.resolve(__dirname, 'media')
 		},
 		plugins: [
@@ -93,6 +93,10 @@ function getExtensionConfig(env) {
 					test: /\.gql/,
 					loader: 'graphql-tag/loader',
 					exclude: /node_modules/
+				},
+				{
+					test: /webviewIndex\.js/,
+					use: 'raw-loader'
 				}
 			]
 		},
