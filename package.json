@@ -352,7 +352,7 @@
         {
           "id": "github-pull-requests",
           "title": "GitHub",
-          "icon": "resources/icons/pull-request.svg"
+          "icon": "resources/icons/pull-request.png"
         }
       ]
     },
@@ -361,26 +361,26 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication",
-          "icon": "resources/icons/pull-request.svg"
+          "when": "ReposManagerStateContext != NeedsAuthentication",
+          "icon": "resources/icons/pull-request.png"
         },
         {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
-          "when": "config.git.enabled && github:inReviewMode",
-          "icon": "resources/icons/pull-request.svg"
+          "when": "github:inReviewMode",
+          "icon": "resources/icons/pull-request.png"
         },
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication",
-          "icon": "resources/icons/issues.svg"
+          "when": "ReposManagerStateContext != NeedsAuthentication",
+          "icon": "resources/icons/issues.png"
         },
         {
           "id": "github:login",
           "name": "Login",
           "when": "ReposManagerStateContext == NeedsAuthentication",
-          "icon": "resources/icons/pull-request.svg"
+          "icon": "resources/icons/pull-request.png"
         }
       ]
     },
@@ -1201,16 +1201,17 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "webpack --env.production",
+    "vscode:prepublish": "webpack --env.production --config-name webview && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
     "postinstall": "cd src/typings && npx vscode-dts master && npx vscode-dts dev master",
     "compile": "tsc -p ./",
     "clean": "rm -r out/ media/ preview-src/dist/",
+    "webpack": "webpack --env.development --config-name webview && webpack --env.development --config-name extension",
     "watch": "webpack --watch --env.development --info-verbosity verbose",
     "test": "yarn run preprocess && node ./out/test/runTests.js",
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
     "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
     "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources",
-    "compile-web": "npx webpack-cli --config browser.webpack.config --mode none",
+    "compile-web": "npx webpack-cli --config browser.webpack.config  --config-name webview --mode none && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
     "watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
   },
   "devDependencies": {
@@ -1277,6 +1278,7 @@
     "node-emoji": "^1.8.1",
     "node-fetch": "3.0.0-beta.9",
     "query-string": "^6.2.0",
+    "raw-loader": "^4.0.1",
     "ssh-config": "^2.0.0-alpha.3",
     "tunnel": "0.0.6",
     "uuid": "^3.3.3",

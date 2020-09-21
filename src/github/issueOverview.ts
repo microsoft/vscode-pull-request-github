@@ -14,6 +14,7 @@ import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
+import webviewContent from '../../media/webviewIndex.js';
 
 export interface IRequestMessage<T> {
 	req: string;
@@ -381,8 +382,6 @@ export class IssueOverviewPanel {
 	}
 
 	protected getHtmlForWebview(number: string) {
-		const scriptPathOnDisk = vscode.Uri.file(path.join(this._extensionPath, 'media', 'index.js'));
-		const scriptUri = this._panel.webview.asWebviewUri(scriptPathOnDisk);
 		const nonce = getNonce();
 
 		return `<!DOCTYPE html>
@@ -396,7 +395,7 @@ export class IssueOverviewPanel {
 			</head>
 			<body class="${process.platform}">
 				<div id=app></div>
-				<script nonce="${nonce}" src="${scriptUri}"></script>
+				<script nonce="${nonce}">${webviewContent}</script>
 			</body>
 			</html>`;
 	}
