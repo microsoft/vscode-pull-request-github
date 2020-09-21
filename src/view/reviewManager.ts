@@ -17,7 +17,7 @@ import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from
 import Logger from '../common/logger';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum, PullRequestDescriptionSourceQuickPick, PullRequestDescriptionSource, PullRequestDescriptionSourceEnum } from './quickpick';
-import { FolderRepositoryManager, titleAndBodyFrom } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE, titleAndBodyFrom } from '../github/folderRepositoryManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
@@ -118,6 +118,14 @@ export class ReviewManager {
 
 				this.updateState();
 			}
+		}));
+
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(_ => {
+			this.updateFocusedViewMode();
+		}));
+
+		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
+			this.updateFocusedViewMode();
 		}));
 	}
 
@@ -801,6 +809,15 @@ export class ReviewManager {
 				progress.report({ increment: 90, message: `Failed to create pull request for ${branchName}` });
 			}
 		});
+	}
+
+	private updateFocusedViewMode(): void {
+		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
+		if (focusedSetting && this._folderRepoManager.activePullRequest) {
+			vscode.commands.executeCommand('setContext', 'github:focusedReview', true);
+		} else {
+			vscode.commands.executeCommand('setContext', 'github:focusedReview', false);
+		}
 	}
 
 	private clear(quitReviewMode: boolean) {
