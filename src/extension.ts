@@ -67,7 +67,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	});
 	const changesTree = new PullRequestChangesTreeDataProvider(context);
 	context.subscriptions.push(changesTree);
-	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(folderManager.repository, folderManager, telemetry, changesTree));
+	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree));
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, git);
 	context.subscriptions.push(reviewsManager);
 	tree.initialize(reposManager);
@@ -81,7 +81,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 		const disposable = repo.state.onDidChange(() => {
 			const newFolderManager = new FolderRepositoryManager(repo, telemetry, git, credentialStore);
 			reposManager.folderManagers.push(newFolderManager);
-			const newReviewManager = new ReviewManager(newFolderManager.repository, newFolderManager, telemetry, changesTree);
+			const newReviewManager = new ReviewManager(context, newFolderManager.repository, newFolderManager, telemetry, changesTree);
 			reviewManagers.push(newReviewManager);
 			tree.refresh();
 			disposable.dispose();

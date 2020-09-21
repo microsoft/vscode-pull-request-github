@@ -344,6 +344,11 @@
               "query": "author:${user} state:open repo:${owner}/${repository} sort:created-desc"
             }
           ]
+        },
+        "githubPullRequests.focusedMode": {
+          "type": "boolean",
+          "description": "Whether to enter focused mode when a pull request is checked out. This hides the issues and pull requests tree views.",
+          "default": false
         }
       }
     },
@@ -359,9 +364,15 @@
     "views": {
       "github-pull-requests": [
         {
+          "id": "github:login",
+          "name": "Login",
+          "when": "ReposManagerStateContext == NeedsAuthentication",
+          "icon": "resources/icons/pull-request.png"
+        },
+        {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "ReposManagerStateContext != NeedsAuthentication",
+          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/pull-request.png"
         },
         {
@@ -373,14 +384,8 @@
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "ReposManagerStateContext != NeedsAuthentication",
+          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/issues.png"
-        },
-        {
-          "id": "github:login",
-          "name": "Login",
-          "when": "ReposManagerStateContext == NeedsAuthentication",
-          "icon": "resources/icons/pull-request.png"
         }
       ]
     },
