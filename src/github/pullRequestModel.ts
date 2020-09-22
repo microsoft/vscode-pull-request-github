@@ -755,7 +755,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			repo: remote.repositoryName,
 			owner: remote.owner,
 			base: `${this.base.repositoryCloneUrl.owner}:${this.base.ref}`,
-			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.ref}`
+			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.ref}`,
 		});
 
 		this.mergeBase = data.merge_base_commit.sha;
