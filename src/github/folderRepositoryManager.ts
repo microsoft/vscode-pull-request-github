@@ -1446,7 +1446,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry);
 	}
 
-	async findUpstreamForItem(item: {remote: Remote, githubRepository: GitHubRepository}): Promise<{ needsFork: boolean, upstream?: GitHubRepository, remote?: Remote }> {
+	async findUpstreamForItem(item: { remote: Remote, githubRepository: GitHubRepository }): Promise<{ needsFork: boolean, upstream?: GitHubRepository, remote?: Remote }> {
 		let upstream: GitHubRepository | undefined;
 		let existingForkRemote: Remote | undefined;
 		for (const githubRepo of this.gitHubRepositories) {
@@ -1476,7 +1476,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return { needsFork, upstream, remote: existingForkRemote };
 	}
 
-	async forkWithProgress(progress: vscode.Progress<{ message?: string; increment?: number }>, githubRepository: GitHubRepository, repoString: string, matchingRepo: Repository): Promise<true | undefined> {
+	async forkWithProgress(progress: vscode.Progress<{ message?: string; increment?: number }>, githubRepository: GitHubRepository, repoString: string, matchingRepo: Repository): Promise<string | undefined> {
 		progress.report({ message: `Forking ${repoString}...` });
 		const result = await githubRepository.fork();
 		progress.report({ increment: 50 });
@@ -1503,11 +1503,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		});
 		progress.report({ increment: 50 });
-		return true;
+		return workingRemoteName;
 	}
 
-	async doFork(githubRepository: GitHubRepository, repoString: string, matchingRepo: Repository): Promise<true | undefined> {
-		return vscode.window.withProgress<true | undefined>({ location: vscode.ProgressLocation.Notification, title: 'Creating Fork' }, async (progress) => {
+	async doFork(githubRepository: GitHubRepository, repoString: string, matchingRepo: Repository): Promise<string | undefined> {
+		return vscode.window.withProgress<string | undefined>({ location: vscode.ProgressLocation.Notification, title: 'Creating Fork' }, async (progress) => {
 			try {
 				return this.forkWithProgress(progress, githubRepository, repoString, matchingRepo);
 			} catch (e) {
@@ -1516,7 +1516,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		});
 	}
 
-	async tryOfferToFork(githubRepository: GitHubRepository): Promise<boolean | undefined> {
+	async tryOfferToFork(githubRepository: GitHubRepository): Promise<string | false | undefined> {
 		const repoString = `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`;
 
 		const fork = 'Fork';

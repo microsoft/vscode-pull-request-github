@@ -21,7 +21,7 @@ import { FolderRepositoryManager, titleAndBodyFrom } from '../github/folderRepos
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
-import { GitHubRepository } from '../github/githubRepository';
+import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 
 export class ReviewManager {
 	public static ID = 'Review';
@@ -467,11 +467,27 @@ export class ReviewManager {
 
 	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
 		const potentialTargetRemotes = await this._folderRepoManager.getAllGitHubRemotes();
-		const selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch '${branch.name}' to:`))!.remote;
+		let selectedRemote = (await this.getRemote(potentialTargetRemotes, `Pick a remote to publish the branch '${branch.name}' to:`))!.remote;
 
 		if (!selectedRemote || branch.name === undefined) {
 			return;
 		}
+
+		const githubRepo = this._folderRepoManager.createGitHubRepository(selectedRemote, this._folderRepoManager.credentialStore);
+		const permission = await githubRepo.getViewerPermission();
+		if ((permission === ViewerPermission.Read) || (permission === ViewerPermission.Triage) || (permission === ViewerPermission.Unknown)) {
+			// No permission to publish the branch to the chosen remote. Offer to fork.
+			const fork = await this._folderRepoManager.tryOfferToFork(githubRepo);
+			if (!fork) {
+				return;
+			}
+			selectedRemote = this._folderRepoManager.getGitHubRemotes().find(element => element.remoteName === fork);
+		}
+
+		if (!selectedRemote) {
+			return;
+		}
+		const remote: Remote = selectedRemote;
 
 		return new Promise<Branch | undefined>(async (resolve) => {
 			const inputBox = vscode.window.createInputBox();
@@ -481,9 +497,9 @@ export class ReviewManager {
 			const validate = async function (value: string) {
 				try {
 					inputBox.busy = true;
-					const remoteBranch = await this._reposManager.getBranch(selectedRemote, value);
+					const remoteBranch = await this._reposManager.getBranch(remote, value);
 					if (remoteBranch) {
-						inputBox.validationMessage = `Branch ${value} already exists in ${selectedRemote.owner}/${selectedRemote.repositoryName}`;
+						inputBox.validationMessage = `Branch ${value} already exists in ${remote.owner}/${remote.repositoryName}`;
 					} else {
 						inputBox.validationMessage = undefined;
 					}
@@ -501,7 +517,7 @@ export class ReviewManager {
 				try {
 					// since we are probably pushing a remote branch with a different name, we use the complete synatx
 					// git push -u origin local_branch:remote_branch
-					await this._repository.push(selectedRemote.remoteName, `${branch.name}:${inputBox.value}`, true);
+					await this._repository.push(remote.remoteName, `${branch.name}:${inputBox.value}`, true);
 				} catch (err) {
 					if (err.gitErrorCode === GitErrorCodes.PushRejected) {
 						vscode.window.showWarningMessage(`Can't push refs to remote, try running 'git pull' first to integrate with your change`, {
@@ -512,7 +528,7 @@ export class ReviewManager {
 					}
 
 					if (err.gitErrorCode === GitErrorCodes.RemoteConnectionError) {
-						vscode.window.showWarningMessage(`Could not read from remote repository '${selectedRemote.remoteName}'. Please make sure you have the correct access rights and the repository exists.`, {
+						vscode.window.showWarningMessage(`Could not read from remote repository '${remote.remoteName}'. Please make sure you have the correct access rights and the repository exists.`, {
 							modal: true
 						});
 
