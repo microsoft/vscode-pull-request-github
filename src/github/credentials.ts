@@ -32,11 +32,21 @@ export interface GitHub {
 	currentUser?: OctokitTypes.PullsGetResponseData['user'];
 }
 
-export class CredentialStore {
+export class CredentialStore implements vscode.Disposable {
 	private _githubAPI: GitHub | undefined;
 	private _sessionId: string | undefined;
+	private _disposables: vscode.Disposable[];
+	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
 
-	constructor(private readonly _telemetry: ITelemetry) { }
+	constructor(private readonly _telemetry: ITelemetry) {
+		this._disposables = [];
+		this._disposables.push(vscode.authentication.onDidChangeSessions(() => {
+			if (!this.isAuthenticated()) {
+				return this.initialize();
+			}
+		}));
+	}
 
 	public async initialize(): Promise<void> {
 		const session = await vscode.authentication.getSession(AUTH_PROVIDER_ID, SCOPES, { createIfNone: false });
@@ -47,6 +57,7 @@ export class CredentialStore {
 			const octokit = await this.createHub(token);
 			this._githubAPI = octokit;
 			await this.setCurrentUser(octokit);
+			this._onDidInitialize.fire();
 		} else {
 			Logger.debug(`No token found.`, 'Authentication');
 		}
@@ -190,6 +201,10 @@ export class CredentialStore {
 		};
 		await this.setCurrentUser(github);
 		return github;
+	}
+
+	dispose() {
+		this._disposables.forEach(disposable => disposable.dispose());
 	}
 }
 

@@ -110,6 +110,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 
 	PersistentState.init(context);
 	const credentialStore = new CredentialStore(telemetry);
+	context.subscriptions.push(credentialStore);
 	await credentialStore.initialize();
 
 	context.subscriptions.push(registerBuiltinGitProvider(credentialStore, apiImpl));
