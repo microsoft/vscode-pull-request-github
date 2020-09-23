@@ -761,8 +761,26 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 
 		this.mergeBase = data.merge_base_commit.sha;
 
-		Logger.debug(`Fetch file changes and merge base of PR #${this.number} - done`, PullRequestModel.ID);
-		return data.files;
+		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 300;
+		let files: Array<IRawFileChange> = [];
+
+		if (data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
+			// compareCommits will return a maximum of 300 changed files
+			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
+			Logger.debug(`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`, PullRequestModel.ID);
+			files = await octokit.paginate(`GET /repos/:owner/:repo/pulls/:pull_number/files`, {
+				owner: this.base.repositoryCloneUrl.owner,
+				pull_number: this.number,
+				repo: remote.repositoryName,
+				per_page: 100
+			});
+		} else {
+			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
+			files = data.files;
+		}
+
+		Logger.debug(`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `, PullRequestModel.ID);
+		return files;
 	}
 
 	/**
