@@ -282,49 +282,51 @@ export class GithubGitProvider implements IGit, vscode.Disposable {
 
 	constructor(private _credentialStore: CredentialStore) {
 		this._disposables = [];
-		this.findRepos();
+		if (this._credentialStore.isAuthenticated()) {
+			this.findRepos();
+		} else {
+			this._disposables.push(this._credentialStore.onDidInitialize(() => this.findRepos()));
+		}
 	}
 
 	private async findRepos() {
-		if (this._credentialStore.isAuthenticated()) {
-			const folders = vscode.workspace.workspaceFolders ?? [];
-			const hub = this._credentialStore.getHub();
-			if (!hub) {
-				return;
-			}
-			for (const folder of folders) {
-				// If the scheme is codespace, then the authority will indicate the repository.
-				if (folder.uri.scheme !== 'codespace') {
-					continue;
-				}
-				const match = folder.uri.authority.match(/^([A-Za-z0-9_\.-]+)\+([A-Za-z0-9_\.-]+)(\+([A-Za-z0-9_\.-]+))?$/);
-				if (!match || match.length !== 5) {
-					continue;
-				}
-				const owner = match[1];
-				const repo = match[2];
-				let branch = match[3];
-
-				const githubRepo = await hub.octokit.repos.get({ owner, repo });
-				if (!githubRepo) {
-					continue;
-				}
-				branch = branch ?? githubRepo.data.default_branch;
-				const githubBranch = await hub.octokit.repos.getBranch({ owner, repo, branch });
-				const openedRepository = new GithubGitRepository(folder.uri, hub, owner, repo, githubRepo, githubBranch);
-				this._repositories.set(`${owner}/${repo}`, openedRepository);
-				this._onDidOpenRepository.fire(openedRepository);
-			}
-			// If you can't test in codespaces, you can uncomment the following lines to test with a repo
-			// and branch of your choice.
-			// Repo should match the repo you actually have open if you don't want unexpected results.
-
-			// const repo = await hub.octokit.repos.get({ owner: 'alexr00', repo: 'playground' });
-			// const branch = await hub.octokit.repos.getBranch({ owner: 'alexr00', repo: 'playground', branch: 'testlowercase' });
-			// const openedRepository = new GithubGitRepository(vscode.workspace.workspaceFolders![0].uri, hub, 'alexr00', 'playground', repo, branch);
-			// this._repositories.set('alexr00/playground', openedRepository);
-			// this._onDidOpenRepository.fire(openedRepository);
+		const folders = vscode.workspace.workspaceFolders ?? [];
+		const hub = this._credentialStore.getHub();
+		if (!hub) {
+			return;
 		}
+		for (const folder of folders) {
+			// If the scheme is codespace, then the authority will indicate the repository.
+			if (folder.uri.scheme !== 'codespace') {
+				continue;
+			}
+			const match = folder.uri.authority.match(/^([A-Za-z0-9_\.-]+)\+([A-Za-z0-9_\.-]+)(\+([A-Za-z0-9_\.-]+))?$/);
+			if (!match || match.length !== 5) {
+				continue;
+			}
+			const owner = match[1];
+			const repo = match[2];
+			let branch = match[3];
+
+			const githubRepo = await hub.octokit.repos.get({ owner, repo });
+			if (!githubRepo) {
+				continue;
+			}
+			branch = branch ?? githubRepo.data.default_branch;
+			const githubBranch = await hub.octokit.repos.getBranch({ owner, repo, branch });
+			const openedRepository = new GithubGitRepository(folder.uri, hub, owner, repo, githubRepo, githubBranch);
+			this._repositories.set(`${owner}/${repo}`, openedRepository);
+			this._onDidOpenRepository.fire(openedRepository);
+		}
+		// If you can't test in codespaces, you can uncomment the following lines to test with a repo
+		// and branch of your choice.
+		// Repo should match the repo you actually have open if you don't want unexpected results.
+
+		// const repo = await hub.octokit.repos.get({ owner: 'alexr00', repo: 'playground' });
+		// const branch = await hub.octokit.repos.getBranch({ owner: 'alexr00', repo: 'playground', branch: 'testlowercase' });
+		// const openedRepository = new GithubGitRepository(vscode.workspace.workspaceFolders![0].uri, hub, 'alexr00', 'playground', repo, branch);
+		// this._repositories.set('alexr00/playground', openedRepository);
+		// this._onDidOpenRepository.fire(openedRepository);
 	}
 
 	dispose() {
