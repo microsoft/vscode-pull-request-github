@@ -18,7 +18,7 @@ export function issueBodyHasLink(issueModel: IssueModel): boolean {
 	return !!findCodeLink(issueModel.body);
 }
 
-export interface CodeLink {
+interface CodeLink {
 	file: vscode.Uri,
 	start: number,
 	end: number
