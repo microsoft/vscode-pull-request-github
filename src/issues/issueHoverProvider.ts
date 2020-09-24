@@ -47,6 +47,6 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 			"issue.issueHover" : {}
 		*/
 		this.telemetry.sendTelemetryEvent('issues.issueHover');
-		return new vscode.Hover(issueMarkdown(issue, this.context, parsed.commentNumber), range);
+		return new vscode.Hover(await issueMarkdown(issue, this.context, this.manager, parsed.commentNumber), range);
 	}
 }

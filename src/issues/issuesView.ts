@@ -72,9 +72,9 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 		}
 	}
 
-	resolveTreeItem(element: FolderRepositoryManager | IssueItem | MilestoneItem | vscode.TreeItem, item: vscode.TreeItem2): vscode.TreeItem2 {
+	async resolveTreeItem(element: FolderRepositoryManager | IssueItem | MilestoneItem | vscode.TreeItem, item: vscode.TreeItem2): Promise<vscode.TreeItem2> {
 		if (element instanceof IssueModel) {
-			item.tooltip = issueMarkdown(element, this.context);
+			item.tooltip = await issueMarkdown(element, this.context, this.manager);
 		}
 		return item;
 	}

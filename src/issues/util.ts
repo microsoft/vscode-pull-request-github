@@ -16,6 +16,8 @@ import { getRepositoryForFile } from '../github/utils';
 import { GitApiImpl } from '../api/api1';
 import { Repository, Commit, Remote, Ref } from '../api/api';
 import * as LRUCache from 'lru-cache';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { CODE_PERMALINK, CodeLink, findCodeLinkLocally } from './issueLinkLookup';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -184,8 +186,50 @@ function findLinksInIssue(body: string, issue: IssueModel): string {
 	return body;
 }
 
+async function findCodeLinksInIssue(body: string, issue: IssueModel, repositoriesManager: RepositoriesManager) {
+	let searchResult = body.search(CODE_PERMALINK);
+	let position = 0;
+	while ((searchResult >= 0) && (searchResult < body.length)) {
+		let newBodyFirstPart: string | undefined;
+		if (searchResult === 0 || body.charAt(searchResult - 1) !== '&') {
+			const match = body.substring(searchResult).match(CODE_PERMALINK)!;
+			let codeLink: CodeLink | undefined;
+			if (match) {
+				codeLink = await findCodeLinkLocally(match, repositoriesManager);
+			}
+			if (codeLink) {
+				const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
+				const endingTextDocumentLine =
+					textDocument.lineAt(codeLink.end <= textDocument.lineCount ? codeLink.end : textDocument.lineCount);
+				const query = [codeLink.file,
+				{
+					selection: {
+						start: {
+							line: codeLink.start,
+							character: 0
+						},
+						end: {
+							line: codeLink.end,
+							character: endingTextDocumentLine.text.length
+						}
+					}
+				}]
+				const openCommand = vscode.Uri.parse(
+					`command:vscode.open?${encodeURIComponent(JSON.stringify(query))}`
+				);
+				newBodyFirstPart = body.slice(0, searchResult) + `[${match[0]}](${openCommand} "Open ${codeLink.file.fsPath}")`;
+				body = newBodyFirstPart + body.slice(searchResult + match[0].length);
+			}
+		}
+		position = newBodyFirstPart ? newBodyFirstPart.length : searchResult + 1;
+		const newSearchResult = body.substring(position).search(ISSUE_OR_URL_EXPRESSION);
+		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
+	}
+	return body;
+}
+
 export const ISSUE_BODY_LENGTH: number = 200;
-export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, commentNumber?: number): vscode.MarkdownString {
+export async function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, commentNumber?: number): Promise<vscode.MarkdownString> {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	markdown.isTrusted = true;
 	const date = new Date(issue.createdAt);
@@ -201,6 +245,7 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 	markdown.appendMarkdown('  \n');
 	body = ((body.length > ISSUE_BODY_LENGTH) ? (body.substr(0, ISSUE_BODY_LENGTH) + '...') : body);
 	body = findLinksInIssue(body, issue);
+	body = await findCodeLinksInIssue(body, issue, repositoriesManager);
 
 	markdown.appendMarkdown(body + '  \n');
 	markdown.appendMarkdown('&nbsp;  \n');
