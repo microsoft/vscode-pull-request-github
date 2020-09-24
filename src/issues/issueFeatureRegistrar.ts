@@ -21,6 +21,7 @@ import { ITelemetry } from '../common/telemetry';
 import { OctokitCommon } from '../github/common';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { GitApiImpl } from '../api/api1';
+import { openCodeLink } from './issueLinkLookup';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
@@ -192,6 +193,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.signinAndRefreshList', async () => {
 			return this.manager.authenticate();
+		}));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.goToLinkedCode', async (issueModel: any) => {
+			return openCodeLink(issueModel, this.manager);
 		}));
 		return this._stateManager.tryInitializeAndWait().then(() => {
 			this.context.subscriptions.push(vscode.languages.registerHoverProvider('*', new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry)));

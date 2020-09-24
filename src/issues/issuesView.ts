@@ -10,6 +10,7 @@ import { issueMarkdown } from './util';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ReposManagerState, FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
+import { issueBodyHasLink } from './issueLinkLookup';
 
 class UriTreeItem extends vscode.TreeItem2 {
 	constructor(public readonly uri: vscode.Uri | undefined, label: string, collapsibleState?: vscode.TreeItemCollapsibleState) {
@@ -55,6 +56,9 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 				} else {
 					treeItem.contextValue = 'issue';
 				}
+			}
+			if (issueBodyHasLink(element)) {
+				treeItem.contextValue = 'link' + treeItem.contextValue;
 			}
 		}
 		return treeItem;
