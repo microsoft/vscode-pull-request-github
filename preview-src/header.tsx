@@ -85,7 +85,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 		{
 			(canEdit && showActionBar && !inEditMode)
 				? <div className='flex-action-bar comment-actions'>
-					{<button onClick={() => setEditMode(true)}>{editIcon}</button>}
+					{<button title='Edit' onClick={() => setEditMode(true)}>{editIcon}</button>}
 				</div>
 				: <div className='flex-action-bar comment-actons'></div>
 		}
