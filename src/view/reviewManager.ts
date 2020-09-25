@@ -22,6 +22,7 @@ import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullReque
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
+import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 
 export class ReviewManager {
 	public static ID = 'Review';
@@ -65,6 +66,7 @@ export class ReviewManager {
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider
 	) {
+		console.log(_context);
 		this._switchingToReviewMode = false;
 		this._disposables = [];
 
@@ -127,7 +129,7 @@ export class ReviewManager {
 
 		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
 			this.updateFocusedViewMode();
-		}))
+		}));
 	}
 
 	get statusBarItem() {
@@ -261,6 +263,9 @@ export class ReviewManager {
 
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
+
+		const webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, pr);
+		this._context.subscriptions.push(vscode.window.registerWebviewViewProvider(PullRequestViewProvider.viewType, webviewViewProvider));
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = { command: 'pr.openDescription', title: 'View Pull Request Description', arguments: [pr] };
@@ -833,7 +838,7 @@ export class ReviewManager {
 		if (focusedSetting && this._folderRepoManager.activePullRequest) {
 			vscode.commands.executeCommand('setContext', 'github:focusedReview', true);
 		} else {
-			vscode.commands.executeCommand('setContext', 'github:focusedReview', false)
+			vscode.commands.executeCommand('setContext', 'github:focusedReview', false);
 		}
 	}
 

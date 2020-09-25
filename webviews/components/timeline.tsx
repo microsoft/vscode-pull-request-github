@@ -1,16 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as React from 'react';
 import { useContext, useRef } from 'react';
 
-import { IComment } from '../src/common/comment';
-import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent, isHeadDeleteEvent, HeadRefDeleteEvent } from '../src/common/timelineEvent';
+import { IComment } from '../../src/common/comment';
+import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent, isHeadDeleteEvent, HeadRefDeleteEvent } from '../../src/common/timelineEvent';
 import { commitIcon, mergeIcon } from './icon';
 import { Avatar, AuthorLink } from './user';
-import { groupBy } from '../src/common/utils';
+import { groupBy } from '../../src/common/utils';
 import { Spaced, nbsp } from './space';
 import Timestamp from './timestamp';
 import { CommentView, CommentBody } from './comment';
 import Diff from './diff';
-import PullRequestContext from './context';
+import PullRequestContext from '../common/context';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) =>
 	<>{

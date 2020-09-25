@@ -628,7 +628,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 }
 
-function getDefaultMergeMethod(methodsAvailability: MergeMethodsAvailability, userPreferred: MergeMethod | undefined): MergeMethod {
+export function getDefaultMergeMethod(methodsAvailability: MergeMethodsAvailability, userPreferred: MergeMethod | undefined): MergeMethod {
 	// Use default merge method specified by user if it is available
 	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
 		return userPreferred;

@@ -376,6 +376,12 @@
           "icon": "resources/icons/pull-request.png"
         },
         {
+          "id": "github:activePullRequest",
+          "type": "webview",
+          "name": "Active Pull Request",
+          "when": "github:focusedReview"
+        },
+        {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
           "when": "github:inReviewMode",
@@ -1209,7 +1215,7 @@
     "vscode:prepublish": "webpack --env.production --config-name webview && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
     "postinstall": "cd src/typings && npx vscode-dts master && npx vscode-dts dev master",
     "compile": "tsc -p ./",
-    "clean": "rm -r out/ media/ preview-src/dist/",
+    "clean": "rm -r out/ media/",
     "webpack": "webpack --env.development --config-name webview && webpack --env.development --config-name extension",
     "watch": "webpack --watch --env.development --info-verbosity verbose",
     "test": "yarn run preprocess && node ./out/test/runTests.js",

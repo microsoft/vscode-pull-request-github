@@ -1,18 +1,23 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as React from 'react';
-import { PullRequest } from './cache';
-import PullRequestContext from './context';
+import { PullRequest } from '../common/cache';
+import PullRequestContext from '../common/context';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
-import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../src/github/interface';
+import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
-import { groupBy } from '../src/common/utils';
+import { groupBy } from '../../src/common/utils';
 
-export const StatusChecks = (pr: PullRequest) => {
+export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
 	if (pr.isIssue) {
 		return null;
 	}
-	const { state, status, mergeable: _mergeable } = pr;
+	const { state, status } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
 		status.statuses.some(s => s.state === 'failure')) as [boolean, () => void];
@@ -24,18 +29,6 @@ export const StatusChecks = (pr: PullRequest) => {
 			if (showDetails) { toggleDetails(); }
 		}
 	}, status.statuses);
-
-	const [mergeable, setMergeability] = useState(_mergeable);
-	const { checkMergeability } = useContext(PullRequestContext);
-
-	useEffect(() => {
-		const handle = setInterval(async () => {
-			if (mergeable === PullRequestMergeability.Unknown) {
-				setMergeability(await checkMergeability());
-			}
-		}, 3000);
-		return () => clearInterval(handle);
-	});
 
 	return <div id='status-checks'>{
 		state === GithubItemStateEnum.Merged
@@ -70,11 +63,31 @@ export const StatusChecks = (pr: PullRequest) => {
 						</>
 						: null
 					}
-					<MergeStatus mergeable={mergeable} />
-					<PrActions {...{ ...pr, mergeable }} />
+					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
 				</>
 	}</div>;
 };
+
+export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
+	const { mergeable: _mergeable } = pr;
+
+	const [mergeable, setMergeability] = useState(_mergeable);
+	const { checkMergeability } = useContext(PullRequestContext);
+
+	useEffect(() => {
+		const handle = setInterval(async () => {
+			if (mergeable === PullRequestMergeability.Unknown) {
+				setMergeability(await checkMergeability());
+			}
+		}, 3000);
+		return () => clearInterval(handle);
+	});
+
+	return <span>
+		<MergeStatus mergeable={mergeable} />
+		<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
+	</span>
+}
 
 export default StatusChecks;
 
@@ -131,7 +144,9 @@ export const Merge = (pr: PullRequest) => {
 	</div>;
 };
 
-export const PrActions = (pr: PullRequest) => {
+
+
+export const PrActions = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
 	const { hasWritePermission, canEdit, isDraft, mergeable } = pr;
 
 	return isDraft
@@ -140,8 +155,41 @@ export const PrActions = (pr: PullRequest) => {
 			? <ReadyForReview />
 			: null
 		: mergeable === PullRequestMergeability.Mergeable && hasWritePermission
-			? <Merge {...pr} />
+			? isSimple
+				? <MergeSimple {...pr} />
+				: <Merge {...pr} />
 			: null;
+};
+
+export const MergeSimple = (pr: PullRequest) => {
+	const [selectedMethod, selectMethod] = useState<MergeMethod>(pr.defaultMergeMethod);
+	const [isMethodSelectVisisble, setMethodSelectVisible] = useState<boolean>(false);
+
+	const onClick = e => {
+		setMethodSelectVisible(!isMethodSelectVisisble);
+	}
+
+	const onMethodChange = e => {
+		selectMethod(e.target.value);
+		setMethodSelectVisible(false);
+	}
+
+	return <div className='merge-select-container'>
+		<div className='merge-select'>
+			<DoMerge pr={pr} method={selectedMethod} />
+			<button onClick={onClick}>&#8964;</button>
+		</div>
+		<div className={isMethodSelectVisisble ? 'merge-type-select' : 'hidden'}>
+			{
+				Object.entries(MERGE_METHODS)
+					.map(([method, text]) =>
+						<button key={method} value={method} disabled={!pr.mergeMethodsAvailability[method]} onClick={onMethodChange}>
+							{text}{!pr.mergeMethodsAvailability[method] ? ' (not enabled)' : null}
+						</button>
+					)
+			}
+		</div>
+	</div>;
 };
 
 export const DeleteBranch = (pr: PullRequest) => {
@@ -204,6 +252,32 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest, method: MergeMe
 	</form>;
 }
 
+function DoMerge({ pr, method }: { pr: PullRequest, method: MergeMethod }) {
+	const { merge, updatePR } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+
+	const onSubmit = async (event: React.FormEvent) => {
+		event.preventDefault();
+
+		try {
+			setBusy(true);
+			const { state } = await merge({
+				title: getDefaultTitleText(method, pr),
+				description: getDefaultDescriptionText(method, pr),
+				method,
+			});
+			updatePR({ state });
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return <form onSubmit={onSubmit}>
+		<input disabled={isBusy} type='submit' id='confirm-merge' value={MERGE_METHODS[method]} />
+	</form>;
+}
+
+
 function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
 	switch (mergeMethod) {
 		case 'merge':
@@ -250,7 +324,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 					<Avatar for={{ avatarUrl: s.avatar_url, url: s.url }} />
 					<span className='status-check-detail-text'>{s.context} {s.description ? `— ${s.description}` : ''}</span>
 				</div>
-				{ !!s.target_url ? <a href={s.target_url}>Details</a> : null }
+				{!!s.target_url ? <a href={s.target_url}>Details</a> : null}
 			</div>
 		)
 	}</div>;

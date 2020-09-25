@@ -1,16 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as React from 'react';
 import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 import { Spaced, nbsp } from './space';
 import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
-import { IComment } from '../src/common/comment';
-import { PullRequest } from './cache';
-import PullRequestContext from './context';
+import { IComment } from '../../src/common/comment';
+import { PullRequest, ReviewType } from '../common/cache';
+import PullRequestContext from '../common/context';
 import { editIcon, deleteIcon, commentIcon } from './icon';
-import { GithubItemStateEnum } from '../src/github/interface';
-import { useStateProp } from './hooks';
-import emitter from './events';
+import { GithubItemStateEnum } from '../../src/github/interface';
+import { useStateProp } from '../common/hooks';
+import emitter from '../common/events';
 
 export type Props = Partial<IComment & PullRequest> & {
 	headerInEditMode?: boolean
@@ -30,31 +35,31 @@ export function CommentView(comment: Props) {
 		return React.cloneElement(
 			comment.headerInEditMode
 				? <CommentBox for={comment} /> : <></>, {}, [
-				<EditComment id={id}
-					body={currentDraft || bodyMd}
-					onCancel={
-						() => {
-							if (pr.pendingCommentDrafts) {
-								delete pr.pendingCommentDrafts[id];
-							}
+			<EditComment id={id}
+				body={currentDraft || bodyMd}
+				onCancel={
+					() => {
+						if (pr.pendingCommentDrafts) {
+							delete pr.pendingCommentDrafts[id];
+						}
+						setEditMode(false);
+					}
+				}
+				onSave={
+					async text => {
+						try {
+							const result = isPRDescription
+								? await setDescription(text)
+								: await editComment({ comment: comment as IComment, text });
+
+							setBodyHtml(result.bodyHTML);
+							setBodyMd(text);
+						} finally {
 							setEditMode(false);
 						}
 					}
-					onSave={
-						async text => {
-							try {
-								const result = isPRDescription
-									? await setDescription(text)
-									: await editComment({ comment: comment as IComment, text });
-
-								setBodyHtml(result.bodyHTML);
-								setBodyMd(text);
-							} finally {
-								setEditMode(false);
-							}
-						}
-					} />
-			]);
+				} />
+		]);
 	}
 
 	return <CommentBox
@@ -310,5 +315,97 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 				className='secondary'
 				disabled={isBusy || !pendingCommentText} />
 		</div>
+	</form>;
+}
+
+export function AddCommentSimple({ pendingCommentText, pendingReviewType }: PullRequest) {
+	const { updatePR, requestChanges, approve, comment } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+	const form = useRef<HTMLFormElement>();
+	const textareaRef = useRef<HTMLTextAreaElement>();
+	let selectedValue: ReviewType = pendingReviewType ||  ReviewType.Comment;
+
+	const onSubmit = async e => {
+			e.preventDefault();
+			try {
+				setBusy(true);
+				const { body }: FormInputSet = form.current;
+				switch (selectedValue) {
+					case ReviewType.RequestChanges:
+						await requestChanges(body.value);
+						break;
+					case ReviewType.Approve:
+						await approve(body.value);
+						break;
+					default:
+						await comment(body.value)
+				}
+				updatePR({ pendingCommentText: '', pendingReviewType: undefined });
+			} finally {
+				setBusy(false);
+			};
+		};
+
+	const onKeyDown = (e: React.KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				onSubmit(e);
+			}
+		};
+
+	const onChangeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+		updatePR({ pendingCommentText: e.target.value });
+	}
+
+	const onChangeRadioSelection = (e: React.ChangeEvent<HTMLInputElement>): void => {
+		selectedValue = e.target.value as ReviewType;
+		updatePR({ pendingReviewType: e.target.value as ReviewType });
+	}
+
+	return <form id='comment-form'
+		ref={form}
+		className='comment-form main-comment-form'
+		onSubmit={onSubmit}>
+
+		<textarea id='comment-textarea'
+			name='body'
+			ref={textareaRef}
+			onKeyDown={onKeyDown}
+			value={pendingCommentText}
+			onChange={onChangeTextarea}
+			placeholder='Leave a comment' />
+
+		<div className='form-actions' onChange={onChangeRadioSelection}>
+			<input type='radio'
+				id='comment'
+				disabled={isBusy}
+				className='secondary'
+				name='review-type'
+				value={ReviewType.Comment}
+				defaultChecked={!pendingReviewType || pendingReviewType === ReviewType.Comment} />
+			<label htmlFor='comment'>Comment</label>
+
+			<input type='radio'
+				id='approve'
+				disabled={isBusy}
+				className='secondary'
+				value={ReviewType.Approve}
+				defaultChecked={pendingReviewType === ReviewType.Approve}
+				name='review-type' />
+			<label htmlFor='approve'>Approve</label>
+
+			<input type='radio'
+				id='request-changes'
+				disabled={isBusy}
+				className='secondary'
+				value={ReviewType.RequestChanges}
+				defaultChecked={pendingReviewType === ReviewType.RequestChanges}
+				name='review-type' />
+			<label htmlFor='request-changes'>Request Changes</label>
+		</div>
+
+		<input type='submit'
+			id='submit'
+			value='Submit'
+			disabled={isBusy} />
 	</form>;
 }

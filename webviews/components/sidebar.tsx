@@ -1,10 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as React from 'react';
 import { cloneElement, useContext, useState } from 'react';
-import { PullRequest } from './cache';
+import { PullRequest } from '../common/cache';
 import { Avatar, AuthorLink } from './user';
 import { pendingIcon, commentIcon, checkIcon, diffIcon, plusIcon, deleteIcon } from './icon';
-import PullRequestContext from './context';
-import { ReviewState, ILabel } from '../src/github/interface';
+import PullRequestContext from '../common/context';
+import { ReviewState, ILabel } from '../../src/github/interface';
 import { nbsp } from './space';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue }: PullRequest) {

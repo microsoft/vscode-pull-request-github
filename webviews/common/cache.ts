@@ -4,8 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks } from '../src/github/interface';
-import { TimelineEvent } from '../src/common/timelineEvent';
+import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks } from '../../src/github/interface';
+import { TimelineEvent } from '../../src/common/timelineEvent';
+
+export enum ReviewType {
+	Comment = 'comment',
+	Approve = 'approve',
+	RequestChanges = 'requestChanges'
+}
 
 export interface PullRequest {
 	number: number;
@@ -34,6 +40,7 @@ export interface PullRequest {
 	hasWritePermission: boolean;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string; };
+	pendingReviewType?: ReviewType;
 	status: PullRequestChecks;
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;

@@ -1,9 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
-import { MergeMethod } from '../src/github/interface';
-import { IComment } from '../src/common/comment';
-import { EventType, ReviewEvent, isReviewEvent } from '../src/common/timelineEvent';
+import { MergeMethod } from '../../src/github/interface';
+import { IComment } from '../../src/common/comment';
+import { EventType, ReviewEvent, isReviewEvent } from '../../src/common/timelineEvent';
 
 export class PRContext {
 	constructor(
