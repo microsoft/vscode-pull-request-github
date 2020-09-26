@@ -1,6 +1,7 @@
 .vscode/**
 out/**
 src/**
+webviews/**
 node_modules/**
 .gitignore
 .github
