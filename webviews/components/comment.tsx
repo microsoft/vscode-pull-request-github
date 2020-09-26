@@ -68,9 +68,9 @@ export function CommentView(comment: Props) {
 		onMouseLeave={() => setShowActionBar(false)}
 	>{showActionBar
 		? <div className='action-bar comment-actions'>
-			<button onClick={() => emitter.emit('quoteReply', bodyMd)}>{commentIcon}</button>
-			{canEdit ? <button onClick={() => setEditMode(true)}>{editIcon}</button> : null}
-			{canDelete ? <button onClick={() => deleteComment({ id, pullRequestReviewId })}>{deleteIcon}</button> : null}
+			<button title='Quote reply' onClick={() => emitter.emit('quoteReply', bodyMd)}>{commentIcon}</button>
+			{canEdit ? <button title='Edit comment' onClick={() => setEditMode(true)} >{editIcon}</button> : null}
+			{canDelete ? <button title='Delete comment' onClick={() => deleteComment({ id, pullRequestReviewId })} >{deleteIcon}</button> : null}
 		</div>
 		: null
 		}
