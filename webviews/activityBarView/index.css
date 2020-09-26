@@ -1,0 +1,53 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	padding: 10px 20px;
+}
+
+textarea {
+	min-height: 80px;
+	max-height: 500px;
+}
+
+.form-actions {
+	display: flex;
+	padding: 10px 0;
+}
+
+.icon svg{
+	margin-right: 6px;
+	width: 16px
+}
+
+#status-checks {
+	padding-top: 20px;
+	padding-bottom: 10px;
+}
+
+.status-section {
+	display: flex;
+	padding: 10px 0;
+}
+
+.merge-select {
+	display: flex;
+}
+
+.merge-type-select {
+	display: flex;
+	flex-direction: column;
+	width: 169px;
+}
+
+.merge-type-select button {
+	margin-top: 1px;
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+}
+
+.branch-status-container {
+	padding: 10px 0;
+}

@@ -3,13 +3,13 @@ const webpack = require('webpack');
 const TSLintPlugin = require('tslint-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 
-function getWebviewConfig(env) {
+function getWebviewConfig(env, entry, outputFilename) {
 	/** @type webpack.Configuration */
 	let webview = {
-		name: 'webview',
+		name: outputFilename,
 		mode: env.production ? 'production' : 'development',
 		entry: {
-			index: './preview-src/index.ts'
+			index: entry
 		},
 		module: {
 			rules: [
@@ -33,7 +33,7 @@ function getWebviewConfig(env) {
 		},
 		devtool: !env.production ? 'inline-source-map' : undefined,
 		output: {
-			filename: 'webviewIndex.js',
+			filename: outputFilename,
 			path: path.resolve(__dirname, 'media')
 		},
 		plugins: [

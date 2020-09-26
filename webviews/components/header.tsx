@@ -1,14 +1,19 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as React from 'react';
 import { useContext, useState } from 'react';
 
-import { PullRequest } from './cache';
+import { PullRequest } from '../common/cache';
 import { Avatar, AuthorLink } from './user';
 import { Spaced } from './space';
-import PullRequestContext from './context';
+import PullRequestContext from '../common/context';
 import { checkIcon, editIcon } from './icon';
 import Timestamp from './timestamp';
-import { GithubItemStateEnum } from '../src/github/interface';
-import { useStateProp } from './hooks';
+import { GithubItemStateEnum } from '../../src/github/interface';
+import { useStateProp } from '../common/hooks';
 
 export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue }: PullRequest) {
 	return <>

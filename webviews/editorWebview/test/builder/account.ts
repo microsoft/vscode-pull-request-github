@@ -1,5 +1,5 @@
-import { createBuilderClass } from '../../../src/test/builders/base';
-import { IAccount } from '../../../src/github/interface';
+import { createBuilderClass } from '../../../../src/test/builders/base';
+import { IAccount } from '../../../../src/github/interface';
 
 export const AccountBuilder = createBuilderClass<IAccount>()({
 	login: { default: 'me' },

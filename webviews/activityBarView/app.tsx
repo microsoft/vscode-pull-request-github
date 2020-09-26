@@ -1,9 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as React from 'react';
 import { useContext, useState, useEffect } from 'react';
 import { render } from 'react-dom';
 import { Overview } from './overview';
-import PullRequestContext from './context';
-import { PullRequest } from './cache';
+import PullRequestContext from '../common/context';
+import { PullRequest } from '../common/cache';
 
 export function main() {
 	render(

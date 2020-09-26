@@ -3,7 +3,7 @@ import assert = require('assert');
 import { render, cleanup } from 'react-testing-library';
 import { SinonSandbox, createSandbox } from 'sinon';
 
-import PullRequestContext, { PRContext } from '../context';
+import PullRequestContext, { PRContext } from '../../common/context';
 import { Root } from '../app';
 import { PullRequestBuilder } from './builder/pullRequest';
 

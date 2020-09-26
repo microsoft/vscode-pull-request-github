@@ -22,6 +22,7 @@ import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullReque
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
+import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 
 export class ReviewManager {
 	public static ID = 'Review';
@@ -43,6 +44,8 @@ export class ReviewManager {
 		remotes: Remote[];
 	};
 
+	private _webviewViewProvider: PullRequestViewProvider | undefined;
+
 	private _switchingToReviewMode: boolean;
 
 	public get switchingToReviewMode(): boolean {
@@ -59,6 +62,7 @@ export class ReviewManager {
 	private _isFirstLoad = true;
 
 	constructor(
+		private _context: vscode.ExtensionContext,
 		private _repository: Repository,
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
@@ -260,6 +264,13 @@ export class ReviewManager {
 
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
+
+		if (!this._webviewViewProvider) {
+			this._webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, pr);
+			this._context.subscriptions.push(vscode.window.registerWebviewViewProvider(PullRequestViewProvider.viewType, this._webviewViewProvider));
+		} else {
+			this._webviewViewProvider.updatePullRequest(pr);
+		}
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = { command: 'pr.openDescription', title: 'View Pull Request Description', arguments: [pr] };
