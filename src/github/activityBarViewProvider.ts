@@ -6,12 +6,13 @@
 import * as vscode from 'vscode';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { ReviewEvent, GithubItemStateEnum, ReviewState, MergeMethod } from './interface';
+import { ReviewEvent, GithubItemStateEnum, ReviewState, MergeMethod, IAccount } from './interface';
 import { IRequestMessage, IReplyMessage } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import * as OctokitTypes from '@octokit/types';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import webviewContent from '../../media/activityBar-webviewIndex.js';
+import { isReviewEvent, TimelineEvent, ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 
 export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'github:activePullRequest';
@@ -79,8 +80,10 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 				pullRequestModel.number
 			),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
+			pullRequestModel.getTimelineEvents(),
+			pullRequestModel.getReviewRequests()
 		]).then(result => {
-			const [pullRequest, repositoryAccess] = result;
+			const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers] = result;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
@@ -94,6 +97,7 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 			const canEdit = hasWritePermission || this._item.canEdit();
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+			const currentUser = this._folderRepositoryManager.getCurrentUser(this._item);
 
 			this._postMessage({
 				command: 'pr.initialize',
@@ -123,7 +127,9 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 					events: [],
 					mergeMethodsAvailability,
 					defaultMergeMethod,
-					isIssue: false
+					isIssue: false,
+					isAuthor: currentUser.login === pullRequest.author.login,
+					reviewers: this.parseReviewers(requestedReviewers || [], timelineEvents || [], pullRequest.author)
 				}
 			});
 		}).catch(e => {
@@ -149,8 +155,81 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
+	/**
+	 * Create a list of reviewers composed of people who have already left reviews on the PR, and
+	 * those that have had a review requested of them. If a reviewer has left multiple reviews, the
+	 * state should be the state of their most recent review, or 'REQUESTED' if they have an outstanding
+	 * review request.
+	 * @param requestedReviewers The list of reviewers that are requested for this pull request
+	 * @param timelineEvents All timeline events for the pull request
+	 * @param author The author of the pull request
+	 */
+	private parseReviewers(requestedReviewers: IAccount[], timelineEvents: TimelineEvent[], author: IAccount): ReviewState[] {
+		const reviewEvents = timelineEvents.filter(isReviewEvent).filter(event => event.state !== 'PENDING');
+		let reviewers: ReviewState[] = [];
+		const seen = new Map<string, boolean>();
+
+		// Do not show the author in the reviewer list
+		seen.set(author.login, true);
+
+		for (let i = reviewEvents.length - 1; i >= 0; i--) {
+			const reviewer = reviewEvents[i].user;
+			if (!seen.get(reviewer.login)) {
+				seen.set(reviewer.login, true);
+				reviewers.push({
+					reviewer: reviewer,
+					state: reviewEvents[i].state
+				});
+			}
+		}
+
+		requestedReviewers.forEach(request => {
+			if (!seen.get(request.login)) {
+				reviewers.push({
+					reviewer: request,
+					state: 'REQUESTED'
+				});
+			} else {
+				const reviewer = reviewers.find(r => r.reviewer.login === request.login);
+				reviewer!.state = 'REQUESTED';
+			}
+		});
+
+		// Put completed reviews before review requests and alphabetize each section
+		reviewers = reviewers.sort((a, b) => {
+			if (a.state === 'REQUESTED' && b.state !== 'REQUESTED') {
+				return 1;
+			}
+
+			if (b.state === 'REQUESTED' && a.state !== 'REQUESTED') {
+				return -1;
+			}
+
+			return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
+		});
+
+		this._existingReviewers = reviewers;
+		return reviewers;
+	}
+
+
+	private updateReviewers(review?: CommonReviewEvent): void {
+		if (review) {
+			const existingReviewer = this._existingReviewers.find(reviewer => review.user.login === reviewer.reviewer.login);
+			if (existingReviewer) {
+				existingReviewer.state = review.state;
+			} else {
+				this._existingReviewers.push({
+					reviewer: review.user,
+					state: review.state
+				});
+			}
+		}
+	}
+
 	private approvePullRequest(message: IRequestMessage<string>): void {
 		this._item.approve(message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
 				reviewers: this._existingReviewers
@@ -166,6 +245,7 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 
 	private requestChanges(message: IRequestMessage<string>): void {
 		this._item.requestChanges(message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
 				reviewers: this._existingReviewers
@@ -178,6 +258,7 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 
 	private submitReview(message: IRequestMessage<string>): void {
 		this._item.submitReview(ReviewEvent.Comment, message.args).then(review => {
+			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,
 				reviewers: this._existingReviewers
