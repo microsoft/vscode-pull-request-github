@@ -1212,17 +1212,17 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "webpack --env.production --config-name webview && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
+    "vscode:prepublish": "webpack --env.production --config-name webviewIndex.js && webpack --env.production --config-name activityBar-webviewIndex.js && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
     "postinstall": "cd src/typings && npx vscode-dts master && npx vscode-dts dev master",
     "compile": "tsc -p ./",
     "clean": "rm -r out/ media/",
-    "webpack": "webpack --env.development --config-name webview && webpack --env.development --config-name extension",
+    "webpack": "webpack --env.development --config-name webviewIndex.js && webpack --env.development --config-name activityBar-webviewIndex.js && webpack --env.development --config-name extension",
     "watch": "webpack --watch --env.development --info-verbosity verbose",
     "test": "yarn run preprocess && node ./out/test/runTests.js",
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
     "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
     "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources",
-    "compile-web": "npx webpack-cli --config browser.webpack.config  --config-name webview --mode none && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
+    "compile-web": "npx webpack-cli --config browser.webpack.config  --config-name webviewIndex.js --mode none && npx webpack-cli --config browser.webpack.config --config-name activityBar-webviewIndex.js && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
     "watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
   },
   "devDependencies": {

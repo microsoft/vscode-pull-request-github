@@ -7,69 +7,9 @@ body {
 	padding: 10px 20px;
 }
 
-button, input[type=submit] {
-	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
-	border-radius: 0px;
-	border: 1px solid transparent;
-	outline: none;
-	padding: 4px 12px;
-	font-size: 13px;
-	line-height: 18px;
-	white-space: nowrap;
-	user-select: none;
-}
-
-button:focus, input[type=submit]:focus {
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: 2px;
-}
-
-button:hover:enabled, button:focus:enabled, input[type=submit]:focus:enabled, input[type=submit]:hover:enabled {
-	background-color: var(--vscode-button-hoverBackground);
-	cursor: pointer;
-}
-
-body button.secondary {
-	background-color: var(--vscode-button-secondaryBackground);
-	color: var(--vscode-button-secondaryForeground);
-}
-
-body button.secondary:hover {
-	background-color: var(--vscode-button-secondaryHoverBackground);
-}
-
-textarea, input[type='text'] {
-	display: block;
-	box-sizing: border-box;
-	padding: 10px;
-	width: 100%;
-	resize: vertical;
-	font-size: 13px;
-	border: 1px solid var(--vscode-dropdown-border);
-	background-color: var(--vscode-input-background);
-	color: var(--vscode-input-foreground);
-	font-family: var(--vscode-editor-font-family);
-}
-
-select {
-	display: block;
-	box-sizing: border-box;
-	padding: 4px 12px;
-	border-radius: 0;
-	font-size: 13px;
-	border: 1px solid var(--vscode-dropdown-border);
-	background-color: var(--vscode-dropdown-background);
-	color: var(--vscode-dropdown-foreground);
-}
-
 textarea {
 	min-height: 80px;
 	max-height: 500px;
-}
-
-textarea:focus {
-	outline: 1px solid var(--vscode-focusBorder);
 }
 
 .form-actions {
@@ -77,25 +17,19 @@ textarea:focus {
 	padding: 10px 0;
 }
 
-
-body button:disabled,
-input[type=submit]:disabled {
-	opacity: 0.4;
-}
-
 .icon svg{
 	margin-right: 6px;
 	width: 16px
 }
 
-.status-section {
-	display: flex;
+#status-checks {
 	padding-top: 20px;
 	padding-bottom: 10px;
 }
 
-.hidden {
-	display: none;
+.status-section {
+	display: flex;
+	padding: 10px 0;
 }
 
 .merge-select {
@@ -114,22 +48,6 @@ input[type=submit]:disabled {
 	color: var(--vscode-dropdown-foreground);
 }
 
-/** Theming */
-
-.vscode-high-contrast button, .vscode-high-contrast input {
-	outline: none;
-	background: none !important;
-	border: 1px solid var(--vscode-contrastBorder);
-}
-
-.vscode-high-contrast button:focus{
-	border: 1px solid var(--vscode-contrastActiveBorder);
-}
-
-.vscode-high-contrast button:hover {
-	border: 1px dotted var(--vscode-contrastActiveBorder);
-}
-
-::-webkit-scrollbar-corner {
-	display: none;
+.branch-status-container {
+	padding: 10px 0;
 }

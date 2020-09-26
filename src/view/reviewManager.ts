@@ -44,6 +44,8 @@ export class ReviewManager {
 		remotes: Remote[];
 	};
 
+	private _webviewViewProvider: PullRequestViewProvider | undefined;
+
 	private _switchingToReviewMode: boolean;
 
 	public get switchingToReviewMode(): boolean {
@@ -66,7 +68,6 @@ export class ReviewManager {
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider
 	) {
-		console.log(_context);
 		this._switchingToReviewMode = false;
 		this._disposables = [];
 
@@ -264,8 +265,12 @@ export class ReviewManager {
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
 
-		const webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, pr);
-		this._context.subscriptions.push(vscode.window.registerWebviewViewProvider(PullRequestViewProvider.viewType, webviewViewProvider));
+		if (!this._webviewViewProvider) {
+			this._webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, pr);
+			this._context.subscriptions.push(vscode.window.registerWebviewViewProvider(PullRequestViewProvider.viewType, this._webviewViewProvider));
+		} else {
+			this._webviewViewProvider.updatePullRequest(pr);
+		}
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
 		this.statusBarItem.command = { command: 'pr.openDescription', title: 'View Pull Request Description', arguments: [pr] };

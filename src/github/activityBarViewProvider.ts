@@ -253,7 +253,8 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 									return;
 								}
 							}
-							// await this._folderRepositoryManager.repository.checkout(this._repositoryDefaultBranch);
+							const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
+							await this._folderRepositoryManager.repository.checkout(defaultBranch);
 						}
 						return await this._folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
 					case 'remote':
@@ -263,7 +264,6 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 
 			await Promise.all(promises);
 
-			// this.refreshPanel();
 			vscode.commands.executeCommand('pr.refreshList');
 
 			this._postMessage({
