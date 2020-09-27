@@ -5,7 +5,7 @@ import { PullRequest } from './cache';
 import { Avatar, AuthorLink } from './user';
 import { Spaced } from './space';
 import PullRequestContext from './context';
-import { checkIcon, editIcon } from './icon';
+import { checkIcon, editIcon, copyIcon } from './icon';
 import Timestamp from './timestamp';
 import { GithubItemStateEnum } from '../src/github/interface';
 import { useStateProp } from './hooks';
@@ -69,7 +69,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 			</form>
 			:
 			<h2>
-				{currentTitle} (<a href={url}>#{number}</a>)
+				{currentTitle} (<a href={url}>#{number}</a>) <a title='Copy link' className='copyPRLink' href='#' onClick={()=> navigator.clipboard.writeText(url)}>{copyIcon}</a>
 			</h2>;
 
 	return <div className='overview-title'

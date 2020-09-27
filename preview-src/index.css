@@ -1107,3 +1107,8 @@ code {
 	font-weight: bolder;
 	color: var(--vscode-editor-foreground)
 }
+
+.copyPRLink svg{
+	width: 25px;
+	height: 25px;
+}
