@@ -163,7 +163,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
-		const folderManager = reposManager.getManagerForIssueModel(this.pullRequest);
+		const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
 		if (!folderManager) {
 			return;
 		}
