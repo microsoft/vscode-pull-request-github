@@ -23,6 +23,7 @@ import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
+import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 
 export class ReviewManager {
 	public static ID = 'Review';
@@ -214,10 +215,19 @@ export class ReviewManager {
 		}
 
 		const branch = this._repository.state.HEAD;
-		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
+		let matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {
-			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${this._repository.state.HEAD.name}`);
+			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${branch.name}`);
+			const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub();
+			if (metadataFromGithub) {
+				PullRequestGitHelper.associateBranchWithPullRequest(this._repository, metadataFromGithub.model, branch.name!);
+				matchingPullRequestMetadata = metadataFromGithub;
+			}
+		}
+
+		if (!matchingPullRequestMetadata) {
+			Logger.appendLine(`Review> no matching pull request metadata found on GitHub for current branch ${branch.name}`);
 			this.clear(true);
 			return;
 		}
