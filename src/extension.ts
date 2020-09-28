@@ -16,7 +16,7 @@ import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
-import { registerBuiltinGitProvider } from './env/node/gitProviders/api';
+import { registerBuiltinGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
@@ -70,7 +70,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 				}
 			}
 			return indexA - indexB;
-		})
+		});
 	}
 	const folderManagers = repositories.map(repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore));
 	context.subscriptions.push(...folderManagers);
@@ -131,7 +131,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	context.subscriptions.push(credentialStore);
 	await credentialStore.initialize();
 
-	context.subscriptions.push(registerBuiltinGitProvider(credentialStore, apiImpl));
+	const builtInGitProvider = registerBuiltinGitProvider(credentialStore, apiImpl);
+	if (builtInGitProvider) {
+		context.subscriptions.push(builtInGitProvider);
+	}
 	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
 	context.subscriptions.push(liveshareGitProvider);
 	const liveshareApiPromise = liveshareGitProvider.initialize();

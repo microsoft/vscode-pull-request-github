@@ -1436,7 +1436,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						repositoryName: repo.remote.repositoryName,
 						prNumber: matchingPullRequest[0].number,
 						model: matchingPullRequest[0]
-					}
+					};
 				}
 				break;
 			}

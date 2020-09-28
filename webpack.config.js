@@ -35,7 +35,7 @@ function getExtensionConfig(env) {
 		}
 	};
 
-	return merge(baseConfig, config);;
+	return merge(baseConfig, config);
 }
 
 module.exports = function (env) {
