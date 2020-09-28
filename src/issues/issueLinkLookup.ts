@@ -19,9 +19,9 @@ export function issueBodyHasLink(issueModel: IssueModel): boolean {
 }
 
 interface CodeLink {
-	file: vscode.Uri,
-	start: number,
-	end: number
+	file: vscode.Uri;
+	start: number;
+	end: number;
 }
 
 export async function findCodeLinkLocally(codeLink: RegExpMatchArray, repositoriesManager: RepositoriesManager,
@@ -63,7 +63,7 @@ export async function findCodeLinkLocally(codeLink: RegExpMatchArray, repositori
 		file: path,
 		start: startingLine,
 		end: endingLine
-	}
+	};
 }
 
 export async function openCodeLink(issueModel: IssueModel, repositoriesManager: RepositoriesManager) {

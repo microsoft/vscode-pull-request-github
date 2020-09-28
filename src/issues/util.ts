@@ -183,7 +183,6 @@ async function findAndModifyString(text: string, find: RegExp, transformer: (mat
 	return text;
 }
 
-
 function findLinksInIssue(body: string, issue: IssueModel): Promise<string> {
 	return findAndModifyString(body, ISSUE_OR_URL_EXPRESSION, async (match: RegExpMatchArray) => {
 		const tryParse = parseIssueExpressionOutput(match);
@@ -193,15 +192,15 @@ function findLinksInIssue(body: string, issue: IssueModel): Promise<string> {
 				tryParse.owner = issue.remote.owner;
 				tryParse.name = issue.remote.repositoryName;
 			}
-			return `[${issueNumberLabel}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`
+			return `[${issueNumberLabel}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
 		}
 		return undefined;
 	});
 }
 
-async function findCodeLinksInIssue(body: string, issue: IssueModel, repositoriesManager: RepositoriesManager) {
+async function findCodeLinksInIssue(body: string, repositoriesManager: RepositoriesManager) {
 	return findAndModifyString(body, CODE_PERMALINK, async (match: RegExpMatchArray) => {
-		let codeLink = await findCodeLinkLocally(match, repositoriesManager);
+		const codeLink = await findCodeLinkLocally(match, repositoriesManager);
 		if (codeLink) {
 			const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
 			const endingTextDocumentLine =
@@ -218,7 +217,7 @@ async function findCodeLinksInIssue(body: string, issue: IssueModel, repositorie
 						character: endingTextDocumentLine.text.length
 					}
 				}
-			}]
+			}];
 			const openCommand = vscode.Uri.parse(
 				`command:vscode.open?${encodeURIComponent(JSON.stringify(query))}`
 			);
@@ -245,7 +244,7 @@ export async function issueMarkdown(issue: IssueModel, context: vscode.Extension
 	markdown.appendMarkdown('  \n');
 	body = ((body.length > ISSUE_BODY_LENGTH) ? (body.substr(0, ISSUE_BODY_LENGTH) + '...') : body);
 	body = await findLinksInIssue(body, issue);
-	body = await findCodeLinksInIssue(body, issue, repositoriesManager);
+	body = await findCodeLinksInIssue(body, repositoriesManager);
 
 	markdown.appendMarkdown(body + '  \n');
 	markdown.appendMarkdown('&nbsp;  \n');
