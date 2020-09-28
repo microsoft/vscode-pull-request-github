@@ -25,6 +25,8 @@ import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 
+const FOCUS_REVIEW_MODE = 'github:focusedReview';
+
 export class ReviewManager {
 	public static ID = 'Review';
 	private _localToDispose: vscode.Disposable[] = [];
@@ -287,6 +289,19 @@ export class ReviewManager {
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
+		if (this._context.workspaceState.get(FOCUS_REVIEW_MODE)) {
+			if (this.localFileChanges.length > 0) {
+				let fileChangeToShow: GitFileChangeNode | undefined;
+				for (const fileChange of this.localFileChanges) {
+					if (fileChange.status === GitChangeType.MODIFY) {
+						fileChangeToShow = fileChange;
+						break;
+					}
+				}
+				fileChangeToShow = fileChangeToShow ?? this.localFileChanges[0];
+				fileChangeToShow.openDiff(this._folderRepoManager);
+			}
+		}
 		this._validateStatusInProgress = undefined;
 	}
 
@@ -851,9 +866,11 @@ export class ReviewManager {
 	private updateFocusedViewMode(): void {
 		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
 		if (focusedSetting && this._folderRepoManager.activePullRequest) {
-			vscode.commands.executeCommand('setContext', 'github:focusedReview', true);
+			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
+			this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		} else {
-			vscode.commands.executeCommand('setContext', 'github:focusedReview', false);
+			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, false);
+			this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		}
 	}
 
