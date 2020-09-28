@@ -870,7 +870,7 @@ export class ReviewManager {
 			this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		} else {
 			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, false);
-			this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
+			this._context.workspaceState.update(FOCUS_REVIEW_MODE, false);
 		}
 	}
 
