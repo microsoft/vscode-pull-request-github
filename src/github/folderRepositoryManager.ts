@@ -1421,7 +1421,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return matchingPullRequestMetadata;
 	}
 
-	async getMatchingPullRequestMetadataFromGitHub(): Promise<PullRequestMetadata | null> {
+	async getMatchingPullRequestMetadataFromGitHub(): Promise<(PullRequestMetadata & { model: PullRequestModel }) | null> {
 		if (!this.repository || !this.repository.state.HEAD || !this.repository.state.HEAD.name || !this.repository.state.HEAD.upstream) {
 			return null;
 		}
@@ -1434,7 +1434,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					return {
 						owner: repo.remote.owner,
 						repositoryName: repo.remote.repositoryName,
-						prNumber: matchingPullRequest[0].number
+						prNumber: matchingPullRequest[0].number,
+						model: matchingPullRequest[0]
 					}
 				}
 				break;
