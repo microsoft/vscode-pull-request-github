@@ -8,7 +8,7 @@ import { IComment } from '../common/comment';
 import { IAccount } from './interface';
 import { updateCommentReactions } from './utils';
 
-export interface GHPRCommentThread {
+export interface GHPRCommentThread extends vscode.CommentThread {
 	threadId: string;
 
 	/**
