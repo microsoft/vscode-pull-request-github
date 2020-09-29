@@ -372,7 +372,7 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/pull-request.png"
         },
         {
@@ -390,7 +390,7 @@
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/issues.png"
         }
       ]
