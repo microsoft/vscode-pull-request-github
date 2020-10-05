@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.21.0
+
+### Changes
+
+- GitHub permalinks in issue hovers for files that exist in your current workspace will be opened locally.
+- We are trying out a new "focused review" mode which changes the layout when you checkout a PR. You can try it with the `githubPullRequests.focusedMode` setting.
+
+### Notable fixes
+
+- Instead of showing two login buttons (one each in the Pull Requests and Issues views), we now show a login view.
+
+![Login View](documentation/changelog/0.21.0/loginView.png)
+
 ## 0.20.0
 
 ### Changes
