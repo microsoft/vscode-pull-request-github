@@ -767,11 +767,11 @@
         },
         {
           "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && github:authenticated && !github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
         },
         {
           "command": "pr.createDraft",
-          "when": "gitOpenRepositoryCount != 0 && github:authenticated && !github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
         },
         {
           "command": "pr.merge",
