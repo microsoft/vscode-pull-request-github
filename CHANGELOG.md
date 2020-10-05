@@ -13,6 +13,10 @@
 
 ![Login View](documentation/changelog/0.21.0/loginView.png)
 
+## 0.20.1
+
+- Fixes loading the extension in VSCode Insider's 1.50
+
 ## 0.20.0
 
 ### Changes
