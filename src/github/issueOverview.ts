@@ -22,7 +22,7 @@ export interface IRequestMessage<T> {
 	args: T;
 }
 
-interface IReplyMessage {
+export interface IReplyMessage {
 	seq?: string;
 	err?: any;
 	res?: any;

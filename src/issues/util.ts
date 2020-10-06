@@ -16,6 +16,8 @@ import { getRepositoryForFile } from '../github/utils';
 import { GitApiImpl } from '../api/api1';
 import { Repository, Commit, Remote, Ref } from '../api/api';
 import * as LRUCache from 'lru-cache';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -159,33 +161,74 @@ function makeLabel(color: string, text: string): string {
 
 }
 
-function findLinksInIssue(body: string, issue: IssueModel): string {
-	let searchResult = body.search(ISSUE_OR_URL_EXPRESSION);
+async function findAndModifyString(text: string, find: RegExp, transformer: (match: RegExpMatchArray) => Promise<string | undefined>): Promise<string> {
+	let searchResult = text.search(find);
 	let position = 0;
-	while ((searchResult >= 0) && (searchResult < body.length)) {
+	while ((searchResult >= 0) && (searchResult < text.length)) {
 		let newBodyFirstPart: string | undefined;
-		if (searchResult === 0 || body.charAt(searchResult - 1) !== '&') {
-			const match = body.substring(searchResult).match(ISSUE_OR_URL_EXPRESSION)!;
-			const tryParse = parseIssueExpressionOutput(match);
-			if (tryParse) {
-				const issueNumberLabel = getIssueNumberLabelFromParsed(tryParse); // get label before setting owner and name.
-				if (!tryParse.owner || !tryParse.name) {
-					tryParse.owner = issue.remote.owner;
-					tryParse.name = issue.remote.repositoryName;
+		if (searchResult === 0 || text.charAt(searchResult - 1) !== '&') {
+			const match = text.substring(searchResult).match(find)!;
+			if (match) {
+				const transformed = await transformer(match);
+				if (transformed) {
+					newBodyFirstPart = text.slice(0, searchResult) + transformed;
+					text = newBodyFirstPart + text.slice(searchResult + match[0].length);
 				}
-				newBodyFirstPart = body.slice(0, searchResult) + `[${issueNumberLabel}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
-				body = newBodyFirstPart + body.slice(searchResult + match[0].length);
 			}
 		}
 		position = newBodyFirstPart ? newBodyFirstPart.length : searchResult + 1;
-		const newSearchResult = body.substring(position).search(ISSUE_OR_URL_EXPRESSION);
+		const newSearchResult = text.substring(position).search(find);
 		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
 	}
-	return body;
+	return text;
+}
+
+function findLinksInIssue(body: string, issue: IssueModel): Promise<string> {
+	return findAndModifyString(body, ISSUE_OR_URL_EXPRESSION, async (match: RegExpMatchArray) => {
+		const tryParse = parseIssueExpressionOutput(match);
+		if (tryParse) {
+			const issueNumberLabel = getIssueNumberLabelFromParsed(tryParse); // get label before setting owner and name.
+			if (!tryParse.owner || !tryParse.name) {
+				tryParse.owner = issue.remote.owner;
+				tryParse.name = issue.remote.repositoryName;
+			}
+			return `[${issueNumberLabel}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
+		}
+		return undefined;
+	});
+}
+
+async function findCodeLinksInIssue(body: string, repositoriesManager: RepositoriesManager) {
+	return findAndModifyString(body, CODE_PERMALINK, async (match: RegExpMatchArray) => {
+		const codeLink = await findCodeLinkLocally(match, repositoriesManager);
+		if (codeLink) {
+			const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
+			const endingTextDocumentLine =
+				textDocument.lineAt(codeLink.end <= textDocument.lineCount ? codeLink.end : textDocument.lineCount);
+			const query = [codeLink.file,
+			{
+				selection: {
+					start: {
+						line: codeLink.start,
+						character: 0
+					},
+					end: {
+						line: codeLink.end,
+						character: endingTextDocumentLine.text.length
+					}
+				}
+			}];
+			const openCommand = vscode.Uri.parse(
+				`command:vscode.open?${encodeURIComponent(JSON.stringify(query))}`
+			);
+			return `[${match[0]}](${openCommand} "Open ${codeLink.file.fsPath}")`;
+		}
+		return undefined;
+	});
 }
 
 export const ISSUE_BODY_LENGTH: number = 200;
-export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, commentNumber?: number): vscode.MarkdownString {
+export async function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, commentNumber?: number): Promise<vscode.MarkdownString> {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	markdown.isTrusted = true;
 	const date = new Date(issue.createdAt);
@@ -200,7 +243,8 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 	});
 	markdown.appendMarkdown('  \n');
 	body = ((body.length > ISSUE_BODY_LENGTH) ? (body.substr(0, ISSUE_BODY_LENGTH) + '...') : body);
-	body = findLinksInIssue(body, issue);
+	body = await findLinksInIssue(body, issue);
+	body = await findCodeLinksInIssue(body, repositoriesManager);
 
 	markdown.appendMarkdown(body + '  \n');
 	markdown.appendMarkdown('&nbsp;  \n');
@@ -219,7 +263,7 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 				markdown.appendMarkdown(`![Avatar](${comment.author.avatarUrl}|height=15,width=15) &nbsp;&nbsp;**${comment.author.login}** commented`);
 				markdown.appendMarkdown('&nbsp;  \n');
 				let commentText = marked.parse(((comment.body.length > ISSUE_BODY_LENGTH) ? (comment.body.substr(0, ISSUE_BODY_LENGTH) + '...') : comment.body), { renderer: new PlainTextRenderer() });
-				commentText = findLinksInIssue(commentText, issue);
+				commentText = await findLinksInIssue(commentText, issue);
 				markdown.appendMarkdown(commentText);
 			}
 		}

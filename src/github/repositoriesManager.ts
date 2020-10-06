@@ -76,16 +76,37 @@ export class RepositoriesManager implements vscode.Disposable {
 	private _state: ReposManagerState = ReposManagerState.Initializing;
 
 	constructor(
-		public readonly folderManagers: FolderRepositoryManager[],
+		private _folderManagers: FolderRepositoryManager[],
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry
 	) {
 		this._subs = [];
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 
-		this._subs.push(...folderManagers.map(folderManager => {
+		this._subs.push(..._folderManagers.map(folderManager => {
 			return folderManager.onDidLoadRepositories(state => this.state = state);
 		}));
+	}
+
+	get folderManagers(): FolderRepositoryManager[] {
+		return this._folderManagers;
+	}
+
+	insertFolderManager(folderManager: FolderRepositoryManager) {
+		// Try to insert the new repository in workspace folder order
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		if (workspaceFolders) {
+			const index = workspaceFolders.findIndex(folder => folder.uri.toString() === folderManager.repository.rootUri.toString());
+			if (index > -1) {
+				const arrayEnd = this._folderManagers.slice(index, this._folderManagers.length);
+				this._folderManagers = this._folderManagers.slice(0, index);
+				this._folderManagers.push(folderManager);
+				this._folderManagers.push(...arrayEnd);
+				return;
+			}
+		}
+		this._folderManagers.push(folderManager);
+
 	}
 
 	getManagerForIssueModel(issueModel: IssueModel | undefined): FolderRepositoryManager | undefined {
@@ -93,7 +114,7 @@ export class RepositoriesManager implements vscode.Disposable {
 			return undefined;
 		}
 		const issueRemoteUrl = issueModel.remote.url.substring(0, issueModel.remote.url.length - path.extname(issueModel.remote.url).length);
-		for (const folderManager of this.folderManagers) {
+		for (const folderManager of this._folderManagers) {
 			if (folderManager.gitHubRepositories.map(repo => repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length)).includes(issueRemoteUrl)) {
 				return folderManager;
 			}
@@ -102,10 +123,10 @@ export class RepositoriesManager implements vscode.Disposable {
 	}
 
 	getManagerForFile(uri: vscode.Uri): FolderRepositoryManager | undefined {
-		for (const folderManager of this.folderManagers) {
+		for (const folderManager of this._folderManagers) {
 			const managerPath = folderManager.repository.rootUri.path;
 			const testUriRelativePath = uri.path.substring(managerPath.length > 1 ? managerPath.length + 1 : managerPath.length);
-			if (path.join(managerPath, testUriRelativePath) === uri.path) {
+			if (vscode.Uri.joinPath(folderManager.repository.rootUri, testUriRelativePath).path === uri.path) {
 				return folderManager;
 			}
 		}

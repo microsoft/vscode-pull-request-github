@@ -1421,6 +1421,29 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return matchingPullRequestMetadata;
 	}
 
+	async getMatchingPullRequestMetadataFromGitHub(): Promise<(PullRequestMetadata & { model: PullRequestModel }) | null> {
+		if (!this.repository || !this.repository.state.HEAD || !this.repository.state.HEAD.name || !this.repository.state.HEAD.upstream) {
+			return null;
+		}
+
+		// Find the github repo that matches the upstream
+		for (const repo of this.gitHubRepositories) {
+			if (repo.remote.remoteName === this.repository.state.HEAD.upstream.remote) {
+				const matchingPullRequest = await repo.getPullRequestForBranch(this.repository.state.HEAD.upstream.name);
+				if (matchingPullRequest && matchingPullRequest.length > 0) {
+					return {
+						owner: repo.remote.owner,
+						repositoryName: repo.remote.repositoryName,
+						prNumber: matchingPullRequest[0].number,
+						model: matchingPullRequest[0]
+					};
+				}
+				break;
+			}
+		}
+		return null;
+	}
+
 	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel): Promise<boolean> {
 		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest);
 	}

@@ -12,10 +12,10 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.19.0",
+  "version": "0.20.1",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.48.0"
+    "vscode": "^1.50.0"
   },
   "categories": [
     "Other"
@@ -372,8 +372,14 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/pull-request.png"
+        },
+        {
+          "id": "github:activePullRequest",
+          "type": "webview",
+          "name": "Active Pull Request",
+          "when": "github:focusedReview"
         },
         {
           "id": "prStatus:github",
@@ -384,7 +390,7 @@
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/issues.png"
         }
       ]
@@ -703,6 +709,11 @@
         "command": "issue.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.goToLinkedCode",
+        "title": "Go to Linked Code",
+        "category": "GitHub Issues"
       }
     ],
     "viewsWelcome": [
@@ -945,6 +956,10 @@
         {
           "command": "issue.signinAndRefreshList",
           "when": "false"
+        },
+        {
+          "command": "issue.goToLinkedCode",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -1033,73 +1048,78 @@
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "inline@2"
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
+          "group": "issues_0@1"
+        },
+        {
+          "command": "issue.goToLinkedCode",
+          "when": "view =~ /issues:github/ && viewItem =~ /^link(current|continue)?issue/",
           "group": "issues_0@0"
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem == issue && config.githubIssues.useBranchForIssues != on",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem == issue && config.githubIssues.useBranchForIssues == on",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem == continueissue && config.githubIssues.useBranchForIssues != on",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem == continueissue && config.githubIssues.useBranchForIssues == on",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorking",
           "alt": "issue.startWorkingBranchPrompt",
-          "when": "view =~ /issues:github/ && viewItem == issue",
-          "group": "issues_0@1"
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/",
+          "group": "issues_0@2"
         },
         {
           "command": "issue.continueWorking",
-          "when": "view =~ /issues:github/ && viewItem == continueissue",
-          "group": "issues_0@1"
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/",
+          "group": "issues_0@2"
         },
         {
           "command": "pr.create",
-          "when": "view =~ /issues:github/ && viewItem == currentissue",
-          "group": "issues_0@1"
-        },
-        {
-          "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem == currentissue",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
           "group": "issues_0@2"
         },
         {
           "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem == currentissue && config.githubIssues.useBranchForIssues != on",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
+          "group": "issues_0@3"
+        },
+        {
+          "command": "issue.stopWorking",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues != on",
           "group": "inline@1"
         },
         {
           "command": "issue.stopWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem == currentissue && config.githubIssues.useBranchForIssues == on",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.copyIssueNumber",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "issues_1@1"
         },
         {
           "command": "issue.copyIssueUrl",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "issues_1@2"
         },
         {
@@ -1206,17 +1226,17 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "webpack --env.production --config-name webview && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
+    "vscode:prepublish": "webpack --env.production --config-name webviewIndex.js && webpack --env.production --config-name activityBar-webviewIndex.js && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
     "postinstall": "cd src/typings && npx vscode-dts master && npx vscode-dts dev master",
     "compile": "tsc -p ./",
-    "clean": "rm -r out/ media/ preview-src/dist/",
-    "webpack": "webpack --env.development --config-name webview && webpack --env.development --config-name extension",
+    "clean": "rm -r out/ media/",
+    "webpack": "webpack --env.development --config-name webviewIndex.js && webpack --env.development --config-name activityBar-webviewIndex.js && webpack --env.development --config-name extension",
     "watch": "webpack --watch --env.development --info-verbosity verbose",
     "test": "yarn run preprocess && node ./out/test/runTests.js",
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
     "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
     "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources",
-    "compile-web": "npx webpack-cli --config browser.webpack.config  --config-name webview --mode none && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
+    "compile-web": "npx webpack-cli --config browser.webpack.config  --config-name webviewIndex.js --mode none && npx webpack-cli --config browser.webpack.config --config-name activityBar-webviewIndex.js && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
     "watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
   },
   "devDependencies": {

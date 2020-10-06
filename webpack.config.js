@@ -35,11 +35,15 @@ function getExtensionConfig(env) {
 		}
 	};
 
-	return merge(baseConfig, config);;
+	return merge(baseConfig, config);
 }
 
 module.exports = function (env) {
 	env = env || {};
 	env.production = !!env.production;
-	return [getExtensionConfig(env), base.getWebviewConfig(env)];
+	return [
+		getExtensionConfig(env),
+		base.getWebviewConfig(env, './webviews/editorWebview/index.ts', 'webviewIndex.js'),
+		base.getWebviewConfig(env, './webviews/activityBarView/index.ts', 'activityBar-webviewIndex.js')
+	];
 };

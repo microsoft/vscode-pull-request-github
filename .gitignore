@@ -331,7 +331,6 @@ ASALocalRun/
 
 
 out
-preview-src/dist
 node_modules
 media
 .vscode-test

@@ -26,13 +26,21 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 	private _gitAPI: GitAPI;
 	private _disposables: vscode.Disposable[];
 
-	constructor() {
-		const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
+	private constructor(extension: vscode.Extension<GitExtension>) {
+		const gitExtension = extension.exports;
 		this._gitAPI = gitExtension.getAPI(1);
 		this._disposables = [];
 		this._disposables.push(this._gitAPI.onDidCloseRepository(e => this._onDidCloseRepository.fire(e as any)));
 		this._disposables.push(this._gitAPI.onDidOpenRepository(e => this._onDidOpenRepository.fire(e as any)));
 		this._disposables.push(this._gitAPI.onDidChangeState(e => this._onDidChangeState.fire(e)));
+	}
+
+	static createProvider(): BuiltinGitProvider | undefined {
+		const extension = vscode.extensions.getExtension<GitExtension>('vscode.git');
+		if (extension) {
+			return new BuiltinGitProvider(extension);
+		}
+		return undefined;
 	}
 
 	dispose() {
