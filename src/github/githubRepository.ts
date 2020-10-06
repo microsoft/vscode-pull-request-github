@@ -719,6 +719,9 @@ export class GitHubRepository implements vscode.Disposable {
 				after = result.data.repository.assignableUsers.pageInfo.endCursor;
 			} catch (e) {
 				Logger.debug(`Unable to fetch assignable users: ${e}`, GitHubRepository.ID);
+				if (e.graphQLErrors && (e.graphQLErrors.length > 0) && (e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES')) {
+					vscode.window.showWarningMessage(`GitHub user features will not work. ${e.graphQLErrors[0].message}`);
+				}
 				return ret;
 			}
 		} while (hasNextPage);
