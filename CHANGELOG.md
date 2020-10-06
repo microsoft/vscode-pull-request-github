@@ -5,11 +5,9 @@
 ### Changes
 
 - GitHub permalinks in issue hovers for files that exist in your current workspace will be opened locally.
-
 ![Open Code Link](documentation/changelog/0.21.0/openCodeLink.gif)
 
 - We are trying out a new "focused review" mode which changes the layout when you checkout a PR. You can try it with the `githubPullRequests.focusedMode` setting.
-
 ![Focused Review Mode](documentation/changelog/0.21.0/focusedReview.png)
 
 ### Notable fixes
