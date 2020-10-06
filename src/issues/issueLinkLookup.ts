@@ -8,7 +8,7 @@ import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 
-export const CODE_PERMALINK = /http(s)?\:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/([0-9a-fA-F]{40})\/([^#]+)#L(\d+)-L(\d+)/;
+export const CODE_PERMALINK = /http(s)?\:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/([0-9a-fA-F]{40})\/([^#]+)#L(\d+)(-L(\d+))?/;
 
 function findCodeLink(issueContent: string): RegExpMatchArray | null {
 	return issueContent.match(CODE_PERMALINK);
@@ -32,7 +32,7 @@ export async function findCodeLinkLocally(codeLink: RegExpMatchArray, repositori
 	const repoSubPath = codeLink[5];
 	// subract 1 because VS Code starts lines at 0, whereas GitHub starts at 1.
 	const startingLine = Number(codeLink[6]) - 1;
-	const endingLine = Number(codeLink[7]) - 1;
+	const endingLine = codeLink[8] ? Number(codeLink[8]) - 1 : startingLine;
 	let linkFolderManager: FolderRepositoryManager | undefined;
 
 	for (const folderManager of repositoriesManager.folderManagers) {
