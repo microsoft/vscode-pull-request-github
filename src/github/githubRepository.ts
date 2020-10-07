@@ -423,7 +423,7 @@ export class GitHubRepository implements vscode.Disposable {
 			const { data } = await query<IssuesSearchResponse>({
 				query: schema.Issues,
 				variables: {
-					query: queryString
+					query: `${queryString} type:issue`
 				}
 			});
 			Logger.debug(`Fetch issues with query - done`, GitHubRepository.ID);
