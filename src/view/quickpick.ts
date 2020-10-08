@@ -20,7 +20,7 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 		public description: string,
 		public remote?: Remote,
 		public label = `${owner}:${name}`,
-	) {}
+	) { }
 }
 
 export type PullRequestTitleSource = 'commit' | 'branch' | 'custom' | 'ask';
@@ -56,4 +56,39 @@ export class PullRequestTitleSourceQuickPick implements vscode.QuickPickItem {
 		return new this(this.getDescription(pullRequestTitleSource), pullRequestTitleSource, pullRequestTitleSource);
 	}
 	constructor(public description: string, public pullRequestTitleSource: PullRequestTitleSource, public label: string) { }
+}
+
+export type PullRequestDescriptionSource = 'template' | 'commit' | 'custom' | 'ask';
+
+export enum PullRequestDescriptionSourceEnum {
+	Template = 'template',
+	Commit = 'commit',
+	Custom = 'custom',
+	Ask = 'ask'
+}
+
+export class PullRequestDescriptionSourceQuickPick implements vscode.QuickPickItem {
+	static allOptions(): PullRequestDescriptionSourceQuickPick[] {
+		const values: PullRequestDescriptionSource[] = [
+			PullRequestDescriptionSourceEnum.Template,
+			PullRequestDescriptionSourceEnum.Commit,
+			PullRequestDescriptionSourceEnum.Custom
+		];
+		return values.map(x => this.fromPullRequestDescriptionSource(x));
+	}
+	static getDescription(pullRequestDescriptionSource: PullRequestDescriptionSource): string {
+		switch (pullRequestDescriptionSource) {
+			case PullRequestDescriptionSourceEnum.Template:
+				return 'Use a pull request template, or use the commit description if no templates were found';
+			case PullRequestDescriptionSourceEnum.Commit:
+				return 'Use the latest commit message';
+			case PullRequestDescriptionSourceEnum.Custom:
+				return 'Specify a custom description';
+		}
+		return '';
+	}
+	static fromPullRequestDescriptionSource(pullRequestDescriptionSource: PullRequestDescriptionSource) {
+		return new this(this.getDescription(pullRequestDescriptionSource), pullRequestDescriptionSource, pullRequestDescriptionSource);
+	}
+	constructor(public description: string, public pullRequestDescriptionSource: PullRequestDescriptionSource, public label: string) { }
 }

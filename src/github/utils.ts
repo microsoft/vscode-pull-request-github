@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as Octokit from '@octokit/rest';
+import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
 import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User, Issue } from './interface';
 import { IComment, Reaction } from '../common/comment';
@@ -13,9 +13,12 @@ import * as Common from '../common/timelineEvent';
 import * as GraphQL from './graphql';
 import { Resource } from '../common/resources';
 import { uniqBy } from '../common/utils';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRepository, ViewerPermission } from './githubRepository';
 import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
+import { OctokitCommon } from './common';
+import { GitApiImpl } from '../api/api1';
+import { Repository } from '../api/api';
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
@@ -80,7 +83,7 @@ export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode
 	});
 }
 
-export function convertRESTUserToAccount(user: Octokit.PullsListResponseItemUser, githubRepository: GitHubRepository): IAccount {
+export function convertRESTUserToAccount(user: OctokitCommon.PullsListResponseItemUser, githubRepository: GitHubRepository): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
@@ -88,7 +91,7 @@ export function convertRESTUserToAccount(user: Octokit.PullsListResponseItemUser
 	};
 }
 
-export function convertRESTHeadToIGitHubRef(head: Octokit.PullsListResponseItemHead) {
+export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead) {
 	return {
 		label: head.label,
 		ref: head.ref,
@@ -97,7 +100,7 @@ export function convertRESTHeadToIGitHubRef(head: Octokit.PullsListResponseItemH
 	};
 }
 
-export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.PullsCreateResponse | Octokit.PullsGetResponse | Octokit.PullsListResponseItem, githubRepository: GitHubRepository): PullRequest {
+export function convertRESTPullRequestToRawPullRequest(pullRequest: OctokitTypes.PullsCreateResponseData | OctokitTypes.PullsGetResponseData | OctokitCommon.PullsListResponseItem, githubRepository: GitHubRepository): PullRequest {
 	const {
 		number,
 		body,
@@ -125,13 +128,13 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 		url: html_url,
 		user: convertRESTUserToAccount(user, githubRepository),
 		state,
-		merged: (pullRequest as Octokit.PullsGetResponse).merged || false,
+		merged: (pullRequest as OctokitTypes.PullsGetResponseData).merged || false,
 		assignee: assignee ? convertRESTUserToAccount(assignee, githubRepository) : undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
 		head: convertRESTHeadToIGitHubRef(head),
 		base: convertRESTHeadToIGitHubRef(base),
-		mergeable: (pullRequest as Octokit.PullsGetResponse).mergeable ? PullRequestMergeability.Mergeable : PullRequestMergeability.NotMergeable,
+		mergeable: (pullRequest as OctokitTypes.PullsGetResponseData).mergeable ? PullRequestMergeability.Mergeable : PullRequestMergeability.NotMergeable,
 		labels,
 		isDraft: draft,
 		suggestedReviewers: [] // suggested reviewers only available through GraphQL API
@@ -140,7 +143,7 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: Octokit.Pull
 	return item;
 }
 
-export function convertRESTIssueToRawPullRequest(pullRequest: Octokit.IssuesCreateResponse | Octokit.IssuesGetResponse | Octokit.IssuesListResponseItem, githubRepository: GitHubRepository): PullRequest {
+export function convertRESTIssueToRawPullRequest(pullRequest: OctokitTypes.IssuesCreateResponseData, githubRepository: GitHubRepository): PullRequest {
 	const {
 		number,
 		body,
@@ -175,7 +178,7 @@ export function convertRESTIssueToRawPullRequest(pullRequest: Octokit.IssuesCrea
 	return item;
 }
 
-export function convertRESTReviewEvent(review: Octokit.PullsCreateReviewResponse, githubRepository: GitHubRepository): Common.ReviewEvent {
+export function convertRESTReviewEvent(review: OctokitTypes.PullsCreateReviewResponseData, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
@@ -204,7 +207,7 @@ export function parseCommentDiffHunk(comment: IComment): DiffHunk[] {
 	return diffHunks;
 }
 
-export function convertPullRequestsGetCommentsResponseItemToComment(comment: Octokit.PullsListCommentsResponseItem | Octokit.PullsUpdateCommentResponse, githubRepository: GitHubRepository): IComment {
+export function convertPullRequestsGetCommentsResponseItemToComment(comment: OctokitTypes.PullsCreateReviewCommentResponseData, githubRepository: GitHubRepository): IComment {
 	const ret: IComment = {
 		url: comment.url,
 		id: comment.id,
@@ -299,16 +302,16 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment): ICommen
 }
 
 export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): Reaction[] {
-	const reactionConentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
+	const reactionContentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
 		prev[curr.title] = curr;
 		return prev;
 	}, {} as { [key: string]: { title: string; label: string; icon?: vscode.Uri } });
 
 	const reactions = reactionGroups.filter(group => group.users.totalCount > 0).map(group => {
 		const reaction: Reaction = {
-			label: reactionConentEmojiMapping[group.content].label,
+			label: reactionContentEmojiMapping[group.content].label,
 			count: group.users.totalCount,
-			icon: reactionConentEmojiMapping[group.content].icon,
+			icon: reactionContentEmojiMapping[group.content].icon,
 			viewerHasReacted: group.viewerHasReacted
 		};
 
@@ -687,4 +690,24 @@ export function getRelatedUsersFromTimelineEvents(timelineEvents: Common.Timelin
 	});
 
 	return ret;
+}
+
+export function parseGraphQLViewerPermission(viewerPermissionResponse: GraphQL.ViewerPermissionResponse): ViewerPermission {
+	if (viewerPermissionResponse && viewerPermissionResponse.repository.viewerPermission) {
+		if ((<string[]>Object.values(ViewerPermission)).includes(viewerPermissionResponse.repository.viewerPermission)) {
+			return <ViewerPermission>viewerPermissionResponse.repository.viewerPermission;
+		}
+	}
+	return ViewerPermission.Unknown;
+}
+
+export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repository | undefined {
+	for (const repository of gitAPI.repositories) {
+		if ((file.path.toLowerCase() === repository.rootUri.path.toLowerCase()) ||
+			(file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase())
+				&& file.path.substring(repository.rootUri.path.length).startsWith('/'))) {
+			return repository;
+		}
+	}
+	return undefined;
 }

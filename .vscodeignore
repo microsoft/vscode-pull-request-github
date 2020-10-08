@@ -1,7 +1,7 @@
 .vscode/**
 out/**
 src/**
-preview-src/**
+webviews/**
 node_modules/**
 .gitignore
 .github
@@ -10,7 +10,11 @@ tslint.json
 yarn.lock
 *.vsix
 media/*.map
+dist/browser/*.map
 .readme/**
 documentation/**
 .vscode-test/**
 webpack.config.js
+**/*.svg
+scripts/**
+azure-pipeline.*

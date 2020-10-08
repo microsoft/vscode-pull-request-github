@@ -8,6 +8,7 @@ import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
 import { ManagedGraphQLPullRequestBuilder, ManagedRESTPullRequestBuilder, ManagedPullRequest } from '../builders/managedPullRequestBuilder';
+import { MockTelemetry } from './mockTelemetry';
 const queries = require('../../github/queries.gql');
 
 export class MockGitHubRepository extends GitHubRepository {
@@ -16,9 +17,10 @@ export class MockGitHubRepository extends GitHubRepository {
 	constructor(
 		remote: Remote,
 		credentialStore: CredentialStore,
-		sinon: SinonSandbox,
+		telemetry: MockTelemetry,
+		sinon: SinonSandbox
 	) {
-		super(remote, credentialStore);
+		super(remote, credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);
 
@@ -70,7 +72,7 @@ export class MockGitHubRepository extends GitHubRepository {
 				name: this.remote.repositoryName,
 				number: prNumber,
 			}
-		}, {data: responses.pullRequest, loading: false, stale: false, networkStatus: NetworkStatus.ready});
+		}, { data: responses.pullRequest, loading: false, stale: false, networkStatus: NetworkStatus.ready });
 
 		this.queryProvider.expectGraphQLQuery({
 			query: queries.TimelineEvents,
@@ -79,7 +81,7 @@ export class MockGitHubRepository extends GitHubRepository {
 				name: this.remote.repositoryName,
 				number: prNumber
 			}
-		}, {data: responses.timelineEvents, loading: false, stale: false, networkStatus: NetworkStatus.ready});
+		}, { data: responses.timelineEvents, loading: false, stale: false, networkStatus: NetworkStatus.ready });
 
 		this._addPullRequestCommon(prNumber, headRef && headRef.target.oid, responses);
 
@@ -96,12 +98,12 @@ export class MockGitHubRepository extends GitHubRepository {
 
 		this.queryProvider.expectOctokitRequest(
 			['pullRequests', 'get'],
-			[{owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber}],
+			[{ owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber }],
 			responses.pullRequest,
 		);
 		this.queryProvider.expectOctokitRequest(
 			['issues', 'getEventsTimeline'],
-			[{owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber}],
+			[{ owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber }],
 			responses.timelineEvents,
 		);
 
@@ -113,19 +115,19 @@ export class MockGitHubRepository extends GitHubRepository {
 	private _addPullRequestCommon<F>(prNumber: number, headRef: string | undefined, responses: ManagedPullRequest<F>) {
 		this.queryProvider.expectOctokitRequest(
 			['repos', 'get'],
-			[{owner: this.remote.owner, repo: this.remote.repositoryName}],
+			[{ owner: this.remote.owner, repo: this.remote.repositoryName }],
 			responses.repositoryREST,
 		);
 		if (headRef) {
 			this.queryProvider.expectOctokitRequest(
 				['repos', 'getCombinedStatusForRef'],
-				[{owner: this.remote.owner, repo: this.remote.repositoryName, ref: headRef}],
+				[{ owner: this.remote.owner, repo: this.remote.repositoryName, ref: headRef }],
 				responses.combinedStatusREST,
 			);
 		}
 		this.queryProvider.expectOctokitRequest(
 			['pulls', 'listReviewRequests'],
-			[{owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber}],
+			[{ owner: this.remote.owner, repo: this.remote.repositoryName, number: prNumber }],
 			responses.reviewRequestsREST,
 		);
 	}

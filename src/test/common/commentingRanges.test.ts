@@ -47,26 +47,8 @@ const deletionPatch = [
 const diffHunks = parsePatch(patch);
 
 describe('getCommentingRanges', () => {
-	it('should return only ranges for deleted lines for the base file when partial', () => {
-		const commentingRanges = getCommentingRanges(diffHunks, 18, true, true);
-		assert.equal(commentingRanges.length, 1);
-		assert.equal(commentingRanges[0].start.line, 11);
-		assert.equal(commentingRanges[0].start.character, 0);
-		assert.equal(commentingRanges[0].end.line, 12);
-		assert.equal(commentingRanges[0].end.character, 0);
-	});
-
-	it('should return the complete file range for the modified file when partial', () => {
-		const commentingRanges = getCommentingRanges(diffHunks, 21, true, false);
-		assert.equal(commentingRanges.length, 1);
-		assert.equal(commentingRanges[0].start.line, 0);
-		assert.equal(commentingRanges[0].start.character, 0);
-		assert.equal(commentingRanges[0].end.line, 20);
-		assert.equal(commentingRanges[0].end.character, 0);
-	});
-
-	it('shoud return only ranges for deleted lines, mapped to full file, for the base file when complete', () => {
-		const commentingRanges = getCommentingRanges(diffHunks, 1023, false, true);
+	it('shoud return only ranges for deleted lines, mapped to full file, for the base file', () => {
+		const commentingRanges = getCommentingRanges(diffHunks, true);
 		assert.equal(commentingRanges.length, 1);
 		assert.equal(commentingRanges[0].start.line, 754);
 		assert.equal(commentingRanges[0].start.character, 0);
@@ -74,8 +56,8 @@ describe('getCommentingRanges', () => {
 		assert.equal(commentingRanges[0].end.character, 0);
 	});
 
-	it('shoud return only ranges for changes, mapped to full file, for the modified file when complete', () => {
-		const commentingRanges = getCommentingRanges(diffHunks, 1023, false, false);
+	it('shoud return only ranges for changes, mapped to full file, for the modified file', () => {
+		const commentingRanges = getCommentingRanges(diffHunks, false);
 		assert.equal(commentingRanges.length, 2);
 		assert.equal(commentingRanges[0].start.line, 7);
 		assert.equal(commentingRanges[0].start.character, 0);
@@ -88,9 +70,9 @@ describe('getCommentingRanges', () => {
 		assert.equal(commentingRanges[1].end.character, 0);
 	});
 
-	it('should handle the last part of the diff being a deletion, for the base file when complete', () => {
+	it('should handle the last part of the diff being a deletion, for the base file', () => {
 		const diffHunksForDeletion = parsePatch(deletionPatch);
-		const commentingRanges = getCommentingRanges(diffHunksForDeletion, 5, false, true);
+		const commentingRanges = getCommentingRanges(diffHunksForDeletion, true);
 		assert.equal(commentingRanges.length, 1);
 		assert.equal(commentingRanges[0].start.line, 0);
 		assert.equal(commentingRanges[0].start.character, 0);

@@ -4,18 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Octokit = require('@octokit/rest');
+import { Octokit } from '@octokit/rest';
+import * as OctokitTypes from '@octokit/types';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IAccount, RepoAccessAndMergeMethods, PullRequestMergeability, IMilestone } from './interface';
+import { IAccount, RepoAccessAndMergeMethods, IMilestone, Issue } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
-import { convertRESTPullRequestToRawPullRequest, parseMergeability, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone } from './utils';
-import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse, MaxIssueResponse } from './graphql';
+import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone, parseGraphQLViewerPermission } from './utils';
+import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse, MaxIssueResponse, ForkDetailsResponse, ViewerPermissionResponse } from './graphql';
 import { IssueModel } from './issueModel';
+import { Protocol } from '../common/protocol';
+import { ITelemetry } from '../common/telemetry';
 const defaultSchema = require('./queries.gql');
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -41,7 +44,24 @@ export interface MilestoneData extends ItemsData {
 	hasMorePages: boolean;
 }
 
-export interface IMetadata extends Octokit.ReposGetResponse {
+export enum ViewerPermission {
+	Unknown = 'unknown',
+	Admin = 'ADMIN',
+	Maintain = 'MAINTAIN',
+	Read = 'READ',
+	Triage = 'TRIAGE',
+	Write = 'WRITE'
+}
+
+export interface ForkDetails {
+	isFork: boolean;
+	parent: {
+		owner: string,
+		name: string
+	};
+}
+
+export interface IMetadata extends OctokitTypes.ReposGetResponseData {
 	currentUser: any;
 }
 
@@ -64,6 +84,10 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		}
 		return this._hub;
+	}
+
+	public equals(repo: GitHubRepository): boolean {
+		return this.remote.equals(repo.remote);
 	}
 
 	public async ensureCommentsController(): Promise<void> {
@@ -91,7 +115,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return this.hub && this.hub.octokit;
 	}
 
-	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore) {
+	constructor(public remote: Remote, private readonly _credentialStore: CredentialStore, private readonly _telemetry: ITelemetry) {
 		this.isGitHubDotCom = remote.host.toLowerCase() === 'github.com';
 	}
 
@@ -113,7 +137,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return rsp;
 	}
 
-	mutate = async <T>(mutation: MutationOptions): Promise<FetchResult<T>> => {
+	mutate = async <T>(mutation: MutationOptions<T>): Promise<FetchResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
@@ -256,7 +280,7 @@ export class GitHubRepository implements vscode.Disposable {
 							return null;
 						}
 
-						return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
+						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
 					}
 				)
 				.filter(item => item !== null) as PullRequestModel[];
@@ -277,6 +301,46 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
+	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[] | undefined> {
+		try {
+			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
+			const { octokit, remote } = await this.ensure();
+			const result = await octokit.pulls.list({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				head: `${remote.owner}:${branch}`
+			});
+
+			const pullRequests = result.data
+				.map(pullRequest => {
+						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
+					}
+				)
+				.filter(item => item !== null) as PullRequestModel[];
+
+			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
+			return pullRequests;
+		} catch (e) {
+			Logger.appendLine(`Fetching pull requests for branch failed: ${e}`, GitHubRepository.ID);
+			if (e.code === 404) {
+				// not found
+				vscode.window.showWarningMessage(`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`);
+			} else {
+				throw e;
+			}
+		}
+	}
+
+	private getRepoForIssue(githubRepository: GitHubRepository, parsedIssue: Issue): GitHubRepository {
+		if (parsedIssue.repositoryName && parsedIssue.repositoryUrl &&
+			((githubRepository.remote.owner !== parsedIssue.repositoryOwner) ||
+				(githubRepository.remote.repositoryName !== parsedIssue.repositoryName))) {
+			const remote = new Remote(parsedIssue.repositoryName, parsedIssue.repositoryUrl, new Protocol(parsedIssue.repositoryUrl));
+			githubRepository = new GitHubRepository(remote, this._credentialStore, this._telemetry);
+		}
+		return githubRepository;
+	}
+
 	async getIssuesForUserByMilestone(page?: number): Promise<MilestoneData | undefined> {
 		try {
 			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
@@ -292,13 +356,16 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
 
 			const milestones: { milestone: IMilestone, issues: IssueModel[] }[] = [];
+			let githubRepository: GitHubRepository = this;
 			if (data && data.repository.milestones && data.repository.milestones.nodes) {
 				data.repository.milestones.nodes.forEach(raw => {
 					const milestone = parseMilestone(raw);
 					if (milestone) {
 						const issues: IssueModel[] = [];
 						raw.issues.edges.forEach(issue => {
-							issues.push(new IssueModel(this, remote, parseGraphQLIssue(issue.node, this)));
+							const parsedIssue = parseGraphQLIssue(issue.node, this);
+							githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
+							issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
 						});
 						milestones.push({ milestone, issues });
 					}
@@ -329,10 +396,13 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
 
 			const issues: IssueModel[] = [];
+			let githubRepository: GitHubRepository = this;
 			if (data && data.repository.issues.edges) {
 				data.repository.issues.edges.forEach(raw => {
 					if (raw.node.id) {
-						issues.push(new IssueModel(this, remote, parseGraphQLIssue(raw.node, this)));
+						const parsedIssue = parseGraphQLIssue(raw.node, this);
+						githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
+						issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
 					}
 				});
 			}
@@ -349,20 +419,23 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssues(page?: number, queryString?: string): Promise<IssueData | undefined> {
 		try {
 			Logger.debug(`Fetch issues with query - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
+			const { query, schema } = await this.ensure();
 			const { data } = await query<IssuesSearchResponse>({
 				query: schema.Issues,
 				variables: {
-					query: queryString
+					query: `${queryString} type:issue`
 				}
 			});
 			Logger.debug(`Fetch issues with query - done`, GitHubRepository.ID);
 
 			const issues: IssueModel[] = [];
+			let githubRepository: GitHubRepository = this;
 			if (data && data.search.edges) {
 				data.search.edges.forEach(raw => {
 					if (raw.node.id) {
-						issues.push(new IssueModel(this, remote, parseGraphQLIssue(raw.node, this)));
+						const parsedIssue = parseGraphQLIssue(raw.node, this);
+						githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
+						issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
 					}
 				});
 			}
@@ -399,6 +472,56 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
+	async getViewerPermission(): Promise<ViewerPermission> {
+		try {
+			Logger.debug(`Fetch viewer permission - enter`, GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+			const { data } = await query<ViewerPermissionResponse>({
+				query: schema.GetViewerPermission,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName
+				}
+			});
+			Logger.debug(`Fetch viewer permission - done`, GitHubRepository.ID);
+			return parseGraphQLViewerPermission(data);
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch viewer permission: ${e}`);
+			return ViewerPermission.Unknown;
+		}
+	}
+
+	async fork(): Promise<string | undefined> {
+		try {
+			Logger.debug(`Fork repository`, GitHubRepository.ID);
+			const { octokit, remote } = await this.ensure();
+			const result = await octokit.repos.createFork({ owner: remote.owner, repo: remote.repositoryName });
+			return result.data.clone_url;
+		} catch (e) {
+			Logger.appendLine(`GitHubRepository> Forking repository failed: ${e}`);
+			return undefined;
+		}
+	}
+
+	async getRepositoryForkDetails(): Promise<ForkDetails | undefined> {
+		try {
+			Logger.debug(`Fetch viewer permission - enter`, GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+			const { data } = await query<ForkDetailsResponse>({
+				query: schema.GetViewerPermission,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName
+				}
+			});
+			Logger.debug(`Fetch viewer permission - done`, GitHubRepository.ID);
+			return data.repository;
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch viewer permission: ${e}`);
+			return;
+		}
+	}
+
 	async getAuthenticatedUser(): Promise<string> {
 		const { octokit } = await this.ensure();
 		const user = await octokit.users.getAuthenticated({});
@@ -417,7 +540,7 @@ export class GitHubRepository implements vscode.Disposable {
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			const promises: Promise<Octokit.Response<Octokit.PullsGetResponse>>[] = [];
+			const promises: Promise<OctokitTypes.OctokitResponse<OctokitTypes.PullsGetResponseData>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
 					const prData = await octokit.pulls.get({
@@ -438,7 +561,7 @@ export class GitHubRepository implements vscode.Disposable {
 					return null;
 				}
 
-				return new PullRequestModel(this, this.remote, convertRESTPullRequestToRawPullRequest(response.data, this));
+				return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(response.data, this));
 			}).filter(item => item !== null) as PullRequestModel[];
 
 			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, GitHubRepository.ID);
@@ -473,7 +596,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-			return new PullRequestModel(this, remote, parseGraphQLPullRequest(data, this));
+			return new PullRequestModel(this._telemetry, this, remote, parseGraphQLPullRequest(data, this));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
@@ -499,27 +622,6 @@ export class GitHubRepository implements vscode.Disposable {
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
-		}
-	}
-
-	async getPullRequestMergeability(id: number): Promise<PullRequestMergeability> {
-		try {
-			Logger.debug(`Fetch pull request mergeability ${id} - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
-
-			const { data } = await query<PullRequestResponse>({
-				query: schema.PullRequestMergeability,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: id
-				}
-			});
-			Logger.debug(`Fetch pull request mergeability ${id} - done`, GitHubRepository.ID);
-			return parseMergeability(data.repository.pullRequest.mergeable);
-		} catch (e) {
-			Logger.appendLine(`GithubRepository> Unable to fetch PR Mergeability: ${e}`);
-			return PullRequestMergeability.Unknown;
 		}
 	}
 
@@ -617,6 +719,9 @@ export class GitHubRepository implements vscode.Disposable {
 				after = result.data.repository.assignableUsers.pageInfo.endCursor;
 			} catch (e) {
 				Logger.debug(`Unable to fetch assignable users: ${e}`, GitHubRepository.ID);
+				if (e.graphQLErrors && (e.graphQLErrors.length > 0) && (e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES')) {
+					vscode.window.showWarningMessage(`GitHub user features will not work. ${e.graphQLErrors[0].message}`);
+				}
 				return ret;
 			}
 		} while (hasNextPage);
@@ -624,8 +729,12 @@ export class GitHubRepository implements vscode.Disposable {
 		return ret;
 	}
 
+	isCurrentUser(login: string): boolean {
+		return this._credentialStore.isCurrentUser(login);
+	}
+
 	private getPRFetchQuery(repo: string, user: string, query: string) {
 		const filter = query.replace('${user}', user);
-		return `is:open ${filter} type:pr repo:${repo}`;
+		return `is:pull-request ${filter} type:pr repo:${repo}`;
 	}
 }

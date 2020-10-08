@@ -3,31 +3,33 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, getIssueNumberLabel, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION } from './util';
-import { Repository } from '../typings/git';
+import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION, BRANCH_NAME_CONFIGURATION_DEPRECATED } from './util';
 import { StateManager, IssueState } from './stateManager';
+import { Remote } from '../common/remote';
+import { Repository } from '../api/api';
 
 export class CurrentIssue {
-	private statusBarItem: vscode.StatusBarItem | undefined;
 	private repoChangeDisposable: vscode.Disposable | undefined;
 	private _branchName: string | undefined;
 	private user: string | undefined;
 	private repo: Repository | undefined;
-	private repoDefaults: PullRequestDefaults | undefined;
-	constructor(private issueModel: IssueModel, private manager: PullRequestManager, private stateManager: StateManager, private shouldPromptForBranch?: boolean) {
-		this.setRepo();
+	private _repoDefaults: PullRequestDefaults | undefined;
+	private _onDidChangeCurrentIssueState: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	public readonly onDidChangeCurrentIssueState: vscode.Event<void> = this._onDidChangeCurrentIssueState.event;
+	constructor(private issueModel: IssueModel, public readonly manager: FolderRepositoryManager, private stateManager: StateManager, remote?: Remote, private shouldPromptForBranch?: boolean) {
+		this.setRepo(remote ?? this.issueModel.githubRepository.remote);
 	}
 
-	private setRepo() {
+	private setRepo(repoRemote: Remote) {
 		for (let i = 0; i < this.stateManager.gitAPI.repositories.length; i++) {
 			const repo = this.stateManager.gitAPI.repositories[i];
 			for (let j = 0; j < repo.state.remotes.length; j++) {
 				const remote = repo.state.remotes[j];
-				if (remote.name === this.issueModel.githubRepository.remote.remoteName &&
-					(remote.fetchUrl?.toLowerCase().search(`${this.issueModel.githubRepository.remote.owner.toLowerCase()}/${this.issueModel.githubRepository.remote.repositoryName.toLowerCase()}`) !== -1)) {
+				if (remote.name === repoRemote?.remoteName &&
+					(remote.fetchUrl?.toLowerCase().search(`${repoRemote.owner.toLowerCase()}/${repoRemote.repositoryName.toLowerCase()}`) !== -1)) {
 					this.repo = repo;
 					return;
 				}
@@ -39,25 +41,30 @@ export class CurrentIssue {
 		return this._branchName;
 	}
 
+	get repoDefaults(): PullRequestDefaults | undefined {
+		return this._repoDefaults;
+	}
+
 	get issue(): IssueModel {
 		return this.issueModel;
 	}
 
-	public async startWorking() {
+	public async startWorking(): Promise<boolean> {
 		try {
-			this.repoDefaults = await this.manager.getPullRequestDefaults();
+			this._repoDefaults = await this.manager.getPullRequestDefaults();
+			if (await this.createIssueBranch()) {
+				await this.setCommitMessageAndGitEvent();
+				this._onDidChangeCurrentIssueState.fire();
+				return true;
+			}
 		} catch (e) {
 			// leave repoDefaults undefined
 			vscode.window.showErrorMessage('There is no remote. Can\'t start working on an issue.');
 		}
-		await this.createIssueBranch();
-		await this.setCommitMessageAndGitEvent();
-		this.setStatusBar();
+		return false;
 	}
 
 	public dispose() {
-		this.statusBarItem?.hide();
-		this.statusBarItem?.dispose();
 		this.repoChangeDisposable?.dispose();
 	}
 
@@ -65,9 +72,10 @@ export class CurrentIssue {
 		if (this.repo) {
 			this.repo.inputBox.value = '';
 		}
-		if (this.repoDefaults) {
-			await this.manager.repository.checkout(this.repoDefaults.base);
+		if (this._repoDefaults) {
+			await this.manager.repository.checkout(this._repoDefaults.base);
 		}
+		this._onDidChangeCurrentIssueState.fire();
 		this.dispose();
 	}
 
@@ -85,11 +93,17 @@ export class CurrentIssue {
 		return false;
 	}
 
-	private async createOrCheckoutBranch(branch: string): Promise<void> {
-		if (await this.branchExists(branch)) {
-			await this.manager.repository.checkout(branch);
-		} else {
-			await this.manager.repository.createBranch(branch, true);
+	private async createOrCheckoutBranch(branch: string): Promise<boolean> {
+		try {
+			if (await this.branchExists(branch)) {
+				await this.manager.repository.checkout(branch);
+			} else {
+				await this.manager.repository.createBranch(branch, true);
+			}
+			return true;
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to checkout branch ${branch}. There may be file conflicts that prevent this branch change. Git error: ${e.error}`);
+			return false;
 		}
 	}
 
@@ -100,48 +114,81 @@ export class CurrentIssue {
 		return this.user;
 	}
 
-	private async createIssueBranch(): Promise<void> {
+	// TODO: #1972 Delete the deprecated setting
+	private async ensureBranchTitleConfigMigrated(): Promise<string> {
+		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION);
+		const deprecatedConfigInspect = configuration.inspect(BRANCH_NAME_CONFIGURATION_DEPRECATED);
+		async function migrate(value: any, target: vscode.ConfigurationTarget) {
+			await configuration.update(BRANCH_NAME_CONFIGURATION, value, target);
+			await configuration.update(BRANCH_NAME_CONFIGURATION_DEPRECATED, undefined, target);
+		}
+		if (deprecatedConfigInspect?.globalValue) {
+			await migrate(deprecatedConfigInspect.globalValue, vscode.ConfigurationTarget.Global);
+		}
+		if (deprecatedConfigInspect?.workspaceValue) {
+			await migrate(deprecatedConfigInspect.workspaceValue, vscode.ConfigurationTarget.Workspace);
+		}
+		if (deprecatedConfigInspect?.workspaceFolderValue) {
+			await migrate(deprecatedConfigInspect.workspaceFolderValue, vscode.ConfigurationTarget.WorkspaceFolder);
+		}
+		return vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_NAME_CONFIGURATION) ?? this.getBasicBranchName(await this.getUser());
+	}
+
+	private validateBranchName(branch: string): string | undefined {
+		const VALID_BRANCH_CHARACTERS = /[^ \\@\~\^\?\*\[]+/;
+		const match = branch.match(VALID_BRANCH_CHARACTERS);
+		if (match && match.length > 0 && match[0] !== branch) {
+			return 'Branch name cannot contain a space or the following characters: \\@~^?*[';
+		}
+		return undefined;
+	}
+
+	private showBranchNameError(error: string) {
+		const editSetting = `Edit Setting`;
+		vscode.window.showErrorMessage(error, editSetting).then(result => {
+			if (result === editSetting) {
+				return vscode.commands.executeCommand('workbench.action.openSettings', `${ISSUES_CONFIGURATION}.${BRANCH_NAME_CONFIGURATION}`);
+			}
+		});
+	}
+
+	private async createIssueBranch(): Promise<boolean> {
 		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
 		if (createBranchConfig === 'off') {
-			return;
+			return true;
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
 		if (!this._branchName) {
+			const branchNameConfig = await variableSubstitution(await this.ensureBranchTitleConfigMigrated(), this.issue, undefined, await this.getUser());
 			if (createBranchConfig === 'on') {
-				const branchNameConfig = <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_NAME_CONFIGURATION);
-				this._branchName = await variableSubstitution(branchNameConfig, this.issue, undefined, await this.getUser());
+				const validateBranchName = this.validateBranchName(branchNameConfig);
+				if (validateBranchName) {
+					this.showBranchNameError(validateBranchName);
+					return false;
+				}
+				this._branchName = branchNameConfig;
 			} else {
-				this._branchName = await vscode.window.showInputBox({ placeHolder: `issue${this.issueModel.number}`, prompt: 'Enter the label for the new branch.' });
+				this._branchName = await vscode.window.showInputBox({ value: branchNameConfig, prompt: 'Enter the label for the new branch.' });
 			}
 		}
 		if (!this._branchName) {
-			this._branchName = this.getBasicBranchName(await this.getUser());
+			// user has cancelled
+			return false;
 		}
 
 		state.branch = this._branchName;
 		this.stateManager.setSavedIssueState(this.issueModel, state);
-		try {
-			await this.createOrCheckoutBranch(this._branchName);
-		} catch (e) {
-			const basicBranchName = this.getBasicBranchName(await this.getUser());
-			if (this._branchName === basicBranchName) {
-				vscode.window.showErrorMessage(`Unable to checkout branch ${this._branchName}. There may be file conflicts that prevent this branch change.`);
-				this._branchName = undefined;
-				return;
-			}
-			vscode.window.showErrorMessage(`Unable to create branch with name ${this._branchName}. Using ${basicBranchName} instead.`);
-			this._branchName = basicBranchName;
-			state.branch = this._branchName;
-			this.stateManager.setSavedIssueState(this.issueModel, state);
-			await this.createOrCheckoutBranch(this._branchName);
+		if (!await this.createOrCheckoutBranch(this._branchName)) {
+			this._branchName = undefined;
 		}
+		return true;
 	}
 
 	public async getCommitMessage(): Promise<string | undefined> {
 		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(SCM_MESSAGE_CONFIGURATION);
 		if (typeof configuration === 'string') {
-			return variableSubstitution(configuration, this.issueModel, this.repoDefaults);
+			return variableSubstitution(configuration, this.issueModel, this._repoDefaults);
 		}
 	}
 
@@ -151,13 +198,5 @@ export class CurrentIssue {
 			this.repo.inputBox.value = message;
 		}
 		return;
-	}
-
-	private setStatusBar() {
-		this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-		this.statusBarItem.text = `$(issues) Issue ${getIssueNumberLabel(this.issueModel, this.repoDefaults)}`;
-		this.statusBarItem.tooltip = this.issueModel.title;
-		this.statusBarItem.command = 'issue.statusBar';
-		this.statusBarItem.show();
 	}
 }

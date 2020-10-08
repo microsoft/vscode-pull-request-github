@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
 
-import { Repository, RepositoryState, RepositoryUIState, Commit, Change, Branch, RefType, CommitOptions } from '../../api/api';
+import { Repository, RepositoryState, RepositoryUIState, Commit, Change, Branch, RefType, CommitOptions, InputBox, Ref, BranchQuery } from '../../api/api';
 
 type Mutable<T> = {
 	-readonly [P in keyof T]: T[P];
@@ -9,6 +9,9 @@ type Mutable<T> = {
 export class MockRepository implements Repository {
 	commit(message: string, opts?: CommitOptions): Promise<void> {
 		return Promise.reject(new Error(`Unexpected commit(${message}, ${opts})`));
+	}
+	renameRemote(name: string, newName: string): Promise<void> {
+		return Promise.reject(new Error(`Unexpected renameRemote (${name}, ${newName})`));
 	}
 	getGlobalConfig(key: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected getGlobalConfig(${key})`));
@@ -54,6 +57,8 @@ export class MockRepository implements Repository {
 	private _expectedFetches: { remoteName?: string, ref?: string, depth?: number }[] = [];
 	private _expectedPulls: { unshallow?: boolean }[] = [];
 	private _expectedPushes: { remoteName?: string, branchName?: string, setUpstream?: boolean }[] = [];
+
+	inputBox: InputBox = { value: '' };
 
 	rootUri = Uri.file('/root');
 
@@ -151,6 +156,10 @@ export class MockRepository implements Repository {
 			throw new Error(`getBranch called with unrecognized name "${name}"`);
 		}
 		return branch;
+	}
+
+	async getBranches(_query: BranchQuery): Promise<Ref[]> {
+		return [];
 	}
 
 	async setBranchUpstream(name: string, upstream: string): Promise<void> {

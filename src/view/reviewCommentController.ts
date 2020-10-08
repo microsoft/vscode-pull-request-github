@@ -12,7 +12,7 @@ import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPosition
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
 import { Repository } from '../api/api';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
 import { parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel, updateCommentReviewState, CommentReactionHandler, generateCommentReactions } from '../github/utils';
@@ -103,12 +103,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	protected _visibleNormalTextEditors: vscode.TextEditor[] = [];
 
 	constructor(
-		private _prManager: PullRequestManager,
+		private _reposManager: FolderRepositoryManager,
 		private _repository: Repository,
 		private _localFileChanges: GitFileChangeNode[],
 		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		private _comments: IComment[]) {
-		this._commentController = vscode.comments.createCommentController(`review-${_prManager.activePullRequest!.number}`, _prManager.activePullRequest!.title);
+		this._commentController = vscode.comments.createCommentController(`review-${_reposManager.activePullRequest!.number}`, _reposManager.activePullRequest!.title);
 		this._commentController.commentingRangeProvider = this;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
@@ -124,7 +124,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	async initializeWorkspaceCommentThreads(): Promise<void[]> {
-		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
+		await this._reposManager.activePullRequest!.validateDraftMode();
 		const localFileChangePromises = this._localFileChanges.map(async matchedFile => {
 			const threadData = await this.getWorkspaceFileThreadDatas(matchedFile);
 			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
@@ -141,12 +141,11 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	private async getWorkspaceFileThreadDatas(matchedFile: GitFileChangeNode): Promise<ThreadData[]> {
-		if (!this._prManager.activePullRequest || !this._prManager.activePullRequest.isResolved()) {
+		if (!this._reposManager.activePullRequest || !this._reposManager.activePullRequest.isResolved()) {
 			return [];
 		}
 
-		const headCommitSha = this._prManager.activePullRequest.head.sha;
-		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
+		const contentDiff = await this._repository.diffWithHEAD(matchedFile.fileName);
 		const fileComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchedFile.comments)
 			.filter(comment => comment.absolutePosition !== undefined);
 
@@ -167,7 +166,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				}
 
 				const params = fromPRUri(editor.document.uri);
-				return !!params && params.prNumber === this._prManager.activePullRequest!.number;
+				return !!params && params.prNumber === this._reposManager.activePullRequest!.number;
 			});
 
 			this._prDocumentCommentThreads.maybeDisposeThreads(prEditors, (editor: vscode.TextEditor, fileName: string, isBase: boolean) => {
@@ -220,7 +219,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 		}));
 
-		this._localToDispose.push(this._prManager.activePullRequest!.onDidChangeDraftMode(newDraftMode => {
+		this._localToDispose.push(this._reposManager.activePullRequest!.onDidChangePendingReviewState(newDraftMode => {
 			[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads].forEach(commentThreadMap => {
 				for (const fileName in commentThreadMap) {
 					commentThreadMap[fileName].forEach(thread => {
@@ -253,7 +252,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (editor.document.uri.scheme === 'pr') {
 			const params = fromPRUri(editor.document.uri);
 
-			if (params && params.prNumber === this._prManager.activePullRequest!.number) {
+			if (params && params.prNumber === this._reposManager.activePullRequest!.number) {
 				const existingPRThreads = this._prDocumentCommentThreads.getThreadsForDocument(params.fileName, params.isBase);
 				if (existingPRThreads) {
 					return;
@@ -264,7 +263,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				const matchedFileChanges = this._localFileChanges.filter(localFileChange => localFileChange.fileName === params.fileName);
 
 				if (matchedFileChanges.length) {
-					await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
+					await this._reposManager.activePullRequest!.validateDraftMode();
 
 					const documentComments = getDocumentThreadDatas(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
 					const newThreads: GHPRCommentThread[] = documentComments.map(thread => createVSCodeCommentThread(thread, this._commentController!));
@@ -287,12 +286,11 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			const commentThreads = this._workspaceFileChangeCommentThreads[fileName];
 
-			if (!this._prManager.activePullRequest!.isResolved()) {
+			if (!this._reposManager.activePullRequest!.isResolved()) {
 				return;
 			}
 
-			const headCommitSha = this._prManager.activePullRequest!.head.sha;
-			const contentDiff = await this.getContentDiff(editor.document, headCommitSha, fileName);
+			const contentDiff = await this.getContentDiff(editor.document, fileName);
 			mapCommentThreadsToHead(matchedFiles[0].diffHunks, contentDiff, commentThreads);
 			return;
 		}
@@ -315,7 +313,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			this._reviewDocumentCommentThreads.setDocumentThreads(fileName, query.base, []);
 
-			await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
+			await this._reposManager.activePullRequest!.validateDraftMode();
 
 			const threadData = this.provideCommentsForReviewUri(editor.document, query);
 			const newThreads = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
@@ -354,7 +352,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 		if (thread.uri.scheme === 'pr') {
 			const params = fromPRUri(thread.uri);
-			if (this._prManager.activePullRequest && params && this._prManager.activePullRequest.number === params.prNumber) {
+			if (this._reposManager.activePullRequest && params && this._reposManager.activePullRequest.number === params.prNumber) {
 				return true;
 			} else {
 				return false;
@@ -366,7 +364,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			return false;
 		}
 
-		if (thread.uri.scheme === currentWorkspace.uri.scheme) {
+		if ((thread.uri.scheme === currentWorkspace.uri.scheme) && thread.uri.fsPath.startsWith(this._repository.rootUri.fsPath)) {
 			return true;
 		}
 
@@ -410,7 +408,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (document.uri.scheme === 'pr') {
 			const params = fromPRUri(document.uri);
 
-			if (!params || params.prNumber !== this._prManager.activePullRequest!.number) {
+			if (!params || params.prNumber !== this._reposManager.activePullRequest!.number) {
 				return;
 			}
 
@@ -420,7 +418,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return;
 			}
 
-			return getCommentingRanges(fileChange.diffHunks, document.lineCount, fileChange.isPartial, params.isBase);
+			return getCommentingRanges(fileChange.diffHunks, params.isBase);
 		}
 
 		let query: ReviewUriParams | undefined;
@@ -433,7 +431,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
 
 			if (matchedFile) {
-				return getCommentingRanges(matchedFile.diffHunks, document.lineCount, matchedFile.isPartial, query.base);
+				return getCommentingRanges(matchedFile.diffHunks, query.base);
 			}
 		}
 
@@ -443,7 +441,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 
 		if (document.uri.scheme === currentWorkspace.uri.scheme) {
-			if (!this._prManager.activePullRequest!.isResolved()) {
+			if (!this._reposManager.activePullRequest!.isResolved()) {
 				return;
 			}
 
@@ -451,13 +449,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const matchedFile = gitFileChangeNodeFilter(this._localFileChanges).find(fileChange => fileChange.fileName === fileName);
 			const ranges = [];
 
-			const headCommitSha = this._prManager.activePullRequest!.head.sha;
 			if (matchedFile) {
 				if (matchedFile.status === GitChangeType.RENAME) {
 					return [];
 				}
 
-				const contentDiff = await this.getContentDiff(document, headCommitSha, matchedFile.fileName);
+				const contentDiff = await this.getContentDiff(document, matchedFile.fileName);
 				const diffHunks = matchedFile.diffHunks;
 
 				for (let i = 0; i < diffHunks.length; i++) {
@@ -498,18 +495,16 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 		}
 
-		if (!this._prManager.activePullRequest) {
+		if (!this._reposManager.activePullRequest) {
 			throw new Error('No active pull request');
 		}
 
-		if (!this._prManager.activePullRequest.validatePullRequestModel('Creating new comment failed')) {
+		if (!this._reposManager.activePullRequest.validatePullRequestModel('Creating new comment failed')) {
 			throw new Error('No upstream branch');
 		}
 
-		const headCommitSha = this._prManager.activePullRequest.head.sha;
-
 		// git diff sha -- fileName
-		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
+		const contentDiff = await this._repository.diffWithHEAD(matchedFile.fileName);
 		const position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, thread.range.start.line + 1, isBase);
 		// If this is base and the diff line isn't a deletion, then this should actually be created on the right hand side
 
@@ -522,12 +517,17 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	private async createNewThread(thread: GHPRCommentThread, matchedFile: GitFileChangeNode, text: string): Promise<IComment | undefined> {
 		const position = await this.getNewCommentPosition(thread, matchedFile);
-		return await this._prManager.createComment(this._prManager.activePullRequest!, text, matchedFile.fileName, position);
+		// Comments created on 'pr' scheme files (those from the pull request tree) are always against the head commit of the PR.
+		// Those on 'review' and 'file' documents are using the local head commit, so may be out of date.
+		const headCommit = thread.uri.scheme !== 'pr' ? this._repository.state.HEAD?.commit : undefined;
+		return await this._reposManager.activePullRequest!.createReviewComment(text, matchedFile.fileName, position, headCommit);
 	}
 
-	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string): Promise<string> {
+	private async getContentDiff(document: vscode.TextDocument, fileName: string): Promise<string> {
 		let contentDiff: string;
+
 		if (document.isDirty) {
+			const headCommitSha = this._repository.state.HEAD!.commit!;
 			const documentText = document.getText();
 			const details = await this._repository.getObjectDetails(headCommitSha, fileName);
 			const idAtLastCommit = details.object;
@@ -537,7 +537,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
 		} else {
 			// git diff sha -- fileName
-			contentDiff = await this._repository.diffWith(headCommitSha, fileName);
+			contentDiff = await this._repository.diffWithHEAD(fileName);
 		}
 
 		return contentDiff;
@@ -730,12 +730,17 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 
 			const position = await this.getNewCommentPosition(thread, matchedFile);
-			const comment = await this._prManager.startReview(this._prManager.activePullRequest!,
+
+			// Comments created on 'pr' scheme files (those from the pull request tree) are always against the head commit of the PR.
+			// Those on 'review' and 'file' documents are using the local head commit, so may be out of date.
+			const headCommit = thread.uri.scheme !== 'pr' ? this._repository.state.HEAD?.commit : undefined;
+			const comment = await this._reposManager.activePullRequest!.startReview(
 				{
 					body: input,
 					path: matchedFile.fileName,
 					position
-				}
+				},
+				headCommit
 			);
 
 			thread.threadId = comment.id.toString();
@@ -758,7 +763,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		try {
 			await this.createOrReplyComment(thread, input);
-			await this._prManager.submitReview(this._prManager.activePullRequest!);
+			await this._reposManager.activePullRequest!.submitReview();
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
@@ -780,7 +785,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	async deleteReview(): Promise<void> {
-		const { deletedReviewComments } = await this._prManager.deleteReview(this._prManager.activePullRequest!);
+		const { deletedReviewComments } = await this._reposManager.activePullRequest!.deleteReview();
 
 		[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads].forEach(commentThreadMap => {
 			for (const fileName in commentThreadMap) {
@@ -825,7 +830,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #endregion
 	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!);
+		const currentUser = this._reposManager.getCurrentUser(this._reposManager.activePullRequest!);
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;
@@ -837,7 +842,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!);
+		const currentUser = this._reposManager.getCurrentUser(this._reposManager.activePullRequest!);
 		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment);
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof GHPRComment && c.commentId === comment.commentId) {
@@ -871,7 +876,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #region Comment
 	async createOrReplyComment(thread: GHPRCommentThread, input: string, inDraft?: boolean): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const isDraft = inDraft !== undefined ? inDraft : this._prManager.activePullRequest!.inDraftMode;
+		const isDraft = inDraft !== undefined ? inDraft : this._reposManager.activePullRequest!.hasPendingReview;
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
@@ -888,7 +893,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, input, comment._rawComment);
+					rawComment = await this._reposManager.activePullRequest!.createReviewCommentReply(input, comment._rawComment);
 				} else {
 					throw new Error('Cannot reply to temporary comment');
 				}
@@ -913,7 +918,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (comment instanceof GHPRComment) {
 			const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
 			try {
-				if (!this._prManager.activePullRequest) {
+				if (!this._reposManager.activePullRequest) {
 					throw new Error('Unable to find active pull request');
 				}
 
@@ -922,7 +927,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 					throw new Error('Unable to find matching file');
 				}
 
-				const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
+				const editedComment = await this._reposManager.activePullRequest.editReviewComment(comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
 
 				// Update the cached comments of the file
 				const matchingCommentIndex = matchedFile.comments.findIndex(c => String(c.id) === comment.commentId);
@@ -956,7 +961,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	async deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		try {
-			if (!this._prManager.activePullRequest) {
+			if (!this._reposManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
@@ -966,7 +971,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			}
 
 			if (comment instanceof GHPRComment) {
-				await this._prManager.deleteReviewComment(this._prManager.activePullRequest, comment.commentId);
+				await this._reposManager.activePullRequest.deleteReviewComment(comment.commentId);
 				const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
 				if (matchingCommentIndex > -1) {
 					matchedFile.comments.splice(matchingCommentIndex, 1);
@@ -989,9 +994,9 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				updateCommentThreadLabel(thread);
 			}
 
-			const inDraftMode = await this._prManager.validateDraftMode(this._prManager.activePullRequest);
-			if (inDraftMode !== this._prManager.activePullRequest.inDraftMode) {
-				this._prManager.activePullRequest.inDraftMode = inDraftMode;
+			const inDraftMode = await this._reposManager.activePullRequest.validateDraftMode();
+			if (inDraftMode !== this._reposManager.activePullRequest.hasPendingReview) {
+				this._reposManager.activePullRequest.hasPendingReview = inDraftMode;
 			}
 
 			this.update(this._localFileChanges, this._obsoleteFileChanges);
@@ -1005,7 +1010,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #region Incremental update comments
 	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]): Promise<void> {
-		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
+		await this._reposManager.activePullRequest!.validateDraftMode();
 		// _workspaceFileChangeCommentThreads
 		for (const fileName in this._workspaceFileChangeCommentThreads) {
 			this.updateFileChangeCommentThreads(localFileChanges, fileName, false);
@@ -1076,7 +1081,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #region Reactions
 	async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
 		try {
-			if (!this._prManager.activePullRequest) {
+			if (!this._reposManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
@@ -1087,10 +1092,10 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			let reactionGroups: ReactionGroup[] = [];
 			if (comment.reactions && !comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)) {
-				const result = await this._prManager.addCommentReaction(this._prManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
+				const result = await this._reposManager.activePullRequest.addCommentReaction(comment._rawComment.graphNodeId, reaction);
 				reactionGroups = result.addReaction.subject.reactionGroups;
 			} else {
-				const result = await this._prManager.deleteCommentReaction(this._prManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
+				const result = await this._reposManager.activePullRequest.deleteCommentReaction(comment._rawComment.graphNodeId, reaction);
 				reactionGroups = result.removeReaction.subject.reactionGroups;
 			}
 

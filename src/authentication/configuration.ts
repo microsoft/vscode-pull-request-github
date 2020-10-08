@@ -15,7 +15,7 @@ export const HostHelper = class {
 				return vscode.Uri.parse(testEnv);
 			}
 
-			const result = await vscode.window.showInformationMessage(`The 'GITHUB_TEST_SERVER' environment variable is set to '${testEnv}'. Use this as the GitHub API endpoint?`, { modal: true}, 'Yes');
+			const result = await vscode.window.showInformationMessage(`The 'GITHUB_TEST_SERVER' environment variable is set to '${testEnv}'. Use this as the GitHub API endpoint?`, { modal: true }, 'Yes');
 			if (result === 'Yes') {
 				USE_TEST_SERVER = true;
 				return vscode.Uri.parse(testEnv);

@@ -1,14 +1,29 @@
 {
 	"rules": {
 		"import-spacing": true,
-		"indent": [true, "tabs"],
+		"indent": [
+			true,
+			"tabs"
+		],
 		"newline-before-return": false,
 		"no-consecutive-blank-lines": true,
 		"no-empty-line-after-opening-brace": false,
 		"no-irregular-whitespace": true,
-		"object-literal-key-quotes": [true, "as-needed"],
-		"one-line": [true, "check-open-brace", "check-catch", "check-else", "check-whitespace"],
-		"quotemark": [true, "single"],
+		"object-literal-key-quotes": [
+			true,
+			"as-needed"
+		],
+		"one-line": [
+			true,
+			"check-open-brace",
+			"check-catch",
+			"check-else",
+			"check-whitespace"
+		],
+		"quotemark": [
+			true,
+			"single"
+		],
 		"space-within-parens": true,
 		"typedef-whitespace": false,
 		"no-unused-expression": true,
@@ -25,7 +40,15 @@
 			"always"
 		],
 		"triple-equals": true,
-		"whitespace": [true, "check-branch"],
+		"whitespace": [
+			true,
+			"check-branch"
+		],
 		"prefer-const": true
+	},
+	"linterOptions": {
+		"exclude": [
+			"src/typings/**"
+		]
 	}
 }

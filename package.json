@@ -12,22 +12,19 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.17.0",
+  "version": "0.20.1",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.46.0"
+    "vscode": "^1.50.0"
   },
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "*",
+    "onStartupFinished",
     "onFileSystem:newIssue"
   ],
-  "extensionDependencies": [
-    "vscode.git",
-    "vscode.github-authentication"
-  ],
+  "browser": "./dist/browser/extension",
   "main": "./media/extension",
   "contributes": {
     "configuration": {
@@ -77,6 +74,23 @@
           ],
           "default": "ask",
           "description": "The title used when creating pull requests."
+        },
+        "githubPullRequests.pullRequestDescription": {
+          "type": "string",
+          "enum": [
+            "template",
+            "commit",
+            "custom",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "Use a pull request template, or use the commit description if no templates were found",
+            "Use the latest commit message",
+            "Specify a custom description",
+            "Ask which of the above methods to use"
+          ],
+          "default": "template",
+          "description": "The description used when creating pull requests."
         },
         "githubPullRequests.logLevel": {
           "type": "string",
@@ -154,6 +168,7 @@
         "githubPullRequests.showInSCM": {
           "type": "boolean",
           "default": false,
+          "deprecationMessage": "This setting is deprecated. Views can now be dragged to any location.",
           "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
         },
         "githubPullRequests.fileListLayout": {
@@ -213,7 +228,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "description": "String that enables the 'Create issue from comment' code action. Should not container whitespace."
+            "description": "String that enables the 'Create issue from comment' code action. Should not contain whitespace."
           },
           "default": [
             "TODO",
@@ -251,7 +266,8 @@
             "description": "Language that issue completions should not trigger on '#'."
           },
           "default": [
-            "python"
+            "python",
+            "makefile"
           ],
           "description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
         },
@@ -268,8 +284,13 @@
         },
         "githubIssues.workingIssueBranch": {
           "type": "string",
+          "deprecationMessage": "This setting is replaced by the better named setting githubIssues.issueBranchTitle and may be removed in the future.",
+          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${sanitizedIssueTitle}."
+        },
+        "githubIssues.issueBranchTitle": {
+          "type": "string",
           "default": "${user}/issue${issueNumber}",
-          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${issueTitleNoSpaces}."
+          "markdownDescription": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters removed"
         },
         "githubIssues.useBranchForIssues": {
           "type": "string",
@@ -284,17 +305,17 @@
             "A prompt will show for setting the name of the branch that will be created and checked out."
           ],
           "default": "on",
-          "description": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.workingIssueBranch`."
+          "description": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.issueBranchTitle`."
         },
         "githubIssues.issueCompletionFormatScm": {
           "type": "string",
           "default": "${issueTitle} ${issueNumberLabel}",
-          "description": "Sets the format of issue completions in the SCM inputbox. For example, '${issueNumberLabel}'"
+          "markdownDescription": "Sets the format of issue completions in the SCM inputbox. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${issueNumberLabel}` will be replaced with a label formatted as #number or owner/repository#number, depending on whether the issue is in the current repository"
         },
         "githubIssues.workingIssueFormatScm": {
           "type": "string",
           "default": "${issueTitle} \nFixes ${issueNumberLabel}",
-          "description": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to '${issueTitle} \nFixes #${issueNumber}'"
+          "markdownDescription": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`"
         },
         "githubIssues.queries": {
           "type": "array",
@@ -323,6 +344,11 @@
               "query": "author:${user} state:open repo:${owner}/${repository} sort:created-desc"
             }
           ]
+        },
+        "githubPullRequests.focusedMode": {
+          "type": "boolean",
+          "description": "Whether to enter focused mode when a pull request is checked out. This hides the issues and pull requests tree views.",
+          "default": false
         }
       }
     },
@@ -331,41 +357,41 @@
         {
           "id": "github-pull-requests",
           "title": "GitHub",
-          "icon": "resources/icons/pull-request.svg"
+          "icon": "resources/icons/pull-request.png"
         }
       ]
     },
     "views": {
       "github-pull-requests": [
         {
+          "id": "github:login",
+          "name": "Login",
+          "when": "ReposManagerStateContext == NeedsAuthentication",
+          "icon": "resources/icons/pull-request.png"
+        },
+        {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled",
-          "icon": "resources/icons/pull-request.svg"
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "icon": "resources/icons/pull-request.png"
+        },
+        {
+          "id": "github:activePullRequest",
+          "type": "webview",
+          "name": "Active Pull Request",
+          "when": "github:focusedReview"
         },
         {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
-          "when": "!config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode",
-          "icon": "resources/icons/pull-request.svg"
+          "when": "github:inReviewMode",
+          "icon": "resources/icons/pull-request.png"
         },
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "config.git.enabled",
-          "icon": "resources/icons/light/issues.svg"
-        }
-      ],
-      "scm": [
-        {
-          "id": "pr:scm",
-          "name": "GitHub Pull Requests",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled"
-        },
-        {
-          "id": "prStatus:scm",
-          "name": "Changes In Pull Request",
-          "when": "config.githubPullRequests.showInSCM && config.git.enabled && github:inReviewMode"
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "icon": "resources/icons/issues.png"
         }
       ]
     },
@@ -579,7 +605,7 @@
       },
       {
         "command": "issue.openGithubPermalink",
-        "title": "Open Permalink in Github",
+        "title": "Open Permalink in GitHub",
         "category": "GitHub Issues"
       },
       {
@@ -616,6 +642,12 @@
         "icon": "$(arrow-right)"
       },
       {
+        "command": "issue.startWorkingBranchDescriptiveTitle",
+        "title": "Start Working on Issue and Checkout Topic Branch",
+        "category": "GitHub Issues",
+        "icon": "$(arrow-right)"
+      },
+      {
         "command": "issue.continueWorking",
         "title": "Continue Working on Issue",
         "category": "GitHub Issues",
@@ -629,6 +661,12 @@
       {
         "command": "issue.stopWorking",
         "title": "Stop Working on Issue",
+        "category": "GitHub Issues",
+        "icon": "$(primitive-square)"
+      },
+      {
+        "command": "issue.stopWorkingBranchDescriptiveTitle",
+        "title": "Stop Working on Issue and Leave Topic Branch",
         "category": "GitHub Issues",
         "icon": "$(primitive-square)"
       },
@@ -671,17 +709,17 @@
         "command": "issue.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "GitHub Issues"
+      },
+      {
+        "command": "issue.goToLinkedCode",
+        "title": "Go to Linked Code",
+        "category": "GitHub Issues"
       }
     ],
     "viewsWelcome": [
       {
-        "view": "pr:github",
-        "when": "PRManagerStateContext == NeedsAuthentication",
-        "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
-      },
-      {
-        "view": "issues:github",
-        "when": "PRManagerStateContext == NeedsAuthentication",
+        "view": "github:login",
+        "when": "ReposManagerStateContext == NeedsAuthentication",
         "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
       }
     ],
@@ -860,6 +898,10 @@
           "when": "false"
         },
         {
+          "command": "issue.startWorkingBranchDescriptiveTitle",
+          "when": "false"
+        },
+        {
           "command": "issue.continueWorking",
           "when": "false"
         },
@@ -869,6 +911,10 @@
         },
         {
           "command": "issue.stopWorking",
+          "when": "false"
+        },
+        {
+          "command": "issue.stopWorkingBranchDescriptiveTitle",
           "when": "false"
         },
         {
@@ -909,6 +955,10 @@
         },
         {
           "command": "issue.signinAndRefreshList",
+          "when": "false"
+        },
+        {
+          "command": "issue.goToLinkedCode",
           "when": "false"
         }
       ],
@@ -998,58 +1048,78 @@
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "inline@2"
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
+          "group": "issues_0@1"
+        },
+        {
+          "command": "issue.goToLinkedCode",
+          "when": "view =~ /issues:github/ && viewItem =~ /^link(current|continue)?issue/",
           "group": "issues_0@0"
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem == issue",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on",
+          "group": "inline@1"
+        },
+        {
+          "command": "issue.startWorkingBranchDescriptiveTitle",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem == continueissue",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on",
+          "group": "inline@1"
+        },
+        {
+          "command": "issue.startWorkingBranchDescriptiveTitle",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorking",
           "alt": "issue.startWorkingBranchPrompt",
-          "when": "view =~ /issues:github/ && viewItem == issue",
-          "group": "issues_0@1"
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/",
+          "group": "issues_0@2"
         },
         {
           "command": "issue.continueWorking",
-          "when": "view =~ /issues:github/ && viewItem == continueissue",
-          "group": "issues_0@1"
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/",
+          "group": "issues_0@2"
         },
         {
           "command": "pr.create",
-          "when": "view =~ /issues:github/ && viewItem == currentissue",
-          "group": "issues_0@1"
-        },
-        {
-          "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem == currentissue",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
           "group": "issues_0@2"
         },
         {
           "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem == currentissue",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
+          "group": "issues_0@3"
+        },
+        {
+          "command": "issue.stopWorking",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues != on",
+          "group": "inline@1"
+        },
+        {
+          "command": "issue.stopWorkingBranchDescriptiveTitle",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.copyIssueNumber",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "issues_1@1"
         },
         {
           "command": "issue.copyIssueUrl",
-          "when": "view =~ /issues:github/ && viewItem =~ /(current|continue)?issue/",
+          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "issues_1@2"
         },
         {
@@ -1156,15 +1226,18 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "webpack --env.production",
+    "vscode:prepublish": "webpack --env.production --config-name webviewIndex.js && webpack --env.production --config-name activityBar-webviewIndex.js && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
     "postinstall": "cd src/typings && npx vscode-dts master && npx vscode-dts dev master",
     "compile": "tsc -p ./",
-    "clean": "rm -r out/ media/ preview-src/dist/",
-    "watch": "webpack --watch --env.development",
+    "clean": "rm -r out/ media/",
+    "webpack": "webpack --env.development --config-name webviewIndex.js && webpack --env.development --config-name activityBar-webviewIndex.js && webpack --env.development --config-name extension",
+    "watch": "webpack --watch --env.development --info-verbosity verbose",
     "test": "yarn run preprocess && node ./out/test/runTests.js",
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
     "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
-    "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources"
+    "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources",
+    "compile-web": "npx webpack-cli --config browser.webpack.config  --config-name webviewIndex.js --mode none && npx webpack-cli --config browser.webpack.config --config-name activityBar-webviewIndex.js && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
+    "watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
   },
   "devDependencies": {
     "@types/chai": "^4.1.4",
@@ -1188,6 +1261,7 @@
     "glob": "7.1.6",
     "jsdom": "16.2.0",
     "jsdom-global": "3.0.2",
+    "merge-options": "^2.0.0",
     "minimist": "^1.2.3",
     "mkdirp": "0.5.1",
     "mocha": "^7.0.1",
@@ -1201,6 +1275,7 @@
     "style-loader": "^1.1.3",
     "svg-inline-loader": "^0.8.2",
     "temp": "0.9.1",
+    "terser-webpack-plugin": "^4.1.0",
     "ts-loader": "^6.2.1",
     "tslint": "^6.0.0",
     "tslint-webpack-plugin": "^2.1.0",
@@ -1211,9 +1286,11 @@
     "webpack-cli": "^3.3.11"
   },
   "dependencies": {
-    "@octokit/rest": "^16.21.0",
+    "@octokit/rest": "^18.0.0",
+    "@octokit/types": "^5.1.0",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
+    "cross-fetch": "^3.0.5",
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",
     "events": "^3.0.0",
@@ -1224,8 +1301,9 @@
     "marked": "^0.8.0",
     "moment": "^2.22.1",
     "node-emoji": "^1.8.1",
-    "node-fetch": "3.0.0-beta.7",
+    "node-fetch": "3.0.0-beta.9",
     "query-string": "^6.2.0",
+    "raw-loader": "^4.0.1",
     "ssh-config": "^2.0.0-alpha.3",
     "tunnel": "0.0.6",
     "uuid": "^3.3.3",

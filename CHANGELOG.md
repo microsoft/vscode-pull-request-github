@@ -1,5 +1,89 @@
 # Changelog
 
+## 0.21.0
+
+### Changes
+
+- GitHub permalinks in issue hovers for files that exist in your current workspace will be opened locally.
+![Open Code Link](documentation/changelog/0.21.0/openCodeLink.gif)
+
+- We are trying out a new "focused review" mode which changes the layout when you checkout a PR. You can try it with the `githubPullRequests.focusedMode` setting.
+![Focused Review Mode](documentation/changelog/0.21.0/focusedReview.png)
+
+### Notable fixes
+
+- Instead of showing two login buttons (one each in the Pull Requests and Issues views), we now show a login view.
+
+![Login View](documentation/changelog/0.21.0/loginView.png)
+
+## 0.20.1
+
+- Fixes loading the extension in VSCode Insider's 1.50
+
+## 0.20.0
+
+### Changes
+
+- Pull requests and issues now follows a multi-repo model. This means that if you have folders in your workspace from different repositories you'll see the issues and pull requests from the repositories at the same time. You can also have pull requests checked out from multiple repositories.
+
+![Multi-repo](documentation/changelog/0.20.0/multirepo.png)
+
+- There is new setting, `githubPullRequests.pullRequestDescription`, to control how the description is set when creating a pull request. By default, this uses the pull request template in the repository if it exists, but can also be changed to use the latest commit message, a custom message input at create time, or to ask which of these options to use. Thank you to @heaths for this feature!
+
+### Notable fixes
+- GitHub Action based status checks are now rendered on the description page.
+- Commenting on stale pull requests is better handled.
+
+## 0.19.0
+
+### Changes
+
+- When you try to **Start Working on Issue** in a repository where you don't have permission to push, you now have the option to fork the repository. This flow will fork the repository and configure your remotes.
+
+![Offer Fork](documentation/changelog/0.19.0/offer-fork.png)
+
+- When attempting to push changes to a repository that you do not have permissions to push to, the extension will now prompt you to fork the repository and push to that instead.
+
+![Automatic fork repository](documentation/changelog/0.19.0/fork-github.gif)
+
+- Updated the version of @octokit/rest to ^18.0.0. This is was a big refactor, but should result in better performance.
+
+### Notable fixes
+
+- The setting `githubIssues.workingIssueBranch` is deprecated in favor of the better named `githubIssues.issueBranchTitle`.
+- The `githubIssues.issueBranchTitle` setting is now validated.
+
+## 0.18.1
+
+### Changes
+
+- Adopt latest authentication provider API changes
+
+## 0.18.0
+
+### Changes
+
+- The Issues view now shows the markdown card on hover.
+
+![Tree Hover](documentation/changelog/0.18.0/tree-hover.gif)
+- Label suggestions are provided in the new issue editor.
+
+![Label Suggestion](documentation/changelog/0.18.0/label-suggestion.gif)
+- Hovers work for issues formatted as GH-123.
+- The `githubIssues.issueBranchTitle` setting can take the new variable `${sanitizedIssueTitle}`.
+- If you have uncommitted changes in your issue branch when you try to create a pull request, you'll be prompted to commit them.
+
+![Commit Prompt](documentation/changelog/0.18.0/commit-prompt.png)
+- Closed issues in the Issues view use the closed icon.
+- The Pull Requests and Issues views use the visually appealing welcome mechanism to display the Sign in button.
+
+![Welcome View](documentation/changelog/0.18.0/welcome-view.png)
+
+### Notable fixes
+
+- Users are only fetched when needed, not on every startup ([1869](https://github.com/microsoft/vscode-pull-request-github/issues/1869))
+- For hovers, the max issue number for the repo is checked to reduce false positives([1860](https://github.com/microsoft/vscode-pull-request-github/issues/1860))
+
 ## 0.17.0
 
 ### Changes

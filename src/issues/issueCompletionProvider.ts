@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution, getIssueNumberLabel, isComment } from './util';
+import { issueMarkdown, ISSUES_CONFIGURATION, variableSubstitution, getIssueNumberLabel, isComment, getRootUriFromScmInputUri } from './util';
 import { StateManager } from './stateManager';
 import { IssueModel } from '../github/issueModel';
 import { IMilestone } from '../github/interface';
 import { MilestoneModel } from '../github/milestoneModel';
-import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { PullRequestDefaults } from '../github/folderRepositoryManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
@@ -19,7 +20,7 @@ class IssueCompletionItem extends vscode.CompletionItem {
 
 export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private stateManager: StateManager, private pullRequestManager: PullRequestManager, private context: vscode.ExtensionContext) { }
+	constructor(private stateManager: StateManager, private repositoriesManager: RepositoriesManager, private context: vscode.ExtensionContext) { }
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
@@ -53,12 +54,17 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		const completionItems: Map<string, vscode.CompletionItem> = new Map();
 		const now = new Date();
 		let repo: PullRequestDefaults | undefined;
+		const uri = (document.languageId === 'scminput') ? getRootUriFromScmInputUri(document.uri) : document.uri;
+		if (!uri) {
+			return [];
+		}
+
 		try {
-			repo = await this.pullRequestManager.getPullRequestDefaults();
+			repo = await (await this.repositoriesManager.getManagerForFile(uri))?.getPullRequestDefaults();
 		} catch (e) {
 			// leave repo undefined
 		}
-		const issueData = this.stateManager.issueCollection;
+		const issueData = this.stateManager.getIssueCollection(uri);
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = await issueQuery[1] ?? [];
 			if (issuesOrMilestones.length === 0) {
@@ -103,9 +109,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		return item;
 	}
 
-	resolveCompletionItem(item: vscode.CompletionItem, token: vscode.CancellationToken): vscode.CompletionItem {
+	async resolveCompletionItem(item: vscode.CompletionItem, token: vscode.CancellationToken): Promise<vscode.CompletionItem> {
 		if (item instanceof IssueCompletionItem) {
-			item.documentation = issueMarkdown(item.issue, this.context);
+			item.documentation = await issueMarkdown(item.issue, this.context, this.repositoriesManager);
 			item.command = {
 				command: 'issues.issueCompletion',
 				title: 'Issue Completion Chose,'

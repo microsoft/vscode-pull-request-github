@@ -4,11 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestManager } from '../github/pullRequestManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export const NEW_ISSUE_SCHEME = 'newIssue';
+export const NEW_ISSUE_FILE = 'NewIssue.md';
 export const ASSIGNEES = 'Assignees:';
 export const LABELS = 'Labels:';
+
+export function extractIssueOriginFromQuery(uri: vscode.Uri): vscode.Uri | undefined {
+	const query = JSON.parse(uri.query);
+	if (query.origin) {
+		return vscode.Uri.parse(query.origin);
+	}
+}
 
 export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	private content: Uint8Array | undefined;
@@ -62,19 +70,26 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 
 export class LabelCompletionProvider implements vscode.CompletionItemProvider {
 
-	constructor(private manager: PullRequestManager) { }
+	constructor(private manager: RepositoriesManager) { }
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		if (!document.lineAt(position.line).text.startsWith(LABELS)) {
 			return [];
 		}
-		const defaults = await this.manager.getPullRequestDefaults();
-		const labels = await this.manager.getLabels(undefined, defaults);
+		const originFile = extractIssueOriginFromQuery(document.uri);
+		if (!originFile) {
+			return [];
+		}
+		const folderManager = this.manager.getManagerForFile(originFile);
+		if (!folderManager) {
+			return [];
+		}
+		const defaults = await folderManager.getPullRequestDefaults();
+		const labels = await folderManager.getLabels(undefined, defaults);
 		return labels.map(label => {
-			const item = new vscode.CompletionItem(label.name, vscode.CompletionItemKind.Keyword);
-			item.documentation = new vscode.MarkdownString();
-			item.documentation.appendMarkdown(`<span style="background-color:#${label.color};">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>`);
-			item.documentation.isTrusted = true;
+			const item = new vscode.CompletionItem(label.name, vscode.CompletionItemKind.Color);
+			item.documentation = `#${label.color}`;
+			item.commitCharacters = [' ', ','];
 			return item;
 		});
 	}

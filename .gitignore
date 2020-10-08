@@ -331,7 +331,6 @@ ASALocalRun/
 
 
 out
-preview-src/dist
 node_modules
 media
 .vscode-test
@@ -340,6 +339,7 @@ media
 package-lock.json
 src/typings/vscode.d.ts
 src/typings/vscode.proposed.d.ts
+dist/**
 
 # CI
 package.insiders.json

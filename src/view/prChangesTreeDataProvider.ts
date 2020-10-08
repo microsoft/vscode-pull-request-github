@@ -5,13 +5,11 @@
 
 import * as vscode from 'vscode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { DescriptionNode } from './treeNodes/descriptionNode';
 import { TreeNode } from './treeNodes/treeNode';
-import { FilesCategoryNode } from './treeNodes/filesCategoryNode';
-import { CommitsNode } from './treeNodes/commitsCategoryNode';
 import { IComment } from '../common/comment';
-import { PullRequestManager, SETTINGS_NAMESPACE } from '../github/pullRequestManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
@@ -19,23 +17,16 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	private _disposables: vscode.Disposable[] = [];
 
 	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
-	private _comments: IComment[] = [];
-	private _pullrequest?: PullRequestModel;
-	private _pullRequestManager: PullRequestManager;
+	private _pullRequestManagerMap: Map<FolderRepositoryManager, RepositoryChangesNode> = new Map();
 	private _view: vscode.TreeView<TreeNode>;
 
 	public get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
-	private _descriptionNode?: DescriptionNode;
-	private _filesCategoryNode?: FilesCategoryNode;
-	private _commitsCategoryNode?: CommitsNode;
-
 	constructor(private _context: vscode.ExtensionContext) {
 		super(() => this.dispose());
-		const treeId = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('showInSCM') ? 'prStatus:scm' : 'prStatus:github';
-		this._view = vscode.window.createTreeView(treeId, {
+		this._view = vscode.window.createTreeView('prStatus:github', {
 			treeDataProvider: this,
 			showCollapseAll: true
 		});
@@ -49,27 +40,25 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	}
 
 	refresh() {
-		this._descriptionNode = undefined;
-		this._filesCategoryNode = undefined;
-		this._commitsCategoryNode = undefined;
 		this._onDidChangeTreeData.fire();
 	}
 
-	async showPullRequestFileChanges(pullRequestManager: PullRequestManager, pullrequest: PullRequestModel, fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: IComment[]) {
-		this._pullRequestManager = pullRequestManager;
-		this._pullrequest = pullrequest;
-		this._comments = comments;
-
+	async addPrToView(pullRequestManager: FolderRepositoryManager, pullRequest: PullRequestModel, localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: IComment[]) {
+		const node: RepositoryChangesNode = new RepositoryChangesNode(this._view, pullRequest, pullRequestManager, comments, localFileChanges);
+		this._pullRequestManagerMap.set(pullRequestManager, node);
 		await vscode.commands.executeCommand(
 			'setContext',
 			'github:inReviewMode',
 			true
 		);
+		this._onDidChangeTreeData.fire();
+	}
 
-		this._localFileChanges = fileChanges;
-		this._descriptionNode = undefined;
-		this._filesCategoryNode = undefined;
-		this._commitsCategoryNode = undefined;
+	async removePrFromView(pullRequestManager: FolderRepositoryManager) {
+		this._pullRequestManagerMap.delete(pullRequestManager);
+		if (this._pullRequestManagerMap.size === 0) {
+			this.hide();
+		}
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -128,18 +117,14 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	}
 
 	async getChildren(element?: GitFileChangeNode): Promise<TreeNode[]> {
-		if (!this._pullrequest) {
-			return [];
-		}
-
 		if (!element) {
-			if (!this._descriptionNode || !this._filesCategoryNode || !this._commitsCategoryNode) {
-				this._descriptionNode = new DescriptionNode(this, this._pullrequest.title,
-					this._pullrequest.userAvatarUri!, this._pullrequest);
-				this._filesCategoryNode = new FilesCategoryNode(this._view, this._localFileChanges);
-				this._commitsCategoryNode = new CommitsNode(this._view, this._pullRequestManager, this._pullrequest, this._comments);
+			const result: TreeNode[] = [];
+			if (this._pullRequestManagerMap.size >= 1) {
+				for (const item of this._pullRequestManagerMap.values()) {
+					result.push(item);
+				}
 			}
-			return [ this._descriptionNode, this._filesCategoryNode, this._commitsCategoryNode ];
+			return result;
 		} else {
 			return await element.getChildren();
 		}

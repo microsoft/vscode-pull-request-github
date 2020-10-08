@@ -5,7 +5,7 @@ describe('Telemetry', () => {
 	let disposable: vscode.Disposable;
 
 	beforeEach(function () {
-		disposable = new vscode.Disposable(() => {});
+		disposable = new vscode.Disposable(() => { });
 	});
 
 	afterEach(function () {

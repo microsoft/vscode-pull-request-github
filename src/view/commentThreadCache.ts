@@ -7,7 +7,7 @@ import { GHPRCommentThread } from '../github/prComment';
 import * as vscode from 'vscode';
 
 export class CommentThreadCache {
-	private _data: { [key: string]: { original?: GHPRCommentThread[], modified?: GHPRCommentThread[] }} = {};
+	private _data: { [key: string]: { original?: GHPRCommentThread[], modified?: GHPRCommentThread[] } } = {};
 
 	public setDocumentThreads(fileName: string, isBase: boolean, threads: GHPRCommentThread[] | undefined) {
 		if (!this._data[fileName]) {

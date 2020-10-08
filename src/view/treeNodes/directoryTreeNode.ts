@@ -9,7 +9,7 @@ import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './
 
 export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] =  new Array();
+	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = new Array();
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
 
 	constructor(

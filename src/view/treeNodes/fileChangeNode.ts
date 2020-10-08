@@ -10,9 +10,10 @@ import { GitChangeType } from '../../common/file';
 import { TreeNode } from './treeNode';
 import { IComment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
-import { toResourceUri } from '../../common/uri';
+import { toResourceUri, asImageDataURI, EMPTY_IMAGE_URI } from '../../common/uri';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { DecorationProvider } from '../treeDecorationProvider';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
@@ -77,7 +78,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly blobUrl: string | undefined,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public isPartial: boolean,
 		public readonly diffHunks: DiffHunk[],
 		public comments: IComment[],
 		public readonly sha?: string
@@ -144,6 +144,28 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	getTreeItem(): vscode.TreeItem {
 		return this;
 	}
+
+	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
+		const parentFilePath = this.parentFilePath;
+		const filePath = this.filePath;
+		const fileName = this.fileName;
+		const opts = this.opts;
+
+		this.reveal(this, { select: true, focus: true });
+
+		let parentURI = await asImageDataURI(parentFilePath, folderManager.repository) || parentFilePath;
+		let headURI = await asImageDataURI(filePath, folderManager.repository) || filePath;
+		if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
+			if (this.status === GitChangeType.ADD) {
+				parentURI = EMPTY_IMAGE_URI;
+			}
+			if (this.status === GitChangeType.DELETE) {
+				headURI = EMPTY_IMAGE_URI;
+			}
+		}
+
+		vscode.commands.executeCommand('vscode.diff', parentURI, headURI, fileName, opts);
+	}
 }
 
 /**
@@ -174,11 +196,11 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		public comments: IComment[],
 		public readonly sha?: string
 	) {
-		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, isPartial, diffHunks, comments, sha);
+		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {
 			title: 'show diff',
 			command: 'pr.openDiffView',
-			arguments: [ this ]
+			arguments: [this]
 		};
 	}
 }
@@ -204,12 +226,11 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly blobUrl: string | undefined,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public readonly isPartial: boolean,
 		public readonly diffHunks: DiffHunk[],
 		public comments: IComment[] = [],
 		public readonly sha?: string,
 	) {
-		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, isPartial, diffHunks, comments, sha);
+		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {
 			title: 'open changed file',
 			command: 'pr.openChangedFile',

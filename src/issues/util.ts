@@ -5,17 +5,22 @@
 
 import * as marked from 'marked';
 import * as vscode from 'vscode';
-import * as path from 'path';
-import { PullRequestManager, PullRequestDefaults } from '../github/pullRequestManager';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { StateManager } from './stateManager';
 import { ReviewManager } from '../view/reviewManager';
-import { Repository, GitAPI, Remote, Commit, Ref } from '../typings/git';
+import { Protocol } from '../common/protocol';
+import { getRepositoryForFile } from '../github/utils';
+import { GitApiImpl } from '../api/api1';
+import { Repository, Commit, Remote, Ref } from '../api/api';
+import * as LRUCache from 'lru-cache';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 
-export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|[\s\:\;\-\(\=\)])/;
+export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
+export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
@@ -25,7 +30,8 @@ export type ParsedIssue = { owner: string | undefined, name: string | undefined,
 export const ISSUES_CONFIGURATION: string = 'githubIssues';
 export const QUERIES_CONFIGURATION = 'queries';
 export const DEFAULT_QUERY_CONFIGURATION = 'default';
-export const BRANCH_NAME_CONFIGURATION = 'workingIssueBranch';
+export const BRANCH_NAME_CONFIGURATION_DEPRECATED = 'workingIssueBranch';
+export const BRANCH_NAME_CONFIGURATION = 'issueBranchTitle';
 export const BRANCH_CONFIGURATION = 'useBranchForIssues';
 export const SCM_MESSAGE_CONFIGURATION = 'workingIssueFormatScm';
 
@@ -50,9 +56,10 @@ export function parseIssueExpressionOutput(output: RegExpMatchArray | null): Par
 	}
 }
 
-export async function getIssue(stateManager: StateManager, manager: PullRequestManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
-	if (stateManager.resolvedIssues.has(issueValue)) {
-		return stateManager.resolvedIssues.get(issueValue);
+export async function getIssue(stateManager: StateManager, manager: FolderRepositoryManager, issueValue: string, parsed: ParsedIssue): Promise<IssueModel | undefined> {
+	const alreadyResolved = stateManager.resolvedIssues.get(manager.repository.rootUri.path)?.get(issueValue);
+	if (alreadyResolved) {
+		return alreadyResolved;
 	} else {
 		let owner: string | undefined = undefined;
 		let name: string | undefined = undefined;
@@ -77,7 +84,13 @@ export async function getIssue(stateManager: StateManager, manager: PullRequestM
 					issue = await manager.resolvePullRequest(owner, name, issueNumber);
 				}
 				if (issue) {
-					stateManager.resolvedIssues.set(issueValue, issue);
+					let cached: LRUCache<string, IssueModel>;
+					if (!stateManager.resolvedIssues.has(manager.repository.rootUri.path)) {
+						stateManager.resolvedIssues.set(manager.repository.rootUri.path, cached = new LRUCache(50));
+					} else {
+						cached = stateManager.resolvedIssues.get(manager.repository.rootUri.path)!;
+					}
+					cached.set(issueValue, issue);
 					return issue;
 				}
 			}
@@ -98,6 +111,7 @@ function repoCommitDate(user: User, repoNameWithOwner: string): string | undefin
 
 export class UserCompletion extends vscode.CompletionItem {
 	login: string;
+	uri: vscode.Uri;
 }
 
 export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.MarkdownString {
@@ -147,33 +161,74 @@ function makeLabel(color: string, text: string): string {
 
 }
 
-function findLinksInIssue(body: string, issue: IssueModel): string {
-	let searchResult = body.search(ISSUE_OR_URL_EXPRESSION);
+async function findAndModifyString(text: string, find: RegExp, transformer: (match: RegExpMatchArray) => Promise<string | undefined>): Promise<string> {
+	let searchResult = text.search(find);
 	let position = 0;
-	while ((searchResult >= 0) && (searchResult < body.length)) {
+	while ((searchResult >= 0) && (searchResult < text.length)) {
 		let newBodyFirstPart: string | undefined;
-		if (searchResult === 0 || body.charAt(searchResult - 1) !== '&') {
-			const match = body.substring(searchResult).match(ISSUE_OR_URL_EXPRESSION)!;
-			const tryParse = parseIssueExpressionOutput(match);
-			if (tryParse) {
-				const issueNumberLabel = getIssueNumberLabelFromParsed(tryParse); // get label before setting owner and name.
-				if (!tryParse.owner || !tryParse.name) {
-					tryParse.owner = issue.remote.owner;
-					tryParse.name = issue.remote.repositoryName;
+		if (searchResult === 0 || text.charAt(searchResult - 1) !== '&') {
+			const match = text.substring(searchResult).match(find)!;
+			if (match) {
+				const transformed = await transformer(match);
+				if (transformed) {
+					newBodyFirstPart = text.slice(0, searchResult) + transformed;
+					text = newBodyFirstPart + text.slice(searchResult + match[0].length);
 				}
-				newBodyFirstPart = body.slice(0, searchResult) + `[${issueNumberLabel}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
-				body = newBodyFirstPart + body.slice(searchResult + match[0].length);
 			}
 		}
 		position = newBodyFirstPart ? newBodyFirstPart.length : searchResult + 1;
-		const newSearchResult = body.substring(position).search(ISSUE_OR_URL_EXPRESSION);
+		const newSearchResult = text.substring(position).search(find);
 		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
 	}
-	return body;
+	return text;
+}
+
+function findLinksInIssue(body: string, issue: IssueModel): Promise<string> {
+	return findAndModifyString(body, ISSUE_OR_URL_EXPRESSION, async (match: RegExpMatchArray) => {
+		const tryParse = parseIssueExpressionOutput(match);
+		if (tryParse) {
+			const issueNumberLabel = getIssueNumberLabelFromParsed(tryParse); // get label before setting owner and name.
+			if (!tryParse.owner || !tryParse.name) {
+				tryParse.owner = issue.remote.owner;
+				tryParse.name = issue.remote.repositoryName;
+			}
+			return `[${issueNumberLabel}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
+		}
+		return undefined;
+	});
+}
+
+async function findCodeLinksInIssue(body: string, repositoriesManager: RepositoriesManager) {
+	return findAndModifyString(body, CODE_PERMALINK, async (match: RegExpMatchArray) => {
+		const codeLink = await findCodeLinkLocally(match, repositoriesManager);
+		if (codeLink) {
+			const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
+			const endingTextDocumentLine =
+				textDocument.lineAt(codeLink.end <= textDocument.lineCount ? codeLink.end : textDocument.lineCount);
+			const query = [codeLink.file,
+			{
+				selection: {
+					start: {
+						line: codeLink.start,
+						character: 0
+					},
+					end: {
+						line: codeLink.end,
+						character: endingTextDocumentLine.text.length
+					}
+				}
+			}];
+			const openCommand = vscode.Uri.parse(
+				`command:vscode.open?${encodeURIComponent(JSON.stringify(query))}`
+			);
+			return `[${match[0]}](${openCommand} "Open ${codeLink.file.fsPath}")`;
+		}
+		return undefined;
+	});
 }
 
 export const ISSUE_BODY_LENGTH: number = 200;
-export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, commentNumber?: number): vscode.MarkdownString {
+export async function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, commentNumber?: number): Promise<vscode.MarkdownString> {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	markdown.isTrusted = true;
 	const date = new Date(issue.createdAt);
@@ -188,7 +243,8 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 	});
 	markdown.appendMarkdown('  \n');
 	body = ((body.length > ISSUE_BODY_LENGTH) ? (body.substr(0, ISSUE_BODY_LENGTH) + '...') : body);
-	body = findLinksInIssue(body, issue);
+	body = await findLinksInIssue(body, issue);
+	body = await findCodeLinksInIssue(body, repositoriesManager);
 
 	markdown.appendMarkdown(body + '  \n');
 	markdown.appendMarkdown('&nbsp;  \n');
@@ -207,7 +263,7 @@ export function issueMarkdown(issue: IssueModel, context: vscode.ExtensionContex
 				markdown.appendMarkdown(`![Avatar](${comment.author.avatarUrl}|height=15,width=15) &nbsp;&nbsp;**${comment.author.login}** commented`);
 				markdown.appendMarkdown('&nbsp;  \n');
 				let commentText = marked.parse(((comment.body.length > ISSUE_BODY_LENGTH) ? (comment.body.substr(0, ISSUE_BODY_LENGTH) + '...') : comment.body), { renderer: new PlainTextRenderer() });
-				commentText = findLinksInIssue(commentText, issue);
+				commentText = await findLinksInIssue(commentText, issue);
 				markdown.appendMarkdown(commentText);
 			}
 		}
@@ -233,11 +289,10 @@ function getIconMarkdown(issue: IssueModel, context: vscode.ExtensionContext) {
 	}
 	switch (issue.state) {
 		case GithubItemStateEnum.Open: {
-			return `![Issue State](${vscode.Uri.file(context.asAbsolutePath(path.join('resources', 'icons', 'issues-green.svg'))).toString()})`;
-
+			return `<span style="color:#2cbe4e;">$(issues)</span>`;
 		}
 		case GithubItemStateEnum.Closed: {
-			return `![Issue State](${vscode.Uri.file(context.asAbsolutePath(path.join('resources', 'icons', 'issue-closed-red.svg'))).toString()})`;
+			return `<span style="color:#cb2431;">$(issue-closed)</span>`;
 		}
 	}
 }
@@ -248,15 +303,6 @@ export interface NewIssue {
 	line: string;
 	insertIndex: number;
 	range: vscode.Range | vscode.Selection;
-}
-
-function getRepositoryForFile(gitAPI: GitAPI, file: vscode.Uri): Repository | undefined {
-	for (const repository of gitAPI.repositories) {
-		if (file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase())) {
-			return repository;
-		}
-	}
-	return undefined;
 }
 
 const HEAD = 'HEAD';
@@ -317,7 +363,7 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	return bestRemote;
 }
 
-export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIssue): Promise<{ permalink: string | undefined, error: string | undefined }> {
+export async function createGithubPermalink(gitAPI: GitApiImpl, positionInfo?: NewIssue): Promise<{ permalink: string | undefined, error: string | undefined }> {
 	let document: vscode.TextDocument;
 	let range: vscode.Range;
 	if (!positionInfo && vscode.window.activeTextEditor) {
@@ -340,29 +386,41 @@ export async function createGithubPermalink(gitAPI: GitAPI, positionInfo?: NewIs
 		return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.' };
 	}
 
-	const upstream: Remote | undefined = await Promise.race([getUpstream(repository, log[0]),
-	new Promise<Remote | undefined>(resolve => {
-		setTimeout(() => {
-			if (repository.state.HEAD?.upstream) {
-				for (const remote of repository.state.remotes) {
-					if (repository.state.HEAD.upstream.remote === remote.name) {
-						resolve(remote);
-					}
+	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
+		if (repository.state.HEAD?.upstream) {
+			for (const remote of repository.state.remotes) {
+				if (repository.state.HEAD.upstream.remote === remote.name) {
+					resolve(remote);
 				}
 			}
+		}
+	});
+
+	let upstream: Remote | undefined = await Promise.race([getUpstream(repository, log[0]),
+	new Promise<Remote | undefined>(resolve => {
+		setTimeout(() => {
+			resolve(fallbackUpstream);
 		}, 2000);
 	})
 	]);
-	if (!upstream) {
-		return { permalink: undefined, error: 'There is no suitable remote.' };
+	if (!upstream || !upstream.fetchUrl) {
+		// Check fallback
+		upstream = await fallbackUpstream;
+		if (!upstream || !upstream.fetchUrl) {
+			return { permalink: undefined, error: 'There is no suitable remote.' };
+		}
 	}
 	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
-	const expr = /^((git\@github\.com\:)|(https:\/\/github\.com\/))(.+\/.+)\.git$/;
-	const match = upstream.fetchUrl?.match(expr);
-	if (!match) {
-		return { permalink: undefined, error: 'Can\'t get the owner and repository from the git remote url.' };
-	}
-	return { permalink: `https://github.com/${match[4].toLowerCase()}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };
+	return { permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${log[0].hash}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`, error: undefined };
+}
+
+export function sanitizeIssueTitle(title: string): string {
+	const regex = /[~^:;'".,~#?%*[\]@\\{}]|\/\//g;
+
+	return title
+		.replace(regex, '')
+		.trim()
+		.replace(/\s+/g, '-');
 }
 
 const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
@@ -375,7 +433,7 @@ export async function variableSubstitution(value: string, issueModel?: IssueMode
 			case 'issueTitle': return issueModel ? issueModel.title : match;
 			case 'repository': return defaults ? defaults.repo : match;
 			case 'owner': return defaults ? defaults.owner : match;
-			case 'issueTitleNoSpaces': return issueModel ? issueModel.title.replace(/[~^:?*[\]@\\{}]|\/\//g, '').trim().replace(/\s+/g, '-') : match; // check what characters are permitted
+			case 'sanitizedIssueTitle': return issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
 			default: return match;
 		}
 	});
@@ -399,8 +457,8 @@ function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 	}
 }
 
-async function commitWithDefault(manager: PullRequestManager, stateManager: StateManager, all: boolean) {
-	const message = await stateManager.currentIssue?.getCommitMessage();
+async function commitWithDefault(manager: FolderRepositoryManager, stateManager: StateManager, all: boolean) {
+	const message = await stateManager.currentIssue(manager.repository.rootUri)?.getCommitMessage();
 	if (message) {
 		return manager.repository.commit(message, { all });
 	}
@@ -408,8 +466,8 @@ async function commitWithDefault(manager: PullRequestManager, stateManager: Stat
 
 const commitStaged = 'Commit Staged';
 const commitAll = 'Commit All';
-export async function pushAndCreatePR(manager: PullRequestManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
-	if (manager.repository.state.workingTreeChanges || manager.repository.state.indexChanges) {
+export async function pushAndCreatePR(manager: FolderRepositoryManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
+	if (manager.repository.state.workingTreeChanges.length > 0 || manager.repository.state.indexChanges.length > 0) {
 		const responseOptions: string[] = [];
 		if (manager.repository.state.indexChanges) {
 			responseOptions.push(commitStaged);
@@ -469,6 +527,11 @@ export async function shouldShowHover(document: vscode.TextDocument, position: v
 	}
 
 	return isComment(document, position);
+}
+
+export function getRootUriFromScmInputUri(uri: vscode.Uri): vscode.Uri | undefined {
+	const rootUri = new URLSearchParams(uri.query).get('rootUri');
+	return rootUri ? vscode.Uri.parse(rootUri) : undefined;
 }
 
 export class PlainTextRenderer extends marked.Renderer {

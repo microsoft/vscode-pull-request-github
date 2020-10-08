@@ -40,7 +40,7 @@ class MockWebviewEnvironment {
 			}
 		});
 
-		this._uninstall = () => {};
+		this._uninstall = () => { };
 	}
 
 	install(host: any) {

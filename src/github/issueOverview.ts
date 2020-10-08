@@ -6,14 +6,15 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import Octokit = require('@octokit/rest');
+import * as OctokitTypes from '@octokit/types';
 import { ILabel } from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { PullRequestManager } from './pullRequestManager';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
+import webviewContent from '../../media/webviewIndex.js';
 
 export interface IRequestMessage<T> {
 	req: string;
@@ -21,7 +22,7 @@ export interface IRequestMessage<T> {
 	args: T;
 }
 
-interface IReplyMessage {
+export interface IReplyMessage {
 	seq?: string;
 	err?: any;
 	res?: any;
@@ -41,12 +42,14 @@ export class IssueOverviewPanel {
 	protected _disposables: vscode.Disposable[] = [];
 	protected _descriptionNode: DescriptionNode;
 	protected _item: IssueModel;
-	protected _pullRequestManager: PullRequestManager;
+	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
+	private _waitForReady: Promise<void>;
+	private _onIsReady: vscode.EventEmitter<void> = new vscode.EventEmitter();
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 
-	public static async createOrShow(extensionPath: string, pullRequestManager: PullRequestManager, issue: IssueModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: IssueModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -59,10 +62,10 @@ export class IssueOverviewPanel {
 			IssueOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Issue #${issue.number.toString()}`;
-			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, pullRequestManager, descriptionNode);
+			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager, descriptionNode);
 		}
 
-		await IssueOverviewPanel.currentPanel!.update(issue, descriptionNode);
+		await IssueOverviewPanel.currentPanel!.update(folderRepositoryManager, issue, descriptionNode);
 	}
 
 	public static refresh(): void {
@@ -71,9 +74,9 @@ export class IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, pullRequestManager: PullRequestManager, descriptionNode: DescriptionNode, type: string = IssueOverviewPanel._viewType) {
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, descriptionNode: DescriptionNode, type: string = IssueOverviewPanel._viewType) {
 		this._extensionPath = extensionPath;
-		this._pullRequestManager = pullRequestManager;
+		this._folderRepositoryManager = folderRepositoryManager;
 		this._descriptionNode = descriptionNode;
 
 		// Create and show a new webview panel
@@ -88,6 +91,13 @@ export class IssueOverviewPanel {
 			]
 		});
 
+		this._waitForReady = new Promise(resolve => {
+			const disposable = this._onIsReady.event(() => {
+				disposable.dispose();
+				resolve();
+			});
+		});
+
 		// Listen for when the panel is disposed
 		// This happens when the user closes the panel or when the panel is closed programatically
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
@@ -97,9 +107,9 @@ export class IssueOverviewPanel {
 			await this._onDidReceiveMessage(message);
 		}, null, this._disposables);
 
-		this._pullRequestManager.onDidChangeActiveIssue(_ => {
-			if (this._pullRequestManager && this._item) {
-				const isCurrentlyCheckedOut = this._item.equals(this._pullRequestManager.activeIssue);
+		this._folderRepositoryManager.onDidChangeActiveIssue(_ => {
+			if (this._folderRepositoryManager && this._item) {
+				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activeIssue);
 				this._postMessage({
 					command: 'pr.update-checkout-status',
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut
@@ -110,19 +120,19 @@ export class IssueOverviewPanel {
 
 	public async refreshPanel(): Promise<void> {
 		if (this._panel && this._panel.visible) {
-			this.update(this._item, this._descriptionNode);
+			this.update(this._folderRepositoryManager, this._item, this._descriptionNode);
 		}
 	}
 
 	public async updateIssue(issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
 		return Promise.all([
-			this._pullRequestManager.resolveIssue(
+			this._folderRepositoryManager.resolveIssue(
 				issueModel.remote.owner,
 				issueModel.remote.repositoryName,
 				issueModel.number
 			),
-			this._pullRequestManager.getIssueTimelineEvents(issueModel),
-			this._pullRequestManager.getPullRequestRepositoryDefaultBranch(issueModel),
+			issueModel.getIssueTimelineEvents(),
+			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(issueModel),
 		]).then(result => {
 			const [issue, timelineEvents, defaultBranch] = result;
 			if (!issue) {
@@ -162,7 +172,8 @@ export class IssueOverviewPanel {
 		});
 	}
 
-	public async update(issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async update(foldersManager: FolderRepositoryManager, issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
+		this._folderRepositoryManager = foldersManager;
 		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',
@@ -174,6 +185,9 @@ export class IssueOverviewPanel {
 	}
 
 	protected async _postMessage(message: any) {
+		// Without the following ready check, we can end up in a state where the message handler in the webview
+		// isn't ready for any of the messages we post.
+		await this._waitForReady;
 		this._panel.webview.postMessage({
 			res: message
 		});
@@ -224,6 +238,9 @@ export class IssueOverviewPanel {
 				return this.removeLabel(message);
 			case 'pr.debug':
 				return this.webviewDebug(message);
+			case 'ready':
+				this._onIsReady.fire();
+				return;
 			default:
 				return this.MESSAGE_UNHANDLED;
 		}
@@ -232,8 +249,8 @@ export class IssueOverviewPanel {
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
 		try {
 			let newLabels: ILabel[] = [];
-			async function getLabelOptions(prManager: PullRequestManager, issue: IssueModel): Promise<vscode.QuickPickItem[]> {
-				const allLabels = await prManager.getLabels(issue);
+			async function getLabelOptions(folderRepoManager: FolderRepositoryManager, issue: IssueModel): Promise<vscode.QuickPickItem[]> {
+				const allLabels = await folderRepoManager.getLabels(issue);
 				newLabels = allLabels.filter(l => !issue.item.labels.some(label => label.name === l.name));
 
 				return newLabels.map(label => {
@@ -243,10 +260,10 @@ export class IssueOverviewPanel {
 				});
 			}
 
-			const labelsToAdd = await vscode.window.showQuickPick(await getLabelOptions(this._pullRequestManager, this._item), { canPickMany: true });
+			const labelsToAdd = await vscode.window.showQuickPick(await getLabelOptions(this._folderRepositoryManager, this._item), { canPickMany: true });
 
-			if (labelsToAdd) {
-				await this._pullRequestManager.addLabels(this._item, labelsToAdd.map(r => r.label));
+			if (labelsToAdd && labelsToAdd.length) {
+				await this._item.addLabels(labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
 				this._item.item.labels = this._item.item.labels.concat(...addedLabels);
@@ -262,7 +279,7 @@ export class IssueOverviewPanel {
 
 	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
 		try {
-			await this._pullRequestManager.removeLabel(this._item, message.args);
+			await this._item.removeLabel(message.args);
 
 			const index = this._item.item.labels.findIndex(label => label.name === message.args);
 			this._item.item.labels.splice(index, 1);
@@ -278,7 +295,7 @@ export class IssueOverviewPanel {
 	}
 
 	private editDescription(message: IRequestMessage<{ text: string }>) {
-		this._pullRequestManager.editIssue(this._item, { body: message.args.text }).then(result => {
+		this._item.edit({ body: message.args.text }).then(result => {
 			this._replyMessage(message, { body: result.body, bodyHTML: result.bodyHTML });
 		}).catch(e => {
 			this._throwError(message, e);
@@ -287,7 +304,7 @@ export class IssueOverviewPanel {
 
 	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
-		this._pullRequestManager.editIssue(this._item, { title: message.args.text }).then(result => {
+		this._item.edit({ title: message.args.text }).then(result => {
 			this._replyMessage(message, { text: result.title });
 		}).catch(e => {
 			this._throwError(message, e);
@@ -296,7 +313,7 @@ export class IssueOverviewPanel {
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
-		return this._pullRequestManager.editIssueComment(this._item, comment, text);
+		return this._item.editIssueComment(comment, text);
 	}
 
 	private editComment(message: IRequestMessage<{ comment: IComment, text: string }>) {
@@ -312,7 +329,7 @@ export class IssueOverviewPanel {
 	}
 
 	protected deleteCommentPromise(comment: IComment): Promise<void> {
-		return this._pullRequestManager.deleteIssueComment(this._item, comment.id.toString());
+		return this._item.deleteIssueComment(comment.id.toString());
 	}
 
 	private deleteComment(message: IRequestMessage<IComment>) {
@@ -329,7 +346,7 @@ export class IssueOverviewPanel {
 	}
 
 	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<Octokit.PullsGetResponse>('pr.close', this._item, message.args).then(comment => {
+		vscode.commands.executeCommand<OctokitTypes.PullsGetResponseData>('pr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -339,7 +356,7 @@ export class IssueOverviewPanel {
 	}
 
 	private createComment(message: IRequestMessage<string>) {
-		this._pullRequestManager.createIssueComment(this._item, message.args).then(comment => {
+		this._item.createIssueComment(message.args).then(comment => {
 			this._replyMessage(message, {
 				value: comment
 			});
@@ -365,8 +382,6 @@ export class IssueOverviewPanel {
 	}
 
 	protected getHtmlForWebview(number: string) {
-		const scriptPathOnDisk = vscode.Uri.file(path.join(this._extensionPath, 'media', 'index.js'));
-		const scriptUri = this._panel.webview.asWebviewUri(scriptPathOnDisk);
 		const nonce = getNonce();
 
 		return `<!DOCTYPE html>
@@ -380,7 +395,7 @@ export class IssueOverviewPanel {
 			</head>
 			<body class="${process.platform}">
 				<div id=app></div>
-				<script nonce="${nonce}" src="${scriptUri}"></script>
+				<script nonce="${nonce}">${webviewContent}</script>
 			</body>
 			</html>`;
 	}

@@ -6,8 +6,9 @@
 
 import * as vscode from 'vscode';
 import * as pathLib from 'path';
-import { Repository } from '../api/api';
 import { fromReviewUri } from '../common/uri';
+import { getRepositoryForFile } from '../github/utils';
+import { GitApiImpl } from '../api/api1';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
@@ -15,23 +16,29 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 
 	private _fallback?: ((uri: vscode.Uri) => Promise<string>);
 
-	constructor(private repository: Repository) { }
+	constructor(private gitAPI: GitApiImpl) { }
 
 	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
 		if (!this._fallback) {
 			return '';
 		}
 
-		const { path, commit } = fromReviewUri(uri);
+		const { path, commit, rootPath } = fromReviewUri(uri);
 
 		if (!path || !commit) {
 			return '';
 		}
 
-		const absolutePath = pathLib.join(this.repository.rootUri.fsPath, path).replace(/\\/g, '/');
+		const repository = getRepositoryForFile(this.gitAPI, vscode.Uri.file(rootPath));
+		if (!repository) {
+			vscode.window.showErrorMessage(`We couldn't find an open repository for ${commit} locally.`);
+			return '';
+		}
+
+		const absolutePath = pathLib.join(repository.rootUri.fsPath, path).replace(/\\/g, '/');
 		let content: string;
 		try {
-			content = await this.repository.show(commit, absolutePath);
+			content = await repository.show(commit, absolutePath);
 			if (!content) {
 				throw new Error();
 			}
@@ -42,7 +49,7 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 				// Manually check if the commit exists before notifying the user.
 
 				try {
-					await this.repository.getCommit(commit);
+					await repository.getCommit(commit);
 				} catch (err) {
 					vscode.window.showErrorMessage(`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`);
 				}

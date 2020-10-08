@@ -17,7 +17,7 @@ if (!tty.getWindowSize) {
 
 function addTests(mocha: Mocha, root: string): Promise<void> {
 	return new Promise((resolve, reject) => {
-		glob('**/**.test.js', {cwd: root}, (error, files) => {
+		glob('**/**.test.js', { cwd: root }, (error, files) => {
 			if (error) {
 				return reject(error);
 			}
@@ -45,7 +45,7 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
 
 	await addTests(mocha, testsRoot);
-	await addTests(mocha, path.resolve(testsRoot, '../../preview-src/dist/preview-src/test'));
+	await addTests(mocha, path.resolve(testsRoot, '../../webviews/test'));
 
 	if (process.env.TEST_JUNIT_XML_PATH) {
 		mocha.reporter('mocha-multi-reporters', {
