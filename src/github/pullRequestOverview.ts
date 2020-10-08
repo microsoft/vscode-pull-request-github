@@ -613,8 +613,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		});
 	}
 
-	private async copyPrLink(message: IRequestMessage<string>): Promise<void>{
+	private async copyPrLink(message: IRequestMessage<string>): Promise<void> {
 		await vscode.env.clipboard.writeText(this._item.html_url);
+		vscode.window.showInformationMessage(`Copied link to PR ${this._item.title}!`);
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
