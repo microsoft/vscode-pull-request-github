@@ -85,8 +85,13 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
 			}
 
+			if (!this._view) {
+				// If the there is no PR webview, then there is nothing else to update.
+				return;
+			}
+
 			this._item = pullRequest;
-			this._view!.title = `${pullRequest.title} #${pullRequestModel.number.toString()}`;
+			this._view.title = `${pullRequest.title} #${pullRequestModel.number.toString()}`;
 
 			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 			const hasWritePermission = repositoryAccess!.hasWritePermission;
@@ -289,7 +294,7 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 
 	private async mergePullRequest(message: IRequestMessage<{ title: string, description: string, method: 'merge' | 'squash' | 'rebase' }>): Promise<void> {
 		const { title, description, method } = message.args;
-		const confirmation = await vscode.window.showInformationMessage('Merge this pull request?',  { modal: true }, 'Yes');
+		const confirmation = await vscode.window.showInformationMessage('Merge this pull request?', { modal: true }, 'Yes');
 		if (confirmation !== 'Yes') {
 			this._replyMessage(message, { state: GithubItemStateEnum.Open });
 			return;
