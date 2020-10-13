@@ -6,15 +6,16 @@
 import * as vscode from 'vscode';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { ReviewEvent, GithubItemStateEnum, ReviewState, MergeMethod, IAccount } from './interface';
-import { IRequestMessage, IReplyMessage } from './issueOverview';
+import { ReviewEvent, GithubItemStateEnum, ReviewState, MergeMethod } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import * as OctokitTypes from '@octokit/types';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import webviewContent from '../../media/activityBar-webviewIndex.js';
-import { isReviewEvent, TimelineEvent, ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
+import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
+import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
+import { parseReviewers } from './utils';
 
-export class PullRequestViewProvider implements vscode.WebviewViewProvider {
+export class PullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider  {
 	public static readonly viewType = 'github:activePullRequest';
 
 	private _view?: vscode.WebviewView;
@@ -25,7 +26,9 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 		private readonly _extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
 		private _item: PullRequestModel
-	) { }
+	) {
+		super();
+	}
 
 	public resolveWebviewView(
 		webviewView: vscode.WebviewView,
@@ -33,6 +36,8 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 		_token: vscode.CancellationToken,
 	) {
 		this._view = webviewView;
+		this._webview = webviewView.webview;
+		super.initialize();
 
 		webviewView.webview.options = {
 			// Allow scripts in the webview
@@ -43,33 +48,38 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 			]
 		};
 
-		webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
-
-		webviewView.webview.onDidReceiveMessage(message => {
-			switch (message.command) {
-				case 'alert':
-					vscode.window.showErrorMessage(message.args);
-					return;
-				case 'pr.close':
-					return this.close(message);
-				case 'pr.comment':
-					return this.createComment(message);
-				case 'pr.merge':
-					return this.mergePullRequest(message);
-				case 'pr.deleteBranch':
-					return this.deleteBranch(message);
-				case 'pr.readyForReview':
-					return this.setReadyForReview(message);
-				case 'pr.approve':
-					return this.approvePullRequest(message);
-				case 'pr.request-changes':
-					return this.requestChanges(message);
-				case 'pr.submit':
-					return this.submitReview(message);
-			}
-		});
+		webviewView.webview.html = this._getHtmlForWebview();
 
 		this.updatePullRequest(this._item);
+	}
+
+	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+		const result = await super._onDidReceiveMessage(message);
+		if (result !== this.MESSAGE_UNHANDLED) {
+			return;
+		}
+
+		switch (message.command) {
+			case 'alert':
+				vscode.window.showErrorMessage(message.args);
+				return;
+			case 'pr.close':
+				return this.close(message);
+			case 'pr.comment':
+				return this.createComment(message);
+			case 'pr.merge':
+				return this.mergePullRequest(message);
+			case 'pr.deleteBranch':
+				return this.deleteBranch(message);
+			case 'pr.readyForReview':
+				return this.setReadyForReview(message);
+			case 'pr.approve':
+				return this.approvePullRequest(message);
+			case 'pr.request-changes':
+				return this.requestChanges(message);
+			case 'pr.submit':
+				return this.submitReview(message);
+		}
 	}
 
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
@@ -98,6 +108,7 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 			const currentUser = this._folderRepositoryManager.getCurrentUser(this._item);
+			this._existingReviewers = parseReviewers(requestedReviewers ?? [], timelineEvents ?? [], pullRequest.author);
 
 			this._postMessage({
 				command: 'pr.initialize',
@@ -117,8 +128,8 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 					},
 					state: pullRequest.state,
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					base: pullRequest.base && pullRequest.base.label || 'UNKNOWN',
-					head: pullRequest.head && pullRequest.head.label || 'UNKNOWN',
+					base: pullRequest.base?.label ?? 'UNKNOWN',
+					head: pullRequest.head?.label ?? 'UNKNOWN',
 					canEdit: canEdit,
 					hasWritePermission,
 					mergeable: pullRequest.item.mergeable,
@@ -129,7 +140,7 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 					defaultMergeMethod,
 					isIssue: false,
 					isAuthor: currentUser.login === pullRequest.author.login,
-					reviewers: this.parseReviewers(requestedReviewers || [], timelineEvents || [], pullRequest.author)
+					reviewers: this._existingReviewers
 				}
 			});
 		}).catch(e => {
@@ -154,64 +165,6 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 			});
 		});
 	}
-
-	/**
-	 * Create a list of reviewers composed of people who have already left reviews on the PR, and
-	 * those that have had a review requested of them. If a reviewer has left multiple reviews, the
-	 * state should be the state of their most recent review, or 'REQUESTED' if they have an outstanding
-	 * review request.
-	 * @param requestedReviewers The list of reviewers that are requested for this pull request
-	 * @param timelineEvents All timeline events for the pull request
-	 * @param author The author of the pull request
-	 */
-	private parseReviewers(requestedReviewers: IAccount[], timelineEvents: TimelineEvent[], author: IAccount): ReviewState[] {
-		const reviewEvents = timelineEvents.filter(isReviewEvent).filter(event => event.state !== 'PENDING');
-		let reviewers: ReviewState[] = [];
-		const seen = new Map<string, boolean>();
-
-		// Do not show the author in the reviewer list
-		seen.set(author.login, true);
-
-		for (let i = reviewEvents.length - 1; i >= 0; i--) {
-			const reviewer = reviewEvents[i].user;
-			if (!seen.get(reviewer.login)) {
-				seen.set(reviewer.login, true);
-				reviewers.push({
-					reviewer: reviewer,
-					state: reviewEvents[i].state
-				});
-			}
-		}
-
-		requestedReviewers.forEach(request => {
-			if (!seen.get(request.login)) {
-				reviewers.push({
-					reviewer: request,
-					state: 'REQUESTED'
-				});
-			} else {
-				const reviewer = reviewers.find(r => r.reviewer.login === request.login);
-				reviewer!.state = 'REQUESTED';
-			}
-		});
-
-		// Put completed reviews before review requests and alphabetize each section
-		reviewers = reviewers.sort((a, b) => {
-			if (a.state === 'REQUESTED' && b.state !== 'REQUESTED') {
-				return 1;
-			}
-
-			if (b.state === 'REQUESTED' && a.state !== 'REQUESTED') {
-				return -1;
-			}
-
-			return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
-		});
-
-		this._existingReviewers = reviewers;
-		return reviewers;
-	}
-
 
 	private updateReviewers(review?: CommonReviewEvent): void {
 		if (review) {
@@ -392,29 +345,7 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
-	private async _postMessage(message: any) {
-		this._view?.webview.postMessage({
-			res: message
-		});
-	}
-
-	protected async _replyMessage(originalMessage: IRequestMessage<any>, message: any) {
-		const reply: IReplyMessage = {
-			seq: originalMessage.req,
-			res: message
-		};
-		this._view!.webview.postMessage(reply);
-	}
-
-	protected async _throwError(originalMessage: IRequestMessage<any>, error: any) {
-		const reply: IReplyMessage = {
-			seq: originalMessage.req,
-			err: error
-		};
-		this._view!.webview.postMessage(reply);
-	}
-
-	private _getHtmlForWebview(webview: vscode.Webview) {
+	private _getHtmlForWebview() {
 		const nonce = getNonce();
 
 		return `<!DOCTYPE html>
@@ -432,13 +363,4 @@ export class PullRequestViewProvider implements vscode.WebviewViewProvider {
 		</body>
 		</html>`;
 	}
-}
-
-function getNonce() {
-	let text = '';
-	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	for (let i = 0; i < 32; i++) {
-		text += possible.charAt(Math.floor(Math.random() * possible.length));
-	}
-	return text;
 }

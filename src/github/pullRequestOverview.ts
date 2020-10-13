@@ -15,9 +15,11 @@ import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
-import { TimelineEvent, ReviewEvent as CommonReviewEvent, isReviewEvent } from '../common/timelineEvent';
-import { IssueOverviewPanel, IRequestMessage } from './issueOverview';
+import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
+import { IssueOverviewPanel } from './issueOverview';
 import { onDidUpdatePR } from '../commands';
+import { IRequestMessage } from '../common/webview';
+import { parseReviewers } from './utils';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -92,64 +94,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		});
 	}
 
-	/**
-	 * Create a list of reviewers composed of people who have already left reviews on the PR, and
-	 * those that have had a review requested of them. If a reviewer has left multiple reviews, the
-	 * state should be the state of their most recent review, or 'REQUESTED' if they have an outstanding
-	 * review request.
-	 * @param requestedReviewers The list of reviewers that are requested for this pull request
-	 * @param timelineEvents All timeline events for the pull request
-	 * @param author The author of the pull request
-	 */
-	private parseReviewers(requestedReviewers: IAccount[], timelineEvents: TimelineEvent[], author: IAccount): ReviewState[] {
-		const reviewEvents = timelineEvents.filter(isReviewEvent).filter(event => event.state !== 'PENDING');
-		let reviewers: ReviewState[] = [];
-		const seen = new Map<string, boolean>();
-
-		// Do not show the author in the reviewer list
-		seen.set(author.login, true);
-
-		for (let i = reviewEvents.length - 1; i >= 0; i--) {
-			const reviewer = reviewEvents[i].user;
-			if (!seen.get(reviewer.login)) {
-				seen.set(reviewer.login, true);
-				reviewers.push({
-					reviewer: reviewer,
-					state: reviewEvents[i].state
-				});
-			}
-		}
-
-		requestedReviewers.forEach(request => {
-			if (!seen.get(request.login)) {
-				reviewers.push({
-					reviewer: request,
-					state: 'REQUESTED'
-				});
-			} else {
-				const reviewer = reviewers.find(r => r.reviewer.login === request.login);
-				reviewer!.state = 'REQUESTED';
-			}
-		});
-
-		// Put completed reviews before review requests and alphabetize each section
-		reviewers = reviewers.sort((a, b) => {
-			if (a.state === 'REQUESTED' && b.state !== 'REQUESTED') {
-				return 1;
-			}
-
-			if (b.state === 'REQUESTED' && a.state !== 'REQUESTED') {
-				return -1;
-			}
-
-			return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
-		});
-
-		this._existingReviewers = reviewers;
-		return reviewers;
-	}
-
-	public async updatePullRequest(pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
@@ -177,6 +122,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			const canEdit = hasWritePermission || this._item.canEdit();
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+			this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			this._postMessage({
@@ -205,7 +151,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					hasWritePermission,
 					status: status ? status : { statuses: [] },
 					mergeable: pullRequest.item.mergeable,
-					reviewers: this.parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author),
+					reviewers: this._existingReviewers,
 					isDraft: pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
@@ -235,7 +181,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.number.toString());
 
-		return this.updatePullRequest(pullRequestModel, descriptionNode);
+		return this.updatePullRequest(pullRequestModel);
 	}
 
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
