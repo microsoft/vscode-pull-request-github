@@ -764,20 +764,20 @@ export class ReviewManager {
 		}, async (progress) => {
 			progress.report({ increment: 10 });
 			let HEAD: Branch | undefined = this._repository.state.HEAD!;
-			const branchName = HEAD.name;
 
 			if (!HEAD.upstream) {
-				progress.report({ increment: 10, message: `Start publishing branch ${branchName}` });
+				progress.report({ increment: 10, message: `Start publishing branch ${HEAD.name}` });
 				HEAD = await this.publishBranch(HEAD);
 				if (!HEAD) {
 					return;
 				}
-				progress.report({ increment: 20, message: `Branch ${branchName} published` });
+				progress.report({ increment: 20, message: `Branch ${HEAD.name} published` });
 			} else {
 				progress.report({ increment: 30, message: `Start creating pull request.` });
 
 			}
 
+			const branchName = HEAD.upstream!.name;
 			const headRemote = (await this._folderRepoManager.getAllGitHubRemotes()).find(remote => remote.remoteName === HEAD!.upstream!.remote);
 			if (!headRemote) {
 				return;
