@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as pathLib from 'path';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
-import { fromReviewUri, ReviewUriParams, asImageDataURI, EMPTY_IMAGE_URI } from './common/uri';
+import { fromReviewUri, ReviewUriParams, asImageDataURI } from './common/uri';
 import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
@@ -162,31 +162,12 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		vscode.commands.executeCommand('vscode.open', e.filePath);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
 		const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
 		if (!folderManager) {
 			return;
 		}
-
-		const parentFilePath = fileChangeNode.parentFilePath;
-		const filePath = fileChangeNode.filePath;
-		const fileName = fileChangeNode.fileName;
-		const opts = fileChangeNode.opts;
-
-		fileChangeNode.reveal(fileChangeNode, { select: true, focus: true });
-
-		let parentURI = await asImageDataURI(parentFilePath, folderManager.repository) || parentFilePath;
-		let headURI = await asImageDataURI(filePath, folderManager.repository) || filePath;
-		if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
-			if (fileChangeNode.status === GitChangeType.ADD) {
-				parentURI = EMPTY_IMAGE_URI;
-			}
-			if (fileChangeNode.status === GitChangeType.DELETE) {
-				headURI = EMPTY_IMAGE_URI;
-			}
-		}
-
-		vscode.commands.executeCommand('vscode.diff', parentURI, headURI, fileName, opts);
+		fileChangeNode.openDiff(folderManager);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {

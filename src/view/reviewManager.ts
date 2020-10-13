@@ -23,6 +23,9 @@ import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
+import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
+
+const FOCUS_REVIEW_MODE = 'github:focusedReview';
 
 export class ReviewManager {
 	public static ID = 'Review';
@@ -214,10 +217,19 @@ export class ReviewManager {
 		}
 
 		const branch = this._repository.state.HEAD;
-		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
+		let matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {
-			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${this._repository.state.HEAD.name}`);
+			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${branch.name}`);
+			const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub();
+			if (metadataFromGithub) {
+				PullRequestGitHelper.associateBranchWithPullRequest(this._repository, metadataFromGithub.model, branch.name!);
+				matchingPullRequestMetadata = metadataFromGithub;
+			}
+		}
+
+		if (!matchingPullRequestMetadata) {
+			Logger.appendLine(`Review> no matching pull request metadata found on GitHub for current branch ${branch.name}`);
 			this.clear(true);
 			return;
 		}
@@ -277,6 +289,19 @@ export class ReviewManager {
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
+		if (this._context.workspaceState.get(FOCUS_REVIEW_MODE)) {
+			if (this.localFileChanges.length > 0) {
+				let fileChangeToShow: GitFileChangeNode | undefined;
+				for (const fileChange of this.localFileChanges) {
+					if (fileChange.status === GitChangeType.MODIFY) {
+						fileChangeToShow = fileChange;
+						break;
+					}
+				}
+				fileChangeToShow = fileChangeToShow ?? this.localFileChanges[0];
+				fileChangeToShow.openDiff(this._folderRepoManager);
+			}
+		}
 		this._validateStatusInProgress = undefined;
 	}
 
@@ -841,9 +866,11 @@ export class ReviewManager {
 	private updateFocusedViewMode(): void {
 		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
 		if (focusedSetting && this._folderRepoManager.activePullRequest) {
-			vscode.commands.executeCommand('setContext', 'github:focusedReview', true);
+			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
+			this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		} else {
-			vscode.commands.executeCommand('setContext', 'github:focusedReview', false);
+			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, false);
+			this._context.workspaceState.update(FOCUS_REVIEW_MODE, false);
 		}
 	}
 

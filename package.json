@@ -12,10 +12,10 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.19.0",
+  "version": "0.20.1",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.48.0"
+    "vscode": "^1.50.0"
   },
   "categories": [
     "Other"
@@ -372,7 +372,7 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/pull-request.png"
         },
         {
@@ -390,7 +390,7 @@
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "config.git.enabled && ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/issues.png"
         }
       ]

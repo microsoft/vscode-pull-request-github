@@ -16,7 +16,7 @@ import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
-import { registerBuiltinGitProvider } from './env/node/gitProviders/api';
+import { registerBuiltinGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
@@ -53,7 +53,25 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
-
+	// Sort the repositories to match folders in a multiroot workspace (if possible).
+	const workspaceFolders = vscode.workspace.workspaceFolders;
+	if (workspaceFolders) {
+		repositories = repositories.sort((a, b) => {
+			let indexA = workspaceFolders.length;
+			let indexB = workspaceFolders.length;
+			for (let i = 0; i < workspaceFolders.length; i++) {
+				if (workspaceFolders[i].uri.toString() === a.rootUri.toString()) {
+					indexA = i;
+				} else if (workspaceFolders[i].uri.toString() === b.rootUri.toString()) {
+					indexB = i;
+				}
+				if (indexA !== workspaceFolders.length && indexB !== workspaceFolders.length) {
+					break;
+				}
+			}
+			return indexA - indexB;
+		});
+	}
 	const folderManagers = repositories.map(repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore));
 	context.subscriptions.push(...folderManagers);
 	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
@@ -80,7 +98,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	git.onDidOpenRepository(repo => {
 		const disposable = repo.state.onDidChange(() => {
 			const newFolderManager = new FolderRepositoryManager(repo, telemetry, git, credentialStore);
-			reposManager.folderManagers.push(newFolderManager);
+			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(context, newFolderManager.repository, newFolderManager, telemetry, changesTree);
 			reviewManagers.push(newReviewManager);
 			tree.refresh();
@@ -113,7 +131,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	context.subscriptions.push(credentialStore);
 	await credentialStore.initialize();
 
-	context.subscriptions.push(registerBuiltinGitProvider(credentialStore, apiImpl));
+	const builtInGitProvider = registerBuiltinGitProvider(credentialStore, apiImpl);
+	if (builtInGitProvider) {
+		context.subscriptions.push(builtInGitProvider);
+	}
 	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
 	context.subscriptions.push(liveshareGitProvider);
 	const liveshareApiPromise = liveshareGitProvider.initialize();

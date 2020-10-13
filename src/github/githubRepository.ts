@@ -301,6 +301,36 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
+	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[] | undefined> {
+		try {
+			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
+			const { octokit, remote } = await this.ensure();
+			const result = await octokit.pulls.list({
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				head: `${remote.owner}:${branch}`
+			});
+
+			const pullRequests = result.data
+				.map(pullRequest => {
+						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
+					}
+				)
+				.filter(item => item !== null) as PullRequestModel[];
+
+			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
+			return pullRequests;
+		} catch (e) {
+			Logger.appendLine(`Fetching pull requests for branch failed: ${e}`, GitHubRepository.ID);
+			if (e.code === 404) {
+				// not found
+				vscode.window.showWarningMessage(`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`);
+			} else {
+				throw e;
+			}
+		}
+	}
+
 	private getRepoForIssue(githubRepository: GitHubRepository, parsedIssue: Issue): GitHubRepository {
 		if (parsedIssue.repositoryName && parsedIssue.repositoryUrl &&
 			((githubRepository.remote.owner !== parsedIssue.repositoryOwner) ||
@@ -393,7 +423,7 @@ export class GitHubRepository implements vscode.Disposable {
 			const { data } = await query<IssuesSearchResponse>({
 				query: schema.Issues,
 				variables: {
-					query: queryString
+					query: `${queryString} type:issue`
 				}
 			});
 			Logger.debug(`Fetch issues with query - done`, GitHubRepository.ID);
@@ -689,6 +719,9 @@ export class GitHubRepository implements vscode.Disposable {
 				after = result.data.repository.assignableUsers.pageInfo.endCursor;
 			} catch (e) {
 				Logger.debug(`Unable to fetch assignable users: ${e}`, GitHubRepository.ID);
+				if (e.graphQLErrors && (e.graphQLErrors.length > 0) && (e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES')) {
+					vscode.window.showWarningMessage(`GitHub user features will not work. ${e.graphQLErrors[0].message}`);
+				}
 				return ret;
 			}
 		} while (hasNextPage);
