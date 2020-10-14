@@ -70,6 +70,10 @@ textarea:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
+body button svg, body button svg path {
+	fill: var(--vscode-foreground);
+}
+
 body button:disabled,
 input[type=submit]:disabled {
 	opacity: 0.4;
