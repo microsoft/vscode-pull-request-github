@@ -51,3 +51,23 @@ textarea {
 .branch-status-container {
 	padding: 10px 0;
 }
+
+.radio-button {
+	display: flex;
+	align-items: center;
+	margin-right: 3px;
+}
+
+.radio-button input {
+	margin-top: 0;
+}
+
+@media (max-width: 250px) {
+	.form-actions {
+		flex-direction: column;
+	}
+
+	.radio-button {
+		margin-bottom: 3px;
+	}
+}

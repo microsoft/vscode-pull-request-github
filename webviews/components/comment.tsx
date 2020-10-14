@@ -323,34 +323,34 @@ export function AddCommentSimple({ pendingCommentText, pendingReviewType }: Pull
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
-	let selectedValue: ReviewType = pendingReviewType ||  ReviewType.Comment;
+	let selectedValue: ReviewType = pendingReviewType || ReviewType.Comment;
 
 	const onSubmit = async e => {
-			e.preventDefault();
-			try {
-				setBusy(true);
-				const { body }: FormInputSet = form.current;
-				switch (selectedValue) {
-					case ReviewType.RequestChanges:
-						await requestChanges(body.value);
-						break;
-					case ReviewType.Approve:
-						await approve(body.value);
-						break;
-					default:
-						await comment(body.value)
-				}
-				updatePR({ pendingCommentText: '', pendingReviewType: undefined });
-			} finally {
-				setBusy(false);
-			};
+		e.preventDefault();
+		try {
+			setBusy(true);
+			const { body }: FormInputSet = form.current;
+			switch (selectedValue) {
+				case ReviewType.RequestChanges:
+					await requestChanges(body.value);
+					break;
+				case ReviewType.Approve:
+					await approve(body.value);
+					break;
+				default:
+					await comment(body.value)
+			}
+			updatePR({ pendingCommentText: '', pendingReviewType: undefined });
+		} finally {
+			setBusy(false);
 		};
+	};
 
 	const onKeyDown = (e: React.KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-				onSubmit(e);
-			}
-		};
+		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+			onSubmit(e);
+		}
+	};
 
 	const onChangeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
 		updatePR({ pendingCommentText: e.target.value });
@@ -375,32 +375,38 @@ export function AddCommentSimple({ pendingCommentText, pendingReviewType }: Pull
 			placeholder='Leave a comment' />
 
 		<div className='form-actions' onChange={onChangeRadioSelection}>
-			<input type='radio'
-				id='comment'
-				disabled={isBusy}
-				className='secondary'
-				name='review-type'
-				value={ReviewType.Comment}
-				defaultChecked={!pendingReviewType || pendingReviewType === ReviewType.Comment} />
-			<label htmlFor='comment'>Comment</label>
+			<div className="radio-button">
+				<input type='radio'
+					id='comment'
+					disabled={isBusy}
+					className='secondary'
+					name='review-type'
+					value={ReviewType.Comment}
+					defaultChecked={!pendingReviewType || pendingReviewType === ReviewType.Comment} />
+				<label htmlFor='comment'>Comment</label>
+			</div>
 
-			<input type='radio'
-				id='approve'
-				disabled={isBusy}
-				className='secondary'
-				value={ReviewType.Approve}
-				defaultChecked={pendingReviewType === ReviewType.Approve}
-				name='review-type' />
-			<label htmlFor='approve'>Approve</label>
+			<div className="radio-button">
+				<input type='radio'
+					id='approve'
+					disabled={isBusy}
+					className='secondary'
+					value={ReviewType.Approve}
+					defaultChecked={pendingReviewType === ReviewType.Approve}
+					name='review-type' />
+				<label htmlFor='approve'>Approve</label>
+			</div>
 
-			<input type='radio'
-				id='request-changes'
-				disabled={isBusy}
-				className='secondary'
-				value={ReviewType.RequestChanges}
-				defaultChecked={pendingReviewType === ReviewType.RequestChanges}
-				name='review-type' />
-			<label htmlFor='request-changes'>Request Changes</label>
+			<div className="radio-button">
+				<input type='radio'
+					id='request-changes'
+					disabled={isBusy}
+					className='secondary'
+					value={ReviewType.RequestChanges}
+					defaultChecked={pendingReviewType === ReviewType.RequestChanges}
+					name='review-type' />
+				<label htmlFor='request-changes'>Request Changes</label>
+			</div>
 		</div>
 
 		<input type='submit'
