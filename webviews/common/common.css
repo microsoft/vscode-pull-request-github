@@ -45,14 +45,14 @@ body button.secondary:hover {
 textarea, input[type='text'] {
 	display: block;
 	box-sizing: border-box;
-	padding: 10px;
+	padding: 8px;
 	width: 100%;
 	resize: vertical;
 	font-size: 13px;
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
-	font-family: var(--vscode-editor-font-family);
+	font-family: var(--vscode-font-family);
 }
 
 select {
