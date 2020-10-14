@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { cloneElement, useContext, useState } from 'react';
+import { useContext, useState } from 'react';
 import { PullRequest } from '../common/cache';
-import { Avatar, AuthorLink } from './user';
-import { pendingIcon, commentIcon, checkIcon, diffIcon, plusIcon, deleteIcon } from './icon';
+import { plusIcon, deleteIcon } from './icon';
 import PullRequestContext from '../common/context';
-import { ReviewState, ILabel } from '../../src/github/interface';
+import { ILabel } from '../../src/github/interface';
 import { nbsp } from './space';
+import { Reviewer } from './reviewer';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue }: PullRequest) {
 	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
@@ -51,20 +51,6 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 	</div>;
 }
 
-function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
-	const { reviewer, state, canDelete } = reviewState;
-	const [showDelete, setShowDelete] = useState(false);
-	const { removeReviewer } = useContext(PullRequestContext);
-	return <div className='section-item reviewer'
-		onMouseEnter={state === 'REQUESTED' ? () => setShowDelete(true) : null}
-		onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}>
-		<Avatar for={reviewer} />
-		<AuthorLink for={reviewer} />
-		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.login)}>{deleteIcon}️</a></> : null}
-		{REVIEW_STATE[state]}
-	</div>;
-}
-
 function Label(label: ILabel & { canDelete: boolean }) {
 	const { name, canDelete } = label;
 	const [showDelete, setShowDelete] = useState(false);
@@ -76,10 +62,3 @@ function Label(label: ILabel & { canDelete: boolean }) {
 		{canDelete && showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeLabel(name)}>{deleteIcon}️</a>{nbsp}</> : null}
 	</div>;
 }
-
-const REVIEW_STATE: { [state: string]: React.ReactElement } = {
-	REQUESTED: cloneElement(pendingIcon, { className: 'push-right', title: 'Awaiting requested review' }),
-	COMMENTED: cloneElement(commentIcon, { className: 'push-right', Root: 'div', title: 'Left review comments' }),
-	APPROVED: cloneElement(checkIcon, { className: 'push-right', title: 'Approved these changes' }),
-	CHANGES_REQUESTED: cloneElement(diffIcon, { className: 'push-right', title: 'Requested changes' }),
-};

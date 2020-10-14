@@ -12,6 +12,7 @@ import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
 import { groupBy } from '../../src/common/utils';
+import { Reviewer } from '../components/reviewer';
 
 export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
 	if (pr.isIssue) {
@@ -62,6 +63,15 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: bool
 							</div>
 						</>
 						: null
+					}
+					{
+						isSimple
+							? pr.reviewers
+								? pr.reviewers.map(state =>
+									<Reviewer key={state.reviewer.login} {...state} canDelete={false} />
+								)
+								: []
+							: null
 					}
 					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
 				</>

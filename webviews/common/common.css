@@ -3,6 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+body a {
+	text-decoration: none;
+}
+
+body a:hover {
+	text-decoration: underline;
+}
 button, input[type=submit] {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
@@ -70,6 +77,53 @@ input[type=submit]:disabled {
 
 body .hidden {
 	display: none !important;
+}
+
+body img.avatar,
+body span.avatar-icon svg {
+	width: 24px;
+	height: 24px;
+}
+
+body img.avatar {
+	vertical-align: middle;
+}
+
+.section-item .avatar-link {
+	margin-right: 8px;
+}
+
+.section-item .avatar-container {
+	flex-shrink: 0;
+}
+
+.section-item .login {
+	width: 129px;
+	flex-shrink: 0;
+}
+
+.section-item {
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+}
+
+.section-item img.avatar {
+	width: 18px;
+	height: 18px;
+}
+
+.push-right {
+	margin-left: auto;
+}
+
+.author-link {
+	font-weight: bolder;
+	color: var(--vscode-editor-foreground)
+}
+
+.section-item {
+	margin-right: 8px;
 }
 
 /** Theming */
