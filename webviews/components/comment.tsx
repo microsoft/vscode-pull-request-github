@@ -318,7 +318,7 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 	</form>;
 }
 
-export function AddCommentSimple({ pendingCommentText, pendingReviewType }: PullRequest) {
+export function AddCommentSimple({ pendingCommentText, pendingReviewType, isAuthor }: PullRequest) {
 	const { updatePR, requestChanges, approve, comment } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
@@ -389,7 +389,7 @@ export function AddCommentSimple({ pendingCommentText, pendingReviewType }: Pull
 			<div className="radio-button">
 				<input type='radio'
 					id='approve'
-					disabled={isBusy}
+					disabled={isBusy || isAuthor}
 					className='secondary'
 					value={ReviewType.Approve}
 					defaultChecked={pendingReviewType === ReviewType.Approve}
@@ -400,7 +400,7 @@ export function AddCommentSimple({ pendingCommentText, pendingReviewType }: Pull
 			<div className="radio-button">
 				<input type='radio'
 					id='request-changes'
-					disabled={isBusy}
+					disabled={isBusy || isAuthor}
 					className='secondary'
 					value={ReviewType.RequestChanges}
 					defaultChecked={pendingReviewType === ReviewType.RequestChanges}

@@ -6,7 +6,7 @@
 
 import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
-import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User, Issue } from './interface';
+import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User, Issue, ReviewState } from './interface';
 import { IComment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
@@ -710,4 +710,60 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
 		}
 	}
 	return undefined;
+}
+
+/**
+ * Create a list of reviewers composed of people who have already left reviews on the PR, and
+ * those that have had a review requested of them. If a reviewer has left multiple reviews, the
+ * state should be the state of their most recent review, or 'REQUESTED' if they have an outstanding
+ * review request.
+ * @param requestedReviewers The list of reviewers that are requested for this pull request
+ * @param timelineEvents All timeline events for the pull request
+ * @param author The author of the pull request
+ */
+export function parseReviewers(requestedReviewers: IAccount[], timelineEvents: Common.TimelineEvent[], author: IAccount): ReviewState[] {
+	const reviewEvents = timelineEvents.filter(Common.isReviewEvent).filter(event => event.state !== 'PENDING');
+	let reviewers: ReviewState[] = [];
+	const seen = new Map<string, boolean>();
+
+	// Do not show the author in the reviewer list
+	seen.set(author.login, true);
+
+	for (let i = reviewEvents.length - 1; i >= 0; i--) {
+		const reviewer = reviewEvents[i].user;
+		if (!seen.get(reviewer.login)) {
+			seen.set(reviewer.login, true);
+			reviewers.push({
+				reviewer: reviewer,
+				state: reviewEvents[i].state
+			});
+		}
+	}
+
+	requestedReviewers.forEach(request => {
+		if (!seen.get(request.login)) {
+			reviewers.push({
+				reviewer: request,
+				state: 'REQUESTED'
+			});
+		} else {
+			const reviewer = reviewers.find(r => r.reviewer.login === request.login);
+			reviewer!.state = 'REQUESTED';
+		}
+	});
+
+	// Put completed reviews before review requests and alphabetize each section
+	reviewers = reviewers.sort((a, b) => {
+		if (a.state === 'REQUESTED' && b.state !== 'REQUESTED') {
+			return 1;
+		}
+
+		if (b.state === 'REQUESTED' && a.state !== 'REQUESTED') {
+			return -1;
+		}
+
+		return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
+	});
+
+	return reviewers;
 }
