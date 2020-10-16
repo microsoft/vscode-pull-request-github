@@ -376,16 +376,16 @@
           "icon": "resources/icons/pull-request.png"
         },
         {
-          "id": "github:activePullRequest",
-          "type": "webview",
-          "name": "Active Pull Request",
-          "when": "github:focusedReview"
-        },
-        {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
           "when": "github:inReviewMode",
           "icon": "resources/icons/pull-request.png"
+        },
+        {
+          "id": "github:activePullRequest",
+          "type": "webview",
+          "name": "Active Pull Request",
+          "when": "github:focusedReview"
         },
         {
           "id": "issues:github",
