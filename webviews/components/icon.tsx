@@ -21,3 +21,4 @@ export const commentIcon = <Icon src={require('../../resources/icons/comment.svg
 export const diffIcon = <Icon src={require('../../resources/icons/diff.svg')} />;
 export const alertIcon = <Icon src={require('../../resources/icons/alert.svg')} />;
 export const copyIcon = <Icon src={require('../../resources/icons/copy.svg')} />;
+export const chevronIcon = <Icon src={require('../../resources/icons/chevron.svg')} />;

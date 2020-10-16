@@ -32,22 +32,72 @@ textarea {
 	padding: 10px 0;
 }
 
+.merge-select-container {
+	display: flex;
+	flex-direction: column;
+	width: fit-content;
+}
+
 .merge-select {
 	display: flex;
+}
+
+.merge-select svg path {
+	fill: var(--vscode-button-foreground);
+}
+
+button:focus, input[type=submit]:focus {
+	outline-offset: -1px;
+}
+
+.merge-select button, input[type=submit] {
+	height: 31px;
+}
+
+.merge-select .open {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+button .icon svg {
+	margin-right: 0;
 }
 
 .merge-type-select {
 	display: flex;
 	flex-direction: column;
-	width: 169px;
 }
 
 .merge-type-select button {
 	margin-top: 1px;
 	background-color: var(--vscode-dropdown-background);
 	color: var(--vscode-dropdown-foreground);
+	text-align: start;
+}
+
+.merge-type-select button:hover, .merge-type-select button:focus {
+	color: var(--vscode-button-foreground);
 }
 
 .branch-status-container {
 	padding: 10px 0;
+}
+
+.radio-button {
+	display: flex;
+	align-items: center;
+	margin-right: 3px;
+}
+
+.radio-button input {
+	margin-top: 0;
+}
+
+@media (max-width: 250px) {
+	.form-actions {
+		flex-direction: column;
+	}
+
+	.radio-button {
+		margin-bottom: 3px;
+	}
 }

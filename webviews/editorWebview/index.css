@@ -77,14 +77,6 @@ body hr {
 	padding: 0;
 }
 
-body a {
-	text-decoration: none;
-}
-
-body a:hover {
-	text-decoration: underline;
-}
-
 body .comment-container .avatar-container {
 	margin-right: 12px;
 }
@@ -98,18 +90,9 @@ body .comment-container .avatar-container .avatar-icon svg {
 	margin-right: 0;
 }
 
-body img.avatar,
-body span.avatar-icon svg {
-	width: 24px;
-	height: 24px;
-}
 
 .vscode-light .avatar-icon {
 	filter: invert(100%);
-}
-
-body img.avatar {
-	vertical-align: middle;
 }
 
 body a.avatar-link:focus {
@@ -120,7 +103,6 @@ body .comment-container.comment,
 body .comment-container.review {
 	background-color: var(--vscode-editor-background);
 }
-
 
 .review-comment-container {
 	width: 100%;
@@ -327,10 +309,6 @@ body button.checkedOut {
 	background-color: transparent;
 }
 
-body button svg, body button svg path {
-	fill: var(--vscode-foreground);
-}
-
 body button .icon {
 	width: 1em;
 	height: 1em;
@@ -423,10 +401,6 @@ body .overview-title .button-group button {
 	margin-right: 0;
 }
 
-.section .avatar-link {
-	margin-right: 8px;
-}
-
 .section button:hover, .section button:focus {
 	background: transparent;
 }
@@ -436,26 +410,6 @@ body .overview-title .button-group button {
 	height: 16px;
 	display: block;
 	margin-right: 0;
-}
-
-.section-item .avatar-container {
-	flex-shrink: 0;
-}
-
-.section-item .login {
-	width: 129px;
-	flex-shrink: 0;
-}
-
-.section-item {
-	margin-bottom: 8px;
-	display: flex;
-	align-items: center;
-}
-
-.section-item img.avatar {
-	width: 18px;
-	height: 18px;
 }
 
 .label {
@@ -976,10 +930,6 @@ code {
 	margin-right: 6px;
 }
 
-.push-right {
-	margin-left: auto;
-}
-
 .action-bar {
 	position: absolute;
 	display: flex;
@@ -1015,9 +965,4 @@ code {
 
 .title-editing-form > .form-actions {
 	margin-left: 0;
-}
-
-.author-link {
-	font-weight: bolder;
-	color: var(--vscode-editor-foreground)
 }
