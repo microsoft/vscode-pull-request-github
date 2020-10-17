@@ -29,6 +29,9 @@ export class PRContext {
 	public checkout = () =>
 		this.postMessage({ command: 'pr.checkout' })
 
+	public copyPrLink = () =>
+		this.postMessage({command:'pr.copy-prlink'})
+
 	public exitReviewMode = async () => {
 		if (!this.pr) { return; }
 		return this.postMessage({

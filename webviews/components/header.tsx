@@ -10,7 +10,7 @@ import { PullRequest } from '../common/cache';
 import { Avatar, AuthorLink } from './user';
 import { Spaced } from './space';
 import PullRequestContext from '../common/context';
-import { checkIcon, editIcon } from './icon';
+import { checkIcon, editIcon,copyIcon } from './icon';
 import Timestamp from './timestamp';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { useStateProp } from '../common/hooks';
@@ -46,7 +46,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 	const [inEditMode, setEditMode] = useState(false);
 	const [showActionBar, setShowActionBar] = useState(false);
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
-	const { setTitle, refresh } = useContext(PullRequestContext);
+	const { setTitle, refresh,copyPrLink } = useContext(PullRequestContext);
 	const editableTitle =
 		inEditMode
 			?
@@ -91,6 +91,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 			(canEdit && showActionBar && !inEditMode)
 				? <div className='flex-action-bar comment-actions'>
 					{<button title='Edit' onClick={() => setEditMode(true)}>{editIcon}</button>}
+					{<button title='Copy Link' onClick={copyPrLink}>{copyIcon}</button>}
 				</div>
 				: <div className='flex-action-bar comment-actons'></div>
 		}
