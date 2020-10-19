@@ -36,6 +36,7 @@ textarea {
 	display: flex;
 	flex-direction: column;
 	width: fit-content;
+	min-width: 155px;
 }
 
 .merge-select {
@@ -51,7 +52,8 @@ button:focus, input[type=submit]:focus {
 }
 
 .merge-select button, input[type=submit] {
-	height: 31px;
+	min-height: 31px;
+	white-space: normal;
 }
 
 .merge-select .open {
