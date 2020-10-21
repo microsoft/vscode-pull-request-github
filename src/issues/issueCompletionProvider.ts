@@ -24,7 +24,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
-		if ((document.languageId !== 'scminput') && (position.character > 0) && (context.triggerKind === vscode.CompletionTriggerKind.Invoke) && !document.getText(document.getWordRangeAtPosition(position)).match(/#[0-9]*$/)) {
+		if ((document.languageId !== 'scminput') && (document.uri.scheme !== 'comment') && (position.character > 0) &&
+			(context.triggerKind === vscode.CompletionTriggerKind.Invoke) &&
+			!document.getText(document.getWordRangeAtPosition(position)).match(/#[0-9]*$/)) {
 			return [];
 		}
 		// It's common in markdown to start a line with #s and not want an completion
@@ -54,7 +56,14 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		const completionItems: Map<string, vscode.CompletionItem> = new Map();
 		const now = new Date();
 		let repo: PullRequestDefaults | undefined;
-		const uri = (document.languageId === 'scminput') ? getRootUriFromScmInputUri(document.uri) : document.uri;
+		let uri: vscode.Uri | undefined;
+		if (document.languageId === 'scminput') {
+			uri = getRootUriFromScmInputUri(document.uri);
+		} else if (document.uri.scheme === 'comment') {
+			uri = vscode.window.visibleTextEditors.length > 0 ? vscode.workspace.getWorkspaceFolder(vscode.window.visibleTextEditors[0].document.uri)?.uri : undefined;
+		} else {
+			uri = vscode.workspace.getWorkspaceFolder(document.uri)?.uri;
+		}
 		if (!uri) {
 			return [];
 		}
