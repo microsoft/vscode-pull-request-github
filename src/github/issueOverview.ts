@@ -305,6 +305,8 @@ export class IssueOverviewPanel extends WebviewBase {
 				this._replyMessage(message, {
 					value: comment
 				});
+			} else {
+				this._throwError(message, 'Close cancelled');
 			}
 		});
 	}

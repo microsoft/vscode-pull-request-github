@@ -30,7 +30,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.checkout' })
 
 	public copyPrLink = () =>
-		this.postMessage({command:'pr.copy-prlink'})
+		this.postMessage({ command: 'pr.copy-prlink' })
 
 	public exitReviewMode = async () => {
 		if (!this.pr) { return; }
@@ -47,7 +47,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.checkMergeability' })
 
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
-		this.postMessage({ command: 'pr.merge', args	})
+		this.postMessage({ command: 'pr.merge', args })
 
 	public deleteBranch = () =>
 		this.postMessage({ command: 'pr.deleteBranch' })
@@ -56,7 +56,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.readyForReview' })
 
 	public comment = async (args: string) => {
-		const result = await this.postMessage({ command: 'pr.comment', args});
+		const result = await this.postMessage({ command: 'pr.comment', args });
 		const newComment = result.value;
 		newComment.event = EventType.Commented;
 		this.updatePR({
@@ -98,7 +98,7 @@ export class PRContext {
 		this.updatePR(this.pr);
 	}
 
-	public editComment = (args: {comment: IComment, text: string}) =>
+	public editComment = (args: { comment: IComment, text: string }) =>
 		this.postMessage({ command: 'pr.edit-comment', args })
 
 	public updateDraft = (id: number, body: string) => {
@@ -118,8 +118,13 @@ export class PRContext {
 	public submit = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
 
-	public close = async (body?: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.close', args: body }))
+	public close = async (body?: string) => {
+		try {
+			this.appendReview(await this.postMessage({ command: 'pr.close', args: body }))
+		} catch (_) {
+			// Ignore
+		}
+	}
 
 	public removeReviewer = async (login: string) => {
 		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
@@ -140,11 +145,11 @@ export class PRContext {
 	private appendReview({ review, reviewers }: any) {
 		const state = this.pr;
 		const events = state.events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
-			events.forEach(event => {
-				if (isReviewEvent(event)) {
-					event.comments.forEach(c => c.isDraft = false);
-				}
-			});
+		events.forEach(event => {
+			if (isReviewEvent(event)) {
+				event.comments.forEach(c => c.isDraft = false);
+			}
+		});
 		state.reviewers = reviewers;
 		state.events = [
 			...state.events
@@ -184,7 +189,7 @@ export class PRContext {
 			case 'pr.update-checkout-status':
 				return this.updatePR({ isCurrentlyCheckedOut: message.isCurrentlyCheckedOut });
 			case 'pr.deleteBranch':
-				return this.updatePR({ head: 'UNKNOWN'});
+				return this.updatePR({ head: 'UNKNOWN' });
 			case 'pr.enable-exit':
 				return this.updatePR({ isCurrentlyCheckedOut: true });
 			case 'set-scroll':
