@@ -148,7 +148,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
 		const parentFilePath = this.parentFilePath;
 		const filePath = this.filePath;
-		const fileName = this.fileName;
 		const opts = this.opts;
 
 		this.reveal(this, { select: true, focus: true });
@@ -164,7 +163,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			}
 		}
 
-		vscode.commands.executeCommand('vscode.diff', parentURI, headURI, fileName, opts);
+		const pathSegments = filePath.path.split('/');
+		vscode.commands.executeCommand('vscode.diff', parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts);
 	}
 }
 
