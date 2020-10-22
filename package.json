@@ -345,6 +345,11 @@
             }
           ]
         },
+        "githubIssues.assignWhenWorking": {
+          "type": "boolean",
+          "default": true,
+          "description": "Assigns the issue you're working on to you."
+        },
         "githubPullRequests.focusedMode": {
           "type": "boolean",
           "description": "Whether to enter focused mode when a pull request is checked out. This hides the issues and pull requests tree views.",

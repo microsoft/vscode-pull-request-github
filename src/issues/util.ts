@@ -204,7 +204,7 @@ async function findCodeLinksInIssue(body: string, repositoriesManager: Repositor
 		if (codeLink) {
 			const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
 			const endingTextDocumentLine =
-				textDocument.lineAt(codeLink.end <= textDocument.lineCount ? codeLink.end : textDocument.lineCount);
+				textDocument.lineAt(codeLink.end < textDocument.lineCount ? codeLink.end : textDocument.lineCount - 1);
 			const query = [codeLink.file,
 			{
 				selection: {

@@ -78,7 +78,7 @@ export async function openCodeLink(issueModel: IssueModel, repositoriesManager: 
 	}
 	const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
 	const endingTextDocumentLine =
-		textDocument.lineAt(codeLink.end <= textDocument.lineCount ? codeLink.end : textDocument.lineCount);
+		textDocument.lineAt(codeLink.end < textDocument.lineCount ? codeLink.end : textDocument.lineCount - 1);
 	const selection = new vscode.Range(codeLink.start, 0, codeLink.end, endingTextDocumentLine.text.length);
 	return vscode.window.showTextDocument(codeLink.file, { selection });
 }

@@ -24,7 +24,7 @@ export class IssueModel {
 	public html_url: string;
 	public state: GithubItemStateEnum = GithubItemStateEnum.Open;
 	public author: IAccount;
-	public assignee: IAccount;
+	public assignees?: IAccount[];
 	public createdAt: string;
 	public updatedAt: string;
 	public milestone?: IMilestone;
@@ -100,8 +100,8 @@ export class IssueModel {
 
 		this.updateState(issue.state);
 
-		if (issue.assignee) {
-			this.assignee = issue.assignee;
+		if (issue.assignees) {
+			this.assignees = issue.assignees;
 		}
 	}
 

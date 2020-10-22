@@ -55,6 +55,12 @@ export class CurrentIssue {
 			if (await this.createIssueBranch()) {
 				await this.setCommitMessageAndGitEvent();
 				this._onDidChangeCurrentIssueState.fire();
+				const login = this.manager.getCurrentUser(this.issueModel).login;
+				if (vscode.workspace.getConfiguration('githubIssues').get('assignWhenWorking') &&
+					!this.issueModel.assignees?.find(value => value.login === login)) {
+					await this.manager.assignIssue(this.issueModel, login);
+					await this.stateManager.refresh();
+				}
 				return true;
 			}
 		} catch (e) {
