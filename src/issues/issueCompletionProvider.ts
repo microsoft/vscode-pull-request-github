@@ -60,7 +60,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		if (document.languageId === 'scminput') {
 			uri = getRootUriFromScmInputUri(document.uri);
 		} else if (document.uri.scheme === 'comment') {
-			uri = vscode.window.visibleTextEditors.length > 0 ? vscode.workspace.getWorkspaceFolder(vscode.window.visibleTextEditors[0].document.uri)?.uri : undefined;
+			uri = vscode.window.visibleTextEditors.length > 0
+				? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(vscode.window.visibleTextEditors[0].document.uri.fsPath))?.uri
+				: undefined;
 		} else {
 			uri = vscode.workspace.getWorkspaceFolder(document.uri)?.uri;
 		}
