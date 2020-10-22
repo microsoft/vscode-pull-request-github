@@ -16,6 +16,7 @@ import { editIcon, deleteIcon, commentIcon } from './icon';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { useStateProp } from '../common/hooks';
 import emitter from '../common/events';
+import { Dropdown } from './dropdown';
 
 export type Props = Partial<IComment & PullRequest> & {
 	headerInEditMode?: boolean
@@ -318,100 +319,45 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 	</form>;
 }
 
-export function AddCommentSimple({ pendingCommentText, pendingReviewType, isAuthor }: PullRequest) {
+const COMMENT_METHODS = {
+	comment: 'Comment',
+	approve: 'Approve',
+	requestChanges: 'Request Changes'
+}
+
+export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, comment } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
-	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
-	let selectedValue: ReviewType = pendingReviewType || ReviewType.Comment;
 
-	const onSubmit = async e => {
-		e.preventDefault();
-		try {
-			setBusy(true);
-			const { body }: FormInputSet = form.current;
-			switch (selectedValue) {
-				case ReviewType.RequestChanges:
-					await requestChanges(body.value);
-					break;
-				case ReviewType.Approve:
-					await approve(body.value);
-					break;
-				default:
-					await comment(body.value)
-			}
-			updatePR({ pendingCommentText: '', pendingReviewType: undefined });
-		} finally {
-			setBusy(false);
-		};
-	};
-
-	const onKeyDown = (e: React.KeyboardEvent) => {
-		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-			onSubmit(e);
+	async function submitAction(selected: string): Promise<void> {
+		const { value } = textareaRef.current;
+		switch (selected) {
+			case ReviewType.RequestChanges:
+				await requestChanges(value);
+				break;
+			case ReviewType.Approve:
+				await approve(value);
+				break;
+			default:
+				await comment(value);
 		}
-	};
+		updatePR({ pendingCommentText: '', pendingReviewType: undefined });
+	}
 
 	const onChangeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
 		updatePR({ pendingCommentText: e.target.value });
 	}
 
-	const onChangeRadioSelection = (e: React.ChangeEvent<HTMLInputElement>): void => {
-		selectedValue = e.target.value as ReviewType;
-		updatePR({ pendingReviewType: e.target.value as ReviewType });
-	}
+	const availableActions = pr.isAuthor
+		? { 'comment': 'Comment '}
+		: COMMENT_METHODS;
 
-	return <form id='comment-form'
-		ref={form}
-		className='comment-form main-comment-form'
-		onSubmit={onSubmit}>
-
+	return <span>
 		<textarea id='comment-textarea'
 			name='body'
+			placeholder='Leave a comment'
 			ref={textareaRef}
-			onKeyDown={onKeyDown}
-			value={pendingCommentText}
-			onChange={onChangeTextarea}
-			placeholder='Leave a comment' />
-
-		<div className='form-actions' onChange={onChangeRadioSelection}>
-			<div className="radio-button">
-				<input type='radio'
-					id='comment'
-					disabled={isBusy}
-					className='secondary'
-					name='review-type'
-					value={ReviewType.Comment}
-					defaultChecked={!pendingReviewType || pendingReviewType === ReviewType.Comment} />
-				<label htmlFor='comment'>Comment</label>
-			</div>
-
-			<div className="radio-button">
-				<input type='radio'
-					id='approve'
-					disabled={isBusy || isAuthor}
-					className='secondary'
-					value={ReviewType.Approve}
-					defaultChecked={pendingReviewType === ReviewType.Approve}
-					name='review-type' />
-				<label htmlFor='approve'>Approve</label>
-			</div>
-
-			<div className="radio-button">
-				<input type='radio'
-					id='request-changes'
-					disabled={isBusy || isAuthor}
-					className='secondary'
-					value={ReviewType.RequestChanges}
-					defaultChecked={pendingReviewType === ReviewType.RequestChanges}
-					name='review-type' />
-				<label htmlFor='request-changes'>Request Changes</label>
-			</div>
-		</div>
-
-		<input type='submit'
-			id='submit'
-			value='Submit'
-			disabled={isBusy} />
-	</form>;
+			value={pr.pendingCommentText}
+			onChange={onChangeTextarea}/>
+		<Dropdown options={availableActions} defaultOption='comment' submitAction={submitAction} /></span>;
 }
