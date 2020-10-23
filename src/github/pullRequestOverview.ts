@@ -384,12 +384,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		if (this._item.isResolved()) {
 			const branchHeadRef = this._item.head.ref;
 
-			actions.push({
-				label: `Delete remote branch ${this._item.remote.remoteName}/${branchHeadRef}`,
-				description: `${this._item.remote.normalizedHost}/${this._item.remote.owner}/${this._item.remote.repositoryName}`,
-				type: 'upstream',
-				picked: true
-			});
+			const isDefaultBranch = this._repositoryDefaultBranch === this._item.head.ref;
+			if (!isDefaultBranch) {
+				actions.push({
+					label: `Delete remote branch ${this._item.remote.remoteName}/${branchHeadRef}`,
+					description: `${this._item.remote.normalizedHost}/${this._item.remote.owner}/${this._item.remote.repositoryName}`,
+					type: 'upstream',
+					picked: true
+				});
+			}
 		}
 
 		if (branchInfo) {

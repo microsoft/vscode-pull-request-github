@@ -15,7 +15,7 @@ import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { parseReviewers } from './utils';
 
-export class PullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider  {
+export class PullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'github:activePullRequest';
 
 	private _view?: vscode.WebviewView;
@@ -234,12 +234,16 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 		if (this._item.isResolved()) {
 			const branchHeadRef = this._item.head.ref;
 
-			actions.push({
-				label: `Delete remote branch ${this._item.remote.remoteName}/${branchHeadRef}`,
-				description: `${this._item.remote.normalizedHost}/${this._item.remote.owner}/${this._item.remote.repositoryName}`,
-				type: 'upstream',
-				picked: true
-			});
+			const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
+			const isDefaultBranch = defaultBranch === this._item.head.ref;
+			if (!isDefaultBranch) {
+				actions.push({
+					label: `Delete remote branch ${this._item.remote.remoteName}/${branchHeadRef}`,
+					description: `${this._item.remote.normalizedHost}/${this._item.remote.owner}/${this._item.remote.repositoryName}`,
+					type: 'upstream',
+					picked: true
+				});
+			}
 		}
 
 		if (branchInfo) {
