@@ -19,6 +19,7 @@ const RefBuilder = createBuilderClass<Ref>()({
 type Repository = PullRequestResponse['repository'];
 type PullRequest = Repository['pullRequest'];
 type Author = PullRequest['author'];
+type AssigneesConn = PullRequest['assignees'];
 type LabelConn = PullRequest['labels'];
 
 export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
@@ -32,9 +33,17 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			body: { default: '**markdown**' },
 			bodyHTML: { default: '<h1>markdown</h1>' },
 			title: { default: 'plz merge' },
+			assignees: createLink<AssigneesConn>()({
+				nodes: {
+					default: [{
+						login: 'me',
+						url: 'https://github.com/me'
+					}]
+				}
+			}),
 			author: createLink<Author>()({
 				login: { default: 'me' },
-				url: { default: 'https//github.com/me' },
+				url: { default: 'https://github.com/me' },
 				avatarUrl: { default: 'https://avatars3.githubusercontent.com/u/17565?v=4' },
 			}),
 			createdAt: { default: '2019-01-01T10:00:00Z' },

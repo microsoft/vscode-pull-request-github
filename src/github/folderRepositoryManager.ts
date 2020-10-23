@@ -1030,6 +1030,43 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
+	async assignIssue(issue: IssueModel, login: string): Promise<void> {
+		try {
+			const repo = this._githubRepositories.find(r => r.remote.owner === issue.remote.owner && r.remote.repositoryName === issue.remote.repositoryName);
+			if (!repo) {
+				throw new Error(`No matching repository ${issue.remote.repositoryName} found for ${issue.remote.owner}`);
+			}
+
+			await repo.ensure();
+
+			const param: OctokitCommon.IssuesAssignParams = {
+				assignees: [login],
+				owner: issue.remote.owner,
+				repo: issue.remote.repositoryName,
+				issue_number: issue.number
+			}
+			await repo.octokit.issues.addAssignees(param);
+
+			/* __GDPR__
+				"issue.assign.success" : {
+				}
+			*/
+			this._telemetry.sendTelemetryEvent('issue.assign.success');
+		} catch (e) {
+			Logger.appendLine(`GitHubRepository> Assigning issue failed: ${e}`);
+
+			/* __GDPR__
+				"issue.assign.failure" : {
+					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
+				}
+			*/
+			this._telemetry.sendTelemetryErrorEvent('issue.assign.failure', {
+				message: formatError(e)
+			});
+			vscode.window.showWarningMessage(`Assigning issue failed: ${formatError(e)}`);
+		}
+	}
+
 	getCurrentUser(issueModel: IssueModel): IAccount {
 		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(), issueModel.githubRepository);
 	}

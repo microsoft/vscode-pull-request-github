@@ -3,6 +3,7 @@ import * as OctokitTypes from '@octokit/types';
 
 export namespace OctokitCommon {
 	export type IssuesCreateParams = OctokitRest.RestEndpointMethodTypes['issues']['create']['parameters'];
+	export type IssuesAssignParams = OctokitRest.RestEndpointMethodTypes['issues']['addAssignees']['parameters'];
 	export type PullsCreateParams = OctokitRest.RestEndpointMethodTypes['pulls']['create']['parameters'];
 	export type ReposGetCombinedStatusForRefResponseStatusesItem = OctokitTypes.ReposGetCombinedStatusForRefResponseData['statuses'][0];
 	export type ReposGetResponseOrganization = OctokitTypes.ReposGetResponseData['organization'];

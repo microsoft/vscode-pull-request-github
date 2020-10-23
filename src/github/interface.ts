@@ -84,7 +84,7 @@ export interface Issue {
 	body: string;
 	bodyHTML?: string;
 	title: string;
-	assignee?: IAccount;
+	assignees?: IAccount[];
 	createdAt: string;
 	updatedAt: string;
 	user: IAccount;

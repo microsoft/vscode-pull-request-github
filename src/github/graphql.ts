@@ -367,6 +367,12 @@ export interface PullRequest {
 	body: string;
 	bodyHTML: string;
 	title: string;
+	assignees: {
+		nodes: {
+			login: string;
+			url: string;
+		}[];
+	};
 	author: {
 		login: string;
 		url: string;
