@@ -17,7 +17,7 @@ import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from
 import Logger from '../common/logger';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum, PullRequestDescriptionSourceQuickPick, PullRequestDescriptionSource, PullRequestDescriptionSourceEnum } from './quickpick';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE, titleAndBodyFrom } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, PullRequestDefaults, SETTINGS_NAMESPACE, titleAndBodyFrom } from '../github/folderRepositoryManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
@@ -729,6 +729,48 @@ export class ReviewManager {
 		return method;
 	}
 
+	private async _chooseTargetBranch(targetRemote: RemoteQuickPickItem, pullRequestDefaults: PullRequestDefaults): Promise<string | undefined> {
+		const base: string = targetRemote.remote
+			? (await this._folderRepoManager.getMetadata(targetRemote.remote.remoteName)).default_branch
+			: pullRequestDefaults.base;
+
+		let target: string | undefined;
+		try {
+			const branches = await this._folderRepoManager.listBranches(targetRemote.owner, targetRemote.name);
+			target = await new Promise(async (resolve, reject) => {
+				const branchPicker = vscode.window.createQuickPick();
+				branchPicker.value = base;
+				branchPicker.ignoreFocusOut = true;
+				branchPicker.title = `Choose target branch for ${targetRemote.owner}/${targetRemote.name}`;
+				branchPicker.items = branches.map(branch => {
+					return {
+						label: branch
+					}
+				})
+
+				branchPicker.onDidAccept(_ => {
+					resolve(branchPicker.activeItems[0].label);
+					branchPicker.dispose();
+				});
+
+				branchPicker.onDidHide(_ => {
+					reject();
+					branchPicker.dispose();
+				})
+
+				branchPicker.show();
+			})
+		} catch (_) {
+			target = await vscode.window.showInputBox({
+				value: base,
+				ignoreFocusOut: true,
+				prompt: `Choose target branch for ${targetRemote.owner}/${targetRemote.name}`,
+			});
+		}
+
+		return target;
+	}
+
 	public async createPullRequest(draft = false): Promise<void> {
 		const pullRequestDefaults = await this._folderRepoManager.getPullRequestDefaults();
 		const githubRemotes = this._folderRepoManager.getGitHubRemotes();
@@ -740,15 +782,7 @@ export class ReviewManager {
 			return;
 		}
 
-		const base: string = targetRemote.remote
-			? (await this._folderRepoManager.getMetadata(targetRemote.remote.remoteName)).default_branch
-			: pullRequestDefaults.base;
-		const target = await vscode.window.showInputBox({
-			value: base,
-			ignoreFocusOut: true,
-			prompt: `Choose target branch for ${targetRemote.owner}/${targetRemote.name}`,
-		});
-
+		const target = await this._chooseTargetBranch(targetRemote, pullRequestDefaults);
 		if (!target) {
 			return;
 		}
