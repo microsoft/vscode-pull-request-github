@@ -349,7 +349,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	}
 
 	const availableActions = pr.isAuthor
-		? { 'comment': 'Comment '}
+		? { comment: 'Comment' }
 		: COMMENT_METHODS;
 
 	return <span>
@@ -358,6 +358,6 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			placeholder='Leave a comment'
 			ref={textareaRef}
 			value={pr.pendingCommentText}
-			onChange={onChangeTextarea}/>
+			onChange={onChangeTextarea} />
 		<Dropdown options={availableActions} defaultOption='comment' submitAction={submitAction} /></span>;
 }
