@@ -32,18 +32,33 @@ textarea {
 	padding: 10px 0;
 }
 
-.merge-select-container {
+.select-container {
 	display: flex;
 	flex-direction: column;
-	width: fit-content;
+	width: 100%;
 	min-width: 155px;
 }
 
-.merge-select {
+.select-control, form {
 	display: flex;
+	margin: auto;
+	max-width: 260px;
+	width: 100%;
 }
 
-.merge-select svg path {
+#comment-textarea {
+	margin-bottom: 10px;
+}
+
+.select-control form {
+	flex-grow: 2;
+}
+
+.select-control form input, form button {
+	width: 100%;
+}
+
+.select-control svg path {
 	fill: var(--vscode-button-foreground);
 }
 
@@ -51,12 +66,12 @@ button:focus, input[type=submit]:focus {
 	outline-offset: -1px;
 }
 
-.merge-select button, input[type=submit] {
+.select-control button, input[type=submit] {
 	min-height: 31px;
 	white-space: normal;
 }
 
-.merge-select .open {
+.select-control .open {
 	background-color: var(--vscode-button-hoverBackground);
 }
 
@@ -64,19 +79,22 @@ button .icon svg {
 	margin-right: 0;
 }
 
-.merge-type-select {
+.options-select  {
 	display: flex;
 	flex-direction: column;
+	width: inherit;
+	max-width: 260px;
+	margin: auto;
 }
 
-.merge-type-select button {
+.options-select button {
 	margin-top: 1px;
 	background-color: var(--vscode-dropdown-background);
 	color: var(--vscode-dropdown-foreground);
 	text-align: start;
 }
 
-.merge-type-select button:hover, .merge-type-select button:focus {
+.options-select button:hover, .options-select button:focus {
 	color: var(--vscode-button-foreground);
 }
 

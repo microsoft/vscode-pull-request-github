@@ -8,11 +8,12 @@ import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
-import { checkIcon, deleteIcon, pendingIcon, alertIcon, chevronIcon } from './icon';
+import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
 import { groupBy } from '../../src/common/utils';
 import { Reviewer } from '../components/reviewer';
+import { Dropdown } from './dropdown';
 
 export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
 	if (pr.isIssue) {
@@ -35,14 +36,14 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: bool
 		state === GithubItemStateEnum.Merged
 			?
 			<>
-				<div className='branch-status-message'>{'Pull request successfully merged'}</div>
+				<div className='branch-status-message'>{'Pull request successfully merged.'}</div>
 				<DeleteBranch {...pr} />
 			</>
 			:
 			state === GithubItemStateEnum.Closed
 				?
 				<>
-					<div className='branch-status-message'>{'This pull request is closed'}</div>
+					<div className='branch-status-message'>{'This pull request is closed.'}</div>
 					<DeleteBranch {...pr} />
 				</>
 				:
@@ -94,22 +95,27 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest, isSim
 	});
 
 	return <span>
-		<MergeStatus mergeable={mergeable} />
+		<MergeStatus mergeable={mergeable} isSimple={isSimple} />
 		<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
 	</span>
 }
 
 export default StatusChecks;
 
-export const MergeStatus = ({ mergeable }: Pick<PullRequest, 'mergeable'>) => {
+export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMergeability, isSimple: boolean }) => {
 	return <div className='status-item status-section'>
-		{mergeable === PullRequestMergeability.Mergeable ? checkIcon :
-			mergeable === PullRequestMergeability.NotMergeable ? deleteIcon : pendingIcon}
+		{ isSimple
+			? null
+			: mergeable === PullRequestMergeability.Mergeable
+				? checkIcon
+				: mergeable === PullRequestMergeability.NotMergeable
+					? deleteIcon
+					: pendingIcon}
 		<div>{
 			mergeable === PullRequestMergeability.Mergeable
-				? 'This branch has no conflicts with the base branch'
+				? 'This branch has no conflicts with the base branch.'
 				: mergeable === PullRequestMergeability.NotMergeable
-					? 'This branch has conflicts that must be resolved'
+					? 'This branch has conflicts that must be resolved.'
 					: 'Checking if this branch can be merged...'
 		}</div>
 	</div>;
@@ -171,88 +177,25 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean
 			: null;
 };
 
-const enum KEYCODES {
-	esc = 27,
-	down = 40,
-	up = 38
-}
-
 export const MergeSimple = (pr: PullRequest) => {
-	const [selectedMethod, selectMethod] = useState<MergeMethod>(pr.defaultMergeMethod);
-	const [isMethodSelectVisisble, setMethodSelectVisible] = useState<boolean>(false);
-
-	const EXPAND_OPTIONS_BUTTON = 'expandOptions';
-
-	const onClick = e => {
-		setMethodSelectVisible(!isMethodSelectVisisble);
+	const { merge, updatePR } = useContext(PullRequestContext);
+	async function submitAction(selected: MergeMethod): Promise<void> {
+		const { state } = await merge({
+			title: '',
+			description: '',
+			method: selected,
+		});
+		updatePR({ state });
 	}
 
-	const onMethodChange = e => {
-		selectMethod(e.target.value);
-		setMethodSelectVisible(false);
-		const mergeButton = document.getElementById('confirm-merge');
-		mergeButton.focus();
-	}
+	const availableOptions = Object.keys(MERGE_METHODS)
+		.filter(method => pr.mergeMethodsAvailability[method])
+		.reduce((methods, key) => {
+			methods[key] = MERGE_METHODS[key]
+			return methods;
+		}, {})
 
-	const onKeyDown = e => {
-		if (e.keyCode === KEYCODES.esc && isMethodSelectVisisble) {
-			setMethodSelectVisible(false);
-			const expandOptionsButton = document.getElementById(EXPAND_OPTIONS_BUTTON);
-			expandOptionsButton.focus();
-		}
-
-		if (e.keyCode === KEYCODES.down && isMethodSelectVisisble) {
-			const currentElement = document.activeElement;
-			if (!currentElement.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
-				const firstMergeOptionButton = document.getElementById('merge0');
-				firstMergeOptionButton.focus();
-			} else {
-				const result = currentElement.id.match(/merge([0-9])/);
-				if (result.length) {
-					const index = parseInt(result[1]);
-					if (index < Object.entries(MERGE_METHODS).length - 1) {
-						const nextOption = document.getElementById(`merge${index + 1}`);
-						nextOption.focus();
-					}
-				}
-			}
-		}
-
-		if (e.keyCode === KEYCODES.up && isMethodSelectVisisble) {
-			const currentElement = document.activeElement;
-			if (!currentElement.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
-				const lastIndex = Object.entries(MERGE_METHODS).length;
-				const firstMergeOptionButton = document.getElementById(`merge${lastIndex}`);
-				firstMergeOptionButton.focus();
-			} else {
-				const result = currentElement.id.match(/merge([0-9])/);
-				if (result.length) {
-					const index = parseInt(result[1]);
-					if (index > 0) {
-						const nextOption = document.getElementById(`merge${index - 1}`);
-						nextOption.focus();
-					}
-				}
-			}
-		}
-	}
-
-	return <div className='merge-select-container' onKeyDown={onKeyDown}>
-		<div className='merge-select'>
-			<DoMerge pr={pr} method={selectedMethod} />
-			<button id={EXPAND_OPTIONS_BUTTON} className={isMethodSelectVisisble ? 'open' : ''} onClick={onClick}>{chevronIcon}</button>
-		</div>
-		<div className={isMethodSelectVisisble ? 'merge-type-select' : 'hidden'}>
-			{
-				Object.entries(MERGE_METHODS)
-					.map(([method, text], index) =>
-						<button id={`merge${index}`} key={method} value={method} disabled={!pr.mergeMethodsAvailability[method]} onClick={onMethodChange}>
-							{text}{!pr.mergeMethodsAvailability[method] ? ' (not enabled)' : null}
-						</button>
-					)
-			}
-		</div>
-	</div>;
+	return <Dropdown options={availableOptions} defaultOption={pr.defaultMergeMethod} submitAction={submitAction} />
 };
 
 export const DeleteBranch = (pr: PullRequest) => {
@@ -314,32 +257,6 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest, method: MergeMe
 		</div>
 	</form>;
 }
-
-function DoMerge({ pr, method }: { pr: PullRequest, method: MergeMethod }) {
-	const { merge, updatePR } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
-
-	const onSubmit = async (event: React.FormEvent) => {
-		event.preventDefault();
-
-		try {
-			setBusy(true);
-			const { state } = await merge({
-				title: getDefaultTitleText(method, pr),
-				description: getDefaultDescriptionText(method, pr),
-				method,
-			});
-			updatePR({ state });
-		} finally {
-			setBusy(false);
-		}
-	}
-
-	return <form onSubmit={onSubmit}>
-		<input disabled={isBusy} type='submit' id='confirm-merge' value={MERGE_METHODS[method]} />
-	</form>;
-}
-
 
 function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
 	switch (mergeMethod) {
