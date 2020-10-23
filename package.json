@@ -441,7 +441,8 @@
       {
         "command": "pr.openPullRequestInGitHub",
         "title": "Open Pull Request in GitHub",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "icon": "$(globe)"
       },
       {
         "command": "pr.refreshPullRequest",
@@ -996,6 +997,11 @@
         {
           "command": "issue.createIssue",
           "when": "view =~ /issues:github/ && github:hasGitHubRemotes",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.openPullRequestInGitHub",
+          "when": "view == github:activePullRequest && github:hasGitHubRemotes",
           "group": "navigation"
         }
       ],
