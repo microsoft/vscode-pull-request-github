@@ -594,6 +594,16 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.toggleFileListLayout', _ => {
+		const config = vscode.workspace.getConfiguration('githubPullRequests');
+		const layout = config.get<string>('fileListLayout');
+		if (layout === 'tree') {
+			config.update('fileListLayout', 'flat');
+		} else {
+			config.update('fileListLayout', 'tree');
+		}
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
 		const folderManager = reposManager.getManagerForIssueModel(prNode.pullRequestModel);
 		if (folderManager && prNode.pullRequestModel.equals(folderManager?.activePullRequest)) {

@@ -512,6 +512,12 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.toggleFileListLayout",
+        "title": "Toggle File List Layout",
+        "icon": "$(gear)",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.refreshChanges",
         "title": "Refresh",
         "icon": "$(refresh)",
@@ -986,6 +992,11 @@
         },
         {
           "command": "pr.refreshChanges",
+          "when": "view =~ /prStatus/",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.toggleFileListLayout",
           "when": "view =~ /prStatus/",
           "group": "navigation"
         },
