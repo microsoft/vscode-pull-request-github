@@ -12,4 +12,6 @@ export class InMemoryMemento implements Memento {
 		this._storage[key] = value;
 		return Promise.resolve();
 	}
+
+	setKeysForSync(keys: string[]): void { }
 }
