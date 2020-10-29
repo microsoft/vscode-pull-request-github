@@ -628,6 +628,8 @@ ${body ?? ''}\n
 		}
 		if (choices.length === 0) {
 			return;
+		} else if (choices.length === 1) {
+			return choices[0].repo;
 		}
 
 		const choice = await vscode.window.showQuickPick(choices, { placeHolder: prompt });
