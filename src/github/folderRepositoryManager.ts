@@ -1053,7 +1053,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				owner: issue.remote.owner,
 				repo: issue.remote.repositoryName,
 				issue_number: issue.number
-			}
+			};
 			await repo.octokit.issues.addAssignees(param);
 
 			/* __GDPR__

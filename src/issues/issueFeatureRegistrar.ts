@@ -255,7 +255,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async createIssue() {
-		return this.makeNewIssueFile(vscode.window.activeTextEditor?.document.uri);
+		let uri = vscode.window.activeTextEditor?.document.uri;
+		if (!uri) {
+			uri = (await this.chooseRepo('Select the repo to create the issue in.'))?.repository.rootUri;
+		}
+		if (uri) {
+			return this.makeNewIssueFile(uri);
+		}
 	}
 
 	async createIssueFromFile() {
@@ -533,8 +539,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		quickInput.show();
 	}
 
-	private async makeNewIssueFile(originUri?: vscode.Uri, title?: string, body?: string, assignees?: string[] | undefined) {
-		const query = originUri ? `?{"origin":"${originUri.toString()}"}` : '';
+	private async makeNewIssueFile(originUri: vscode.Uri, title?: string, body?: string, assignees?: string[] | undefined) {
+		const query = `?{"origin":"${originUri.toString()}"}`;
 		const bodyPath = vscode.Uri.parse(`${NEW_ISSUE_SCHEME}:/${NEW_ISSUE_FILE}${query}`);
 		if (vscode.window.visibleTextEditors.filter(visibleEditor => visibleEditor.document.uri.scheme === NEW_ISSUE_SCHEME).length > 0) {
 			return;
@@ -622,6 +628,8 @@ ${body ?? ''}\n
 		}
 		if (choices.length === 0) {
 			return;
+		} else if (choices.length === 1) {
+			return choices[0].repo;
 		}
 
 		const choice = await vscode.window.showQuickPick(choices, { placeHolder: prompt });

@@ -745,8 +745,8 @@ export class ReviewManager {
 				branchPicker.items = branches.map(branch => {
 					return {
 						label: branch
-					}
-				})
+					};
+				});
 
 				branchPicker.onDidAccept(_ => {
 					resolve(branchPicker.activeItems[0].label);
@@ -756,10 +756,10 @@ export class ReviewManager {
 				branchPicker.onDidHide(_ => {
 					reject();
 					branchPicker.dispose();
-				})
+				});
 
 				branchPicker.show();
-			})
+			});
 		} catch (_) {
 			target = await vscode.window.showInputBox({
 				value: base,
