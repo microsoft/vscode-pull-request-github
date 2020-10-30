@@ -24,7 +24,8 @@ import { createVSCodeCommentThread, parseGraphQLReaction, updateCommentThreadLab
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../../commentHandlerResolver';
 import { ReactionGroup } from '../../github/graphql';
 import { getCommentingRanges } from '../../common/commentingRanges';
-import { DirectoryTreeNode } from './directoryTreeNode';
+import { CommitsNode } from "./commitsCategoryNode";
+import { FilesCategoryNode } from "./filesCategoryNode";
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -131,6 +132,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			this._fileChanges = await this.resolveFileChanges();
 
+			const filesCategoryNode = new FilesCategoryNode(this.parent, this._fileChanges);
+			const prCommits = await this.pullRequestModel.getReviewComments();
+			const commitCategoryNode = new CommitsNode(this, this._folderReposManager, this.pullRequestModel, prCommits);
+
 			if (!this._inMemPRContentProvider) {
 				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(this.pullRequestModel.number, this.provideDocumentContent.bind(this));
 			}
@@ -153,19 +158,12 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
 			if (layout === 'tree') {
 				// tree view
-				const dirNode = new DirectoryTreeNode(this, '');
-				this._fileChanges.forEach(f => dirNode.addFile(f));
-				dirNode.finalize();
-				if (dirNode.label === '') {
-					// nothing on the root changed, pull children to parent
-					result.push(...dirNode.children);
-				} else {
-					result.push(dirNode);
-				}
+				result.push(filesCategoryNode)
 			} else {
 				// flat view
 				result.push(...this._fileChanges);
 			}
+			result.push(commitCategoryNode);
 
 			this.childrenDisposables = result;
 			return result;
