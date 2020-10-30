@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.0
+
+### Changes
+
+- Issue suggestions are now shown in code comment editors.
+
+![Issue suggest in comment](documentation/changelog/0.22.0/issue-suggest-comment.png)
+
+- When you Start Working on an issue, it will be assigned to you if you permissions in the repository allow it.
+
 ## 0.21.0
 
 ### Changes
