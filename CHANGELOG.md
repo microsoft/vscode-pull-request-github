@@ -10,6 +10,14 @@
 
 - When you Start Working on an issue, it will be assigned to you if you permissions in the repository allow it.
 
+- Thanks to @rishab-pdx, the description page of the pull request now has an action to copy the link to the PR.
+
+- The "focused review" mode summary view has improved styling and lists the status of reviewers.
+
+### Notable fixes
+
+- Editor tab titles are now shortened to the file name when viewing diffs from a pull request, and are suffixed with `(Pull Request)`.
+
 ## 0.21.0
 
 ### Changes
