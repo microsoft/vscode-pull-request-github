@@ -45,7 +45,7 @@ describe('PullRequestManager', function () {
 			const remote = new Remote('origin', url, protocol);
 			const repository = new GitHubRepository(remote, manager.credentialStore, telemetry);
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
-			const pr = new PullRequestModel(telemetry, repository, remote, prItem);
+			const pr = new PullRequestModel(telemetry, repository, manager, remote, prItem);
 
 			manager.activePullRequest = pr;
 			assert(changeFired.called);

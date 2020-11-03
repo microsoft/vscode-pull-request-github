@@ -13,12 +13,15 @@ import { SinonSandbox, createSandbox } from 'sinon';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { RefType } from '../../api/api';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { GitApiImpl } from '../../api/api1';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
 	let repository: MockRepository;
 	let telemetry: MockTelemetry;
 	let credentialStore: CredentialStore;
+	let manager: FolderRepositoryManager;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -28,6 +31,7 @@ describe('PullRequestGitHelper', function () {
 		repository = new MockRepository();
 		telemetry = new MockTelemetry();
 		credentialStore = new CredentialStore(telemetry);
+		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 	});
 
 	afterEach(function () {
@@ -58,7 +62,7 @@ describe('PullRequestGitHelper', function () {
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);
 			repository.expectPull(true);
 
-			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, remote, prItem);
+			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, manager, remote, prItem);
 
 			if (!pullRequest.isResolved()) {
 				assert(pullRequest.isResolved(), 'pull request head not resolved successfully');

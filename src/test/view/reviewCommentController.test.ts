@@ -65,7 +65,7 @@ describe('ReviewCommentController', function () {
 
 		const pr = new PullRequestBuilder().build();
 		const repo = new GitHubRepository(remote, credentialStore, telemetry);
-		activePullRequest = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		activePullRequest = new PullRequestModel(telemetry, repo, manager, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		manager.activePullRequest = activePullRequest;
 	});

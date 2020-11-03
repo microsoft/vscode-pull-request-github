@@ -234,10 +234,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 								return lastPullRequestTimelineEvents;
 							}
 
-							const githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
+							const githubRepo = this._githubRepositories.find(repo => repo.remote.remoteName === remoteName);
 
-							if (githubRepos.length) {
-								lastPullRequest = await githubRepos[0].getPullRequest(prNumber);
+							if (githubRepo) {
+								const pullRequestData = await githubRepo.getPullRequest(prNumber);
+								lastPullRequest = new PullRequestModel(this._telemetry, githubRepo, this, githubRepo.remote, pullRequestData!);
 								lastPullRequestTimelineEvents = await lastPullRequest!.getTimelineEvents();
 							}
 
@@ -379,14 +380,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	set activePullRequest(pullRequest: PullRequestModel | undefined) {
-		if (this._activePullRequest) {
-			this._activePullRequest.isActive = false;
-		}
-
-		if (pullRequest) {
-			pullRequest.isActive = true;
-		}
-
 		this._activePullRequest = pullRequest;
 		this._onDidChangeActivePullRequest.fire();
 	}
@@ -567,9 +560,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
 
 				if (githubRepo) {
-					const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber);
+					const pullRequestData = await githubRepo.getPullRequest(prNumber);
 
-					if (pullRequest) {
+					if (pullRequestData) {
+						const pullRequest = new PullRequestModel(this._telemetry, githubRepo, this, githubRepo.remote, pullRequestData);
 						pullRequest.localBranchName = localBranchName;
 						return pullRequest;
 					}
@@ -721,9 +715,21 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				switch (pagedDataType) {
 					case PagedDataType.PullRequest: {
 						if (type === PRType.All) {
-							return githubRepository.getAllPullRequests(pageNumber);
+							const pullRequestData = await githubRepository.getAllPullRequests(pageNumber);
+							return pullRequestData
+								? {
+									items: pullRequestData.items.map(pr => new PullRequestModel(this._telemetry, githubRepository, this, githubRepository.remote, pr)),
+									hasMorePages: pullRequestData.hasMorePages
+								}
+								: undefined;
 						} else {
-							return githubRepository.getPullRequestsForCategory(query || '', pageNumber);
+							const pullRequestData = await githubRepository.getPullRequestsForCategory(query || '', pageNumber);
+							return pullRequestData
+							? {
+								items: pullRequestData.items.map(pr => new PullRequestModel(this._telemetry, githubRepository, this, githubRepository.remote, pr)),
+								hasMorePages: pullRequestData.hasMorePages
+							}
+							: undefined;
 						}
 					}
 					case PagedDataType.Milestones: {
@@ -944,7 +950,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			// Create PR
 			const { data } = await repo.octokit.pulls.create(params);
 			const item = convertRESTPullRequestToRawPullRequest(data, repo);
-			const pullRequestModel = new PullRequestModel(this._telemetry, repo, repo.remote, item, true);
+			const pullRequestModel = new PullRequestModel(this._telemetry, repo, this, repo.remote, item, true);
 
 			const branchNameSeparatorIndex = params.head.indexOf(':');
 			const branchName = params.head.slice(branchNameSeparatorIndex + 1);
@@ -1429,7 +1435,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		if (githubRepo) {
-			return githubRepo.getPullRequest(pullRequestNumber);
+			const pullRequestData = await githubRepo.getPullRequest(pullRequestNumber);
+			if (pullRequestData) {
+				return new PullRequestModel(this._telemetry, githubRepo, this, githubRepo.remote, pullRequestData);
+			}
 		}
 	}
 
@@ -1481,7 +1490,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						owner: repo.remote.owner,
 						repositoryName: repo.remote.repositoryName,
 						prNumber: matchingPullRequest[0].number,
-						model: matchingPullRequest[0]
+						model: new PullRequestModel(this._telemetry, repo, this, repo.remote, matchingPullRequest[0])
 					};
 				}
 				break;

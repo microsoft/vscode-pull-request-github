@@ -14,8 +14,11 @@ function Diff({ comment, hunks, path, outdated=false }: { comment: IComment, hun
 	const { openDiff } = useContext(PullRequestContext);
 	return <div className='diff'>
 		<div className='diffHeader'>
-			<a className={`diffPath ${outdated ? 'outdated' : ''}`} onClick={() => openDiff(comment)}>{path}</a>
-			{outdated && <span className='outdatedLabel'>Outdated</span>}
+			{
+				outdated
+					? <span><span>{path}</span><span className='outdatedLabel'>Outdated</span></span>
+					: <a className='diffPath' onClick={() => openDiff(comment)}>{path}</a>
+			}
 		</div>
 		{hunks.map(hunk => <Hunk hunk={hunk} />)}
 	</div>;

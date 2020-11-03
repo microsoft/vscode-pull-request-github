@@ -11,8 +11,6 @@ import { formatError } from '../common/utils';
 import { GitErrorCodes } from '../api/api';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
-import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { TreeNode, Revealable } from '../view/treeNodes/treeNode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
@@ -36,7 +34,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	private _changeActivePullRequestListener: vscode.Disposable | undefined;
 
-	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: PullRequestModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: PullRequestModel, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -49,10 +47,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${issue.number.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager, descriptionNode);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager);
 		}
 
-		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, issue, descriptionNode);
+		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
 	}
 
 	protected set _currentPanel(panel: PullRequestOverviewPanel | undefined) {
@@ -65,8 +63,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, descriptionNode: DescriptionNode) {
-		super(extensionPath, column, title, folderRepositoryManager, descriptionNode, PullRequestOverviewPanel._viewType);
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager) {
+		super(extensionPath, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
 
 		this.registerFolderRepositoryListener();
 
@@ -163,7 +161,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		});
 	}
 
-	public async update(folderRepositoryManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async update(folderRepositoryManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {
 		if (this._folderRepositoryManager !== folderRepositoryManager) {
 			this._folderRepositoryManager = folderRepositoryManager;
 			if (this._changeActivePullRequestListener) {
@@ -173,7 +171,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			}
 		}
 
-		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
@@ -336,14 +333,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	private openDiff(message: IRequestMessage<{ comment: IComment }>): void {
+	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
-			const prContainer = this._descriptionNode.parent;
-
-			if ((prContainer as TreeNode | Revealable<TreeNode>).revealComment) {
-				(prContainer as TreeNode | Revealable<TreeNode>).revealComment!(comment);
-			}
+			return this._item.openDiffFromComment(comment);
 		} catch (e) {
 			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}

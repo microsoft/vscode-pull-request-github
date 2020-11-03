@@ -141,6 +141,9 @@ describe('GitHub Pull Requests view', function () {
 				m.clone_url('https://github.com/aaa/bbb');
 			});
 
+			const repository = new MockRepository();
+			const manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
+
 			const pr0 = gitHubRepository.addGraphQLPullRequest((builder) => {
 				builder.pullRequest(pr => {
 					pr.repository(r => r.pullRequest(p => {
@@ -152,7 +155,7 @@ describe('GitHub Pull Requests view', function () {
 				});
 			}).pullRequest;
 			const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository);
-			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
+			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, manager, remote, prItem0);
 
 			const pr1 = gitHubRepository.addGraphQLPullRequest((builder) => {
 				builder.pullRequest(pr => {
@@ -165,9 +168,8 @@ describe('GitHub Pull Requests view', function () {
 				});
 			}).pullRequest;
 			const prItem1 = parseGraphQLPullRequest(pr1, gitHubRepository);
-			const pullRequest1 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem1);
+			const pullRequest1 = new PullRequestModel(telemetry, gitHubRepository, manager, remote, prItem1);
 
-			const repository = new MockRepository();
 			await repository.addRemote(remote.remoteName, remote.url);
 
 			await repository.createBranch('pr-branch-0', false);
@@ -177,7 +179,6 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepEqual(r, remote);

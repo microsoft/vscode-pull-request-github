@@ -13,8 +13,6 @@ import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
-import { DescriptionNode } from '../../view/treeNodes/descriptionNode';
-import { TreeNode } from '../../view/treeNodes/treeNode';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
@@ -72,16 +70,8 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(1000).build(),
 				repo,
 			);
-			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
-
-			const descriptionNode = new DescriptionNode(
-				new OrphanedTreeNode(),
-				'label',
-				'https://avatars3.githubusercontent.com/u/17565?v=4',
-				prModel,
-			);
-
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel, descriptionNode);
+			const prModel = new PullRequestModel(telemetry, repo, pullRequestManager, remote, prItem);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel);
 
 			assert(createWebviewPanel.calledWith(
 				sinonMatch.string,
@@ -118,18 +108,12 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(1000).build(),
 				repo,
 			);
-			const prModel0 = new PullRequestModel(telemetry, repo, remote, prItem0);
-			const descriptionNode0 = new DescriptionNode(
-				new OrphanedTreeNode(),
-				'label',
-				'https://avatars3.githubusercontent.com/u/17565?v=4',
-				prModel0,
-			);
+			const prModel0 = new PullRequestModel(telemetry, repo, pullRequestManager, remote, prItem0);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0, descriptionNode0);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
 			assert.notStrictEqual(panel0, undefined);
@@ -139,18 +123,12 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(2000).build(),
 				repo,
 			);
-			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);
-			const descriptionNode1 = new DescriptionNode(
-				new OrphanedTreeNode(),
-				'label',
-				'https://avatars3.githubusercontent.com/u/17565?v=4',
-				prModel1,
-			);
+			const prModel1 = new PullRequestModel(telemetry, repo, pullRequestManager, remote, prItem1);
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1, descriptionNode1);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
@@ -158,9 +136,3 @@ describe('PullRequestOverview', function () {
 		});
 	});
 });
-
-class OrphanedTreeNode extends TreeNode {
-	getTreeItem(): vscode.TreeItem {
-		throw new Error('Attempt to get tree item from orphaned node');
-	}
-}

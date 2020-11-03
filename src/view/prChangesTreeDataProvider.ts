@@ -16,7 +16,6 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _disposables: vscode.Disposable[] = [];
 
-	private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 	private _pullRequestManagerMap: Map<FolderRepositoryManager, RepositoryChangesNode> = new Map();
 	private _view: vscode.TreeView<TreeNode>;
 
@@ -80,40 +79,6 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	async reveal(element: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Promise<void> {
 		this._view.reveal(element, options);
-	}
-
-	async revealComment(comment: IComment) {
-		const fileChange = this._localFileChanges.find(fc => {
-			if (fc.fileName !== comment.path) {
-				return false;
-			}
-
-			if (!fc.pullRequest.isResolved()) {
-				return false;
-			}
-
-			if (fc.pullRequest.head.sha !== comment.commitId) {
-				return false;
-			}
-
-			return true;
-		});
-
-		if (fileChange) {
-			await this.reveal(fileChange, { focus: true, expand: 2 });
-			if (!fileChange.command.arguments) {
-				return;
-			}
-			if (fileChange instanceof GitFileChangeNode) {
-				const lineNumber = fileChange.getCommentPosition(comment);
-				const opts = fileChange.opts;
-				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				fileChange.opts = opts;
-				await vscode.commands.executeCommand(fileChange.command.command, fileChange);
-			} else {
-				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments!);
-			}
-		}
 	}
 
 	async getChildren(element?: GitFileChangeNode): Promise<TreeNode[]> {

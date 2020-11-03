@@ -8,7 +8,7 @@ import { Octokit } from '@octokit/rest';
 import * as OctokitTypes from '@octokit/types';
 import Logger from '../common/logger';
 import { Remote, parseRemote } from '../common/remote';
-import { IAccount, RepoAccessAndMergeMethods, IMilestone, Issue } from './interface';
+import { IAccount, RepoAccessAndMergeMethods, IMilestone, Issue, PullRequest } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { CredentialStore, GitHub } from './credentials';
 import { AuthenticationError } from '../common/authentication';
@@ -35,8 +35,8 @@ export interface IssueData extends ItemsData {
 	hasMorePages: boolean;
 }
 
-export interface PullRequestData extends IssueData {
-	items: PullRequestModel[];
+export interface PullRequestData extends ItemsData {
+	items: PullRequest[];
 }
 
 export interface MilestoneData extends ItemsData {
@@ -280,10 +280,10 @@ export class GitHubRepository implements vscode.Disposable {
 							return null;
 						}
 
-						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
+						return convertRESTPullRequestToRawPullRequest(pullRequest, this);
 					}
 				)
-				.filter(item => item !== null) as PullRequestModel[];
+				.filter(item => item !== null) as PullRequest[];
 
 			Logger.debug(`Fetch all pull requests - done`, GitHubRepository.ID);
 			return {
@@ -301,7 +301,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[] | undefined> {
+	async getPullRequestForBranch(branch: string): Promise<PullRequest[] | undefined> {
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
@@ -313,10 +313,10 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const pullRequests = result.data
 				.map(pullRequest => {
-						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
+						return convertRESTPullRequestToRawPullRequest(pullRequest, this);
 					}
 				)
-				.filter(item => item !== null) as PullRequestModel[];
+				.filter(item => item !== null) as PullRequest[];
 
 			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
 			return pullRequests;
@@ -561,8 +561,8 @@ export class GitHubRepository implements vscode.Disposable {
 					return null;
 				}
 
-				return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(response.data, this));
-			}).filter(item => item !== null) as PullRequestModel[];
+				return convertRESTPullRequestToRawPullRequest(response.data, this);
+			}).filter(item => item !== null) as PullRequest[];
 
 			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, GitHubRepository.ID);
 
@@ -581,7 +581,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
+	async getPullRequest(id: number): Promise<PullRequest | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
@@ -596,7 +596,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-			return new PullRequestModel(this._telemetry, this, remote, parseGraphQLPullRequest(data, this));
+			return parseGraphQLPullRequest(data, this);
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
