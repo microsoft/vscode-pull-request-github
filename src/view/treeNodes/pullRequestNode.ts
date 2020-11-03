@@ -378,40 +378,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		vscode.commands.executeCommand('setContext', 'prInDraft', inDraftMode);
 	}
 
-	async revealComment(comment: IComment) {
-		const fileChange = (await this.getFileChanges()).find(fc => {
-			if (fc.fileName !== comment.path) {
-				return false;
-			}
-
-			if (!fc.pullRequest.isResolved()) {
-				return false;
-			}
-
-			if (fc.pullRequest.head.sha !== comment.commitId) {
-				return false;
-			}
-
-			return true;
-		});
-
-		if (fileChange) {
-			await this.reveal(fileChange, { focus: true });
-			if (!fileChange.command.arguments) {
-				return;
-			}
-			if (fileChange instanceof InMemFileChangeNode) {
-				const lineNumber = fileChange.getCommentPosition(comment);
-				const opts = fileChange.opts;
-				opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				fileChange.opts = opts;
-				await vscode.commands.executeCommand(fileChange.command.command, fileChange);
-			} else {
-				await vscode.commands.executeCommand(fileChange.command.command, ...fileChange.command.arguments!);
-			}
-		}
-	}
-
 	getTreeItem(): vscode.TreeItem {
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
