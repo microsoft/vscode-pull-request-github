@@ -1,23 +1,5 @@
 # Changelog
 
-## 0.22.0
-
-### Changes
-
-- Issue suggestions are now shown in code comment editors.
-
-![Issue suggest in comment](documentation/changelog/0.22.0/issue-suggest-comment.png)
-
-- When you Start Working on an issue, it will be assigned to you if you permissions in the repository allow it.
-
-- Thanks to @rishab-pdx, the description page of the pull request now has an action to copy the link to the PR.
-
-- The "focused review" mode summary view has improved styling and lists the status of reviewers.
-
-### Notable fixes
-
-- Editor tab titles are now shortened to the file name when viewing diffs from a pull request, and are suffixed with `(Pull Request)`.
-
 ## 0.21.0
 
 ### Changes
@@ -28,11 +10,21 @@
 - We are trying out a new "focused review" mode which changes the layout when you checkout a PR. You can try it with the `githubPullRequests.focusedMode` setting.
 ![Focused Review Mode](documentation/changelog/0.21.0/focusedReview.png)
 
+- Issue suggestions are now shown in code comment editors.
+
+![Issue suggest in comment](documentation/changelog/0.22.0/issue-suggest-comment.png)
+
+- When you Start Working on an issue, it will be assigned to you if you permissions in the repository allow it.
+
+- Thanks to @rishab-pdx, the description page of the pull request now has an action to copy the link to the PR.
+
 ### Notable fixes
 
 - Instead of showing two login buttons (one each in the Pull Requests and Issues views), we now show a login view.
 
 ![Login View](documentation/changelog/0.21.0/loginView.png)
+
+- Editor tab titles are now shortened to the file name when viewing diffs from a pull request, and are suffixed with `(Pull Request)`.
 
 ## 0.20.1
 
