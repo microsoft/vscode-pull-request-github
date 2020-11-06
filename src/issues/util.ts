@@ -289,7 +289,7 @@ function getIconMarkdown(issue: IssueModel, context: vscode.ExtensionContext) {
 	}
 	switch (issue.state) {
 		case GithubItemStateEnum.Open: {
-			return `<span style="color:#2cbe4e;">$(issues)</span>`;
+			return `<span style="color:#22863a;">$(issues)</span>`;
 		}
 		case GithubItemStateEnum.Closed: {
 			return `<span style="color:#cb2431;">$(issue-closed)</span>`;

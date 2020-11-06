@@ -45,7 +45,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 			treeItem = new UriTreeItem(element.uri, element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
 		} else {
 			treeItem = new UriTreeItem(undefined, `${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
-			treeItem.iconPath = element.isOpen ? new vscode.ThemeIcon('issues') : new vscode.ThemeIcon('issue-closed');
+			treeItem.iconPath = element.isOpen ? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open')) : new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
 			if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
 				treeItem.label = `✓ ${treeItem.label.label}`;
 				treeItem.contextValue = 'currentissue';
