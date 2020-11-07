@@ -512,9 +512,15 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.toggleFileListLayout",
-        "title": "Toggle File List Layout",
-        "icon": "$(gear)",
+        "command": "pr.setFileListLayoutAsTree",
+        "title": "Toggle View Mode",
+        "icon": "$(list-tree)",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.setFileListLayoutAsFlat",
+        "title": "Toggle View Mode",
+        "icon": "$(list-flat)",
         "category": "GitHub Pull Requests"
       },
       {
@@ -996,8 +1002,13 @@
           "group": "navigation"
         },
         {
-          "command": "pr.toggleFileListLayout",
-          "when": "view =~ /prStatus/",
+          "command": "pr.setFileListLayoutAsTree",
+          "when": "view =~ /prStatus/ && fileListLayout:flat",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.setFileListLayoutAsFlat",
+          "when": "view =~ /prStatus/ && !fileListLayout:flat",
           "group": "navigation"
         },
         {
