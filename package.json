@@ -375,15 +375,16 @@
           "icon": "resources/icons/pull-request.png"
         },
         {
-          "id": "pr:github",
-          "name": "Pull Requests",
-          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
-          "icon": "resources/icons/pull-request.png"
-        },
-        {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
           "when": "github:inReviewMode",
+          "icon": "resources/icons/pull-request.png",
+          "visibility": "visible"
+        },
+        {
+          "id": "pr:github",
+          "name": "Pull Requests",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
           "icon": "resources/icons/pull-request.png"
         },
         {
