@@ -13,9 +13,11 @@ export const Timestamp = ({
 }: {
 	date: Date | string,
 	href?: string
-}) =>
-	href
-	? <a href={href} className='timestamp'>{dateFromNow(date)}</a>
-	: <div className='timestamp'>{dateFromNow(date)}</div>;
+}) => {
+	const title = typeof date === 'string' ? new Date(date).toLocaleString() : date.toLocaleString();
+	return href
+		? <a href={href} className='timestamp' title={title}>{dateFromNow(date)}</a>
+		: <div className='timestamp' title={title} >{dateFromNow(date)}</div>;
+}
 
 export default Timestamp;
