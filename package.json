@@ -424,6 +424,11 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.exit",
+        "title": "Exit Pull Request",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.merge",
         "title": "Merge Pull Request",
         "category": "GitHub Pull Requests"
@@ -760,6 +765,10 @@
           "when": "false"
         },
         {
+          "command": "pr.exit",
+          "when": "false"
+        },
+        {
           "command": "review.openFile",
           "when": "false"
         },
@@ -1009,6 +1018,11 @@
         {
           "command": "pr.pick",
           "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+          "group": "pullrequest@1"
+        },
+        {
+          "command": "pr.exit",
+          "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:active|description/",
           "group": "pullrequest@1"
         },
         {

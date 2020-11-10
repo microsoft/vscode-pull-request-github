@@ -8,7 +8,6 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, ISuggestedReviewer } from './interface';
 import { formatError } from '../common/utils';
-import { GitErrorCodes } from '../api/api';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
@@ -481,25 +480,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
-			const branch = message.args;
-			// This should be updated for multi-root support and consume the git extension API if possible
-			const branchObj = await this._folderRepositoryManager.repository.getBranch(branch);
-
-			if (branchObj.upstream && branch === branchObj.upstream.name) {
-				await this._folderRepositoryManager.repository.checkout(branch);
-			} else {
-				await vscode.commands.executeCommand('git.checkout');
-			}
-		} catch (e) {
-			if (e.gitErrorCode) {
-				// for known git errors, we should provide actions for users to continue.
-				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
-					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
-					return;
-				}
-			}
-
-			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
+			await this._folderRepositoryManager.checkoutDefaultBranch(message.args);
 		} finally {
 			// Complete webview promise so that button becomes enabled again
 			this._replyMessage(message, {});
