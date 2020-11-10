@@ -973,32 +973,32 @@
         {
           "command": "pr.create",
           "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "pr.configurePRViewlet",
           "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):/",
-          "group": "navigation"
+          "group": "navigation@3"
         },
         {
           "command": "pr.refreshList",
           "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "pr.refreshChanges",
           "when": "view =~ /prStatus/",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "issue.refresh",
           "when": "view =~ /issues:github/",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "issue.createIssue",
           "when": "view =~ /issues:github/ && github:hasGitHubRemotes",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "pr.openPullRequestInGitHub",
