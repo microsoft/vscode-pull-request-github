@@ -59,7 +59,7 @@ export interface CommitEvent {
 	htmlUrl: string;
 	message: string;
 	bodyHTML?: string;
-	authoredDate: string;
+	authoredDate: Date;
 }
 
 export interface MergedEvent {

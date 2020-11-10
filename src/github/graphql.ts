@@ -121,7 +121,7 @@ export interface Commit {
 		};
 		oid: string;
 		message: string;
-		authoredDate: string
+		authoredDate: Date
 	};
 
 	url: string;

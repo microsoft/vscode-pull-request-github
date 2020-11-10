@@ -548,7 +548,7 @@ export function parseGraphQLTimelineEvents(events: (GraphQL.MergedEvent | GraphQ
 					author: commitEv.commit.author.user ? parseAuthor(commitEv.commit.author.user, githubRepository) : { login: commitEv.commit.committer.name },
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
-					authoredDate: new Date(commitEv.commit.authoredDate).toLocaleDateString()
+					authoredDate: new Date(commitEv.commit.authoredDate)
 				} as Common.CommitEvent); // TODO remove cast
 				return;
 			case Common.EventType.Merged:

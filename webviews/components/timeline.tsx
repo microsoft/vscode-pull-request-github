@@ -56,7 +56,7 @@ const CommitEventView = (event: CommitEvent) =>
 		</div>
 		<a className='sha' href={event.htmlUrl}>{event.sha.slice(0, 7)}</a>
 		{nbsp}
-		<div>{event.authoredDate}</div>
+		<Timestamp date={event.authoredDate} />
 	</div>;
 
 const association = (
