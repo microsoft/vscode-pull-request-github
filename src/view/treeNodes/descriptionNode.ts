@@ -10,6 +10,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;
 	public contextValue?: string;
+	public tooltip: string;
 
 	constructor(public parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>, public label: string, public iconPath: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon, public pullRequestModel: PullRequestModel) {
 		super();
@@ -23,6 +24,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 		};
 
 		this.contextValue = 'description';
+		this.tooltip = `Description of pull request #${pullRequestModel.number}`
 	}
 
 	getTreeItem(): vscode.TreeItem {
