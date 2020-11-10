@@ -80,6 +80,7 @@ fragment Commit on PullRequestCommit {
 		}
 		oid
 		message
+		authoredDate
 	}
 	url
 }
