@@ -844,6 +844,14 @@
           "when": "gitOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
         },
         {
+          "command": "pr.setFileListLayoutAsTree",
+          "when": "false"
+        },
+        {
+          "command": "pr.setFileListLayoutAsFlat",
+          "when": "false"
+        },
+        {
           "command": "pr.refreshChanges",
           "when": "false"
         },
