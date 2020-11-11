@@ -336,7 +336,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
-			return this._item.openDiffFromComment(comment);
+			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, comment);
 		} catch (e) {
 			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}

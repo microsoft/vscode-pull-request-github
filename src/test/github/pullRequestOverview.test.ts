@@ -70,7 +70,8 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(1000).build(),
 				repo,
 			);
-			const prModel = new PullRequestModel(telemetry, repo, pullRequestManager, remote, prItem);
+			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
+
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel);
 
 			assert(createWebviewPanel.calledWith(
@@ -108,7 +109,7 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(1000).build(),
 				repo,
 			);
-			const prModel0 = new PullRequestModel(telemetry, repo, pullRequestManager, remote, prItem0);
+			const prModel0 = new PullRequestModel(telemetry, repo, remote, prItem0);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
@@ -123,7 +124,7 @@ describe('PullRequestOverview', function () {
 				new PullRequestBuilder().number(2000).build(),
 				repo,
 			);
-			const prModel1 = new PullRequestModel(telemetry, repo, pullRequestManager, remote, prItem1);
+			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);

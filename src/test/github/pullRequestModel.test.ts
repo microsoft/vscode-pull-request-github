@@ -10,9 +10,6 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { MockTelemetry } from '../mocks/mockTelemetry';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { GitApiImpl } from '../../api/api1';
-import { MockRepository } from '../mocks/mockRepository';
 
 const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -21,7 +18,6 @@ const remote = new Remote('test', 'github/test', protocol);
 describe('PullRequestModel', function () {
 	let sinon: SinonSandbox;
 	let credentials: CredentialStore;
-	let manager: FolderRepositoryManager;
 	let repo: GitHubRepository;
 
 	beforeEach(function () {
@@ -30,8 +26,6 @@ describe('PullRequestModel', function () {
 
 		credentials = new CredentialStore(telemetry);
 		repo = new GitHubRepository(remote, credentials, telemetry);
-		const repository = new MockRepository();
-		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentials);
 	});
 
 	afterEach(function () {
@@ -40,21 +34,21 @@ describe('PullRequestModel', function () {
 
 	it('should return `state` properly as `open`', function () {
 		const pr = new PullRequestBuilder().state('open').build();
-		const open = new PullRequestModel(telemetry, repo, manager, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.equal(open.state, GithubItemStateEnum.Open);
 	});
 
 	it('should return `state` properly as `closed`', function () {
 		const pr = new PullRequestBuilder().state('closed').build();
-		const open = new PullRequestModel(telemetry, repo, manager, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.equal(open.state, GithubItemStateEnum.Closed);
 	});
 
 	it('should return `state` properly as `merged`', function () {
 		const pr = new PullRequestBuilder().merged(true).state('closed').build();
-		const open = new PullRequestModel(telemetry, repo, manager, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.equal(open.state, GithubItemStateEnum.Merged);
 	});

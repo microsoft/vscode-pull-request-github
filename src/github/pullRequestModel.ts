@@ -52,14 +52,16 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
-	public folderManager: FolderRepositoryManager;
+
+	// Whether the pull request is currently checked out locally
+	public isActive: boolean;
 	_telemetry: ITelemetry;
 
-	constructor(telemetry: ITelemetry, githubRepository: GitHubRepository, folderManager: FolderRepositoryManager, remote: Remote, item: PullRequest, isActive?: boolean) {
+	constructor(telemetry: ITelemetry, githubRepository: GitHubRepository, remote: Remote, item: PullRequest, isActive?: boolean) {
 		super(githubRepository, remote, item);
 
 		this._telemetry = telemetry;
-		this.folderManager = folderManager;
+		this.isActive = !!isActive;
 	}
 
 	public get isMerged(): boolean {
@@ -87,6 +89,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			this.state = this.item.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Closed;
 		}
 	}
+
 	update(item: PullRequest): void {
 		super.update(item);
 		this.isDraft = item.isDraft;
@@ -410,7 +413,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	}
 
 	private async updateDraftModeContext() {
-		if (this.equals(this.folderManager.activePullRequest)) {
+		if (this.isActive) {
 			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', this.hasPendingReview);
 		}
 	}
@@ -723,26 +726,26 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		};
 	}
 
-	async openDiffFromComment(comment: IComment): Promise<void> {
-		const fileChanges = await this.getFileChangesInfo();
-		const mergeBase = this.mergeBase || this.base.sha;
-		const contentChanges = await parseDiff(fileChanges, this.folderManager.repository, mergeBase);
+	static async openDiffFromComment(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, comment: IComment): Promise<void> {
+		const fileChanges = await pullRequestModel.getFileChangesInfo();
+		const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
+		const contentChanges = await parseDiff(fileChanges, folderManager.repository, mergeBase);
 		const change = contentChanges.find(fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path);
 		if (!change) {
 			throw new Error(`Can't find matching file`);
 		}
 
 		let headUri, baseUri: vscode.Uri;
-		if (!this.equals(this.folderManager.activePullRequest)) {
-			const headCommit = this.head!.sha;
+		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
+			const headCommit = pullRequestModel.head!.sha;
 			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
-			headUri = toPRUri(vscode.Uri.file(path.resolve(this.folderManager.repository.rootUri.fsPath, change.fileName)), this, change.baseCommit, headCommit, change.fileName, false, change.status);
-			baseUri = toPRUri(vscode.Uri.file(path.resolve(this.folderManager.repository.rootUri.fsPath, parentFileName)), this, change.baseCommit, headCommit, change.fileName, true, change.status);
+			headUri = toPRUri(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status);
+			baseUri = toPRUri(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status);
 		} else {
-			const uri = vscode.Uri.file(path.resolve(this.folderManager.repository.rootUri.fsPath, change.fileName));
+			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
 
 			headUri = change.status === GitChangeType.DELETE
-				? toReviewUri(uri, undefined, undefined, '', false, { base: false }, this.folderManager.repository.rootUri)
+				? toReviewUri(uri, undefined, undefined, '', false, { base: false }, folderManager.repository.rootUri)
 				: uri;
 
 			baseUri = toReviewUri(
@@ -752,7 +755,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				change.status === GitChangeType.ADD ? '' : mergeBase,
 				false,
 				{ base: true },
-				this.folderManager.repository.rootUri
+				folderManager.repository.rootUri
 			);
 		}
 
