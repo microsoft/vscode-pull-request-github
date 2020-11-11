@@ -430,9 +430,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');
 		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
 		const formattedPRNumber = number.toString();
-		const label = `${labelPrefix}${title}`;
-		const tooltip = `${tooltipPrefix}${title} (#${formattedPRNumber}) by @${login}`;
-		const description = `#${formattedPRNumber}${isDraft ? '(draft)' : ''} by @${login}`;
+		const label = `${labelPrefix}#${formattedPRNumber}: ${isDraft ? '[DRAFT] ' : ''}${title}`;
+		const tooltip = `${tooltipPrefix}${title} by @${login}`;
+		const description = `by @${login}`;
 
 		return {
 			label,

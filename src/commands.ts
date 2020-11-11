@@ -256,6 +256,35 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.exit', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+		let pullRequestModel: PullRequestModel;
+
+		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
+			pullRequestModel = pr.pullRequestModel;
+		} else {
+			pullRequestModel = pr;
+		}
+
+		const fromDescriptionPage = pr instanceof PullRequestModel;
+		/* __GDPR__
+			"pr.exit" : {
+				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		telemetry.sendTelemetryEvent('pr.exit', { fromDescription: fromDescriptionPage.toString() });
+
+		return vscode.window.withProgress({
+			location: vscode.ProgressLocation.SourceControl,
+			title: `Exiting Pull Request`,
+		}, async (progress, token) => {
+			const branch = await pullRequestModel.githubRepository.getDefaultBranch();
+			const manager = reposManager.getManagerForIssueModel(pullRequestModel);
+			if (manager) {
+				manager.checkoutDefaultBranch(branch);
+			}
+		});
+	}));
+
 	context.subscriptions.push(vscode.commands.registerCommand('pr.merge', async (pr?: PRNode) => {
 		const folderManager = reposManager.getManagerForIssueModel(pr?.pullRequestModel);
 		if (!folderManager) {

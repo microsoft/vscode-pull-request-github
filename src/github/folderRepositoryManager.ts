@@ -14,7 +14,7 @@ import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelpe
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, Predicate } from '../common/utils';
-import { Repository, RefType, UpstreamRef } from '../api/api';
+import { Repository, RefType, UpstreamRef, GitErrorCodes } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
@@ -1504,6 +1504,28 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async checkout(branchName: string): Promise<void> {
 		return this.repository.checkout(branchName);
+	}
+
+	public async checkoutDefaultBranch(branch: string): Promise<void> {
+		try {
+			const branchObj = await this.repository.getBranch(branch);
+
+			if (branchObj.upstream && branch === branchObj.upstream.name) {
+				await this.repository.checkout(branch);
+			} else {
+				await vscode.commands.executeCommand('git.checkout');
+			}
+		} catch (e) {
+			if (e.gitErrorCode) {
+				// for known git errors, we should provide actions for users to continue.
+				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
+					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
+					return;
+				}
+			}
+
+			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
+		}
 	}
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
