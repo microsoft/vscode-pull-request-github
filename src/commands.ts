@@ -594,22 +594,12 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.setFileListLayoutAsTree', async _ => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.setFileListLayoutAsTree', _ => {
 		vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'tree');
-		await vscode.commands.executeCommand(
-			'setContext',
-			'fileListLayout:flat',
-			false
-		);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', async _ => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
 		vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'flat');
-		await vscode.commands.executeCommand(
-			'setContext',
-			'fileListLayout:flat',
-			true
-		);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
