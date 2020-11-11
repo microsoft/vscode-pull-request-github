@@ -381,7 +381,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		const pullRequest = ensurePR(folderManager, pullRequestModel);
 		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, descriptionNode);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest);
 
 		/* __GDPR__
 			"pr.openDescription" : {}
@@ -404,7 +404,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		const pullRequest = ensurePR(folderManager, pr);
 		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, descriptionNode, true);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, true);
 
 		/* __GDPR__
 			"pr.openDescriptionToTheSide" : {}

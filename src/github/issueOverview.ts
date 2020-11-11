@@ -34,7 +34,7 @@ export class IssueOverviewPanel extends WebviewBase {
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
 
-	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: IssueModel, descriptionNode: DescriptionNode, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: IssueModel, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -47,10 +47,10 @@ export class IssueOverviewPanel extends WebviewBase {
 			IssueOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Issue #${issue.number.toString()}`;
-			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager, descriptionNode);
+			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager);
 		}
 
-		await IssueOverviewPanel.currentPanel!.update(folderRepositoryManager, issue, descriptionNode);
+		await IssueOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
 	}
 
 	public static refresh(): void {
@@ -59,11 +59,10 @@ export class IssueOverviewPanel extends WebviewBase {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, descriptionNode: DescriptionNode, type: string = IssueOverviewPanel._viewType) {
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, type: string = IssueOverviewPanel._viewType) {
 		super();
 		this._extensionPath = extensionPath;
 		this._folderRepositoryManager = folderRepositoryManager;
-		this._descriptionNode = descriptionNode;
 
 		// Create and show a new webview panel
 		this._panel = vscode.window.createWebviewPanel(type, title, column, {
@@ -97,11 +96,11 @@ export class IssueOverviewPanel extends WebviewBase {
 
 	public async refreshPanel(): Promise<void> {
 		if (this._panel && this._panel.visible) {
-			this.update(this._folderRepositoryManager, this._item, this._descriptionNode);
+			this.update(this._folderRepositoryManager, this._item);
 		}
 	}
 
-	public async updateIssue(issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async updateIssue(issueModel: IssueModel): Promise<void> {
 		return Promise.all([
 			this._folderRepositoryManager.resolveIssue(
 				issueModel.remote.owner,
@@ -149,16 +148,15 @@ export class IssueOverviewPanel extends WebviewBase {
 		});
 	}
 
-	public async update(foldersManager: FolderRepositoryManager, issueModel: IssueModel, descriptionNode: DescriptionNode): Promise<void> {
+	public async update(foldersManager: FolderRepositoryManager, issueModel: IssueModel): Promise<void> {
 		this._folderRepositoryManager = foldersManager;
-		this._descriptionNode = descriptionNode;
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
 
 		this._panel.webview.html = this.getHtmlForWebview(issueModel.number.toString());
-		return this.updateIssue(issueModel, descriptionNode);
+		return this.updateIssue(issueModel);
 	}
 
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {

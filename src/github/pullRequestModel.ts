@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as OctokitTypes from '@octokit/types';
+import * as path from 'path';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
@@ -18,6 +19,10 @@ import Logger from '../common/logger';
 import { IComment } from '../common/comment';
 import { formatError } from '../common/utils';
 import { ITelemetry } from '../common/telemetry';
+import { toPRUri, toReviewUri } from '../common/uri';
+import { parseDiff } from '../common/diffHunk';
+import { GitChangeType } from '../common/file';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -719,6 +724,43 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				}
 			})
 		};
+	}
+
+	static async openDiffFromComment(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, comment: IComment): Promise<void> {
+		const fileChanges = await pullRequestModel.getFileChangesInfo();
+		const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
+		const contentChanges = await parseDiff(fileChanges, folderManager.repository, mergeBase);
+		const change = contentChanges.find(fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path);
+		if (!change) {
+			throw new Error(`Can't find matching file`);
+		}
+
+		let headUri, baseUri: vscode.Uri;
+		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
+			const headCommit = pullRequestModel.head!.sha;
+			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
+			headUri = toPRUri(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status);
+			baseUri = toPRUri(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status);
+		} else {
+			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
+
+			headUri = change.status === GitChangeType.DELETE
+				? toReviewUri(uri, undefined, undefined, '', false, { base: false }, folderManager.repository.rootUri)
+				: uri;
+
+			baseUri = toReviewUri(
+				uri,
+				change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
+				undefined,
+				change.status === GitChangeType.ADD ? '' : mergeBase,
+				false,
+				{ base: true },
+				folderManager.repository.rootUri
+			);
+		}
+
+		const pathSegments = comment.path!.split('/');
+		vscode.commands.executeCommand('vscode.diff', baseUri, headUri, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, {});
 	}
 
 	/**

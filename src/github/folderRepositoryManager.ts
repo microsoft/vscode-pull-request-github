@@ -234,10 +234,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 								return lastPullRequestTimelineEvents;
 							}
 
-							const githubRepos = this._githubRepositories.filter(repo => repo.remote.remoteName === remoteName);
+							const githubRepo = this._githubRepositories.find(repo => repo.remote.remoteName === remoteName);
 
-							if (githubRepos.length) {
-								lastPullRequest = await githubRepos[0].getPullRequest(prNumber);
+							if (githubRepo) {
+								lastPullRequest = await githubRepo.getPullRequest(prNumber);
 								lastPullRequestTimelineEvents = await lastPullRequest!.getTimelineEvents();
 							}
 
