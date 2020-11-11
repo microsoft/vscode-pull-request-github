@@ -422,7 +422,8 @@
       {
         "command": "pr.pick",
         "title": "Checkout Pull Request",
-        "category": "GitHub Pull Requests"
+        "category": "GitHub Pull Requests",
+        "icon": "$(arrow-right)"
       },
       {
         "command": "pr.exit",
@@ -1020,6 +1021,11 @@
           "command": "pr.pick",
           "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
+        },
+        {
+          "command": "pr.pick",
+          "when": "view =~ /pr:/ && viewItem =~ /description/",
+          "group": "inline"
         },
         {
           "command": "pr.exit",
