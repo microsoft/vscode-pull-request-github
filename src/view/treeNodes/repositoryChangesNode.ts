@@ -20,13 +20,34 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 	public contextValue?: string;
 
-	constructor(public parent: TreeNode | vscode.TreeView<TreeNode>,
+	private _disposables: vscode.Disposable[] = [];
+
+	constructor(public parent: vscode.TreeView<TreeNode>,
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
 		private _comments: IComment[],
 		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
 		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest);
 		this.label = this._pullRequest.title;
+
+		this._disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
+			const activeEditorUri = e?.document.uri.toString();
+			this.revealActiveEditorInTree(activeEditorUri);
+		}));
+
+		this._disposables.push(this.parent.onDidChangeVisibility(_ => {
+			const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
+			this.revealActiveEditorInTree(activeEditorUri);
+		}));
+	}
+
+	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
+		if (this.parent.visible && activeEditorUri) {
+			const matchingFile = this._localFileChanges.find(change => change.filePath.toString() === activeEditorUri);
+			if (matchingFile) {
+				this.reveal(matchingFile, { select: true });
+			}
+		}
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
@@ -39,5 +60,10 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 	getTreeItem(): vscode.TreeItem {
 		return this;
+	}
+
+	dispose() {
+		this._disposables.forEach(d => d.dispose());
+		this._disposables = [];
 	}
 }
