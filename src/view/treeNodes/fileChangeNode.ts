@@ -150,8 +150,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		const filePath = this.filePath;
 		const opts = this.opts;
 
-		this.reveal(this, { select: true, focus: true });
-
 		let parentURI = await asImageDataURI(parentFilePath, folderManager.repository) || parentFilePath;
 		let headURI = await asImageDataURI(filePath, folderManager.repository) || filePath;
 		if (parentURI.scheme === 'data' || headURI.scheme === 'data') {

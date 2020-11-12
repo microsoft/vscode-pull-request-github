@@ -588,10 +588,6 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	context.subscriptions.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
 		const uri = value instanceof GitFileChangeNode ? value.filePath : value;
 
-		if (value instanceof GitFileChangeNode) {
-			value.reveal(value, { select: true, focus: true });
-		}
-
 		const activeTextEditor = vscode.window.activeTextEditor;
 		const opts: vscode.TextDocumentShowOptions = {
 			preserveFocus: true,
