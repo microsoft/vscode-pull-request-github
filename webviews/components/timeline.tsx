@@ -144,7 +144,7 @@ function AddReviewSummaryComment() {
 			<button id='approve'
 				onClick={() => approve(comment.current.value)}>Approve</button>
 			<button id='submit'
-				onClick={() => submit(comment.current.value)}>Submit</button>
+				onClick={() => submit(comment.current.value)}>Comment</button>
 		</div>
 	</div>;
 }
