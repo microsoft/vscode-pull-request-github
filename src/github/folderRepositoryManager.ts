@@ -174,7 +174,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		remotesSetting.forEach(remote => {
 			if (!allGitHubRemotes.some(repo => repo.remoteName === remote)) {
-				Logger.appendLine(`No remote with name '${remote}' found. Please update your 'githubPullRequests.remotes' setting.`);
+				Logger.appendLine(`No remote with name '${remote}' found.`);
 			}
 		});
 
