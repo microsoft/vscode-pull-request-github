@@ -31,9 +31,11 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		});
 		this._context.subscriptions.push(this._view);
 
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
 				this._onDidChangeTreeData.fire();
+				const layout = vscode.workspace.getConfiguration(`${SETTINGS_NAMESPACE}`).get<string>('fileListLayout');
+				await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
 			}
 		}));
 	}

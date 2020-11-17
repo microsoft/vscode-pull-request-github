@@ -519,6 +519,18 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.setFileListLayoutAsTree",
+        "title": "Toggle View Mode",
+        "icon": "$(list-tree)",
+        "category": "GitHub Pull Requests"
+      },
+      {
+        "command": "pr.setFileListLayoutAsFlat",
+        "title": "Toggle View Mode",
+        "icon": "$(list-flat)",
+        "category": "GitHub Pull Requests"
+      },
+      {
         "command": "pr.refreshChanges",
         "title": "Refresh",
         "icon": "$(refresh)",
@@ -843,6 +855,14 @@
           "when": "gitOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
         },
         {
+          "command": "pr.setFileListLayoutAsTree",
+          "when": "false"
+        },
+        {
+          "command": "pr.setFileListLayoutAsFlat",
+          "when": "false"
+        },
+        {
           "command": "pr.refreshChanges",
           "when": "false"
         },
@@ -999,6 +1019,16 @@
           "command": "pr.refreshChanges",
           "when": "view =~ /prStatus/",
           "group": "navigation@2"
+        },
+        {
+          "command": "pr.setFileListLayoutAsTree",
+          "when": "view =~ /prStatus/ && fileListLayout:flat",
+          "group": "navigation"
+        },
+        {
+          "command": "pr.setFileListLayoutAsFlat",
+          "when": "view =~ /prStatus/ && !fileListLayout:flat",
+          "group": "navigation"
         },
         {
           "command": "issue.refresh",

@@ -90,6 +90,8 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	context.subscriptions.push(reviewsManager);
 	tree.initialize(reposManager);
 	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
+	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
 
 	git.onDidChangeState(() => {
 		reviewManagers.forEach(reviewManager => reviewManager.updateState());
