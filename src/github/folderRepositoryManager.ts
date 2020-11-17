@@ -890,7 +890,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					return new GitHubRepository(remote, this._credentialStore, this._telemetry);
 				}
 
-				vscode.window.showErrorMessage(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
+				Logger.appendLine(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
 
 				// No GitHubRepository? We currently won't try pushing elsewhere,
 				// so fail.
