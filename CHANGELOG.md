@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.21.3
+- Adopt latest API changes for VS Code 1.52.0.
+
 ## 0.21.2
 
 - Revert previous changes for proposed API changes since the minimum engine version is currently set to 1.50.0.
