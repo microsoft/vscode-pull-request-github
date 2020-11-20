@@ -13,7 +13,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 	constructor(
 	) {
 		this._disposables = [];
-		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
+		this._disposables.push(vscode.window.registerDecorationProvider(this));
 	}
 
 	_onDidChange: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
