@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.21.1
+
+- Adopt latest proposed API changes.
+
 ## 0.21.0
 
 ### Changes
