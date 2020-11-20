@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.21.2
+
+- Revert previous changes for proposed API changes since the minimum engine version is currently set to 1.50.0.
+
 ## 0.21.1
 
 - Adopt latest proposed API changes.
