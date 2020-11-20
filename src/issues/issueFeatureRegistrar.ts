@@ -12,7 +12,7 @@ import { IssueCompletionProvider } from './issueCompletionProvider';
 import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION, QUERIES_CONFIGURATION, pushAndCreatePR } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
-import { IssuesTreeData, IssueUriTreeItem } from './issuesView';
+import { IssuesTreeData } from './issuesView';
 import { IssueModel } from '../github/issueModel';
 import { CurrentIssue } from './currentIssue';
 import { ReviewManager } from '../view/reviewManager';
@@ -158,7 +158,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			this.telemetry.sendTelemetryEvent('issue.getCurrent');
 			return this.getCurrent();
 		}, this));
-		this.context.subscriptions.push(vscode.commands.registerCommand('issue.editQuery', (query: IssueUriTreeItem) => {
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.editQuery', (query: vscode.TreeItem) => {
 			/* __GDPR__
 				"issue.editQuery" : {}
 			*/
@@ -319,7 +319,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
-	async editQuery(query: IssueUriTreeItem) {
+	async editQuery(query: vscode.TreeItem) {
 		const config = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION);
 		const inspect = config.inspect<{ label: string, query: string }[]>(QUERIES_CONFIGURATION);
 		let command: string;
@@ -336,7 +336,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const editor = vscode.window.activeTextEditor;
 		if (editor) {
 			const text = editor.document.getText();
-			const search = text.search(query.labelAsString!);
+			const search = text.search(query.label!);
 			if (search >= 0) {
 				const position = editor.document.positionAt(search);
 				editor.revealRange(new vscode.Range(position, position));
