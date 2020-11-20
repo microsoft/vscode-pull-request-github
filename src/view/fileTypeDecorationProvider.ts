@@ -13,7 +13,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 	constructor(
 	) {
 		this._disposables = [];
-		this._disposables.push(vscode.window.registerDecorationProvider(this));
+		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
 	}
 
 	provideFileDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.FileDecoration> {
