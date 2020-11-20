@@ -16,6 +16,8 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
 	}
 
+	_onDidChange: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
+	onDidChange: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChange.event;
 	provideFileDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.FileDecoration> {
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
