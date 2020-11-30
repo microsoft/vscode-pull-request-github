@@ -109,6 +109,15 @@ export class RepositoriesManager implements vscode.Disposable {
 
 	}
 
+	removeRepo(repo: Repository) {
+		const existingFolderManagerIndex = this._folderManagers.findIndex(manager =>  manager.repository.rootUri.toString() === repo.rootUri.toString());
+		if (existingFolderManagerIndex > -1) {
+			const folderManager = this._folderManagers[existingFolderManagerIndex];
+			this._folderManagers.splice(existingFolderManagerIndex);
+			folderManager.dispose();
+		}
+	}
+
 	getManagerForIssueModel(issueModel: IssueModel | undefined): FolderRepositoryManager | undefined {
 		if (issueModel === undefined) {
 			return undefined;
