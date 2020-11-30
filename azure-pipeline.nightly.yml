@@ -2,6 +2,14 @@
 trigger: none
 pr: none
 
+schedules:
+- chron: "0 9 * * Mon-Thu"
+  displayName: Nightly Release schedule
+  always: true
+  branches:
+    include:
+    - master
+
 jobs:
 - job: nightly_release
   displayName: Nightly Release
