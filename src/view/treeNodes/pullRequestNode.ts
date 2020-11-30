@@ -134,6 +134,13 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 			const filesCategoryNode = new FilesCategoryNode(this.parent, this._fileChanges);
 			const prCommits = await this.pullRequestModel.getReviewComments();
+			await this._folderReposManager.fullfillPullRequestMissingInfo(this.pullRequestModel);
+			const repository = this._folderReposManager.repository;
+			const branchName = this.pullRequestModel.head?.ref;
+			await repository.fetch(this.pullRequestModel.remote.remoteName, branchName, );
+			await repository.pull();
+
+			// await this._folderReposManager.updateRepositories(false);
 			const commitCategoryNode = new CommitsNode(this, this._folderReposManager, this.pullRequestModel, prCommits);
 
 			if (!this._inMemPRContentProvider) {
