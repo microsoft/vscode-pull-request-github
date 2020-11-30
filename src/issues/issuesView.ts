@@ -12,7 +12,7 @@ import { ReposManagerState, FolderRepositoryManager } from '../github/folderRepo
 import { IssueModel } from '../github/issueModel';
 import { issueBodyHasLink } from './issueLinkLookup';
 
-export class IssueUriTreeItem extends vscode.TreeItem2 {
+export class IssueUriTreeItem extends vscode.TreeItem {
 	constructor(public readonly uri: vscode.Uri | undefined, label: string, collapsibleState?: vscode.TreeItemCollapsibleState) {
 		super(label, collapsibleState);
 	}
@@ -76,7 +76,7 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 		}
 	}
 
-	async resolveTreeItem(item: vscode.TreeItem2, element: FolderRepositoryManager | IssueItem | MilestoneItem | vscode.TreeItem): Promise<vscode.TreeItem2> {
+	async resolveTreeItem(item: vscode.TreeItem, element: FolderRepositoryManager | IssueItem | MilestoneItem | vscode.TreeItem): Promise<vscode.TreeItem> {
 		if (element instanceof IssueModel) {
 			item.tooltip = await issueMarkdown(element, this.context, this.manager);
 		}
