@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.21.4
+- Adopt latest API changes for TreeItem in VS Code 1.52.0
+
 ## 0.21.3
 - Adopt latest API changes for VS Code 1.52.0.
 
