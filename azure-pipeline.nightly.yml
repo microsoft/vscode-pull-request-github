@@ -3,8 +3,8 @@ trigger: none
 pr: none
 
 schedules:
-- chron: "0 9 * * Mon-Thu"
-  displayName: Nightly Release schedule
+- cron: "0 9 * * Mon-Thu"
+  displayName: Nightly Release Schedule
   always: true
   branches:
     include:
