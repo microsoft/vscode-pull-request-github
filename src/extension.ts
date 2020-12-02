@@ -108,6 +108,19 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 		});
 	});
 
+	git.onDidCloseRepository(repo => {
+		reposManager.removeRepo(repo);
+
+		const reviewManagerIndex = reviewManagers.findIndex(manager => manager.repository.rootUri.toString() === repo.rootUri.toString());
+		if (reviewManagerIndex) {
+			const manager = reviewManagers[reviewManagerIndex];
+			reviewManagers.splice(reviewManagerIndex);
+			manager.dispose();
+		}
+
+		tree.refresh();
+	});
+
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
 	context.subscriptions.push(issuesFeatures);
