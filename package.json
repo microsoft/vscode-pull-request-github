@@ -427,7 +427,7 @@
       },
       {
         "command": "pr.exit",
-        "title": "Exit Pull Request",
+        "title": "Exit Review Mode",
         "category": "GitHub Pull Requests"
       },
       {
