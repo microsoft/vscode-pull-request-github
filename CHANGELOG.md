@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.22.0
+
+### Changes
+
+- Colored icons are used in the issues view.
+
+![Issues view](documentation/changelog/0.22.0/colored-icons.png)
+
+- File changes in the Pull Request view are expanded by default.
+
+- The timestamp in the pull request description has hover with the exact time.
+
+![Timestamp with hover](documentation/changelog/0.22.0/exact-time-hover.png)
+
+- There's a new command to "Leave Review Mode". It checks-out the default branch for the repository and remove the comment UI, just like the "Leave Review mode" button in the pull request description.
+
 ## 0.21.0
 
 ### Changes
@@ -12,7 +28,7 @@
 
 - Issue suggestions are now shown in code comment editors.
 
-![Issue suggest in comment](documentation/changelog/0.22.0/issue-suggest-comment.png)
+![Issue suggest in comment](documentation/changelog/0.21.0/issue-suggest-comment.png)
 
 - When you Start Working on an issue, it will be assigned to you if you permissions in the repository allow it.
 
