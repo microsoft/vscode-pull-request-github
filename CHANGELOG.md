@@ -16,6 +16,37 @@
 
 - There's a new command to "Leave Review Mode". It checks-out the default branch for the repository and remove the comment UI, just like the "Leave Review mode" button in the pull request description.
 
+- The "Description" node in the Pull Request tree has an inline action to checkout the pull request.
+
+- The Pull Request view lists the PR number first in the title, and also moves the "Draft" indication to be more prominent.
+
+![Pull Request view](documentation/changelog/0.22.0/pull-request-tree-view.png)
+
+- Thanks to @ejkim1996, there is an action to toggle between viewing files in a tree structure and viewing them as a flat list in the Changes in Pull Request view.
+
+![Toggle view layout](documentation/changelog/0.22.0/toggle-layout.png)
+
+- When a pull request is checked out, opening a file associated with it will automatically reveal this it in the CHanges in Pull Request view.
+
+### Notable fixes
+
+- Clicking on a comment link on the pull request description page now always opens the associated file.
+
+- Thanks to @KaiSforza, the `The remote <remoteName> is not a GitHub repository.` error is now surpressed for remotes outside of those set in `githubPullRequests.remotes`.
+
+## 0.21.4
+- Adopt latest API changes for TreeItem in VS Code 1.52.0
+
+## 0.21.3
+- Adopt latest API changes for VS Code 1.52.0.
+
+## 0.21.2
+
+- Revert previous changes for proposed API changes since the minimum engine version is currently set to 1.50.0.
+
+## 0.21.1
+
+- Adopt latest proposed API changes.
 ## 0.21.0
 
 ### Changes
