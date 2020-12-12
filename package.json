@@ -1370,6 +1370,7 @@
     "@octokit/types": "^5.1.0",
     "apollo-boost": "^0.1.22",
     "apollo-link-context": "^1.0.12",
+    "azure-devops-node-api": "^10.1.2",
     "cross-fetch": "^3.0.5",
     "debounce": "^1.2.0",
     "es6-promise": "^4.2.5",
