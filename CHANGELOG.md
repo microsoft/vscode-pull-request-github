@@ -4,7 +4,7 @@
 
 ### Changes
 
-- Colored icons are used in the issues view.
+- Colored icons are used in the issues view.<br/>
 ![Issues view](documentation/changelog/0.22.0/colored-icons.png)
 
 - File changes in the Pull Request view are expanded by default.
@@ -19,7 +19,7 @@
 - The Pull Request view lists the PR number first in the title, and also moves the "Draft" indication to be more prominent.
 ![Pull Request view](documentation/changelog/0.22.0/pull-request-tree-view.png)
 
-- Thanks to @ejkim1996, there is an action to toggle between viewing files in a tree structure and viewing them as a flat list in the Changes in Pull Request view.
+- Thanks to @ejkim1996, there is an action to toggle between viewing files in a tree structure and viewing them as a flat list in the Changes in Pull Request view.<br/>
 ![Toggle view layout](documentation/changelog/0.22.0/toggle-layout.png)
 
 - When a pull request is checked out, opening a file associated with it will automatically reveal this it in the CHanges in Pull Request view.
