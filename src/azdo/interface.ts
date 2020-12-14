@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { GitPullRequest } from "azure-devops-node-api/interfaces/GitInterfaces";
+
 export enum PRType {
 	Query,
 	All,
@@ -23,26 +25,50 @@ export enum GithubItemStateEnum {
 
 export enum PullRequestMergeability {
 	NotSet = 0,
-    /**
+	/**
      * Pull request merge is queued.
      */
-    Queued = 1,
-    /**
+	Queued = 1,
+	/**
      * Pull request merge failed due to conflicts.
      */
-    Conflicts = 2,
-    /**
+	Conflicts = 2,
+	/**
      * Pull request merge succeeded.
      */
-    Succeeded = 3,
-    /**
+	Succeeded = 3,
+	/**
      * Pull request merge rejected by policy.
      */
-    RejectedByPolicy = 4,
-    /**
+	RejectedByPolicy = 4,
+	/**
      * Pull request merge failed.
      */
-    Failure = 5
+	Failure = 5
+}
+
+
+export declare enum PullRequestStatus {
+	/**
+     * Status not set. Default state.
+     */
+	NotSet = 0,
+	/**
+     * Pull request is active.
+     */
+	Active = 1,
+	/**
+     * Pull request is abandoned.
+     */
+	Abandoned = 2,
+	/**
+     * Pull request is completed.
+     */
+	Completed = 3,
+	/**
+     * Used in pull request search criteria to include all statuses.
+     */
+	All = 4
 }
 
 export interface ReviewState {
@@ -84,6 +110,7 @@ export interface IRepository {
 export interface IGitHubRef {
 	ref: string;
 	sha: string;
+	repo: IRepository;
 }
 
 export interface ILabel {
@@ -114,13 +141,10 @@ export interface Issue {
 	}[];
 }
 
-export interface PullRequest extends Issue {
-	isDraft?: boolean;
-	head?: string;
-	base?: string;
+export interface PullRequest extends GitPullRequest {
+	head?: IGitHubRef;
+	base?: IGitHubRef;
 	merged?: boolean;
-	mergeable?: PullRequestMergeability;
-	suggestedReviewers?: ISuggestedReviewer[];
 }
 
 export interface IRawFileChange {

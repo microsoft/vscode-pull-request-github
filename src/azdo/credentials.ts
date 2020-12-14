@@ -5,14 +5,14 @@ import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 
 const CREDENTIALS_COMPONENT_ID = 'azdo_component';
-const SETTINGS_NAMESPACE = 'vscodePullRequests';
+const SETTINGS_NAMESPACE = 'azdoPullRequests';
 const PROJECT_SETTINGS = 'projectName';
 const ORGURL_SETTINGS = 'orgUrl';
 
 export class Azdo {
 	private _authHandler: IRequestHandler;
 	public connection: azdev.WebApi;
-	constructor(orgUrl: string, public projectName: string, token: string) {
+	constructor(public orgUrl: string, public projectName: string, token: string) {
 		this._authHandler = azdev.getPersonalAccessTokenHandler(token);
 		this.connection = new azdev.WebApi(orgUrl, this._authHandler);
 	}

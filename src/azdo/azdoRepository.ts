@@ -10,7 +10,6 @@ import { GitRepository, GitPullRequestSearchCriteria, PullRequestStatus } from '
 import { Profile } from 'azure-devops-node-api/interfaces/ProfileInterfaces';
 import { IGitHubRef } from './interface';
 
-
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
 export interface IMetadata extends GitRepository {
@@ -37,12 +36,16 @@ export class AzdoRepository implements vscode.Disposable {
 	async ensure(): Promise<AzdoRepository> {
 		this._initialized = true;
 
-		if (!this._hub === undefined) {
+		if (!this._hub) {
 			await this._credentialStore.initialize()
 			this._hub = this._credentialStore.getHub();
 		}
 
 		return this;
+	}
+
+	public get azdo(): Azdo | undefined {
+		return this._hub;
 	}
 
 	public async ensureCommentsController(): Promise<void> {
@@ -128,12 +131,13 @@ export class AzdoRepository implements vscode.Disposable {
 				return [];
 			}
 
-			const pullRequests = result
-				.map(pullRequest => {
-						return new PullRequestModel(this._telemetry, this, this.remote, convertAzdoPullRequestToRawPullRequest(pullRequest, this));
+			const pullRequests = await Promise.all(result
+				.map(async pullRequest => {
+						return new PullRequestModel(this._telemetry, this, this.remote, await convertAzdoPullRequestToRawPullRequest(pullRequest, this));
 					}
 				)
-				.filter(item => item !== null) as PullRequestModel[];
+				.filter(item => item !== null)) as PullRequestModel[];
+
 
 			Logger.debug(`Fetch pull requests for branch - done`, AzdoRepository.ID);
 			return pullRequests;
@@ -176,7 +180,7 @@ export class AzdoRepository implements vscode.Disposable {
 
 			Logger.debug(`Fetch pull request ${id} - done`, AzdoRepository.ID);
 
-			return new PullRequestModel(this._telemetry, this, this.remote, convertAzdoPullRequestToRawPullRequest(pullRequest, this));
+			return new PullRequestModel(this._telemetry, this, this.remote, await convertAzdoPullRequestToRawPullRequest(pullRequest, this));
 		} catch (e) {
 			Logger.appendLine(`Azdo> Unable to fetch PR: ${e}`);
 			return;
@@ -197,7 +201,7 @@ export class AzdoRepository implements vscode.Disposable {
 			}
 
 			Logger.debug(`Get branch for name ${branchName} - done`, AzdoRepository.ID);
-			return convertAzdoBranchRefToIGitHubRef(branch);
+			return convertAzdoBranchRefToIGitHubRef(branch, this.remote.url);
 		} catch (e) {
 			Logger.appendLine(`Azdo> Unable to fetch PR: ${e}`);
 			return;
