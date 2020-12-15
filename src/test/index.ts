@@ -34,6 +34,7 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	// Ensure the dev-mode extension is activated
 	const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
 	const extensionId = `${publisher}.${name}`;
+
 	await vscode.extensions.getExtension(extensionId)!.activate();
 
 	mockWebviewEnvironment.install(global);
@@ -44,7 +45,7 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	});
 	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
 
-	await addTests(mocha, testsRoot);
+	await addTests(mocha, path.resolve(testsRoot, './azdo'));
 	await addTests(mocha, path.resolve(testsRoot, '../../webviews/test'));
 
 	if (process.env.TEST_JUNIT_XML_PATH) {

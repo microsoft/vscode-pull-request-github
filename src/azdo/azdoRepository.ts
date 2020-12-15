@@ -102,12 +102,12 @@ export class AzdoRepository implements vscode.Disposable {
 			const metadata = await this.getMetadata();
 			Logger.debug(`Fetch default branch - done`, AzdoRepository.ID);
 
-			return metadata?.defaultBranch || 'master';
+			return metadata?.defaultBranch || 'refs/heads/main';
 		} catch (e) {
 			Logger.appendLine(`AzdoRepository> Fetching default branch failed: ${e}`);
 		}
 
-		return 'master';
+		return 'refs/heads/main';
 	}
 
 	async getAllPullRequests(page?: number): Promise<PullRequestModel[] | undefined> {

@@ -345,3 +345,5 @@ dist/**
 package.insiders.json
 README.insiders.md
 src/constants.insiders.ts
+.env
+preview-src
