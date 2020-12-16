@@ -3,7 +3,6 @@ import { GitBranchStats, GitPullRequest, PullRequestStatus } from 'azure-devops-
 import { AzdoRepository } from './azdoRepository';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
 
-
 export async function convertAzdoPullRequestToRawPullRequest(pullRequest: GitPullRequest, azdoRepo: AzdoRepository): Promise<PullRequest> {
 	const {
 		status,
@@ -13,8 +12,8 @@ export async function convertAzdoPullRequestToRawPullRequest(pullRequest: GitPul
 
 	const item: PullRequest = {
 		merged: status === PullRequestStatus.Completed,
-		head: await azdoRepo.getBranchRef(sourceRefName || ''),
-		base: await azdoRepo.getBranchRef(targetRefName || ''),
+		head: await azdoRepo.getBranchRef(convertBranchRefToBranchName(sourceRefName || '')),
+		base: await azdoRepo.getBranchRef(convertBranchRefToBranchName(targetRefName || '')),
 		...pullRequest,
 	};
 
@@ -28,13 +27,18 @@ export function convertRESTUserToAccount(user: IdentityRef): IAccount {
 		url: user.url,
 		id: user.id,
 		avatarUrl: user.imageUrl
-	}
+	};
 }
 
 export function convertAzdoBranchRefToIGitHubRef(branch: GitBranchStats, repocloneUrl: string): IGitHubRef {
 	return {
 		ref: branch.name || '',
 		sha: branch.commit?.commitId || '',
-		repo: { cloneUrl: repocloneUrl }
+		repo: { cloneUrl: repocloneUrl },
+		exists: true
 	};
+}
+
+export function convertBranchRefToBranchName(branchRef: string): string {
+	return branchRef.split('/').reverse()[0];
 }

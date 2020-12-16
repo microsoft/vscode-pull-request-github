@@ -7,6 +7,8 @@ import { MockTelemetry } from '../mocks/mockTelemetry';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { AzdoRepository } from '../../azdo/azdoRepository';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
 describe('AzdoRepository', function () {
 	let sinon: SinonSandbox;
@@ -14,6 +16,11 @@ describe('AzdoRepository', function () {
 	let telemetry: MockTelemetry;
 
 	this.timeout(1000000);
+
+	before(function () {
+		const res = dotenv.config({ path: path.resolve(__dirname, '../../../.env')});
+		console.log(res);
+	});
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -42,15 +49,34 @@ describe('AzdoRepository', function () {
 		});
 	});
 
-	describe('getdefaultBranch', function () {
+	describe('branch', function () {
 		it('get default branch', async function () {
 			await credentialStore.initialize();
 			const url = 'https://dev.azure.com/anksinha/test/_git/test';
 			const remote = new Remote('origin', url, new Protocol(url));
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
 			const branch = await azdoRepo.getDefaultBranch();
-			console.log(branch);
-			assert(branch === 'refs/heads/main');
+			assert(branch === 'main');
+		});
+
+		it('get specific branch', async function () {
+			await credentialStore.initialize();
+			const url = 'https://dev.azure.com/anksinha/test/_git/test';
+			const remote = new Remote('origin', url, new Protocol(url));
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const branch = await azdoRepo.getBranchRef('main');
+			assert(branch?.ref === 'main');
+		});
+	});
+
+	describe('pr', function () {
+		it('get all PRs', async function () {
+			await credentialStore.initialize();
+			const url = 'https://dev.azure.com/anksinha/test/_git/test';
+			const remote = new Remote('origin', url, new Protocol(url));
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prs = await azdoRepo.getAllPullRequests();
+			assert(prs?.length || 0 > 2);
 		});
 	});
 });

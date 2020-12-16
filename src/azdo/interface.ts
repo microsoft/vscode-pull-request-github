@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GitPullRequest } from "azure-devops-node-api/interfaces/GitInterfaces";
+import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export enum PRType {
 	Query,
@@ -46,7 +46,6 @@ export enum PullRequestMergeability {
      */
 	Failure = 5
 }
-
 
 export declare enum PullRequestStatus {
 	/**
@@ -111,6 +110,7 @@ export interface IGitHubRef {
 	ref: string;
 	sha: string;
 	repo: IRepository;
+	exists?: boolean;
 }
 
 export interface ILabel {

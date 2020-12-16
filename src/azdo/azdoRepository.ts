@@ -4,7 +4,7 @@ import { Remote, parseRemote } from '../common/remote';
 import { PullRequestModel } from './pullRequestModel';
 import { Azdo, CredentialStore } from './credentials';
 import { PRCommentController } from '../view/prCommentController';
-import { convertAzdoBranchRefToIGitHubRef, convertAzdoPullRequestToRawPullRequest } from './utils';
+import { convertAzdoBranchRefToIGitHubRef, convertAzdoPullRequestToRawPullRequest, convertBranchRefToBranchName } from './utils';
 import { ITelemetry } from '../common/telemetry';
 import { GitRepository, GitPullRequestSearchCriteria, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Profile } from 'azure-devops-node-api/interfaces/ProfileInterfaces';
@@ -37,7 +37,7 @@ export class AzdoRepository implements vscode.Disposable {
 		this._initialized = true;
 
 		if (!this._hub) {
-			await this._credentialStore.initialize()
+			await this._credentialStore.initialize();
 			this._hub = this._credentialStore.getHub();
 		}
 
@@ -80,7 +80,7 @@ export class AzdoRepository implements vscode.Disposable {
 		const repos = await gitApi?.getRepositories(this._hub?.projectName);
 		this._metadata = await repos?.find(v => v.name === this.remote.repositoryName);
 		if (!this._metadata) {
-			Logger.debug(`Fetch metadata ${this.remote.repositoryName} failed. No repo by that name.`, AzdoRepository.ID)
+			Logger.debug(`Fetch metadata ${this.remote.repositoryName} failed. No repo by that name.`, AzdoRepository.ID);
 			return this._metadata;
 		}
 		Logger.debug(`Fetch metadata ${this._metadata?.id}/${this._metadata?.name} - done`, AzdoRepository.ID);
@@ -102,15 +102,15 @@ export class AzdoRepository implements vscode.Disposable {
 			const metadata = await this.getMetadata();
 			Logger.debug(`Fetch default branch - done`, AzdoRepository.ID);
 
-			return metadata?.defaultBranch || 'refs/heads/main';
+			return convertBranchRefToBranchName(metadata?.defaultBranch || 'refs/heads/main');
 		} catch (e) {
 			Logger.appendLine(`AzdoRepository> Fetching default branch failed: ${e}`);
 		}
 
-		return 'refs/heads/main';
+		return 'main';
 	}
 
-	async getAllPullRequests(page?: number): Promise<PullRequestModel[] | undefined> {
+	async getAllPullRequests(): Promise<PullRequestModel[] | undefined> {
 		return await this.getPullRequests({status: PullRequestStatus.All});
 	}
 
@@ -133,11 +133,10 @@ export class AzdoRepository implements vscode.Disposable {
 
 			const pullRequests = await Promise.all(result
 				.map(async pullRequest => {
-						return new PullRequestModel(this._telemetry, this, this.remote, await convertAzdoPullRequestToRawPullRequest(pullRequest, this));
+						const pr =  await convertAzdoPullRequestToRawPullRequest(pullRequest, this);
+						return new PullRequestModel(this._telemetry, this, this.remote, pr);
 					}
-				)
-				.filter(item => item !== null)) as PullRequestModel[];
-
+				));
 
 			Logger.debug(`Fetch pull requests for branch - done`, AzdoRepository.ID);
 			return pullRequests;
@@ -204,7 +203,12 @@ export class AzdoRepository implements vscode.Disposable {
 			return convertAzdoBranchRefToIGitHubRef(branch, this.remote.url);
 		} catch (e) {
 			Logger.appendLine(`Azdo> Unable to fetch PR: ${e}`);
-			return;
+			return {
+				ref: branchName,
+				repo: {cloneUrl: this.remote.url},
+				sha: '',
+				exists: false
+			};
 		}
 	}
 }

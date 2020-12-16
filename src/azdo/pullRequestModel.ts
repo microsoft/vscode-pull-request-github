@@ -4,7 +4,8 @@ import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
-import { PullRequest, PullRequestStatus } from './interface';
+import { PullRequest } from './interface';
+import { PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 // import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability, PullRequestStatus } from './interface';
 // import { isReviewEvent, ReviewEvent as CommonReviewEvent, TimelineEvent } from '../common/timelineEvent';
 // import { ReviewEvent } from './interface';
@@ -55,7 +56,8 @@ export class PullRequestModel implements IPullRequestModel {
 		// super(azdoRepository, remote, item);
 
 		this._telemetry = telemetry;
-		this.isActive = !!isActive;
+
+		this.isActive = isActive === undefined ? item.status === PullRequestStatus.Active: false;
 		// tslint:disable-next-line: no-unused-expression
 		this.azdoRepository.azdo;
 	}
