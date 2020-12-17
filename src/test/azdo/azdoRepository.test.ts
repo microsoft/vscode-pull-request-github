@@ -1,4 +1,3 @@
-import assert = require('assert');
 import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../azdo/credentials';
@@ -9,6 +8,7 @@ import { Protocol } from '../../common/protocol';
 import { AzdoRepository } from '../../azdo/azdoRepository';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import {expect} from 'chai';
 
 describe('AzdoRepository', function () {
 	let sinon: SinonSandbox;
@@ -18,8 +18,7 @@ describe('AzdoRepository', function () {
 	this.timeout(1000000);
 
 	before(function () {
-		const res = dotenv.config({ path: path.resolve(__dirname, '../../../.env')});
-		console.log(res);
+		dotenv.config({ path: path.resolve(__dirname, '../../../.env')});
 	});
 
 	beforeEach(function () {
@@ -45,7 +44,7 @@ describe('AzdoRepository', function () {
 			const remote = new Remote('origin', url, new Protocol(url));
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
 			const metadata = await azdoRepo.getMetadata();
-			assert(metadata?.name === 'test');
+			expect(metadata?.name).to.be.eq('test');
 		});
 	});
 
@@ -56,7 +55,7 @@ describe('AzdoRepository', function () {
 			const remote = new Remote('origin', url, new Protocol(url));
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
 			const branch = await azdoRepo.getDefaultBranch();
-			assert(branch === 'main');
+			expect(branch).to.be.eq('main');
 		});
 
 		it('get specific branch', async function () {
@@ -65,7 +64,7 @@ describe('AzdoRepository', function () {
 			const remote = new Remote('origin', url, new Protocol(url));
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
 			const branch = await azdoRepo.getBranchRef('main');
-			assert(branch?.ref === 'main');
+			expect(branch?.ref).to.be.eq('main');
 		});
 	});
 
@@ -76,7 +75,46 @@ describe('AzdoRepository', function () {
 			const remote = new Remote('origin', url, new Protocol(url));
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
 			const prs = await azdoRepo.getAllPullRequests();
-			assert(prs?.length || 0 > 2);
+			expect(prs?.length).to.be.greaterThan(2);
+		});
+
+		it('get PR for test_pr branch', async function () {
+			await credentialStore.initialize();
+			const url = 'https://dev.azure.com/anksinha/test/_git/test';
+			const remote = new Remote('origin', url, new Protocol(url));
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prs = await azdoRepo.getPullRequestForBranch('refs/heads/test_pr');
+			expect(prs?.length).to.be.greaterThan(0);
+		});
+
+		it('get PR for main branch', async function () {
+			await credentialStore.initialize();
+			const url = 'https://dev.azure.com/anksinha/test/_git/test';
+			const remote = new Remote('origin', url, new Protocol(url));
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prs = await azdoRepo.getPullRequestForBranch('refs/heads/main');
+			expect(prs?.length).to.be.eq(0);
+		});
+
+		it('get PR for deleted branch', async function () {
+			await credentialStore.initialize();
+			const url = 'https://dev.azure.com/anksinha/test/_git/test';
+			const remote = new Remote('origin', url, new Protocol(url));
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prs = await azdoRepo.getPullRequestForBranch('refs/heads/this_does_not_exist');
+			expect(prs?.length).to.be.eq(0);
+		});
+	});
+
+	describe('getProfile', function () {
+		it('get my profile', async function () {
+			await credentialStore.initialize();
+			const url = 'https://dev.azure.com/anksinha/test/_git/test';
+			const remote = new Remote('origin', url, new Protocol(url));
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const user = await azdoRepo.getAuthenticatedUser();
+			console.log(user?.coreAttributes['displayName']);
+			expect(user?.id).to.exist('');
 		});
 	});
 });

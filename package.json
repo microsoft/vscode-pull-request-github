@@ -1320,7 +1320,7 @@
     "watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
   },
   "devDependencies": {
-    "@types/chai": "^4.1.4",
+    "@types/chai": "^4.2.14",
     "@types/debounce": "^3.0.0",
     "@types/glob": "7.1.1",
     "@types/graphql": "^14.0.5",
@@ -1337,6 +1337,7 @@
     "@types/temp": "0.8.34",
     "@types/uuid": "^3.4.3",
     "@types/webpack": "^4.41.6",
+    "chai": "^4.2.0",
     "css-loader": "^3.4.2",
     "dotenv": "^8.2.0",
     "glob": "7.1.6",

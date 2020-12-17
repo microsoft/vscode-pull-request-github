@@ -14,7 +14,11 @@ export class Azdo {
 	public connection: azdev.WebApi;
 	constructor(public orgUrl: string, public projectName: string, token: string) {
 		this._authHandler = azdev.getPersonalAccessTokenHandler(token);
-		this.connection = new azdev.WebApi(orgUrl, this._authHandler);
+		this.connection = this.getNewWebApiClient(this.orgUrl);
+	}
+
+	public getNewWebApiClient(orgUrl: string): azdev.WebApi {
+		return new azdev.WebApi(this.orgUrl, this._authHandler);
 	}
 }
 

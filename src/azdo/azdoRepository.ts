@@ -152,17 +152,22 @@ export class AzdoRepository implements vscode.Disposable {
 	}
 
 	async getAuthenticatedUserName(): Promise<string> {
-		const azdo = await this.ensure();
-		const profileApi = await azdo._hub?.connection.getProfileApi();
-		const user = await profileApi?.getProfile('me', true);
+		const user = await this.getAuthenticatedUser();
 		return user?.coreAttributes['displayName']?.value;
 	}
 
 	async getAuthenticatedUser(): Promise<Profile | undefined> {
-		const azdo = await this.ensure();
-		const profileApi = await azdo._hub?.connection.getProfileApi();
-		const user = await profileApi?.getProfile('me', true);
-		return user;
+		try {
+			const azdo = await this.ensure();
+			// Profile api can't be hit at the org level, has to be hit at the deployment level, so url should be structured like set API_URL=https://vssps.dev.azure.com/{orgName}
+			const serverUrl = this.azdo?.orgUrl.replace('://dev.azure.com', '://app.vssps.visualstudio.com') || '';
+			console.log(serverUrl)
+			const profileApi = await azdo._hub?.connection.getProfileApi('https://app.vssps.visualstudio.com');
+			const user = await profileApi?.getProfile('me', true);
+			return user;
+		} catch (e) {
+			console.log(e);
+		}
 	}
 
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
