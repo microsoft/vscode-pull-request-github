@@ -106,15 +106,26 @@ describe('AzdoRepository', function () {
 		});
 	});
 
-	describe('getProfile', function () {
-		it('get my profile', async function () {
+	describe('authenticatedUser', function () {
+		it('get my identity', async function () {
 			await credentialStore.initialize();
 			const url = 'https://dev.azure.com/anksinha/test/_git/test';
 			const remote = new Remote('origin', url, new Protocol(url));
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
 			const user = await azdoRepo.getAuthenticatedUser();
-			console.log(user?.coreAttributes['displayName']);
-			expect(user?.id).to.exist('');
+			// tslint:disable-next-line: no-unused-expression
+			expect(user?.id).exist;
+		});
+
+		it('get my username', async function () {
+			await credentialStore.initialize();
+			const url = 'https://dev.azure.com/anksinha/test/_git/test';
+			const remote = new Remote('origin', url, new Protocol(url));
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const user = await azdoRepo.getAuthenticatedUserName();
+			console.log(user);
+			// tslint:disable-next-line: no-unused-expression
+			expect(user).is.not.empty;
 		});
 	});
 });

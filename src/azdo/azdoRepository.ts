@@ -7,8 +7,8 @@ import { PRCommentController } from '../view/prCommentController';
 import { convertAzdoBranchRefToIGitHubRef, convertAzdoPullRequestToRawPullRequest, convertBranchRefToBranchName } from './utils';
 import { ITelemetry } from '../common/telemetry';
 import { GitRepository, GitPullRequestSearchCriteria, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { Profile } from 'azure-devops-node-api/interfaces/ProfileInterfaces';
 import { IGitHubRef } from './interface';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -151,23 +151,33 @@ export class AzdoRepository implements vscode.Disposable {
 		}
 	}
 
+	// async getAuthenticatedUserName(): Promise<string> {
+	// 	const user = await this.getAuthenticatedUser();
+	// 	return user?.coreAttributes['displayName']?.value;
+	// }
+
+	// async getAuthenticatedUser(): Promise<Profile | undefined> {
+	// 	try {
+	// 		const azdo = await this.ensure();
+	// 		// Profile api can't be hit at the org level, has to be hit at the deployment level, so url should be structured like set API_URL=https://vssps.dev.azure.com/{orgName}
+	// 		const serverUrl = this.azdo?.orgUrl.replace('://dev.azure.com', '://app.vssps.visualstudio.com') || '';
+	// 		console.log(serverUrl)
+	// 		const profileApi = await azdo._hub?.connection.getProfileApi('https://app.vssps.visualstudio.com');
+	// 		const user = await profileApi?.getProfile('me', true);
+	// 		return user;
+	// 	} catch (e) {
+	// 		console.log(e);
+	// 	}
+	// }
+
 	async getAuthenticatedUserName(): Promise<string> {
 		const user = await this.getAuthenticatedUser();
-		return user?.coreAttributes['displayName']?.value;
+		return user?.properties['Account']['$value'];
 	}
 
-	async getAuthenticatedUser(): Promise<Profile | undefined> {
-		try {
-			const azdo = await this.ensure();
-			// Profile api can't be hit at the org level, has to be hit at the deployment level, so url should be structured like set API_URL=https://vssps.dev.azure.com/{orgName}
-			const serverUrl = this.azdo?.orgUrl.replace('://dev.azure.com', '://app.vssps.visualstudio.com') || '';
-			console.log(serverUrl)
-			const profileApi = await azdo._hub?.connection.getProfileApi('https://app.vssps.visualstudio.com');
-			const user = await profileApi?.getProfile('me', true);
-			return user;
-		} catch (e) {
-			console.log(e);
-		}
+	async getAuthenticatedUser(): Promise<Identity | undefined> {
+		const azdo = await this.ensure();
+		return azdo._hub?.authenticatedUser;
 	}
 
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
