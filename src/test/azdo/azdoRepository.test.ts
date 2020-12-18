@@ -48,84 +48,84 @@ describe('AzdoRepository', function () {
 		});
 	});
 
-	describe('branch', function () {
-		it('get default branch', async function () {
-			await credentialStore.initialize();
-			const url = 'https://dev.azure.com/anksinha/test/_git/test';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const branch = await azdoRepo.getDefaultBranch();
-			expect(branch).to.be.eq('main');
-		});
+	// describe('branch', function () {
+	// 	it('get default branch', async function () {
+	// 		await credentialStore.initialize();
+	// 		const url = 'https://dev.azure.com/anksinha/test/_git/test';
+	// 		const remote = new Remote('origin', url, new Protocol(url));
+	// 		const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+	// 		const branch = await azdoRepo.getDefaultBranch();
+	// 		expect(branch).to.be.eq('main');
+	// 	});
 
-		it('get specific branch', async function () {
-			await credentialStore.initialize();
-			const url = 'https://dev.azure.com/anksinha/test/_git/test';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const branch = await azdoRepo.getBranchRef('main');
-			expect(branch?.ref).to.be.eq('main');
-		});
-	});
+	// 	it('get specific branch', async function () {
+	// 		await credentialStore.initialize();
+	// 		const url = 'https://dev.azure.com/anksinha/test/_git/test';
+	// 		const remote = new Remote('origin', url, new Protocol(url));
+	// 		const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+	// 		const branch = await azdoRepo.getBranchRef('main');
+	// 		expect(branch?.ref).to.be.eq('main');
+	// 	});
+	// });
 
-	describe('pr', function () {
-		it('get all PRs', async function () {
-			await credentialStore.initialize();
-			const url = 'https://dev.azure.com/anksinha/test/_git/test';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prs = await azdoRepo.getAllPullRequests();
-			expect(prs?.length).to.be.greaterThan(2);
-		});
+	// describe('pr', function () {
+	// 	it('get all PRs', async function () {
+	// 		await credentialStore.initialize();
+	// 		const url = 'https://dev.azure.com/anksinha/test/_git/test';
+	// 		const remote = new Remote('origin', url, new Protocol(url));
+	// 		const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+	// 		const prs = await azdoRepo.getAllPullRequests();
+	// 		expect(prs?.length).to.be.greaterThan(2);
+	// 	});
 
-		it('get PR for test_pr branch', async function () {
-			await credentialStore.initialize();
-			const url = 'https://dev.azure.com/anksinha/test/_git/test';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prs = await azdoRepo.getPullRequestForBranch('refs/heads/test_pr');
-			expect(prs?.length).to.be.greaterThan(0);
-		});
+	// 	it('get PR for test_pr branch', async function () {
+	// 		await credentialStore.initialize();
+	// 		const url = 'https://dev.azure.com/anksinha/test/_git/test';
+	// 		const remote = new Remote('origin', url, new Protocol(url));
+	// 		const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+	// 		const prs = await azdoRepo.getPullRequestForBranch('refs/heads/test_pr');
+	// 		expect(prs?.length).to.be.greaterThan(0);
+	// 	});
 
-		it('get PR for main branch', async function () {
-			await credentialStore.initialize();
-			const url = 'https://dev.azure.com/anksinha/test/_git/test';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prs = await azdoRepo.getPullRequestForBranch('refs/heads/main');
-			expect(prs?.length).to.be.eq(0);
-		});
+	// 	it('get PR for main branch', async function () {
+	// 		await credentialStore.initialize();
+	// 		const url = 'https://dev.azure.com/anksinha/test/_git/test';
+	// 		const remote = new Remote('origin', url, new Protocol(url));
+	// 		const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+	// 		const prs = await azdoRepo.getPullRequestForBranch('refs/heads/main');
+	// 		expect(prs?.length).to.be.eq(0);
+	// 	});
 
-		it('get PR for deleted branch', async function () {
-			await credentialStore.initialize();
-			const url = 'https://dev.azure.com/anksinha/test/_git/test';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prs = await azdoRepo.getPullRequestForBranch('refs/heads/this_does_not_exist');
-			expect(prs?.length).to.be.eq(0);
-		});
-	});
+	// 	it('get PR for deleted branch', async function () {
+	// 		await credentialStore.initialize();
+	// 		const url = 'https://dev.azure.com/anksinha/test/_git/test';
+	// 		const remote = new Remote('origin', url, new Protocol(url));
+	// 		const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+	// 		const prs = await azdoRepo.getPullRequestForBranch('refs/heads/this_does_not_exist');
+	// 		expect(prs?.length).to.be.eq(0);
+	// 	});
+	// });
 
-	describe('authenticatedUser', function () {
-		it('get my identity', async function () {
-			await credentialStore.initialize();
-			const url = 'https://dev.azure.com/anksinha/test/_git/test';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const user = await azdoRepo.getAuthenticatedUser();
-			// tslint:disable-next-line: no-unused-expression
-			expect(user?.id).exist;
-		});
+	// describe('authenticatedUser', function () {
+	// 	it('get my identity', async function () {
+	// 		await credentialStore.initialize();
+	// 		const url = 'https://dev.azure.com/anksinha/test/_git/test';
+	// 		const remote = new Remote('origin', url, new Protocol(url));
+	// 		const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+	// 		const user = await azdoRepo.getAuthenticatedUser();
+	// 		// tslint:disable-next-line: no-unused-expression
+	// 		expect(user?.id).exist;
+	// 	});
 
-		it('get my username', async function () {
-			await credentialStore.initialize();
-			const url = 'https://dev.azure.com/anksinha/test/_git/test';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const user = await azdoRepo.getAuthenticatedUserName();
-			console.log(user);
-			// tslint:disable-next-line: no-unused-expression
-			expect(user).is.not.empty;
-		});
-	});
+	// 	it('get my username', async function () {
+	// 		await credentialStore.initialize();
+	// 		const url = 'https://dev.azure.com/anksinha/test/_git/test';
+	// 		const remote = new Remote('origin', url, new Protocol(url));
+	// 		const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+	// 		const user = await azdoRepo.getAuthenticatedUserName();
+	// 		console.log(user);
+	// 		// tslint:disable-next-line: no-unused-expression
+	// 		expect(user).is.not.empty;
+	// 	});
+	// });
 });

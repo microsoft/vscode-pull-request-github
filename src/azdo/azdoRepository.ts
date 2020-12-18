@@ -87,6 +87,10 @@ export class AzdoRepository implements vscode.Disposable {
 		return this._metadata;
 	}
 
+	async getRepositoryId(): Promise<string | undefined> {
+		return (await this.getMetadata())?.id;
+	}
+
 	async resolveRemote(): Promise<void> {
 		try {
 			const metadata = await this.getMetadata();

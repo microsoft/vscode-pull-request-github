@@ -5,7 +5,9 @@ import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
 import { PullRequest } from './interface';
-import { PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { convertAzdoPullRequestToRawPullRequest } from './utils';
+import Logger from '../common/logger';
 // import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability, PullRequestStatus } from './interface';
 // import { isReviewEvent, ReviewEvent as CommonReviewEvent, TimelineEvent } from '../common/timelineEvent';
 // import { ReviewEvent } from './interface';
@@ -40,7 +42,6 @@ export class PullRequestModel implements IPullRequestModel {
 	static ID = 'PullRequestModel';
 
 	public isDraft?: boolean;
-	public item: PullRequest;
 	public localBranchName?: string;
 	public mergeBase?: string;
 	private _hasPendingReview: boolean = false;
@@ -52,14 +53,14 @@ export class PullRequestModel implements IPullRequestModel {
 	_telemetry: ITelemetry;
 	public state: PullRequestStatus = PullRequestStatus.NotSet;
 
-	constructor(telemetry: ITelemetry, private azdoRepository: AzdoRepository, remote: Remote, item: PullRequest, isActive?: boolean) {
+	constructor(telemetry: ITelemetry, private azdoRepository: AzdoRepository, remote: Remote, public item: PullRequest, isActive?: boolean) {
+		// TODO: super.update was changing state of the issue and initializing some variable.
 		// super(azdoRepository, remote, item);
 
 		this._telemetry = telemetry;
 
 		this.isActive = isActive === undefined ? item.status === PullRequestStatus.Active: false;
-		// tslint:disable-next-line: no-unused-expression
-		this.azdoRepository.azdo;
+		this.isDraft = item.isDraft;
 	}
 
 	public get isMerged(): boolean {
@@ -90,52 +91,53 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 	}
 
-	// update(item: PullRequest): void {
-	// 	super.update(item);
-	// 	this.isDraft = item.isDraft;
+	update(item: PullRequest): void {
+		// TODO: super.update was changing state of the issue and initializing some variable.
+		// super.update(item);
+		this.isDraft = item.isDraft;
 
-	// 	if (item.head) {
-	// 		this.head = new GitHubRef(item.head.ref, '', item.head.sha, item.head.repo.cloneUrl);
-	// 	}
+		if (item.head && item.head.exists) {
+			this.head = new GitHubRef(item.head.ref, '', item.head.sha, item.head.repo.cloneUrl);
+		}
 
-	// 	if (item.base) {
-	// 		this.base = new GitHubRef(item.base.ref, '', item.base.sha, item.base.repo.cloneUrl);
-	// 	}
-	// }
+		if (item.base && item.base.exists) {
+			this.base = new GitHubRef(item.base.ref, '', item.base.sha, item.base.repo.cloneUrl);
+		}
+	}
 
-	// /**
-	//  * Validate if the pull request has a valid HEAD.
-	//  * Use only when the method can fail silently, otherwise use `validatePullRequestModel`
-	//  */
-	// isResolved(): this is IResolvedPullRequestModel {
-	// 	return !!this.head;
-	// }
+	/**
+	 * Validate if the pull request has a valid HEAD.
+	 * Use only when the method can fail silently, otherwise use `validatePullRequestModel`
+	 */
+	isResolved(): this is IResolvedPullRequestModel {
+		return !!this.head;
+	}
 
-	// /**
-	//  * Validate if the pull request has a valid HEAD. Show a warning message to users when the pull request is invalid.
-	//  * @param message Human readable action execution failure message.
-	//  */
-	// validatePullRequestModel(message?: string): this is IResolvedPullRequestModel {
-	// 	if (!!this.head) {
-	// 		return true;
-	// 	}
+	/**
+	 * Validate if the pull request has a valid HEAD. Show a warning message to users when the pull request is invalid.
+	 * @param message Human readable action execution failure message.
+	 */
+	validatePullRequestModel(message?: string): this is IResolvedPullRequestModel {
+		if (!!this.head) {
+			return true;
+		}
 
-	// 	const reason = `There is no upstream branch for Pull Request #${this.item.id}. View it on Azure Devops for more details`;
+		const reason = `There is no upstream branch for Pull Request #${this.getPullRequestId()}. View it on Azure Devops for more details`;
 
-	// 	if (message) {
-	// 		message += `: ${reason}`;
-	// 	} else {
-	// 		message = reason;
-	// 	}
+		if (message) {
+			message += `: ${reason}`;
+		} else {
+			message = reason;
+		}
 
-	// 	vscode.window.showWarningMessage(message, 'Open in Azure Devops').then(action => {
-	// 		if (action && action === 'Open in Azure Devops') {
-	// 			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.item.url || ''));
-	// 		}
-	// 	});
+		vscode.window.showWarningMessage(message, 'Open in Azure Devops').then(action => {
+			if (action && action === 'Open in Azure Devops') {
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.item.url || ''));
+			}
+		});
 
-	// 	return false;
-	// }
+		return false;
+	}
 
 	// /**
 	//  * Approve the pull request.
@@ -174,33 +176,76 @@ export class PullRequestModel implements IPullRequestModel {
 	// 		});
 	// }
 
-	// /**
-	//  * Close the pull request.
-	//  */
-	// async abandon(): Promise<PullRequest> {
-	// 	const azdoRepo = await this.azdoRepository.ensure();
-	// 	const metadata = await azdoRepo.getMetadata();
-	// 	const azdo = azdoRepo.azdo;
-	// 	const git = await azdo?.connection.getGitApi();
-	// 	const ret = await git?.updatePullRequest({ status: PullRequestStatus.Abandoned }, metadata?.id || '', this.item.id || -1);
+	/**
+	 * Close the pull request.
+	 */
+	async abandon(): Promise<PullRequest> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId();
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+		const ret = await git?.updatePullRequest({ status: PullRequestStatus.Abandoned }, repoId || '', this.getPullRequestId());
 
-	// 	/* __GDPR__
-	// 		"pr.close" : {}
-	// 	*/
-	// 	this._telemetry.sendTelemetryEvent('pr.close');
+		if (ret === undefined) {
+			Logger.debug('Update pull request did not return a valid PR', PullRequestModel.ID);
+			return this.item;
+		}
 
-	// 	return convertRESTPullRequestToRawPullRequest(ret, this.azdoRepository);
-	// }
+		/* __GDPR__
+			"pr.close" : {}
+		*/
+		this._telemetry.sendTelemetryEvent('pr.close');
 
-	// async createThread(description?: string) {
-	// 	const azdoRepo = await this.azdoRepository.ensure();
-	// 	const metadata = await azdoRepo.getMetadata();
-	// 	const azdo = azdoRepo.azdo;
-	// 	const git = await azdo?.connection.getGitApi();
+		return convertAzdoPullRequestToRawPullRequest(ret, this.azdoRepository);
+	}
 
-	// 	const res = await git?.createThread()
+	async createThread(message?: string, prCommentThreadContext?: GitPullRequestCommentThreadContext): Promise<GitPullRequestCommentThread | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
 
-	// }
+		const thread: GitPullRequestCommentThread = {
+			comments: [
+				{
+					commentType: CommentType.Text,
+					parentCommentId: 0,
+					content: message
+				}
+			],
+			status: CommentThreadStatus.Active,
+			pullRequestThreadContext: prCommentThreadContext
+		};
+
+		return await git?.createThread(thread, repoId, this.getPullRequestId());
+	}
+
+	async updateThreadStatus(threadId: number, status: CommentThreadStatus, prCommentThreadContext?: GitPullRequestCommentThreadContext): Promise<GitPullRequestCommentThread | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		const thread: GitPullRequestCommentThread = {
+			status,
+			pullRequestThreadContext: prCommentThreadContext
+		};
+
+		return await git?.updateThread(thread, repoId, this.getPullRequestId(), threadId);
+	}
+
+	async getAllThreads(iteration?: number, baseIteration?: number): Promise<GitPullRequestCommentThread[] | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return await git?.getThreads(repoId, this.getPullRequestId(), undefined, iteration, baseIteration);
+	}
+
+	getPullRequestId(): number {
+		return this.item.pullRequestId || -1;
+	}
 
 	// /**
 	//  * Create a new review.
