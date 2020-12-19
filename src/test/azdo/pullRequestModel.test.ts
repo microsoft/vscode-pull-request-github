@@ -9,6 +9,8 @@ import { AzdoRepository } from '../../azdo/azdoRepository';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import {expect} from 'chai';
+import { CommentThreadStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { PullRequestVote } from '../../azdo/interface';
 
 describe('PullRequestModel', function () {
 	let sinon: SinonSandbox;
@@ -40,6 +42,18 @@ describe('PullRequestModel', function () {
 	});
 
 	describe('thread', function () {
+		it('get all threads for a pr', async function () {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(7);
+
+			const threads = await prModel?.getAllThreads();
+
+			// tslint:disable-next-line: no-unused-expression
+			expect(threads?.length).to.be.greaterThan(0);
+		});
+
 		it('create new thread', async function () {
 			await credentialStore.initialize();
 
@@ -51,16 +65,79 @@ describe('PullRequestModel', function () {
 			expect(thread?.id).exist;
 		});
 
-		it('get all threads for a pr', async function () {
+		it('create new thread on specific line', async function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
 			const prModel = await azdoRepo.getPullRequest(7);
 
-			const threads = await prModel?.getAllThreads();
-			console.log(threads?.[0].id);
+			const thread = await prModel?.createThread(`This thread was created at ${Date.now()}`, { filePath: '/README.md', line: 2, startOffset: 0, endOffset: 0 });
 			// tslint:disable-next-line: no-unused-expression
-			expect(threads?.length).to.be.greaterThan(0);
+			expect(thread?.id).exist;
+		});
+
+		it('update thread status', async function () {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(7);
+
+			const threads = await prModel?.updateThreadStatus(11, CommentThreadStatus.Closed);
+
+			// tslint:disable-next-line: no-unused-expression
+			expect(threads?.status).to.be.eq(CommentThreadStatus.Closed);
+		});
+
+		it('create comment on a thread', async function () {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(7);
+
+			const comment = await prModel?.createCommentOnThread(11, `This comment was created at ${Date.now()}`);
+
+			expect(comment?.id).to.be.greaterThan(0);
+		});
+
+		it('edit a thread message', async function () {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(7);
+
+			const message = Date.now().toString();
+
+			const thread = await prModel?.editThread(message, 11, 1);
+
+			// tslint:disable-next-line: no-unused-expression
+			expect(thread?.content).to.be.eq(message);
+		});
+
+		it('edit a comment in a thread', async function () {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(7);
+
+			const message = Date.now().toString();
+
+			const thread = await prModel?.editThread(message, 11, 2);
+
+			// tslint:disable-next-line: no-unused-expression
+			expect(thread?.content).to.be.eq(message);
+		});
+	});
+
+	describe('vote', function () {
+		it('cast a vote', async function() {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(7);
+
+			const vote = await prModel?.submitVote(PullRequestVote.REJECTED);
+
+			expect(vote?.id).to.be.eq(azdoRepo.azdo?.authenticatedUser?.id);
 		});
 	});
 });

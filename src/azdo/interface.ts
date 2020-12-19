@@ -141,6 +141,14 @@ export interface Issue {
 	}[];
 }
 
+export enum PullRequestVote {
+	NO_VOTE = 0,
+	WAITING_FOR_AUTHOR = -5,
+	REJECTED = -10,
+	APPROVED_WITH_SUGGESTION = 5,
+	APPROVED = 10
+}
+
 export interface PullRequest extends GitPullRequest {
 	head?: IGitHubRef;
 	base?: IGitHubRef;

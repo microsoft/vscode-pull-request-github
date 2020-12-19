@@ -4,8 +4,8 @@ import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
-import { PullRequest } from './interface';
-import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { PullRequest, PullRequestVote } from './interface';
+import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { convertAzdoPullRequestToRawPullRequest } from './utils';
 import Logger from '../common/logger';
 // import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability, PullRequestStatus } from './interface';
@@ -113,6 +113,10 @@ export class PullRequestModel implements IPullRequestModel {
 		return !!this.head;
 	}
 
+	getPullRequestId(): number {
+		return this.item.pullRequestId || -1;
+	}
+
 	/**
 	 * Validate if the pull request has a valid HEAD. Show a warning message to users when the pull request is invalid.
 	 * @param message Human readable action execution failure message.
@@ -199,7 +203,11 @@ export class PullRequestModel implements IPullRequestModel {
 		return convertAzdoPullRequestToRawPullRequest(ret, this.azdoRepository);
 	}
 
-	async createThread(message?: string, prCommentThreadContext?: GitPullRequestCommentThreadContext): Promise<GitPullRequestCommentThread | undefined> {
+	async createThread(
+		message?: string,
+		threadContext?: {filePath: string, line: number, startOffset: number, endOffset: number},
+		prCommentThreadContext?: GitPullRequestCommentThreadContext): Promise<GitPullRequestCommentThread | undefined> {
+
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = await azdoRepo.getRepositoryId() || '';
 		const azdo = azdoRepo.azdo;
@@ -214,6 +222,11 @@ export class PullRequestModel implements IPullRequestModel {
 				}
 			],
 			status: CommentThreadStatus.Active,
+			threadContext: {
+				filePath: threadContext?.filePath,
+				rightFileStart: { line: threadContext?.line, offset: threadContext?.startOffset },
+				rightFileEnd: { line: threadContext?.line, offset: threadContext?.endOffset }
+			},
 			pullRequestThreadContext: prCommentThreadContext
 		};
 
@@ -243,8 +256,51 @@ export class PullRequestModel implements IPullRequestModel {
 		return await git?.getThreads(repoId, this.getPullRequestId(), undefined, iteration, baseIteration);
 	}
 
-	getPullRequestId(): number {
-		return this.item.pullRequestId || -1;
+	async createCommentOnThread(threadId: number, message: string, parentCommentId?: number): Promise<Comment | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		const comment: Comment = {
+			commentType: CommentType.Text,
+			parentCommentId: parentCommentId,
+			content: message
+		};
+
+		return await git?.createComment(comment, repoId, this.getPullRequestId(), threadId);
+	}
+
+	async getCommentsOnThread(threadId: number): Promise<Comment[] | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return await git?.getComments(repoId, this.getPullRequestId(), threadId);
+	}
+
+	async submitVote(vote: PullRequestVote): Promise<IdentityRefWithVote | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return await git?.createPullRequestReviewer({ vote: vote }, repoId, this.getPullRequestId(), azdo?.authenticatedUser?.id || '');
+	}
+
+	async editThread(message: string, threadId: number, commentId: number, prCommentThreadContext?: GitPullRequestCommentThreadContext): Promise<Comment | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		const comment: Comment = {
+			id: commentId,
+			content: message,
+		};
+
+		return await git?.updateComment(comment, repoId, this.getPullRequestId(), threadId, commentId);
 	}
 
 	// /**
