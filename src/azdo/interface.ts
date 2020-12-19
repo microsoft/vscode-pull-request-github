@@ -209,3 +209,8 @@ export interface PullRequestChecks {
 		context: string;
 	}[];
 }
+
+export interface ICommentPermissions {
+	canEdit: boolean;
+	canDelete: boolean;
+}

@@ -4,10 +4,11 @@ import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
-import { PullRequest, PullRequestVote } from './interface';
-import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { ICommentPermissions, PullRequest, PullRequestVote } from './interface';
+import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { convertAzdoPullRequestToRawPullRequest } from './utils';
 import Logger from '../common/logger';
+import { formatError } from '../common/utils';
 // import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability, PullRequestStatus } from './interface';
 // import { isReviewEvent, ReviewEvent as CommonReviewEvent, TimelineEvent } from '../common/timelineEvent';
 // import { ReviewEvent } from './interface';
@@ -301,6 +302,73 @@ export class PullRequestModel implements IPullRequestModel {
 		};
 
 		return await git?.updateComment(comment, repoId, this.getPullRequestId(), threadId, commentId);
+	}
+
+	getCommentPermission(comment: Comment): ICommentPermissions {
+		const user = this.azdoRepository.azdo?.authenticatedUser;
+		const isSameUser = comment.author?.id === user?.id;
+
+		return {
+			canDelete: isSameUser ?? false,
+			canEdit: isSameUser ?? false
+		};
+	}
+
+	async getCommits(forceRefresh: boolean): Promise<GitCommitRef[]> {
+		Logger.debug(`Fetch commits of PR #${this.getPullRequestId()} - enter`, PullRequestModel.ID);
+		let commits = this.item.commits;
+
+		if (!!commits && !forceRefresh) {
+			Logger.debug(`Fetch commits of PR #${this.getPullRequestId()} - cache hit`, PullRequestModel.ID);
+			return commits;
+		}
+
+		try {
+			Logger.debug(`Fetch commits of PR #${this.getPullRequestId()} - Cache hit failed`, PullRequestModel.ID);
+
+			const azdoRepo = await this.azdoRepository.ensure();
+			const repoId = await azdoRepo.getRepositoryId() || '';
+			const azdo = azdoRepo.azdo;
+			const git = await azdo?.connection.getGitApi();
+
+			commits = await git?.getPullRequestCommits(repoId, this.getPullRequestId());
+			this.item.commits = commits ?? [];
+
+			Logger.debug(`Fetch commits of PR #${this.getPullRequestId()} - done`, PullRequestModel.ID);
+			return this.item.commits;
+		} catch (e) {
+			vscode.window.showErrorMessage(`Fetching commits failed: ${formatError(e)}`);
+			return [];
+		}
+	}
+
+	/**
+	 * Get all changed files within a commit
+	 * @param commit The commit
+	 */
+	async getCommitChanges(commit: GitCommitRef): Promise<GitChange[]> {
+		try {
+			Logger.debug(`Fetch file changes of commit ${commit.commitId} in PR #${this.getPullRequestId()} - enter`, PullRequestModel.ID);
+
+			if (!!commit.changes) {
+				Logger.debug(`Fetch file changes of commit ${commit.commitId} in PR #${this.getPullRequestId()} - cache hit`, PullRequestModel.ID);
+				return commit.changes;
+			}
+
+			const azdoRepo = await this.azdoRepository.ensure();
+			const repoId = await azdoRepo.getRepositoryId() || '';
+			const azdo = azdoRepo.azdo;
+			const git = await azdo?.connection.getGitApi();
+
+			const changes = await git?.getChanges(commit.commitId || '', repoId);
+			commit.changes = changes?.changes;
+			Logger.debug(`Fetch file changes of commit ${commit.commitId} in PR #${this.getPullRequestId()} - done`, PullRequestModel.ID);
+
+			return commit.changes || [];
+		} catch (e) {
+			vscode.window.showErrorMessage(`Fetching commit changes failed: ${formatError(e)}`);
+			return [];
+		}
 	}
 
 	// /**
