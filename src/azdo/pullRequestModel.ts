@@ -6,7 +6,7 @@ import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
 import { ICommentPermissions, IRawFileChange, PullRequest, PullRequestVote } from './interface';
 import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange, GitBaseVersionDescriptor, GitVersionOptions, GitVersionType, GitCommitDiffs, FileDiffParams, FileDiff, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { convertAzdoPullRequestToRawPullRequest, readableToString } from './utils';
+import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readableToString } from './utils';
 import Logger from '../common/logger';
 import { formatError } from '../common/utils';
 // import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability, PullRequestStatus } from './interface';
@@ -440,8 +440,6 @@ export class PullRequestModel implements IPullRequestModel {
 		const diffsPromises: Promise<FileDiff[]>[] = [];
 		for (let i: number = 0; i <=batches; i++) {
 			const batchedChanges = changes!.changes.slice(i*BATCH_SIZE, Math.min((i+1)*BATCH_SIZE - 1, changes!.changes!.length - 1));
-			// tslint:disable-next-line: no-unused-expression
-			batchedChanges;
 			diffsPromises.push(this.getFileDiff(base.version!, target.version!, this.getFileDiffParamsFromChanges(batchedChanges)));
 		}
 
@@ -449,21 +447,29 @@ export class PullRequestModel implements IPullRequestModel {
 
 		const result: IRawFileChange[] = [];
 
-		for (const _diff of ([] as FileDiff[]).concat(...diffsPromisesResult)) { // flatten
-			// result.push({
-			// 	diffHunk:
-			// })
+		for (const diff of ([] as FileDiff[]).concat(...diffsPromisesResult)) { // flatten
+			const change_map = changes.changes!.find(c => c.item?.path === (diff.path!.length > 0 ? diff.path : diff.originalPath));
+			result.push({
+				diffHunk: getDiffHunkFromFileDiff(diff),
+				filename: diff.path!,
+				previous_filename: diff.originalPath!,
+				blob_url: change_map?.item?.url!,
+				raw_url: change_map?.item?.url!,
+				file_sha: change_map?.item?.objectId,
+				previous_file_sha: change_map?.item?.originalObjectId,
+				status: change_map?.changeType!
+			});
 		}
 		return result;
 	}
 
 	private getFileDiffParamsFromChanges(changes: GitChange[]): FileDiffParams[] {
-		return changes.filter(change => change.changeType !== VersionControlChangeType.None).map(change => {
+		const diff_params = changes.filter(change => change.changeType !== VersionControlChangeType.None).map(change => {
 			const params: FileDiffParams = { path: '', originalPath: '' };
 			// tslint:disable-next-line: no-bitwise
-			if (change.changeType! & VersionControlChangeType.Rename & change.changeType! & VersionControlChangeType.Edit) {
+			if (change.changeType! & VersionControlChangeType.Rename && change.changeType! & VersionControlChangeType.Edit) {
 				params.path = change.item!.path;
-				params.originalPath = changes.filter(c => c.item?.originalObjectId === change.item?.originalObjectId).pop()?.item?.path || '';
+				params.originalPath = change.sourceServerItem;
 			} if (change.changeType! === VersionControlChangeType.Rename) {
 				params.path = change.item!.path;
 			} else if (change.changeType! === VersionControlChangeType.Edit) {
@@ -477,6 +483,7 @@ export class PullRequestModel implements IPullRequestModel {
 			}
 			return params;
 		});
+		return diff_params;
 	}
 
 	// /**

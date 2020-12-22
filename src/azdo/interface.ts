@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { GitPullRequest, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { DiffHunk } from '../common/diffHunk';
 
 export enum PRType {
@@ -161,13 +161,10 @@ export interface IRawFileChange {
 	previous_file_sha?: string;
 	filename: string;
 	previous_filename?: string;
-	additions: number;
-	deletions: number;
-	changes: number;
-	status: string;
+	status: VersionControlChangeType;
 	raw_url: string;
 	blob_url: string;
-	patch: string;
+	patch?: string;
 	diffHunk?: DiffHunk[];
 }
 

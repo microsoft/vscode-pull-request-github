@@ -44,8 +44,23 @@ describe('PullRequestModel', function () {
 	});
 
 	describe('commit', function () {
-		it('get all commits in PR', async function () {
+		it('get files changed in the PR', async function () {
 			try {
+				await credentialStore.initialize();
+
+				const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+				const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
+
+				const files = await prModel?.getFileChangesInfo();
+
+				expect(files?.length).to.be.greaterThan(0);
+			} catch (e) {
+				// tslint:disable-next-line: no-unused-expression
+				throw e;
+			}
+		});
+
+		it('get all commits in PR', async function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
@@ -53,12 +68,7 @@ describe('PullRequestModel', function () {
 
 			const commits = await prModel?.getCommits();
 
-			// tslint:disable-next-line: no-unused-expression
 			expect(commits?.length).to.be.greaterThan(0);
-			} catch (e) {
-				// tslint:disable-next-line: no-unused-expression
-				e;
-			}
 		});
 
 		it('get commit changes', async function () {
