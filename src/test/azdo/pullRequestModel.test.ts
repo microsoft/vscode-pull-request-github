@@ -19,6 +19,8 @@ describe('PullRequestModel', function () {
 	const url = 'https://dev.azure.com/anksinha/test/_git/test';
 	const remote = new Remote('origin', url, new Protocol(url));
 
+	const PR_NUMBER = 7;
+
 	this.timeout(1000000);
 
 	before(function () {
@@ -41,12 +43,55 @@ describe('PullRequestModel', function () {
 		sinon.restore();
 	});
 
+	describe('commit', function () {
+		it('get all commits in PR', async function () {
+			try {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
+
+			const commits = await prModel?.getCommits();
+
+			// tslint:disable-next-line: no-unused-expression
+			expect(commits?.length).to.be.greaterThan(0);
+			} catch (e) {
+				// tslint:disable-next-line: no-unused-expression
+				e;
+			}
+		});
+
+		it('get commit changes', async function () {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
+
+			const changes = await prModel?.getCommitChanges({commitId: '75b5626cb4f8f2f2b40e2a4e47c6f040cba23169'});
+
+			// tslint:disable-next-line: no-unused-expression
+			expect(changes?.length).to.be.greaterThan(0);
+		});
+
+		it('get file content', async function () {
+			await credentialStore.initialize();
+
+			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
+
+			const content = await prModel?.getFile('8c2d0fd0a22b924dada06305cabe964bf763249a');
+
+			// tslint:disable-next-line: no-unused-expression
+			expect(content?.length).to.be.greaterThan(0);
+		});
+	});
+
 	describe('thread', function () {
 		it('get all threads for a pr', async function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prModel = await azdoRepo.getPullRequest(7);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
 			const threads = await prModel?.getAllThreads();
 
@@ -58,7 +103,7 @@ describe('PullRequestModel', function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prModel = await azdoRepo.getPullRequest(7);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
 			const thread = await prModel?.createThread(`This thread was created at ${Date.now()}`);
 			// tslint:disable-next-line: no-unused-expression
@@ -69,7 +114,7 @@ describe('PullRequestModel', function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prModel = await azdoRepo.getPullRequest(7);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
 			const thread = await prModel?.createThread(`This thread was created at ${Date.now()}`, { filePath: '/README.md', line: 2, startOffset: 0, endOffset: 0 });
 			// tslint:disable-next-line: no-unused-expression
@@ -80,7 +125,7 @@ describe('PullRequestModel', function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prModel = await azdoRepo.getPullRequest(7);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
 			const threads = await prModel?.updateThreadStatus(11, CommentThreadStatus.Closed);
 
@@ -92,7 +137,7 @@ describe('PullRequestModel', function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prModel = await azdoRepo.getPullRequest(7);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
 			const comment = await prModel?.createCommentOnThread(11, `This comment was created at ${Date.now()}`);
 
@@ -103,7 +148,7 @@ describe('PullRequestModel', function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prModel = await azdoRepo.getPullRequest(7);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
 			const message = Date.now().toString();
 
@@ -117,7 +162,7 @@ describe('PullRequestModel', function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prModel = await azdoRepo.getPullRequest(7);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
 			const message = Date.now().toString();
 
@@ -133,7 +178,7 @@ describe('PullRequestModel', function () {
 			await credentialStore.initialize();
 
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
-			const prModel = await azdoRepo.getPullRequest(7);
+			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
 			const vote = await prModel?.submitVote(PullRequestVote.REJECTED);
 

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { DiffHunk } from '../common/diffHunk';
 
 export enum PRType {
 	Query,
@@ -156,6 +157,8 @@ export interface PullRequest extends GitPullRequest {
 }
 
 export interface IRawFileChange {
+	file_sha?: string;
+	previous_file_sha?: string;
 	filename: string;
 	previous_filename?: string;
 	additions: number;
@@ -165,6 +168,7 @@ export interface IRawFileChange {
 	raw_url: string;
 	blob_url: string;
 	patch: string;
+	diffHunk?: DiffHunk[];
 }
 
 export interface IPullRequestsPagingOptions {

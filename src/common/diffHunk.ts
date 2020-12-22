@@ -32,7 +32,7 @@ export class DiffLine {
 		public oldLineNumber: number, /* 1 based */
 		public newLineNumber: number, /* 1 based */
 		public positionInHunk: number,
-		private _raw: string,
+		private _raw: string = '',
 		public endwithLineBreak: boolean = true
 	) { }
 }

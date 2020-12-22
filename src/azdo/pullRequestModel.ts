@@ -4,9 +4,9 @@ import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
-import { ICommentPermissions, PullRequest, PullRequestVote } from './interface';
-import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { convertAzdoPullRequestToRawPullRequest } from './utils';
+import { ICommentPermissions, IRawFileChange, PullRequest, PullRequestVote } from './interface';
+import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange, GitBaseVersionDescriptor, GitVersionOptions, GitVersionType, GitCommitDiffs, FileDiffParams, FileDiff, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { convertAzdoPullRequestToRawPullRequest, readableToString } from './utils';
 import Logger from '../common/logger';
 import { formatError } from '../common/utils';
 // import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability, PullRequestStatus } from './interface';
@@ -61,7 +61,7 @@ export class PullRequestModel implements IPullRequestModel {
 		this._telemetry = telemetry;
 
 		this.isActive = isActive === undefined ? item.status === PullRequestStatus.Active: false;
-		this.isDraft = item.isDraft;
+		this.update(item);
 	}
 
 	public get isMerged(): boolean {
@@ -314,7 +314,7 @@ export class PullRequestModel implements IPullRequestModel {
 		};
 	}
 
-	async getCommits(forceRefresh: boolean): Promise<GitCommitRef[]> {
+	async getCommits(forceRefresh?: boolean): Promise<GitCommitRef[]> {
 		Logger.debug(`Fetch commits of PR #${this.getPullRequestId()} - enter`, PullRequestModel.ID);
 		let commits = this.item.commits;
 
@@ -346,11 +346,11 @@ export class PullRequestModel implements IPullRequestModel {
 	 * Get all changed files within a commit
 	 * @param commit The commit
 	 */
-	async getCommitChanges(commit: GitCommitRef): Promise<GitChange[]> {
+	async getCommitChanges(commit: Partial<GitCommitRef>, forceRefresh?: boolean): Promise<GitChange[]> {
 		try {
 			Logger.debug(`Fetch file changes of commit ${commit.commitId} in PR #${this.getPullRequestId()} - enter`, PullRequestModel.ID);
 
-			if (!!commit.changes) {
+			if (!!commit.changes && !forceRefresh) {
 				Logger.debug(`Fetch file changes of commit ${commit.commitId} in PR #${this.getPullRequestId()} - cache hit`, PullRequestModel.ID);
 				return commit.changes;
 			}
@@ -369,6 +369,114 @@ export class PullRequestModel implements IPullRequestModel {
 			vscode.window.showErrorMessage(`Fetching commit changes failed: ${formatError(e)}`);
 			return [];
 		}
+	}
+
+	/**
+	 * Gets file content for a file at the specified commit
+	 * @param sha The sha of the file
+	 */
+	async getFile(sha: string) {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		const fileStream = await git?.getBlobContent(repoId, sha);
+
+		const fileContent = readableToString(fileStream);
+		return fileContent;
+	}
+
+	async getCommitDiffs(base:GitBaseVersionDescriptor, target: GitBaseVersionDescriptor): Promise<GitCommitDiffs | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return await git?.getCommitDiffs(repoId, undefined, undefined, undefined, undefined, base, target);
+	}
+
+	async getFileDiff(baseVersionCommit: string, targetVersionCommit: string, fileDiffParams: FileDiffParams[]): Promise<FileDiff[]> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return git!.getFileDiffs({
+				baseVersionCommit: baseVersionCommit,
+				targetVersionCommit: targetVersionCommit,
+				fileDiffParams: fileDiffParams},
+			this.azdoRepository.azdo!.projectName,
+			repoId);
+	}
+
+	/**
+	 * List the changed files in a pull request.
+	 */
+	async getFileChangesInfo(): Promise<IRawFileChange[]> {
+		Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.getPullRequestId()} - enter`, PullRequestModel.ID);
+
+		if (!this.base) {
+			this.update(this.item);
+		}
+
+		// baseVersion does not work. So using version.
+		const target: GitBaseVersionDescriptor = { version: this.item.head?.sha, versionOptions: GitVersionOptions.None, versionType: GitVersionType.Commit};
+		const base: GitBaseVersionDescriptor = { version: this.item.base?.sha, versionOptions: GitVersionOptions.None, versionType: GitVersionType.Commit};
+
+		if (!this.item.head?.exists) {
+			target.version = this.item.lastMergeSourceCommit?.commitId;
+			base.version = this.item.lastMergeTargetCommit?.commitId;
+		}
+
+		const changes = await this.getCommitDiffs(base, target);
+		if (!changes?.changes?.length) {
+			Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.getPullRequestId()} - No changes found - done`, PullRequestModel.ID);
+			return [];
+		}
+
+		const BATCH_SIZE = 10;
+		const batches = changes!.changes!.length/BATCH_SIZE;
+		const diffsPromises: Promise<FileDiff[]>[] = [];
+		for (let i: number = 0; i <=batches; i++) {
+			const batchedChanges = changes!.changes.slice(i*BATCH_SIZE, Math.min((i+1)*BATCH_SIZE - 1, changes!.changes!.length - 1));
+			// tslint:disable-next-line: no-unused-expression
+			batchedChanges;
+			diffsPromises.push(this.getFileDiff(base.version!, target.version!, this.getFileDiffParamsFromChanges(batchedChanges)));
+		}
+
+		const diffsPromisesResult = await Promise.all(diffsPromises);
+
+		const result: IRawFileChange[] = [];
+
+		for (const _diff of ([] as FileDiff[]).concat(...diffsPromisesResult)) { // flatten
+			// result.push({
+			// 	diffHunk:
+			// })
+		}
+		return result;
+	}
+
+	private getFileDiffParamsFromChanges(changes: GitChange[]): FileDiffParams[] {
+		return changes.filter(change => change.changeType !== VersionControlChangeType.None).map(change => {
+			const params: FileDiffParams = { path: '', originalPath: '' };
+			// tslint:disable-next-line: no-bitwise
+			if (change.changeType! & VersionControlChangeType.Rename & change.changeType! & VersionControlChangeType.Edit) {
+				params.path = change.item!.path;
+				params.originalPath = changes.filter(c => c.item?.originalObjectId === change.item?.originalObjectId).pop()?.item?.path || '';
+			} if (change.changeType! === VersionControlChangeType.Rename) {
+				params.path = change.item!.path;
+			} else if (change.changeType! === VersionControlChangeType.Edit) {
+				params.path = change.item!.path;
+				params.originalPath = change.item?.path;
+			} else if (change.changeType! === VersionControlChangeType.Add) {
+				params.path = change.item!.path;
+			// tslint:disable-next-line: no-bitwise
+			} else if (change.changeType! & VersionControlChangeType.Delete) {
+				params.originalPath = change.item!.path;
+			}
+			return params;
+		});
 	}
 
 	// /**
