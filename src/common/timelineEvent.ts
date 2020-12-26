@@ -17,7 +17,9 @@ export enum EventType {
 	Assigned,
 	HeadRefDeleted,
 	Merged,
-	Other
+	Other,
+	Thread,
+	ThreadComment
 }
 
 export interface Committer {

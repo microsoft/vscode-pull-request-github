@@ -112,6 +112,10 @@ export class CredentialStore implements vscode.Disposable {
 		return azdo;
 	}
 
+	public getAuthenticatedUser(): Identity | undefined {
+		return this._azdoAPI?.authenticatedUser;
+	}
+
 	dispose() {
 		this._disposables.forEach(disposable => disposable.dispose());
 	}

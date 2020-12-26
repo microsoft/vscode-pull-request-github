@@ -1,5 +1,6 @@
 import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
-import { FileDiff, GitBranchStats, GitPullRequest, LineDiffBlockChangeType, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { CommentType, FileDiff, GitBranchStats, GitCommitRef, GitPullRequest, GitPullRequestCommentThread, LineDiffBlockChangeType, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import { DiffChangeType, DiffHunk, DiffLine } from '../common/diffHunk';
 import { AzdoRepository } from './azdoRepository';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
@@ -31,6 +32,16 @@ export function convertRESTUserToAccount(user: IdentityRef): IAccount {
 	};
 }
 
+export function convertRESTIdentityToAccount(user: Identity): IAccount {
+	return {
+		name: user.providerDisplayName,
+		email: user.properties['Account']['$value'],
+		url: '',
+		id: user.id,
+		avatarUrl: ''
+	};
+}
+
 export function convertAzdoBranchRefToIGitHubRef(branch: GitBranchStats, repocloneUrl: string): IGitHubRef {
 	return {
 		ref: branch.name || '',
@@ -53,6 +64,14 @@ export async function readableToString(readable?: NodeJS.ReadableStream): Promis
 		result += chunk;
 	}
 	return result;
+}
+
+/**
+ * Used for case insensitive sort by login
+ */
+export function loginComparator(a: IAccount, b: IAccount) {
+	// sensitivity: 'accent' allows case insensitive comparison
+	return a.id?.localeCompare(b.id || '', 'en', { sensitivity: 'accent' }) || -1;
 }
 
 export function getDiffHunkFromFileDiff(fileDiff: FileDiff): DiffHunk[] {
@@ -114,4 +133,36 @@ export function getDiffHunkFromFileDiff(fileDiff: FileDiff): DiffHunk[] {
 	}
 
 	return diff;
+}
+
+export function isUserThread(thread: GitPullRequestCommentThread): boolean {
+	return thread.comments?.find(c => c.id === 1)?.commentType === CommentType.Text ?? true;
+}
+
+export function isSystemThread(thread: GitPullRequestCommentThread): boolean {
+	return thread.comments?.find(c => c.id === 1)?.commentType !== CommentType.Text ?? false;
+}
+
+export function getRelatedUsersFromPullrequest(pr: PullRequest, threads?: GitPullRequestCommentThread[], commits?: GitCommitRef[]): { login: string; name?: string; email?: string}[] {
+	if (!commits || commits.length === 0) {
+		commits = pr.commits;
+	}
+
+	const related_users: { login: string; name?: string; email?: string}[] = [];
+
+	related_users.push(
+		{
+			login: pr.createdBy?.uniqueName ?? pr.createdBy?.id ?? '',
+			email: pr.createdBy?.uniqueName,
+			name: pr.createdBy?.displayName
+		}
+	);
+
+	related_users.push(
+		...(pr.reviewers ?? []).map(r => {return { name: r.displayName, login: r.uniqueName ?? r.id ?? '', email: r.uniqueName};}),
+		...([] as IdentityRef[]).concat(...threads?.map(t => t.comments?.map(c => c.author!) || []) || []).map(r => {return { name: r.displayName, login: r.uniqueName ?? r.id ?? '', email: r.uniqueName};}),
+		...commits?.map(c => c.author ?? c.committer).filter(c => !!c).map(r => {return { name: r?.name, login: r?.email || '', email: r?.email};}) || []);
+
+	return related_users;
+
 }

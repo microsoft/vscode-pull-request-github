@@ -7,7 +7,7 @@ import { PRCommentController } from '../view/prCommentController';
 import { convertAzdoBranchRefToIGitHubRef, convertAzdoPullRequestToRawPullRequest, convertBranchRefToBranchName } from './utils';
 import { ITelemetry } from '../common/telemetry';
 import { GitRepository, GitPullRequestSearchCriteria, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { IGitHubRef } from './interface';
+import { IAccount, IGitHubRef } from './interface';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -114,15 +114,15 @@ export class AzdoRepository implements vscode.Disposable {
 		return 'main';
 	}
 
-	async getAllPullRequests(): Promise<PullRequestModel[] | undefined> {
+	async getAllPullRequests(): Promise<PullRequestModel[]> {
 		return await this.getPullRequests({status: PullRequestStatus.All});
 	}
 
-	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[] | undefined> {
+	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[]> {
 		return await this.getPullRequests({ sourceRefName: branch });
 	}
 
-	async getPullRequests(search: GitPullRequestSearchCriteria): Promise<PullRequestModel[] | undefined> {
+	async getPullRequests(search: GitPullRequestSearchCriteria): Promise<PullRequestModel[]> {
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, AzdoRepository.ID);
 			const azdo = await this.ensure();
@@ -149,6 +149,7 @@ export class AzdoRepository implements vscode.Disposable {
 			if (e.code === 404) {
 				// TODO: not found
 				vscode.window.showWarningMessage(`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`);
+				return [];
 			} else {
 				throw e;
 			}
@@ -229,5 +230,30 @@ export class AzdoRepository implements vscode.Disposable {
 				exists: false
 			};
 		}
+	}
+
+	async listBranches(): Promise<string[]> {
+		try {
+			Logger.debug(`List branches for ${this.remote.owner}/${this.remote.repositoryName} - enter`, AzdoRepository.ID);
+			const azdo = await this.ensure();
+			const metadata = await this.getMetadata();
+			const gitApi = await azdo._hub?.connection.getGitApi();
+			const branches = await gitApi?.getBranches(metadata!.id!)!;
+			Logger.debug(`List branches for ${this.remote.owner}/${this.remote.repositoryName} - done`, AzdoRepository.ID);
+			return branches?.map(branch => branch.name!) ?? [];
+		} catch (e) {
+			Logger.debug(`List branches for ${this.remote.owner}/${this.remote.repositoryName} failed`, AzdoRepository.ID);
+			throw e;
+		}
+	}
+
+	async getAssignableUsers(): Promise<IAccount[]> {
+		// TODO LATER
+		return [];
+	}
+
+	async getMentionableUsers(): Promise<IAccount[]> {
+		// TODO LATER
+		return [];
 	}
 }
