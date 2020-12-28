@@ -208,6 +208,7 @@ export interface PullRequestChecks {
 		description?: string;
 		target_url?: string;
 		context: string;
+		genre?: string;
 	}[];
 }
 

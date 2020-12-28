@@ -8,6 +8,7 @@
 import { Uri, UriHandler, EventEmitter } from 'vscode';
 import { GitChangeType } from './file';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestModel as AzdoPullRequestModel } from '../azdo/pullRequestModel';
 import { Repository } from '../api/api';
 import * as pathUtils from 'path';
 
@@ -135,6 +136,26 @@ export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit
 		prNumber: pullRequestModel.number,
 		status: status,
 		remoteName: pullRequestModel.githubRepository.remote.remoteName
+	};
+
+	const path = uri.path;
+
+	return uri.with({
+		scheme: 'pr',
+		path,
+		query: JSON.stringify(params)
+	});
+}
+
+export function toPRUriAzdo(uri: Uri, pullRequestModel: AzdoPullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean, status: GitChangeType): Uri {
+	const params: PRUriParams = {
+		baseCommit: baseCommit,
+		headCommit: headCommit,
+		isBase: base,
+		fileName: fileName,
+		prNumber: pullRequestModel.getPullRequestId(),
+		status: status,
+		remoteName: pullRequestModel.azdoRepository.remote.remoteName
 	};
 
 	const path = uri.path;

@@ -10,6 +10,8 @@
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
 import { Repository } from '../api/api';
 import { IRawFileChange } from '../github/interface';
+import { IRawFileChange as IAzdoRawFileChange } from '../azdo/interface';
+import { VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export enum DiffChangeType {
 	Context,
@@ -288,4 +290,58 @@ export async function parseDiff(reviews: IRawFileChange[], repository: Repositor
 	}
 
 	return fileChanges;
+}
+
+export async function parseDiffAzdo(reviews: IAzdoRawFileChange[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
+	const fileChanges: (InMemFileChange | SlimFileChange)[] = [];
+
+	for (let i = 0; i < reviews.length; i++) {
+		const review = reviews[i];
+		const gitChangeType = getGitChangeTypeFromVersionControlChangeType(review.status);
+
+		if (!review.patch) {
+			fileChanges.push(new SlimFileChange(parentCommit, review.blob_url, gitChangeType, review.filename, review.previous_filename));
+			continue;
+		}
+
+		let originalFileExist = false;
+
+		switch (gitChangeType) {
+			case GitChangeType.RENAME:
+			case GitChangeType.MODIFY:
+				try {
+					await repository.getObjectDetails(parentCommit, review.filename);
+					originalFileExist = true;
+				} catch (err) { /* noop */ }
+				break;
+			case GitChangeType.DELETE:
+				try {
+					await repository.getObjectDetails(parentCommit, review.previous_filename!);
+					originalFileExist = true;
+				} catch (err) { /* noop */ }
+				break;
+		}
+
+		const diffHunks = review.diffHunk ?? [];
+		const isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
+		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.previous_filename, review.patch, diffHunks, isPartial, review.blob_url));
+	}
+
+	return fileChanges;
+}
+
+export function getGitChangeTypeFromVersionControlChangeType(status: VersionControlChangeType): GitChangeType {
+	// tslint:disable-next-line: no-bitwise
+	if (status & VersionControlChangeType.Delete || status & VersionControlChangeType.SourceRename) {
+		return GitChangeType.DELETE;
+	// tslint:disable-next-line: no-bitwise
+	} else if (status & VersionControlChangeType.Rename) {
+		return GitChangeType.RENAME;
+	} else if (status === VersionControlChangeType.Add) {
+		return GitChangeType.ADD;
+	// tslint:disable-next-line: no-bitwise
+	} else if (status & VersionControlChangeType.Edit) {
+		return GitChangeType.MODIFY;
+	}
+	return GitChangeType.UNKNOWN;
 }

@@ -1,14 +1,19 @@
 import * as vscode from 'vscode';
-// import * as path from 'path';
+import * as path from 'path';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
-import { ICommentPermissions, IRawFileChange, PullRequest, PullRequestVote } from './interface';
-import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange, GitBaseVersionDescriptor, GitVersionOptions, GitVersionType, GitCommitDiffs, FileDiffParams, FileDiff, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { ICommentPermissions, IRawFileChange, PullRequest, PullRequestChecks, PullRequestVote } from './interface';
+import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange, GitBaseVersionDescriptor, GitVersionOptions, GitVersionType, GitCommitDiffs, FileDiffParams, FileDiff, VersionControlChangeType, GitStatusState, GitPullRequest, PullRequestAsyncStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readableToString } from './utils';
 import Logger from '../common/logger';
 import { formatError } from '../common/utils';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { IComment } from '../common/comment';
+import { parseDiffAzdo } from '../common/diffHunk';
+import { GitChangeType } from '../common/file';
+import { toPRUriAzdo, toReviewUri } from '../common/uri';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -155,6 +160,15 @@ export class PullRequestModel implements IPullRequestModel {
 		return convertAzdoPullRequestToRawPullRequest(ret, this.azdoRepository);
 	}
 
+	async updatePullRequest(title?: string, description?: string): Promise<GitPullRequest> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId();
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return git!.updatePullRequest({ description, title}, repoId!, this.getPullRequestId());
+	}
+
 	async createThread(
 		message?: string,
 		threadContext?: {filePath: string, line: number, startOffset: number, endOffset: number},
@@ -241,7 +255,7 @@ export class PullRequestModel implements IPullRequestModel {
 		return await git?.createPullRequestReviewer({ vote: vote }, repoId, this.getPullRequestId(), azdo?.authenticatedUser?.id || '');
 	}
 
-	async editThread(message: string, threadId: number, commentId: number, prCommentThreadContext?: GitPullRequestCommentThreadContext): Promise<Comment | undefined> {
+	async editThread(message: string, threadId: number, commentId: number): Promise<Comment> {
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = await azdoRepo.getRepositoryId() || '';
 		const azdo = azdoRepo.azdo;
@@ -252,7 +266,7 @@ export class PullRequestModel implements IPullRequestModel {
 			content: message,
 		};
 
-		return await git?.updateComment(comment, repoId, this.getPullRequestId(), threadId, commentId);
+		return await git!.updateComment(comment, repoId, this.getPullRequestId(), threadId, commentId);
 	}
 
 	getCommentPermission(comment: Comment): ICommentPermissions {
@@ -361,6 +375,53 @@ export class PullRequestModel implements IPullRequestModel {
 			repoId);
 	}
 
+	equals(other: PullRequestModel | undefined): boolean {
+		if (!other) {
+			return false;
+		}
+
+		if (this.getPullRequestId() !== other.getPullRequestId()) {
+			return false;
+		}
+
+		if (this.item.url !== other.item.url) {
+			return false;
+		}
+
+		return true;
+	}
+	async getStatusChecks(): Promise<PullRequestChecks> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		const pr_statuses = await git?.getPullRequestStatuses(repoId, this.getPullRequestId());
+
+		const statuses: PullRequestChecks = {
+			state: GitStatusState.Pending.toString(),
+			statuses: pr_statuses?.map(status => {
+				return {
+					id: status.id!.toString(),
+					url: status.targetUrl,
+					description: status.description,
+					state: status.state?.toString(),
+					context: status.context?.name || 'pending',
+					target_url: status.targetUrl,
+					genre: status.context?.genre
+				};
+			})!
+		};
+
+		if (pr_statuses?.every(s => s.state === GitStatusState.Succeeded)) {
+			statuses.state = GitStatusState.Succeeded.toString();
+		} else if (pr_statuses?.some(s => s.state === GitStatusState.Error || s.state === GitStatusState.Failed)) {
+			statuses.state = GitStatusState.Failed.toString();
+		}
+
+		return statuses;
+	}
+
 	/**
 	 * List the changed files in a pull request.
 	 */
@@ -411,7 +472,30 @@ export class PullRequestModel implements IPullRequestModel {
 				status: change_map?.changeType!
 			});
 		}
+
+		// Find mergebase to be used later.
+		this.mergeBase = (await this.getMergeBase(base.version!, target.version!))?.[0].commitId;
+
 		return result;
+	}
+
+	async getMergability(): Promise<PullRequestAsyncStatus> {
+		// TODO Can I just return current _item status?
+		return (await this.azdoRepository.getPullRequest(this.item.pullRequestId!))!.item.mergeStatus!;
+	}
+
+	private async getMergeBase(sourceCommit: string, targetCommit: string): Promise<GitCommitRef[] | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return await git?.getMergeBases(repoId, sourceCommit, targetCommit);
+	}
+
+	async canEdit(): Promise<boolean> {
+		const username = await this.azdoRepository.getAuthenticatedUserName();
+		return this.item.createdBy?.uniqueName === username;
 	}
 
 	private getFileDiffParamsFromChanges(changes: GitChange[]): FileDiffParams[] {
@@ -435,5 +519,42 @@ export class PullRequestModel implements IPullRequestModel {
 			return params;
 		});
 		return diff_params;
+	}
+
+	static async openDiffFromComment(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, comment: IComment): Promise<void> {
+		const fileChanges = await pullRequestModel.getFileChangesInfo();
+		const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
+		const contentChanges = await parseDiffAzdo(fileChanges, folderManager.repository, mergeBase);
+		const change = contentChanges.find(fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path);
+		if (!change) {
+			throw new Error(`Can't find matching file`);
+		}
+
+		let headUri, baseUri: vscode.Uri;
+		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
+			const headCommit = pullRequestModel.head!.sha;
+			const parentFileName = change.status === GitChangeType.DELETE ? change.previousFileName! : change.fileName;
+			headUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status);
+			baseUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status);
+		} else {
+			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
+
+			headUri = change.status === GitChangeType.DELETE
+				? toReviewUri(uri, undefined, undefined, '', false, { base: false }, folderManager.repository.rootUri)
+				: uri;
+
+			baseUri = toReviewUri(
+				uri,
+				change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
+				undefined,
+				change.status === GitChangeType.ADD ? '' : mergeBase,
+				false,
+				{ base: true },
+				folderManager.repository.rootUri
+			);
+		}
+
+		const pathSegments = comment.path!.split('/');
+		vscode.commands.executeCommand('vscode.diff', baseUri, headUri, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, {});
 	}
 }
