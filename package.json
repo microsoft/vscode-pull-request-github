@@ -1273,6 +1273,11 @@
           "group": "inline@2",
           "when": "commentController =~ /^(browse|review)/"
         }
+      ],
+      "gitlens/editor/context/copy": [
+        {
+          "command": "issue.copyGithubPermalink"
+        }
       ]
     },
     "colors": [
