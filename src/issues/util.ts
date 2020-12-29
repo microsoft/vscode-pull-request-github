@@ -394,6 +394,7 @@ export async function createGithubPermalink(gitAPI: GitApiImpl, positionInfo?: N
 				}
 			}
 		}
+		resolve(undefined);
 	});
 
 	let upstream: Remote | undefined = await Promise.race([getUpstream(repository, log[0]),
