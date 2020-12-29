@@ -15,7 +15,7 @@
   "version": "0.22.0",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.52.0"
+    "vscode": "^1.53.0"
   },
   "categories": [
     "Other"
@@ -483,11 +483,6 @@
         "icon": "$(compare-changes)"
       },
       {
-        "command": "pr.openChangedFile",
-        "title": "Open Changed File in PR",
-        "category": "GitHub Pull Requests"
-      },
-      {
         "command": "pr.openDescription",
         "title": "View Pull Request Description",
         "category": "GitHub Pull Requests",
@@ -784,10 +779,6 @@
         },
         {
           "command": "review.openFile",
-          "when": "false"
-        },
-        {
-          "command": "pr.openChangedFile",
           "when": "false"
         },
         {

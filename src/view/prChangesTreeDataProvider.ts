@@ -97,6 +97,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}
 	}
 
+	async resolveTreeItem?(item: vscode.TreeItem, element: TreeNode): Promise<vscode.TreeItem> {
+		if (element instanceof GitFileChangeNode) {
+			await element.resolve();
+		}
+		return element;
+	}
+
 	dispose() {
 		this._disposables.forEach(disposable => disposable.dispose());
 	}

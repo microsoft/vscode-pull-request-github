@@ -77,6 +77,7 @@ describe('ReviewCommentController', function () {
 	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri): GitFileChangeNode {
 		return new GitFileChangeNode(
 			provider.view,
+			manager,
 			activePullRequest,
 			GitChangeType.MODIFY,
 			fileName,
