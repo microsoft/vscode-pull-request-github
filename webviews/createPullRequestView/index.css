@@ -1,0 +1,70 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+input, textarea {
+	padding: 5px !important;
+}
+
+select {
+	width: 100%;
+}
+
+textarea {
+	height: 100px;
+}
+
+.actions {
+	margin-top: 10px;
+	display: flex;
+	justify-content: space-between;
+}
+
+svg, svg path {
+	fill: var(--vscode-foreground);
+}
+
+.icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.wrapper {
+	margin-top: 10px;
+	display: flex;
+}
+
+.input-wrapper {
+	flex-grow: 1;
+}
+
+.wrapper button {
+	background-color: inherit;
+	color: inherit;
+	height: 28px;
+	padding: 0px;
+}
+
+.wrapper span {
+	display: flex;
+	padding: 5px;
+}
+
+body {
+	padding: 5px 20px;
+}
+
+.validation-error {
+	padding: 5px;
+	border: 1px solid var(--vscode-inputValidation-errorBorder);
+	background-color: var(--vscode-inputValidation-errorBackground);
+}
+
+.below-input-error {
+	border-top: none !important;
+}
+
+.input-error {
+	border: 1px solid var(--vscode-inputValidation-errorBorder) !important;
+}

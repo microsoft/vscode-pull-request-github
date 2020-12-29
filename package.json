@@ -384,7 +384,7 @@
         {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview && !github:createPullRequest",
           "icon": "resources/icons/pull-request.png"
         },
         {
@@ -396,8 +396,15 @@
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview &&!github:createPullRequest",
           "icon": "resources/icons/issues.png"
+        },
+        {
+          "id": "github:createPullRequest",
+          "type": "webview",
+          "name": "Create Pull Request",
+          "when": "github:createPullRequest",
+          "visibility": "visible"
         }
       ]
     },
@@ -1306,11 +1313,18 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "webpack --env.production --config-name webviewIndex.js && webpack --env.production --config-name activityBar-webviewIndex.js && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
+    "webpack-description": "webpack --config-name webviewIndex.js",
+    "webpack-active-pr": "webpack --config-name activityBar-webviewIndex.js",
+    "webpack-create": "webpack --config-name createPR-webviewIndex.js",
+
+    "webpack:dev": "yarn run webpack-description --env.development && yarn run webpack-active-pr --env.development && yarn run webpack-create --env.production",
+    "webpack:prod": "yarn run webpack-description --env.production && yarn run webpack-active-pr --env.production && yarn run webpack-create --env.production",
+
+    "vscode:prepublish": "yarn run webpack:prod && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
     "postinstall": "cd src/typings && npx vscode-dts master && npx vscode-dts dev master",
     "compile": "tsc -p ./",
     "clean": "rm -r out/ media/",
-    "webpack": "webpack --env.development --config-name webviewIndex.js && webpack --env.development --config-name activityBar-webviewIndex.js && webpack --env.development --config-name extension",
+    "webpack": "yarn run webpack:dev && webpack --env.development --config-name extension",
     "watch": "webpack --watch --env.development --info-verbosity verbose",
     "test": "yarn run preprocess && node ./out/test/runTests.js",
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
