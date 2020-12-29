@@ -629,6 +629,11 @@
         "category": "GitHub Issues"
       },
       {
+        "command": "issue.copyMarkdownGithubPermalink",
+        "title": "Copy Markdown GitHub Permalink",
+        "category": "GitHub Issues"
+      },
+      {
         "command": "issue.openGithubPermalink",
         "title": "Open Permalink in GitHub",
         "category": "GitHub Issues"
