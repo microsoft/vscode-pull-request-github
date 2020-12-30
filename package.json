@@ -630,7 +630,7 @@
       },
       {
         "command": "issue.copyMarkdownGithubPermalink",
-        "title": "Copy Markdown GitHub Permalink",
+        "title": "Copy GitHub Permalink as Markdown",
         "category": "GitHub Issues"
       },
       {
