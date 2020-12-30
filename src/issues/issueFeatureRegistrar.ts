@@ -60,6 +60,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
 			return this.copyPermalink();
 		}, this));
+		this.context.subscriptions.push(vscode.commands.registerCommand('issue.copyMarkdownGithubPermalink', () => {
+			/* __GDPR__
+				"issue.copyMarkdownGithubPermalink" : {}
+			*/
+			this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalink');
+			return this.copyMarkdownPermalink();
+		}, this));
 		this.context.subscriptions.push(vscode.commands.registerCommand('issue.openGithubPermalink', () => {
 			/* __GDPR__
 				"issue.openGithubPermalink" : {}
@@ -704,14 +711,41 @@ ${body ?? ''}\n
 	async copyPermalink() {
 		const link = await this.getPermalinkWithError();
 		if (link) {
-			vscode.env.clipboard.writeText(link);
+			return vscode.env.clipboard.writeText(link);
+		}
+	}
+
+	private getMarkdownLinkText(): string | undefined {
+		if (!vscode.window.activeTextEditor) {
+			return undefined;
+		}
+		let editorSelection: vscode.Range | undefined = vscode.window.activeTextEditor.selection;
+		if (editorSelection.start.line !== editorSelection.end.line) {
+			editorSelection = new vscode.Range(editorSelection.start, new vscode.Position(editorSelection.start.line + 1, 0));
+		}
+		const selection = vscode.window.activeTextEditor.document.getText(editorSelection);
+		if (selection) {
+			return selection;
+		}
+		editorSelection = vscode.window.activeTextEditor.document.getWordRangeAtPosition(editorSelection.start);
+		if (editorSelection) {
+			return vscode.window.activeTextEditor.document.getText(editorSelection);
+		}
+		return undefined;
+	}
+
+	async copyMarkdownPermalink() {
+		const link = await this.getPermalinkWithError();
+		const selection = this.getMarkdownLinkText();
+		if (link && selection) {
+			return vscode.env.clipboard.writeText(`[${selection.trim()}](${link})`);
 		}
 	}
 
 	async openPermalink() {
 		const link = await this.getPermalinkWithError();
 		if (link) {
-			vscode.env.openExternal(vscode.Uri.parse(link));
+			return vscode.env.openExternal(vscode.Uri.parse(link));
 		}
 	}
 }
