@@ -7,11 +7,29 @@ import * as vscode from 'vscode';
 import { FolderRepositoryManager, titleAndBodyFrom } from './folderRepositoryManager';
 import webviewContent from '../../media/createPR-webviewIndex.js';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
-import { PullRequestDescriptionSource, PullRequestDescriptionSourceEnum, PullRequestTitleSource, PullRequestTitleSourceEnum } from '../view/quickpick';
 import * as PersistentState from '../common/persistentState';
 import { PR_SETTINGS_NAMESPACE, PR_TITLE } from '../common/settingKeys';
 import { OctokitCommon } from './common';
 import { PullRequestModel } from './pullRequestModel';
+import Logger from '../common/logger';
+
+export type PullRequestTitleSource = 'commit' | 'branch' | 'custom' | 'ask';
+
+export enum PullRequestTitleSourceEnum {
+	Commit = 'commit',
+	Branch = 'branch',
+	Custom = 'custom',
+	Ask = 'ask'
+}
+
+export type PullRequestDescriptionSource = 'template' | 'commit' | 'custom' | 'ask';
+
+export enum PullRequestDescriptionSourceEnum {
+	Template = 'template',
+	Commit = 'commit',
+	Custom = 'custom',
+	Ask = 'ask'
+}
 
 interface RemoteInfo {
 	owner: string;
@@ -89,7 +107,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 						const templateContent = await vscode.workspace.fs.readFile(templateUris[0]);
 						return templateContent.toString();
 					} catch (e) {
-						// Logger.appendLine(`Reading pull request template failed: ${e}`);
+						Logger.appendLine(`Reading pull request template failed: ${e}`);
 						return '';
 					}
 				}
@@ -247,7 +265,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-			<title>Active Pull Request</title>
+			<title>Create Pull Request</title>
 		</head>
 		<body>
 			<div id="app"></div>

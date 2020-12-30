@@ -25,6 +25,7 @@ import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import { CreatePullRequestViewProvider } from '../github/createPRViewProvider';
+import { openDescription } from '../commands';
 
 const FOCUS_REVIEW_MODE = 'github:focusedReview';
 
@@ -658,7 +659,7 @@ export class ReviewManager {
 
 				if (createdPR) {
 					await this.updateState();
-					await vscode.commands.executeCommand('pr.openDescription', createdPR);
+					await openDescription(this._context, this._telemetry, createdPR, this._folderRepoManager, this);
 				}
 			}));
 

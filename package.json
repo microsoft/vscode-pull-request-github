@@ -1317,7 +1317,7 @@
     "webpack-active-pr": "webpack --config-name activityBar-webviewIndex.js",
     "webpack-create": "webpack --config-name createPR-webviewIndex.js",
 
-    "webpack:dev": "yarn run webpack-description --env.development && yarn run webpack-active-pr --env.development && yarn run webpack-create --env.production",
+    "webpack:dev": "yarn run webpack-description --env.development && yarn run webpack-active-pr --env.development && yarn run webpack-create --env.development",
     "webpack:prod": "yarn run webpack-description --env.production && yarn run webpack-active-pr --env.production && yarn run webpack-create --env.production",
 
     "vscode:prepublish": "yarn run webpack:prod && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
@@ -1330,7 +1330,12 @@
     "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
     "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
     "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources",
-    "compile-web": "npx webpack-cli --config browser.webpack.config  --config-name webviewIndex.js --mode none && npx webpack-cli --config browser.webpack.config --config-name activityBar-webviewIndex.js && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
+
+    "compile-web-description": "npx webpack-cli --config browser.webpack.config  --config-name webviewIndex.js --mode none",
+    "compile-web-active-pr": "npx webpack-cli --config browser.webpack.config --config-name activityBar-webviewIndex.js --mode none",
+    "compile-web-create": "npx webpack-cli --config browser.webpack.config  --config-name createPR-webviewIndex.js --mode none",
+
+    "compile-web": "yarn run compile-web-description && yarn run compile-web-active-pr && yarn run compile-web-create && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
     "watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
   },
   "devDependencies": {
