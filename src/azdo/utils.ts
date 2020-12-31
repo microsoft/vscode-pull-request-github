@@ -1,9 +1,12 @@
+import * as vscode from 'vscode';
 import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 import { CommentType, FileDiff, GitBranchStats, GitCommitRef, GitPullRequest, GitPullRequestCommentThread, LineDiffBlockChangeType, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
+import { Reaction } from '../common/comment';
 import { DiffChangeType, DiffHunk, DiffLine } from '../common/diffHunk';
 import { AzdoRepository } from './azdoRepository';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
+import { Resource } from '../common/resources';
 
 export async function convertAzdoPullRequestToRawPullRequest(pullRequest: GitPullRequest, azdoRepo: AzdoRepository): Promise<PullRequest> {
 	const {
@@ -165,4 +168,70 @@ export function getRelatedUsersFromPullrequest(pr: PullRequest, threads?: GitPul
 
 	return related_users;
 
+}
+
+export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
+	const ret = [
+		{
+			title: 'THUMBS_UP',
+			label: '👍',
+			icon: Resource.icons.reactions.THUMBS_UP
+		},
+		{
+			title: 'THUMBS_DOWN',
+			label: '👎',
+			icon: Resource.icons.reactions.THUMBS_DOWN
+		},
+		{
+			title: 'LAUGH',
+			label: '😄',
+			icon: Resource.icons.reactions.LAUGH
+		},
+		{
+			title: 'HOORAY',
+			label: '🎉',
+			icon: Resource.icons.reactions.HOORAY
+		},
+		{
+			title: 'CONFUSED',
+			label: '😕',
+			icon: Resource.icons.reactions.CONFUSED
+		},
+		{
+			title: 'HEART',
+			label: '❤️',
+			icon: Resource.icons.reactions.HEART
+		},
+		{
+			title: 'ROCKET',
+			label: '🚀',
+			icon: Resource.icons.reactions.ROCKET
+		},
+		{
+			title: 'EYES',
+			label: '👀',
+			icon: Resource.icons.reactions.EYES
+		}
+	];
+
+	return ret;
+}
+
+export function generateCommentReactions(reactions: Reaction[] | undefined) {
+	return getReactionGroup().map(reaction => {
+		if (!reactions) {
+			return { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
+		}
+
+		const matchedReaction = reactions.find(re => re.label === reaction.label);
+
+		if (matchedReaction) {
+			return { label: matchedReaction.label, authorHasReacted: matchedReaction.viewerHasReacted, count: matchedReaction.count, iconPath: reaction.icon || '' };
+		} else {
+			return { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
+		}
+	});
+}
+export function updateCommentReactions(comment: vscode.Comment, reactions: Reaction[] | undefined) {
+	comment.reactions = generateCommentReactions(reactions);
 }
