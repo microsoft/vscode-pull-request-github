@@ -69,7 +69,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 		onDidUpdatePR(pr => {
 			if (pr) {
-				this._item.update(pr);
+				// this._item.update(pr);
 			}
 
 			this._postMessage({
