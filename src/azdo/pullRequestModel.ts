@@ -340,7 +340,7 @@ export class PullRequestModel implements IPullRequestModel {
 	 * Gets file content for a file at the specified commit
 	 * @param sha The sha of the file
 	 */
-	async getFile(sha: string) {
+	async getFile(sha: string): Promise<string> {
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = await azdoRepo.getRepositoryId() || '';
 		const azdo = azdoRepo.azdo;
@@ -348,8 +348,8 @@ export class PullRequestModel implements IPullRequestModel {
 
 		const fileStream = await git?.getBlobContent(repoId, sha);
 
-		const fileContent = readableToString(fileStream);
-		return fileContent;
+		const fileContent = await readableToString(fileStream);
+		return fileContent ?? '';
 	}
 
 	async getCommitDiffs(base:GitBaseVersionDescriptor, target: GitBaseVersionDescriptor): Promise<GitCommitDiffs | undefined> {

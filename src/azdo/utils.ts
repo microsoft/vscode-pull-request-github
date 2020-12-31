@@ -7,6 +7,15 @@ import { DiffChangeType, DiffHunk, DiffLine } from '../common/diffHunk';
 import { AzdoRepository } from './azdoRepository';
 import { IAccount, PullRequest, IGitHubRef } from './interface';
 import { Resource } from '../common/resources';
+import { GitApiImpl } from '../api/api1';
+import { Repository } from '../api/api';
+import { GHPRComment, GHPRCommentThread } from './prComment';
+import { uniqBy } from '../common/utils';
+import { ThreadData } from '../view/treeNodes/pullRequestNode';
+
+export interface CommentReactionHandler {
+	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
+}
 
 export async function convertAzdoPullRequestToRawPullRequest(pullRequest: GitPullRequest, azdoRepo: AzdoRepository): Promise<PullRequest> {
 	const {
@@ -234,4 +243,56 @@ export function generateCommentReactions(reactions: Reaction[] | undefined) {
 }
 export function updateCommentReactions(comment: vscode.Comment, reactions: Reaction[] | undefined) {
 	comment.reactions = generateCommentReactions(reactions);
+}
+
+export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repository | undefined {
+	for (const repository of gitAPI.repositories) {
+		if ((file.path.toLowerCase() === repository.rootUri.path.toLowerCase()) ||
+			(file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase())
+				&& file.path.substring(repository.rootUri.path.length).startsWith('/'))) {
+			return repository;
+		}
+	}
+	return undefined;
+}
+
+export function getPositionFromThread(comment: GitPullRequestCommentThread) {
+	return comment.threadContext?.rightFileStart === undefined ? comment.threadContext?.leftFileStart?.line : comment.threadContext.rightFileStart.line;
+}
+
+export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode: boolean) {
+	if (newDraftMode) {
+		return;
+	}
+
+	thread.comments = thread.comments.map(comment => {
+		comment.label = undefined;
+
+		return comment;
+	});
+}
+
+export function updateCommentThreadLabel(thread: GHPRCommentThread) {
+	if (thread.comments.length) {
+		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name).map(comment => `@${comment.author.name}`).join(', ');
+		thread.label = `Participants: ${participantsList}`;
+	} else {
+		thread.label = 'Start discussion';
+	}
+}
+
+export function createVSCodeCommentThread(thread: ThreadData, commentController: vscode.CommentController): GHPRCommentThread {
+	const vscodeThread = commentController.createCommentThread(
+		thread.uri,
+		thread.range!,
+		[]
+	);
+
+	(vscodeThread as GHPRCommentThread).threadId = thread.threadId;
+
+	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
+
+	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
+	vscodeThread.collapsibleState = thread.collapsibleState;
+	return vscodeThread as GHPRCommentThread;
 }

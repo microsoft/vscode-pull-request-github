@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { ITelemetry } from '../common/telemetry';
-import { RepositoriesManager } from '../github/repositoriesManager';
+import { RepositoriesManager } from '../azdo/repositoriesManager';
 import { ReviewManager } from './reviewManager';
 import { GitContentProvider } from './gitContentProvider';
 import { GitApiImpl } from '../api/api1';

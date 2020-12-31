@@ -172,7 +172,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 						id: r.id
 					},
 					state: PullRequestVote[r.vote ?? 0]
-				}
+				};
 			}) ?? [];
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);

@@ -15,16 +15,14 @@ import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
-import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { FolderRepositoryManager } from './azdo/folderRepositoryManager';
 import { registerBuiltinGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
-import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
-import { CredentialStore } from './github/credentials';
-import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
+import { CredentialStore } from './azdo/credentials';
 import { LiveShare } from 'vsls/vscode.js';
-import { RepositoriesManager } from './github/repositoriesManager';
+import { RepositoriesManager } from './azdo/repositoriesManager';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
 import { registerLiveShareGitProvider } from './gitProviders/api';
@@ -80,7 +78,8 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	liveshareApiPromise.then((api) => {
 		if (api) {
 			// register the pull request provider to suggest PR contacts
-			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(reposManager));
+			// TODO used by VLSS.
+			// api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(reposManager));
 		}
 	});
 	const changesTree = new PullRequestChangesTreeDataProvider(context);
@@ -122,9 +121,10 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	});
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
-	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
-	context.subscriptions.push(issuesFeatures);
-	await issuesFeatures.initialize();
+	// TODO Investigate what is intialized in issues
+	// const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
+	// context.subscriptions.push(issuesFeatures);
+	// await issuesFeatures.initialize();
 
 	/* __GDPR__
 		"startup" : {}

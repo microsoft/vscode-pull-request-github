@@ -7,11 +7,11 @@ import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { SETTINGS_NAMESPACE, REMOTES_SETTING, ReposManagerState } from '../github/folderRepositoryManager';
+import { SETTINGS_NAMESPACE, REMOTES_SETTING, ReposManagerState } from '../azdo/folderRepositoryManager';
 import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
 import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';
-import { RepositoriesManager } from '../github/repositoriesManager';
+import { RepositoriesManager } from '../azdo/repositoriesManager';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();

@@ -8,11 +8,10 @@ import * as path from 'path';
 import { TreeNode } from './treeNode';
 import { GitFileChangeNode } from './fileChangeNode';
 import { toReviewUri } from '../../common/uri';
-import { getGitChangeType } from '../../common/diffHunk';
-import { IComment } from '../../common/comment';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { PullRequestModel } from '../../github/pullRequestModel';
-import { OctokitCommon } from '../../github/common';
+import { getGitChangeTypeFromVersionControlChangeType } from '../../common/diffHunk';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { GitCommitRef, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public label: string;
@@ -25,17 +24,17 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		public parent: TreeNode | vscode.TreeView<TreeNode>,
 		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
-		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
-		private readonly comments: IComment[]
+		private readonly commit: GitCommitRef,
+		private readonly comments: GitPullRequestCommentThread[]
 	) {
 		super();
-		this.label = commit.commit.message;
-		this.sha = commit.sha;
+		this.label = commit.comment ?? '';
+		this.sha = commit.commitId!;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		let userIconUri: vscode.Uri | undefined;
 		try {
-			if (commit.author && commit.author.avatar_url) {
-				userIconUri = vscode.Uri.parse(`${commit.author.avatar_url}&s=${64}`);
+			if (commit.author && commit.author.imageUrl) {
+				userIconUri = vscode.Uri.parse(`${commit.author.imageUrl}&s=${64}`);
 			}
 		} catch (_) {
 			// no-op
@@ -43,6 +42,8 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 		this.iconPath = userIconUri;
 		this.contextValue = 'commit';
+		// tslint:disable-next-line: no-unused-expression
+		this.comments;
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -50,23 +51,24 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		const fileChanges = await this.pullRequest.getCommitChangedFiles(this.commit);
+		const fileChanges = await this.pullRequest.getCommitChanges(this.commit);
 
 		const fileChangeNodes = fileChanges.map(change => {
-			const matchingComments = this.comments.filter(comment => comment.path === change.filename && comment.originalCommitId === this.commit.sha);
-			const fileName = change.filename;
-			const uri = vscode.Uri.parse(path.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
+			// TODO Map the file changes with commit id. But this is not possible in Azdo as azdo pr works on iterations not individual commits
+			// const matchingComments = this.comments.filter(comment => comment.threadContext?.filePath === change.item?.path && comment.originalCommitId === this.commit.commitId);
+			const fileName = change.item?.path ?? change.originalPath ?? '';
+			const uri = vscode.Uri.parse(path.join(`commit~${this.commit.commitId?.substr(0, 8)}`, fileName));
 			const fileChangeNode = new GitFileChangeNode(
 				this,
 				this.pullRequest,
-				getGitChangeType(change.status),
+				getGitChangeTypeFromVersionControlChangeType(change.changeType!),
 				fileName,
 				undefined,
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: false }, this.pullRequestManager.repository.rootUri),
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: true }, this.pullRequestManager.repository.rootUri),
+				toReviewUri(uri, fileName, undefined, this.commit.commitId!, true, { base: false }, this.pullRequestManager.repository.rootUri),
+				toReviewUri(uri, fileName, undefined, this.commit.commitId!, true, { base: true }, this.pullRequestManager.repository.rootUri),
 				[],
-				matchingComments,
-				this.commit.sha
+				[], //matchingComments,
+				this.commit.commitId
 			);
 
 			fileChangeNode.command = {

@@ -3,7 +3,7 @@
 *  Licensed under the MIT License. See License.txt in the project root for license information.
 *--------------------------------------------------------------------------------------------*/
 
-import { GHPRCommentThread } from '../github/prComment';
+import { GHPRCommentThread } from '../azdo/prComment';
 import * as vscode from 'vscode';
 
 export class CommentThreadCache {

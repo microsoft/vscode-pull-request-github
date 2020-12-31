@@ -6,10 +6,10 @@
 import * as vscode from 'vscode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
-import { IComment } from '../common/comment';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../azdo/pullRequestModel';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
@@ -44,7 +44,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._onDidChangeTreeData.fire();
 	}
 
-	async addPrToView(pullRequestManager: FolderRepositoryManager, pullRequest: PullRequestModel, localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: IComment[]) {
+	async addPrToView(pullRequestManager: FolderRepositoryManager, pullRequest: PullRequestModel, localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: GitPullRequestCommentThread[]) {
 		const node: RepositoryChangesNode = new RepositoryChangesNode(this._view, pullRequest, pullRequestManager, comments, localFileChanges);
 		this._pullRequestManagerMap.set(pullRequestManager, node);
 		await vscode.commands.executeCommand(

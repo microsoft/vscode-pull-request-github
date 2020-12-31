@@ -300,7 +300,7 @@ export async function parseDiffAzdo(reviews: IAzdoRawFileChange[], repository: R
 		const gitChangeType = getGitChangeTypeFromVersionControlChangeType(review.status);
 
 		if (!review.patch) {
-			fileChanges.push(new SlimFileChange(parentCommit, review.blob_url, gitChangeType, review.filename, review.previous_filename));
+			fileChanges.push(new SlimFileChange(parentCommit, review.blob_url, gitChangeType, review.filename, review.previous_filename, review.file_sha, review.previous_file_sha));
 			continue;
 		}
 

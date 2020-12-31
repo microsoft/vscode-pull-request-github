@@ -5,7 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { GHPRCommentThread, GHPRComment, TemporaryComment } from './github/prComment';
+import { GHPRCommentThread, GHPRComment, TemporaryComment } from './azdo/prComment';
 import Logger from './common/logger';
 
 export interface CommentHandler {
@@ -14,11 +14,11 @@ export interface CommentHandler {
 
 	createOrReplyComment(thread: GHPRCommentThread, input: string): Promise<void>;
 	editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
-	deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
+	// deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
 
-	startReview(thread: GHPRCommentThread, input: string): Promise<void>;
-	finishReview(thread: GHPRCommentThread, input: string): Promise<void>;
-	deleteReview(): Promise<void>;
+	// startReview(thread: GHPRCommentThread, input: string): Promise<void>;
+	// finishReview(thread: GHPRCommentThread, input: string): Promise<void>;
+	// deleteReview(): Promise<void>;
 }
 
 export interface CommentReply {

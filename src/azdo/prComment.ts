@@ -3,13 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { GitPullRequestCommentThread, Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
-import { IComment } from '../common/comment';
 import { IAccount } from './interface';
-import { updateCommentReactions } from './utils';
 
 export interface GHPRCommentThread extends vscode.CommentThread {
-	threadId: string;
+	threadId: number;
 
 	/**
 	 * The uri of the document the thread has been created on.
@@ -37,6 +36,8 @@ export interface GHPRCommentThread extends vscode.CommentThread {
 	 * The optional human-readable label describing the [Comment Thread](#CommentThread)
 	 */
 	label?: string;
+
+	rawThread: GitPullRequestCommentThread;
 
 	dispose: () => void;
 }
@@ -93,6 +94,8 @@ export class TemporaryComment implements vscode.Comment {
 
 	static idPool = 0;
 
+	public parentCommentId?: number;
+
 	constructor(parent: GHPRCommentThread, input: string, isDraft: boolean, currentUser: IAccount, originalComment?: GHPRComment) {
 		this.parent = parent;
 		this.body = new vscode.MarkdownString(input);
@@ -103,9 +106,10 @@ export class TemporaryComment implements vscode.Comment {
 		};
 		this.label = isDraft ? 'Pending' : undefined;
 		this.contextValue = 'canEdit,canDelete';
-		this.originalBody = originalComment ? originalComment._rawComment.body : undefined;
+		this.originalBody = originalComment ? originalComment._rawComment.content : undefined;
 		this.commentReactions = originalComment ? originalComment.reactions : undefined;
 		this.id = TemporaryComment.idPool++;
+		this.parentCommentId = originalComment?.parentCommentId;
 	}
 
 	startEdit() {
@@ -169,34 +173,39 @@ export class GHPRComment implements vscode.Comment {
 	/**
 	 * The complete comment data returned from GitHub
 	 */
-	public _rawComment: IComment;
+	public _rawComment: Comment;
 
 	/**
 	 * The context value, used to determine whether the command should be visible/enabled based on clauses in package.json
 	 */
 	public contextValue: string;
 
-	constructor(comment: IComment, parent: GHPRCommentThread) {
+	public parentCommentId?: number;
+
+	constructor(comment: Comment, parent: GHPRCommentThread) {
 		this._rawComment = comment;
-		this.commentId = comment.id.toString();
-		this.body = new vscode.MarkdownString(comment.body);
+		this.commentId = comment.id!.toString();
+		this.body = new vscode.MarkdownString(comment.content);
 		this.body.isTrusted = true;
 		this.author = {
-			name: comment.user!.login,
-			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined
+			name: comment.author!.displayName!,
+			iconPath: comment.author && comment.author.imageUrl ? vscode.Uri.parse(comment.author.imageUrl) : undefined
 		};
-		updateCommentReactions(this, comment.reactions);
 
-		this.label = comment.isDraft ? 'Pending' : undefined;
+		this.parentCommentId = comment.parentCommentId;
+		// TODO Reactions in comment
+		// updateCommentReactions(this, comment.usersLiked);
+
+		//this.label = comment.isDraft ? 'Pending' : undefined;
 
 		const contextValues: string[] = [];
-		if (comment.canEdit) {
-			contextValues.push('canEdit');
-		}
+		// if (comment.canEdit) {
+		// 	contextValues.push('canEdit');
+		// }
 
-		if (comment.canDelete) {
-			contextValues.push('canDelete');
-		}
+		// if (comment.canDelete) {
+		// 	contextValues.push('canDelete');
+		// }
 
 		this.contextValue = contextValues.join(',');
 		this.parent = parent;
@@ -216,7 +225,7 @@ export class GHPRComment implements vscode.Comment {
 		this.parent.comments = this.parent.comments.map(cmt => {
 			if (cmt instanceof GHPRComment && cmt.commentId === this.commentId) {
 				cmt.mode = vscode.CommentMode.Preview;
-				cmt.body = cmt._rawComment.body;
+				cmt.body = new vscode.MarkdownString(cmt._rawComment.content);
 			}
 
 			return cmt;

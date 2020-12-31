@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { PRType } from '../../github/interface';
 import { TreeNode } from './treeNode';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../azdo/folderRepositoryManager';
 import { ITelemetry } from '../../common/telemetry';
 import { CategoryTreeNode } from './categoryNode';
 

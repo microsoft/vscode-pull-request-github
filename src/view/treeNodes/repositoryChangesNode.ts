@@ -8,10 +8,10 @@ import { DescriptionNode } from './descriptionNode';
 import { FilesCategoryNode } from './filesCategoryNode';
 import { CommitsNode } from './commitsCategoryNode';
 import { TreeNode } from './treeNode';
-import { PullRequestModel } from '../../github/pullRequestModel';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { IComment } from '../../common/comment';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class RepositoryChangesNode extends DescriptionNode implements vscode.TreeItem {
 	private _filesCategoryNode?: FilesCategoryNode;
@@ -25,10 +25,10 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	constructor(public parent: vscode.TreeView<TreeNode>,
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
-		private _comments: IComment[],
+		private _comments: GitPullRequestCommentThread[],
 		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
-		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest);
-		this.label = this._pullRequest.title;
+		super(parent, _pullRequest.item.title ?? '', _pullRequest.item.createdBy?.imageUrl!, _pullRequest);
+		this.label = this._pullRequest.item.title ?? '';
 
 		this._disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
 			const activeEditorUri = e?.document.uri.toString();

@@ -8,12 +8,13 @@ import * as path from 'path';
 import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
 import { TreeNode } from './treeNode';
-import { IComment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 import { toResourceUri, asImageDataURI, EMPTY_IMAGE_URI } from '../../common/uri';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { DecorationProvider } from '../treeDecorationProvider';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { getPositionFromThread } from '../../azdo/utils';
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
@@ -34,14 +35,15 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly previousFileName: string | undefined,
 		public readonly blobUrl: string,
 		public readonly filePath: vscode.Uri,
-		public readonly parentFilePath: vscode.Uri
+		public readonly parentFilePath: vscode.Uri,
+		public readonly sha?: string
 	) {
 		super();
 		this.contextValue = `filechange:${GitChangeType[status]}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
-		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.number, fileName, status);
+		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.getPullRequestId(), fileName, status);
 
 		this.command = {
 			title: 'show remote file',
@@ -79,7 +81,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
 		public readonly diffHunks: DiffHunk[],
-		public comments: IComment[],
+		public comments: GitPullRequestCommentThread[],
 		public readonly sha?: string
 	) {
 		super();
@@ -91,33 +93,37 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			preserveFocus: true
 		};
 		this.update(this.comments);
-		this.resourceUri = toResourceUri(vscode.Uri.file(this.fileName), this.pullRequest.number, this.fileName, this.status);
+		this.resourceUri = toResourceUri(vscode.Uri.file(this.fileName), this.pullRequest.getPullRequestId(), this.fileName, this.status);
 	}
 
 	private findFirstActiveComment() {
-		let activeComment: IComment | undefined;
+		let activeComment: GitPullRequestCommentThread | undefined;
 		this.comments.forEach(comment => {
-			if (!activeComment && comment.position) {
+			if (!activeComment) {
 				activeComment = comment;
 				return;
 			}
 
-			if (activeComment && comment.position && comment.position < activeComment.position!) {
-				activeComment = comment;
+			if (!!activeComment && comment.threadContext) {
+				const position = getPositionFromThread(comment) ?? 10000;
+				const active_position = getPositionFromThread(activeComment) ?? 10000;
+				if (position < active_position) {
+					activeComment = comment;
+				}
 			}
 		});
 
 		return activeComment;
 	}
 
-	update(comments: IComment[]) {
+	update(comments: GitPullRequestCommentThread[]) {
 		this.comments = comments;
-		DecorationProvider.updateFileComments(this.resourceUri, this.pullRequest.number, this.fileName, comments.length > 0);
+		DecorationProvider.updateFileComments(this.resourceUri, this.pullRequest.getPullRequestId(), this.fileName, comments.length > 0);
 
 		if (comments && comments.length) {
 			const comment = this.findFirstActiveComment();
 			if (comment) {
-				const diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
+				const diffLine = getDiffLineByPosition(this.diffHunks, getPositionFromThread(comment) ?? 0);
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
 					const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
@@ -129,8 +135,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
-	getCommentPosition(comment: IComment) {
-		const diffLine = getDiffLineByPosition(this.diffHunks, comment.position === undefined ? comment.originalPosition! : comment.position);
+	getCommentPosition(comment: GitPullRequestCommentThread) {
+		const diffLine = getDiffLineByPosition(this.diffHunks, getPositionFromThread(comment) ?? 0);
 
 		if (diffLine) {
 			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
@@ -191,7 +197,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		public isPartial: boolean,
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
-		public comments: IComment[],
+		public comments: GitPullRequestCommentThread[],
 		public readonly sha?: string
 	) {
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
@@ -225,7 +231,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
 		public readonly diffHunks: DiffHunk[],
-		public comments: IComment[] = [],
+		public comments: GitPullRequestCommentThread[] = [],
 		public readonly sha?: string,
 	) {
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);

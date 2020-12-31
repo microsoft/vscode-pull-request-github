@@ -6,18 +6,18 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNode';
 import { CommitNode } from './commitNode';
-import { IComment } from '../../common/comment';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Commits';
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private _folderRepoManager: FolderRepositoryManager;
 	private _pr: PullRequestModel;
-	private _comments: IComment[];
+	private _comments: GitPullRequestCommentThread[];
 
-	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, reposManager: FolderRepositoryManager, pr: PullRequestModel, comments: IComment[]) {
+	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, reposManager: FolderRepositoryManager, pr: PullRequestModel, comments: GitPullRequestCommentThread[]) {
 		super();
 		this.parent = parent;
 		this._pr = pr;

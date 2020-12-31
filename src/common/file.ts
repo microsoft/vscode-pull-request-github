@@ -37,6 +37,8 @@ export class SlimFileChange {
 		public readonly blobUrl: string,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
-		public readonly previousFileName: string | undefined
+		public readonly previousFileName: string | undefined,
+		public readonly fileSHA?: string,
+		public readonly previousFileSHA?: string
 	) { }
 }

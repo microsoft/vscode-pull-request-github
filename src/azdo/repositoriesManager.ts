@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { CredentialStore } from './credentials';
 import { Remote } from '../common/remote';
 import { EventType } from '../common/timelineEvent';
@@ -12,6 +13,7 @@ import { Repository, UpstreamRef } from '../api/api';
 import { Protocol } from '../common/protocol';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { ITelemetry } from '../common/telemetry';
+import { PullRequestModel } from './pullRequestModel';
 
 export interface ItemsResponseResult<T> {
 	items: T[];
@@ -114,6 +116,19 @@ export class RepositoriesManager implements vscode.Disposable {
 			this._folderManagers.splice(existingFolderManagerIndex);
 			folderManager.dispose();
 		}
+	}
+
+	getManagerForPullRequestModel(issueModel: PullRequestModel | undefined): FolderRepositoryManager | undefined {
+		if (issueModel === undefined) {
+			return undefined;
+		}
+		const issueRemoteUrl = issueModel.remote.url.substring(0, issueModel.remote.url.length - path.extname(issueModel.remote.url).length);
+		for (const folderManager of this._folderManagers) {
+			if (folderManager.azdoRepositories.map(repo => repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length)).includes(issueRemoteUrl)) {
+				return folderManager;
+			}
+		}
+		return undefined;
 	}
 
 	getManagerForFile(uri: vscode.Uri): FolderRepositoryManager | undefined {
