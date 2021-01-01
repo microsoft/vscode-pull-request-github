@@ -10,7 +10,6 @@ import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readab
 import Logger from '../common/logger';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { IComment } from '../common/comment';
 import { parseDiffAzdo } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { toPRUriAzdo, toReviewUri } from '../common/uri';
@@ -521,11 +520,11 @@ export class PullRequestModel implements IPullRequestModel {
 		return diff_params;
 	}
 
-	static async openDiffFromComment(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, comment: IComment): Promise<void> {
+	static async openDiffFromComment(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, comment: GitPullRequestCommentThread): Promise<void> {
 		const fileChanges = await pullRequestModel.getFileChangesInfo();
 		const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
 		const contentChanges = await parseDiffAzdo(fileChanges, folderManager.repository, mergeBase);
-		const change = contentChanges.find(fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path);
+		const change = contentChanges.find(fileChange => fileChange.fileName === comment.threadContext?.filePath || fileChange.previousFileName === comment.threadContext?.filePath);
 		if (!change) {
 			throw new Error(`Can't find matching file`);
 		}
@@ -554,7 +553,7 @@ export class PullRequestModel implements IPullRequestModel {
 			);
 		}
 
-		const pathSegments = comment.path!.split('/');
+		const pathSegments = comment.threadContext?.filePath?.split('/')!;
 		vscode.commands.executeCommand('vscode.diff', baseUri, headUri, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, {});
 	}
 }

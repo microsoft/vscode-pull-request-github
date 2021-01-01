@@ -22,9 +22,9 @@ export const Overview = (pr: PullRequest) =>
 		<Sidebar {...pr} />
 		<div id='main'>
 			<div id='description'>
-				<CommentView isPRDescription {...pr} />
+				<CommentView isPRDescription threadId={0} content={pr.body} author={pr.author} _links={{self: {href: pr.url}}} publishedDate={new Date(pr.createdAt)} />
 			</div>
-			<Timeline events={pr.events} />
+			<Timeline threads={pr.threads} />
 			<StatusChecks pr={pr} isSimple={false}/>
 			<AddComment {...pr} />
 		</div>

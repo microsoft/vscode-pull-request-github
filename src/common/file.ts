@@ -27,7 +27,9 @@ export class InMemFileChange {
 		public readonly diffHunks: DiffHunk[],
 
 		public readonly isPartial: boolean,
-		public readonly blobUrl: string
+		public readonly blobUrl: string,
+		public readonly fileSHA?: string,
+		public readonly previousFileSHA?: string
 	) { }
 }
 

@@ -29,14 +29,20 @@
   "contributes": {
     "configuration": {
       "type": "object",
-      "title": "GitHub Pull Requests",
+      "title": "Azdo Pull Requests",
       "properties": {
-        "githubPullRequests.telemetry.enabled": {
+        "azdoPullRequests.projectName": {
+          "type": "string"
+        },
+        "azdoPullRequests.orgUrl": {
+          "type": "string"
+        },
+        "azdoPullRequests.telemetry.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable usage data and errors to be sent to a GitHub online service"
         },
-        "githubPullRequests.hosts": {
+        "azdoPullRequests.hosts": {
           "type": "array",
           "default": [],
           "markdownDescription": "List of host credentials. For example, \"githubPullRequests.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
@@ -58,7 +64,7 @@
             }
           }
         },
-        "githubPullRequests.pullRequestTitle": {
+        "azdoPullRequests.pullRequestTitle": {
           "type": "string",
           "enum": [
             "commit",
@@ -102,7 +108,7 @@
           "default": "info",
           "description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request."
         },
-        "githubPullRequests.remotes": {
+        "azdoPullRequests.remotes": {
           "type": "array",
           "default": [
             "origin",
@@ -113,7 +119,7 @@
           },
           "markdownDescription": "List of remotes, by name, to fetch pull requests from."
         },
-        "githubPullRequests.includeRemotes": {
+        "azdoPullRequests.includeRemotes": {
           "type": "string",
           "enum": [
             "default",

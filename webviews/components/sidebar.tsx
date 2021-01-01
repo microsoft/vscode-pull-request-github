@@ -8,7 +8,7 @@ import { useContext, useState } from 'react';
 import { PullRequest } from '../common/cache';
 import { plusIcon, deleteIcon } from './icon';
 import PullRequestContext from '../common/context';
-import { ILabel } from '../../src/github/interface';
+import { ILabel } from '../../src/azdo/interface';
 import { nbsp } from './space';
 import { Reviewer } from './reviewer';
 
@@ -29,7 +29,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				</div>
 				{
 					reviewers ? reviewers.map(state =>
-						<Reviewer key={state.reviewer.login} {...state} canDelete={hasWritePermission} />
+						<Reviewer key={state.reviewer.id} {...state} canDelete={hasWritePermission} />
 					) : []
 				}
 			</div>

@@ -7,7 +7,7 @@ import { HostHelper } from './configuration';
 export class GitHubManager {
 
 	// TODO WTF Does this do?
-	private _servers: Map<string, boolean> = new Map().set('github.com', true).set('azure.com', true).set('visualstudio.com', true);
+	private _servers: Map<string, boolean> = new Map().set('github.com', true).set('dev.azure.com', true).set('visualstudio.com', true);
 
 	public async isGitHub(host: vscode.Uri): Promise<boolean> {
 		if (host === null) {

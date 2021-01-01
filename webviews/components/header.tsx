@@ -12,7 +12,7 @@ import { Spaced } from './space';
 import PullRequestContext from '../common/context';
 import { checkIcon, editIcon,copyIcon } from './icon';
 import Timestamp from './timestamp';
-import { GithubItemStateEnum } from '../../src/github/interface';
+import { GithubItemStateEnum } from '../../src/azdo/interface';
 import { useStateProp } from '../common/hooks';
 
 export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue }: PullRequest) {

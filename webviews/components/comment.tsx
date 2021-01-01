@@ -9,25 +9,28 @@ import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Spaced, nbsp } from './space';
 import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
-import { IComment } from '../../src/common/comment';
 import { PullRequest, ReviewType } from '../common/cache';
 import PullRequestContext from '../common/context';
-import { editIcon, deleteIcon, commentIcon } from './icon';
-import { GithubItemStateEnum } from '../../src/github/interface';
+import { editIcon, commentIcon } from './icon';
+import { GithubItemStateEnum } from '../../src/azdo/interface';
 import { useStateProp } from '../common/hooks';
 import emitter from '../common/events';
 import { Dropdown } from './dropdown';
+import { Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
-export type Props = Partial<IComment & PullRequest> & {
+export type Props = Partial<Comment> & {
 	headerInEditMode?: boolean
-	isPRDescription?: boolean
+	isPRDescription?: boolean,
+	threadId: number,
+	canEdit?: boolean
 };
 
 export function CommentView(comment: Props) {
-	const { id, pullRequestReviewId, canEdit, canDelete, bodyHTML, body, isPRDescription } = comment;
-	const [bodyMd, setBodyMd] = useStateProp(body);
-	const [bodyHTMLState, setBodyHtml] = useStateProp(bodyHTML);
-	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
+	const { threadId, content, canEdit, isPRDescription } = comment;
+	const id = threadId * 1000 + comment.id;
+	const [bodyMd, setBodyMd] = useStateProp(content);
+	const [bodyHTMLState, setBodyHtml] = useStateProp(content);
+	const { editComment, setDescription, pr } = useContext(PullRequestContext);
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
@@ -51,7 +54,7 @@ export function CommentView(comment: Props) {
 						try {
 							const result = isPRDescription
 								? await setDescription(text)
-								: await editComment({ comment: comment as IComment, text });
+								: await editComment({ comment: comment, threadId, text });
 
 							setBodyHtml(result.bodyHTML);
 							setBodyMd(text);
@@ -71,16 +74,16 @@ export function CommentView(comment: Props) {
 		? <div className='action-bar comment-actions'>
 			<button title='Quote reply' onClick={() => emitter.emit('quoteReply', bodyMd)}>{commentIcon}</button>
 			{canEdit ? <button title='Edit comment' onClick={() => setEditMode(true)} >{editIcon}</button> : null}
-			{canDelete ? <button title='Delete comment' onClick={() => deleteComment({ id, pullRequestReviewId })} >{deleteIcon}</button> : null}
+			{/* {canDelete ? <button title='Delete comment' onClick={() => deleteComment({ id, pullRequestReviewId })} >{deleteIcon}</button> : null} */}
 		</div>
 		: null
 		}
-		<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} />
+		<CommentBody comment={comment} bodyHTML={bodyHTMLState} body={bodyMd} />
 	</CommentBox>;
 }
 
 type CommentBoxProps = {
-	for: Partial<IComment & PullRequest>
+	for: Partial<Comment>
 	header?: React.ReactChild
 	onMouseEnter?: any
 	onMouseLeave?: any
@@ -90,30 +93,31 @@ type CommentBoxProps = {
 function CommentBox({
 	for: comment,
 	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
-	const { user, author, createdAt, htmlUrl, isDraft } = comment;
+	const { author, publishedDate, _links  } = comment;
+	const htmlUrl = _links.self.href;
 	return <div className='comment-container comment review-comment'
 		{...{ onMouseEnter, onMouseLeave }}
 	>
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
 				<Spaced>
-					<Avatar for={user || author} />
-					<AuthorLink for={user || author} />
+					<Avatar for={author} />
+					<AuthorLink for={author} />
 					{
-						createdAt
+						publishedDate
 							? <>
 								commented{nbsp}
-								<Timestamp href={htmlUrl} date={createdAt} />
+								<Timestamp href={htmlUrl} date={publishedDate} />
 							</>
 							: <em>pending</em>
 					}
-					{
+					{/* {
 						isDraft
 							? <>
 								<span className='pending-label'>Pending</span>
 							</>
 							: null
-					}
+					} */}
 				</Spaced>
 			</div>
 			{children}
@@ -202,7 +206,7 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 }
 
 export interface Embodied {
-	comment?: IComment;
+	comment?: Comment;
 	bodyHTML?: string;
 	body?: string;
 }

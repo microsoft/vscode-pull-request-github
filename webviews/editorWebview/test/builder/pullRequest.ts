@@ -1,6 +1,6 @@
 import { createBuilderClass } from '../../../../src/test/builders/base';
 import { PullRequest } from '../../../common/cache';
-import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
+import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/azdo/interface';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
 
 import { AccountBuilder } from './account';
@@ -26,10 +26,11 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	pendingCommentText: { default: null },
 	pendingCommentDrafts: { default: null },
 	status: { linked: CombinedStatusBuilder },
-	mergeable: { default: PullRequestMergeability.Mergeable },
+	mergeable: { default: PullRequestMergeability.NotSet },
 	defaultMergeMethod: { default: 'merge' },
 	mergeMethodsAvailability: { default: { merge: true, squash: true, rebase: true } },
 	reviewers: { default: [] },
 	isDraft: { default: false },
-	isIssue: { default: false }
+	isIssue: { default: false },
+	commits: {default: []}
 });

@@ -296,3 +296,7 @@ export function createVSCodeCommentThread(thread: ThreadData, commentController:
 	vscodeThread.collapsibleState = thread.collapsibleState;
 	return vscodeThread as GHPRCommentThread;
 }
+
+export function removeLeadingSlash(path: string) {
+	return path.replace(/^\//g, '')
+}

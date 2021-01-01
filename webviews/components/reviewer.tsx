@@ -5,7 +5,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React = require('react');
-import { ReviewState } from '../../src/github/interface';
+import { ReviewState } from '../../src/azdo/interface';
 import PullRequestContext from '../common/context';
 import { nbsp } from './space';
 import { cloneElement, useContext, useState } from 'react';
@@ -21,7 +21,7 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 		onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}>
 		<Avatar for={reviewer} />
 		<AuthorLink for={reviewer} />
-		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.login)}>{deleteIcon}️</a></> : null}
+		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.id)}>{deleteIcon}️</a></> : null}
 		{REVIEW_STATE[state]}
 	</div>;
 }

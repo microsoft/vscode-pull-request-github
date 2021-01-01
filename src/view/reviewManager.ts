@@ -300,7 +300,7 @@ export class ReviewManager {
 					}
 				}
 				fileChangeToShow = fileChangeToShow ?? this.localFileChanges[0];
-				fileChangeToShow.openDiff(this._folderRepoManager);
+				await fileChangeToShow.openDiff(this._folderRepoManager);
 			}
 		}
 		this._validateStatusInProgress = undefined;

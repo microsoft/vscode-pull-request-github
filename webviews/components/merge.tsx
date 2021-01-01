@@ -7,7 +7,7 @@ import * as React from 'react';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
-import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
+import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/azdo/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
@@ -69,7 +69,7 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: bool
 						isSimple
 							? pr.reviewers
 								? pr.reviewers.map(state =>
-									<Reviewer key={state.reviewer.login} {...state} canDelete={false} />
+									<Reviewer key={state.reviewer.id} {...state} canDelete={false} />
 								)
 								: []
 							: null
@@ -87,7 +87,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest, isSim
 
 	useEffect(() => {
 		const handle = setInterval(async () => {
-			if (mergeable === PullRequestMergeability.Unknown) {
+			if (mergeable === PullRequestMergeability.NotSet) {
 				setMergeability(await checkMergeability());
 			}
 		}, 3000);
@@ -106,17 +106,18 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 	return <div className='status-item status-section'>
 		{ isSimple
 			? null
-			: mergeable === PullRequestMergeability.Mergeable
+			: mergeable === PullRequestMergeability.Succeeded
 				? checkIcon
-				: mergeable === PullRequestMergeability.NotMergeable
+				: mergeable === PullRequestMergeability.RejectedByPolicy || mergeable === PullRequestMergeability.Failure
 					? deleteIcon
 					: pendingIcon}
 		<div>{
-			mergeable === PullRequestMergeability.Mergeable
+			mergeable === PullRequestMergeability.Succeeded
 				? 'This branch has no conflicts with the base branch.'
-				: mergeable === PullRequestMergeability.NotMergeable
-					? 'This branch has conflicts that must be resolved.'
-					: 'Checking if this branch can be merged...'
+				: mergeable === PullRequestMergeability.Queued
+					? 'Checking if this branch can be merged...'
+					: 'This branch has conflicts that must be resolved.'
+
 		}</div>
 	</div>;
 };
@@ -170,7 +171,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean
 		? canEdit
 			? <ReadyForReview />
 			: null
-		: mergeable === PullRequestMergeability.Mergeable && hasWritePermission
+		: mergeable === PullRequestMergeability.Succeeded && hasWritePermission
 			? isSimple
 				? <MergeSimple {...pr} />
 				: <Merge {...pr} />

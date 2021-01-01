@@ -187,10 +187,11 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					bodyHTML: pullRequest.item.description,
 					labels: pullRequest.item.labels,
 					author: {
-						login: pullRequest.item.createdBy?.uniqueName,
+						id: pullRequest.item.createdBy?.uniqueName,
 						name: pullRequest.item.createdBy?.displayName,
 						avatarUrl: pullRequest.item.createdBy?.imageUrl,
-						url: pullRequest.item.createdBy?.url
+						url: pullRequest.item.createdBy?.url,
+						email:  pullRequest.item.createdBy?.uniqueName
 					},
 					state: pullRequest.state,
 					threads: threads,
@@ -201,7 +202,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
 					hasWritePermission,
-					status: status ? status : { statuses: [] },
+					status: !!status ? status : { statuses: [] },
 					mergeable: pullRequest.item.mergeStatus,
 					reviewers: this._existingReviewers,
 					isDraft: pullRequest.isDraft,
@@ -383,11 +384,11 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	// 	}
 	// }
 
-	private async applyPatch(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
+	private async applyPatch(message: IRequestMessage<{ comment: Comment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
-			const matches = regex.exec(comment.body);
+			const matches = regex.exec(comment.content!);
 
 			const tempFilePath = path.join(this._folderRepositoryManager.repository.rootUri.path, '.git', `${comment.id}.diff`);
 
@@ -580,8 +581,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		});
 	}
 
-	private editComment(message: IRequestMessage<{ comment: IComment, text: string }>) {
-		this.editCommentPromise(message.args.comment, message.args.text).then(result => {
+	private editComment(message: IRequestMessage<{ comment: Comment, threadId: number, text: string }>) {
+		this.editCommentPromise(message.args.comment, message.args.threadId, message.args.text).then(result => {
 			this._replyMessage(message, {
 				body: result.content,
 				bodyHTML: result.content
@@ -597,8 +598,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		vscode.window.showInformationMessage(`Copied link to PR ${this._item.item.title}!`);
 	}
 
-	protected editCommentPromise(comment: IComment, text: string): Promise<Comment> {
-		return this._item.editThread(text, comment.threadId!, comment.id!);
+	protected editCommentPromise(comment: Comment, threadId: number, text: string): Promise<Comment> {
+		return this._item.editThread(text, threadId, comment.id!);
 	}
 
 	private close(message: IRequestMessage<string>): void {

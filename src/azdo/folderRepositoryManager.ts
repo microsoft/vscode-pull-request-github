@@ -1317,8 +1317,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this.repository.checkout(branchName);
 	}
 
-	public async checkoutDefaultBranch(branch: string): Promise<void> {
+	public async checkoutDefaultBranch(branch?: string): Promise<void> {
 		try {
+			if (!branch) {
+				branch = await this._activePullRequest?.azdoRepository?.getDefaultBranch() ?? await this.azdoRepositories?.[0].getDefaultBranch() ?? 'main';
+			}
 			const branchObj = await this.repository.getBranch(branch);
 
 			if (branchObj.upstream && branch === branchObj.upstream.name) {

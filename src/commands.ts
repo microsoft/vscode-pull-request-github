@@ -163,12 +163,12 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		vscode.commands.executeCommand('vscode.open', e.filePath);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
 		const folderManager = reposManager.getManagerForPullRequestModel(fileChangeNode.pullRequest);
 		if (!folderManager) {
 			return;
 		}
-		fileChangeNode.openDiff(folderManager);
+		await fileChangeNode.openDiff(folderManager);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {

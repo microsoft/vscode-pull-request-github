@@ -7,8 +7,8 @@ import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
 import { MergeMethod } from '../../src/github/interface';
-import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, isReviewEvent } from '../../src/common/timelineEvent';
+import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class PRContext {
 	constructor(
@@ -98,7 +98,7 @@ export class PRContext {
 		this.updatePR(this.pr);
 	}
 
-	public editComment = (args: { comment: IComment, text: string }) =>
+	public editComment = (args: { comment: Comment, threadId: number, text: string }) =>
 		this.postMessage({ command: 'pr.edit-comment', args })
 
 	public updateDraft = (id: number, body: string) => {
@@ -128,7 +128,7 @@ export class PRContext {
 
 	public removeReviewer = async (login: string) => {
 		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
-		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== login);
+		const reviewers = this.pr.reviewers.filter(r => r.reviewer.id !== login);
 		this.updatePR({ reviewers });
 	}
 
@@ -138,7 +138,7 @@ export class PRContext {
 		this.updatePR({ labels });
 	}
 
-	public applyPatch = async (comment: IComment) => {
+	public applyPatch = async (comment: GitPullRequestCommentThread) => {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	}
 
@@ -159,7 +159,7 @@ export class PRContext {
 		this.updatePR(state);
 	}
 
-	public openDiff = (comment: IComment) =>
+	public openDiff = (comment: Comment) =>
 		this.postMessage({ command: 'pr.open-diff', args: { comment } })
 
 	setPR = (pr: PullRequest) => {
