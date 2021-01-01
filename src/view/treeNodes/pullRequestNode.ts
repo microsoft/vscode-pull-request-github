@@ -239,7 +239,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const data = await this.pullRequestModel.getFileChangesInfo();
 
 		// Merge base is set as part of getPullRequestFileChangesInfo
-		const mergeBase = this.pullRequestModel.mergeBase;
+		const mergeBase = this.pullRequestModel.item.base?.sha;
 		if (!mergeBase) {
 			return [];
 		}
@@ -248,10 +248,15 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		return rawChanges.map(change => {
 			const headCommit = this.pullRequestModel.head!.sha;
-			// tslint:disable-next-line: no-bitwise
-			const parentFileName = change.status & GitChangeType.DELETE ? change.previousFileName! : change.fileName;
+			let fileName = change.fileName;
+			let parentFileName = change.fileName;
+			let sha = change.fileSHA;
 
-			const sha = !change.fileSHA ? change.previousFileSHA: change.fileSHA;
+			if (change.status === GitChangeType.DELETE) {
+				fileName = change.previousFileName!;
+				parentFileName = change.previousFileName!;
+				sha = change.previousFileSHA
+			}
 
 			if (change instanceof SlimFileChange) {
 				return new RemoteFileChangeNode(
@@ -261,7 +266,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					change.fileName,
 					change.previousFileName,
 					change.blobUrl,
-					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(change.fileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
+					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
 					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
 					sha
 				);
@@ -274,7 +279,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				change.fileName,
 				change.previousFileName,
 				change.blobUrl,
-				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(change.fileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
+				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
 				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
 				change.isPartial,
 				change.patch,
@@ -394,8 +399,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const tooltipPrefix = (currentBranchIsForThisPR ? 'Current Branch * ' : '');
 		const formattedPRNumber = number.toString();
 		const label = `${labelPrefix}#${formattedPRNumber}: ${isDraft ? '[DRAFT] ' : ''}${title}`;
-		const tooltip = `${tooltipPrefix}${title} by @${login}`;
-		const description = `by @${login}`;
+		const tooltip = `${tooltipPrefix}${title} by ${login}`;
+		const description = `by ${login}`;
 
 		return {
 			label,
@@ -595,9 +600,21 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 
 		if (fileChange instanceof InMemFileChangeNode) {
-			const readContentFromDiffHunk = fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
+			const readContentFromDiffHunk = fileChange.status === GitChangeType.TYPE;
+			// const readContentFromDiffHunk = fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
 
-			if (readContentFromDiffHunk) {
+			if (fileChange.status === GitChangeType.ADD) {
+				const originalFileName = fileChange.fileName;
+				const originalFilePath = vscode.Uri.joinPath(this._folderReposManager.repository.rootUri, originalFileName!);
+				try {
+					const commit = params.headCommit;
+					const originalContent = await this._folderReposManager.repository.show(commit, originalFilePath.fsPath);
+					return originalContent;
+
+				} catch (err) {
+					throw err;
+				}
+			} else if (readContentFromDiffHunk) {
 				if (params.isBase) {
 					// left
 					const left = [];
@@ -637,20 +654,20 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					return right.join('\n');
 				}
 			} else {
-				const originalFileName = fileChange.status === GitChangeType.RENAME ? fileChange.previousFileName : fileChange.fileName;
+				const originalFileName = fileChange.status === GitChangeType.DELETE ? fileChange.previousFileName : fileChange.fileName;
 				const originalFilePath = vscode.Uri.joinPath(this._folderReposManager.repository.rootUri, originalFileName!);
 				try {
-				const originalContent = await this._folderReposManager.repository.show(params.baseCommit, originalFilePath.fsPath);
+					const originalContent = await this._folderReposManager.repository.show(params.baseCommit, originalFilePath.fsPath);
 
-				if (params.isBase) {
-					return originalContent;
-				} else {
-					return getModifiedContentFromDiffHunkAzdo(originalContent, fileChange.diffHunks);
+					if (params.isBase) {
+						return originalContent;
+					} else {
+						return getModifiedContentFromDiffHunkAzdo(originalContent, fileChange.diffHunks);
+					}
+
+				} catch (err) {
+					throw err;
 				}
-
-			} catch (err) {
-				err;
-			}
 			}
 		}
 
