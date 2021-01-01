@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as uuid from 'uuid';
-import { DiffChangeType, parseDiffAzdo, getModifiedContentFromDiffHunkAzdo } from '../../common/diffHunk';
+import { parseDiffAzdo } from '../../common/diffHunk';
 import { getZeroBased, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
@@ -249,7 +249,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return rawChanges.map(change => {
 			const headCommit = this.pullRequestModel.head!.sha;
 			let fileName = change.fileName;
-			let parentFileName = change.fileName;
+			let parentFileName = change.previousFileName!;
 			let sha = change.fileSHA;
 
 			if (change.status === GitChangeType.DELETE) {
@@ -345,8 +345,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				const parentFilePath = fileChange.parentFilePath;
 				const filePath = fileChange.filePath;
 
-				const newLeftCommentThreads = getDocumentThreadDatas(parentFilePath, true, fileChange, fileChange.comments);
-				const newRightSideCommentThreads = getDocumentThreadDatas(filePath, false, fileChange, fileChange.comments);
+				const newLeftCommentThreads = getDocumentThreadDatas(parentFilePath, true, fileChange, fileChange.comments.filter(c => !!c.threadContext?.leftFileStart));
+				const newRightSideCommentThreads = getDocumentThreadDatas(filePath, false, fileChange, fileChange.comments.filter(c => !!c.threadContext?.rightFileStart));
 
 				let oldCommentThreads: GHPRCommentThread[] = [];
 
@@ -600,9 +600,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 
 		if (fileChange instanceof InMemFileChangeNode) {
-			const readContentFromDiffHunk = fileChange.status === GitChangeType.TYPE;
-			// const readContentFromDiffHunk = fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.DELETE;
-
 			if (fileChange.status === GitChangeType.ADD) {
 				const originalFileName = fileChange.fileName;
 				const originalFilePath = vscode.Uri.joinPath(this._folderReposManager.repository.rootUri, originalFileName!);
@@ -614,56 +611,37 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				} catch (err) {
 					throw err;
 				}
-			} else if (readContentFromDiffHunk) {
-				if (params.isBase) {
-					// left
-					const left = [];
-					for (let i = 0; i < fileChange.diffHunks.length; i++) {
-						for (let j = 0; j < fileChange.diffHunks[i].diffLines.length; j++) {
-							const diffLine = fileChange.diffHunks[i].diffLines[j];
-							if (diffLine.type === DiffChangeType.Add) {
-								// nothing
-							} else if (diffLine.type === DiffChangeType.Delete) {
-								left.push(diffLine.text);
-							} else if (diffLine.type === DiffChangeType.Control) {
-								// nothing
-							} else {
-								left.push(diffLine.text);
-							}
-						}
+			} else if (fileChange.status === GitChangeType.RENAME) {
+				try {
+					let commit = params.baseCommit;
+					let originalFileName = fileChange.previousFileName;
+					if (!params.isBase) {
+						commit = params.headCommit;
+						originalFileName = fileChange.fileName;
 					}
 
-					return left.join('\n');
-				} else {
-					const right = [];
-					for (let i = 0; i < fileChange.diffHunks.length; i++) {
-						for (let j = 0; j < fileChange.diffHunks[i].diffLines.length; j++) {
-							const diffLine = fileChange.diffHunks[i].diffLines[j];
-							if (diffLine.type === DiffChangeType.Add) {
-								right.push(diffLine.text);
-							} else if (diffLine.type === DiffChangeType.Delete) {
-								// nothing
-							} else if (diffLine.type === DiffChangeType.Control) {
-								// nothing
-							} else {
-								right.push(diffLine.text);
-							}
-						}
-					}
+					const originalFilePath = vscode.Uri.joinPath(this._folderReposManager.repository.rootUri, originalFileName!);
+					const originalContent = await this._folderReposManager.repository.show(commit, originalFilePath.fsPath);
+					return originalContent;
 
-					return right.join('\n');
+				} catch (err) {
+					throw err;
 				}
 			} else {
 				const originalFileName = fileChange.status === GitChangeType.DELETE ? fileChange.previousFileName : fileChange.fileName;
 				const originalFilePath = vscode.Uri.joinPath(this._folderReposManager.repository.rootUri, originalFileName!);
+				let commit = params.baseCommit;
+				if (!params.isBase) {
+					commit = params.headCommit;
+				}
 				try {
-					const originalContent = await this._folderReposManager.repository.show(params.baseCommit, originalFilePath.fsPath);
-
-					if (params.isBase) {
-						return originalContent;
-					} else {
-						return getModifiedContentFromDiffHunkAzdo(originalContent, fileChange.diffHunks);
-					}
+					const originalContent = await this._folderReposManager.repository.show(commit, originalFilePath.fsPath);
+					return originalContent;
+					// if (params.isBase) {
+					// 	return originalContent;
+					// } else {
+					// 	return getModifiedContentFromDiffHunkAzdo(originalContent, fileChange.diffHunks);
+					// }
 
 				} catch (err) {
 					throw err;
