@@ -290,7 +290,7 @@ export function createVSCodeCommentThread(thread: ThreadData, commentController:
 
 	(vscodeThread as GHPRCommentThread).threadId = thread.threadId;
 
-	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
+	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment.comment, comment.commentPermissions,vscodeThread as GHPRCommentThread));
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
 	vscodeThread.collapsibleState = thread.collapsibleState;

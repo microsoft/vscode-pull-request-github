@@ -276,7 +276,7 @@ export class ReviewManager {
 		await this.changesInPrDataProvider.addPrToView(this._folderRepoManager, pr, this._localFileChanges, this._comments);
 
 		Logger.appendLine(`Review> register comments provider`);
-		await this.registerCommentController();
+		await this.registerCommentController(pr);
 
 		if (!this._webviewViewProvider) {
 			this._webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, pr);
@@ -451,12 +451,13 @@ export class ReviewManager {
 
 	}
 
-	private async registerCommentController() {
+	private async registerCommentController(pr: PullRequestModel) {
 		this._reviewCommentController = new ReviewCommentController(this._folderRepoManager,
 			this._repository,
 			this._localFileChanges,
 			this._obsoleteFileChanges,
-			this._comments);
+			this._comments,
+			pr.getCommentPermission.bind(pr));
 
 		await this._reviewCommentController.initialize();
 

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GitPullRequest, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, GitPullRequest, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { DiffHunk } from '../common/diffHunk';
 
 export enum PRType {
@@ -212,7 +212,12 @@ export interface PullRequestChecks {
 	}[];
 }
 
-export interface ICommentPermissions {
+export interface CommentPermissions {
 	canEdit: boolean;
 	canDelete: boolean;
+}
+
+export interface CommentWithPermissions {
+	comment: Comment;
+	commentPermissions: CommentPermissions;
 }

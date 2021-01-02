@@ -24,6 +24,7 @@ import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { CommentPermissions, CommentWithPermissions } from '../../azdo/interface';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -33,7 +34,7 @@ export interface ThreadData {
 	threadId: number;
 	uri: vscode.Uri;
 	range: vscode.Range;
-	comments: Comment[];
+	comments: CommentWithPermissions[];
 	collapsibleState: vscode.CommentThreadCollapsibleState;
 }
 
@@ -41,7 +42,8 @@ export function getDocumentThreadDatas(
 	uri: vscode.Uri,
 	isBase: boolean,
 	fileChange: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode),
-	matchingComments: GitPullRequestCommentThread[]): ThreadData[] {
+	matchingComments: GitPullRequestCommentThread[],
+	getCommentPermission: (comment: Comment) => CommentPermissions): ThreadData[] {
 
 	if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
 		return [];
@@ -65,7 +67,7 @@ export function getDocumentThreadDatas(
 			threadId: azdoThread.id!,
 			uri: uri,
 			range,
-			comments: azdoThread.comments ?? [],
+			comments:  azdoThread.comments?.map(c => { return { comment: c, commentPermissions: getCommentPermission(c)};}) ?? [],
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
 		});
 	}
@@ -255,7 +257,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			if (change.status === GitChangeType.DELETE) {
 				fileName = change.previousFileName!;
 				parentFileName = change.previousFileName!;
-				sha = change.previousFileSHA
+				sha = change.previousFileSHA;
 			}
 
 			if (change instanceof SlimFileChange) {
@@ -345,8 +347,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				const parentFilePath = fileChange.parentFilePath;
 				const filePath = fileChange.filePath;
 
-				const newLeftCommentThreads = getDocumentThreadDatas(parentFilePath, true, fileChange, fileChange.comments.filter(c => !!c.threadContext?.leftFileStart));
-				const newRightSideCommentThreads = getDocumentThreadDatas(filePath, false, fileChange, fileChange.comments.filter(c => !!c.threadContext?.rightFileStart));
+				const newLeftCommentThreads = getDocumentThreadDatas(parentFilePath, true, fileChange, fileChange.comments.filter(c => !!c.threadContext?.leftFileStart), this.pullRequestModel.getCommentPermission.bind(this.pullRequestModel));
+				const newRightSideCommentThreads = getDocumentThreadDatas(filePath, false, fileChange, fileChange.comments.filter(c => !!c.threadContext?.rightFileStart), this.pullRequestModel.getCommentPermission.bind(this.pullRequestModel));
 
 				let oldCommentThreads: GHPRCommentThread[] = [];
 
@@ -535,26 +537,26 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 						if (cmt instanceof TemporaryComment) {
 							// If the body of the temporary comment already matches the comment, then replace it.
 							// Otherwise, retain the temporary comment.
-							const matchingComment = thread.comments.find(c => c.content === cmt.body);
+							const matchingComment = thread.comments.find(c => c.comment.content === cmt.body);
 							if (matchingComment) {
-								return new GHPRComment(matchingComment, existingThread);
+								return new GHPRComment(matchingComment.comment, matchingComment.commentPermissions, existingThread);
 							}
 
 							return cmt;
 						}
 
 						// Update existing comments
-						const matchedComment = thread.comments.find(c => c.id?.toString() === cmt.commentId);
+						const matchedComment = thread.comments.find(c => c.comment.id?.toString() === cmt.commentId);
 						if (matchedComment) {
-							return new GHPRComment(matchedComment, existingThread);
+							return new GHPRComment(matchedComment.comment, matchedComment.commentPermissions, existingThread);
 						}
 
 						// Remove comments that are no longer present
 						return undefined;
 					}).filter((c: TemporaryComment | GHPRComment | undefined): c is GHPRComment | TemporaryComment => !!c);
 
-					const addedComments = thread.comments.filter(cmt => !existingThread.comments.some(existingComment => existingComment instanceof GHPRComment && existingComment.commentId === cmt.id?.toString()));
-					existingThread.comments = [...existingThread.comments, ...addedComments.map(comment => new GHPRComment(comment, existingThread))];
+					const addedComments = thread.comments.filter(cmt => !existingThread.comments.some(existingComment => existingComment instanceof GHPRComment && existingComment.commentId === cmt.comment.id?.toString()));
+					existingThread.comments = [...existingThread.comments, ...addedComments.map(comment => new GHPRComment(comment.comment, comment.commentPermissions, existingThread))];
 				});
 			});
 
@@ -706,7 +708,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	private replaceTemporaryComment(thread: GHPRCommentThread, realComment: Comment, temporaryCommentId: number): void {
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-				return new GHPRComment(realComment, thread);
+				return new GHPRComment(realComment, this.pullRequestModel.getCommentPermission(realComment), thread);
 			}
 
 			return c;
@@ -770,7 +772,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-						return new GHPRComment(comment._rawComment, thread);
+						return new GHPRComment(comment._rawComment, this.pullRequestModel.getCommentPermission(comment._rawComment), thread);
 					}
 
 					return c;

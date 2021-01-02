@@ -4,7 +4,7 @@ import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
-import { ICommentPermissions, IRawFileChange, PullRequest, PullRequestChecks, PullRequestVote } from './interface';
+import { CommentPermissions, IRawFileChange, PullRequest, PullRequestChecks, PullRequestVote } from './interface';
 import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange, GitBaseVersionDescriptor, GitVersionOptions, GitVersionType, GitCommitDiffs, FileDiffParams, FileDiff, VersionControlChangeType, GitStatusState, GitPullRequest, PullRequestAsyncStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readableToString } from './utils';
 import Logger from '../common/logger';
@@ -268,7 +268,7 @@ export class PullRequestModel implements IPullRequestModel {
 		return await git!.updateComment(comment, repoId, this.getPullRequestId(), threadId, commentId);
 	}
 
-	getCommentPermission(comment: Comment): ICommentPermissions {
+	getCommentPermission(comment: Comment): CommentPermissions {
 		const user = this.azdoRepository.azdo?.authenticatedUser;
 		const isSameUser = comment.author?.id === user?.id;
 

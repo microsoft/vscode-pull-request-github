@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { GitPullRequestCommentThread, Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { IAccount } from './interface';
+import { IAccount, CommentPermissions } from './interface';
 
 export interface GHPRCommentThread extends vscode.CommentThread {
 	threadId: number;
@@ -181,7 +181,7 @@ export class GHPRComment implements vscode.Comment {
 
 	public parentCommentId?: number;
 
-	constructor(comment: Comment, parent: GHPRCommentThread) {
+	constructor(comment: Comment, commentPermission: CommentPermissions, parent: GHPRCommentThread) {
 		this._rawComment = comment;
 		this.commentId = comment.id!.toString();
 		this.body = new vscode.MarkdownString(comment.content);
@@ -198,13 +198,13 @@ export class GHPRComment implements vscode.Comment {
 		//this.label = comment.isDraft ? 'Pending' : undefined;
 
 		const contextValues: string[] = [];
-		// if (comment.canEdit) {
-		// 	contextValues.push('canEdit');
-		// }
+		if (commentPermission.canEdit) {
+			contextValues.push('canEdit');
+		}
 
-		// if (comment.canDelete) {
-		// 	contextValues.push('canDelete');
-		// }
+		if (commentPermission.canDelete) {
+			contextValues.push('canDelete');
+		}
 
 		this.contextValue = contextValues.join(',');
 		this.parent = parent;
