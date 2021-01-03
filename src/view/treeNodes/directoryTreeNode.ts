@@ -92,8 +92,8 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	public addFile(file: GitFileChangeNode | RemoteFileChangeNode | InMemFileChangeNode): void {
 		let paths = file.fileName.split('/');
-		if (file instanceof RemoteFileChangeNode || file instanceof InMemFileChangeNode || file.status === GitChangeType.DELETE) {
-			paths = (file as InMemFileChangeNode).previousFileName!.split('/')
+		if (file.status === GitChangeType.DELETE) {
+			paths = (file as InMemFileChangeNode).previousFileName!.split('/');
 		}
 		file.description = '';
 

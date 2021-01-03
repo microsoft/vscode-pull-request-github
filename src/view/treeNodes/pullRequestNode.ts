@@ -240,6 +240,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const comments = await this.pullRequestModel.getAllThreads() ?? [];
 		const data = await this.pullRequestModel.getFileChangesInfo();
 
+		// TODO Which is the correct diff to show from source HEAD - merge-base or target HEAD
 		// Merge base is set as part of getPullRequestFileChangesInfo
 		const mergeBase = this.pullRequestModel.item.base?.sha;
 		if (!mergeBase) {
@@ -255,7 +256,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			let sha = change.fileSHA;
 
 			if (change.status === GitChangeType.DELETE) {
-				fileName = change.previousFileName!;
+				fileName = change.previousFileName!;  // filename is empty. Used as "label" in treenode
 				parentFileName = change.previousFileName!;
 				sha = change.previousFileSHA;
 			}
@@ -265,11 +266,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					this,
 					this.pullRequestModel,
 					change.status,
-					change.fileName,
+					fileName,
 					change.previousFileName,
 					change.blobUrl,
-					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
-					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
+					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), this.pullRequestModel, change.baseCommit, headCommit, fileName, false, change.status),
+					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, fileName, true, change.status),
 					sha
 				);
 			}
@@ -278,11 +279,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				this,
 				this.pullRequestModel,
 				change.status,
-				change.fileName,
+				fileName,
 				change.previousFileName,
 				change.blobUrl,
-				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status),
-				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status),
+				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), this.pullRequestModel, change.baseCommit, headCommit, fileName, false, change.status),
+				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, fileName, true, change.status),
 				change.isPartial,
 				change.patch,
 				change.diffHunks,
@@ -575,7 +576,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return '';
 		}
 
-		const fileChange = (await this.getFileChanges()).find(contentChange => contentChange.fileName === params.fileName);
+		const allFileChanges = await this.getFileChanges();
+		const fileChange = allFileChanges.find(contentChange => contentChange.fileName === params.fileName);
 		if (!fileChange) {
 			Logger.appendLine(`PR> can not find content for document ${uri.toString()}`);
 			return '';
