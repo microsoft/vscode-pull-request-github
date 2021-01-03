@@ -286,15 +286,16 @@ export function createVSCodeCommentThread(thread: ThreadData, commentController:
 		thread.uri,
 		thread.range!,
 		[]
-	);
+	) as GHPRCommentThread;
 
-	(vscodeThread as GHPRCommentThread).threadId = thread.threadId;
+	vscodeThread.threadId = thread.threadId;
+	vscodeThread.rawThread = thread.rawThread;
 
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment.comment, comment.commentPermissions,vscodeThread as GHPRCommentThread));
 
-	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
+	updateCommentThreadLabel(vscodeThread);
 	vscodeThread.collapsibleState = thread.collapsibleState;
-	return vscodeThread as GHPRCommentThread;
+	return vscodeThread;
 }
 
 export function removeLeadingSlash(path: string) {

@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as uuid from 'uuid';
 import { parseDiffAzdo } from '../../common/diffHunk';
-import { getZeroBased, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
+import { getZeroBased } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
 import Logger from '../../common/logger';
 import { fromPRUri, toPRUriAzdo } from '../../common/uri';
@@ -36,6 +36,7 @@ export interface ThreadData {
 	range: vscode.Range;
 	comments: CommentWithPermissions[];
 	collapsibleState: vscode.CommentThreadCollapsibleState;
+	rawThread: GitPullRequestCommentThread;
 }
 
 export function getDocumentThreadDatas(
@@ -68,7 +69,8 @@ export function getDocumentThreadDatas(
 			uri: uri,
 			range,
 			comments:  azdoThread.comments?.map(c => { return { comment: c, commentPermissions: getCommentPermission(c)};}) ?? [],
-			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
+			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
+			rawThread: azdoThread
 		});
 	}
 
@@ -469,25 +471,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return fileChange;
 	}
 
-	/**
-	 * Calculate the position of the comment within the diff of a file.
-	 * @param fileChange The file change information
-	 * @param thread The new comment thread, which has position information about where it is in the content displayed in the editor
-	 */
-	private calculateCommentPosition(fileChange: InMemFileChangeNode, thread: GHPRCommentThread): number {
-		const uri = thread.uri;
-		const params = fromPRUri(uri);
-
-		const isBase = !!(params && params.isBase);
-		const position = mapHeadLineToDiffHunkPosition(fileChange.diffHunks, '', thread.range.start.line + 1, isBase);
-
-		if (position < 0) {
-			throw new Error('Comment position cannot be negative');
-		}
-
-		return position;
-	}
-
 	// #endregion
 
 	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
@@ -666,11 +649,21 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		try {
 			const fileChange = await this.findMatchingFileNode(thread.uri);
-			const rawComment = hasExistingComments
-				? await this.reply(thread, input)
-				: await this.createFirstCommentInThread(thread, input, fileChange);
 
-			fileChange.update(fileChange.comments.concat(rawComment!));
+			let rawThread: GitPullRequestCommentThread = thread.rawThread;
+			let rawComment: Comment | undefined;
+			if (!hasExistingComments) {
+				rawThread = (await this.createFirstCommentInThread(thread, input, fileChange))!;
+				thread.threadId = rawThread?.id!;
+				thread.rawThread = rawThread!;
+				rawComment = rawThread.comments?.[0];
+				fileChange.update(fileChange.comments.concat(rawThread!));
+			} else {
+				rawComment = await this.reply(thread, input);
+				rawThread.comments?.push(rawComment!);
+				fileChange.comments.find(r => r.id === rawThread.id)?.comments?.push(rawComment!);
+				fileChange.update(fileChange.comments);
+			}
 
 			this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
 		} catch (e) {
@@ -738,10 +731,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	private async createFirstCommentInThread(thread: GHPRCommentThread, input: string, fileChange: InMemFileChangeNode): Promise<GitPullRequestCommentThread | undefined> {
-		const position = this.calculateCommentPosition(fileChange, thread);
 		const rawComment = await this.pullRequestModel.createThread(input, {
 			filePath: fileChange.fileName,
-			line: position,
+			line: thread.range.start.line + 1,
 			endOffset: 0,
 			startOffset: 0
 		});

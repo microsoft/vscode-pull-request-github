@@ -135,7 +135,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				uri: newUri,
 				range,
 				comments: thread.comments?.map(c => { return { comment: c, commentPermissions: this._getCommentPermissions(c)};}) ?? [],
-				collapsibleState
+				collapsibleState,
+				rawThread: thread
 			});
 		}
 
@@ -564,7 +565,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				uri: fileChange.filePath,
 				range,
 				comments: thread.comments?.map(c => { return { comment: c, commentPermissions: this._getCommentPermissions(c)};}) ?? [],
-				collapsibleState: collapsibleState
+				collapsibleState: collapsibleState,
+				rawThread: thread
 			});
 		}
 
@@ -629,7 +631,8 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				uri: document.uri,
 				range,
 				comments: thread.comments?.map(c => { return { comment: c, commentPermissions: this._getCommentPermissions(c)};}) ?? [],
-				collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
+				collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
+				rawThread: thread
 			});
 		}
 
