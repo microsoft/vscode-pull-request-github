@@ -133,20 +133,21 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	}
 
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
-		return Promise.all([
-			this._folderRepositoryManager.resolvePullRequest(
-				pullRequestModel.remote.owner,
-				pullRequestModel.remote.repositoryName,
-				pullRequestModel.getPullRequestId()
-			),
-			pullRequestModel.getAllThreads(),
-			pullRequestModel.getCommits(),
-			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-			pullRequestModel.getStatusChecks(),
-			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-			this._item.canEdit()
-		]).then(result => {
-			const [pullRequest, threads, commits , defaultBranch, status, repositoryAccess, canEditPr] = result;
+		try {
+			const result = await Promise.all([
+				this._folderRepositoryManager.resolvePullRequest(
+					pullRequestModel.remote.owner,
+					pullRequestModel.remote.repositoryName,
+					pullRequestModel.getPullRequestId()
+				),
+				pullRequestModel.getAllThreads(),
+				pullRequestModel.getCommits(),
+				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
+				pullRequestModel.getStatusChecks(),
+				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel)
+			]);
+			const [pullRequest, threads, commits , defaultBranch, status, repositoryAccess] = result;
+			const canEditPr = pullRequest?.canEdit();
 			const requestedReviewers = pullRequestModel.item.reviewers;
 			if (!pullRequest) {
 				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.getPullRequestId()} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
@@ -187,7 +188,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					bodyHTML: pullRequest.item.description,
 					labels: pullRequest.item.labels,
 					author: {
-						id: pullRequest.item.createdBy?.uniqueName,
+						id: pullRequest.item.createdBy?.id,
 						name: pullRequest.item.createdBy?.displayName,
 						avatarUrl: pullRequest.item.createdBy?.imageUrl,
 						url: pullRequest.item.createdBy?.url,
@@ -197,8 +198,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					threads: threads,
 					commits: commits,
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					base: pullRequest.base && pullRequest.base.label || 'UNKNOWN',
-					head: pullRequest.head && pullRequest.head.label || 'UNKNOWN',
+					base: pullRequest.base && pullRequest.base.ref || 'UNKNOWN',
+					head: pullRequest.head && pullRequest.head.ref || 'UNKNOWN',
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: canEdit,
 					hasWritePermission,
@@ -211,9 +212,9 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					isIssue: false
 				}
 			});
-		}).catch(e => {
+		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
-		});
+		}
 	}
 
 	public async update(folderRepositoryManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {

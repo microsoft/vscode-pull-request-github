@@ -45,7 +45,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				) : null}
 			</div>
 			{
-				labels.map(label => <Label key={label.name} {...label} canDelete={hasWritePermission} />)
+				labels && labels.map(label => <Label key={label.name} {...label} canDelete={hasWritePermission} />)
 			}
 		</div>
 	</div>;
