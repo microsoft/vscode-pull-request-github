@@ -656,6 +656,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				rawThread = (await this.createFirstCommentInThread(thread, input, fileChange))!;
 				thread.threadId = rawThread?.id!;
 				thread.rawThread = rawThread!;
+				updateCommentThreadLabel(thread);
 				rawComment = rawThread.comments?.[0];
 				fileChange.update(fileChange.comments.concat(rawThread!));
 			} else {

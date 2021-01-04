@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
-import { CommentType, FileDiff, GitBranchStats, GitCommitRef, GitPullRequest, GitPullRequestCommentThread, LineDiffBlockChangeType, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { CommentThreadStatus, CommentType, FileDiff, GitBranchStats, GitCommitRef, GitPullRequest, GitPullRequestCommentThread, LineDiffBlockChangeType, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import { Reaction } from '../common/comment';
 import { DiffChangeType, DiffHunk, DiffLine } from '../common/diffHunk';
@@ -10,7 +10,6 @@ import { Resource } from '../common/resources';
 import { GitApiImpl } from '../api/api1';
 import { Repository } from '../api/api';
 import { GHPRComment, GHPRCommentThread } from './prComment';
-import { uniqBy } from '../common/utils';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
 
 export interface CommentReactionHandler {
@@ -274,8 +273,7 @@ export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode
 
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 	if (thread.comments.length) {
-		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name).map(comment => `@${comment.author.name}`).join(', ');
-		thread.label = `Participants: ${participantsList}`;
+		thread.label = `Status: ${CommentThreadStatus[thread.rawThread?.status ?? 0].toString()}`;
 	} else {
 		thread.label = 'Start discussion';
 	}
