@@ -24,8 +24,6 @@ import { GitChangeType } from '../common/file';
 import { GitPullRequestCommentThread, Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { CommentPermissions } from '../azdo/interface';
 
-
-
 function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, commentThreads: GHPRCommentThread[]) {
 	commentThreads.forEach(thread => {
 		if (thread.comments && thread.comments.length) {
@@ -85,6 +83,9 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		this._localToDispose.push(this._commentController);
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
+	}
+	changeThreadStatus(thread: GHPRCommentThread): Promise<void> {
+		throw new Error('Method not implemented.');
 	}
 
 	// #region initialize

@@ -20,7 +20,7 @@ import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
-import { GHPRComment, TemporaryComment } from './azdo/prComment';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from './azdo/prComment';
 import { FolderRepositoryManager } from './azdo/folderRepositoryManager';
 import { PullRequestModel } from './azdo/pullRequestModel';
 import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
@@ -541,6 +541,18 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 
 		if (handler) {
 			handler.createOrReplyComment(reply.thread, reply.text);
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.changeThreadStatus', async (thread: GHPRCommentThread) => {
+		/* __GDPR__
+			"pr.createComment" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.changeThreadStatus');
+		const handler = resolveCommentHandler(thread);
+
+		if (handler) {
+			await handler.changeThreadStatus(thread);
 		}
 	}));
 

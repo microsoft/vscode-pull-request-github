@@ -19,11 +19,11 @@ import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../azdo/prComment';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { CommentReactionHandler, updateCommentReviewState, getPositionFromThread, updateCommentThreadLabel, createVSCodeCommentThread, removeLeadingSlash } from '../../azdo/utils';
+import { CommentReactionHandler, updateCommentReviewState, getPositionFromThread, updateCommentThreadLabel, createVSCodeCommentThread, removeLeadingSlash, getCommentThreadStatusKeys } from '../../azdo/utils';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../../commentHandlerResolver';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { DirectoryTreeNode } from './directoryTreeNode';
-import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, CommentThreadStatus, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { CommentPermissions, CommentWithPermissions } from '../../azdo/interface';
 
 /**
@@ -677,6 +677,36 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				return c;
 			});
+		}
+	}
+
+	public async changeThreadStatus(thread: GHPRCommentThread): Promise<void> {
+		try {
+			const allKeys = getCommentThreadStatusKeys();
+
+			const selectedStatus = await vscode.window.showQuickPick(allKeys.filter(f => f !== CommentThreadStatus[thread?.rawThread?.status ?? 0]), {
+				canPickMany: false,
+				ignoreFocusOut: true
+			});
+
+			if (!selectedStatus) {
+				return;
+			}
+
+			const newThread = await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				cancellable: false
+			}, async (progress, token) => {
+				progress.report({ message: `Updating thread status from "${CommentThreadStatus[thread.rawThread.status ?? 0]}" to "${selectedStatus}"` });
+				return await this.pullRequestModel.updateThreadStatus(thread.rawThread.id!, CommentThreadStatus[selectedStatus as keyof typeof CommentThreadStatus]);
+			});
+
+			// const newThread = await this.pullRequestModel.updateThreadStatus(thread.rawThread.id!, CommentThreadStatus[selectedStatus as keyof typeof CommentThreadStatus]);
+			thread.rawThread = newThread!;
+			updateCommentThreadLabel(thread);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Updating status failed: ${e}`);
+			Logger.appendLine(e);
 		}
 	}
 

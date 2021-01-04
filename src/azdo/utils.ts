@@ -297,5 +297,13 @@ export function createVSCodeCommentThread(thread: ThreadData, commentController:
 }
 
 export function removeLeadingSlash(path: string) {
-	return path.replace(/^\//g, '')
+	return path.replace(/^\//g, '');
+}
+
+export function getCommentThreadStatusKeys(): string[] {
+	return Object.values(CommentThreadStatus)
+				.filter(value => typeof value === 'string')
+				.filter(f => f !== CommentThreadStatus[CommentThreadStatus.Unknown])
+				.filter(f => f !== CommentThreadStatus[CommentThreadStatus.ByDesign]) // ByDesign is not shown in the Azdo UI
+				.map(f => f.toString());
 }

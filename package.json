@@ -576,6 +576,13 @@
         "enablement": "!commentIsEmpty"
       },
       {
+        "command": "pr.changeThreadStatus",
+        "title": "Change status",
+        "category": "GitHub Pull Requests",
+        "enablement": "!commentThreadIsEmpty",
+        "icon": "$(settings)"
+      },
+      {
         "command": "pr.deleteReview",
         "title": "Delete Review",
         "category": "GitHub Pull Requests"
@@ -890,6 +897,10 @@
         },
         {
           "command": "pr.startReview",
+          "when": "false"
+        },
+        {
+          "command": "pr.changeThreadStatus",
           "when": "false"
         },
         {
@@ -1228,11 +1239,6 @@
         {
           "command": "pr.startReview",
           "group": "inline",
-          "when": "commentController =~ /browse/ && !prInDraft"
-        },
-        {
-          "command": "pr.startReview",
-          "group": "inline",
           "when": "commentController =~ /review/ && !reviewInDraftMode"
         },
         {
@@ -1254,6 +1260,13 @@
           "command": "pr.finishReview",
           "group": "inline",
           "when": "commentController =~ /review/ && reviewInDraftMode"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "pr.changeThreadStatus",
+          "group": "inline",
+          "when": "commentController =~ /browse/ && !commentThreadIsEmpty"
         }
       ],
       "comments/comment/title": [
