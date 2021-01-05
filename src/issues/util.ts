@@ -561,7 +561,7 @@ export class PlainTextRenderer extends marked.Renderer {
 		return '';
 	}
 	paragraph(text: string): string {
-		return text + ' ';
+		return text.replace(/\</g, '\\\<').replace(/\>/g, '\\\>') + ' ';
 	}
 	table(header: string, body: string): string {
 		return header + ' ' + body;
