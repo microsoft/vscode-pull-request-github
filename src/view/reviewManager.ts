@@ -123,7 +123,12 @@ export class ReviewManager {
 					remotes: remotes
 				};
 
-				this.updateState();
+				// The first time this event occurs we do want to do visible updates.
+				// The first time, oldHead will be undefined.
+				// For subsequent changes, we don't want to make visible updates.
+				// This occurs on branch changes.
+				// Note that the visible changes will occur when checking out a PR.
+				this.updateState(!!oldHead);
 			}
 		}));
 
@@ -150,11 +155,6 @@ export class ReviewManager {
 
 	get localFileChanges(): GitFileChangeNode[] {
 		return this._localFileChanges;
-	}
-
-	setRepository(repository: Repository, silent: boolean) {
-		this._repository = repository;
-		this.updateState(silent);
 	}
 
 	private pollForStatusChange() {
@@ -207,9 +207,6 @@ export class ReviewManager {
 	private async validateState(silent: boolean) {
 		Logger.appendLine('Review> Validating state...');
 		await this._folderRepoManager.updateRepositories(silent);
-		if (silent) {
-			return;
-		}
 
 		if (!this._repository.state.HEAD) {
 			this.clear(true);
@@ -289,7 +286,7 @@ export class ReviewManager {
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
-		if (this._context.workspaceState.get(FOCUS_REVIEW_MODE)) {
+		if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE)) {
 			if (this.localFileChanges.length > 0) {
 				let fileChangeToShow: GitFileChangeNode | undefined;
 				for (const fileChange of this.localFileChanges) {
