@@ -14,8 +14,9 @@ import { checkIcon, editIcon,copyIcon } from './icon';
 import Timestamp from './timestamp';
 import { GithubItemStateEnum } from '../../src/azdo/interface';
 import { useStateProp } from '../common/hooks';
+import { CommentThreadStatus, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
-export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue }: PullRequest) {
+export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue, threads }: PullRequest) {
 	return <>
 		<Title {...{ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }} />
 		<div className='subtitle'>
@@ -38,6 +39,9 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 					Created <Timestamp date={createdAt} href={url} />
 				</Spaced>
 			</span>
+		</div>
+		<div className='subtitle'>
+			{getClosedCommentDescription(threads)}
 		</div>
 	</>;
 }
@@ -153,4 +157,11 @@ function getActionText(state: GithubItemStateEnum) {
 	} else {
 		return 'wants to merge changes';
 	}
+}
+
+export function getClosedCommentDescription(threads: GitPullRequestCommentThread[]) {
+	const active = threads.filter(t => !t.isDeleted).filter(t => t.status === CommentThreadStatus.Active || t.status === CommentThreadStatus.Pending).length;
+	const all = threads.filter(t => !t.isDeleted).filter(t => t.status !== undefined && t.status !== CommentThreadStatus.Unknown).length;
+
+	return all > 0 ? `${all-active}/${all} comments resolved`: 'No comments';
 }
