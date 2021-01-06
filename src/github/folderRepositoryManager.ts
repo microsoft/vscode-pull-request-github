@@ -924,22 +924,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel | undefined> {
+		const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
+		if (!repo) {
+			throw new Error(`No matching repository ${params.repo} found for ${params.owner}`);
+		}
+
 		try {
-			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
-			if (!repo) {
-				throw new Error(`No matching repository ${params.repo} found for ${params.owner}`);
-			}
-
 			await repo.ensure();
-
-			const { title, body } = titleAndBodyFrom(await this.getHeadCommitMessage());
-			if (!params.title) {
-				params.title = title;
-			}
-
-			if (!params.body) {
-				params.body = body;
-			}
 
 			// Create PR
 			const { data } = await repo.octokit.pulls.create(params);
@@ -962,7 +953,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				// There are unpushed commits
 				if (this._repository.state.HEAD?.ahead) {
 					// Offer to push changes
-					const shouldPush = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to push your local commits and try again?`, 'Yes', 'Cancel');
+					const shouldPush = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to push your local commits and try again?`, { modal: true }, 'Yes', 'Cancel');
 					if (shouldPush === 'Yes') {
 						await this._repository.push();
 						return this.createPullRequest(params);
@@ -975,7 +966,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				// There are uncommited changes
 				if (this._repository.state.workingTreeChanges.length || this._repository.state.indexChanges.length) {
-					const shouldCommit = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to commit your changes and try again?`, 'Yes', 'Cancel');
+					const shouldCommit = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to commit your changes and try again?`, { modal: true }, 'Yes', 'Cancel');
 					if (shouldCommit === 'Yes') {
 						await vscode.commands.executeCommand('git.commit');
 						await this._repository.push();
@@ -985,6 +976,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					if (shouldCommit === 'Cancel') {
 						return;
 					}
+				}
+			}
+
+			if (!this._repository.state.HEAD?.upstream) {
+				const shouldPushUpstream = await vscode.window.showInformationMessage(`There is currently no upstream branch for '${params.base}'. Do you want to push it and try again?`, { modal: true }, 'Yes', 'Cancel');
+				if (shouldPushUpstream === 'Yes') {
+					await this._repository.push(repo.remote.remoteName, params.base, true);
+					return this.createPullRequest(params);
+				}
+
+				if (shouldPushUpstream === 'Cancel') {
+					return;
 				}
 			}
 
@@ -1000,7 +1003,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				isDraft: (params.draft || '').toString(),
 				message: formatError(e)
 			});
-			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
+
+			throw new Error(formatError(e));
 		}
 	}
 

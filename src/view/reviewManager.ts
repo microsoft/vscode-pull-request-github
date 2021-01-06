@@ -16,14 +16,16 @@ import { DiffChangeType } from '../common/diffHunk';
 import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum, PullRequestDescriptionSourceQuickPick, PullRequestDescriptionSource, PullRequestDescriptionSourceEnum } from './quickpick';
-import { FolderRepositoryManager, PullRequestDefaults, SETTINGS_NAMESPACE, titleAndBodyFrom } from '../github/folderRepositoryManager';
+import { RemoteQuickPickItem } from './quickpick';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
+import { CreatePullRequestViewProvider } from '../github/createPRViewProvider';
+import { openDescription } from '../commands';
 
 const FOCUS_REVIEW_MODE = 'github:focusedReview';
 
@@ -48,6 +50,8 @@ export class ReviewManager {
 	};
 
 	private _webviewViewProvider: PullRequestViewProvider | undefined;
+	private _createPRViewProvider: CreatePullRequestViewProvider | undefined;
+	private _createPRViewDisposables: vscode.Disposable[] = [];
 
 	private _switchingToReviewMode: boolean;
 
@@ -638,260 +642,28 @@ export class ReviewManager {
 		return selected;
 	}
 
-	private async getPullRequestTitleAndDescriptionDefaults(progress: vscode.Progress<{ message?: string, increment?: number }>, pullRequestDescriptionMethod: PullRequestDescriptionSource): Promise<{ title: string, description: string } | undefined> {
-		let template: vscode.Uri | undefined;
+	public async createPullRequest(isDraft?: boolean): Promise<void> {
+		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
+		if (!this._createPRViewProvider) {
+			this._createPRViewProvider = new CreatePullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, !!isDraft);
 
-		// Only fetch pull request templates if requested
-		if (pullRequestDescriptionMethod === PullRequestDescriptionSourceEnum.Template) {
-			const pullRequestTemplates = await this._folderRepoManager.getPullRequestTemplates();
+			this._createPRViewDisposables.push(this._createPRViewProvider.onDone(async createdPR => {
+				vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
 
-			if (pullRequestTemplates.length === 1) {
-				template = pullRequestTemplates[0];
-				progress.report({ increment: 5, message: 'Found pull request template. Creating pull request...' });
-			}
+				this._createPRViewProvider?.dispose();
+				this._createPRViewDisposables.forEach(d => d.dispose());
+				this._createPRViewProvider = undefined;
 
-			if (pullRequestTemplates.length > 1) {
-				const targetTemplate = await vscode.window.showQuickPick(pullRequestTemplates.map(uri => {
-					return {
-						label: vscode.workspace.asRelativePath(uri.path),
-						uri: uri
-					};
-				}), {
-					ignoreFocusOut: true,
-					placeHolder: 'Select the pull request template to use'
-				});
-
-				// Treat user pressing escape as cancel
-				if (!targetTemplate) {
-					return;
+				if (createdPR) {
+					await this.updateState();
+					await openDescription(this._context, this._telemetry, createdPR, this._folderRepoManager, this);
 				}
+			}));
 
-				template = targetTemplate.uri;
-				progress.report({ increment: 5, message: 'Creating pull request...' });
-			}
+			this._createPRViewDisposables.push(vscode.window.registerWebviewViewProvider(CreatePullRequestViewProvider.viewType, this._createPRViewProvider));
+		} else {
+			this._createPRViewProvider.show();
 		}
-
-		const { title, body } = titleAndBodyFrom(await this._folderRepoManager.getHeadCommitMessage());
-		let description = body;
-		if (template) {
-			try {
-				const templateContent = await vscode.workspace.fs.readFile(template);
-				description = templateContent.toString();
-			} catch (e) {
-				Logger.appendLine(`Reading pull request template failed: ${e}`);
-			}
-		}
-
-		return {
-			title,
-			description
-		};
-	}
-
-	private async getPullRequestTitleSetting(): Promise<PullRequestTitleSource | undefined> {
-		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestTitleSource>('pullRequestTitle', PullRequestTitleSourceEnum.Ask);
-
-		if (method === PullRequestTitleSourceEnum.Ask) {
-			const titleSource = await vscode.window.showQuickPick<PullRequestTitleSourceQuickPick>(PullRequestTitleSourceQuickPick.allOptions(), {
-				ignoreFocusOut: true,
-				placeHolder: 'Pull Request Title Source'
-			});
-
-			if (!titleSource) {
-				return;
-			}
-
-			return titleSource.pullRequestTitleSource;
-		}
-
-		return method;
-	}
-
-	private async getPullRequestDescriptionSetting(): Promise<PullRequestDescriptionSource | undefined> {
-		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestDescriptionSource>('pullRequestDescription', PullRequestDescriptionSourceEnum.Ask);
-
-		if (method === PullRequestDescriptionSourceEnum.Ask) {
-			const descriptionSource = await vscode.window.showQuickPick<PullRequestDescriptionSourceQuickPick>(PullRequestDescriptionSourceQuickPick.allOptions(), {
-				ignoreFocusOut: true,
-				placeHolder: 'Pull Request Description Source'
-			});
-
-			if (!descriptionSource) {
-				return;
-			}
-
-			return descriptionSource.pullRequestDescriptionSource;
-		}
-
-		return method;
-	}
-
-	private async _chooseTargetBranch(targetRemote: RemoteQuickPickItem, pullRequestDefaults: PullRequestDefaults): Promise<string | undefined> {
-		const base: string = targetRemote.remote
-			? (await this._folderRepoManager.getMetadata(targetRemote.remote.remoteName)).default_branch
-			: pullRequestDefaults.base;
-
-		let target: string | undefined;
-		try {
-			const branches = await this._folderRepoManager.listBranches(targetRemote.owner, targetRemote.name);
-			target = await new Promise(async (resolve, reject) => {
-				const branchPicker = vscode.window.createQuickPick();
-				branchPicker.value = base;
-				branchPicker.ignoreFocusOut = true;
-				branchPicker.title = `Choose target branch for ${targetRemote.owner}/${targetRemote.name}`;
-				branchPicker.items = branches.map(branch => {
-					return {
-						label: branch
-					};
-				});
-
-				branchPicker.onDidAccept(_ => {
-					resolve(branchPicker.activeItems[0].label);
-					branchPicker.dispose();
-				});
-
-				branchPicker.onDidHide(_ => {
-					reject();
-					branchPicker.dispose();
-				});
-
-				branchPicker.show();
-			});
-		} catch (_) {
-			target = await vscode.window.showInputBox({
-				value: base,
-				ignoreFocusOut: true,
-				prompt: `Choose target branch for ${targetRemote.owner}/${targetRemote.name}`,
-			});
-		}
-
-		return target;
-	}
-
-	public async createPullRequest(draft = false): Promise<void> {
-		const pullRequestDefaults = await this._folderRepoManager.getPullRequestDefaults();
-		const githubRemotes = this._folderRepoManager.getGitHubRemotes();
-		const targetRemote = await this.getRemote(githubRemotes, 'Select the remote to send the pull request to',
-			new RemoteQuickPickItem(pullRequestDefaults.owner, pullRequestDefaults.repo, 'Parent Repository')
-		);
-
-		if (!targetRemote) {
-			return;
-		}
-
-		const target = await this._chooseTargetBranch(targetRemote, pullRequestDefaults);
-		if (!target) {
-			return;
-		}
-
-		if (this._repository.state.HEAD === undefined) {
-			return;
-		}
-
-		await vscode.window.withProgress({
-			location: vscode.ProgressLocation.Notification,
-			title: 'Creating Pull Request',
-			cancellable: false
-		}, async (progress) => {
-			progress.report({ increment: 10 });
-			let HEAD: Branch | undefined = this._repository.state.HEAD!;
-
-			if (!HEAD.upstream) {
-				progress.report({ increment: 10, message: `Start publishing branch ${HEAD.name}` });
-				HEAD = await this.publishBranch(HEAD);
-				if (!HEAD) {
-					return;
-				}
-				progress.report({ increment: 20, message: `Branch ${HEAD.name} published` });
-			} else {
-				progress.report({ increment: 30, message: `Start creating pull request.` });
-
-			}
-
-			const branchName = HEAD.upstream!.name;
-			const headRemote = (await this._folderRepoManager.getAllGitHubRemotes()).find(remote => remote.remoteName === HEAD!.upstream!.remote);
-			if (!headRemote) {
-				return;
-			}
-
-			const pullRequestTitleMethod = await this.getPullRequestTitleSetting();
-
-			// User cancelled the title selection process, cancel the create process
-			if (!pullRequestTitleMethod) {
-				return;
-			}
-
-			const pullRequestDescriptionMethod = await this.getPullRequestDescriptionSetting();
-
-			// User cancelled the description selection process, cancel the create process
-			if (!pullRequestDescriptionMethod) {
-				return;
-			}
-
-			const titleAndDescriptionDefaults = await this.getPullRequestTitleAndDescriptionDefaults(progress, pullRequestDescriptionMethod);
-
-			// User cancelled a quick input, cancel the create process
-			if (!titleAndDescriptionDefaults) {
-				return;
-			}
-
-			let { title, description } = titleAndDescriptionDefaults;
-
-			switch (pullRequestTitleMethod) {
-				case PullRequestTitleSourceEnum.Branch:
-					if (branchName) {
-						title = branchName;
-					}
-					break;
-				case PullRequestTitleSourceEnum.Custom:
-					const nameResult = await vscode.window.showInputBox({
-						value: title,
-						ignoreFocusOut: true,
-						prompt: `Enter PR title`,
-						validateInput: (value) => value ? null : 'Title can not be empty'
-					});
-
-					if (!nameResult) {
-						return;
-					}
-
-					title = nameResult;
-			}
-
-			switch (pullRequestDescriptionMethod) {
-				case PullRequestDescriptionSourceEnum.Custom:
-					const descriptionResult = await vscode.window.showInputBox({
-						value: description.replace(/\n+/g, ' '),
-						ignoreFocusOut: true,
-						prompt: `Enter PR description`
-					});
-
-					description = descriptionResult || '';
-			}
-
-			const createParams = {
-				title,
-				body: description,
-				base: target,
-				// For cross-repository pull requests, the owner must be listed. Always list to be safe. See https://developer.github.com/v3/pulls/#create-a-pull-request.
-				head: `${headRemote.owner}:${branchName}`,
-				owner: targetRemote!.owner,
-				repo: targetRemote!.name,
-				draft: draft
-			};
-
-			const pullRequestModel = await this._folderRepoManager.createPullRequest(createParams);
-
-			if (pullRequestModel) {
-				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.number} Created` });
-				await this.updateState();
-				await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
-				progress.report({ increment: 30 });
-			} else {
-				// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
-				progress.report({ increment: 90, message: `Failed to create pull request for ${branchName}` });
-			}
-		});
 	}
 
 	private updateFocusedViewMode(): void {

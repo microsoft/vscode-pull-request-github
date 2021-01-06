@@ -84,4 +84,8 @@ export class WebviewBase {
 		};
 		this._webview?.postMessage(reply);
 	}
+
+	public dispose() {
+		this._disposables.forEach(d => d.dispose());
+	}
 }

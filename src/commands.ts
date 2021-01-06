@@ -47,6 +47,34 @@ function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | Pull
 	}
 }
 
+export async function openDescription(
+	context: vscode.ExtensionContext,
+	telemetry: ITelemetry,
+	argument: DescriptionNode | PullRequestModel,
+	folderManager: FolderRepositoryManager,
+	reviewManager: ReviewManager
+) {
+	const pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
+	let descriptionNode: DescriptionNode;
+	if (!(argument instanceof DescriptionNode)) {
+		// the command is triggered from command palette or status bar, which means we are already in checkout mode.
+		const rootNodes = await reviewManager.changesInPrDataProvider.getChildren();
+		descriptionNode = rootNodes[0] as DescriptionNode;
+	} else {
+		descriptionNode = argument;
+	}
+
+	const pullRequest = ensurePR(folderManager, pullRequestModel);
+	descriptionNode.reveal(descriptionNode, { select: true, focus: true });
+	// Create and show a new webview
+	PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest);
+
+	/* __GDPR__
+		"pr.openDescription" : {}
+	*/
+	telemetry.sendTelemetryEvent('pr.openDescription');
+}
+
 async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue: T) => string, placeHolder?: string): Promise<T | undefined> {
 	if (activePullRequests.length === 1) {
 		return activePullRequests[0];
@@ -370,23 +398,13 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		if (!folderManager) {
 			return;
 		}
-		let descriptionNode: DescriptionNode;
-		if (!(argument instanceof DescriptionNode)) {
-			// the command is triggerred from command palette or status bar, which means we are already in checkout mode.
-			const rootNodes = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)!.changesInPrDataProvider.getChildren();
-			descriptionNode = rootNodes[0] as DescriptionNode;
-		} else {
-			descriptionNode = argument;
-		}
-		const pullRequest = ensurePR(folderManager, pullRequestModel);
-		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
-		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest);
 
-		/* __GDPR__
-			"pr.openDescription" : {}
-		*/
-		telemetry.sendTelemetryEvent('pr.openDescription');
+		const reviewManager = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+		if (!reviewManager) {
+			return;
+		}
+
+		await openDescription(context, telemetry, argument, folderManager, reviewManager);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshDescription', async () => {
