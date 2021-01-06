@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as temp from 'temp';
-import { ExtensionContext, Uri, SecretState, Event } from 'vscode';
+import { ExtensionContext, Uri, SecretStorage, Event } from 'vscode';
 
 import { InMemoryMemento } from './inMemoryMemento';
 
@@ -9,7 +9,7 @@ export class MockExtensionContext implements ExtensionContext {
 
 	workspaceState = new InMemoryMemento();
 	globalState = new InMemoryMemento();
-	secretState = new class implements SecretState {
+	secrets = new class implements SecretStorage {
 		get(key: string): Thenable<string | undefined> {
 			throw new Error('Method not implemented.');
 		}
