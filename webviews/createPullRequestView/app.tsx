@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useContext, useState, useEffect } from 'react';
 import { render } from 'react-dom';
 import PullRequestContext, { CreateParams } from '../common/createContext';
-import { commitIcon, gitCompareIcon, repoIcon, gitBranchIcon } from '../components/icon';
+import { gitCompareIcon, repoIcon } from '../components/icon';
 
 export function main() {
 	render(
@@ -68,12 +68,8 @@ export function main() {
 				</div>
 
 				<div className='wrapper'>
-					<div className='input-wrapper'>
-						<input type='text' name='title' className={params.showTitleValidationError ? 'input-error' : ''} placeholder='Pull Request Title' value={params.pendingTitle} required onChange={(e) => updateTitle(e.currentTarget.value)}></input>
-						<div className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required.</div>
-					</div>
-					<button title='Use last commit message' onClick={() => ctx.useCommitForTitle()}>{commitIcon}</button>
-					<button title='Use branch name' onClick={() => ctx.useBranchForTitle()}>{gitBranchIcon}</button>
+					<input type='text' name='title' className={params.showTitleValidationError ? 'input-error' : ''} placeholder='Pull Request Title' value={params.pendingTitle} required onChange={(e) => updateTitle(e.currentTarget.value)}></input>
+					<div className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required.</div>
 				</div>
 
 

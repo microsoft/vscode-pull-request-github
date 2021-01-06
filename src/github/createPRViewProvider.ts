@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { FolderRepositoryManager, titleAndBodyFrom } from './folderRepositoryManager';
+import { byRemoteName, DetachedHeadError, FolderRepositoryManager, titleAndBodyFrom } from './folderRepositoryManager';
 import webviewContent from '../../media/createPR-webviewIndex.js';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
-import * as PersistentState from '../common/persistentState';
 import { PR_SETTINGS_NAMESPACE, PR_TITLE } from '../common/settingKeys';
 import { OctokitCommon } from './common';
 import { PullRequestModel } from './pullRequestModel';
@@ -79,7 +78,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 		this._webviewView.show();
 	}
 
-	private async getTitle(): Promise<string> {
+	private async getTitle(base: string): Promise<string> {
 		const method = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullRequestTitleSource>(PR_TITLE, PullRequestTitleSourceEnum.Ask);
 
 		switch (method) {
@@ -90,9 +89,47 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 			case PullRequestTitleSourceEnum.Commit:
 				return titleAndBodyFrom(await this._folderRepositoryManager.getHeadCommitMessage()).title;
 
-			default:
+			case PullRequestTitleSourceEnum.Custom:
 				return '';
+
+			default:
+				// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name.
+				// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
+				// current local branch if it has a GitHub remote.
+				const origin = await this._folderRepositoryManager.getOrigin();
+				const repositoryHead = this._folderRepositoryManager.repository.state.HEAD;
+
+				let hasMultipleCommits = true;
+				if (repositoryHead?.upstream) {
+					const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(repositoryHead?.upstream.remote));
+					if (headRepo) {
+						const headBranch = `${headRepo.remote.owner}:${repositoryHead.name}`;
+						const commits = await origin.compareCommits(base, headBranch);
+						hasMultipleCommits = commits.total_commits > 1;
+					}
+				}
+
+				if (hasMultipleCommits) {
+					return this._folderRepositoryManager.repository.state.HEAD!.name!;
+				} else {
+					return titleAndBodyFrom(await this._folderRepositoryManager.getHeadCommitMessage()).title;
+				}
 		}
+	}
+
+	private async getPullRequestTemplate(): Promise<string> {
+		const templateUris = await this._folderRepositoryManager.getPullRequestTemplates();
+		if (templateUris[0]) {
+			try {
+				const templateContent = await vscode.workspace.fs.readFile(templateUris[0]);
+				return templateContent.toString();
+			} catch (e) {
+				Logger.appendLine(`Reading pull request template failed: ${e}`);
+				return '';
+			}
+		}
+
+		return '';
 	}
 
 	private async getDescription(): Promise<string> {
@@ -101,26 +138,26 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 		switch (method) {
 
 			case PullRequestDescriptionSourceEnum.Template:
-				const templateUris = await this._folderRepositoryManager.getPullRequestTemplates();
-				if (templateUris[0]) {
-					try {
-						const templateContent = await vscode.workspace.fs.readFile(templateUris[0]);
-						return templateContent.toString();
-					} catch (e) {
-						Logger.appendLine(`Reading pull request template failed: ${e}`);
-						return '';
-					}
-				}
+				return this.getPullRequestTemplate();
 
 			case PullRequestDescriptionSourceEnum.Commit:
 				return titleAndBodyFrom(await this._folderRepositoryManager.getHeadCommitMessage()).body;
 
-			default:
+			case PullRequestDescriptionSourceEnum.Custom:
 				return '';
+
+			default:
+				// Try to match github's default, first look for template, then use commit body if available.
+				const pullRequestTemplate = this.getPullRequestTemplate();
+				return pullRequestTemplate ?? titleAndBodyFrom(await this._folderRepositoryManager.getHeadCommitMessage()).body ?? '';
 		}
 	}
 
 	public async initializeParams(): Promise<void> {
+		if (!this._folderRepositoryManager.repository.state.HEAD) {
+			throw new DetachedHeadError(this._folderRepositoryManager.repository);
+		}
+
 		const pullRequestDefaults = await this._folderRepositoryManager.getPullRequestDefaults();
 
 		const defaultRemote: RemoteInfo = {
@@ -131,9 +168,8 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 		Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.listBranches(pullRequestDefaults.owner, pullRequestDefaults.repo),
-			this.getTitle(),
+			this.getTitle(pullRequestDefaults.base),
 			this.getDescription()
-
 		]).then(result => {
 			const [githubRemotes, branchesForRemote, defaultTitle, defaultDescription] = result;
 
@@ -156,41 +192,6 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 				}
 			});
 		});
-	}
-
-	private async askForAlwaysUse(stateKey: string, message: string, titleSource: PullRequestTitleSourceEnum): Promise<void> {
-		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
-		if (config.get(PR_TITLE) === titleSource) {
-			return;
-		}
-
-		const showPrompt = PersistentState.fetch('prompts', stateKey);
-		if (!showPrompt || showPrompt === PersistentState.MISSING) {
-			vscode.window.showInformationMessage(
-				`Would you like to always use the ${message} as the title of the pull request?`,
-				{ modal: true },
-				...['Yes', `Don't Ask Again`]).then(async result => {
-					if (result === 'Yes') {
-						config.update(PR_TITLE, titleSource, true);
-					}
-
-					if (result === `Don't Ask Again`) {
-						await PersistentState.store('prompts', stateKey, true);
-					}
-				});
-		}
-	}
-
-	private async getCommitForTitle(message: IRequestMessage<undefined>): Promise<void> {
-		await this.askForAlwaysUse('commit pr title', 'commit message', PullRequestTitleSourceEnum.Commit);
-		const commit = titleAndBodyFrom(await this._folderRepositoryManager.getHeadCommitMessage()).title;
-		return this._replyMessage(message, commit);
-	}
-
-	private async getBranchForTitle(message: IRequestMessage<undefined>): Promise<void> {
-		await this.askForAlwaysUse('branch pr title', 'branch name', PullRequestTitleSourceEnum.Branch);
-		const branch = this._folderRepositoryManager.repository.state.HEAD!.name!;
-		return this._replyMessage(message, branch);
 	}
 
 	private async changeRemote(message: IRequestMessage<{ owner: string, repositoryName: string}>): Promise<void> {
@@ -231,7 +232,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 		}
 
 		switch (message.command) {
-			// TODO some cleanup of resources for cancel and create
+
 			case 'pr.cancelCreate':
 				vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
 				this._onDone.fire(undefined);
@@ -242,12 +243,6 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 
 			case 'pr.changeRemote':
 				return this.changeRemote(message);
-
-			case 'pr.useCommitForTitle':
-				return this.getCommitForTitle(message);
-
-			case 'pr.useBranchForTitle':
-				return this.getBranchForTitle(message);
 
 			default:
 				// Log error

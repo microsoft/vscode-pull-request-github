@@ -35,17 +35,6 @@ svg, svg path {
 	display: flex;
 }
 
-.input-wrapper {
-	flex-grow: 1;
-}
-
-.wrapper button {
-	background-color: inherit;
-	color: inherit;
-	height: 28px;
-	padding: 0px;
-}
-
 .wrapper span {
 	display: flex;
 	padding: 5px;
