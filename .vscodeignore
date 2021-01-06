@@ -14,7 +14,7 @@ dist/browser/*.map
 .readme/**
 documentation/**
 .vscode-test/**
-webpack.config.js
+**/*webpack.config.js
 **/*.svg
 scripts/**
 azure-pipeline.*
