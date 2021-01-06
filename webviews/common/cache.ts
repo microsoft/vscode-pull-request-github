@@ -52,7 +52,7 @@ export interface PullRequest {
 
 	isAuthor?: boolean;
 	threads?: GitPullRequestCommentThread[];
-	commits: GitCommitRef[]
+	commits: GitCommitRef[];
 }
 
 export function getState(): PullRequest {

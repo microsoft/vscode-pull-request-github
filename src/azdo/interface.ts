@@ -74,6 +74,7 @@ export declare enum PullRequestStatus {
 export interface ReviewState {
 	reviewer: IAccount;
 	state: string;
+	isRequired: boolean;
 }
 
 export interface IAccount {

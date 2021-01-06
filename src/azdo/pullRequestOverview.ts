@@ -172,7 +172,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 						url: r.reviewerUrl,
 						id: r.id
 					},
-					state: PullRequestVote[r.vote ?? 0]
+					state: PullRequestVote[r.vote ?? 0],
+					isRequired: r.isRequired ?? false
 				};
 			}) ?? [];
 
@@ -548,7 +549,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			} else {
 				this._existingReviewers.push({
 					reviewer: review,
-					state: PullRequestVote[review.vote?? 0].toString()
+					state: PullRequestVote[review.vote?? 0].toString(),
+					isRequired: review.isRequired ?? false
 				});
 			}
 		}

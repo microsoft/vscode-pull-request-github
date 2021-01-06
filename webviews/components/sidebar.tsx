@@ -12,28 +12,18 @@ import { ILabel } from '../../src/azdo/interface';
 import { nbsp } from './space';
 import { Reviewer } from './reviewer';
 
-export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue }: PullRequest) {
+export default function Sidebar({ reviewers, labels, hasWritePermission }: PullRequest) {
 	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
 
 	return <div id='sidebar'>
-		{!isIssue
-			? <div id='reviewers' className='section'>
-				<div className='section-header'>
-					<div>Reviewers</div>
-					{hasWritePermission ? (
-						<button title='Add Reviewers' onClick={async () => {
-							const newReviewers = await addReviewers();
-							updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) });
-						}}>{plusIcon}</button>
-					) : null}
-				</div>
-				{
-					reviewers ? reviewers.map(state =>
-						<Reviewer key={state.reviewer.id} {...state} canDelete={hasWritePermission} />
-					) : []
-				}
-			</div>
-			: ''}
+			<ReviewerPanel labelText='Required Reviewers' reviewers={reviewers.filter(r => r.isRequired)}
+				addReviewers={addReviewers} hasWritePermission={hasWritePermission}
+				updatePR={(newReviewers) => updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) })}
+			/>
+			<ReviewerPanel labelText='Optional Reviewers' reviewers={reviewers.filter(r => !r.isRequired)}
+				addReviewers={addReviewers} hasWritePermission={hasWritePermission}
+				updatePR={(newReviewers) => updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) })}
+			/>
 		<div id='labels' className='section'>
 			<div className='section-header'>
 				<div>Labels</div>
@@ -62,3 +52,22 @@ function Label(label: ILabel & { canDelete: boolean }) {
 		{canDelete && showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeLabel(name)}>{deleteIcon}️</a>{nbsp}</> : null}
 	</div>;
 }
+
+const ReviewerPanel = ({reviewers, labelText, hasWritePermission, addReviewers, updatePR}) => (
+	<div id='reviewers' className='section'>
+		<div className='section-header'>
+			<div>{labelText}</div>
+			{hasWritePermission ? (
+				<button title={`Add ${labelText}`} onClick={async () => {
+					const newReviewers = await addReviewers();
+					updatePR(newReviewers.added);
+				}}>{plusIcon}</button>
+			) : null}
+		</div>
+		{
+			reviewers ? reviewers.map(state =>
+				<Reviewer key={state.reviewer.id} {...state} canDelete={hasWritePermission} />
+			) : []
+		}
+	</div>
+);
