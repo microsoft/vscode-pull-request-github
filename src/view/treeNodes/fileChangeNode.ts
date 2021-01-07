@@ -194,7 +194,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
 		const command = await this.openDiffCommand(folderManager);
-		vscode.commands.executeCommand(command.command, command.arguments);
+		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}
 }
 
@@ -328,7 +328,6 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 	}
 
 	async resolve(): Promise<void> {
-		console.log('resolving');
 		if (this._useViewChangesCommand) {
 			this.command = await this.alternateCommand();
 		} else {

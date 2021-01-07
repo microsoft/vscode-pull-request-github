@@ -534,7 +534,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
 		const command = value instanceof GitFileChangeNode ? value.openFileCommand() : openFileCommand(value);
-		vscode.commands.executeCommand(command.title, command.arguments);
+		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
