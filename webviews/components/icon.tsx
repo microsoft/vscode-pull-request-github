@@ -24,4 +24,3 @@ export const copyIcon = <Icon src={require('../../resources/icons/copy.svg')} />
 export const chevronIcon = <Icon src={require('../../resources/icons/chevron.svg')} />;
 export const repoIcon = <Icon src={require('../../resources/icons/repo.svg')} />;
 export const gitCompareIcon = <Icon src={require('../../resources/icons/git_compare.svg')} />;
-export const gitBranchIcon = <Icon src={require('../../resources/icons/git_branch.svg')} />;

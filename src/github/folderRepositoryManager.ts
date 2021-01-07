@@ -1653,7 +1653,7 @@ const ownedByMe: Predicate<GitHubRepository> = repo => {
 	return currentUser && repo.remote.owner === currentUser.login;
 };
 
-const byRemoteName = (name: string): Predicate<GitHubRepository> =>
+export const byRemoteName = (name: string): Predicate<GitHubRepository> =>
 	({ remote: { remoteName } }) => remoteName === name;
 
 export const titleAndBodyFrom = (message: string): { title: string, body: string } => {

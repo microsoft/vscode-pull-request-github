@@ -748,6 +748,23 @@ export class GitHubRepository implements vscode.Disposable {
 		return ret;
 	}
 
+	/**
+	 * Compare across commits.
+	 * @param base The base branch. Must be a branch name. If comparing acrossing repositories, use the format <repo_owner>:branch.
+	 * @param head The head branch. Must be a branch name. If comparing acrossing repositories, use the format <repo_owner>:branch.
+	 */
+	public async compareCommits(base: string, head: string): Promise<OctokitTypes.ReposCompareCommitsResponseData> {
+		const { remote, octokit } = await this.ensure();
+		const { data } = await octokit.repos.compareCommits({
+			repo: remote.repositoryName,
+			owner: remote.owner,
+			base,
+			head
+		});
+
+		return data;
+	}
+
 	isCurrentUser(login: string): boolean {
 		return this._credentialStore.isCurrentUser(login);
 	}

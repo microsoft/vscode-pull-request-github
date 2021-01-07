@@ -108,22 +108,6 @@ export class CreatePRContext {
 		}
 	}
 
-	public useCommitForTitle = async (): Promise<void> => {
-		const commit = await this.postMessage({
-			command: 'pr.useCommitForTitle'
-		});
-
-		this.updateState({ pendingTitle: commit });
-	}
-
-	public useBranchForTitle = async (): Promise<void> => {
-		const branch = await this.postMessage({
-			command: 'pr.useBranchForTitle'
-		});
-
-		this.updateState({ pendingTitle: branch });
-	}
-
 	postMessage = (message: any): Promise<any> => {
 		return this._handler.postMessage(message);
 	}
