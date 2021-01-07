@@ -8,15 +8,12 @@ import * as vscode from 'vscode';
 import * as pathLib from 'path';
 import { ReviewManager } from './view/reviewManager';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
-import { fromReviewUri, ReviewUriParams, asImageDataURI } from './common/uri';
-import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
+import { asImageDataURI } from './common/uri';
+import { GitFileChangeNode, InMemFileChangeNode, openFileCommand } from './view/treeNodes/fileChangeNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { PullRequest } from './github/interface';
 import { formatError } from './common/utils';
-import { GitChangeType } from './common/file';
-import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
-import { DiffChangeType } from './common/diffHunk';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import Logger from './common/logger';
 import { GitErrorCodes } from './api/api';
@@ -430,56 +427,6 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		telemetry.sendTelemetryEvent('pr.openDescriptionToTheSide');
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
-		if (fileChange.status === GitChangeType.DELETE || fileChange.status === GitChangeType.ADD) {
-			// create an empty `review` uri without any path/commit info.
-			const emptyFileUri = fileChange.parentFilePath.with({
-				query: JSON.stringify({
-					path: null,
-					commit: null,
-				})
-			});
-
-			return fileChange.status === GitChangeType.DELETE
-				? vscode.commands.executeCommand('vscode.diff', fileChange.parentFilePath, emptyFileUri, `${fileChange.fileName}`, { preserveFocus: true })
-				: vscode.commands.executeCommand('vscode.diff', emptyFileUri, fileChange.parentFilePath, `${fileChange.fileName}`, { preserveFocus: true });
-		}
-
-		// Show the file change in a diff view.
-		const { path, ref, commit, rootPath } = fromReviewUri(fileChange.filePath);
-		const previousCommit = `${commit}^`;
-		const query: ReviewUriParams = {
-			path: path,
-			ref: ref,
-			commit: previousCommit,
-			base: true,
-			isOutdated: true,
-			rootPath
-		};
-		const previousFileUri = fileChange.filePath.with({ query: JSON.stringify(query) });
-
-		const options: vscode.TextDocumentShowOptions = {
-			preserveFocus: true
-		};
-
-		if (fileChange.comments && fileChange.comments.length) {
-			const sortedOutdatedComments = fileChange.comments.filter(comment => comment.position === undefined).sort((a, b) => {
-				return a.originalPosition! - b.originalPosition!;
-			});
-
-			if (sortedOutdatedComments.length) {
-				const diffLine = getDiffLineByPosition(fileChange.diffHunks, sortedOutdatedComments[0].originalPosition!);
-
-				if (diffLine) {
-					const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
-					options.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				}
-			}
-		}
-
-		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${(commit || '').substr(0, 8)}`, options);
-	}));
-
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signin', async () => {
 		await reposManager.authenticate();
 	}));
@@ -604,29 +551,8 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
-		const uri = value instanceof GitFileChangeNode ? value.filePath : value;
-
-		const activeTextEditor = vscode.window.activeTextEditor;
-		const opts: vscode.TextDocumentShowOptions = {
-			preserveFocus: true,
-			viewColumn: vscode.ViewColumn.Active
-		};
-
-		// Check if active text editor has same path as other editor. we cannot compare via
-		// URI.toString() here because the schemas can be different. Instead we just go by path.
-		if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
-			opts.selection = activeTextEditor.selection;
-		}
-
-		vscode.commands.executeCommand('vscode.open', uri, opts);
-	}));
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openChangedFile', (value: GitFileChangeNode) => {
-		const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
-		if (openDiff) {
-			return vscode.commands.executeCommand('pr.openDiffView', value);
-		} else {
-			return vscode.commands.executeCommand('review.openFile', value);
-		}
+		const command = value instanceof GitFileChangeNode ? value.openFileCommand() : openFileCommand(value);
+		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {

@@ -10,10 +10,29 @@ import { GitChangeType } from '../../common/file';
 import { TreeNode } from './treeNode';
 import { IComment } from '../../common/comment';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
-import { toResourceUri, asImageDataURI, EMPTY_IMAGE_URI } from '../../common/uri';
+import { toResourceUri, asImageDataURI, EMPTY_IMAGE_URI, ReviewUriParams, fromReviewUri } from '../../common/uri';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+
+export function openFileCommand(uri: vscode.Uri): vscode.Command {
+	const activeTextEditor = vscode.window.activeTextEditor;
+	const opts: vscode.TextDocumentShowOptions = {
+		preserveFocus: true,
+		viewColumn: vscode.ViewColumn.Active
+	};
+
+	// Check if active text editor has same path as other editor. we cannot compare via
+	// URI.toString() here because the schemas can be different. Instead we just go by path.
+	if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
+		opts.selection = activeTextEditor.selection;
+	}
+	return {
+		command: 'vscode.open',
+		arguments: [uri, opts],
+		title: 'Open File'
+	};
+}
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
@@ -145,7 +164,11 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
-	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
+	openFileCommand(): vscode.Command {
+		return openFileCommand(this.filePath);
+	}
+
+	async openDiffCommand(folderManager: FolderRepositoryManager): Promise<vscode.Command> {
 		const parentFilePath = this.parentFilePath;
 		const filePath = this.filePath;
 		const opts = this.opts;
@@ -162,7 +185,16 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		const pathSegments = filePath.path.split('/');
-		vscode.commands.executeCommand('vscode.diff', parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts);
+		return {
+			command: 'vscode.diff',
+			arguments: [parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts],
+			title: 'Open Changed File in PR'
+		};
+	}
+
+	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
+		const command = await this.openDiffCommand(folderManager);
+		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}
 }
 
@@ -218,6 +250,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		private readonly pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -229,11 +262,82 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly sha?: string,
 	) {
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
-		this.command = {
-			title: 'open changed file',
-			command: 'pr.openChangedFile',
-			arguments: [this]
+	}
+
+	private _useViewChangesCommand = false;
+	public useViewChangesCommand() {
+		this._useViewChangesCommand = true;
+	}
+
+	private async alternateCommand(): Promise<vscode.Command> {
+		if (this.status === GitChangeType.DELETE || this.status === GitChangeType.ADD) {
+			// create an empty `review` uri without any path/commit info.
+			const emptyFileUri = this.parentFilePath.with({
+				query: JSON.stringify({
+					path: null,
+					commit: null,
+				})
+			});
+
+			return {
+				command: 'vscode.diff',
+				arguments: this.status === GitChangeType.DELETE
+					? [this.parentFilePath, emptyFileUri, `${this.fileName}`, { preserveFocus: true }]
+					: [emptyFileUri, this.parentFilePath, `${this.fileName}`, { preserveFocus: true }],
+				title: 'Open Diff'
+			};
+		}
+
+		// Show the file change in a diff view.
+		const { path: filePath, ref, commit, rootPath } = fromReviewUri(this.filePath);
+		const previousCommit = `${commit}^`;
+		const query: ReviewUriParams = {
+			path: filePath,
+			ref: ref,
+			commit: previousCommit,
+			base: true,
+			isOutdated: true,
+			rootPath
 		};
+		const previousFileUri = this.filePath.with({ query: JSON.stringify(query) });
+
+		const options: vscode.TextDocumentShowOptions = {
+			preserveFocus: true
+		};
+
+		if (this.comments && this.comments.length) {
+			const sortedOutdatedComments = this.comments.filter(comment => comment.position === undefined).sort((a, b) => {
+				return a.originalPosition! - b.originalPosition!;
+			});
+
+			if (sortedOutdatedComments.length) {
+				const diffLine = getDiffLineByPosition(this.diffHunks, sortedOutdatedComments[0].originalPosition!);
+
+				if (diffLine) {
+					const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+					options.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
+				}
+			}
+		}
+
+		return {
+			command: 'vscode.diff',
+			arguments: [previousFileUri, this.filePath, `${this.fileName} from ${(commit || '').substr(0, 8)}`, options],
+			title: 'View Changes'
+		};
+	}
+
+	async resolve(): Promise<void> {
+		if (this._useViewChangesCommand) {
+			this.command = await this.alternateCommand();
+		} else {
+			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
+			if (openDiff) {
+				this.command = await this.openDiffCommand(this.pullRequestManager);
+			} else {
+				this.command = await this.openFileCommand();
+			}
+		}
 	}
 }
 

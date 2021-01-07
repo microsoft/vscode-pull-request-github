@@ -58,6 +58,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 			const uri = vscode.Uri.parse(path.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
 			const fileChangeNode = new GitFileChangeNode(
 				this,
+				this.pullRequestManager,
 				this.pullRequest,
 				getGitChangeType(change.status),
 				fileName,
@@ -69,13 +70,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				this.commit.sha
 			);
 
-			fileChangeNode.command = {
-				title: 'View Changes',
-				command: 'pr.viewChanges',
-				arguments: [
-					fileChangeNode
-				]
-			};
+			fileChangeNode.useViewChangesCommand();
 
 			return fileChangeNode;
 		});

@@ -36,6 +36,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 				this._onDidChangeTreeData.fire();
 				const layout = vscode.workspace.getConfiguration(`${SETTINGS_NAMESPACE}`).get<string>('fileListLayout');
 				await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
+			} else if (e.affectsConfiguration('git.openDiffOnClick')) {
+				this._onDidChangeTreeData.fire();
 			}
 		}));
 	}
@@ -95,6 +97,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		} else {
 			return await element.getChildren();
 		}
+	}
+
+	async resolveTreeItem?(item: vscode.TreeItem, element: TreeNode): Promise<vscode.TreeItem> {
+		if (element instanceof GitFileChangeNode) {
+			await element.resolve();
+		}
+		return element;
 	}
 
 	dispose() {
