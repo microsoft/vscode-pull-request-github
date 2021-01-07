@@ -709,6 +709,7 @@ code {
 .timestamp,
 .timestamp:hover {
 	color: inherit;
+	white-space: nowrap;
 }
 
 /** Theming */
