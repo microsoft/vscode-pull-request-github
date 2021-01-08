@@ -26,6 +26,7 @@ import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { openDescription } from '../commands';
+import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 
 const FOCUS_REVIEW_MODE = 'github:focusedReview';
 
@@ -142,6 +143,8 @@ export class ReviewManager {
 		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
 			this.updateFocusedViewMode();
 		}));
+
+		this._disposables.push(vscode.window.registerTerminalLinkProvider(new GitHubCreatePullRequestLinkProvider(this, this._folderRepoManager)));
 	}
 
 	get statusBarItem() {
