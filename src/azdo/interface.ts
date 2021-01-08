@@ -50,7 +50,7 @@ export enum PullRequestMergeability {
 
 export interface ReviewState {
 	reviewer: IAccount;
-	state: string;
+	state: PullRequestVote;
 	isRequired: boolean;
 }
 

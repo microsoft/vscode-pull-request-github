@@ -137,15 +137,15 @@ export const ReviewEventView = (event: ReviewEvent) => {
 };
 
 function AddReviewSummaryComment() {
-	const { requestChanges, approve, submit } = useContext(PullRequestContext);
+	const { requestChanges, submit } = useContext(PullRequestContext);
 	const comment = useRef<HTMLTextAreaElement>();
 	return <div className='comment-form'>
 		<textarea ref={comment} placeholder='Leave a review summary comment'></textarea>
 		<div className='form-actions'>
 			<button id='request-changes'
 				onClick={() => requestChanges(comment.current.value)}>Request Changes</button>
-			<button id='approve'
-				onClick={() => approve(comment.current.value)}>Approve</button>
+			{/* <button id='approve'
+				onClick={() => votePullRequest(comment.current.value)}>Approve</button> */}
 			<button id='submit'
 				onClick={() => submit(comment.current.value)}>Comment</button>
 		</div>

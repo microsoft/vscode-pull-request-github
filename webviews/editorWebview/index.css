@@ -25,6 +25,20 @@
 	padding-left: 20px;
 }
 
+#sidebar .vote  {
+	margin-bottom: 20px;
+}
+
+#sidebar .vote .vote-select  {
+	margin-bottom: 5px;
+}
+
+.vote .vote-button {
+	margin-left: auto;
+	display: flex;
+	align-self: auto;
+}
+
 a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }

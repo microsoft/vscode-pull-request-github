@@ -230,7 +230,7 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 };
 
 export function AddComment({ pendingCommentText, state, hasWritePermission, isIssue }: PullRequest) {
-	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
+	const { updatePR, comment, requestChanges, close } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -273,9 +273,9 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 		e => {
 			e.preventDefault();
 			const { command } = e.target.dataset;
-			submit({ approve, requestChanges, close }[command]);
+			submit({ requestChanges, close }[command]);
 		},
-		[submit, approve, requestChanges, close]);
+		[submit, requestChanges, close]);
 
 	return <form id='comment-form'
 		ref={form}
@@ -329,7 +329,7 @@ const COMMENT_METHODS = {
 }
 
 export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, comment } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, comment } = useContext(PullRequestContext);
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
 	async function submitAction(selected: string): Promise<void> {
@@ -338,9 +338,9 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
 				break;
-			case ReviewType.Approve:
-				await approve(value);
-				break;
+			// case ReviewType.Approve:
+			// 	await votePullRequest(value);
+			// 	break;
 			default:
 				await comment(value);
 		}

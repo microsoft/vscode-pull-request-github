@@ -5,7 +5,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React = require('react');
-import { ReviewState } from '../../src/azdo/interface';
+import { PullRequestVote, ReviewState } from '../../src/azdo/interface';
 import PullRequestContext from '../common/context';
 import { nbsp } from './space';
 import { cloneElement, useContext, useState } from 'react';
@@ -17,8 +17,8 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 	const [showDelete, setShowDelete] = useState(false);
 	const { removeReviewer } = useContext(PullRequestContext);
 	return <div className='section-item reviewer'
-		onMouseEnter={state === 'REQUESTED' ? () => setShowDelete(true) : null}
-		onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}>
+		onMouseEnter={state === PullRequestVote.NO_VOTE ? () => setShowDelete(true) : null}
+		onMouseLeave={state === PullRequestVote.NO_VOTE ? () => setShowDelete(false) : null}>
 		<Avatar for={reviewer} />
 		<AuthorLink for={reviewer} />
 		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.id)}>{deleteIcon}️</a></> : null}

@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { GithubItemStateEnum, ReviewState, MergeMethodsAvailability, MergeMethod, PullRequestVote, PullRequestCompletion } from './interface';
+import { GithubItemStateEnum, ReviewState, MergeMethodsAvailability, MergeMethod, PullRequestCompletion } from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -144,9 +144,10 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				pullRequestModel.getCommits(),
 				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 				pullRequestModel.getStatusChecks(),
-				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel)
+				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
+				pullRequestModel.azdoRepository.getAuthenticatedUser()
 			]);
-			const [pullRequest, threads, commits , defaultBranch, status, repositoryAccess] = result;
+			const [pullRequest, threads, commits , defaultBranch, status, repositoryAccess, currentUser] = result;
 			const canEditPr = pullRequest?.canEdit();
 			const requestedReviewers = pullRequestModel.item.reviewers;
 			if (!pullRequest) {
@@ -163,6 +164,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			const canEdit = hasWritePermission || canEditPr;
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+
 			this._existingReviewers = requestedReviewers?.map(r => {
 				return {
 					reviewer: {
@@ -172,7 +174,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 						url: r.reviewerUrl,
 						id: r.id
 					},
-					state: PullRequestVote[r.vote ?? 0],
+					state: r.vote ?? 0,
 					isRequired: r.isRequired ?? false
 				};
 			}) ?? [];
@@ -210,7 +212,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					isDraft: pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
-					isIssue: false
+					isIssue: false,
+					currentUser: currentUser
 				}
 			});
 		} catch (e) {
@@ -250,8 +253,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this.mergePullRequest(message);
 			case 'pr.deleteBranch':
 				return this.deleteBranch(message);
-			case 'pr.approve':
-				return this.approvePullRequest(message);
+			case 'pr.vote':
+				return this.votePullRequest(message);
 			case 'pr.complete':
 				return this.completePullRequest(message);
 			case 'pr.submit':
@@ -547,19 +550,19 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		if (review) {
 			const existingReviewer = this._existingReviewers.find(reviewer => review.uniqueName === reviewer.reviewer.id);
 			if (existingReviewer) {
-				existingReviewer.state = PullRequestVote[review.vote?? 0].toString();
+				existingReviewer.state = review.vote?? 0;
 			} else {
 				this._existingReviewers.push({
 					reviewer: review,
-					state: PullRequestVote[review.vote?? 0].toString(),
+					state: review.vote?? 0,
 					isRequired: review.isRequired ?? false
 				});
 			}
 		}
 	}
 
-	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.submitVote(PullRequestVote.APPROVED).then(review => {
+	private votePullRequest(message: IRequestMessage<number>): void {
+		this._item.submitVote(message.args).then(review => {
 			this.updateReviewers(review);
 			this._replyMessage(message, {
 				review: review,

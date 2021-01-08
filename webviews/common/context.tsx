@@ -7,7 +7,7 @@ import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
 import { MergeMethod } from '../../src/azdo/interface';
-import { EventType, ReviewEvent, isReviewEvent } from '../../src/common/timelineEvent';
+import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { Comment, GitPullRequestCommentThread, GitPullRequestMergeStrategy } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class PRContext {
@@ -112,8 +112,8 @@ export class PRContext {
 	public requestChanges = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }))
 
-	public approve = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.approve', args: body }))
+	public votePullRequest = async (body: number) =>
+		this.appendReview(await this.postMessage({ command: 'pr.vote', args: body }))
 
 	public submit = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
@@ -150,18 +150,8 @@ export class PRContext {
 
 	private appendReview({ review, reviewers }: any) {
 		const state = this.pr;
-		const events = state.events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
-		events.forEach(event => {
-			if (isReviewEvent(event)) {
-				event.comments.forEach(c => c.isDraft = false);
-			}
-		});
+		review;
 		state.reviewers = reviewers;
-		state.events = [
-			...state.events
-				.filter(e => isReviewEvent(e) ? e.state !== 'PENDING' : e),
-			review
-		];
 		this.updatePR(state);
 	}
 
