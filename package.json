@@ -1214,6 +1214,11 @@
           "command": "review.suggestDiff",
           "when": "scmProvider == git && github:inReviewMode",
           "group": "inline"
+        },
+        {
+          "command": "pr.create",
+          "when": "scmProvider == git",
+          "group": "navigation"
         }
       ],
       "comments/commentThread/context": [

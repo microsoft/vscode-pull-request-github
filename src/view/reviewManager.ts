@@ -663,9 +663,9 @@ export class ReviewManager {
 			}));
 
 			this._createPRViewDisposables.push(vscode.window.registerWebviewViewProvider(CreatePullRequestViewProvider.viewType, this._createPRViewProvider));
-		} else {
-			this._createPRViewProvider.show();
 		}
+
+		this._createPRViewProvider.show();
 	}
 
 	private updateFocusedViewMode(): void {
