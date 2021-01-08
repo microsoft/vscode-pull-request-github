@@ -212,7 +212,7 @@ body .comment-container .review-comment-header {
 #status-checks {
 	padding: 10px;
 	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
-	margin-top: 20px;
+	margin-bottom: 20px;
 }
 
 #status-checks summary {
@@ -242,6 +242,10 @@ body .comment-container .review-comment-header {
 	display: inline-block;
 	line-height: 100%;
 	padding: 0 10px;
+}
+#status-checks .merge-option-container {
+	padding: 5px;
+	margin-top: 5px;
 }
 
 body .comment-container .review-comment-header > span,

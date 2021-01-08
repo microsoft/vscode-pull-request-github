@@ -12,9 +12,8 @@ import { Spaced } from './space';
 import PullRequestContext from '../common/context';
 import { checkIcon, editIcon,copyIcon } from './icon';
 import Timestamp from './timestamp';
-import { GithubItemStateEnum } from '../../src/azdo/interface';
 import { useStateProp } from '../common/hooks';
-import { CommentThreadStatus, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { CommentThreadStatus, GitPullRequestCommentThread, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue, threads }: PullRequest) {
 	return <>
@@ -141,18 +140,18 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
 	}
 };
 
-export function getStatus(state: GithubItemStateEnum, isDraft: boolean) {
-	if (state === GithubItemStateEnum.Merged) {
+export function getStatus(state: PullRequestStatus, isDraft: boolean) {
+	if (state === PullRequestStatus.Completed) {
 		return 'Merged';
-	} else if (state === GithubItemStateEnum.Open) {
+	} else if (state === PullRequestStatus.Active) {
 		return isDraft ? 'Draft' : 'Open';
 	} else {
 		return 'Closed';
 	}
 }
 
-function getActionText(state: GithubItemStateEnum) {
-	if (state === GithubItemStateEnum.Merged) {
+function getActionText(state: PullRequestStatus) {
+	if (state === PullRequestStatus.Completed) {
 		return 'merged changes';
 	} else {
 		return 'wants to merge changes';

@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { GithubItemStateEnum, ReviewState, MergeMethodsAvailability, MergeMethod, PullRequestVote } from './interface';
+import { GithubItemStateEnum, ReviewState, MergeMethodsAvailability, MergeMethod, PullRequestVote, PullRequestCompletion } from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -15,7 +15,7 @@ import { PullRequestModel } from './pullRequestModel';
 import webviewContent from '../../media/webviewIndex.js';
 import { onDidUpdatePR } from '../commands';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
-import { Comment, IdentityRefWithVote } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, IdentityRefWithVote, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class PullRequestOverviewPanel extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -195,7 +195,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 						url: pullRequest.item.createdBy?.url,
 						email:  pullRequest.item.createdBy?.uniqueName
 					},
-					state: pullRequest.state,
+					state: pullRequest.item.status,
 					threads: threads,
 					commits: commits,
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
@@ -252,6 +252,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this.deleteBranch(message);
 			case 'pr.approve':
 				return this.approvePullRequest(message);
+			case 'pr.complete':
+				return this.completePullRequest(message);
 			case 'pr.submit':
 				return this.createThread(message);
 			case 'pr.checkout-default-branch':
@@ -635,6 +637,24 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		});
 	}
 
+	private completePullRequest(message: IRequestMessage<PullRequestCompletion>) {
+		this._item.completePullRequest(message.args).then(result => {
+			vscode.commands.executeCommand('pr.refreshList');
+
+			if (result.closedBy === undefined) {
+				vscode.window.showErrorMessage(`Completing PR failed: ${result.mergeFailureMessage}`);
+			}
+
+			this._replyMessage(message, {
+				state: PullRequestStatus.Completed,
+				mergeable: result.mergeStatus
+			});
+		}).catch(e => {
+			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+			this._throwError(message, {});
+		});
+	}
+
 	dispose() {
 		this._currentPanel = undefined;
 
@@ -686,7 +706,7 @@ export function getDefaultMergeMethod(methodsAvailability: MergeMethodsAvailabil
 	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
 		return userPreferred;
 	}
-	const methods: MergeMethod[] = ['merge', 'squash', 'rebase'];
+	const methods: MergeMethod[] = ['Squash', 'NoFastForward', 'Rebase', 'RebaseMerge'];
 	// GitHub requires to have at leas one merge method to be enabled; use first available as default
 	return methods.find(method => methodsAvailability[method])!;
 }

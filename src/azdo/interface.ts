@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Comment, GitPullRequest, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, GitPullRequest, GitPullRequestMergeStrategy, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { DiffHunk } from '../common/diffHunk';
 
 export enum PRType {
@@ -46,29 +46,6 @@ export enum PullRequestMergeability {
      * Pull request merge failed.
      */
 	Failure = 5
-}
-
-export declare enum PullRequestStatus {
-	/**
-     * Status not set. Default state.
-     */
-	NotSet = 0,
-	/**
-     * Pull request is active.
-     */
-	Active = 1,
-	/**
-     * Pull request is abandoned.
-     */
-	Abandoned = 2,
-	/**
-     * Pull request is completed.
-     */
-	Completed = 3,
-	/**
-     * Used in pull request search criteria to include all statuses.
-     */
-	All = 4
 }
 
 export interface ReviewState {
@@ -178,7 +155,7 @@ export interface IPullRequestEditData {
 	title?: string;
 }
 
-export type MergeMethod = 'merge' | 'squash' | 'rebase';
+export type MergeMethod = 'Squash' | 'NoFastForward' | 'Rebase' | 'RebaseMerge';
 
 export type MergeMethodsAvailability = {
 	[method in MergeMethod]: boolean;
@@ -221,4 +198,10 @@ export interface CommentPermissions {
 export interface CommentWithPermissions {
 	comment: Comment;
 	commentPermissions: CommentPermissions;
+}
+
+export interface PullRequestCompletion {
+	deleteSourceBranch: boolean;
+	mergeStrategy: GitPullRequestMergeStrategy;
+	transitionWorkItems: boolean;
 }

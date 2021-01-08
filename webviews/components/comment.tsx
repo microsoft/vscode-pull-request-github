@@ -12,11 +12,10 @@ import Timestamp from './timestamp';
 import { PullRequest, ReviewType } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { editIcon, commentIcon } from './icon';
-import { GithubItemStateEnum } from '../../src/azdo/interface';
 import { useStateProp } from '../common/hooks';
 import emitter from '../common/events';
 import { Dropdown } from './dropdown';
-import { Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export type Props = Partial<Comment> & {
 	headerInEditMode?: boolean
@@ -296,7 +295,7 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 			{hasWritePermission && !isIssue
 				? <button id='close'
 					className='secondary'
-					disabled={isBusy || state !== GithubItemStateEnum.Open}
+					disabled={isBusy || state !== PullRequestStatus.Active}
 					onClick={onClick}
 					data-command='close'>Close Pull Request</button>
 				: null}

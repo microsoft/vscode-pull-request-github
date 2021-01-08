@@ -164,11 +164,12 @@
         "githubPullRequests.defaultMergeMethod": {
           "type": "string",
           "enum": [
-            "merge",
-            "squash",
-            "rebase"
+            "NoFastForward",
+            "Squash",
+            "Rebase",
+            "RebaseMerge"
           ],
-          "default": "merge",
+          "default": "Squash",
           "description": "The method to use when merging pull requests."
         },
         "githubPullRequests.showInSCM": {

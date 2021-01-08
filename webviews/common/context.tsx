@@ -6,9 +6,9 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
-import { MergeMethod } from '../../src/github/interface';
+import { MergeMethod } from '../../src/azdo/interface';
 import { EventType, ReviewEvent, isReviewEvent } from '../../src/common/timelineEvent';
-import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, GitPullRequestCommentThread, GitPullRequestMergeStrategy } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class PRContext {
 	constructor(
@@ -124,6 +124,12 @@ export class PRContext {
 		} catch (_) {
 			// Ignore
 		}
+	}
+
+	public complete = async (args: {deleteSourceBranch: boolean, completeWorkitem: boolean, mergeStrategy: string}) => {
+		const options = { ...args, mergeStrategy: GitPullRequestMergeStrategy[args.mergeStrategy] }
+		const result = await this.postMessage({ command: 'pr.complete', args: options});
+		this.updatePR(result);
 	}
 
 	public removeReviewer = async (login: string) => {

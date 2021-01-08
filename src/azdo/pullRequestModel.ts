@@ -4,7 +4,7 @@ import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
-import { CommentPermissions, IRawFileChange, PullRequest, PullRequestChecks, PullRequestVote } from './interface';
+import { CommentPermissions, IRawFileChange, PullRequest, PullRequestChecks, PullRequestCompletion, PullRequestVote } from './interface';
 import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange, GitBaseVersionDescriptor, GitVersionOptions, GitVersionType, GitCommitDiffs, FileDiffParams, FileDiff, VersionControlChangeType, GitStatusState, GitPullRequest, PullRequestAsyncStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readableToString } from './utils';
 import Logger from '../common/logger';
@@ -166,6 +166,22 @@ export class PullRequestModel implements IPullRequestModel {
 		const git = await azdo?.connection.getGitApi();
 
 		return git!.updatePullRequest({ description, title}, repoId!, this.getPullRequestId());
+	}
+
+	async completePullRequest(options: PullRequestCompletion): Promise<GitPullRequest> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId();
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return await git!.updatePullRequest({
+			status: PullRequestStatus.Completed,
+			lastMergeSourceCommit: this.item.lastMergeSourceCommit,
+			completionOptions: {
+				deleteSourceBranch: options.deleteSourceBranch,
+				mergeStrategy: options.mergeStrategy,
+				transitionWorkItems: options.transitionWorkItems
+			}}, repoId!, this.getPullRequestId());
 	}
 
 	async createThread(

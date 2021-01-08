@@ -1244,9 +1244,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return {
 			hasWritePermission: true,
 			mergeMethodsAvailability: {
-				merge: true,
-				squash: true,
-				rebase: true
+				NoFastForward: true,
+				Squash: true,
+				Rebase: true,
+				RebaseMerge: true
 			}
 		};
 	}
