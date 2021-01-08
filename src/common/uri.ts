@@ -40,6 +40,17 @@ export function fromPRUri(uri: Uri): PRUriParams | undefined {
 	} catch (e) { }
 }
 
+export interface GitHubUriParams {
+	fileName: string;
+	branch: string;
+	isEmpty?: boolean;
+}
+export function fromGitHubURI(uri: Uri): GitHubUriParams | undefined {
+	try {
+		return JSON.parse(uri.query) as GitHubUriParams;
+	} catch (e) { }
+}
+
 export interface GitUriOptions {
 	replaceFileExtension?: boolean;
 	submoduleOf?: string;

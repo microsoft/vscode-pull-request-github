@@ -69,6 +69,10 @@ export class CreatePRContext {
 		this.updateState({ selectedRemote: { owner, repositoryName }, branchesForRemote: response.branches, selectedBranch:  response.defaultBranch });
 	}
 
+	public changeBranch = async (branch: string): Promise<void> => {
+		this.postMessage({ command: 'pr.changeBranch', args: branch });
+	}
+
 	private validate = () => {
 		let isValid = true;
 		if (!this.createParams.pendingTitle) {
@@ -125,10 +129,16 @@ export class CreatePRContext {
 
 				if (this.createParams.selectedRemote === undefined) {
 					message.params.selectedRemote = message.params.defaultRemote;
+				} else {
+					// Notify the extension of the stored selected remote state
+					this.changeRemote(this.createParams.selectedRemote.owner, this.createParams.selectedRemote.repositoryName);
 				}
 
 				if (this.createParams.selectedBranch === undefined) {
 					message.params.selectedBranch = message.params.defaultBranch;
+				} else {
+					// Notify the extension of the stored selected branch state
+					this.changeBranch(this.createParams.selectedBranch);
 				}
 
 				this.updateState(message.params);

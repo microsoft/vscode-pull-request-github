@@ -24,7 +24,7 @@ import { ITelemetry } from '../common/telemetry';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
-import { CreatePullRequestViewProvider } from '../github/createPRViewProvider';
+import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { openDescription } from '../commands';
 
 const FOCUS_REVIEW_MODE = 'github:focusedReview';
@@ -50,8 +50,7 @@ export class ReviewManager {
 	};
 
 	private _webviewViewProvider: PullRequestViewProvider | undefined;
-	private _createPRViewProvider: CreatePullRequestViewProvider | undefined;
-	private _createPRViewDisposables: vscode.Disposable[] = [];
+	private _createPullRequestHelper: CreatePullRequestHelper | undefined;
 
 	private _switchingToReviewMode: boolean;
 
@@ -645,27 +644,15 @@ export class ReviewManager {
 	}
 
 	public async createPullRequest(isDraft?: boolean): Promise<void> {
-		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
-		if (!this._createPRViewProvider) {
-			this._createPRViewProvider = new CreatePullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, !!isDraft);
-
-			this._createPRViewDisposables.push(this._createPRViewProvider.onDone(async createdPR => {
-				vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
-
-				this._createPRViewProvider?.dispose();
-				this._createPRViewDisposables.forEach(d => d.dispose());
-				this._createPRViewProvider = undefined;
-
-				if (createdPR) {
-					await this.updateState();
-					await openDescription(this._context, this._telemetry, createdPR, this._folderRepoManager, this);
-				}
-			}));
-
-			this._createPRViewDisposables.push(vscode.window.registerWebviewViewProvider(CreatePullRequestViewProvider.viewType, this._createPRViewProvider));
-		} else {
-			this._createPRViewProvider.show();
+		if (!this._createPullRequestHelper) {
+			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
+			this._createPullRequestHelper.onDidCreate(async createdPR => {
+				await this.updateState();
+				await openDescription(this._context, this._telemetry, createdPR, this._folderRepoManager, this);
+			});
 		}
+
+		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, !!isDraft);
 	}
 
 	private updateFocusedViewMode(): void {
