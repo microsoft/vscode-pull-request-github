@@ -38,14 +38,14 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: bool
 			?
 			<>
 				<div className='branch-status-message'>{'Pull request successfully merged.'}</div>
-				<DeleteBranch {...pr} />
+				{/* <DeleteBranch {...pr} /> */}
 			</>
 			:
 			state === PullRequestStatus.Abandoned
 				?
 				<>
 					<div className='branch-status-message'>{'This pull request is abondoned.'}</div>
-					<DeleteBranch {...pr} />
+					{/* <DeleteBranch {...pr} /> */}
 				</>
 				:
 				<>
@@ -88,7 +88,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest, isSim
 
 	useEffect(() => {
 		const handle = setInterval(async () => {
-			if (mergeable === PullRequestMergeability.NotSet) {
+			if (mergeable === PullRequestMergeability.NotSet || mergeable === PullRequestMergeability.Queued) {
 				setMergeability(await checkMergeability());
 			}
 		}, 3000);
