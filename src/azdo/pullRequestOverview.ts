@@ -548,9 +548,10 @@ export class PullRequestOverviewPanel extends WebviewBase {
 
 	private updateReviewers(review?: IdentityRefWithVote): void {
 		if (review) {
-			const existingReviewer = this._existingReviewers.find(reviewer => review.uniqueName === reviewer.reviewer.id);
+			const existingReviewer = this._existingReviewers.find(reviewer => review.id === reviewer.reviewer.id);
 			if (existingReviewer) {
 				existingReviewer.state = review.vote?? 0;
+				existingReviewer.isRequired = review.isRequired ?? false;
 			} else {
 				this._existingReviewers.push({
 					reviewer: review,
