@@ -344,7 +344,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			return;
 		}
 		const pullRequest: PullRequestModel = pullRequestModel;
-		return vscode.window.showWarningMessage(`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`, { modal: true }, 'Yes', 'No').then(async value => {
+		return vscode.window.showWarningMessage(`Are you sure you want to abondon this pull request? This will close the pull request without merging.`, { modal: true }, 'Yes', 'No').then(async value => {
 			if (value === 'Yes') {
 				try {
 					let newComment: GitPullRequestCommentThread | undefined = undefined;

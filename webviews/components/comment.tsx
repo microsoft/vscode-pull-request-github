@@ -230,7 +230,7 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 };
 
 export function AddComment({ pendingCommentText, state, hasWritePermission, isIssue }: PullRequest) {
-	const { updatePR, comment, requestChanges, close } = useContext(PullRequestContext);
+	const { updatePR, comment, close } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -273,9 +273,9 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 		e => {
 			e.preventDefault();
 			const { command } = e.target.dataset;
-			submit({ requestChanges, close }[command]);
+			submit({ close }[command]);
 		},
-		[submit, requestChanges, close]);
+		[submit, close]);
 
 	return <form id='comment-form'
 		ref={form}
@@ -298,20 +298,6 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 					disabled={isBusy || state !== PullRequestStatus.Active}
 					onClick={onClick}
 					data-command='close'>Close Pull Request</button>
-				: null}
-			{!isIssue
-				? <button id='request-changes'
-					disabled={isBusy || !pendingCommentText}
-					className='secondary'
-					onClick={onClick}
-					data-command='requestChanges'>Request Changes</button>
-				: null}
-			{!isIssue
-				? < button id='approve'
-					className='secondary'
-					disabled={isBusy}
-					onClick={onClick}
-					data-command='approve'>Approve</button>
 				: null}
 			<input id='reply'
 				value='Comment'
