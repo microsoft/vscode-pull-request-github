@@ -164,7 +164,12 @@ export class RepositoriesManager implements vscode.Disposable {
 	}
 
 	async authenticate(): Promise<boolean> {
-		return !!(await this._credentialStore.login());
+		// return !!(await this._credentialStore.login());
+		await this._credentialStore.initialize();
+		if (this._credentialStore.getHub() !== undefined) {
+			return true;
+		}
+		return false;
 	}
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): AzdoRepository {
