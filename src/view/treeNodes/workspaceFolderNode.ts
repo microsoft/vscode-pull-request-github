@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PRType } from '../../github/interface';
+import { PRType } from '../../azdo/interface';
 import { TreeNode } from './treeNode';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../azdo/folderRepositoryManager';
 import { ITelemetry } from '../../common/telemetry';
@@ -47,7 +47,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		return [
 			new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest),
 			...queryCategories,
-			new CategoryTreeNode(parent, folderManager, telemetry, PRType.All)
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.AllActive)
 		];
 	}
 }
