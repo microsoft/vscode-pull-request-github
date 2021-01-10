@@ -114,8 +114,8 @@ export class AzdoRepository implements vscode.Disposable {
 		return 'main';
 	}
 
-	async getAllPullRequests(): Promise<PullRequestModel[]> {
-		return await this.getPullRequests({status: PullRequestStatus.All});
+	async getAllActivePullRequests(): Promise<PullRequestModel[]> {
+		return await this.getPullRequests({status: PullRequestStatus.Active});
 	}
 
 	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[]> {

@@ -8,7 +8,7 @@ import { DiffHunk } from '../common/diffHunk';
 
 export enum PRType {
 	Query,
-	All,
+	AllActive,
 	LocalPullRequest
 }
 

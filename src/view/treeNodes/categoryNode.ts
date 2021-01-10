@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PRType } from '../../github/interface';
+import { PRType } from '../../azdo/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
 import { formatError } from '../../common/utils';
@@ -127,8 +127,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		this.prs = [];
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		switch (_type) {
-			case PRType.All:
-				this.label = 'All';
+			case PRType.AllActive:
+				this.label = 'All Active';
 				break;
 			case PRType.Query:
 				this.label = _categoryLabel!;
@@ -165,7 +165,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 
 					switch (this._type) {
-						case PRType.All:
+						case PRType.AllActive:
 							/* __GDPR__
 								"pr.expand.all" : {}
 							*/

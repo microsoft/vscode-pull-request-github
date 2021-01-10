@@ -664,7 +664,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
 	 *   Otherwise, we're in case 3.
 	 */
-	private async fetchPagedData<T>(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, pagedDataType: PagedDataType = PagedDataType.PullRequest, type: PRType = PRType.All, query?: string, prSearchCriteria?: GitPullRequestSearchCriteria): Promise<ItemsResponseResult<T>> {
+	private async fetchPagedData<T>(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, pagedDataType: PagedDataType = PagedDataType.PullRequest, type: PRType = PRType.AllActive, query?: string, prSearchCriteria?: GitPullRequestSearchCriteria): Promise<ItemsResponseResult<T>> {
 		if (!this._azdoRepositories || !this._azdoRepositories.length) {
 			return {
 				items: [],
@@ -710,8 +710,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const fetchPage = async (pageNumber: number): Promise<{ items: any[], hasMorePages: boolean } | undefined> => {
 				switch (pagedDataType) {
 					case PagedDataType.PullRequest: {
-						if (type === PRType.All) {
-							return { items: await githubRepository.getAllPullRequests(), hasMorePages: false };
+						if (type === PRType.AllActive) {
+							return { items: await githubRepository.getAllActivePullRequests(), hasMorePages: false };
 						} else {
 							return { items: await githubRepository.getPullRequests(prSearchCriteria!), hasMorePages: false };
 						}
