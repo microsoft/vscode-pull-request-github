@@ -467,7 +467,11 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signin', async () => {
-		await reposManager.authenticate();
+		if (await reposManager.authenticate()) {
+			if (reviewManagers) {
+				reviewManagers.forEach(reviewManager => reviewManager.updateState());
+			}
+		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
@@ -477,9 +481,8 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
-		if (await reposManager.authenticate()) {
-			vscode.commands.executeCommand('pr.refreshList');
-		}
+		await vscode.commands.executeCommand('pr.signin');
+		vscode.commands.executeCommand('pr.refreshList');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.configureRemotes', async () => {
