@@ -36,10 +36,10 @@ export class AzdoRepository implements vscode.Disposable {
 	async ensure(): Promise<AzdoRepository> {
 		this._initialized = true;
 
-		if (!this._hub) {
+		if (!this._credentialStore.isAuthenticated()) {
 			await this._credentialStore.initialize();
-			this._hub = this._credentialStore.getHub();
 		}
+		this._hub = this._credentialStore.getHub();
 
 		return this;
 	}
