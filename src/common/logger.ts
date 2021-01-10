@@ -6,7 +6,7 @@ const enum LogLevel {
 	Off
 }
 
-const SETTINGS_NAMESPACE = 'githubPullRequests';
+const SETTINGS_NAMESPACE = 'azdoPullRequests';
 const LOG_LEVEL_SETTING = 'logLevel';
 
 class Log {

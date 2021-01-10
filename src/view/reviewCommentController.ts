@@ -946,7 +946,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				this.replaceTemporaryComment(thread, editedComment!, temporaryCommentId);
 				updateCommentThreadLabel(thread);
 			} catch (e) {
-				vscode.window.showErrorMessage(formatError(e));
+				vscode.window.showErrorMessage(`Creating comment failed: ${formatError(e)}`);
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {

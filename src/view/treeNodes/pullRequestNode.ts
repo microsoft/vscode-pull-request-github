@@ -52,8 +52,12 @@ export function getDocumentThreadDatas(
 
 	const threads: ThreadData[] = [];
 
-	for (const i in matchingComments) {
-		const azdoThread = matchingComments[i];
+	const commentsPerBase = isBase ?
+		matchingComments.filter(c => c.threadContext?.leftFileStart !== undefined) :
+		matchingComments.filter(c => c.threadContext?.rightFileStart !== undefined);
+
+	for (const i in commentsPerBase) {
+		const azdoThread = commentsPerBase[i];
 
 		const commentAbsolutePosition = getPositionFromThread(azdoThread);
 
@@ -239,7 +243,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return [];
 		}
 
-		const comments = await this.pullRequestModel.getAllThreads() ?? [];
+		const comments = await this.pullRequestModel.getAllActiveThreads() ?? [];
 		const data = await this.pullRequestModel.getFileChangesInfo();
 
 		// TODO Which is the correct diff to show from source HEAD - merge-base or target HEAD
@@ -272,7 +276,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					change.previousFileName,
 					change.blobUrl,
 					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), this.pullRequestModel, change.baseCommit, headCommit, fileName, false, change.status),
-					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, fileName, true, change.status),
+					toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, parentFileName, true, change.status),
 					sha
 				);
 			}
@@ -285,11 +289,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				change.previousFileName,
 				change.blobUrl,
 				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), this.pullRequestModel, change.baseCommit, headCommit, fileName, false, change.status),
-				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, fileName, true, change.status),
+				toPRUriAzdo(vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), this.pullRequestModel, change.baseCommit, headCommit, parentFileName, true, change.status),
 				change.isPartial,
 				change.patch,
 				change.diffHunks,
-				comments.filter(comment => comment.threadContext?.filePath === change.fileName && !!getPositionFromThread(comment)),
+				comments.filter(comment => comment.threadContext?.filePath === fileName && !!getPositionFromThread(comment)),
 				sha
 			);
 

@@ -228,13 +228,13 @@ export class PullRequestModel implements IPullRequestModel {
 		return await git?.updateThread(thread, repoId, this.getPullRequestId(), threadId);
 	}
 
-	async getAllThreads(iteration?: number, baseIteration?: number): Promise<GitPullRequestCommentThread[] | undefined> {
+	async getAllActiveThreads(iteration?: number, baseIteration?: number): Promise<GitPullRequestCommentThread[] | undefined> {
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = await azdoRepo.getRepositoryId() || '';
 		const azdo = azdoRepo.azdo;
 		const git = await azdo?.connection.getGitApi();
 
-		return await git?.getThreads(repoId, this.getPullRequestId(), undefined, iteration, baseIteration);
+		return (await git?.getThreads(repoId, this.getPullRequestId(), undefined, iteration, baseIteration))?.filter(t => !t.isDeleted);
 	}
 
 	async createCommentOnThread(threadId: number, message: string, parentCommentId?: number): Promise<Comment | undefined> {
@@ -548,9 +548,10 @@ export class PullRequestModel implements IPullRequestModel {
 		let headUri, baseUri: vscode.Uri;
 		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
-			const parentFileName = change.status === GitChangeType.DELETE ? change.previousFileName! : change.fileName;
-			headUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status);
-			baseUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status);
+			const fileName = change.status === GitChangeType.DELETE ? change.previousFileName! : change.fileName;
+			const parentFileName = change.previousFileName ?? '';
+			headUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, fileName)), pullRequestModel, change.baseCommit, headCommit, fileName, false, change.status);
+			baseUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)), pullRequestModel, change.baseCommit, headCommit, parentFileName, true, change.status);
 		} else {
 			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
 

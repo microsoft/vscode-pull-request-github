@@ -337,7 +337,10 @@ export class ReviewManager {
 
 	private async getLocalChangeNodes(pr: PullRequestModel & IResolvedPullRequestModel, contentChanges: (InMemFileChange | SlimFileChange)[], activeComments: GitPullRequestCommentThread[]): Promise<GitFileChangeNode[]> {
 		const nodes: GitFileChangeNode[] = [];
-		const mergeBase = pr.mergeBase || pr.base.sha;
+
+		// TODO Merge base is here too.
+		// const mergeBase = pr.mergeBase || pr.base.sha;
+		const mergeBase = pr.base.sha;
 		const headSha = pr.head.sha;
 
 		for (let i = 0; i < contentChanges.length; i++) {
@@ -355,7 +358,12 @@ export class ReviewManager {
 				}
 			}
 
-			const filePath = nodePath.join(this._repository.rootUri.path, change.fileName).replace(/\\/g, '/');
+			let fileName = change.fileName;
+			if (change.status === GitChangeType.DELETE) {
+				fileName = change.previousFileName!;
+			}
+
+			const filePath = nodePath.join(this._repository.rootUri.path, fileName).replace(/\\/g, '/');
 			const uri = this._repository.rootUri.with({ path: filePath });
 
 			const modifiedFileUri = change.status === GitChangeType.DELETE
@@ -364,7 +372,8 @@ export class ReviewManager {
 
 			const originalFileUri = toReviewUri(
 				uri,
-				change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
+				change.previousFileName,
+				// change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
 				undefined,
 				change.status === GitChangeType.ADD ? '' : mergeBase,
 				false,
@@ -376,12 +385,12 @@ export class ReviewManager {
 				this.changesInPrDataProvider.view,
 				pr,
 				change.status,
-				change.fileName,
+				fileName,
 				change.blobUrl,
 				modifiedFileUri,
 				originalFileUri,
 				diffHunks,
-				activeComments.filter(comment => comment.threadContext?.filePath === change.fileName),
+				activeComments.filter(comment => comment.threadContext?.filePath === fileName),
 				headSha
 			);
 			nodes.push(changedItem);
@@ -392,7 +401,7 @@ export class ReviewManager {
 
 	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			this._comments = (await pr.getAllThreads() ?? []).filter(isUserThread);
+			this._comments = (await pr.getAllActiveThreads() ?? []).filter(isUserThread);
 
 			// TODO What is outdated comments?
 			const activeComments = this._comments;
