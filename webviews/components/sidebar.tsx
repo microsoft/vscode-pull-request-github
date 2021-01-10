@@ -73,7 +73,7 @@ const ReviewerPanel = ({reviewers, labelText, hasWritePermission, addReviewers, 
 	</div>
 );
 
-const VoteText = {
+export const VoteText = {
 	'10': 'Approve',
 	'5': 'Approve with Suggestion',
 	'-5': 'Wait for author',
