@@ -14,7 +14,7 @@ import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { getPositionFromThread } from '../../azdo/utils';
+import { getPositionFromThread, removeLeadingSlash } from '../../azdo/utils';
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
@@ -87,7 +87,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		super();
 		this.contextValue = `filechange:${GitChangeType[status]}`;
 		this.label = path.basename(fileName);
-		this.description = path.relative('.', path.dirname(fileName));
+		this.description = path.relative('.', path.dirname(removeLeadingSlash(fileName)));
 		this.iconPath = vscode.ThemeIcon.File;
 		this.opts = {
 			preserveFocus: true
