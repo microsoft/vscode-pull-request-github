@@ -15,6 +15,11 @@ export function main() {
 			const ctx = useContext(PullRequestContext);
 			const [isBusy, setBusy] = useState(false);
 
+			function updateSelectedBranch(branch: string): void {
+				ctx.changeBranch(branch);
+				ctx.updateState({ selectedBranch: branch });
+			}
+
 			function updateTitle(title: string): void {
 				params.validate
 					? ctx.updateState({ pendingTitle: title, showTitleValidationError: !title })
@@ -56,7 +61,7 @@ export function main() {
 				</div>
 
 				<div className='wrapper'>
-					{gitCompareIcon}<select value={params.selectedBranch} onChange={(e) => ctx.updateState({ selectedBranch: e.currentTarget.value })}>
+					{gitCompareIcon}<select value={params.selectedBranch} onChange={(e) => updateSelectedBranch(e.currentTarget.value)}>
 						{params.branchesForRemote.map(branchName =>
 							<option
 								key={branchName}

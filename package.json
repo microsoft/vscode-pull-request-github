@@ -405,6 +405,12 @@
           "name": "Create Pull Request",
           "when": "github:createPullRequest",
           "visibility": "visible"
+        },
+        {
+          "id": "github:compareChanges",
+          "name": "Compare Changes",
+          "when": "github:createPullRequest",
+          "visibility": "visible"
         }
       ]
     },
@@ -753,6 +759,16 @@
         "view": "github:login",
         "when": "ReposManagerStateContext == NeedsAuthentication",
         "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
+      },
+      {
+        "view": "github:compareChanges",
+        "when": "github:noUpstream",
+        "contents": "The current branch has no upstream remote\n[Publish branch](command:git.publish)"
+      },
+      {
+        "view": "github:compareChanges",
+        "when": "github:noCommitDifference",
+        "contents": "The are no commits between the base branch and the current branch"
       }
     ],
     "keybindings": [

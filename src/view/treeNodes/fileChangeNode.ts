@@ -341,6 +341,63 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 	}
 }
 
+/**
+ * File change node whose content is resolved from GitHub. For files not yet associated with a pull request.
+ */
+export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
+	public label: string;
+	public description: string;
+	public iconPath: vscode.ThemeIcon;
+	public resourceUri: vscode.Uri;
+
+	public command: vscode.Command;
+
+	constructor(
+		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly fileName: string,
+		public readonly previousFileName: string | undefined,
+		public readonly status: GitChangeType,
+		public readonly baseBranch: string,
+		public readonly headBranch: string
+	) {
+		super();
+		this.label = fileName;
+		this.iconPath = vscode.ThemeIcon.File;
+		this.resourceUri = vscode.Uri.file(fileName).with({ scheme: 'github', query: JSON.stringify({ status, fileName }) });
+
+		let parentURI = vscode.Uri.file(fileName).with({ scheme: 'github', query: JSON.stringify({ fileName, branch: baseBranch }) });
+		let headURI = vscode.Uri.file(fileName).with({ scheme: 'github', query: JSON.stringify({ fileName, branch: headBranch }) });
+		switch (status) {
+
+			case GitChangeType.ADD:
+				parentURI = vscode.Uri.file(fileName).with({ scheme: 'github', query: JSON.stringify({ fileName, branch: baseBranch, isEmpty: true }) });
+				break;
+
+			case GitChangeType.RENAME:
+				parentURI = vscode.Uri.file(previousFileName!).with({ scheme: 'github', query: JSON.stringify({ fileName: previousFileName, branch: baseBranch, isEmpty: true }) });
+				break;
+
+			case GitChangeType.DELETE:
+				headURI = vscode.Uri.file(fileName).with({ scheme: 'github', query: JSON.stringify({ fileName, branch: headBranch, isEmpty: true }) });
+				break;
+		}
+
+		this.command = {
+			title: 'Open Diff',
+			command: 'vscode.diff',
+			arguments: [
+				parentURI,
+				headURI,
+				`${fileName} (Pull Request Preview)`
+			]
+		};
+	}
+
+	getTreeItem() {
+		return this;
+	}
+}
+
 export function gitFileChangeNodeFilter(nodes: (GitFileChangeNode | RemoteFileChangeNode)[]): GitFileChangeNode[] {
 	return nodes.filter(node => node instanceof GitFileChangeNode) as GitFileChangeNode[];
 }

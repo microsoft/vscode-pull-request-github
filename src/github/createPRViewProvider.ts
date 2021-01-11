@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { byRemoteName, DetachedHeadError, FolderRepositoryManager, titleAndBodyFrom } from './folderRepositoryManager';
+import { byRemoteName, DetachedHeadError, FolderRepositoryManager, PullRequestDefaults, titleAndBodyFrom } from './folderRepositoryManager';
 import webviewContent from '../../media/createPR-webviewIndex.js';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { PR_SETTINGS_NAMESPACE, PR_TITLE } from '../common/settingKeys';
 import { OctokitCommon } from './common';
 import { PullRequestModel } from './pullRequestModel';
 import Logger from '../common/logger';
+import { PullRequestGitHelper } from './pullRequestGitHelper';
 
 export type PullRequestTitleSource = 'commit' | 'branch' | 'custom' | 'ask';
 
@@ -40,12 +41,19 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 
 	private _webviewView: vscode.WebviewView | undefined;
 
-	private _onDone = new vscode.EventEmitter<PullRequestModel | undefined> ();
+	private _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
+
+	private _onDidChangeSelectedRemote = new vscode.EventEmitter<RemoteInfo>();
+	readonly onDidChangeSelectedRemote: vscode.Event<RemoteInfo> = this._onDidChangeSelectedRemote.event;
+
+	private _onDidChangeSelectedBranch = new vscode.EventEmitter<string>();
+	readonly onDidChangeSelectedBranch: vscode.Event<string> = this._onDidChangeSelectedBranch.event;
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
+		private readonly _pullRequestDefaults: PullRequestDefaults,
 		private readonly _isDraft: boolean
 	) {
 		super();
@@ -82,7 +90,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 		}
 	}
 
-	private async getTitle(base: string): Promise<string> {
+	private async getTitle(): Promise<string> {
 		const method = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullRequestTitleSource>(PR_TITLE, PullRequestTitleSourceEnum.Ask);
 
 		switch (method) {
@@ -108,7 +116,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 					const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(repositoryHead?.upstream.remote));
 					if (headRepo) {
 						const headBranch = `${headRepo.remote.owner}:${repositoryHead.name}`;
-						const commits = await origin.compareCommits(base, headBranch);
+						const commits = await origin.compareCommits(this._pullRequestDefaults.base, headBranch);
 						hasMultipleCommits = commits.total_commits > 1;
 					}
 				}
@@ -162,17 +170,15 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
 		}
 
-		const pullRequestDefaults = await this._folderRepositoryManager.getPullRequestDefaults();
-
 		const defaultRemote: RemoteInfo = {
-			owner: pullRequestDefaults.owner,
-			repositoryName: pullRequestDefaults.repo
+			owner: this._pullRequestDefaults.owner,
+			repositoryName: this._pullRequestDefaults.repo
 		};
 
 		Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
-			this._folderRepositoryManager.listBranches(pullRequestDefaults.owner, pullRequestDefaults.repo),
-			this.getTitle(pullRequestDefaults.base),
+			this._folderRepositoryManager.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
+			this.getTitle(),
 			this.getDescription()
 		]).then(result => {
 			const [githubRemotes, branchesForRemote, defaultTitle, defaultDescription] = result;
@@ -189,7 +195,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 				params: {
 					availableRemotes: remotes,
 					defaultRemote,
-					defaultBranch: pullRequestDefaults.base,
+					defaultBranch: this._pullRequestDefaults.base,
 					branchesForRemote,
 					defaultTitle,
 					defaultDescription
@@ -198,7 +204,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 		});
 	}
 
-	private async changeRemote(message: IRequestMessage<{ owner: string, repositoryName: string}>): Promise<void> {
+	private async changeRemote(message: IRequestMessage<{ owner: string, repositoryName: string }>): Promise<void> {
 		const { owner, repositoryName } = message.args;
 		const githubRepository = this._folderRepositoryManager.findRepo(repo => owner === repo.remote.owner && repositoryName === repo.remote.repositoryName);
 
@@ -208,12 +214,23 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 
 		const defaultBranch = await githubRepository.getDefaultBranch();
 		const newBranches = await this._folderRepositoryManager.listBranches(owner, repositoryName);
+		this._onDidChangeSelectedRemote.fire({ owner, repositoryName });
 		return this._replyMessage(message, { branches: newBranches, defaultBranch });
 	}
 
 	private async create(message: IRequestMessage<OctokitCommon.PullsCreateParams>): Promise<void> {
 		try {
-			const head = this._folderRepositoryManager.repository.state.HEAD!.name!;
+			if (!this._folderRepositoryManager.repository.state.HEAD!.upstream) {
+				throw new DetachedHeadError(this._folderRepositoryManager.repository);
+			}
+
+			const branchName = this._folderRepositoryManager.repository.state.HEAD!.name!;
+			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this._folderRepositoryManager.repository.state.HEAD!.upstream.remote));
+			if (!headRepo) {
+				throw new Error(`Unable to find GitHub repository matching '${this._folderRepositoryManager.repository.state.HEAD!.upstream.remote}'.`);
+			}
+
+			const head = `${headRepo.remote.owner}:${branchName}`;
 			const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head, draft: this._isDraft });
 
 			// Create was cancelled
@@ -221,6 +238,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 				this._throwError(message, undefined);
 			} else {
 				await this._replyMessage(message, {});
+				await PullRequestGitHelper.associateBranchWithPullRequest(this._folderRepositoryManager.repository, createdPR, branchName);
 				this._onDone.fire(createdPR);
 			}
 		} catch (e) {
@@ -247,6 +265,10 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 
 			case 'pr.changeRemote':
 				return this.changeRemote(message);
+
+			case 'pr.changeBranch':
+				this._onDidChangeSelectedBranch.fire(message.args);
+				return;
 
 			default:
 				// Log error
