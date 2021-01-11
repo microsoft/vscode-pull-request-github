@@ -55,6 +55,14 @@ export class PRContext {
 	public readyForReview = () =>
 		this.postMessage({ command: 'pr.readyForReview' })
 
+	public replyThread = async (body: string, thread: GitPullRequestCommentThread) => {
+		const result = await this.postMessage({ command: 'pr.reply-thread', args: { text: body, threadId: thread.id} });
+		thread.comments.push(result.comment);
+		this.updatePR({
+			threads: [...this.pr.threads.filter(t => t.id !== thread.id), thread]
+		});
+	}
+
 	public comment = async (args: string) => {
 		const result = await this.postMessage({ command: 'pr.comment', args });
 		const newComment = result.value;

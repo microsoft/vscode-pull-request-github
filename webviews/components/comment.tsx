@@ -21,7 +21,8 @@ export type Props = Partial<Comment> & {
 	headerInEditMode?: boolean
 	isPRDescription?: boolean,
 	threadId: number,
-	canEdit?: boolean
+	canEdit?: boolean,
+	isFirstCommentInThread?: boolean
 };
 
 export function CommentView(comment: Props) {
@@ -228,6 +229,57 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 		{applyPatchButton}
 	</div>;
 };
+
+export type ReplyToThreadProps = {
+	onCancel: () => void
+	onSave: (body: string) => Promise<any>
+};
+
+
+export function ReplyToThread({ onCancel, onSave }: ReplyToThreadProps) {
+	const form = useRef<HTMLFormElement>();
+
+	const submit = useCallback(
+		async () => {
+			const { markdown, submitButton }: FormInputSet = form.current;
+			submitButton.disabled = true;
+			try {
+				await onSave(markdown.value);
+			} finally {
+				submitButton.disabled = false;
+			}
+		},
+		[form, onSave]);
+
+	const onSubmit = useCallback(
+		event => {
+			event.preventDefault();
+			submit();
+		},
+		[submit]
+	);
+
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				e.preventDefault();
+				submit();
+			}
+		},
+		[submit]
+	);
+
+	return <form ref={form} onSubmit={onSubmit}>
+		<textarea
+			name='markdown'
+			onKeyDown={onKeyDown}
+		/>
+		<div className='form-actions'>
+			<button className='secondary' onClick={onCancel}>Cancel</button>
+			<input type='submit' name='submitButton' value='Save' />
+		</div>
+	</form>;
+}
 
 export function AddComment({ pendingCommentText, state, hasWritePermission, isIssue }: PullRequest) {
 	const { updatePR, comment, close } = useContext(PullRequestContext);

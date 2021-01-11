@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { useContext, useRef } from 'react';
+import { useContext, useRef, useState } from 'react';
 
 import {  ReviewEvent, CommitEvent, MergedEvent, AssignEvent, HeadRefDeleteEvent } from '../../src/common/timelineEvent';
 import { commitIcon, mergeIcon } from './icon';
@@ -12,17 +12,18 @@ import { Avatar, AuthorLink } from './user';
 import { groupBy } from '../../src/common/utils';
 import { Spaced, nbsp } from './space';
 import Timestamp from './timestamp';
-import { CommentView, CommentBody } from './comment';
+import { CommentView, CommentBody, ReplyToThread } from './comment';
 import PullRequestContext from '../common/context';
-import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { CommentType, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 // import { isUserThread } from '../../src/azdo/utils';
 
-export const Timeline = ({ threads }: { threads: GitPullRequestCommentThread[] }) =>
+export const Timeline = ({ threads, currentUser }: { threads: GitPullRequestCommentThread[], currentUser: Identity }) =>
 	<>{
 		threads.map(thread =>
 			// TODO: Maybe make TimelineEvent a tagged union type?
-			thread.comments?.find(c => c.id === 1)?.commentType.toString() === 'text' ?
-				<CommentEventView key={thread.id} {...thread} /> : null
+			thread.comments?.find(c => c.id === 1)?.commentType === CommentType.Text ?
+				<CommentEventView key={thread.id} thread={thread} currentUser={currentUser} /> : null
 			// isCommitEvent(event)
 			// 	? <CommitEventView key={event.id} {...event} />
 			// 	:
@@ -152,11 +153,33 @@ function AddReviewSummaryComment() {
 	</div>;
 }
 
-const CommentEventView = (thread: GitPullRequestCommentThread) => {
+const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommentThread, currentUser: Identity}) => {
+	const { replyThread } = useContext(PullRequestContext);
+	const [inEditMode, setEditMode] = useState(false);
+
+	const onCancel = () => {
+		() => {
+			setEditMode(false);
+		}
+	}
+
+	const onSave = async (text) => {
+		try {
+			await replyThread(text, thread);
+		} finally {
+			setEditMode(false);
+		}
+	}
+
 	return (
-		<div>
+		<div className='thread-container'>
 			{
-				thread.comments.map(c => <CommentView headerInEditMode {...c} threadId={thread.id} />)
+				thread.comments.map(c => <CommentView headerInEditMode {...c} canEdit={c.author.id === currentUser.id} threadId={thread.id} />)
+			}
+			{  !inEditMode
+				? <div className='reply-thread'><button title='Reply' onClick={() => setEditMode(true)} >Reply</button></div>
+				/* <input id='reply'	value='Reply' onClick={ (e) => { e.}} className='secondary' disabled={isBusy} /> */
+				: <ReplyToThread onSave={onSave} onCancel={onCancel} />
 			}
 
 		</div>);

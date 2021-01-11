@@ -26,6 +26,6 @@ export const Overview = (pr: PullRequest) =>
 				<CommentView isPRDescription threadId={0} content={pr.body} author={pr.author} _links={{self: {href: pr.url}}} publishedDate={new Date(pr.createdAt)} canEdit={pr.canEdit} />
 			</div>
 			<AddComment {...pr} />
-			<Timeline threads={pr.threads} />
+			<Timeline threads={pr.threads} currentUser={pr.currentUser} />
 		</div>
 	</>;

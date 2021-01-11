@@ -615,6 +615,7 @@ textarea {
 .form-actions {
 	display: flex;
 	padding-top: 10px;
+	padding-bottom: 10px;
 }
 
 .main-comment-form > .form-actions {
@@ -983,4 +984,14 @@ code {
 
 .title-editing-form > .form-actions {
 	margin-left: 0;
+}
+
+.thread-container .comment-container:not(:first-child) {
+	padding-top: 0px;
+	padding-left: 20px;
+	width: auto;
+}
+
+.thread-container .reply-thread {
+	text-align: right;
 }

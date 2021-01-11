@@ -257,6 +257,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this.votePullRequest(message);
 			case 'pr.complete':
 				return this.completePullRequest(message);
+			case 'pr.reply-thread':
+				return this.replyThread(message);
 			case 'pr.submit':
 				return this.createThread(message);
 			case 'pr.checkout-default-branch':
@@ -586,6 +588,17 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
+			this._throwError(message, `${formatError(e)}`);
+		});
+	}
+
+	private replyThread(message: IRequestMessage<{text: string, threadId: number}>): void {
+		this._item.createCommentOnThread(message.args.threadId, message.args.text).then(result => {
+			this._replyMessage(message, {
+				comment: result
+			});
+		}, (e) => {
+			vscode.window.showErrorMessage(`Commenting on thread failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
 		});
 	}
