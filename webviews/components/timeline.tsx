@@ -20,7 +20,7 @@ import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces'
 
 export const Timeline = ({ threads, currentUser }: { threads: GitPullRequestCommentThread[], currentUser: Identity }) =>
 	<>{
-		threads.map(thread =>
+		threads.sort((a,b) => new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime()).map(thread =>
 			// TODO: Maybe make TimelineEvent a tagged union type?
 			thread.comments?.find(c => c.id === 1)?.commentType === CommentType.Text ?
 				<CommentEventView key={thread.id} thread={thread} currentUser={currentUser} /> : null
