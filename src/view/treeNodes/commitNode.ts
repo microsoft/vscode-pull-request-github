@@ -56,7 +56,8 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		const fileChangeNodes = fileChanges.map(change => {
 			// TODO Map the file changes with commit id. But this is not possible in Azdo as azdo pr works on iterations not individual commits
 			// const matchingComments = this.comments.filter(comment => comment.threadContext?.filePath === change.item?.path && comment.originalCommitId === this.commit.commitId);
-			const fileName = change.item?.path ?? change.originalPath ?? '';
+			const fileName = change.item?.path ?? change.sourceServerItem ?? '';
+			const parentFileName = change.sourceServerItem ?? change.item?.path ?? '';
 			const uri = vscode.Uri.parse(path.join(`commit~${this.commit.commitId?.substr(0, 8)}`, fileName));
 			const fileChangeNode = new GitFileChangeNode(
 				this,
@@ -65,7 +66,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				fileName,
 				undefined,
 				toReviewUri(uri, fileName, undefined, this.commit.commitId!, true, { base: false }, this.pullRequestManager.repository.rootUri),
-				toReviewUri(uri, fileName, undefined, this.commit.commitId!, true, { base: true }, this.pullRequestManager.repository.rootUri),
+				toReviewUri(uri, parentFileName, undefined, this.commit.commitId!, true, { base: true }, this.pullRequestManager.repository.rootUri),
 				[],
 				[], //matchingComments,
 				this.commit.commitId

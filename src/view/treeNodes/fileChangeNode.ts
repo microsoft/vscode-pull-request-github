@@ -232,7 +232,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly parentFilePath: vscode.Uri,
 		public readonly diffHunks: DiffHunk[],
 		public comments: GitPullRequestCommentThread[] = [],
-		public readonly sha?: string,
+		public readonly sha?: string, // For GitFileChangeNode this is commit id
 	) {
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {

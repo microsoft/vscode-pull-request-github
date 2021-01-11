@@ -430,7 +430,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 
 		// Show the file change in a diff view.
-		const { path, ref, commit, rootPath } = fromReviewUri(fileChange.filePath);
+		const { path, ref, commit, rootPath } = fromReviewUri(fileChange.parentFilePath);
 		const previousCommit = `${commit}^`;
 		const query: ReviewUriParams = {
 			path: path,
