@@ -401,7 +401,7 @@ export class ReviewManager {
 
 	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			this._comments = (await pr.getAllActiveThreads() ?? []).filter(isUserThread);
+			this._comments = (await pr.getAllActiveThreadsBetweenAllIterations() ?? []).filter(isUserThread);
 
 			// TODO What is outdated comments?
 			const activeComments = this._comments;

@@ -103,7 +103,7 @@ describe('PullRequestModel', function () {
 			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
 			const prModel = await azdoRepo.getPullRequest(PR_NUMBER);
 
-			const threads = await prModel?.getAllActiveThreads();
+			const threads = await prModel?.getAllActiveThreadsBetweenAllIterations();
 
 			// tslint:disable-next-line: no-unused-expression
 			expect(threads?.length).to.be.greaterThan(0);

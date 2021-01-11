@@ -140,7 +140,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					pullRequestModel.remote.repositoryName,
 					pullRequestModel.getPullRequestId()
 				),
-				pullRequestModel.getAllActiveThreads(),
+				pullRequestModel.getAllActiveThreadsBetweenAllIterations(),
 				pullRequestModel.getCommits(),
 				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 				pullRequestModel.getStatusChecks(),

@@ -256,6 +256,11 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
 }
 
 export function getPositionFromThread(comment: GitPullRequestCommentThread) {
+	if (comment.pullRequestThreadContext?.trackingCriteria !== undefined) {
+		return comment.pullRequestThreadContext?.trackingCriteria?.origRightFileStart === undefined
+			? comment.pullRequestThreadContext?.trackingCriteria?.origLeftFileStart?.line
+			: comment.pullRequestThreadContext?.trackingCriteria?.origRightFileStart.line;
+	}
 	return comment.threadContext?.rightFileStart === undefined ? comment.threadContext?.leftFileStart?.line : comment.threadContext.rightFileStart.line;
 }
 

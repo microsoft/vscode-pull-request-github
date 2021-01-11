@@ -52,9 +52,13 @@ export function getDocumentThreadDatas(
 
 	const threads: ThreadData[] = [];
 
-	const commentsPerBase = isBase ?
-		matchingComments.filter(c => c.threadContext?.leftFileStart !== undefined) :
-		matchingComments.filter(c => c.threadContext?.rightFileStart !== undefined);
+	const commentsPerBase = isBase
+		? matchingComments.filter(c => c.pullRequestThreadContext?.trackingCriteria !== undefined
+			? c.pullRequestThreadContext?.trackingCriteria?.origLeftFileStart !== undefined
+			: c.threadContext?.leftFileStart !== undefined)
+		: matchingComments.filter(c => c.pullRequestThreadContext?.trackingCriteria !== undefined
+			? c.pullRequestThreadContext?.trackingCriteria?.origRightFileStart !== undefined
+			: c.threadContext?.rightFileStart !== undefined);
 
 	for (const i in commentsPerBase) {
 		const azdoThread = commentsPerBase[i];
@@ -243,7 +247,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return [];
 		}
 
-		const comments = await this.pullRequestModel.getAllActiveThreads() ?? [];
+		const comments = await this.pullRequestModel.getAllActiveThreadsBetweenAllIterations() ?? [];
 		const data = await this.pullRequestModel.getFileChangesInfo();
 
 		// TODO Which is the correct diff to show from source HEAD - merge-base or target HEAD
@@ -354,8 +358,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				const parentFilePath = fileChange.parentFilePath;
 				const filePath = fileChange.filePath;
 
-				const newLeftCommentThreads = getDocumentThreadDatas(parentFilePath, true, fileChange, fileChange.comments.filter(c => !!c.threadContext?.leftFileStart), this.pullRequestModel.getCommentPermission.bind(this.pullRequestModel));
-				const newRightSideCommentThreads = getDocumentThreadDatas(filePath, false, fileChange, fileChange.comments.filter(c => !!c.threadContext?.rightFileStart), this.pullRequestModel.getCommentPermission.bind(this.pullRequestModel));
+				const newLeftCommentThreads = getDocumentThreadDatas(parentFilePath, true, fileChange, fileChange.comments, this.pullRequestModel.getCommentPermission.bind(this.pullRequestModel));
+				const newRightSideCommentThreads = getDocumentThreadDatas(filePath, false, fileChange, fileChange.comments, this.pullRequestModel.getCommentPermission.bind(this.pullRequestModel));
 
 				let oldCommentThreads: GHPRCommentThread[] = [];
 

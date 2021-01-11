@@ -228,6 +228,18 @@ export class PullRequestModel implements IPullRequestModel {
 		return await git?.updateThread(thread, repoId, this.getPullRequestId(), threadId);
 	}
 
+	async getAllActiveThreadsBetweenAllIterations(): Promise<GitPullRequestCommentThread[] | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		const iterations = await git?.getPullRequestIterations(repoId, this.getPullRequestId());
+		const max = Math.max(...(iterations?.map(i => i.id!) ?? [0]));
+
+		return await this.getAllActiveThreads(max, 1);
+	}
+
 	async getAllActiveThreads(iteration?: number, baseIteration?: number): Promise<GitPullRequestCommentThread[] | undefined> {
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = await azdoRepo.getRepositoryId() || '';

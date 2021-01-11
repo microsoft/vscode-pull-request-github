@@ -30,7 +30,7 @@ function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, comme
 			const comment = thread.comments[0];
 
 			if (comment instanceof GHPRComment) {
-				const diffLine = getDiffLineByPosition(diffHunks, thread.rawThread.threadContext?.rightFileStart?.line || thread.rawThread.threadContext?.leftFileStart?.line!);
+				const diffLine = getDiffLineByPosition(diffHunks, getPositionFromThread(thread.rawThread)!);
 				if (diffLine) {
 					const positionInPr = diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber;
 					const newPosition = getZeroBased(mapOldPositionToNew(localDiff, positionInPr));

@@ -236,7 +236,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 								lastPullRequest = await githubRepo.getPullRequest(prNumber);
 							}
 
-							const [threads, commits] = await Promise.all([lastPullRequest?.getAllActiveThreads(), lastPullRequest?.getCommits()]);
+							const [threads, commits] = await Promise.all([lastPullRequest?.getAllActiveThreadsBetweenAllIterations(), lastPullRequest?.getCommits()]);
 
 							prRelatedusers = getRelatedUsersFromPullrequest(lastPullRequest?.item!, threads, commits);
 							resolve();
