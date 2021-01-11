@@ -39,7 +39,7 @@ interface RemoteInfo {
 export class CreatePullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'github:createPullRequest';
 
-	private _webviewView: vscode.WebviewView;
+	private _webviewView: vscode.WebviewView | undefined;
 
 	private _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
@@ -83,7 +83,11 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 	}
 
 	public show() {
-		this._webviewView.show();
+		if (this._webviewView) {
+			this._webviewView.show();
+		} else {
+			vscode.commands.executeCommand('github:createPullRequest.focus')
+		}
 	}
 
 	private async getTitle(): Promise<string> {

@@ -15,7 +15,7 @@ export class CreatePullRequestHelper {
 	private _createPRViewProvider: CreatePullRequestViewProvider | undefined;
 	private _treeView: CompareChangesTreeProvider | undefined;
 
-	private _onDidCreate = new vscode.EventEmitter<PullRequestModel> ();
+	private _onDidCreate = new vscode.EventEmitter<PullRequestModel>();
 	readonly onDidCreate: vscode.Event<PullRequestModel> = this._onDidCreate.event;
 
 	constructor(private readonly repository: Repository) { }
@@ -57,8 +57,8 @@ export class CreatePullRequestHelper {
 			this.registerListeners();
 
 			this._disposables.push(vscode.window.registerWebviewViewProvider(CreatePullRequestViewProvider.viewType, this._createPRViewProvider));
-		} else {
-			this._createPRViewProvider.show();
 		}
+
+		this._createPRViewProvider.show();
 	}
 }
