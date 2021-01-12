@@ -97,49 +97,59 @@ export function getDiffHunkFromFileDiff(fileDiff: FileDiff): DiffHunk[] {
 		const oldLineNumber = block.originalLineNumberStart!;
 		const newLineNumber = block.modifiedLineNumberStart!;
 
-		for (let i = 0; i < Math.max(block.originalLinesCount!, block.modifiedLinesCount!); i++) {
-			let type = DiffChangeType.Context;
-			let o = oldLineNumber + i;
-			let m = newLineNumber + i;
-			if (i >= block.originalLinesCount! || block.changeType === LineDiffBlockChangeType.Add) {
-				type = DiffChangeType.Add;
-				o = -1;
-			}
-			if (i >= block.modifiedLinesCount! || block.changeType === LineDiffBlockChangeType.Delete) {
-				type = DiffChangeType.Delete;
-				m = -1;
-			}
-			hunk.diffLines.push(new DiffLine(type, o, m, positionInHunk));
-			positionInHunk++;
-		}
-
-		// if (block.changeType === LineDiffBlockChangeType.Add) {
-		// 	for (let i = 0; i<block.modifiedLinesCount!; i++) {
-		// 		hunk.diffLines.push(new DiffLine(DiffChangeType.Add, -1, newLineNumber+i, positionInHunk));
-		// 		positionInHunk++;
+		// for (let i = 0; i < Math.max(block.originalLinesCount!, block.modifiedLinesCount!); i++) {
+		// 	let type = DiffChangeType.Context;
+		// 	let o = oldLineNumber + i;
+		// 	let m = newLineNumber + i;
+		// 	if (i >= block.originalLinesCount! || block.changeType === LineDiffBlockChangeType.Add) {
+		// 		type = DiffChangeType.Add;
+		// 		o = -1;
+		// 	} else if (i >= block.modifiedLinesCount! || block.changeType === LineDiffBlockChangeType.Delete) {
+		// 		type = DiffChangeType.Delete;
+		// 		m = -1;
 		// 	}
-		// } else if (block.changeType === LineDiffBlockChangeType.Delete) {
-		// 	for (let i = 0; i<block.originalLinesCount!; i++) {
-		// 		hunk.diffLines.push(new DiffLine(DiffChangeType.Delete, oldLineNumber+i, -1, positionInHunk));
-		// 		positionInHunk++;
-		// 	}
-		// } else if (block.changeType === LineDiffBlockChangeType.Edit) {
-		// 	for (let i = 0; i < Math.max(block.originalLinesCount!, block.modifiedLinesCount!); i++) {
-		// 		let type = DiffChangeType.Context;
-		// 		let o = oldLineNumber + i;
-		// 		let m = newLineNumber + i;
-		// 		if (o >= block.originalLinesCount!) {
-		// 			type = DiffChangeType.Add;
-		// 			o = -1;
-		// 		}
-		// 		if (m >= block.modifiedLinesCount!) {
-		// 			type = DiffChangeType.Delete;
-		// 			m = -1;
-		// 		}
-		// 		hunk.diffLines.push(new DiffLine(type, o, m, positionInHunk));
-		// 		positionInHunk++;
-		// 	}
+		// 	hunk.diffLines.push(new DiffLine(type, o, m, positionInHunk));
+		// 	positionInHunk++;
 		// }
+
+		if (block.changeType === LineDiffBlockChangeType.Add) {
+			for (let i = 0; i<block.modifiedLinesCount!; i++) {
+				hunk.diffLines.push(new DiffLine(DiffChangeType.Add, -1, newLineNumber+i, positionInHunk));
+				positionInHunk++;
+			}
+		} else if (block.changeType === LineDiffBlockChangeType.Delete) {
+			for (let i = 0; i<block.originalLinesCount!; i++) {
+				hunk.diffLines.push(new DiffLine(DiffChangeType.Delete, oldLineNumber+i, -1, positionInHunk));
+				positionInHunk++;
+			}
+		} else if (block.changeType === LineDiffBlockChangeType.Edit) {
+			const overlap = Math.min(block.originalLinesCount!, block.modifiedLinesCount!);
+			for (let i = 0; i < overlap; i++) {
+				hunk.diffLines.push(new DiffLine(DiffChangeType.Delete, oldLineNumber + i, -1, positionInHunk));
+				positionInHunk++;
+			}
+
+			for (let i = 0; i < overlap; i++) {
+				hunk.diffLines.push(new DiffLine(DiffChangeType.Add, -1, newLineNumber + i, positionInHunk));
+				positionInHunk++;
+			}
+
+			for (let i = 0; i < Math.abs(block.originalLinesCount! - block.modifiedLinesCount!); i++) {
+				let type = DiffChangeType.Context;
+				let o = oldLineNumber + overlap + i;
+				let m = newLineNumber + overlap + i;
+				if (i+overlap >= block.originalLinesCount!) {
+					type = DiffChangeType.Add;
+					o = -1;
+				}
+				if (i+overlap >= block.modifiedLinesCount!) {
+					type = DiffChangeType.Delete;
+					m = -1;
+				}
+				hunk.diffLines.push(new DiffLine(type, o, m, positionInHunk));
+				positionInHunk++;
+			}
+		}
 		diff.push(hunk);
 	}
 
