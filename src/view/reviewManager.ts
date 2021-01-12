@@ -24,7 +24,7 @@ import { AzdoRepository } from '../azdo/azdoRepository';
 import { PullRequestViewProvider } from '../azdo/activityBarViewProvider';
 import { PullRequestGitHelper } from '../azdo/pullRequestGitHelper';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { isUserThread } from '../azdo/utils';
+import { isUserThread, removeLeadingSlash } from '../azdo/utils';
 
 const FOCUS_REVIEW_MODE = 'github:focusedReview';
 
@@ -360,7 +360,7 @@ export class ReviewManager {
 				fileName = change.previousFileName!;
 			}
 
-			const filePath = nodePath.join(this._repository.rootUri.path, fileName).replace(/\\/g, '/');
+			const filePath = nodePath.join(this._repository.rootUri.path, removeLeadingSlash(fileName)).replace(/\\/g, '/');
 			const uri = this._repository.rootUri.with({ path: filePath });
 
 			const modifiedFileUri = change.status === GitChangeType.DELETE
@@ -407,7 +407,8 @@ export class ReviewManager {
 			// const outdatedComments = this._comments.filter(comment => !!comment.pullRequestThreadContext);
 
 			const data = await pr.getFileChangesInfo();
-			const mergeBase = pr.mergeBase || pr.base.sha;
+			// TODO Merge base is here also
+			const mergeBase = pr.base.sha;
 
 			const contentChanges = await parseDiffAzdo(data, this._repository, mergeBase!);
 			this._localFileChanges = await this.getLocalChangeNodes(pr, contentChanges, activeComments);
