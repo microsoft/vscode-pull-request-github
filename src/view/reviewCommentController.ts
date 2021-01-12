@@ -20,7 +20,6 @@ import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { CommentThreadCache } from './commentThreadCache';
 import { getCommentingRanges } from '../common/commentingRanges';
-import { GitChangeType } from '../common/file';
 import { GitPullRequestCommentThread, Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { CommentPermissions } from '../azdo/interface';
 import { CommonCommentHandler } from '../common/commonCommentHandler';

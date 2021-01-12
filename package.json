@@ -399,12 +399,6 @@
           "type": "webview",
           "name": "Active Pull Request",
           "when": "github:focusedReview"
-        },
-        {
-          "id": "issues:github",
-          "name": "Issues",
-          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
-          "icon": "resources/icons/issues.png"
         }
       ]
     },
@@ -571,22 +565,11 @@
         "enablement": "!commentIsEmpty"
       },
       {
-        "command": "pr.startReview",
-        "title": "Start Review",
-        "category": "GitHub Pull Requests",
-        "enablement": "!commentIsEmpty"
-      },
-      {
         "command": "pr.changeThreadStatus",
         "title": "Change status",
         "category": "GitHub Pull Requests",
         "enablement": "!commentThreadIsEmpty",
         "icon": "$(settings)"
-      },
-      {
-        "command": "pr.deleteReview",
-        "title": "Delete Review",
-        "category": "GitHub Pull Requests"
       },
       {
         "command": "pr.editComment",
@@ -612,12 +595,6 @@
         "icon": "$(close)"
       },
       {
-        "command": "pr.finishReview",
-        "title": "Finish Review",
-        "category": "GitHub Pull Requests",
-        "enablement": "!commentIsEmpty"
-      },
-      {
         "command": "pr.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "GitHub Pull Requests"
@@ -626,133 +603,6 @@
         "command": "pr.configureRemotes",
         "title": "Configure Remotes...",
         "category": "GitHub Pull Requests"
-      },
-      {
-        "command": "issue.createIssueFromSelection",
-        "title": "Create Issue From Selection",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.createIssueFromClipboard",
-        "title": "Create Issue From Clipboard",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.copyGithubPermalink",
-        "title": "Copy GitHub Permalink",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.openGithubPermalink",
-        "title": "Open Permalink in GitHub",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.openIssue",
-        "title": "Open Issue",
-        "category": "GitHub Issues",
-        "icon": "$(globe)"
-      },
-      {
-        "command": "issue.copyIssueNumber",
-        "title": "Copy Number",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.copyIssueUrl",
-        "title": "Copy Url",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.refresh",
-        "title": "Refresh",
-        "category": "GitHub Issues",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "issue.suggestRefresh",
-        "title": "Refresh Suggestions",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.startWorking",
-        "title": "Start Working on Issue",
-        "category": "GitHub Issues",
-        "icon": "$(arrow-right)"
-      },
-      {
-        "command": "issue.startWorkingBranchDescriptiveTitle",
-        "title": "Start Working on Issue and Checkout Topic Branch",
-        "category": "GitHub Issues",
-        "icon": "$(arrow-right)"
-      },
-      {
-        "command": "issue.continueWorking",
-        "title": "Continue Working on Issue",
-        "category": "GitHub Issues",
-        "icon": "$(arrow-right)"
-      },
-      {
-        "command": "issue.startWorkingBranchPrompt",
-        "title": "Start Working and Set Branch...",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.stopWorking",
-        "title": "Stop Working on Issue",
-        "category": "GitHub Issues",
-        "icon": "$(primitive-square)"
-      },
-      {
-        "command": "issue.stopWorkingBranchDescriptiveTitle",
-        "title": "Stop Working on Issue and Leave Topic Branch",
-        "category": "GitHub Issues",
-        "icon": "$(primitive-square)"
-      },
-      {
-        "command": "issue.statusBar",
-        "title": "Current Issue Options",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.getCurrent",
-        "title": "Get current issue",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.editQuery",
-        "title": "Edit Query",
-        "category": "GitHub Issues",
-        "icon": "$(edit)"
-      },
-      {
-        "command": "issue.createIssue",
-        "title": "Create an Issue",
-        "category": "GitHub Issues",
-        "icon": "$(plus)"
-      },
-      {
-        "command": "issue.createIssueFromFile",
-        "title": "Create Issue",
-        "icon": "$(check)"
-      },
-      {
-        "command": "issue.issueCompletion",
-        "title": "Issue Completion Chosen"
-      },
-      {
-        "command": "issue.userCompletion",
-        "title": "User Completion Chosen"
-      },
-      {
-        "command": "issue.signinAndRefreshList",
-        "title": "Sign in and Refresh",
-        "category": "GitHub Issues"
-      },
-      {
-        "command": "issue.goToLinkedCode",
-        "title": "Go to Linked Code",
-        "category": "GitHub Issues"
       }
     ],
     "viewsWelcome": [
@@ -760,18 +610,6 @@
         "view": "github:login",
         "when": "ReposManagerStateContext == NeedsAuthentication",
         "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
-      }
-    ],
-    "keybindings": [
-      {
-        "key": "ctrl+shift+space",
-        "command": "issue.suggestRefresh",
-        "when": "suggestWidgetVisible"
-      },
-      {
-        "key": "ctrl+s",
-        "command": "issue.createIssueFromFile",
-        "when": "resourceScheme == newIssue && config.files.autoSave != off"
       }
     ],
     "menus": {
@@ -897,15 +735,7 @@
           "when": "false"
         },
         {
-          "command": "pr.startReview",
-          "when": "false"
-        },
-        {
           "command": "pr.changeThreadStatus",
-          "when": "false"
-        },
-        {
-          "command": "pr.deleteReview",
           "when": "false"
         },
         {
@@ -922,98 +752,6 @@
         },
         {
           "command": "pr.deleteComment",
-          "when": "false"
-        },
-        {
-          "command": "pr.finishReview",
-          "when": "false"
-        },
-        {
-          "command": "issue.openIssue",
-          "when": "false"
-        },
-        {
-          "command": "issue.copyIssueNumber",
-          "when": "false"
-        },
-        {
-          "command": "issue.copyIssueUrl",
-          "when": "false"
-        },
-        {
-          "command": "issue.refresh",
-          "when": "false"
-        },
-        {
-          "command": "issue.suggestRefresh",
-          "when": "false"
-        },
-        {
-          "command": "issue.startWorking",
-          "when": "false"
-        },
-        {
-          "command": "issue.startWorkingBranchDescriptiveTitle",
-          "when": "false"
-        },
-        {
-          "command": "issue.continueWorking",
-          "when": "false"
-        },
-        {
-          "command": "issue.startWorkingBranchPrompt",
-          "when": "false"
-        },
-        {
-          "command": "issue.stopWorking",
-          "when": "false"
-        },
-        {
-          "command": "issue.stopWorkingBranchDescriptiveTitle",
-          "when": "false"
-        },
-        {
-          "command": "issue.statusBar",
-          "when": "false"
-        },
-        {
-          "command": "issue.getCurrent",
-          "when": "false"
-        },
-        {
-          "command": "issue.editQuery",
-          "when": "false"
-        },
-        {
-          "command": "issue.createIssue",
-          "when": "github:hasGitHubRemotes && github:authenticated"
-        },
-        {
-          "command": "issue.createIssueFromFile",
-          "when": "false"
-        },
-        {
-          "command": "issue.copyGithubPermalink",
-          "when": "github:hasGitHubRemotes && github:authenticated"
-        },
-        {
-          "command": "issue.openGithubPermalink",
-          "when": "github:hasGitHubRemotes && github:authenticated"
-        },
-        {
-          "command": "issue.issueCompletion",
-          "when": "false"
-        },
-        {
-          "command": "issue.userCompletion",
-          "when": "false"
-        },
-        {
-          "command": "issue.signinAndRefreshList",
-          "when": "false"
-        },
-        {
-          "command": "issue.goToLinkedCode",
           "when": "false"
         }
       ],
@@ -1047,16 +785,6 @@
           "command": "pr.setFileListLayoutAsFlat",
           "when": "view =~ /prStatus/ && !fileListLayout:flat",
           "group": "navigation"
-        },
-        {
-          "command": "issue.refresh",
-          "when": "view =~ /issues:github/",
-          "group": "navigation@2"
-        },
-        {
-          "command": "issue.createIssue",
-          "when": "view =~ /issues:github/ && github:hasGitHubRemotes",
-          "group": "navigation@1"
         },
         {
           "command": "pr.openPullRequestInGitHub",
@@ -1127,89 +855,9 @@
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
         },
         {
-          "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
-          "group": "inline@2"
-        },
-        {
-          "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
-          "group": "issues_0@1"
-        },
-        {
-          "command": "issue.goToLinkedCode",
-          "when": "view =~ /issues:github/ && viewItem =~ /^link(current|continue)?issue/",
-          "group": "issues_0@0"
-        },
-        {
-          "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on",
-          "group": "inline@1"
-        },
-        {
-          "command": "issue.startWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on",
-          "group": "inline@1"
-        },
-        {
-          "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on",
-          "group": "inline@1"
-        },
-        {
-          "command": "issue.startWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on",
-          "group": "inline@1"
-        },
-        {
-          "command": "issue.startWorking",
-          "alt": "issue.startWorkingBranchPrompt",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/",
-          "group": "issues_0@2"
-        },
-        {
-          "command": "issue.continueWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/",
-          "group": "issues_0@2"
-        },
-        {
           "command": "pr.create",
           "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
           "group": "issues_0@2"
-        },
-        {
-          "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
-          "group": "issues_0@3"
-        },
-        {
-          "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues != on",
-          "group": "inline@1"
-        },
-        {
-          "command": "issue.stopWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues == on",
-          "group": "inline@1"
-        },
-        {
-          "command": "issue.copyIssueNumber",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
-          "group": "issues_1@1"
-        },
-        {
-          "command": "issue.copyIssueUrl",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
-          "group": "issues_1@2"
-        },
-        {
-          "command": "issue.editQuery",
-          "when": "view =~ /issues:github/ && viewItem == query",
-          "group": "inline"
-        },
-        {
-          "command": "issue.editQuery",
-          "when": "view =~ /issues:github/ && viewItem == query"
         }
       ],
       "editor/title": [
@@ -1217,11 +865,6 @@
           "command": "review.openFile",
           "group": "navigation",
           "when": "resourceScheme =~ /^review$/"
-        },
-        {
-          "command": "issue.createIssueFromFile",
-          "group": "navigation",
-          "when": "resourceFilename == NewIssue.md"
         }
       ],
       "scm/title": [
@@ -1236,38 +879,13 @@
           "command": "pr.createComment",
           "group": "inline",
           "when": "commentController =~ /^(browse|review)/"
-        },
-        {
-          "command": "pr.startReview",
-          "group": "inline",
-          "when": "commentController =~ /review/ && !reviewInDraftMode"
-        },
-        {
-          "command": "pr.deleteReview",
-          "group": "inline",
-          "when": "commentController =~ /browse/ && prInDraft"
-        },
-        {
-          "command": "pr.deleteReview",
-          "group": "inline",
-          "when": "commentController =~ /review/ && reviewInDraftMode"
-        },
-        {
-          "command": "pr.finishReview",
-          "group": "inline",
-          "when": "commentController =~ /browse/ && prInDraft"
-        },
-        {
-          "command": "pr.finishReview",
-          "group": "inline",
-          "when": "commentController =~ /review/ && reviewInDraftMode"
         }
       ],
       "comments/commentThread/title": [
         {
           "command": "pr.changeThreadStatus",
           "group": "inline",
-          "when": "commentController =~ /browse/ && !commentThreadIsEmpty"
+          "when": "commentController =~ /^(browse|review)/ && !commentThreadIsEmpty"
         }
       ],
       "comments/comment/title": [
