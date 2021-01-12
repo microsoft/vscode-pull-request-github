@@ -6,7 +6,7 @@ import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
 import { CommentPermissions, IRawFileChange, PullRequest, PullRequestChecks, PullRequestCompletion, PullRequestVote } from './interface';
 import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange, GitBaseVersionDescriptor, GitVersionOptions, GitVersionType, GitCommitDiffs, FileDiffParams, FileDiff, VersionControlChangeType, GitStatusState, GitPullRequest, PullRequestAsyncStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readableToString } from './utils';
+import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readableToString, removeLeadingSlash } from './utils';
 import Logger from '../common/logger';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -550,7 +550,8 @@ export class PullRequestModel implements IPullRequestModel {
 
 	static async openDiffFromComment(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, comment: GitPullRequestCommentThread): Promise<void> {
 		const fileChanges = await pullRequestModel.getFileChangesInfo();
-		const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
+		// TODO merge base is here also
+		const mergeBase = pullRequestModel.base.sha;
 		const contentChanges = await parseDiffAzdo(fileChanges, folderManager.repository, mergeBase);
 		const change = contentChanges.find(fileChange => fileChange.fileName === comment.threadContext?.filePath || fileChange.previousFileName === comment.threadContext?.filePath);
 		if (!change) {
@@ -562,10 +563,10 @@ export class PullRequestModel implements IPullRequestModel {
 			const headCommit = pullRequestModel.head!.sha;
 			const fileName = change.status === GitChangeType.DELETE ? change.previousFileName! : change.fileName;
 			const parentFileName = change.previousFileName ?? '';
-			headUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, fileName)), pullRequestModel, change.baseCommit, headCommit, fileName, false, change.status);
-			baseUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)), pullRequestModel, change.baseCommit, headCommit, parentFileName, true, change.status);
+			headUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, removeLeadingSlash(fileName))), pullRequestModel, change.baseCommit, headCommit, fileName, false, change.status);
+			baseUri = toPRUriAzdo(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, removeLeadingSlash(parentFileName))), pullRequestModel, change.baseCommit, headCommit, parentFileName, true, change.status);
 		} else {
-			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
+			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, removeLeadingSlash(change.fileName)));
 
 			headUri = change.status === GitChangeType.DELETE
 				? toReviewUri(uri, undefined, undefined, '', false, { base: false }, folderManager.repository.rootUri)

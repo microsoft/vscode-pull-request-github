@@ -8,14 +8,13 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { GithubItemStateEnum, ReviewState, MergeMethodsAvailability, MergeMethod, PullRequestCompletion } from './interface';
 import { formatError } from '../common/utils';
-import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
 import webviewContent from '../../media/webviewIndex.js';
 import { onDidUpdatePR } from '../commands';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
-import { Comment, IdentityRefWithVote, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, GitPullRequestCommentThread, IdentityRefWithVote, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class PullRequestOverviewPanel extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -413,10 +412,10 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		}
 	}
 
-	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
+	private async openDiff(message: IRequestMessage<{ thread: GitPullRequestCommentThread }>): Promise<void> {
 		try {
-			const comment = message.args.comment;
-			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, comment);
+			const thread = message.args.thread;
+			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, thread);
 		} catch (e) {
 			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}

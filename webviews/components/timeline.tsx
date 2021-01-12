@@ -154,13 +154,11 @@ function AddReviewSummaryComment() {
 }
 
 const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommentThread, currentUser: Identity}) => {
-	const { replyThread } = useContext(PullRequestContext);
+	const { replyThread, openDiff } = useContext(PullRequestContext);
 	const [inEditMode, setEditMode] = useState(false);
 
 	const onCancel = () => {
-		() => {
-			setEditMode(false);
-		}
+		setEditMode(false);
 	}
 
 	const onSave = async (text) => {
@@ -174,7 +172,15 @@ const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommen
 	return (
 		<div className='thread-container'>
 			{
-				thread.comments.map(c => <CommentView headerInEditMode {...c} canEdit={c.author.id === currentUser.id} threadId={thread.id} />)
+				!!thread.threadContext && !!thread.threadContext.filePath ?
+					<div className='diff-container diff'>
+					<div className='diffHeader'>
+							<a className='diffPath' onClick={() => openDiff(thread)}>{thread.threadContext.filePath}</a>
+					</div>
+					</div> : null
+			}
+			{
+				thread.comments.map(c => <CommentView key={c.id} headerInEditMode {...c} canEdit={c.author.id === currentUser.id} threadId={thread.id} />)
 			}
 			{  !inEditMode
 				? <div className='reply-thread'><button title='Reply' onClick={() => setEditMode(true)} >Reply</button></div>

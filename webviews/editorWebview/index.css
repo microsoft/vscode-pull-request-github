@@ -986,12 +986,20 @@ code {
 	margin-left: 0;
 }
 
-.thread-container .comment-container:not(:first-child) {
+.thread-container .comment-container {
 	padding-top: 0px;
+}
+
+.thread-container .comment-container:not(:nth-child(2)) {
 	padding-left: 20px;
 	width: auto;
 }
 
 .thread-container .reply-thread {
 	text-align: right;
+}
+
+.thread-container .diff-container {
+	margin-top: 10px;
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }

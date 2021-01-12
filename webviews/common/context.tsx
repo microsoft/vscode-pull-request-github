@@ -163,8 +163,8 @@ export class PRContext {
 		this.updatePR(state);
 	}
 
-	public openDiff = (comment: Comment) =>
-		this.postMessage({ command: 'pr.open-diff', args: { comment } })
+	public openDiff = (thread: GitPullRequestCommentThread) =>
+		this.postMessage({ command: 'pr.open-diff', args: { thread } })
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;
