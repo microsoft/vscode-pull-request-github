@@ -915,8 +915,9 @@ export class ReviewManager {
 	private updateFocusedViewMode(): void {
 		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
 		if (focusedSetting && this._folderRepoManager.activePullRequest) {
-			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
-			this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
+			// FOCUSED MODE IS DISABLED
+			// vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
+			// this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		} else {
 			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, false);
 			this._context.workspaceState.update(FOCUS_REVIEW_MODE, false);
