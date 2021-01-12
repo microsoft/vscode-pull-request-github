@@ -85,6 +85,9 @@ export function loginComparator(a: IAccount, b: IAccount) {
 	return a.id?.localeCompare(b.id || '', 'en', { sensitivity: 'accent' }) || -1;
 }
 
+// 3 lines before and after the hunk
+const OVERFLOW = 3;
+
 export function getDiffHunkFromFileDiff(fileDiff: FileDiff): DiffHunk[] {
 	const diff: DiffHunk[] = [];
 	let positionInHunk = 0;
@@ -92,11 +95,15 @@ export function getDiffHunkFromFileDiff(fileDiff: FileDiff): DiffHunk[] {
 	const validBlocks = fileDiff.lineDiffBlocks?.filter(d => d.changeType !== LineDiffBlockChangeType.None) ?? [];
 
 	for (const block of validBlocks) {
-		const hunk = new DiffHunk(block.originalLineNumberStart!, block.originalLinesCount!, block.modifiedLineNumberStart!, block.modifiedLinesCount!, positionInHunk);
-
 		const oldLineNumber = block.originalLineNumberStart!;
 		const newLineNumber = block.modifiedLineNumberStart!;
 
+		// All this to have OVERFLOW amount of buffer before and after hunk for comments
+		const overflowStartLineNumber = Math.max(newLineNumber - OVERFLOW,1);
+		const overflowLineCount = block.modifiedLinesCount! + OVERFLOW + (oldLineNumber - overflowStartLineNumber);
+		const overflowEndLineNumber = newLineNumber + block.modifiedLinesCount! + OVERFLOW;
+
+		const hunk = new DiffHunk(block.originalLineNumberStart!, block.originalLinesCount!, overflowStartLineNumber!, overflowLineCount!, positionInHunk);
 		// for (let i = 0; i < Math.max(block.originalLinesCount!, block.modifiedLinesCount!); i++) {
 		// 	let type = DiffChangeType.Context;
 		// 	let o = oldLineNumber + i;
@@ -123,6 +130,12 @@ export function getDiffHunkFromFileDiff(fileDiff: FileDiff): DiffHunk[] {
 				positionInHunk++;
 			}
 		} else if (block.changeType === LineDiffBlockChangeType.Edit) {
+			// Add no change lines for overflow BEFORE the actual change
+			for (let i = overflowStartLineNumber; i < newLineNumber; i++) {
+				hunk.diffLines.push(new DiffLine(DiffChangeType.Context, i, i, positionInHunk));
+				positionInHunk++;
+			}
+
 			const overlap = Math.min(block.originalLinesCount!, block.modifiedLinesCount!);
 			for (let i = 0; i < overlap; i++) {
 				hunk.diffLines.push(new DiffLine(DiffChangeType.Delete, oldLineNumber + i, -1, positionInHunk));
@@ -149,7 +162,14 @@ export function getDiffHunkFromFileDiff(fileDiff: FileDiff): DiffHunk[] {
 				hunk.diffLines.push(new DiffLine(type, o, m, positionInHunk));
 				positionInHunk++;
 			}
+
+			// Add no change lines for overflow AFTER the actual change
+			for (let i = newLineNumber + block.modifiedLinesCount!; i < overflowEndLineNumber; i++) {
+				hunk.diffLines.push(new DiffLine(DiffChangeType.Context, i, i, positionInHunk));
+				positionInHunk++;
+			}
 		}
+
 		diff.push(hunk);
 	}
 

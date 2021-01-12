@@ -446,9 +446,10 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const ranges = [];
 
 			if (matchedFile) {
-				if (matchedFile.status === GitChangeType.RENAME) {
-					return [];
-				}
+				// TODO Why was this here?
+				// if (matchedFile.status === GitChangeType.RENAME) {
+				// 	return [];
+				// }
 
 				const contentDiff = await this.getContentDiff(document, removeLeadingSlash(matchedFile.fileName));
 				const diffHunks = matchedFile.diffHunks;
