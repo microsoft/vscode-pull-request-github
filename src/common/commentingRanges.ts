@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
 import { DiffHunk, DiffChangeType } from './diffHunk';
 import { getZeroBased } from './diffPositionMapping';
@@ -55,4 +56,14 @@ export function getCommentingRanges(diffHunks: DiffHunk[], isBase: boolean): vsc
 	}
 
 	return ranges;
+}
+
+export function mapThreadsToBase(threads: GitPullRequestCommentThread[], isBase: boolean): GitPullRequestCommentThread[] {
+	return isBase
+		? threads.filter(c => c.pullRequestThreadContext?.trackingCriteria !== undefined
+			? c.pullRequestThreadContext?.trackingCriteria?.origLeftFileStart !== undefined
+			: c.threadContext?.leftFileStart !== undefined)
+		: threads.filter(c => c.pullRequestThreadContext?.trackingCriteria !== undefined
+			? c.pullRequestThreadContext?.trackingCriteria?.origRightFileStart !== undefined
+			: c.threadContext?.rightFileStart !== undefined);
 }

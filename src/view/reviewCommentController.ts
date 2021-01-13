@@ -19,7 +19,7 @@ import { createVSCodeCommentThread, updateCommentThreadLabel, updateCommentRevie
 import { DiffHunk, DiffChangeType } from '../common/diffHunk';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { CommentThreadCache } from './commentThreadCache';
-import { getCommentingRanges } from '../common/commentingRanges';
+import { getCommentingRanges, mapThreadsToBase } from '../common/commentingRanges';
 import { GitPullRequestCommentThread, Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { CommentPermissions } from '../azdo/interface';
 import { CommonCommentHandler } from '../common/commonCommentHandler';
@@ -523,7 +523,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
 
 		if (matchedFile) {
-			const matchingComments = matchedFile.comments;
+			const matchingComments = mapThreadsToBase(matchedFile.comments, query.base);
 
 			return this.workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.threadContext !== undefined && getPositionFromThread(comment)! > 0), vscode.CommentThreadCollapsibleState.Expanded).map(thread => {
 				thread.uri = document.uri;

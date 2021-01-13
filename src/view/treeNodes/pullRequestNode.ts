@@ -26,6 +26,7 @@ import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/inte
 import { CommentPermissions, CommentWithPermissions } from '../../azdo/interface';
 import { CommonCommentHandler } from '../../common/commonCommentHandler';
 import { SETTINGS_NAMESPACE } from '../../constants';
+import { mapThreadsToBase } from '../../common/commentingRanges';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -53,13 +54,7 @@ export function getDocumentThreadDatas(
 
 	const threads: ThreadData[] = [];
 
-	const commentsPerBase = isBase
-		? matchingComments.filter(c => c.pullRequestThreadContext?.trackingCriteria !== undefined
-			? c.pullRequestThreadContext?.trackingCriteria?.origLeftFileStart !== undefined
-			: c.threadContext?.leftFileStart !== undefined)
-		: matchingComments.filter(c => c.pullRequestThreadContext?.trackingCriteria !== undefined
-			? c.pullRequestThreadContext?.trackingCriteria?.origRightFileStart !== undefined
-			: c.threadContext?.rightFileStart !== undefined);
+	const commentsPerBase = mapThreadsToBase(matchingComments, isBase);
 
 	for (const i in commentsPerBase) {
 		const azdoThread = commentsPerBase[i];
