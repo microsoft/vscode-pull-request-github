@@ -49,6 +49,13 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 		}
 	});
 
+	context.secrets.onDidChange(async () => {
+		await reposManager.clearCredentialCache();
+		if (reviewManagers) {
+			reviewManagers.forEach(reviewManager => reviewManager.updateState());
+		}
+	});
+
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
 	// Sort the repositories to match folders in a multiroot workspace (if possible).
