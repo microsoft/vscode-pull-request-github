@@ -532,11 +532,6 @@
       ],
       "view/title": [
         {
-          "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /pr:/",
-          "group": "navigation@1"
-        },
-        {
           "command": "pr.configurePRViewlet",
           "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(pr|issues):/",
           "group": "navigation@3"
