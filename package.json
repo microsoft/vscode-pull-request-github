@@ -1,7 +1,7 @@
 {
-  "name": "vscode-pull-request-github",
-  "displayName": "GitHub Pull Requests and Issues",
-  "description": "Pull Request and Issue Provider for GitHub",
+  "name": "vscode-pull-request-azdo",
+  "displayName": "Azure Devops Pull Requests",
+  "description": "Pull Request Provider for Azure Devops",
   "icon": "resources/icons/github_logo.png",
   "repository": {
     "type": "git",
@@ -12,8 +12,8 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.21.0",
-  "publisher": "GitHub",
+  "version": "0.0.1",
+  "publisher": "ankitbko",
   "engines": {
     "vscode": "^1.52.0"
   },
@@ -40,29 +40,7 @@
         "azdoPullRequests.telemetry.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable usage data and errors to be sent to a GitHub online service"
-        },
-        "azdoPullRequests.hosts": {
-          "type": "array",
-          "default": [],
-          "markdownDescription": "List of host credentials. For example, \"azdoPullRequests.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
-          "items": {
-            "type": "object",
-            "properties": {
-              "host": {
-                "type": "string",
-                "description": "The host name of the GitHub server (for eg., 'https://github.com')"
-              },
-              "username": {
-                "type": "string",
-                "description": "The username to access GitHub (optional)"
-              },
-              "token": {
-                "type": "string",
-                "description": "GitHub access token with the following scopes: read:user, user:email, repo, write:discussion"
-              }
-            }
-          }
+          "description": "Enable usage data and errors to be sent to a Azure Appinsights online service"
         },
         "azdoPullRequests.pullRequestTitle": {
           "type": "string",
@@ -106,7 +84,7 @@
             "off"
           ],
           "default": "info",
-          "description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request."
+          "description": "Logging for Azure Devops Pull Request extension. The log is emitted to the output channel named as Azure Devops Pull Request."
         },
         "azdoPullRequests.remotes": {
           "type": "array",
@@ -145,7 +123,7 @@
             }
           },
           "scope": "resource",
-          "markdownDescription": "Specifies what queries should be used in the GitHub Pull Requests tree. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. By default these queries define the categories \"Waiting For My Review\", \"Assigned To Me\" and \"Created By Me\". If you want to preserve these, make sure they are still in the array when you modify the setting.",
+          "markdownDescription": "Specifies what queries should be used in the Azure Devops Pull Requests tree. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. By default these queries define the categories \"Waiting For My Review\", \"Assigned To Me\" and \"Created By Me\". If you want to preserve these, make sure they are still in the array when you modify the setting.",
           "default": [
             {
               "label": "Waiting For My Review",
@@ -171,12 +149,6 @@
           ],
           "default": "Squash",
           "description": "The method to use when merging pull requests."
-        },
-        "azdoPullRequests.showInSCM": {
-          "type": "boolean",
-          "default": false,
-          "deprecationMessage": "This setting is deprecated. Views can now be dragged to any location.",
-          "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
         },
         "azdoPullRequests.fileListLayout": {
           "type": "string",
