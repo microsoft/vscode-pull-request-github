@@ -170,7 +170,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					reviewer: {
 						email: r.uniqueName,
 						name: r.displayName,
-						avatarUrl: r.imageUrl,
+						avatarUrl: r?.['_links']?.['avatar']?.['href'],
 						url: r.reviewerUrl,
 						id: r.id
 					},
@@ -193,7 +193,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					author: {
 						id: pullRequest.item.createdBy?.id,
 						name: pullRequest.item.createdBy?.displayName,
-						avatarUrl: pullRequest.item.createdBy?.imageUrl,
+						avatarUrl: pullRequest.item.createdBy?.['_links']?.['avatar']?.['href'],
 						url: pullRequest.item.createdBy?.url,
 						email:  pullRequest.item.createdBy?.uniqueName
 					},

@@ -323,7 +323,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 			<div key={s.id} className='status-check'>
 				<div>
 					<StateIcon state={s.state} />
-					<Avatar for={{ avatarUrl: s.avatar_url, url: s.url }} />
+					<Avatar url={s.url } avatarUrl={s.avatar_url} />
 					<span className='status-check-detail-text'>{s.context} {s.description ? `— ${s.description}` : ''}</span>
 				</div>
 				{!!s.target_url ? <a href={s.target_url}>Details</a> : null}

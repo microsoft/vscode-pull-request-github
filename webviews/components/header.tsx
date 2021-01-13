@@ -21,12 +21,12 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 		<div className='subtitle'>
 			<div id='status'>{getStatus(state, isDraft)}</div>
 			{(!isIssue)
-				? <Avatar for={author} />
+				? <Avatar url={author.url} avatarUrl={author.avatarUrl} />
 				: null}
 			<span className='author'>
 				{(!isIssue)
 					? <Spaced>
-						<AuthorLink for={author} text={author.name} />
+						<AuthorLink url={author.url} text={author.name} />
 						{getActionText(state)}
 						into <code>{base}</code>
 						from <code>{head}</code>

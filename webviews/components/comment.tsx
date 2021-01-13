@@ -36,7 +36,7 @@ export function CommentView(comment: Props) {
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
-	const statusProps = !!isFirstCommentInThread ? {threadStatus: threadStatus, changeThreadStatus: changeThreadStatus}: null
+	const statusProps = !!isFirstCommentInThread ? {threadStatus: threadStatus, changeThreadStatus: changeThreadStatus}: null;
 
 	if (inEditMode) {
 		return React.cloneElement(
@@ -89,11 +89,11 @@ export function CommentView(comment: Props) {
 export const ThreadStatus = {
 	'0': 'UNKNOWN',
 	'1': 'Active',
-    '2': 'Fixed',
-    '3': 'WontFix',
-    '4': 'Closed',
-    // '5': 'ByDesign',
-    '6': 'Pending'
+	'2': 'Fixed',
+	'3': 'WontFix',
+	'4': 'Closed',
+	// '5': 'ByDesign',
+	'6': 'Pending'
 }
 
 const ThreadStatusOrder = ['1', '6', '2', '3', '4']
@@ -119,8 +119,8 @@ function CommentBox({
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
 				<Spaced>
-					<Avatar for={author} />
-					<AuthorLink for={author} text={author.displayName} />
+					<Avatar url={author.profileUrl} avatarUrl={author['_links']?.['avatar']?.['href']}  />
+					<AuthorLink url={author.profileUrl} text={author.displayName} />
 					{
 						publishedDate
 							? <>

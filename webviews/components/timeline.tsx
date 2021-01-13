@@ -52,9 +52,9 @@ export const CommitEventView = (event: CommitEvent) =>
 		<div className='commit-message'>
 			{commitIcon}{nbsp}
 			<div className='avatar-container'>
-				<Avatar for={event.author} />
+				<Avatar url={event.author.url} avatarUrl={event.author.avatarUrl} />
 			</div>
-			<AuthorLink for={event.author} text={event.author.name} />
+			<AuthorLink url={event.author.url} text={event.author.name} />
 			<a className='message' href={event.htmlUrl}>{event.message}</a>
 		</div>
 		<a className='sha' href={event.htmlUrl}>{event.sha.slice(0, 7)}</a>
@@ -99,8 +99,8 @@ export const ReviewEventView = (event: ReviewEvent) => {
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
 				<Spaced>
-					<Avatar for={event.user} />
-					<AuthorLink for={event.user} text={event.user.name} />{association(event)}
+					<Avatar url={event.user.url} avatarUrl={event.user.avatarUrl} />
+					<AuthorLink url={event.user.url} text={event.user.name} />{association(event)}
 					{ reviewIsPending
 						? <em>review pending</em>
 						: <>
@@ -200,9 +200,9 @@ export const MergedEventView = (event: MergedEvent) =>
 		<div className='commit-message'>
 			{mergeIcon}{nbsp}
 			<div className='avatar-container'>
-				<Avatar for={event.user} />
+				<Avatar url={event.user.url} avatarUrl={event.user.avatarUrl} />
 			</div>
-			<AuthorLink for={event.user} text={event.user.name} />
+			<AuthorLink url={event.user.url} text={event.user.name} />
 			<div className='message'>
 				merged commit{nbsp}
 				<a className='sha' href={event.commitUrl}>{event.sha.substr(0, 7)}</a>{nbsp}
@@ -216,9 +216,9 @@ export const HeadDeleteEventView = (event: HeadRefDeleteEvent) =>
 	<div className='comment-container commit'>
 		<div className='commit-message'>
 			<div className='avatar-container'>
-				<Avatar for={event.actor} />
+				<Avatar url={event.actor.url} avatarUrl={event.actor.avatarUrl} />
 			</div>
-			<AuthorLink for={event.actor} text={event.actor.name} />
+			<AuthorLink url={event.actor.url} text={event.actor.name} />
 			<div className='message'>
 				deleted the {event.headRef} branch{nbsp}
 			</div>

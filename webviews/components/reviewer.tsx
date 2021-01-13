@@ -20,8 +20,8 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 	return <div className='section-item reviewer'
 		onMouseEnter={state === PullRequestVote.NO_VOTE ? () => setShowDelete(true) : null}
 		onMouseLeave={state === PullRequestVote.NO_VOTE ? () => setShowDelete(false) : null}>
-		<Avatar for={reviewer} />
-		<AuthorLink for={reviewer} text={reviewer.name} />
+		<Avatar url={reviewer.url} avatarUrl={reviewer.avatarUrl} />
+		<AuthorLink url={reviewer.url} text={reviewer.name} />
 		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.id)}>{deleteIcon}️</a></> : null}
 		{REVIEW_STATE[state.toString()]}
 	</div>;

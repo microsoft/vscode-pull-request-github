@@ -2,7 +2,7 @@
   "name": "vscode-pull-request-azdo",
   "displayName": "Azure Devops Pull Requests",
   "description": "Pull Request Provider for Azure Devops",
-  "icon": "resources/icons/github_logo.png",
+  "icon": "resources/icons/azdo_logo.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/Microsoft/vscode-pull-request-github"
