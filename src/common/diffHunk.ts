@@ -347,17 +347,14 @@ export async function parseDiffAzdo(reviews: IAzdoRawFileChange[], repository: R
 				try {
 					await repository.getObjectDetails(parentCommit, removeLeadingSlash(review.filename));
 					originalFileExist = true;
-				} catch (err) {
-					err;
-					/* noop */
-				 }
+				} catch (err) {/* noop */ }
 				break;
 			case GitChangeType.RENAME:
 			case GitChangeType.DELETE:
 				try {
 					await repository.getObjectDetails(parentCommit, removeLeadingSlash(review.previous_filename!));
 					originalFileExist = true;
-				} catch (err) { /* noop */ err; }
+				} catch (err) { /* noop */ }
 				break;
 		}
 

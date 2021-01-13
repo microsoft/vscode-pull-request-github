@@ -70,7 +70,7 @@ export function convertBranchRefToBranchName(branchRef: string): string {
 	if (splitref[1] === 'heads' || splitref[1] === 'tags' || splitref[1] === 'remotes') {
 		return splitref.slice(2, splitref.length).join('/');
 	}
-	return splitref.slice(1, splitref.length).join('/')
+	return splitref.slice(1, splitref.length).join('/');
 }
 
 export async function readableToString(readable?: NodeJS.ReadableStream): Promise<string | undefined> {

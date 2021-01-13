@@ -1077,6 +1077,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const results = await Promise.all(actions.map(async action => {
 			const metadata = action.metadata;
+			// tslint:disable-next-line: no-shadowed-variable
 			const repo = this._azdoRepositories.find(repo =>
 				repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase()
 			);

@@ -31,7 +31,7 @@ describe('PullRequestModel', function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
-		let secretStorage = <vscode.SecretStorage>{};
+		const secretStorage = <vscode.SecretStorage>{};
 
 		secretStorage.get = sinon.stub().returns(process.env.VSCODE_PR_AZDO_TEST_PAT);
 		secretStorage.set = sinon.stub();
