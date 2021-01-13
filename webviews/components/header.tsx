@@ -26,7 +26,7 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 			<span className='author'>
 				{(!isIssue)
 					? <Spaced>
-						<AuthorLink for={author} />
+						<AuthorLink for={author} text={author.name} />
 						{getActionText(state)}
 						into <code>{base}</code>
 						from <code>{head}</code>

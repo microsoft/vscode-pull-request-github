@@ -120,7 +120,7 @@ function CommentBox({
 			<div className='review-comment-header'>
 				<Spaced>
 					<Avatar for={author} />
-					<AuthorLink for={author} />
+					<AuthorLink for={author} text={author.displayName} />
 					{
 						publishedDate
 							? <>
