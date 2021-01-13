@@ -39,6 +39,14 @@ textarea {
 	min-width: 155px;
 }
 
+.ready-for-review-button {
+	width: 100%;
+}
+
+.ready-for-review-container, .select-control {
+	padding-bottom: 10px;
+}
+
 .select-control, form {
 	display: flex;
 	margin: auto;
