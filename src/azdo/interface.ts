@@ -9,7 +9,9 @@ import { DiffHunk } from '../common/diffHunk';
 export enum PRType {
 	Query,
 	AllActive,
-	LocalPullRequest
+	LocalPullRequest,
+	CreatedByMe,
+	AssignedToMe
 }
 
 export enum ReviewEvent {

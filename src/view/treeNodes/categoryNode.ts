@@ -136,6 +136,12 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			case PRType.LocalPullRequest:
 				this.label = 'Local Pull Request Branches';
 				break;
+			case PRType.AssignedToMe:
+				this.label = 'Assigned To Me';
+				break;
+			case PRType.CreatedByMe:
+				this.label = 'Created By Me';
+				break;
 			default:
 				break;
 		}
@@ -170,7 +176,13 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 								"pr.expand.all" : {}
 							*/
 							this._telemetry.sendTelemetryEvent('pr.expand.all');
-						case PRType.Query:
+						case PRType.CreatedByMe:
+							/* __GDPR__
+								"pr.expand.query" : {}
+							*/
+							this._telemetry.sendTelemetryEvent('pr.expand.createdByMe');
+							break;
+						case PRType.AssignedToMe:
 							/* __GDPR__
 								"pr.expand.query" : {}
 							*/

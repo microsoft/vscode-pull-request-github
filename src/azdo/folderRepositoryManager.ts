@@ -703,17 +703,21 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		});
 
 		for (let i = 0; i < azdoRepositories.length; i++) {
-			const githubRepository = azdoRepositories[i];
-			const remoteId = githubRepository.remote.url.toString() + queryId;
+			const azdoRepository = azdoRepositories[i];
+			const remoteId = azdoRepository.remote.url.toString() + queryId;
 			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
 
 			const fetchPage = async (pageNumber: number): Promise<{ items: any[], hasMorePages: boolean } | undefined> => {
 				switch (pagedDataType) {
 					case PagedDataType.PullRequest: {
 						if (type === PRType.AllActive) {
-							return { items: await githubRepository.getAllActivePullRequests(), hasMorePages: false };
+							return { items: await azdoRepository.getAllActivePullRequests(), hasMorePages: false };
+						} else if (type === PRType.CreatedByMe) {
+							return { items: await azdoRepository.getPullRequests({ creatorId: this.getCurrentUser()?.id, status: PullRequestStatus.Active }), hasMorePages: false };
+						} else if (type === PRType.AssignedToMe) {
+							return { items: await azdoRepository.getPullRequests({ reviewerId: this.getCurrentUser()?.id, status: PullRequestStatus.Active }), hasMorePages: false };
 						} else {
-							return { items: await githubRepository.getPullRequests(prSearchCriteria!), hasMorePages: false };
+							return { items: await azdoRepository.getPullRequests(prSearchCriteria!), hasMorePages: false };
 						}
 					}
 				}

@@ -46,6 +46,8 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		const queryCategories = WorkspaceFolderNode.getQueries(folderManager).map(queryInfo => new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, queryInfo.label, queryInfo.query));
 		return [
 			new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest),
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.CreatedByMe),
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.AssignedToMe),
 			...queryCategories,
 			new CategoryTreeNode(parent, folderManager, telemetry, PRType.AllActive)
 		];
