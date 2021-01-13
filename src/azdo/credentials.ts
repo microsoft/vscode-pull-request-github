@@ -27,14 +27,22 @@ export class Azdo {
 
 export class CredentialStore implements vscode.Disposable {
 	private _azdoAPI: Azdo | undefined;
-	private _sessionId: string | undefined;
+	private _orgUrl: string | undefined;
 	private _disposables: vscode.Disposable[];
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
 
-	constructor(private readonly _telemetry: ITelemetry) {
+	private PAT_TOKEN_KEY = 'azdoRepo.pat.';
+
+	constructor(private readonly _telemetry: ITelemetry, private readonly _secretStore: vscode.SecretStorage) {
 		this._disposables = [];
 		this._disposables.push(vscode.authentication.onDidChangeSessions(() => {
+			if (!this.isAuthenticated()) {
+				return this.initialize();
+			}
+		}));
+
+		this._disposables.push(_secretStore.onDidChange(() => {
 			if (!this.isAuthenticated()) {
 				return this.initialize();
 			}
@@ -70,9 +78,16 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async logout(): Promise<void> {
-		if (this._sessionId) {
-			vscode.authentication.logout('github', this._sessionId);
-		}
+		// if (this._sessionId) {
+		// 	vscode.authentication.logout('github', this._sessionId);
+		// }
+
+		await this._secretStore.delete(this.getTokenKey(this._orgUrl ?? ''));
+		this._azdoAPI = undefined;
+	}
+
+	private getTokenKey(orgUrl: string): string {
+		return this.PAT_TOKEN_KEY.concat(orgUrl);
 	}
 
 	public async login(): Promise<Azdo | undefined> {
@@ -89,14 +104,15 @@ export class CredentialStore implements vscode.Disposable {
 			return undefined;
 		}
 
-		const orgUrl = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(ORGURL_SETTINGS);
-		if (!orgUrl) {
+		this._orgUrl = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(ORGURL_SETTINGS);
+		if (!this._orgUrl) {
 			Logger.appendLine('orgUrl is not provided');
 			this._telemetry.sendTelemetryEvent('auth.failed');
 			return undefined;
 		}
 
-		const token = await this.requestPersonalAccessToken();
+		const tokenKey = this.getTokenKey(this._orgUrl);
+		const token = await this.getToken(tokenKey);
 
 		if (!token) {
 			Logger.appendLine('PAT token is not provided');
@@ -104,12 +120,29 @@ export class CredentialStore implements vscode.Disposable {
 			return undefined;
 		}
 
-		const azdo = new Azdo(orgUrl, projectName, token);
-		azdo.authenticatedUser = await (await azdo.connection.connect()).authenticatedUser;
+		try {
+			const azdo = new Azdo(this._orgUrl, projectName, token);
+			azdo.authenticatedUser = await (await azdo.connection.connect()).authenticatedUser;
 
-		this._telemetry.sendTelemetryEvent('auth.success');
+			this._telemetry.sendTelemetryEvent('auth.success');
 
-		return azdo;
+			return azdo;
+		} catch (e) {
+			await this._secretStore.delete(tokenKey);
+			vscode.window.showErrorMessage('Unable to authenticate. Signout and try again.');
+			return undefined;
+		}
+	}
+
+	private async getToken(tokenKey: string): Promise<string | undefined> {
+		let token = await this._secretStore.get(tokenKey);
+		if (!token) {
+			token = await this.requestPersonalAccessToken();
+			if (!!token) {
+				this._secretStore.set(tokenKey, token);
+			}
+		}
+		return token;
 	}
 
 	public getAuthenticatedUser(): Identity | undefined {

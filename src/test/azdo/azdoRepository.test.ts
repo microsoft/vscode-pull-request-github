@@ -25,12 +25,14 @@ describe('AzdoRepository', function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
-		const mockShowInputBox = sinon.stub(vscode.window, 'showInputBox');
+		let secretStorage = <vscode.SecretStorage>{};
 
-		mockShowInputBox.resolves(process.env.VSCODE_PR_AZDO_TEST_PAT);
+		secretStorage.get = sinon.stub().returns(process.env.VSCODE_PR_AZDO_TEST_PAT);
+		secretStorage.set = sinon.stub();
+		secretStorage.delete = sinon.stub();
 
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		credentialStore = new CredentialStore(telemetry, secretStorage);
 	});
 
 	afterEach(function () {
