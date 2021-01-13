@@ -468,17 +468,18 @@ export class PullRequestModel implements IPullRequestModel {
 			base.version = this.item.lastMergeTargetCommit?.commitId;
 		}
 
-		const changes = await this.getCommitDiffs(base, target);
-		if (!changes?.changes?.length) {
+		const commitDiffs = await this.getCommitDiffs(base, target);
+		const changes = commitDiffs?.changes?.filter(c => <any>c.item?.gitObjectType === 'blob'); // The API returns string not enum (int)
+		if (!changes?.length) {
 			Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.getPullRequestId()} - No changes found - done`, PullRequestModel.ID);
 			return [];
 		}
 
 		const BATCH_SIZE = 10;
-		const batches = changes!.changes!.length/BATCH_SIZE;
+		const batches = changes!.length/BATCH_SIZE;
 		const diffsPromises: Promise<FileDiff[]>[] = [];
 		for (let i: number = 0; i <=batches; i++) {
-			const batchedChanges = changes!.changes.slice(i*BATCH_SIZE, Math.min((i+1)*BATCH_SIZE, changes!.changes!.length));
+			const batchedChanges = changes!.slice(i*BATCH_SIZE, Math.min((i+1)*BATCH_SIZE, changes!.length));
 			diffsPromises.push(this.getFileDiff(base.version!, target.version!, this.getFileDiffParamsFromChanges(batchedChanges)));
 		}
 
@@ -487,7 +488,7 @@ export class PullRequestModel implements IPullRequestModel {
 		const result: IRawFileChange[] = [];
 
 		for (const diff of ([] as FileDiff[]).concat(...diffsPromisesResult)) { // flatten
-			const change_map = changes.changes!.find(c => c.item?.path === (diff.path!.length > 0 ? diff.path : diff.originalPath));
+			const change_map = changes.find(c => c.item?.path === (diff.path!.length > 0 ? diff.path : diff.originalPath));
 			result.push({
 				diffHunk: getDiffHunkFromFileDiff(diff),
 				filename: diff.path!,
@@ -526,7 +527,7 @@ export class PullRequestModel implements IPullRequestModel {
 	}
 
 	private getFileDiffParamsFromChanges(changes: GitChange[]): FileDiffParams[] {
-		const diff_params = changes.filter(change => change.changeType !== VersionControlChangeType.None).map(change => {
+		const diff_params = changes.filter(change => change.changeType !== VersionControlChangeType.None && <any>change.item?.gitObjectType === 'blob').map(change => {
 			const params: FileDiffParams = { path: '', originalPath: '' };
 			// tslint:disable-next-line: no-bitwise
 			if (change.changeType! & VersionControlChangeType.Rename && change.changeType! & VersionControlChangeType.Edit) {
