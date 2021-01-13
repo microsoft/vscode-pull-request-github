@@ -7,9 +7,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { PRType } from '../../azdo/interface';
 import { TreeNode } from './treeNode';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../azdo/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { ITelemetry } from '../../common/telemetry';
 import { CategoryTreeNode } from './categoryNode';
+import { SETTINGS_NAMESPACE } from '../../constants';
 
 export interface IQueryInfo {
 	label: string;

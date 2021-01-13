@@ -6,10 +6,11 @@
 import * as vscode from 'vscode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../azdo/folderRepositoryManager';
+import { FolderRepositoryManager } from '../azdo/folderRepositoryManager';
 import { PullRequestModel } from '../azdo/pullRequestModel';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();

@@ -30,6 +30,7 @@ import { RepositoriesManager } from './azdo/repositoriesManager';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { getPositionFromThread } from './azdo/utils';
+import { SETTINGS_NAMESPACE } from './constants';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
@@ -639,11 +640,11 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.setFileListLayoutAsTree', _ => {
-		vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'tree', true);
+		vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update('fileListLayout', 'tree', true);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
-		vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'flat', true);
+		vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update('fileListLayout', 'flat', true);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {

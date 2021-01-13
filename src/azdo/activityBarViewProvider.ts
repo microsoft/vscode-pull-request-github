@@ -13,6 +13,7 @@ import { getDefaultMergeMethod } from './pullRequestOverview';
 import webviewContent from '../../media/activityBar-webviewIndex.js';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { IdentityRefWithVote } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 export class PullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'github:activePullRequest';
@@ -103,7 +104,7 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 			const hasWritePermission = repositoryAccess!.hasWritePermission;
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 			const canEdit = hasWritePermission || this._item.canEdit();
-			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
+			const preferredMergeMethod = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 			const currentUser = this._folderRepositoryManager.getCurrentUser();
 			this._existingReviewers = pullRequest.item.reviewers ?? [];
@@ -225,14 +226,14 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 		}
 
 		if (branchInfo) {
-			const preferredLocalBranchDeletionMethod = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('defaultDeletionMethod.selectLocalBranch');
+			const preferredLocalBranchDeletionMethod = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>('defaultDeletionMethod.selectLocalBranch');
 			actions.push({
 				label: `Delete local branch ${branchInfo.branch}`,
 				type: 'local',
 				picked: !!preferredLocalBranchDeletionMethod
 			});
 
-			const preferredRemoteDeletionMethod = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('defaultDeletionMethod.selectRemote');
+			const preferredRemoteDeletionMethod = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>('defaultDeletionMethod.selectRemote');
 
 			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({

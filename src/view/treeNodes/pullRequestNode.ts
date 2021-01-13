@@ -25,6 +25,7 @@ import { DirectoryTreeNode } from './directoryTreeNode';
 import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { CommentPermissions, CommentWithPermissions } from '../../azdo/interface';
 import { CommonCommentHandler } from '../../common/commonCommentHandler';
+import { SETTINGS_NAMESPACE } from '../../constants';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -161,7 +162,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 
 			const result: TreeNode[] = [descriptionNode];
-			const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+			const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('fileListLayout');
 			if (layout === 'tree') {
 				// tree view
 				const dirNode = new DirectoryTreeNode(this, '');

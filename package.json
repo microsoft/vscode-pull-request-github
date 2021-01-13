@@ -45,7 +45,7 @@
         "azdoPullRequests.hosts": {
           "type": "array",
           "default": [],
-          "markdownDescription": "List of host credentials. For example, \"githubPullRequests.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
+          "markdownDescription": "List of host credentials. For example, \"azdoPullRequests.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
           "items": {
             "type": "object",
             "properties": {
@@ -81,7 +81,7 @@
           "default": "ask",
           "description": "The title used when creating pull requests."
         },
-        "githubPullRequests.pullRequestDescription": {
+        "azdoPullRequests.pullRequestDescription": {
           "type": "string",
           "enum": [
             "template",
@@ -98,7 +98,7 @@
           "default": "template",
           "description": "The description used when creating pull requests."
         },
-        "githubPullRequests.logLevel": {
+        "azdoPullRequests.logLevel": {
           "type": "string",
           "enum": [
             "info",
@@ -126,10 +126,10 @@
             "all"
           ],
           "default": "default",
-          "deprecationMessage": "The setting `githubPullRequests.includeRemotes` has been deprecated. Use `githubPullRequests.remotes` to configure what remotes are shown.",
+          "deprecationMessage": "The setting `azdoPullRequests.includeRemotes` has been deprecated. Use `azdoPullRequests.remotes` to configure what remotes are shown.",
           "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
         },
-        "githubPullRequests.queries": {
+        "azdoPullRequests.queries": {
           "type": "array",
           "items": {
             "type": "object",
@@ -161,7 +161,7 @@
             }
           ]
         },
-        "githubPullRequests.defaultMergeMethod": {
+        "azdoPullRequests.defaultMergeMethod": {
           "type": "string",
           "enum": [
             "NoFastForward",
@@ -172,13 +172,13 @@
           "default": "Squash",
           "description": "The method to use when merging pull requests."
         },
-        "githubPullRequests.showInSCM": {
+        "azdoPullRequests.showInSCM": {
           "type": "boolean",
           "default": false,
           "deprecationMessage": "This setting is deprecated. Views can now be dragged to any location.",
           "description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
         },
-        "githubPullRequests.fileListLayout": {
+        "azdoPullRequests.fileListLayout": {
           "type": "string",
           "enum": [
             "flat",
@@ -187,180 +187,15 @@
           "default": "tree",
           "description": "The layout to use when displaying changed files list."
         },
-        "githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
+        "azdoPullRequests.defaultDeletionMethod.selectLocalBranch": {
           "type": "boolean",
           "default": true,
           "description": "When true, the option to delete the local branch will be selected by default when deleting a branch from a pull request."
         },
-        "githubPullRequests.defaultDeletionMethod.selectRemote": {
+        "azdoPullRequests.defaultDeletionMethod.selectRemote": {
           "type": "boolean",
           "default": true,
           "description": "When true, the option to delete the remote will be selected by default when deleting a branch from a pull request."
-        },
-        "telemetry.optout": {
-          "type": "boolean",
-          "default": false,
-          "deprecationMessage": "The setting `telemetry.optout` has been deprecated in favor of `githubPullRequests.telemetry.enabled`.",
-          "description": "Disable usage data and errors to be sent to a GitHub online service"
-        },
-        "github.hosts": {
-          "type": "array",
-          "default": [],
-          "deprecationMessage": "The setting `github.hosts` has been deprecated in favor of `githubPullRequests.hosts`.",
-          "description": "List of host credentials. For example, \"github.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
-          "items": {
-            "type": "object",
-            "properties": {
-              "host": {
-                "type": "string",
-                "description": "The host name of the GitHub server (for eg., 'https://github.com')"
-              },
-              "username": {
-                "type": "string",
-                "description": "The username to access GitHub (optional)"
-              },
-              "token": {
-                "type": "string",
-                "description": "GitHub access token with the following scopes: read:user, user:email, repo, write:discussion"
-              }
-            }
-          }
-        },
-        "githubIssues.ignoreMilestones": {
-          "type": "array",
-          "default": [],
-          "description": "An array of milestones titles to never show issues from."
-        },
-        "githubIssues.createIssueTriggers": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "description": "String that enables the 'Create issue from comment' code action. Should not contain whitespace."
-          },
-          "default": [
-            "TODO",
-            "todo",
-            "BUG",
-            "FIXME",
-            "ISSUE",
-            "HACK"
-          ],
-          "description": "Strings that will cause the 'Create issue from comment' code action to show."
-        },
-        "githubIssues.createInsertFormat": {
-          "type": "string",
-          "enum": [
-            "number",
-            "url"
-          ],
-          "default": "number",
-          "description": "Controls whether an issue number (ex. #1234) or a full url (ex. https://github.com/owner/name/issues/1234) is inserted when the Create Issue code action is run."
-        },
-        "githubIssues.issueCompletions.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Controls whether completion suggestions are shown for issues."
-        },
-        "githubIssues.userCompletions.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Controls whether completion suggestions are shown for users."
-        },
-        "githubIssues.ignoreCompletionTrigger": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "description": "Language that issue completions should not trigger on '#'."
-          },
-          "default": [
-            "python",
-            "makefile"
-          ],
-          "description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
-        },
-        "githubIssues.ignoreUserCompletionTrigger": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "description": "Language that user completions should not trigger on '@'."
-          },
-          "default": [
-            "python"
-          ],
-          "description": "Languages that the '@' character should not be used to trigger user completion suggestions."
-        },
-        "githubIssues.workingIssueBranch": {
-          "type": "string",
-          "deprecationMessage": "This setting is replaced by the better named setting githubIssues.issueBranchTitle and may be removed in the future.",
-          "description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${sanitizedIssueTitle}."
-        },
-        "githubIssues.issueBranchTitle": {
-          "type": "string",
-          "default": "${user}/issue${issueNumber}",
-          "markdownDescription": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters removed"
-        },
-        "githubIssues.useBranchForIssues": {
-          "type": "string",
-          "enum": [
-            "on",
-            "off",
-            "prompt"
-          ],
-          "enumDescriptions": [
-            "A branch will always be checked out when you start working on an issue. If the branch doesn't exist, it will be created.",
-            "A branch will not be created when you start working on an issue. If you have worked on an issue before and a branch was created for it, that same branch will be checked out.",
-            "A prompt will show for setting the name of the branch that will be created and checked out."
-          ],
-          "default": "on",
-          "description": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.issueBranchTitle`."
-        },
-        "githubIssues.issueCompletionFormatScm": {
-          "type": "string",
-          "default": "${issueTitle} ${issueNumberLabel}",
-          "markdownDescription": "Sets the format of issue completions in the SCM inputbox. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${issueNumberLabel}` will be replaced with a label formatted as #number or owner/repository#number, depending on whether the issue is in the current repository"
-        },
-        "githubIssues.workingIssueFormatScm": {
-          "type": "string",
-          "default": "${issueTitle} \nFixes ${issueNumberLabel}",
-          "markdownDescription": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`"
-        },
-        "githubIssues.queries": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "label": {
-                "type": "string",
-                "description": "The label to display for the query in the Issues tree."
-              },
-              "query": {
-                "type": "string",
-                "markdownDescription": "The search query using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax) with variables. The variable `${user}` can be used to specify the logged in user within a search. `${owner}` and `${repository}` can be used to specify the repository by using `repo:${owner}/${repository}`."
-              }
-            }
-          },
-          "scope": "resource",
-          "markdownDescription": "Specifies what queries should be used in the GitHub issues tree using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax) with variables. The first query listed will be expanded in the Issues view. The \"default\" query includes issues assigned to you by Milestone. If you want to preserve these, make sure they are still in the array when you modify the setting.",
-          "default": [
-            {
-              "label": "My Issues",
-              "query": "default"
-            },
-            {
-              "label": "Created Issues",
-              "query": "author:${user} state:open repo:${owner}/${repository} sort:created-desc"
-            }
-          ]
-        },
-        "githubIssues.assignWhenWorking": {
-          "type": "boolean",
-          "default": true,
-          "description": "Assigns the issue you're working on to you."
-        },
-        "githubPullRequests.focusedMode": {
-          "type": "boolean",
-          "description": "Whether to enter focused mode when a pull request is checked out. This hides the issues and pull requests tree views.",
-          "default": false
         }
       }
     },

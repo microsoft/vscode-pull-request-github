@@ -16,7 +16,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef, GitErrorCodes } from '../api/api';
 import Logger from '../common/logger';
-import { EXTENSION_ID } from '../constants';
+import { EXTENSION_ID, SETTINGS_NAMESPACE } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTIdentityToAccount, getRelatedUsersFromPullrequest, loginComparator } from './utils';
 import { ITelemetry } from '../common/telemetry';
@@ -69,7 +69,6 @@ export class BadUpstreamError extends Error {
 	}
 }
 
-export const SETTINGS_NAMESPACE = 'azdoPullRequests';
 export const REMOTES_SETTING = 'remotes';
 
 export const ReposManagerStateContext: string = 'ReposManagerStateContext';

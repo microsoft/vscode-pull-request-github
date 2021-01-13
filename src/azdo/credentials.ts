@@ -4,9 +4,9 @@ import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces'
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 const CREDENTIALS_COMPONENT_ID = 'azdo_component';
-const SETTINGS_NAMESPACE = 'azdoPullRequests';
 const PROJECT_SETTINGS = 'projectName';
 const ORGURL_SETTINGS = 'orgUrl';
 

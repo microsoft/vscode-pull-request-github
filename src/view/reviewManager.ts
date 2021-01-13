@@ -16,7 +16,7 @@ import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from
 import Logger from '../common/logger';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
 import { RemoteQuickPickItem, PullRequestTitleSourceQuickPick, PullRequestTitleSource, PullRequestTitleSourceEnum, PullRequestDescriptionSourceQuickPick, PullRequestDescriptionSource, PullRequestDescriptionSourceEnum } from './quickpick';
-import { FolderRepositoryManager, PullRequestDefaults, SETTINGS_NAMESPACE, titleAndBodyFrom } from '../azdo/folderRepositoryManager';
+import { FolderRepositoryManager, PullRequestDefaults, titleAndBodyFrom } from '../azdo/folderRepositoryManager';
 import { PullRequestModel, IResolvedPullRequestModel } from '../azdo/pullRequestModel';
 import { ReviewCommentController } from './reviewCommentController';
 import { ITelemetry } from '../common/telemetry';
@@ -25,6 +25,7 @@ import { PullRequestViewProvider } from '../azdo/activityBarViewProvider';
 import { PullRequestGitHelper } from '../azdo/pullRequestGitHelper';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { isUserThread, removeLeadingSlash } from '../azdo/utils';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 const FOCUS_REVIEW_MODE = 'github:focusedReview';
 
@@ -708,7 +709,7 @@ export class ReviewManager {
 	}
 
 	private async getPullRequestTitleSetting(): Promise<PullRequestTitleSource | undefined> {
-		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestTitleSource>('pullRequestTitle', PullRequestTitleSourceEnum.Ask);
+		const method = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<PullRequestTitleSource>('pullRequestTitle', PullRequestTitleSourceEnum.Ask);
 
 		if (method === PullRequestTitleSourceEnum.Ask) {
 			const titleSource = await vscode.window.showQuickPick<PullRequestTitleSourceQuickPick>(PullRequestTitleSourceQuickPick.allOptions(), {
@@ -727,7 +728,7 @@ export class ReviewManager {
 	}
 
 	private async getPullRequestDescriptionSetting(): Promise<PullRequestDescriptionSource | undefined> {
-		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestDescriptionSource>('pullRequestDescription', PullRequestDescriptionSourceEnum.Ask);
+		const method = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<PullRequestDescriptionSource>('pullRequestDescription', PullRequestDescriptionSourceEnum.Ask);
 
 		if (method === PullRequestDescriptionSourceEnum.Ask) {
 			const descriptionSource = await vscode.window.showQuickPick<PullRequestDescriptionSourceQuickPick>(PullRequestDescriptionSourceQuickPick.allOptions(), {

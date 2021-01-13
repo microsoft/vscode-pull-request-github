@@ -14,7 +14,7 @@ import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
-import { EXTENSION_ID } from './constants';
+import { EXTENSION_ID, SETTINGS_NAMESPACE } from './constants';
 import { FolderRepositoryManager } from './azdo/folderRepositoryManager';
 import { registerBuiltinGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
@@ -89,7 +89,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	context.subscriptions.push(reviewsManager);
 	tree.initialize(reposManager);
 	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
-	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+	const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('fileListLayout');
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
 
 	git.onDidChangeState(() => {

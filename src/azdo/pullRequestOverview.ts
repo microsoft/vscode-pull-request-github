@@ -15,6 +15,7 @@ import webviewContent from '../../media/webviewIndex.js';
 import { onDidUpdatePR } from '../commands';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { Comment, GitPullRequestCommentThread, IdentityRefWithVote, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 export class PullRequestOverviewPanel extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -161,7 +162,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			const hasWritePermission = repositoryAccess!.hasWritePermission;
 			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 			const canEdit = hasWritePermission || canEditPr;
-			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
+			const preferredMergeMethod = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
 			this._existingReviewers = requestedReviewers?.map(r => {
@@ -442,14 +443,14 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		// }
 
 		if (branchInfo) {
-			const preferredLocalBranchDeletionMethod = vscode.workspace.getConfiguration('azdoPullRequests').get<boolean>('defaultDeletionMethod.selectLocalBranch');
+			const preferredLocalBranchDeletionMethod = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>('defaultDeletionMethod.selectLocalBranch');
 			actions.push({
 				label: `Delete local branch ${branchInfo.branch}`,
 				type: 'local',
 				picked: !!preferredLocalBranchDeletionMethod
 			});
 
-			const preferredRemoteDeletionMethod = vscode.workspace.getConfiguration('azdoPullRequests').get<boolean>('defaultDeletionMethod.selectRemote');
+			const preferredRemoteDeletionMethod = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>('defaultDeletionMethod.selectRemote');
 
 			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({

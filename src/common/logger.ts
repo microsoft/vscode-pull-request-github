@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 const enum LogLevel {
 	Info,
@@ -6,7 +7,6 @@ const enum LogLevel {
 	Off
 }
 
-const SETTINGS_NAMESPACE = 'azdoPullRequests';
 const LOG_LEVEL_SETTING = 'logLevel';
 
 class Log {
