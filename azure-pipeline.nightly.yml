@@ -32,10 +32,10 @@ jobs:
       -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"
     displayName: Generate package.json
     env:
-      NAME: vscode-pull-request-github-insiders
-      DISPLAYNAME: GitHub Pull Request Nightly Build
-      DESCRIPTION: Nightly Build GitHub Pull Request extension
-      PUBLISHER: GitHub
+      NAME: vscode-pull-request-azdo-insiders
+      DISPLAYNAME: Azure Devops Pull Request Nightly Build
+      DESCRIPTION: Nightly Build Azure Devops Pull Request extension
+      PUBLISHER: ankitbko
 
   - script: |
       mv ./package.json ./package.json.bak

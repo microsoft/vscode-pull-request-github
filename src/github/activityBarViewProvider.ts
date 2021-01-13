@@ -16,7 +16,7 @@ import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { parseReviewers } from './utils';
 
 export class PullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider {
-	public static readonly viewType = 'github:activePullRequest';
+	public static readonly viewType = 'azdo:activePullRequest';
 
 	private _view?: vscode.WebviewView;
 

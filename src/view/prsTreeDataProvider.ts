@@ -10,7 +10,7 @@ import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { REMOTES_SETTING, ReposManagerState } from '../azdo/folderRepositoryManager';
 import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
-import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';
+import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 import { RepositoriesManager } from '../azdo/repositoriesManager';
 import { SETTINGS_NAMESPACE } from '../constants';
 
@@ -44,7 +44,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			this._onDidChangeTreeData.fire(node);
 		}));
 
-		this._view = vscode.window.createTreeView('pr:github', {
+		this._view = vscode.window.createTreeView('pr:azdo', {
 			treeDataProvider: this,
 			showCollapseAll: true
 		});
@@ -54,17 +54,17 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._disposables.push(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
 			const isLoggedIn = this._reposManager.state === ReposManagerState.RepositoriesLoaded;
-			const configuration = await vscode.window.showQuickPick(['Configure Remotes...', 'Configure Queries...', ...isLoggedIn ? ['Sign out of GitHub...'] : []]);
+			const configuration = await vscode.window.showQuickPick(['Configure Project Name...', 'Configure Organization URL...', ...isLoggedIn ? ['Sign out of Azure Devops...'] : []]);
 
 			const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
 			const extensionId = `${publisher}.${name}`;
 
 			switch (configuration) {
-				case 'Configure Queries...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} queries`);
-				case 'Configure Remotes...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
-				case 'Sign out of GitHub...':
+				case 'Configure Project Name...':
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} projectName`);
+				case 'Configure Organization URL...':
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} orgUrl`);
+				case 'Sign out of Azure Devops...':
 					return vscode.commands.executeCommand('auth.signout');
 				default:
 					return;
@@ -95,16 +95,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			});
 		}));
 
-		this.initializeCategories();
 		this.refresh();
-	}
-
-	private async initializeCategories() {
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES_SETTING}`)) {
-				this.refresh();
-			}
-		}));
 	}
 
 	async refresh(node?: TreeNode) {

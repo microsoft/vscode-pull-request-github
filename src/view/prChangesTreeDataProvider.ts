@@ -26,7 +26,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	constructor(private _context: vscode.ExtensionContext) {
 		super(() => this.dispose());
-		this._view = vscode.window.createTreeView('prStatus:github', {
+		this._view = vscode.window.createTreeView('prStatus:azdo', {
 			treeDataProvider: this,
 			showCollapseAll: true
 		});
@@ -50,7 +50,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._pullRequestManagerMap.set(pullRequestManager, node);
 		await vscode.commands.executeCommand(
 			'setContext',
-			'github:inReviewMode',
+			'azdo:inReviewMode',
 			true
 		);
 		this._onDidChangeTreeData.fire();
@@ -67,7 +67,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	async hide() {
 		await vscode.commands.executeCommand(
 			'setContext',
-			'github:inReviewMode',
+			'azdo:inReviewMode',
 			false
 		);
 	}

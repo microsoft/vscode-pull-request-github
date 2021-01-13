@@ -27,7 +27,7 @@ import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/Gi
 import { isUserThread, removeLeadingSlash } from '../azdo/utils';
 import { SETTINGS_NAMESPACE } from '../constants';
 
-const FOCUS_REVIEW_MODE = 'github:focusedReview';
+const FOCUS_REVIEW_MODE = 'azdo:focusedReview';
 
 export class ReviewManager {
 	public static ID = 'Review';

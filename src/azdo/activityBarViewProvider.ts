@@ -16,7 +16,7 @@ import { IdentityRefWithVote } from 'azure-devops-node-api/interfaces/GitInterfa
 import { SETTINGS_NAMESPACE } from '../constants';
 
 export class PullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider {
-	public static readonly viewType = 'github:activePullRequest';
+	public static readonly viewType = 'azdo:activePullRequest';
 
 	private _view?: vscode.WebviewView;
 

@@ -107,38 +107,6 @@
           "deprecationMessage": "The setting `azdoPullRequests.includeRemotes` has been deprecated. Use `azdoPullRequests.remotes` to configure what remotes are shown.",
           "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
         },
-        "azdoPullRequests.queries": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "label": {
-                "type": "string",
-                "description": "The label to display for the query in the Pull Requests tree"
-              },
-              "query": {
-                "type": "string",
-                "description": "The query used for searching pull requests."
-              }
-            }
-          },
-          "scope": "resource",
-          "markdownDescription": "Specifies what queries should be used in the Azure Devops Pull Requests tree. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. By default these queries define the categories \"Waiting For My Review\", \"Assigned To Me\" and \"Created By Me\". If you want to preserve these, make sure they are still in the array when you modify the setting.",
-          "default": [
-            {
-              "label": "Waiting For My Review",
-              "query": "is:open review-requested:${user}"
-            },
-            {
-              "label": "Assigned To Me",
-              "query": "is:open assignee:${user}"
-            },
-            {
-              "label": "Created By Me",
-              "query": "is:open author:${user}"
-            }
-          ]
-        },
         "azdoPullRequests.defaultMergeMethod": {
           "type": "string",
           "enum": [
@@ -174,38 +142,38 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "github-pull-requests",
-          "title": "GitHub",
+          "id": "azdo-pull-requests",
+          "title": "Azure Devops",
           "icon": "resources/icons/pull-request.png"
         }
       ]
     },
     "views": {
-      "github-pull-requests": [
+      "azdo-pull-requests": [
         {
-          "id": "github:login",
+          "id": "azdo:login",
           "name": "Login",
           "when": "ReposManagerStateContext == NeedsAuthentication",
           "icon": "resources/icons/pull-request.png"
         },
         {
-          "id": "prStatus:github",
+          "id": "prStatus:azdo",
           "name": "Changes In Pull Request",
-          "when": "github:inReviewMode",
+          "when": "azdo:inReviewMode",
           "icon": "resources/icons/pull-request.png",
           "visibility": "visible"
         },
         {
-          "id": "pr:github",
+          "id": "pr:azdo",
           "name": "Pull Requests",
-          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview",
+          "when": "ReposManagerStateContext != NeedsAuthentication && !azdo:focusedReview",
           "icon": "resources/icons/pull-request.png"
         },
         {
-          "id": "github:activePullRequest",
+          "id": "azdo:activePullRequest",
           "type": "webview",
           "name": "Active Pull Request",
-          "when": "github:focusedReview"
+          "when": "azdo:focusedReview"
         }
       ]
     },
@@ -214,92 +182,92 @@
         "command": "pr.create",
         "title": "Create Pull Request",
         "icon": "$(plus)",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.createDraft",
         "title": "Create Draft Pull Request",
         "icon": "$(plus)",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "auth.signout",
-        "title": "Sign out of GitHub",
-        "category": "GitHub Pull Requests"
+        "title": "Sign out of AzDO",
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.pick",
         "title": "Checkout Pull Request",
-        "category": "GitHub Pull Requests",
+        "category": "AzDO Pull Requests",
         "icon": "$(arrow-right)"
       },
       {
         "command": "pr.exit",
         "title": "Exit Review Mode",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.merge",
         "title": "Merge Pull Request",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.readyForReview",
         "title": "Mark Pull Request Ready For Review",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.close",
         "title": "Close Pull Request",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.openPullRequestInGitHub",
-        "title": "Open Pull Request in GitHub",
-        "category": "GitHub Pull Requests",
+        "command": "pr.openPullRequestInAzdo",
+        "title": "Open Pull Request in AzDO",
+        "category": "AzDO Pull Requests",
         "icon": "$(globe)"
       },
       {
         "command": "pr.refreshPullRequest",
         "title": "Refresh Pull Request",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.openFileInGitHub",
-        "title": "Open File in GitHub",
-        "category": "GitHub Pull Requests"
+        "command": "pr.openFileInAzdo",
+        "title": "Open File in AzDO",
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.copyCommitHash",
         "title": "Copy Commit Hash",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.openOriginalFile",
         "title": "Open Original File",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.openModifiedFile",
         "title": "Open Modified File",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.openDiffView",
         "title": "Open Diff View",
-        "category": "GitHub Pull Requests",
+        "category": "AzDO Pull Requests",
         "icon": "$(compare-changes)"
       },
       {
         "command": "pr.openChangedFile",
         "title": "Open Changed File in PR",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.openDescription",
         "title": "View Pull Request Description",
-        "category": "GitHub Pull Requests",
-        "when": "github:inReviewMode"
+        "category": "AzDO Pull Requests",
+        "when": "azdo:inReviewMode"
       },
       {
         "command": "pr.openDescriptionToTheSide",
@@ -309,7 +277,7 @@
       {
         "command": "pr.refreshDescription",
         "title": "Refresh Pull Request Description",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "review.openFile",
@@ -324,106 +292,106 @@
         "command": "pr.refreshList",
         "title": "Refresh Pull Requests List",
         "icon": "$(refresh)",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.setFileListLayoutAsTree",
         "title": "Toggle View Mode",
         "icon": "$(list-tree)",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.setFileListLayoutAsFlat",
         "title": "Toggle View Mode",
         "icon": "$(list-flat)",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.refreshChanges",
         "title": "Refresh",
         "icon": "$(refresh)",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.configurePRViewlet",
         "title": "Configure...",
-        "category": "GitHub Pull Requests",
+        "category": "AzDO Pull Requests",
         "icon": "$(gear)"
       },
       {
         "command": "pr.deleteLocalBranch",
         "title": "Delete Local Branch",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.signin",
-        "title": "Sign in to GitHub",
-        "category": "GitHub Pull Requests"
+        "title": "Sign in to AzDO",
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.deleteLocalBranchesNRemotes",
         "title": "Delete local branches and remotes",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.createComment",
         "title": "Add Comment",
-        "category": "GitHub Pull Requests",
+        "category": "AzDO Pull Requests",
         "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.changeThreadStatus",
         "title": "Change status",
-        "category": "GitHub Pull Requests",
+        "category": "AzDO Pull Requests",
         "enablement": "!commentThreadIsEmpty",
         "icon": "$(settings)"
       },
       {
         "command": "pr.editComment",
         "title": "Edit Comment",
-        "category": "GitHub Pull Requests",
+        "category": "AzDO Pull Requests",
         "icon": "$(edit)"
       },
       {
         "command": "pr.cancelEditComment",
         "title": "Cancel",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.saveComment",
         "title": "Save",
-        "category": "GitHub Pull Requests",
+        "category": "AzDO Pull Requests",
         "enablement": "!commentIsEmpty"
       },
       {
         "command": "pr.deleteComment",
         "title": "Delete Comment",
-        "category": "GitHub Pull Requests",
+        "category": "AzDO Pull Requests",
         "icon": "$(close)"
       },
       {
         "command": "pr.signinAndRefreshList",
         "title": "Sign in and Refresh",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       },
       {
         "command": "pr.configureRemotes",
         "title": "Configure Remotes...",
-        "category": "GitHub Pull Requests"
+        "category": "AzDO Pull Requests"
       }
     ],
     "viewsWelcome": [
       {
-        "view": "github:login",
+        "view": "azdo:login",
         "when": "ReposManagerStateContext == NeedsAuthentication",
-        "contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
+        "contents": "You have not yet signed in with Azure Devops\n[Sign in](command:pr.signin)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "auth.signout",
-          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
+          "when": "gitOpenRepositoryCount != 0 && azdo:authenticated"
         },
         {
           "command": "pr.configureRemotes",
@@ -451,34 +419,34 @@
         },
         {
           "command": "pr.close",
-          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
           "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
+          "when": "gitOpenRepositoryCount != 0 && azdo:authenticated"
         },
         {
           "command": "pr.createDraft",
-          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
+          "when": "gitOpenRepositoryCount != 0 && azdo:authenticated"
         },
         {
           "command": "pr.merge",
-          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
           "command": "pr.readyForReview",
-          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
-          "command": "pr.openPullRequestInGitHub",
-          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+          "command": "pr.openPullRequestInAzdo",
+          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
           "command": "pr.refreshDescription",
-          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
-          "command": "pr.openFileInGitHub",
+          "command": "pr.openFileInAzdo",
           "when": "false"
         },
         {
@@ -507,11 +475,11 @@
         },
         {
           "command": "pr.openDescription",
-          "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
           "command": "pr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
+          "when": "gitOpenRepositoryCount != 0 && azdo:authenticated && azdo:hasAzdoRemotes"
         },
         {
           "command": "pr.setFileListLayoutAsTree",
@@ -527,7 +495,7 @@
         },
         {
           "command": "pr.signin",
-          "when": "gitOpenRepositoryCount != 0 && github:hasGitHubRemotes"
+          "when": "gitOpenRepositoryCount != 0 && azdo:hasAzdoRemotes"
         },
         {
           "command": "pr.signinAndRefreshList",
@@ -565,17 +533,17 @@
       "view/title": [
         {
           "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /pr:/",
           "group": "navigation@1"
         },
         {
           "command": "pr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):/",
+          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(pr|issues):/",
           "group": "navigation@3"
         },
         {
           "command": "pr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /pr:/",
           "group": "navigation@2"
         },
         {
@@ -594,8 +562,8 @@
           "group": "navigation"
         },
         {
-          "command": "pr.openPullRequestInGitHub",
-          "when": "view == github:activePullRequest && github:hasGitHubRemotes",
+          "command": "pr.openPullRequestInAzdo",
+          "when": "view == azdo:activePullRequest && azdo:hasAzdoRemotes",
           "group": "navigation"
         }
       ],
@@ -621,7 +589,7 @@
           "group": "pullrequest@2"
         },
         {
-          "command": "pr.openPullRequestInGitHub",
+          "command": "pr.openPullRequestInAzdo",
           "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
@@ -631,7 +599,7 @@
           "group": "pullrequest@4"
         },
         {
-          "command": "pr.openFileInGitHub",
+          "command": "pr.openFileInAzdo",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
         },
         {
@@ -677,7 +645,7 @@
       "scm/title": [
         {
           "command": "review.suggestDiff",
-          "when": "scmProvider == git && github:inReviewMode",
+          "when": "scmProvider == git && azdo:inReviewMode",
           "group": "inline"
         }
       ],

@@ -120,7 +120,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 		tree.refresh();
 	});
 
-	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
+	await vscode.commands.executeCommand('setContext', 'azdo:initialized', true);
 	// TODO Investigate what is intialized in issues
 	// const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
 	// context.subscriptions.push(issuesFeatures);

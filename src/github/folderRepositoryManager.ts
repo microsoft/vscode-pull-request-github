@@ -408,10 +408,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
 		if (activeRemotes.length) {
-			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
+			await vscode.commands.executeCommand('setContext', 'azdo:hasAzdoRemotes', true);
 			Logger.appendLine('Found GitHub remote');
 		} else {
-			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);
+			await vscode.commands.executeCommand('setContext', 'azdo:hasAzdoRemotes', false);
 			Logger.appendLine('No GitHub remotes found');
 		}
 
@@ -425,7 +425,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const activeRemotes = await this.getActiveRemotes();
 		const isAuthenticated = this._credentialStore.isAuthenticated();
-		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
+		vscode.commands.executeCommand('setContext', 'azdo:authenticated', isAuthenticated);
 
 		const repositories: GitHubRepository[] = [];
 		const resolveRemotePromises: Promise<void>[] = [];
