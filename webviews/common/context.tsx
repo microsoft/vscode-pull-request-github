@@ -7,7 +7,7 @@ import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
 import { MergeMethod } from '../../src/azdo/interface';
-import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
+import { ReviewEvent } from '../../src/common/timelineEvent';
 import { Comment, GitPullRequestCommentThread, GitPullRequestMergeStrategy } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class PRContext {
@@ -65,11 +65,17 @@ export class PRContext {
 
 	public comment = async (args: string) => {
 		const result = await this.postMessage({ command: 'pr.comment', args });
-		const newComment = result.value;
-		newComment.event = EventType.Commented;
+		const thread = result.thread;
 		this.updatePR({
-			events: [...this.pr.events, newComment],
-			pendingCommentText: '',
+			threads: [...this.pr.threads, thread]
+		});
+	}
+
+	public changeThreadStatus = async (status: number, thread: GitPullRequestCommentThread) => {
+		const result = await this.postMessage({ command: 'pr.change-thread-status', args: { status: status, threadId: thread.id} });
+		const updatedThread = result.thread;
+		this.updatePR({
+			threads: [...this.pr.threads.filter(t => t.id !== updatedThread?.id), updatedThread]
 		});
 	}
 

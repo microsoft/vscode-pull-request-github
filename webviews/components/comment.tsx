@@ -23,10 +23,12 @@ export type Props = Partial<Comment> & {
 	threadId: number,
 	canEdit?: boolean,
 	isFirstCommentInThread?: boolean
+	threadStatus?: number
+	changeThreadStatus?: (string) => void
 };
 
 export function CommentView(comment: Props) {
-	const { threadId, content, canEdit, isPRDescription } = comment;
+	const { threadId, content, canEdit, isPRDescription, threadStatus, isFirstCommentInThread, changeThreadStatus } = comment;
 	const id = threadId * 1000 + comment.id;
 	const [bodyMd, setBodyMd] = useStateProp(content);
 	const [bodyHTMLState, setBodyHtml] = useStateProp(content);
@@ -34,6 +36,7 @@ export function CommentView(comment: Props) {
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
+	const statusProps = !!isFirstCommentInThread ? {threadStatus: threadStatus, changeThreadStatus: changeThreadStatus}: null
 
 	if (inEditMode) {
 		return React.cloneElement(
@@ -70,6 +73,7 @@ export function CommentView(comment: Props) {
 		for={comment}
 		onMouseEnter={() => setShowActionBar(true)}
 		onMouseLeave={() => setShowActionBar(false)}
+		{...statusProps}
 	>{showActionBar
 		? <div className='action-bar comment-actions'>
 			<button title='Quote reply' onClick={() => emitter.emit('quoteReply', bodyMd)}>{commentIcon}</button>
@@ -82,17 +86,31 @@ export function CommentView(comment: Props) {
 	</CommentBox>;
 }
 
+export const ThreadStatus = {
+	'0': 'UNKNOWN',
+	'1': 'Active',
+    '2': 'Fixed',
+    '3': 'WontFix',
+    '4': 'Closed',
+    // '5': 'ByDesign',
+    '6': 'Pending'
+}
+
+const ThreadStatusOrder = ['1', '6', '2', '3', '4']
+
 type CommentBoxProps = {
 	for: Partial<Comment>
 	header?: React.ReactChild
 	onMouseEnter?: any
 	onMouseLeave?: any
 	children?: any
+	threadStatus?: number,
+	changeThreadStatus?: (string) => void
 };
 
 function CommentBox({
 	for: comment,
-	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
+	onMouseEnter, onMouseLeave, children, threadStatus, changeThreadStatus }: CommentBoxProps) {
 	const { author, publishedDate, _links  } = comment;
 	const htmlUrl = _links.self.href;
 	return <div className='comment-container comment review-comment'
@@ -118,6 +136,16 @@ function CommentBox({
 							</>
 							: null
 					} */}
+					{
+						!!threadStatus ? <select onChange={(e) => changeThreadStatus(e.target.value)} defaultValue={threadStatus.toString()}>{
+							ThreadStatusOrder
+								.map((status) =>
+									<option key={status} value={status}>
+										{ThreadStatus[status]}
+									</option>
+								)
+						}</select> : null
+					}
 				</Spaced>
 			</div>
 			{children}

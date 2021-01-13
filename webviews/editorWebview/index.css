@@ -990,7 +990,7 @@ code {
 	padding-top: 0px;
 }
 
-.thread-container .comment-container:not(:nth-child(2)) {
+.thread-container .comment-container ~ .comment-container {
 	padding-left: 20px;
 	width: auto;
 }
@@ -1002,4 +1002,9 @@ code {
 .thread-container .diff-container {
 	margin-top: 10px;
 	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+}
+
+body .comment-container .review-comment-header > select {
+	margin-left: 5px;
+	margin-right: 5px;
 }

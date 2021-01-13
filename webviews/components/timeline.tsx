@@ -154,7 +154,7 @@ function AddReviewSummaryComment() {
 }
 
 const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommentThread, currentUser: Identity}) => {
-	const { replyThread, openDiff } = useContext(PullRequestContext);
+	const { replyThread, openDiff, changeThreadStatus } = useContext(PullRequestContext);
 	const [inEditMode, setEditMode] = useState(false);
 
 	const onCancel = () => {
@@ -169,6 +169,10 @@ const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommen
 		}
 	}
 
+	const onThreadStatusChange = async (status) => {
+		await changeThreadStatus(parseInt(status), thread);
+	}
+
 	return (
 		<div className='thread-container'>
 			{
@@ -180,7 +184,7 @@ const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommen
 					</div> : null
 			}
 			{
-				thread.comments.map(c => <CommentView key={c.id} headerInEditMode {...c} canEdit={c.author.id === currentUser.id} threadId={thread.id} />)
+				thread.comments.map(c => <CommentView key={c.id} headerInEditMode {...c} canEdit={c.author.id === currentUser.id} threadId={thread.id} isFirstCommentInThread={c.id===1} threadStatus={thread.status} changeThreadStatus={(status) => onThreadStatusChange(status)} />)
 			}
 			{  !inEditMode
 				? <div className='reply-thread'><button title='Reply' onClick={() => setEditMode(true)} >Reply</button></div>

@@ -258,7 +258,9 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this.completePullRequest(message);
 			case 'pr.reply-thread':
 				return this.replyThread(message);
-			case 'pr.submit':
+			case 'pr.change-thread-status':
+				return this.changeThreadStatus(message);
+			case 'pr.comment':
 				return this.createThread(message);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
@@ -580,13 +582,12 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	}
 
 	private createThread(message: IRequestMessage<string>): void {
-		this._item.createThread(message.args).then(review => {
+		this._item.createThread(message.args).then(thread => {
 			this._replyMessage(message, {
-				review: review,
-				reviewers: this._existingReviewers
+				thread: thread
 			});
 		}, (e) => {
-			vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
+			vscode.window.showErrorMessage(`Creating thread failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
 		});
 	}
@@ -598,6 +599,17 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			});
 		}, (e) => {
 			vscode.window.showErrorMessage(`Commenting on thread failed. ${formatError(e)}`);
+			this._throwError(message, `${formatError(e)}`);
+		});
+	}
+
+	private changeThreadStatus(message: IRequestMessage<{status: number, threadId: number}>): void {
+		this._item.updateThreadStatus(message.args.threadId, message.args.status).then(result => {
+			this._replyMessage(message, {
+				thread: result
+			});
+		}, (e) => {
+			vscode.window.showErrorMessage(`Updating thread status failed. ${formatError(e)}`);
 			this._throwError(message, `${formatError(e)}`);
 		});
 	}
