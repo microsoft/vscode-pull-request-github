@@ -88,9 +88,9 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 
 		/* __GDPR__
-			"pr.openInGitHub" : {}
+			"pr.openInAzdo" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.openInGitHub');
+		telemetry.sendTelemetryEvent('pr.openInAzdo');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
@@ -293,7 +293,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			return;
 		}
 		const pullRequest = ensurePR(folderManager, pr);
-		return vscode.window.showWarningMessage(`Are you sure you want to merge this pull request on GitHub?`, { modal: true }, 'Yes').then(async value => {
+		return vscode.window.showWarningMessage(`Are you sure you want to merge this pull request on Azure Devops?`, { modal: true }, 'Yes').then(async value => {
 			let newPR;
 			if (value === 'Yes') {
 				try {
@@ -302,29 +302,6 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 				} catch (e) {
 					vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 					return newPR;
-				}
-			}
-
-		});
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.readyForReview', async (pr?: PRNode) => {
-		const folderManager = reposManager.getManagerForPullRequestModel(pr?.pullRequestModel);
-		if (!folderManager) {
-			return;
-		}
-		//const pullRequest = ensurePR(folderManager, pr);
-		return vscode.window.showWarningMessage(`Are you sure you want to mark this pull request as ready to review on GitHub?`, { modal: true }, 'Yes').then(async value => {
-			let isDraft;
-			if (value === 'Yes') {
-				try {
-					// isDraft = await pullRequest.setReadyForReview();
-					isDraft = false;
-					vscode.commands.executeCommand('pr.refreshList');
-					return isDraft;
-				} catch (e) {
-					vscode.window.showErrorMessage(`Unable to mark pull request as ready to review. ${formatError(e)}`);
-					return isDraft;
 				}
 			}
 
