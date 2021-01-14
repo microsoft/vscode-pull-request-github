@@ -63,11 +63,11 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 			case 'alert':
 				vscode.window.showErrorMessage(message.args);
 				return;
-			case 'pr.close':
+			case 'azdopr.close':
 				return this.close(message);
 			// case 'pr.comment':
 			// 	return this.createComment(message);
-			case 'pr.merge':
+			case 'azdopr.merge':
 				return this.mergePullRequest(message);
 			case 'pr.deleteBranch':
 				return this.deleteBranch(message);
@@ -148,7 +148,7 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 	}
 
 	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<OctokitTypes.PullsGetResponseData>('pr.close', this._item, message.args).then(comment => {
+		vscode.commands.executeCommand<OctokitTypes.PullsGetResponseData>('azdopr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -184,7 +184,7 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 				reviewers: this._existingReviewers
 			});
 			//refresh the pr list as this one is approved
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
@@ -284,7 +284,7 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 
 			await Promise.all(promises);
 
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 
 			this._postMessage({
 				command: 'pr.deleteBranch'
@@ -305,7 +305,7 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 		}
 
 		this._folderRepositoryManager.mergePullRequest(this._item, title, description, method).then(result => {
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);

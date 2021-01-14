@@ -17,7 +17,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 
 		this.command = {
 			title: 'View Pull Request Description',
-			command: 'pr.openDescription',
+			command: 'azdopr.openDescription',
 			arguments: [
 				this
 			]

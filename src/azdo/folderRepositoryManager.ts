@@ -1008,17 +1008,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		// })
 		// 	.then(x => {
 		// 		/* __GDPR__
-		// 			"pr.merge.success" : {}
+		// 			"azdopr.merge.success" : {}
 		// 		*/
-		// 		this._telemetry.sendTelemetryEvent('pr.merge.success');
+		// 		this._telemetry.sendTelemetryEvent('azdopr.merge.success');
 		// 		return x.data;
 		// 	}).catch(e => {
 		// 		/* __GDPR__
-		// 			"pr.merge.failure" : {
+		// 			"azdopr.merge.failure" : {
 		// 				"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 		// 			}
 		// 		*/
-		// 		this._telemetry.sendTelemetryErrorEvent('pr.merge.failure', { message: formatError(e) });
+		// 		this._telemetry.sendTelemetryErrorEvent('azdopr.merge.failure', { message: formatError(e) });
 		// 		throw e;
 		// 	});
 	}

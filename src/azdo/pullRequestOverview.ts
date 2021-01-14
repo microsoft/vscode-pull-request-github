@@ -249,7 +249,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		switch (message.command) {
 			case 'pr.checkout':
 				return this.checkoutPullRequest(message);
-			case 'pr.merge':
+			case 'azdopr.merge':
 				return this.mergePullRequest(message);
 			case 'pr.deleteBranch':
 				return this.deleteBranch(message);
@@ -277,7 +277,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			// 	return this.removeReviewer(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink(message);
-			case 'pr.close':
+			case 'azdopr.close':
 				return this.close(message);
 			case 'scroll':
 				this._scrollPosition = message.args;
@@ -501,7 +501,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			await Promise.all(promises);
 
 			this.refreshPanel();
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 
 			this._postMessage({
 				command: 'pr.deleteBranch'
@@ -514,7 +514,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	}
 
 	private checkoutPullRequest(message: IRequestMessage<any>): void {
-		vscode.commands.executeCommand('pr.pick', this._item).then(() => {
+		vscode.commands.executeCommand('azdopr.pick', this._item).then(() => {
 			const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
 		}, () => {
@@ -526,7 +526,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	private mergePullRequest(message: IRequestMessage<{ title: string, description: string, method: 'merge' | 'squash' | 'rebase' }>): void {
 		const { title, description, method } = message.args;
 		this._folderRepositoryManager.mergePullRequest(this._item, title, description, method).then(result => {
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 
 			if (!result.merged) {
 				vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
@@ -574,7 +574,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				reviewers: this._existingReviewers
 			});
 			//refresh the pr list as this one is approved
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 		}, (e) => {
 			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
@@ -637,7 +637,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	}
 
 	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand('pr.close', this._item, message.args).then(comment => {
+		vscode.commands.executeCommand('azdopr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -668,7 +668,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 
 	private completePullRequest(message: IRequestMessage<PullRequestCompletion>) {
 		this._item.completePullRequest(message.args).then(result => {
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 
 			if (result.closedBy === undefined) {
 				vscode.window.showErrorMessage(`Completing PR failed: ${result.mergeFailureMessage}`);

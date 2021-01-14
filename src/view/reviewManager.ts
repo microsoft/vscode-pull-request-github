@@ -235,7 +235,7 @@ export class ReviewManager {
 
 		const hasPushedChanges = branch.commit !== this._lastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (this._prNumber === matchingPullRequestMetadata.prNumber && !hasPushedChanges) {
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 			return;
 		}
 
@@ -284,10 +284,10 @@ export class ReviewManager {
 		}
 
 		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
-		this.statusBarItem.command = { command: 'pr.openDescription', title: 'View Pull Request Description', arguments: [pr] };
+		this.statusBarItem.command = { command: 'azdopr.openDescription', title: 'View Pull Request Description', arguments: [pr] };
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
-		vscode.commands.executeCommand('pr.refreshList');
+		vscode.commands.executeCommand('azdopr.refreshList');
 		if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE)) {
 			if (this.localFileChanges.length > 0) {
 				let fileChangeToShow: GitFileChangeNode | undefined;
@@ -905,7 +905,7 @@ export class ReviewManager {
 			if (pullRequestModel) {
 				progress.report({ increment: 30, message: `Pull Request #${pullRequestModel.getPullRequestId()} Created` });
 				await this.updateState();
-				await vscode.commands.executeCommand('pr.openDescription', pullRequestModel);
+				await vscode.commands.executeCommand('azdopr.openDescription', pullRequestModel);
 				progress.report({ increment: 30 });
 			} else {
 				// error: Unhandled Rejection at: Promise [object Promise]. Reason: {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"A pull request already exists for rebornix:tree-sitter."}],"documentation_url":"https://developer.github.com/v3/pulls/#create-a-pull-request"}.
@@ -948,7 +948,7 @@ export class ReviewManager {
 			// so comments only needs to be emptied in this case.
 			this._comments = [];
 
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 		}
 	}
 

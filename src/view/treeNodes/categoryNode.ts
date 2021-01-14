@@ -66,7 +66,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Sign in';
 				this.command = {
 					title: 'Sign in',
-					command: 'pr.signinAndRefreshList',
+					command: 'azdopr.signinAndRefreshList',
 					arguments: []
 				};
 				break;
@@ -86,7 +86,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Configure remotes...';
 				this.command = {
 					title: 'Configure remotes',
-					command: 'pr.configureRemotes',
+					command: 'azdopr.configureRemotes',
 					arguments: []
 				};
 				break;

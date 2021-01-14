@@ -47,13 +47,13 @@ export class PRContext {
 		this.postMessage({ command: 'pr.checkMergeability' })
 
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
-		this.postMessage({ command: 'pr.merge', args })
+		this.postMessage({ command: 'azdopr.merge', args })
 
 	public deleteBranch = () =>
 		this.postMessage({ command: 'pr.deleteBranch' })
 
 	public readyForReview = () =>
-		this.postMessage({ command: 'pr.readyForReview' })
+		this.postMessage({ command: 'azdopr.readyForReview' })
 
 	public replyThread = async (body: string, thread: GitPullRequestCommentThread) => {
 		const result = await this.postMessage({ command: 'pr.reply-thread', args: { text: body, threadId: thread.id} });
@@ -134,7 +134,7 @@ export class PRContext {
 
 	public close = async (body?: string) => {
 		try {
-			this.appendReview(await this.postMessage({ command: 'pr.close', args: body }))
+			this.appendReview(await this.postMessage({ command: 'azdopr.close', args: body }))
 		} catch (_) {
 			// Ignore
 		}

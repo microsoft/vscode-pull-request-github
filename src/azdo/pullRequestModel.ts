@@ -153,9 +153,9 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 
 		/* __GDPR__
-			"pr.close" : {}
+			"azdopr.close" : {}
 		*/
-		this._telemetry.sendTelemetryEvent('pr.close');
+		this._telemetry.sendTelemetryEvent('azdopr.close');
 
 		return convertAzdoPullRequestToRawPullRequest(ret, this.azdoRepository);
 	}

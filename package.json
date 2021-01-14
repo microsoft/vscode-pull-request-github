@@ -192,203 +192,191 @@
     },
     "commands": [
       {
-        "command": "pr.create",
-        "title": "Create Pull Request",
-        "icon": "$(plus)",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "pr.createDraft",
-        "title": "Create Draft Pull Request",
-        "icon": "$(plus)",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "auth.signout",
+        "command": "azdopr.signout",
         "title": "Sign out of AzDO",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.pick",
+        "command": "azdopr.pick",
         "title": "Checkout Pull Request",
         "category": "AzDO Pull Requests",
         "icon": "$(arrow-right)"
       },
       {
-        "command": "pr.exit",
+        "command": "azdopr.exit",
         "title": "Exit Review Mode",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.merge",
+        "command": "azdopr.merge",
         "title": "Merge Pull Request",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.readyForReview",
+        "command": "azdopr.readyForReview",
         "title": "Mark Pull Request Ready For Review",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.close",
+        "command": "azdopr.close",
         "title": "Close Pull Request",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.openPullRequestInAzdo",
+        "command": "azdopr.openPullRequestInAzdo",
         "title": "Open Pull Request in AzDO",
         "category": "AzDO Pull Requests",
         "icon": "$(globe)"
       },
       {
-        "command": "pr.refreshPullRequest",
+        "command": "azdopr.refreshPullRequest",
         "title": "Refresh Pull Request",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.openFileInAzdo",
+        "command": "azdopr.openFileInAzdo",
         "title": "Open File in AzDO",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.copyCommitHash",
+        "command": "azdopr.copyCommitHash",
         "title": "Copy Commit Hash",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.openOriginalFile",
+        "command": "azdopr.openOriginalFile",
         "title": "Open Original File",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.openModifiedFile",
+        "command": "azdopr.openModifiedFile",
         "title": "Open Modified File",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.openDiffView",
+        "command": "azdopr.openDiffView",
         "title": "Open Diff View",
         "category": "AzDO Pull Requests",
         "icon": "$(compare-changes)"
       },
       {
-        "command": "pr.openChangedFile",
+        "command": "azdopr.openChangedFile",
         "title": "Open Changed File in PR",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.openDescription",
+        "command": "azdopr.openDescription",
         "title": "View Pull Request Description",
         "category": "AzDO Pull Requests",
         "when": "azdo:inReviewMode"
       },
       {
-        "command": "pr.openDescriptionToTheSide",
+        "command": "azdopr.openDescriptionToTheSide",
         "title": "Open Pull Request Description to the Side",
         "icon": "$(split-horizontal)"
       },
       {
-        "command": "pr.refreshDescription",
+        "command": "azdopr.refreshDescription",
         "title": "Refresh Pull Request Description",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "review.openFile",
+        "command": "azdoreview.openFile",
         "title": "Open File",
         "icon": "$(go-to-file)"
       },
       {
-        "command": "review.suggestDiff",
+        "command": "azdoreview.suggestDiff",
         "title": "Suggest Edit"
       },
       {
-        "command": "pr.refreshList",
+        "command": "azdopr.refreshList",
         "title": "Refresh Pull Requests List",
         "icon": "$(refresh)",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.setFileListLayoutAsTree",
+        "command": "azdopr.setFileListLayoutAsTree",
         "title": "Toggle View Mode",
         "icon": "$(list-tree)",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.setFileListLayoutAsFlat",
+        "command": "azdopr.setFileListLayoutAsFlat",
         "title": "Toggle View Mode",
         "icon": "$(list-flat)",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.refreshChanges",
+        "command": "azdopr.refreshChanges",
         "title": "Refresh",
         "icon": "$(refresh)",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.configurePRViewlet",
+        "command": "azdopr.configurePRViewlet",
         "title": "Configure...",
         "category": "AzDO Pull Requests",
         "icon": "$(gear)"
       },
       {
-        "command": "pr.deleteLocalBranch",
+        "command": "azdopr.deleteLocalBranch",
         "title": "Delete Local Branch",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.signin",
+        "command": "azdopr.signin",
         "title": "Sign in to AzDO",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.deleteLocalBranchesNRemotes",
+        "command": "azdopr.deleteLocalBranchesNRemotes",
         "title": "Delete local branches and remotes",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.createComment",
+        "command": "azdopr.createComment",
         "title": "Add Comment",
         "category": "AzDO Pull Requests",
         "enablement": "!commentIsEmpty"
       },
       {
-        "command": "pr.changeThreadStatus",
+        "command": "azdopr.changeThreadStatus",
         "title": "Change status",
         "category": "AzDO Pull Requests",
         "enablement": "!commentThreadIsEmpty",
         "icon": "$(settings)"
       },
       {
-        "command": "pr.editComment",
+        "command": "azdopr.editComment",
         "title": "Edit Comment",
         "category": "AzDO Pull Requests",
         "icon": "$(edit)"
       },
       {
-        "command": "pr.cancelEditComment",
+        "command": "azdopr.cancelEditComment",
         "title": "Cancel",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.saveComment",
+        "command": "azdopr.saveComment",
         "title": "Save",
         "category": "AzDO Pull Requests",
         "enablement": "!commentIsEmpty"
       },
       {
-        "command": "pr.deleteComment",
+        "command": "azdopr.deleteComment",
         "title": "Delete Comment",
         "category": "AzDO Pull Requests",
         "icon": "$(close)"
       },
       {
-        "command": "pr.signinAndRefreshList",
+        "command": "azdopr.signinAndRefreshList",
         "title": "Sign in and Refresh",
         "category": "AzDO Pull Requests"
       },
       {
-        "command": "pr.configureRemotes",
+        "command": "azdopr.configureRemotes",
         "title": "Configure Remotes...",
         "category": "AzDO Pull Requests"
       }
@@ -397,300 +385,287 @@
       {
         "view": "azdo:login",
         "when": "ReposManagerStateContext == NeedsAuthentication",
-        "contents": "You have not yet signed in with Azure Devops\n[Sign in](command:pr.signin)"
+        "contents": "You have not yet signed in with Azure Devops\n[Sign in](command:azdopr.signin)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "auth.signout",
+          "command": "azdopr.signout",
           "when": "gitOpenRepositoryCount != 0 && azdo:authenticated"
         },
         {
-          "command": "pr.configureRemotes",
+          "command": "azdopr.configureRemotes",
           "when": "gitOpenRepositoryCount != 0"
         },
         {
-          "command": "pr.configurePRViewlet",
+          "command": "azdopr.configurePRViewlet",
           "when": "gitOpenRepositoryCount != 0"
         },
         {
-          "command": "pr.pick",
+          "command": "azdopr.signout",
           "when": "false"
         },
         {
-          "command": "pr.exit",
+          "command": "azdopr.exit",
           "when": "false"
         },
         {
-          "command": "review.openFile",
+          "command": "azdoreview.openFile",
           "when": "false"
         },
         {
-          "command": "pr.openChangedFile",
+          "command": "azdopr.openChangedFile",
           "when": "false"
         },
         {
-          "command": "pr.close",
+          "command": "azdopr.close",
           "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
-          "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && azdo:authenticated"
-        },
-        {
-          "command": "pr.createDraft",
-          "when": "gitOpenRepositoryCount != 0 && azdo:authenticated"
-        },
-        {
-          "command": "pr.merge",
+          "command": "azdopr.merge",
           "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
-          "command": "pr.readyForReview",
+          "command": "azdopr.readyForReview",
           "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
-          "command": "pr.openPullRequestInAzdo",
+          "command": "azdopr.openPullRequestInAzdo",
           "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
-          "command": "pr.refreshDescription",
+          "command": "azdopr.refreshDescription",
           "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
-          "command": "pr.openFileInAzdo",
+          "command": "azdopr.openFileInAzdo",
           "when": "false"
         },
         {
-          "command": "pr.openOriginalFile",
+          "command": "azdopr.openOriginalFile",
           "when": "false"
         },
         {
-          "command": "pr.openModifiedFile",
+          "command": "azdopr.openModifiedFile",
           "when": "false"
         },
         {
-          "command": "pr.refreshPullRequest",
+          "command": "azdopr.refreshPullRequest",
           "when": "false"
         },
         {
-          "command": "pr.deleteLocalBranch",
+          "command": "azdopr.deleteLocalBranch",
           "when": "false"
         },
         {
-          "command": "pr.openDiffView",
+          "command": "azdopr.openDiffView",
           "when": "false"
         },
         {
-          "command": "pr.openDescriptionToTheSide",
+          "command": "azdopr.openDescriptionToTheSide",
           "when": "false"
         },
         {
-          "command": "pr.openDescription",
+          "command": "azdopr.openDescription",
           "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
         },
         {
-          "command": "pr.refreshList",
+          "command": "azdopr.refreshList",
           "when": "gitOpenRepositoryCount != 0 && azdo:authenticated && azdo:hasAzdoRemotes"
         },
         {
-          "command": "pr.setFileListLayoutAsTree",
+          "command": "azdopr.setFileListLayoutAsTree",
           "when": "false"
         },
         {
-          "command": "pr.setFileListLayoutAsFlat",
+          "command": "azdopr.setFileListLayoutAsFlat",
           "when": "false"
         },
         {
-          "command": "pr.refreshChanges",
+          "command": "azdopr.refreshChanges",
           "when": "false"
         },
         {
-          "command": "pr.signin",
+          "command": "azdopr.signin",
           "when": "gitOpenRepositoryCount != 0 && azdo:hasAzdoRemotes"
         },
         {
-          "command": "pr.signinAndRefreshList",
+          "command": "azdopr.signinAndRefreshList",
           "when": "false"
         },
         {
-          "command": "pr.copyCommitHash",
+          "command": "azdopr.copyCommitHash",
           "when": "false"
         },
         {
-          "command": "pr.createComment",
+          "command": "azdopr.createComment",
           "when": "false"
         },
         {
-          "command": "pr.changeThreadStatus",
+          "command": "azdopr.changeThreadStatus",
           "when": "false"
         },
         {
-          "command": "pr.editComment",
+          "command": "azdopr.editComment",
           "when": "false"
         },
         {
-          "command": "pr.cancelEditComment",
+          "command": "azdopr.cancelEditComment",
           "when": "false"
         },
         {
-          "command": "pr.saveComment",
+          "command": "azdopr.saveComment",
           "when": "false"
         },
         {
-          "command": "pr.deleteComment",
+          "command": "azdopr.deleteComment",
           "when": "false"
         }
       ],
       "view/title": [
         {
-          "command": "pr.configurePRViewlet",
+          "command": "azdopr.configurePRViewlet",
           "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(pr|issues):/",
           "group": "navigation@3"
         },
         {
-          "command": "pr.refreshList",
+          "command": "azdopr.refreshList",
           "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /pr:/",
           "group": "navigation@2"
         },
         {
-          "command": "pr.refreshChanges",
+          "command": "azdopr.refreshChanges",
           "when": "view =~ /prStatus/",
           "group": "navigation@2"
         },
         {
-          "command": "pr.setFileListLayoutAsTree",
+          "command": "azdopr.setFileListLayoutAsTree",
           "when": "view =~ /prStatus/ && fileListLayout:flat",
           "group": "navigation"
         },
         {
-          "command": "pr.setFileListLayoutAsFlat",
+          "command": "azdopr.setFileListLayoutAsFlat",
           "when": "view =~ /prStatus/ && !fileListLayout:flat",
           "group": "navigation"
         },
         {
-          "command": "pr.openPullRequestInAzdo",
+          "command": "azdopr.openPullRequestInAzdo",
           "when": "view == azdo:activePullRequest && azdo:hasAzdoRemotes",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "pr.pick",
+          "command": "azdopr.pick",
           "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
         },
         {
-          "command": "pr.pick",
+          "command": "azdopr.pick",
           "when": "view =~ /pr:/ && viewItem =~ /description/",
           "group": "inline"
         },
         {
-          "command": "pr.exit",
+          "command": "azdopr.exit",
           "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:active|description/",
           "group": "pullrequest@1"
         },
         {
-          "command": "pr.refreshPullRequest",
+          "command": "azdopr.refreshPullRequest",
           "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
-          "command": "pr.openPullRequestInAzdo",
+          "command": "azdopr.openPullRequestInAzdo",
           "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
         {
-          "command": "pr.deleteLocalBranch",
+          "command": "azdopr.deleteLocalBranch",
           "when": "view =~ /pr:/ && viewItem =~ /pullrequest:local:nonactive/",
           "group": "pullrequest@4"
         },
         {
-          "command": "pr.openFileInAzdo",
+          "command": "azdopr.openFileInAzdo",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
         },
         {
-          "command": "pr.copyCommitHash",
+          "command": "azdopr.copyCommitHash",
           "when": "view =~ /prStatus/ && viewItem =~ /commit/"
         },
         {
-          "command": "pr.openDescriptionToTheSide",
+          "command": "azdopr.openDescriptionToTheSide",
           "group": "inline",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /description/"
         },
         {
-          "command": "review.openFile",
+          "command": "azdoreview.openFile",
           "group": "inline",
           "when": "config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
-          "command": "pr.openDiffView",
+          "command": "azdopr.openDiffView",
           "group": "inline",
           "when": "!config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
-          "command": "pr.openOriginalFile",
+          "command": "azdopr.openOriginalFile",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
         },
         {
-          "command": "pr.openModifiedFile",
+          "command": "azdopr.openModifiedFile",
           "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
-        },
-        {
-          "command": "pr.create",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
-          "group": "issues_0@2"
         }
       ],
       "editor/title": [
         {
-          "command": "review.openFile",
+          "command": "azdoreview.openFile",
           "group": "navigation",
           "when": "resourceScheme =~ /^review$/"
         }
       ],
       "scm/title": [
         {
-          "command": "review.suggestDiff",
+          "command": "azdoreview.suggestDiff",
           "when": "scmProvider == git && azdo:inReviewMode",
           "group": "inline"
         }
       ],
       "comments/commentThread/context": [
         {
-          "command": "pr.createComment",
+          "command": "azdopr.createComment",
           "group": "inline",
           "when": "commentController =~ /^(browse|review)/"
         }
       ],
       "comments/commentThread/title": [
         {
-          "command": "pr.changeThreadStatus",
+          "command": "azdopr.changeThreadStatus",
           "group": "inline",
           "when": "commentController =~ /^(browse|review)/ && !commentThreadIsEmpty"
         }
       ],
       "comments/comment/title": [
         {
-          "command": "pr.editComment",
+          "command": "azdopr.editComment",
           "group": "inline@1",
           "when": "commentController =~ /^(browse|review)/ && comment =~ /canEdit/"
         },
         {
-          "command": "pr.deleteComment",
+          "command": "azdopr.deleteComment",
           "group": "inline@2",
           "when": "commentController =~ /^(browse|review)/ && comment =~ /canDelete/"
         }
       ],
       "comments/comment/context": [
         {
-          "command": "pr.cancelEditComment",
+          "command": "azdopr.cancelEditComment",
           "group": "inline@1",
           "when": "commentController =~ /^(browse|review)/"
         },
         {
-          "command": "pr.saveComment",
+          "command": "azdopr.saveComment",
           "group": "inline@2",
           "when": "commentController =~ /^(browse|review)/"
         }

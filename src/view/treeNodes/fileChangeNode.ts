@@ -47,7 +47,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		this.command = {
 			title: 'show remote file',
-			command: 'pr.openDiffView',
+			command: 'azdopr.openDiffView',
 			arguments: [
 				this
 			]
@@ -203,7 +203,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {
 			title: 'show diff',
-			command: 'pr.openDiffView',
+			command: 'azdopr.openDiffView',
 			arguments: [this]
 		};
 	}
@@ -237,7 +237,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {
 			title: 'open changed file',
-			command: 'pr.openChangedFile',
+			command: 'azdopr.openChangedFile',
 			arguments: [this]
 		};
 	}

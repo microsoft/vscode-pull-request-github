@@ -67,11 +67,11 @@ async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue
 
 export function registerCommands(context: vscode.ExtensionContext, reposManager: RepositoriesManager, reviewManagers: ReviewManager[], telemetry: ITelemetry, credentialStore: CredentialStore, tree: PullRequestsTreeDataProvider) {
 
-	context.subscriptions.push(vscode.commands.registerCommand('auth.signout', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.signout', async () => {
 		credentialStore.logout();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInAzdo', async (e: PRNode | DescriptionNode | PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.openPullRequestInAzdo', async (e: PRNode | DescriptionNode | PullRequestModel) => {
 		if (!e) {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
 
@@ -93,7 +93,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		telemetry.sendTelemetryEvent('pr.openInAzdo');
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('review.suggestDiff', async (e) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdoreview.suggestDiff', async (e) => {
 		try {
 			const folderManager = await chooseItem<FolderRepositoryManager>(reposManager.folderManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath));
 			if (!folderManager || !folderManager.activePullRequest) {
@@ -143,15 +143,15 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInAzdo', (e: GitFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.openFileInAzdo', (e: GitFileChangeNode) => {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl!));
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.copyCommitHash', (e: CommitNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.copyCommitHash', (e: CommitNode) => {
 		vscode.env.clipboard.writeText(e.sha);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openOriginalFile', async (e: GitFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.openOriginalFile', async (e: GitFileChangeNode) => {
 		// if this is an image, encode it as a base64 data URI
 		const folderManager = reposManager.getManagerForPullRequestModel(e.pullRequest);
 		if (folderManager) {
@@ -160,11 +160,11 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.openModifiedFile', (e: GitFileChangeNode) => {
 		vscode.commands.executeCommand('vscode.open', e.filePath);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
 		const folderManager = reposManager.getManagerForPullRequestModel(fileChangeNode.pullRequest);
 		if (!folderManager) {
 			return;
@@ -172,7 +172,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		await fileChangeNode.openDiff(folderManager);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranch', async (e: PRNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.deleteLocalBranch', async (e: PRNode) => {
 		const folderManager = reposManager.getManagerForPullRequestModel(e.pullRequestModel);
 		if (!folderManager) {
 			return;
@@ -217,7 +217,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			*/
 			telemetry.sendTelemetryEvent('pr.deleteLocalPullRequest.success');
 			// fire and forget
-			vscode.commands.executeCommand('pr.refreshList');
+			vscode.commands.executeCommand('azdopr.refreshList');
 		}
 	}));
 
@@ -233,7 +233,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		(await chooseReviewManager())?.createPullRequest(true);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 		let pullRequestModel: PullRequestModel;
 
 		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
@@ -258,7 +258,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.exit', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.exit', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 		let pullRequestModel: PullRequestModel;
 
 		if (pr instanceof PRNode || pr instanceof DescriptionNode) {
@@ -269,11 +269,11 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 
 		const fromDescriptionPage = pr instanceof PullRequestModel;
 		/* __GDPR__
-			"pr.exit" : {
+			"azdopr.exit" : {
 				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
-		telemetry.sendTelemetryEvent('pr.exit', { fromDescription: fromDescriptionPage.toString() });
+		telemetry.sendTelemetryEvent('azdopr.exit', { fromDescription: fromDescriptionPage.toString() });
 
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.SourceControl,
@@ -287,7 +287,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.merge', async (pr?: PRNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.merge', async (pr?: PRNode) => {
 		const folderManager = reposManager.getManagerForPullRequestModel(pr?.pullRequestModel);
 		if (!folderManager) {
 			return;
@@ -308,7 +308,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.close', async (pr?: PRNode | PullRequestModel, message?: string) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.close', async (pr?: PRNode | PullRequestModel, message?: string) => {
 		let pullRequestModel: PullRequestModel | undefined;
 		if (pr) {
 			pullRequestModel = pr instanceof PullRequestModel ? pr : pr.pullRequestModel;
@@ -331,7 +331,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 					}
 
 					const newPR = await pullRequest.abandon();
-					vscode.commands.executeCommand('pr.refreshList');
+					vscode.commands.executeCommand('azdopr.refreshList');
 					_onDidUpdatePR.fire(newPR);
 					return newComment;
 				} catch (e) {
@@ -344,7 +344,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (argument: DescriptionNode | PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.openDescription', async (argument: DescriptionNode | PullRequestModel) => {
 		const pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
 		const folderManager = reposManager.getManagerForPullRequestModel(pullRequestModel);
 		if (!folderManager) {
@@ -364,18 +364,18 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest);
 
 		/* __GDPR__
-			"pr.openDescription" : {}
+			"azdopr.openDescription" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.openDescription');
+		telemetry.sendTelemetryEvent('azdopr.openDescription');
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshDescription', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.refreshDescription', async () => {
 		if (PullRequestOverviewPanel.currentPanel) {
 			PullRequestOverviewPanel.refresh();
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
 		const folderManager = reposManager.getManagerForPullRequestModel(descriptionNode.pullRequestModel);
 		if (!folderManager) {
 			return;
@@ -387,9 +387,9 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, true);
 
 		/* __GDPR__
-			"pr.openDescriptionToTheSide" : {}
+			"azdopr.openDescriptionToTheSide" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.openDescriptionToTheSide');
+		telemetry.sendTelemetryEvent('azdopr.openDescriptionToTheSide');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
@@ -444,7 +444,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		return vscode.commands.executeCommand('vscode.diff', previousFileUri, fileChange.filePath, `${fileChange.fileName} from ${(commit || '').substr(0, 8)}`, options);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.signin', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.signin', async () => {
 		if (await reposManager.authenticate()) {
 			if (reviewManagers) {
 				reviewManagers.forEach(reviewManager => reviewManager.updateState());
@@ -452,18 +452,18 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.deleteLocalBranchesNRemotes', async () => {
 		for (const folderManager of reposManager.folderManagers) {
 			await folderManager.deleteLocalBranchesNRemotes();
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
-		await vscode.commands.executeCommand('pr.signin');
-		vscode.commands.executeCommand('pr.refreshList');
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.signinAndRefreshList', async () => {
+		await vscode.commands.executeCommand('azdopr.signin');
+		vscode.commands.executeCommand('azdopr.refreshList');
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.configureRemotes', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.configureRemotes', async () => {
 		const { name, publisher } = require('../package.json') as { name: string, publisher: string };
 		const extensionId = `${publisher}.${name}`;
 
@@ -513,11 +513,11 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	// 	}
 	// }));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.createComment', async (reply: CommentReply) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.createComment', async (reply: CommentReply) => {
 		/* __GDPR__
-			"pr.createComment" : {}
+			"azdopr.createComment" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.createComment');
+		telemetry.sendTelemetryEvent('azdopr.createComment');
 		const handler = resolveCommentHandler(reply.thread);
 
 		if (handler) {
@@ -525,11 +525,11 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.changeThreadStatus', async (thread: GHPRCommentThread) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.changeThreadStatus', async (thread: GHPRCommentThread) => {
 		/* __GDPR__
-			"pr.createComment" : {}
+			"azdopr.createComment" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.changeThreadStatus');
+		telemetry.sendTelemetryEvent('azdopr.changeThreadStatus');
 		const handler = resolveCommentHandler(thread);
 
 		if (handler) {
@@ -537,27 +537,27 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.editComment', async (comment: GHPRComment | TemporaryComment) => {
 		/* __GDPR__
-			"pr.editComment" : {}
+			"azdopr.editComment" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.editComment');
+		telemetry.sendTelemetryEvent('azdopr.editComment');
 		comment.startEdit();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.cancelEditComment', async (comment: GHPRComment | TemporaryComment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.cancelEditComment', async (comment: GHPRComment | TemporaryComment) => {
 		/* __GDPR__
-			"pr.cancelEditComment" : {}
+			"azdopr.cancelEditComment" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.cancelEditComment');
+		telemetry.sendTelemetryEvent('azdopr.cancelEditComment');
 		comment.cancelEdit();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.saveComment', async (comment: GHPRComment | TemporaryComment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.saveComment', async (comment: GHPRComment | TemporaryComment) => {
 		/* __GDPR__
-			"pr.saveComment" : {}
+			"azdopr.saveComment" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.saveComment');
+		telemetry.sendTelemetryEvent('azdopr.saveComment');
 		const handler = resolveCommentHandler(comment.parent);
 
 		if (handler) {
@@ -565,11 +565,11 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	// context.subscriptions.push(vscode.commands.registerCommand('pr.deleteComment', async (comment: GHPRComment | TemporaryComment) => {
+	// context.subscriptions.push(vscode.commands.registerCommand('azdopr.deleteComment', async (comment: GHPRComment | TemporaryComment) => {
 	// 	/* __GDPR__
-	// 		"pr.deleteComment" : {}
+	// 		"azdopr.deleteComment" : {}
 	// 	*/
-	// 	telemetry.sendTelemetryEvent('pr.deleteComment');
+	// 	telemetry.sendTelemetryEvent('azdopr.deleteComment');
 
 	// 	const shouldDelete = await vscode.window.showWarningMessage('Delete comment?', { modal: true }, 'Delete');
 
@@ -582,7 +582,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	// 	}
 	// }));
 
-	context.subscriptions.push(vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdoreview.openFile', (value: GitFileChangeNode | vscode.Uri) => {
 		const uri = value instanceof GitFileChangeNode ? value.filePath : value;
 
 		const activeTextEditor = vscode.window.activeTextEditor;
@@ -599,16 +599,16 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 
 		vscode.commands.executeCommand('vscode.open', uri, opts);
 	}));
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openChangedFile', (value: GitFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.openChangedFile', (value: GitFileChangeNode) => {
 		const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
 		if (openDiff) {
-			return vscode.commands.executeCommand('pr.openDiffView', value);
+			return vscode.commands.executeCommand('azdopr.openDiffView', value);
 		} else {
-			return vscode.commands.executeCommand('review.openFile', value);
+			return vscode.commands.executeCommand('azdoreview.openFile', value);
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshChanges', _ => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.refreshChanges', _ => {
 		reviewManagers.forEach(reviewManager => {
 			reviewManager.updateComments();
 			PullRequestOverviewPanel.refresh();
@@ -616,15 +616,15 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.setFileListLayoutAsTree', _ => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.setFileListLayoutAsTree', _ => {
 		vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update('fileListLayout', 'tree', true);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.setFileListLayoutAsFlat', _ => {
 		vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update('fileListLayout', 'flat', true);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.refreshPullRequest', (prNode: PRNode) => {
 		const folderManager = reposManager.getManagerForPullRequestModel(prNode.pullRequestModel);
 		if (folderManager && prNode.pullRequestModel.equals(folderManager?.activePullRequest)) {
 			ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)?.updateComments();
