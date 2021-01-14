@@ -13,8 +13,8 @@ This extension is inspired and based on [Github Pull Request Extension for VS Co
 
 ![Issue Demo](.readme/issueDemo.gif)
 
-# Getting Started
-It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simply follow these steps to get started.
+## Getting Started
+It's easy to get started with Azure Devops Pull Requests for Visual Studio Code. Simply follow these steps to get started.
 
 1. Make sure you have VSCode version 1.52.0 or higher.
 1. Reload VS Code after the installation (click the reload button next to the extension).
@@ -24,11 +24,18 @@ It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simpl
 1. A new tab would have appeared on the activity bar on the left. Open it and click on `Sign in` button. Enter the PAT token and press enter.
 1. You should be good to go!
 
-# Configuring the extension
+## Configuring the extension
 TODO
-## Questions? Authentication? GitHub Enterprise?
 
-See our [wiki](https://github.com/Microsoft/vscode-pull-request-github/wiki) for our FAQ.
+## Known Major Issues
+1. Can't remove or add reviewers in PR Dashboard
+1. Mentions in comments are not resolved to user and no hover support
+1. Can't mention users in comments
+1. Workitems are not shown in PR Dashboard
+
+## Questions? Authentication?
+
+See our [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki) for our FAQ.
 
 ## Contributing
 

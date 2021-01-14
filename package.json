@@ -5,10 +5,10 @@
   "icon": "resources/icons/azdo_logo.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Microsoft/vscode-pull-request-github"
+    "url": "https://github.com/ankitbko/vscode-pull-request-azdo"
   },
   "bugs": {
-    "url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
+    "url": "https://github.com/ankitbko/vscode-pull-request-azdo/issues"
   },
   "enableProposedApi": true,
   "preview": true,
