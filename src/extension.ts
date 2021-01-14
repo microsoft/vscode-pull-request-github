@@ -27,7 +27,7 @@ import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProv
 import { ReviewsManager } from './view/reviewsManager';
 import { registerLiveShareGitProvider } from './gitProviders/api';
 
-const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
+const aiKey: string = '6d22c8ed-52c8-4779-a6f8-09c748e18e95';
 
 // fetch.promise polyfill
 const fetch = require('node-fetch');
