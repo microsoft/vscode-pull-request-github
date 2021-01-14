@@ -44,7 +44,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			this._onDidChangeTreeData.fire(node);
 		}));
 
-		this._view = vscode.window.createTreeView('pr:azdo', {
+		this._view = vscode.window.createTreeView('azdopr:azdo', {
 			treeDataProvider: this,
 			showCollapseAll: true
 		});

@@ -90,7 +90,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		/* __GDPR__
 			"pr.openInAzdo" : {}
 		*/
-		telemetry.sendTelemetryEvent('pr.openInAzdo');
+		telemetry.sendTelemetryEvent('azdopr.openInAzdo');
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('azdoreview.suggestDiff', async (e) => {
@@ -207,7 +207,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			telemetry.sendTelemetryErrorEvent('pr.deleteLocalPullRequest.failure', {
+			telemetry.sendTelemetryErrorEvent('azdopr.deleteLocalPullRequest.failure', {
 				message: error
 			});
 			await vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${error}`);
@@ -215,7 +215,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			/* __GDPR__
 				"pr.deleteLocalPullRequest.success" : {}
 			*/
-			telemetry.sendTelemetryEvent('pr.deleteLocalPullRequest.success');
+			telemetry.sendTelemetryEvent('azdopr.deleteLocalPullRequest.success');
 			// fire and forget
 			vscode.commands.executeCommand('azdopr.refreshList');
 		}
@@ -248,7 +248,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
-		telemetry.sendTelemetryEvent('pr.checkout', { fromDescription: fromDescriptionPage.toString() });
+		telemetry.sendTelemetryEvent('azdopr.checkout', { fromDescription: fromDescriptionPage.toString() });
 
 		return vscode.window.withProgress({
 			location: vscode.ProgressLocation.SourceControl,
@@ -392,7 +392,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		telemetry.sendTelemetryEvent('azdopr.openDescriptionToTheSide');
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.viewChanges', async (fileChange: GitFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('azdopr.viewChanges', async (fileChange: GitFileChangeNode) => {
 		if (fileChange.status === GitChangeType.DELETE || fileChange.status === GitChangeType.ADD) {
 			// create an empty `review` uri without any path/commit info.
 			const emptyFileUri = fileChange.parentFilePath.with({
@@ -469,49 +469,6 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 
 		return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
 	}));
-
-	// context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (reply: CommentReply) => {
-	// 	/* __GDPR__
-	// 		"pr.startReview" : {}
-	// 	*/
-	// 	telemetry.sendTelemetryEvent('pr.startReview');
-	// 	const handler = resolveCommentHandler(reply.thread);
-
-	// 	if (handler) {
-	// 		handler.startReview(reply.thread, reply.text);
-	// 	}
-	// }));
-
-	// context.subscriptions.push(vscode.commands.registerCommand('pr.finishReview', async (reply: CommentReply) => {
-	// 	/* __GDPR__
-	// 		"pr.finishReview" : {}
-	// 	*/
-	// 	telemetry.sendTelemetryEvent('pr.finishReview');
-	// 	const handler = resolveCommentHandler(reply.thread);
-
-	// 	if (handler) {
-	// 		await handler.finishReview(reply.thread, reply.text);
-	// 	}
-	// }));
-
-	// context.subscriptions.push(vscode.commands.registerCommand('pr.deleteReview', async (reply: CommentReply) => {
-	// 	/* __GDPR__
-	// 		"pr.deleteReview" : {}
-	// 	*/
-	// 	telemetry.sendTelemetryEvent('pr.deleteReview');
-	// 	const shouldDelete = await vscode.window.showWarningMessage('Delete this review and all associated comments?', { modal: true }, 'Delete');
-	// 	if (shouldDelete) {
-	// 		const handler = resolveCommentHandler(reply.thread);
-
-	// 		if (handler) {
-	// 			await handler.deleteReview();
-	// 		}
-
-	// 		if (!reply.thread.comments.length) {
-	// 			reply.thread.dispose();
-	// 		}
-	// 	}
-	// }));
 
 	context.subscriptions.push(vscode.commands.registerCommand('azdopr.createComment', async (reply: CommentReply) => {
 		/* __GDPR__

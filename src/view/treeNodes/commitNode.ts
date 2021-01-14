@@ -74,7 +74,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 			fileChangeNode.command = {
 				title: 'View Changes',
-				command: 'pr.viewChanges',
+				command: 'azdopr.viewChanges',
 				arguments: [
 					fileChangeNode
 				]

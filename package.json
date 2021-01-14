@@ -12,7 +12,7 @@
   },
   "enableProposedApi": true,
   "preview": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "ankitbko",
   "engines": {
     "vscode": "^1.52.0"
@@ -170,14 +170,14 @@
           "icon": "resources/icons/pull-request.png"
         },
         {
-          "id": "prStatus:azdo",
+          "id": "azdoprStatus:azdo",
           "name": "Changes In Pull Request",
           "when": "azdo:inReviewMode",
           "icon": "resources/icons/pull-request.png",
           "visibility": "visible"
         },
         {
-          "id": "pr:azdo",
+          "id": "azdopr:azdo",
           "name": "Pull Requests",
           "when": "ReposManagerStateContext != NeedsAuthentication && !azdo:focusedReview",
           "icon": "resources/icons/pull-request.png"
@@ -526,27 +526,27 @@
       "view/title": [
         {
           "command": "azdopr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(pr|issues):/",
+          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(azdopr|issues):/",
           "group": "navigation@3"
         },
         {
           "command": "azdopr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /azdopr:/",
           "group": "navigation@2"
         },
         {
           "command": "azdopr.refreshChanges",
-          "when": "view =~ /prStatus/",
+          "when": "view =~ /azdoprStatus/",
           "group": "navigation@2"
         },
         {
           "command": "azdopr.setFileListLayoutAsTree",
-          "when": "view =~ /prStatus/ && fileListLayout:flat",
+          "when": "view =~ /azdoprStatus/ && fileListLayout:flat",
           "group": "navigation"
         },
         {
           "command": "azdopr.setFileListLayoutAsFlat",
-          "when": "view =~ /prStatus/ && !fileListLayout:flat",
+          "when": "view =~ /azdoprStatus/ && !fileListLayout:flat",
           "group": "navigation"
         },
         {
@@ -558,64 +558,64 @@
       "view/item/context": [
         {
           "command": "azdopr.pick",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "azdopr.pick",
-          "when": "view =~ /pr:/ && viewItem =~ /description/",
+          "when": "view =~ /azdopr:/ && viewItem =~ /description/",
           "group": "inline"
         },
         {
           "command": "azdopr.exit",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:active|description/",
+          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest(:local)?:active|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "azdopr.refreshPullRequest",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
+          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
           "command": "azdopr.openPullRequestInAzdo",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
+          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
         {
           "command": "azdopr.deleteLocalBranch",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest:local:nonactive/",
+          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest:local:nonactive/",
           "group": "pullrequest@4"
         },
         {
           "command": "azdopr.openFileInAzdo",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
+          "when": "view =~ /(azdopr|azdoprStatus)/ && viewItem =~ /filechange/"
         },
         {
           "command": "azdopr.copyCommitHash",
-          "when": "view =~ /prStatus/ && viewItem =~ /commit/"
+          "when": "view =~ /azdoprStatus/ && viewItem =~ /commit/"
         },
         {
           "command": "azdopr.openDescriptionToTheSide",
           "group": "inline",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /description/"
+          "when": "view =~ /(azdopr|azdoprStatus)/ && viewItem =~ /description/"
         },
         {
           "command": "azdoreview.openFile",
           "group": "inline",
-          "when": "config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "config.git.openDiffOnClick && view =~ /azdoprStatus/ && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
           "command": "azdopr.openDiffView",
           "group": "inline",
-          "when": "!config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "!config.git.openDiffOnClick && view =~ /azdoprStatus/ && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
           "command": "azdopr.openOriginalFile",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
+          "when": "view =~ /(azdopr|azdoprStatus)/ && viewItem =~ /filechange:MODIFY/"
         },
         {
           "command": "azdopr.openModifiedFile",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
+          "when": "view =~ /(azdopr|azdoprStatus)/ && viewItem =~ /filechange:MODIFY/"
         }
       ],
       "editor/title": [
