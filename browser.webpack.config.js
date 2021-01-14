@@ -25,7 +25,10 @@ function getExtensionConfig(env) {
 	const config = {
 		target: 'webworker',
 		node: {
-			path: true
+			path: true,
+			fs: 'empty',
+			tls: 'empty',
+			net: 'empty'
 		},
 		output: {
 			filename: '[name].js',
@@ -40,7 +43,7 @@ function getExtensionConfig(env) {
 				'../env/node/ssh': path.resolve(__dirname, 'src/env/browser/ssh'),
 				'./env/node/gitProviders/api': path.resolve(__dirname, 'src/env/browser/gitProviders/api')
 			}
-		}
+		},
 	};
 
 	return merge(baseConfig, config);
