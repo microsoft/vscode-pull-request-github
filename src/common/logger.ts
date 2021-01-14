@@ -15,7 +15,7 @@ class Log {
 	private _disposable: vscode.Disposable;
 
 	constructor() {
-		this._outputChannel = vscode.window.createOutputChannel('GitHub Pull Request');
+		this._outputChannel = vscode.window.createOutputChannel('AzDO Pull Request');
 		this._disposable = vscode.workspace.onDidChangeConfiguration(() => {
 			this.getLogLevel();
 		});

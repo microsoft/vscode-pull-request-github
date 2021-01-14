@@ -74,7 +74,7 @@ export class AzdoRepository implements vscode.Disposable {
 		await this.ensure();
 		const gitApi = await this._hub?.connection?.getGitApi();
 		if (this._metadata) {
-			Logger.debug(`Fetch metadata for repo: ${this._metadata.id}/${this._metadata.name} - done`, AzdoRepository.ID);
+			Logger.debug(`Fetch metadata for repo: ${this._metadata.id}/${this._metadata.name} - cache hit`, AzdoRepository.ID);
 			return this._metadata;
 		}
 		const repos = await gitApi?.getRepositories(this._hub?.projectName);
