@@ -13,6 +13,7 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { parseDiffAzdo } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { toPRUriAzdo, toReviewUri } from '../common/uri';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -526,6 +527,19 @@ export class PullRequestModel implements IPullRequestModel {
 		return this.item.createdBy?.uniqueName === username;
 	}
 
+	public getDiffTarget(): string {
+		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('diffBase');
+		if (config === 'head') {
+			return this.base.sha;
+		}
+		if (!this.mergeBase) {
+			vscode.window.showErrorMessage('Merge Base is not set. This may be a bug. Use HEAD as diff target and report this error.');
+			Logger.appendLine(`Merge Base is not set. config: ${config}`, PullRequestModel.ID);
+			return '';
+		}
+		return this.mergeBase;
+	}
+
 	private getFileDiffParamsFromChanges(changes: GitChange[]): FileDiffParams[] {
 		const diff_params = changes.filter(change => change.changeType !== VersionControlChangeType.None && <any>change.item?.gitObjectType === 'blob').map(change => {
 			const params: FileDiffParams = { path: '', originalPath: '' };
@@ -552,7 +566,7 @@ export class PullRequestModel implements IPullRequestModel {
 	static async openDiffFromComment(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, comment: GitPullRequestCommentThread): Promise<void> {
 		const fileChanges = await pullRequestModel.getFileChangesInfo();
 		// TODO merge base is here also
-		const mergeBase = pullRequestModel.base.sha;
+		const mergeBase = pullRequestModel.getDiffTarget();
 		const contentChanges = await parseDiffAzdo(fileChanges, folderManager.repository, mergeBase);
 		const change = contentChanges.find(fileChange => fileChange.fileName === comment.threadContext?.filePath || fileChange.previousFileName === comment.threadContext?.filePath);
 		if (!change) {

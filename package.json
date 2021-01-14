@@ -42,6 +42,19 @@
           "default": true,
           "description": "Enable usage data and errors to be sent to a Azure Appinsights online service"
         },
+        "azdoPullRequests.diffBase": {
+          "type": "string",
+          "enum": [
+            "mergebase",
+            "head"
+          ],
+          "enumDescriptions": [
+            "Use the merge base of PR",
+            "Use the target branch's HEAD"
+          ],
+          "default": "head",
+          "description": "The commit used to calculate diff against PR's HEAD."
+        },
         "azdoPullRequests.pullRequestTitle": {
           "type": "string",
           "enum": [

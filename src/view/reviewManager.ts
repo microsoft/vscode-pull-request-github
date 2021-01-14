@@ -338,7 +338,7 @@ export class ReviewManager {
 
 		// TODO Merge base is here too.
 		// const mergeBase = pr.mergeBase || pr.base.sha;
-		const mergeBase = pr.base.sha;
+		const mergeBase = pr.getDiffTarget();
 		const headSha = pr.head.sha;
 
 		for (let i = 0; i < contentChanges.length; i++) {
@@ -409,7 +409,7 @@ export class ReviewManager {
 
 			const data = await pr.getFileChangesInfo();
 			// TODO Merge base is here also
-			const mergeBase = pr.base.sha;
+			const mergeBase = pr.getDiffTarget();
 
 			const contentChanges = await parseDiffAzdo(data, this._repository, mergeBase!);
 			this._localFileChanges = await this.getLocalChangeNodes(pr, contentChanges, activeComments);

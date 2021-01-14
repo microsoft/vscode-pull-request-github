@@ -250,7 +250,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		// TODO Which is the correct diff to show from source HEAD - merge-base or target HEAD
 		// Merge base is set as part of getPullRequestFileChangesInfo
-		const mergeBase = this.pullRequestModel.item.base?.sha;
+		const mergeBase = this.pullRequestModel.getDiffTarget();
 		if (!mergeBase) {
 			return [];
 		}
