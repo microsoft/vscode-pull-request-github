@@ -1021,42 +1021,42 @@
       "view/title": [
         {
           "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && github:initialized && view == pr:github",
           "group": "navigation@1"
         },
         {
           "command": "pr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):/",
+          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):github/",
           "group": "navigation@3"
         },
         {
           "command": "pr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /pr:/",
+          "when": "gitOpenRepositoryCount != 0 && github:initialized && view == pr:github",
           "group": "navigation@2"
         },
         {
           "command": "pr.refreshChanges",
-          "when": "view =~ /prStatus/",
+          "when": "view == prStatus:github",
           "group": "navigation@2"
         },
         {
           "command": "pr.setFileListLayoutAsTree",
-          "when": "view =~ /prStatus/ && fileListLayout:flat",
+          "when": "view == prStatus:github && fileListLayout:flat",
           "group": "navigation"
         },
         {
           "command": "pr.setFileListLayoutAsFlat",
-          "when": "view =~ /prStatus/ && !fileListLayout:flat",
+          "when": "view == prStatus:github && !fileListLayout:flat",
           "group": "navigation"
         },
         {
           "command": "issue.refresh",
-          "when": "view =~ /issues:github/",
+          "when": "view == issues:github",
           "group": "navigation@2"
         },
         {
           "command": "issue.createIssue",
-          "when": "view =~ /issues:github/ && github:hasGitHubRemotes",
+          "when": "view == issues:github && github:hasGitHubRemotes",
           "group": "navigation@1"
         },
         {
@@ -1068,149 +1068,149 @@
       "view/item/context": [
         {
           "command": "pr.pick",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+          "when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "pr.pick",
-          "when": "view =~ /pr:/ && viewItem =~ /description/",
+          "when": "view == pr:github && viewItem =~ /description/",
           "group": "inline"
         },
         {
           "command": "pr.exit",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest(:local)?:active|description/",
+          "when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "pr.refreshPullRequest",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
+          "when": "view == pr:github && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
           "command": "pr.openPullRequestInGitHub",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest|description/",
+          "when": "view == pr:github && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
         {
           "command": "pr.deleteLocalBranch",
-          "when": "view =~ /pr:/ && viewItem =~ /pullrequest:local:nonactive/",
+          "when": "view == pr:github && viewItem =~ /pullrequest:local:nonactive/",
           "group": "pullrequest@4"
         },
         {
           "command": "pr.openFileInGitHub",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange/"
+          "when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange/"
         },
         {
           "command": "pr.copyCommitHash",
-          "when": "view =~ /prStatus/ && viewItem =~ /commit/"
+          "when": "view == prStatus:github && viewItem =~ /commit/"
         },
         {
           "command": "pr.openDescriptionToTheSide",
           "group": "inline",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /description/"
+          "when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
         },
         {
           "command": "review.openFile",
           "group": "inline",
-          "when": "config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "config.git.openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
           "command": "pr.openDiffView",
           "group": "inline",
-          "when": "!config.git.openDiffOnClick && view =~ /prStatus/ && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "!config.git.openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
           "command": "pr.openOriginalFile",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
+          "when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/"
         },
         {
           "command": "pr.openModifiedFile",
-          "when": "view =~ /(pr|prStatus)/ && viewItem =~ /filechange:MODIFY/"
+          "when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/"
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
+          "when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "inline@2"
         },
         {
           "command": "issue.openIssue",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
+          "when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "issues_0@1"
         },
         {
           "command": "issue.goToLinkedCode",
-          "when": "view =~ /issues:github/ && viewItem =~ /^link(current|continue)?issue/",
+          "when": "view == issues:github && viewItem =~ /^link(current|continue)?issue/",
           "group": "issues_0@0"
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on",
+          "when": "view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on",
+          "when": "view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on",
+          "when": "view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on",
+          "when": "view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.startWorking",
           "alt": "issue.startWorkingBranchPrompt",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?issue/",
+          "when": "view == issues:github && viewItem =~ /^(link)?issue/",
           "group": "issues_0@2"
         },
         {
           "command": "issue.continueWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?continueissue/",
+          "when": "view == issues:github && viewItem =~ /^(link)?continueissue/",
           "group": "issues_0@2"
         },
         {
           "command": "pr.create",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
+          "when": "view == issues:github && viewItem =~ /^(link)?currentissue/",
           "group": "issues_0@2"
         },
         {
           "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/",
+          "when": "view == issues:github && viewItem =~ /^(link)?currentissue/",
           "group": "issues_0@3"
         },
         {
           "command": "issue.stopWorking",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues != on",
+          "when": "view == issues:github && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues != on",
           "group": "inline@1"
         },
         {
           "command": "issue.stopWorkingBranchDescriptiveTitle",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues == on",
+          "when": "view == issues:github && viewItem =~ /^(link)?currentissue/ && config.githubIssues.useBranchForIssues == on",
           "group": "inline@1"
         },
         {
           "command": "issue.copyIssueNumber",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
+          "when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "issues_1@1"
         },
         {
           "command": "issue.copyIssueUrl",
-          "when": "view =~ /issues:github/ && viewItem =~ /^(link)?(current|continue)?issue/",
+          "when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
           "group": "issues_1@2"
         },
         {
           "command": "issue.editQuery",
-          "when": "view =~ /issues:github/ && viewItem == query",
+          "when": "view == issues:github && viewItem == query",
           "group": "inline"
         },
         {
           "command": "issue.editQuery",
-          "when": "view =~ /issues:github/ && viewItem == query"
+          "when": "view == issues:github && viewItem == query"
         }
       ],
       "editor/title": [
