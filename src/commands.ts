@@ -221,18 +221,6 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	function chooseReviewManager() {
-		return chooseItem<ReviewManager>(reviewManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath));
-	}
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async () => {
-		(await chooseReviewManager())?.createPullRequest();
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('pr.createDraft', async () => {
-		(await chooseReviewManager())?.createPullRequest(true);
-	}));
-
 	context.subscriptions.push(vscode.commands.registerCommand('azdopr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 		let pullRequestModel: PullRequestModel;
 

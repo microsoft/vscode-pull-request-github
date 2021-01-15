@@ -39,7 +39,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			this._onDidChangeTreeData.fire();
 		}));
 
-		this._disposables.push(vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
+		this._disposables.push(vscode.commands.registerCommand('azdopr.loadMore', (node: CategoryTreeNode) => {
 			node.fetchNextPage = true;
 			this._onDidChangeTreeData.fire(node);
 		}));

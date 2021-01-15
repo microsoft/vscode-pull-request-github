@@ -46,7 +46,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Load more';
 				this.command = {
 					title: 'Load more',
-					command: 'pr.loadMore',
+					command: 'azdopr.loadMore',
 					arguments: [
 						node
 					]
@@ -56,7 +56,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Continue fetching from other remotes';
 				this.command = {
 					title: 'Load more',
-					command: 'pr.loadMore',
+					command: 'azdopr.loadMore',
 					arguments: [
 						node
 					]
