@@ -12,7 +12,7 @@ import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 import { RepositoriesManager } from '../azdo/repositoriesManager';
-import { SETTINGS_NAMESPACE } from '../constants';
+import { SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../constants';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -33,7 +33,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		private _telemetry: ITelemetry
 	) {
 		this._disposables = [];
-		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', getInMemPRContentProvider()));
+		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider(URI_SCHEME_PR, getInMemPRContentProvider()));
 		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
 		this._disposables.push(vscode.commands.registerCommand('azdopr.refreshList', _ => {
 			this._onDidChangeTreeData.fire();

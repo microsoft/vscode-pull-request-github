@@ -9,6 +9,7 @@ import { FolderRepositoryManager } from '../azdo/folderRepositoryManager';
 import { GHPRCommentThread, GHPRComment, TemporaryComment } from '../azdo/prComment';
 import { PullRequestModel } from '../azdo/pullRequestModel';
 import { getCommentThreadStatusKeys, updateCommentThreadLabel } from '../azdo/utils';
+import { URI_SCHEME_PR, URI_SCHEME_REVIEW } from '../constants';
 import { GitFileChangeNode, gitFileChangeNodeFilter, InMemFileChangeNode, RemoteFileChangeNode } from '../view/treeNodes/fileChangeNode';
 import { getCommentingRanges } from './commentingRanges';
 import Logger from './logger';
@@ -157,21 +158,21 @@ export class CommonCommentHandler {
 		: Promise<GitFileChangeNode | InMemFileChangeNode> {
 		let fileName: string;
 		let isOutdated = false;
-		if (uri.scheme === 'review') {
+		if (uri.scheme === URI_SCHEME_REVIEW) {
 			const query = fromReviewUri(uri);
 			isOutdated = query.isOutdated;
 			fileName = query.path;
 		}
 
-		if (uri.scheme === 'pr') {
+		if (uri.scheme === URI_SCHEME_PR) {
 			fileName = fromPRUri(uri)!.fileName;
 		}
 
 		const fileChangesToSearch = await getFileChanges(isOutdated);
 
-		const matchedFile = (uri.scheme === 'review' ? gitFileChangeNodeFilter(fileChangesToSearch) : fileChangesToSearch)
+		const matchedFile = (uri.scheme === URI_SCHEME_REVIEW ? gitFileChangeNodeFilter(fileChangesToSearch) : fileChangesToSearch)
 			.find(fileChange => {
-				if (uri.scheme === 'review' || uri.scheme === 'pr') {
+				if (uri.scheme === URI_SCHEME_REVIEW || uri.scheme === URI_SCHEME_PR) {
 					return fileChange.fileName === fileName;
 				} else {
 					return fileChange.filePath.path === uri.path;
@@ -221,7 +222,7 @@ export class CommonCommentHandler {
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken, getFileChanges: () => Promise<(RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[]>): Promise<vscode.Range[] | undefined>  {
-		if (document.uri.scheme === 'pr') {
+		if (document.uri.scheme === URI_SCHEME_PR) {
 			const params = fromPRUri(document.uri);
 
 			if (!params || params.prNumber !== this.pullRequestModel.getPullRequestId()) {

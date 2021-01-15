@@ -25,7 +25,7 @@ import { DirectoryTreeNode } from './directoryTreeNode';
 import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { CommentPermissions, CommentWithPermissions } from '../../azdo/interface';
 import { CommonCommentHandler } from '../../common/commonCommentHandler';
-import { SETTINGS_NAMESPACE } from '../../constants';
+import { SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../../constants';
 import { mapThreadsToBase } from '../../common/commentingRanges';
 
 /**
@@ -305,7 +305,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	async refreshExistingPREditors(editors: vscode.TextEditor[], incremental: boolean): Promise<void> {
 		let currentPRDocuments = editors.filter(editor => {
-			if (editor.document.uri.scheme !== 'pr') {
+			if (editor.document.uri.scheme !== URI_SCHEME_PR) {
 				return false;
 			}
 
@@ -381,7 +381,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		}
 
 		const editorUri = editor.document.uri;
-		if (editorUri.scheme !== 'pr') {
+		if (editorUri.scheme !== URI_SCHEME_PR) {
 			return;
 		}
 
@@ -430,7 +430,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	// #region Helper
 	hasCommentThread(thread: vscode.CommentThread): boolean {
-		if (thread.uri.scheme !== 'pr') {
+		if (thread.uri.scheme !== URI_SCHEME_PR) {
 			return false;
 		}
 

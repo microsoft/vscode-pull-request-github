@@ -23,6 +23,7 @@ import { getCommentingRanges, mapThreadsToBase } from '../common/commentingRange
 import { GitPullRequestCommentThread, Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { CommentPermissions } from '../azdo/interface';
 import { CommonCommentHandler } from '../common/commonCommentHandler';
+import { URI_SCHEME_PR, URI_SCHEME_REVIEW } from '../constants';
 
 function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, commentThreads: GHPRCommentThread[]) {
 	commentThreads.forEach(thread => {
@@ -78,7 +79,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		private _comments: GitPullRequestCommentThread[],
 		private _getCommentPermissions: (comment: Comment) => CommentPermissions) {
-		this._commentController = vscode.comments.createCommentController(`review-${_reposManager.activePullRequest!.getPullRequestId()}`, _reposManager.activePullRequest!.item.title ?? '');
+		this._commentController = vscode.comments.createCommentController(`azdopr-review-${_reposManager.activePullRequest!.getPullRequestId()}`, _reposManager.activePullRequest!.item.title ?? '');
 		this._commentController.commentingRangeProvider = this;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
@@ -168,7 +169,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			this._visibleNormalTextEditors = visibleTextEditors.filter(ed => ed.document.uri.scheme !== 'comment');
 			// remove comment threads in `pr/review` documents if there are no longer visible
 			const prEditors = visibleTextEditors.filter(editor => {
-				if (editor.document.uri.scheme !== 'pr') {
+				if (editor.document.uri.scheme !== URI_SCHEME_PR) {
 					return false;
 				}
 
@@ -183,14 +184,14 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 			this._reviewDocumentCommentThreads.maybeDisposeThreads(visibleTextEditors, (editor: vscode.TextEditor, fileName: string, isBase: boolean) => {
 				const editorFileName = this.gitRelativeRootPath(editor.document.uri.path);
-				if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme && editor.document.uri.query) {
+				if (editor.document.uri.scheme !== URI_SCHEME_REVIEW && editor.document.uri.scheme === this._repository.rootUri.scheme && editor.document.uri.query) {
 					const params = fromReviewUri(editor.document.uri);
 					if (fileName === editorFileName && params.base === isBase) {
 						return true;
 					}
 				}
 
-				if (editor.document.uri.scheme !== 'review') {
+				if (editor.document.uri.scheme !== URI_SCHEME_REVIEW) {
 					return false;
 				}
 
@@ -256,7 +257,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	async updateCommentThreadsForEditor(editor: vscode.TextEditor): Promise<void> {
-		if (editor.document.uri.scheme === 'pr') {
+		if (editor.document.uri.scheme === URI_SCHEME_PR) {
 			const params = fromPRUri(editor.document.uri);
 
 			if (params && params.prNumber === this._reposManager.activePullRequest!.getPullRequestId()) {
@@ -353,11 +354,11 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #endregion
 
 	hasCommentThread(thread: vscode.CommentThread): boolean {
-		if (thread.uri.scheme === 'review') {
+		if (thread.uri.scheme === URI_SCHEME_REVIEW) {
 			return true;
 		}
 
-		if (thread.uri.scheme === 'pr') {
+		if (thread.uri.scheme === URI_SCHEME_PR) {
 			const params = fromPRUri(thread.uri);
 			if (this._reposManager.activePullRequest && params && this._reposManager.activePullRequest.getPullRequestId() === params.prNumber) {
 				return true;
@@ -382,7 +383,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		const uri = thread.uri;
 		const currentWorkspace = vscode.workspace.getWorkspaceFolder(uri)!;
 		switch (uri.scheme) {
-			case 'pr':
+			case URI_SCHEME_PR:
 				const params = fromPRUri(uri);
 				if (params) {
 					const { fileName, isBase } = params;
@@ -391,7 +392,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				}
 				return;
 
-			case 'review':
+			case URI_SCHEME_REVIEW:
 				const reviewParams = uri.query && fromReviewUri(uri);
 				if (reviewParams) {
 					const documentFileName = this.gitRelativeRootPath(uri.path);
@@ -412,7 +413,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
-		if (document.uri.scheme === 'pr') {
+		if (document.uri.scheme === URI_SCHEME_PR) {
 			return await this._commonCommentHandler.provideCommentingRanges(document, token, async () => this._localFileChanges);
 		}
 
@@ -596,7 +597,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				return false;
 			}
 
-			if (fileChange.filePath.scheme !== 'review') {
+			if (fileChange.filePath.scheme !== URI_SCHEME_REVIEW) {
 				// local file
 
 				if (fileChange.sha === query.commit) {

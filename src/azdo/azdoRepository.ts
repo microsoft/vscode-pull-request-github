@@ -55,7 +55,7 @@ export class AzdoRepository implements vscode.Disposable {
 			}
 
 			await this.ensure();
-			this.commentsController = vscode.comments.createCommentController(`browse-${this.remote.normalizedHost}`, `Azdo Pull Request for ${this.remote.normalizedHost}`);
+			this.commentsController = vscode.comments.createCommentController(`azdopr-browse-${this.remote.normalizedHost}`, `Azdo Pull Request for ${this.remote.normalizedHost}`);
 			this.commentsHandler = new PRCommentController(this.commentsController);
 			this._toDispose.push(this.commentsController);
 			this._toDispose.push(this.commentsController);

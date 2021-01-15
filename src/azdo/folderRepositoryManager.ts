@@ -16,7 +16,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import { formatError, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef, GitErrorCodes } from '../api/api';
 import Logger from '../common/logger';
-import { EXTENSION_ID, SETTINGS_NAMESPACE } from '../constants';
+import { EXTENSION_ID, SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTIdentityToAccount, getRelatedUsersFromPullrequest, loginComparator } from './utils';
 import { ITelemetry } from '../common/telemetry';
@@ -205,7 +205,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 					const activeTextEditors = vscode.window.visibleTextEditors;
 					if (activeTextEditors.length) {
-						const visiblePREditor = activeTextEditors.find(editor => editor.document.uri.scheme === 'pr');
+						const visiblePREditor = activeTextEditors.find(editor => editor.document.uri.scheme === URI_SCHEME_PR);
 
 						if (visiblePREditor) {
 							const params = fromPRUri(visiblePREditor.document.uri);

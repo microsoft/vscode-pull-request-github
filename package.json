@@ -636,38 +636,38 @@
         {
           "command": "azdopr.createComment",
           "group": "inline",
-          "when": "commentController =~ /^(browse|review)/"
+          "when": "commentController =~ /^azdopr-(browse|review)/"
         }
       ],
       "comments/commentThread/title": [
         {
           "command": "azdopr.changeThreadStatus",
           "group": "inline",
-          "when": "commentController =~ /^(browse|review)/ && !commentThreadIsEmpty"
+          "when": "commentController =~ /^azdopr-(browse|review)/ && !commentThreadIsEmpty"
         }
       ],
       "comments/comment/title": [
         {
           "command": "azdopr.editComment",
           "group": "inline@1",
-          "when": "commentController =~ /^(browse|review)/ && comment =~ /canEdit/"
+          "when": "commentController =~ /^azdopr-(browse|review)/ && comment =~ /canEdit/"
         },
         {
           "command": "azdopr.deleteComment",
           "group": "inline@2",
-          "when": "commentController =~ /^(browse|review)/ && comment =~ /canDelete/"
+          "when": "commentController =~ /^azdopr-(browse|review)/ && comment =~ /canDelete/"
         }
       ],
       "comments/comment/context": [
         {
           "command": "azdopr.cancelEditComment",
           "group": "inline@1",
-          "when": "commentController =~ /^(browse|review)/"
+          "when": "commentController =~ /^azdopr-(browse|review)/"
         },
         {
           "command": "azdopr.saveComment",
           "group": "inline@2",
-          "when": "commentController =~ /^(browse|review)/"
+          "when": "commentController =~ /^azdopr-(browse|review)/"
         }
       ]
     },
