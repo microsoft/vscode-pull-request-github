@@ -13,6 +13,9 @@ This extension is inspired and based on [Github Pull Request Extension for VS Co
 
 > Disclaimer: Although I work at Microsoft and this is a fork of Github PR Extension, this extension is not an official release or supported by Microsoft. This is a side project that I will try to maintain in my free time. Any help is always appreciated.
 
+![PR Diff](documentation/images/pr_modified.jpg)
+![PR Dashboard](documentation/images/pr_dashboard.jpg)
+
 ## Getting Started
 It's easy to get started with Azure Devops Pull Requests for Visual Studio Code. Simply follow these steps to get started.
 
