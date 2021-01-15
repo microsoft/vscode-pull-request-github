@@ -526,27 +526,27 @@
       "view/title": [
         {
           "command": "azdopr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(azdopr|issues):/",
+          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(azdopr|issues):azdo/",
           "group": "navigation@3"
         },
         {
           "command": "azdopr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /azdopr:/",
+          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view == azdopr:azdo",
           "group": "navigation@2"
         },
         {
           "command": "azdopr.refreshChanges",
-          "when": "view =~ /azdoprStatus/",
+          "when": "view == azdoprStatus:azdo",
           "group": "navigation@2"
         },
         {
           "command": "azdopr.setFileListLayoutAsTree",
-          "when": "view =~ /azdoprStatus/ && fileListLayout:flat",
+          "when": "view == azdoprStatus:azdo && fileListLayout:flat",
           "group": "navigation"
         },
         {
           "command": "azdopr.setFileListLayoutAsFlat",
-          "when": "view =~ /azdoprStatus/ && !fileListLayout:flat",
+          "when": "view == azdoprStatus:azdo && !fileListLayout:flat",
           "group": "navigation"
         },
         {
@@ -558,64 +558,64 @@
       "view/item/context": [
         {
           "command": "azdopr.pick",
-          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+          "when": "view == azdopr:azdo && viewItem =~ /pullrequest(:local)?:nonactive|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "azdopr.pick",
-          "when": "view =~ /azdopr:/ && viewItem =~ /description/",
+          "when": "view == azdopr:azdo && viewItem =~ /description/",
           "group": "inline"
         },
         {
           "command": "azdopr.exit",
-          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest(:local)?:active|description/",
+          "when": "view == azdopr:azdo && viewItem =~ /pullrequest(:local)?:active|description/",
           "group": "pullrequest@1"
         },
         {
           "command": "azdopr.refreshPullRequest",
-          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest|description/",
+          "when": "view == azdopr:azdo && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@2"
         },
         {
           "command": "azdopr.openPullRequestInAzdo",
-          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest|description/",
+          "when": "view == azdopr:azdo && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
         {
           "command": "azdopr.deleteLocalBranch",
-          "when": "view =~ /azdopr:/ && viewItem =~ /pullrequest:local:nonactive/",
+          "when": "view == azdopr:azdo && viewItem =~ /pullrequest:local:nonactive/",
           "group": "pullrequest@4"
         },
         {
           "command": "azdopr.openFileInAzdo",
-          "when": "view =~ /(azdopr|azdoprStatus)/ && viewItem =~ /filechange/"
+          "when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange/"
         },
         {
           "command": "azdopr.copyCommitHash",
-          "when": "view =~ /azdoprStatus/ && viewItem =~ /commit/"
+          "when": "view == azdoprStatus:azdo && viewItem =~ /commit/"
         },
         {
           "command": "azdopr.openDescriptionToTheSide",
           "group": "inline",
-          "when": "view =~ /(azdopr|azdoprStatus)/ && viewItem =~ /description/"
+          "when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /description/"
         },
         {
           "command": "azdoreview.openFile",
           "group": "inline",
-          "when": "config.git.openDiffOnClick && view =~ /azdoprStatus/ && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "config.git.openDiffOnClick && view == azdoprStatus:azdo && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
           "command": "azdopr.openDiffView",
           "group": "inline",
-          "when": "!config.git.openDiffOnClick && view =~ /azdoprStatus/ && viewItem =~ /filechange(?!:DELETE)/"
+          "when": "!config.git.openDiffOnClick && view == azdoprStatus:azdo && viewItem =~ /filechange(?!:DELETE)/"
         },
         {
           "command": "azdopr.openOriginalFile",
-          "when": "view =~ /(azdopr|azdoprStatus)/ && viewItem =~ /filechange:MODIFY/"
+          "when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange:MODIFY/"
         },
         {
           "command": "azdopr.openModifiedFile",
-          "when": "view =~ /(azdopr|azdoprStatus)/ && viewItem =~ /filechange:MODIFY/"
+          "when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange:MODIFY/"
         }
       ],
       "editor/title": [
