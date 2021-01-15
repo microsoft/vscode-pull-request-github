@@ -14,6 +14,11 @@ export interface InputBox {
 	value: string;
 }
 
+export const enum ForcePushMode {
+	Force,
+	ForceWithLease
+}
+
 export const enum RefType {
 	Head,
 	RemoteHead,
@@ -130,6 +135,8 @@ export interface CommitOptions {
 	signoff?: boolean;
 	signCommit?: boolean;
 	empty?: boolean;
+	noVerify?: boolean;
+	requireUserConfig?: boolean;
 }
 
 export interface BranchQuery {
@@ -192,7 +199,7 @@ export interface Repository {
 
 	fetch(remote?: string, ref?: string, depth?: number): Promise<void>;
 	pull(unshallow?: boolean): Promise<void>;
-	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
+	push(remoteName?: string, branchName?: string, setUpstream?: boolean, force?: ForcePushMode): Promise<void>;
 
 	blame(path: string): Promise<string>;
 	log(options?: LogOptions): Promise<Commit[]>;
@@ -211,13 +218,34 @@ export interface RemoteSourceProvider {
 	readonly icon?: string; // codicon name
 	readonly supportsQuery?: boolean;
 	getRemoteSources(query?: string): ProviderResult<RemoteSource[]>;
+	getBranches?(url: string): ProviderResult<string[]>;
+	publishRepository?(repository: Repository): Promise<void>;
+}
+
+export interface Credentials {
+	readonly username: string;
+	readonly password: string;
+}
+
+export interface CredentialsProvider {
+	getCredentials(host: Uri): ProviderResult<Credentials>;
+}
+
+export interface PushErrorHandler {
+	handlePushError(repository: Repository, remote: Remote, refspec: string, error: Error & { gitErrorCode: GitErrorCodes }): Promise<boolean>;
 }
 
 export type APIState = 'uninitialized' | 'initialized';
 
+export interface PublishEvent {
+	repository: Repository;
+	branch?: string;
+}
+
 export interface GitAPI {
 	readonly state: APIState;
 	readonly onDidChangeState: Event<APIState>;
+	readonly onDidPublish: Event<PublishEvent>;
 	readonly git: Git;
 	readonly repositories: Repository[];
 	readonly onDidOpenRepository: Event<Repository>;
@@ -226,7 +254,10 @@ export interface GitAPI {
 	toGitUri(uri: Uri, ref: string): Uri;
 	getRepository(uri: Uri): Repository | null;
 	init(root: Uri): Promise<Repository | null>;
+
 	registerRemoteSourceProvider(provider: RemoteSourceProvider): Disposable;
+	registerCredentialsProvider(provider: CredentialsProvider): Disposable;
+	registerPushErrorHandler(handler: PushErrorHandler): Disposable;
 }
 
 export interface GitExtension {
@@ -264,6 +295,7 @@ export const enum GitErrorCodes {
 	CantOpenResource = 'CantOpenResource',
 	GitNotFound = 'GitNotFound',
 	CantCreatePipe = 'CantCreatePipe',
+	PermissionDenied = 'PermissionDenied',
 	CantAccessRemote = 'CantAccessRemote',
 	RepositoryNotFound = 'RepositoryNotFound',
 	RepositoryIsLocked = 'RepositoryIsLocked',

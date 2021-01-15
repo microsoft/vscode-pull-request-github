@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Event, Disposable } from 'vscode';
-import { APIState } from '../typings/git';
+import { APIState, PublishEvent } from '../typings/git';
 
 export interface InputBox {
 	value: string;
@@ -270,6 +270,7 @@ export interface IGit {
 	// Used by the actual git extension to indicate it has finished initializing state information
 	readonly state?: APIState;
 	readonly onDidChangeState?: Event<APIState>;
+	readonly onDidPublish?: Event<PublishEvent>;
 }
 
 export interface API {
