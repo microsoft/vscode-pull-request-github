@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.2
+
+### Changes
+
+- Changed command names and view names to make it globally unique.
+
 ## 0.0.1
 
 ### Changes
