@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.3
+### Changes
+
+- Changed URI Scheme
+- Backported #2538 from upstream
+
 ## 0.0.2
 
 ### Changes
