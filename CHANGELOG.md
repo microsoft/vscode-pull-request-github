@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.4
+### Changes
+
+- Added ssh.dev.azure.com to list of valid hosts - Fixes [ankitbko/vscode-pull-request-azdo#3](https://github.com/ankitbko/vscode-pull-request-azdo/issues/3)
+
 ## 0.0.3
 ### Changes
 
