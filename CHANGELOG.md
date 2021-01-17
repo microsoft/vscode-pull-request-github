@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.5
+### Changes
+
+- Specified allowCrossOriginAuthentication as true as attempt to fix fix [ankitbko/vscode-pull-request-azdo#4](https://github.com/ankitbko/vscode-pull-request-azdo/issues/4)
+
 ## 0.0.4
 ### Changes
 
