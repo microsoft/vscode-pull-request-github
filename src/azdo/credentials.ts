@@ -16,7 +16,7 @@ export class Azdo {
 	public authenticatedUser: Identity | undefined;
 
 	constructor(public orgUrl: string, public projectName: string, token: string) {
-		this._authHandler = azdev.getPersonalAccessTokenHandler(token);
+		this._authHandler = azdev.getPersonalAccessTokenHandler(token, true);
 		this.connection = this.getNewWebApiClient(this.orgUrl);
 	}
 
@@ -26,6 +26,7 @@ export class Azdo {
 }
 
 export class CredentialStore implements vscode.Disposable {
+	static ID = 'AzdoRepository';
 	private _azdoAPI: Azdo | undefined;
 	private _orgUrl: string | undefined;
 	private _disposables: vscode.Disposable[];
@@ -99,14 +100,14 @@ export class CredentialStore implements vscode.Disposable {
 
 		const projectName = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(PROJECT_SETTINGS);
 		if (!projectName) {
-			Logger.appendLine('Project name is not provided');
+			Logger.appendLine('Project name is not provided', CredentialStore.ID);
 			this._telemetry.sendTelemetryEvent('auth.failed');
 			return undefined;
 		}
 
 		this._orgUrl = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(ORGURL_SETTINGS);
 		if (!this._orgUrl) {
-			Logger.appendLine('orgUrl is not provided');
+			Logger.appendLine('orgUrl is not provided', CredentialStore.ID);
 			this._telemetry.sendTelemetryEvent('auth.failed');
 			return undefined;
 		}
@@ -124,6 +125,7 @@ export class CredentialStore implements vscode.Disposable {
 			const azdo = new Azdo(this._orgUrl, projectName, token);
 			azdo.authenticatedUser = await (await azdo.connection.connect()).authenticatedUser;
 
+			Logger.debug(`Auth> Successful: Logged userid: ${azdo?.authenticatedUser?.id}`, CredentialStore.ID);
 			this._telemetry.sendTelemetryEvent('auth.success');
 
 			return azdo;
