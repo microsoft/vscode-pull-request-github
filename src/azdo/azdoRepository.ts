@@ -94,7 +94,11 @@ export class AzdoRepository implements vscode.Disposable {
 	async resolveRemote(): Promise<void> {
 		try {
 			const metadata = await this.getMetadata();
-			this.remote = parseRemote(this.remote.remoteName, metadata?.remoteUrl, this.remote.gitProtocol)!;
+			const remote = parseRemote(this.remote.remoteName, metadata?.remoteUrl, this.remote.gitProtocol)!;
+			// TODO Disabling this as it fixes #5 Dont know what it does
+			// this.remote = remote;
+			// tslint:disable-next-line: no-unused-expression
+			remote;
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
 		}
