@@ -33,18 +33,19 @@ export class CredentialStore implements vscode.Disposable {
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
 
-	private PAT_TOKEN_KEY = 'azdoRepo.pat.';
+	private static PAT_TOKEN_KEY = 'azdoRepo.pat.';
 
 	constructor(private readonly _telemetry: ITelemetry, private readonly _secretStore: vscode.SecretStorage) {
 		this._disposables = [];
-		this._disposables.push(vscode.authentication.onDidChangeSessions(() => {
-			if (!this.isAuthenticated()) {
-				return this.initialize();
-			}
-		}));
+		// this._disposables.push(vscode.authentication.onDidChangeSessions(() => {
+		// 	if (!this.isAuthenticated()) {
+		// 		return this.initialize();
+		// 	}
+		// }));
 
-		this._disposables.push(_secretStore.onDidChange(() => {
-			if (!this.isAuthenticated()) {
+		this._disposables.push(_secretStore.onDidChange((e) => {
+			const tokenKey = this.getTokenKey();
+			if (e.key === tokenKey && !this.isAuthenticated()) {
 				return this.initialize();
 			}
 		}));
@@ -87,8 +88,12 @@ export class CredentialStore implements vscode.Disposable {
 		this._azdoAPI = undefined;
 	}
 
-	private getTokenKey(orgUrl: string): string {
-		return this.PAT_TOKEN_KEY.concat(orgUrl);
+	public getTokenKey(orgUrl?: string): string {
+		let url = this._orgUrl ?? '';
+		if (!!orgUrl) {
+			url = orgUrl;
+		}
+		return CredentialStore.PAT_TOKEN_KEY.concat(url);
 	}
 
 	public async login(): Promise<Azdo | undefined> {

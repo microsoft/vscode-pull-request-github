@@ -433,11 +433,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('azdopr.signin', async () => {
-		if (await reposManager.authenticate()) {
-			if (reviewManagers) {
-				reviewManagers.forEach(reviewManager => reviewManager.updateState());
-			}
-		}
+		await reposManager.authenticate();
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('azdopr.deleteLocalBranchesNRemotes', async () => {

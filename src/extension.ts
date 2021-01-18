@@ -40,19 +40,21 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
-	vscode.authentication.onDidChangeSessions(async e => {
-		if (e.provider.id === 'github') {
+	// vscode.authentication.onDidChangeSessions(async e => {
+	// 	if (e.provider.id === 'github') {
+	// 		await reposManager.clearCredentialCache();
+	// 		if (reviewManagers) {
+	// 			reviewManagers.forEach(reviewManager => reviewManager.updateState());
+	// 		}
+	// 	}
+	// });
+
+	context.secrets.onDidChange(async (e) => {
+		if (e.key === credentialStore.getTokenKey()) {
 			await reposManager.clearCredentialCache();
 			if (reviewManagers) {
 				reviewManagers.forEach(reviewManager => reviewManager.updateState());
 			}
-		}
-	});
-
-	context.secrets.onDidChange(async () => {
-		await reposManager.clearCredentialCache();
-		if (reviewManagers) {
-			reviewManagers.forEach(reviewManager => reviewManager.updateState());
 		}
 	});
 
