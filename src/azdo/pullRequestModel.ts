@@ -477,7 +477,7 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 
 		const BATCH_SIZE = 10;
-		const batches = changes!.length/BATCH_SIZE;
+		const batches = (changes!.length - 1)/BATCH_SIZE;
 		const diffsPromises: Promise<FileDiff[]>[] = [];
 		for (let i: number = 0; i <=batches; i++) {
 			const batchedChanges = changes!.slice(i*BATCH_SIZE, Math.min((i+1)*BATCH_SIZE, changes!.length));
