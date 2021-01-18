@@ -2,16 +2,19 @@
 
 > This extension is in early stages of development. It currently works only in VSCode Insider.
 
-This extension is inspired and based on [Github Pull Request Extension for VS Code](https://github.com/Microsoft/vscode-pull-request-github). Currently the extension supports following feature -
+This extension is inspired and based on [Github Pull Request Extension for VS Code](https://github.com/Microsoft/vscode-pull-request-github). The extension only works with *git* based repository. *TFVC* is not supported. Currently the extension supports following feature -
 
 - Authenticating and connecting VS Code to Azure Devops.
 - Listing and browsing PRs from within VS Code.
 - Reviewing PRs from within VS Code with in-editor commenting.
 - Validating PRs from within VS Code with easy checkouts.
 
+You can read more about the basic features in my [blog](https://ankitbko.github.io/blog/2021/01/azdo-pr-vscode-extension/).
+
+
 > **Note From Author**: I created this extension during last 2 weeks of December 2020 as a fun side project. Having never created a VS Code Extension before this was quite a journey. I am currently planning to get this to somewhat stable state before adding more features to it. Please try this extension and report any bugs by raising issue. Since this is a fork of Github PR Extension I will try to backport important updates from upstream to this extension. If you feel there has been an important bug fix or feature update in upstream that you would like in this extension, please raise an Issue here with link to the PR or Issue in upstream.
 
-> Disclaimer: Although I work at Microsoft and this is a fork of Github PR Extension, this extension is not an official release or supported by Microsoft. This is a side project that I will try to maintain in my free time. Any help is always appreciated.
+> **Disclaimer**: Although I work at Microsoft and this is a fork of Github PR Extension, this extension is not an official release or supported by Microsoft. This is a side project that I will try to maintain in my free time. Any help is always appreciated.
 
 ![PR Diff](documentation/images/pr_modified.jpg)
 ![PR Dashboard](documentation/images/pr_dashboard.jpg)
@@ -58,6 +61,7 @@ It's easy to get started with Azure Devops Pull Requests for Visual Studio Code.
 1. Can't mention users in comments
 1. Workitems are not shown in PR Dashboard
 1. **Some incompatibility with Github PR Extension**. If you have both extensions installed and seeing issues with either try disabling the other extension and reloading the window.
+1. In some cases, user avatar image does not show up in Dashboard.
 
 ## Questions? Authentication?
 
