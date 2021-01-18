@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.7
+### Changes
+
+- Fixed overflow in batches calculation while getting files in PR
+
 ## 0.0.6
 ### Changes
 
