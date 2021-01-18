@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.6
+### Changes
+
+- Disabled resolveRemote to fix [ankitbko/vscode-pull-request-azdo#5](https://github.com/ankitbko/vscode-pull-request-azdo/issues/5)
+- Added key check on secretStore onDidChange.
+
 ## 0.0.5
 ### Changes
 
