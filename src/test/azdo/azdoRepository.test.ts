@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../azdo/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -9,6 +8,7 @@ import { AzdoRepository } from '../../azdo/azdoRepository';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import {expect} from 'chai';
+import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
 
 describe('AzdoRepository', function () {
 	let sinon: SinonSandbox;
@@ -25,11 +25,7 @@ describe('AzdoRepository', function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
-		const secretStorage = <vscode.SecretStorage>{};
-
-		secretStorage.get = sinon.stub().returns(process.env.VSCODE_PR_AZDO_TEST_PAT);
-		secretStorage.set = sinon.stub();
-		secretStorage.delete = sinon.stub();
+		const secretStorage = createFakeSecretStorage();
 
 		telemetry = new MockTelemetry();
 		credentialStore = new CredentialStore(telemetry, secretStorage);

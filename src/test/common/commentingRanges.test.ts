@@ -4,79 +4,104 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert = require('assert');
+import { FileDiff, LineDiffBlockChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { getDiffHunkFromFileDiff } from '../../azdo/utils';
 import { getCommentingRanges } from '../../common/commentingRanges';
-import { parsePatch } from '../../common/diffHunk';
 
-const patch = [
-	`"@@ -8,6 +8,7 @@ import { Terminal } from './Terminal';`,
-	` import { MockViewport, MockCompositionHelper, MockRenderer } from './TestUtils.test';`,
-	` import { DEFAULT_ATTR_DATA } from 'common/buffer/BufferLine';`,
-	` import { CellData } from 'common/buffer/CellData';`,
-	`+import { wcwidth } from 'common/CharWidth';`,
-	` `,
-	` const INIT_COLS = 80;`,
-	` const INIT_ROWS = 24;`,
-	`@@ -750,10 +751,14 @@ describe('Terminal', () => {`,
-	`        for (let i = 0xDC00; i <= 0xDCFF; ++i) {`,
-	`        term.buffer.x = term.cols - 1;`,
-	`        term.wraparoundMode = false;`,
-	`+        const width = wcwidth((0xD800 - 0xD800) * 0x400 + i - 0xDC00 + 0x10000);`,
-	`+        if (width !== 1) {`,
-	`+          continue;`,
-	`+        }`,
-	`        term.write('a' + high + String.fromCharCode(i));`,
-	`        // auto wraparound mode should cut off the rest of the line`,
-	`-        expect(term.buffer.lines.get(0).loadCell(term.cols - 1, cell).getChars()).eql('a');`,
-	`-        expect(term.buffer.lines.get(0).loadCell(term.cols - 1, cell).getChars().length).eql(1);`,
-	`+        expect(term.buffer.lines.get(0).loadCell(term.cols - 1, cell).getChars()).eql(high + String.fromCharCode(i));`,
-	`+        expect(term.buffer.lines.get(0).loadCell(term.cols - 1, cell).getChars().length).eql(2);`,
-	`         expect(term.buffer.lines.get(1).loadCell(1, cell).getChars()).eql('');`,
-	`         term.reset();`,
-	` }"`
-].join('\n');
+const edit_filediff: FileDiff = {
+	path: '/Readme.md',
+	originalPath: '/Readme.md',
+	lineDiffBlocks: [
+		{
+			changeType: LineDiffBlockChangeType.None,
+			originalLineNumberStart: 1,
+			originalLinesCount: 40,
+			modifiedLineNumberStart: 1,
+			modifiedLinesCount: 40
+		},
+		{
+			changeType: LineDiffBlockChangeType.Edit,
+			originalLineNumberStart: 41,
+			originalLinesCount: 1,
+			modifiedLineNumberStart: 41,
+			modifiedLinesCount: 2
+		},
+		{
+			changeType: LineDiffBlockChangeType.None,
+			originalLineNumberStart: 42,
+			originalLinesCount: 61,
+			modifiedLineNumberStart: 43,
+			modifiedLinesCount: 61
+		},
+		{
+			changeType: LineDiffBlockChangeType.Edit,
+			originalLineNumberStart: 103,
+			originalLinesCount: 1,
+			modifiedLineNumberStart: 104,
+			modifiedLinesCount: 1
+		},
+		{
+			changeType: LineDiffBlockChangeType.None,
+			originalLineNumberStart: 104,
+			originalLinesCount: 228,
+			modifiedLineNumberStart: 105,
+			modifiedLinesCount: 228
+		}
+	]
+};
 
-const deletionPatch = [
-	`"@@ -1,5 +0,0 @@`,
-	`-var express = require('express');`,
-	`-var path = require('path');`,
-	`-var favicon = require('serve-favicon');`,
-	`-var logger = require('morgan');`,
-	`-var cookieParser = require('cookie-parser');`
-].join('\n');
+const delete_filediff: FileDiff = {
+	path: '',
+	originalPath: '/README.md',
+	lineDiffBlocks: [
+		{
+			changeType: LineDiffBlockChangeType.Delete,
+			originalLineNumberStart: 1,
+			originalLinesCount: 22,
+			modifiedLineNumberStart: 0,
+			modifiedLinesCount: 0
+		}
+	]
+};
 
-const diffHunks = parsePatch(patch);
+const edit_hunks = getDiffHunkFromFileDiff(edit_filediff);
 
 describe('getCommentingRanges', () => {
 	it('shoud return only ranges for deleted lines, mapped to full file, for the base file', () => {
-		const commentingRanges = getCommentingRanges(diffHunks, true);
-		assert.equal(commentingRanges.length, 1);
-		assert.equal(commentingRanges[0].start.line, 754);
+		const commentingRanges = getCommentingRanges(edit_hunks, true);
+		assert.equal(commentingRanges.length, 2);
+		assert.equal(commentingRanges[0].start.line, 40);
 		assert.equal(commentingRanges[0].start.character, 0);
-		assert.equal(commentingRanges[0].end.line, 755);
+		assert.equal(commentingRanges[0].end.line, 40);
 		assert.equal(commentingRanges[0].end.character, 0);
+
+		assert.equal(commentingRanges[1].start.line, 102);
+		assert.equal(commentingRanges[1].start.character, 0);
+		assert.equal(commentingRanges[1].end.line, 102);
+		assert.equal(commentingRanges[1].end.character, 0);
 	});
 
 	it('shoud return only ranges for changes, mapped to full file, for the modified file', () => {
-		const commentingRanges = getCommentingRanges(diffHunks, false);
+		const commentingRanges = getCommentingRanges(edit_hunks, false);
 		assert.equal(commentingRanges.length, 2);
-		assert.equal(commentingRanges[0].start.line, 7);
+		assert.equal(commentingRanges[0].start.line, 37);
 		assert.equal(commentingRanges[0].start.character, 0);
-		assert.equal(commentingRanges[0].end.line, 13);
+		assert.equal(commentingRanges[0].end.line, 44);
 		assert.equal(commentingRanges[0].end.character, 0);
 
-		assert.equal(commentingRanges[1].start.line, 750);
+		assert.equal(commentingRanges[1].start.line, 100);
 		assert.equal(commentingRanges[1].start.character, 0);
-		assert.equal(commentingRanges[1].end.line, 763);
+		assert.equal(commentingRanges[1].end.line, 105);
 		assert.equal(commentingRanges[1].end.character, 0);
 	});
 
 	it('should handle the last part of the diff being a deletion, for the base file', () => {
-		const diffHunksForDeletion = parsePatch(deletionPatch);
+		const diffHunksForDeletion = getDiffHunkFromFileDiff(delete_filediff);
 		const commentingRanges = getCommentingRanges(diffHunksForDeletion, true);
 		assert.equal(commentingRanges.length, 1);
 		assert.equal(commentingRanges[0].start.line, 0);
 		assert.equal(commentingRanges[0].start.character, 0);
-		assert.equal(commentingRanges[0].end.line, 4);
+		assert.equal(commentingRanges[0].end.line, 21);
 		assert.equal(commentingRanges[0].end.character, 0);
 	});
 });

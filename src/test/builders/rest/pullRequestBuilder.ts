@@ -2,6 +2,7 @@ import * as OctokitTypes from '@octokit/types';
 import { UserBuilder } from './userBuilder';
 import { RefBuilder } from './refBuilder';
 import { createLink, createBuilderClass } from '../base';
+import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export type PullRequestUnion =
 	OctokitTypes.PullsGetResponseData;
@@ -101,3 +102,5 @@ export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 });
 
 export type PullRequestBuilder = InstanceType<typeof PullRequestBuilder>;
+
+export type AzdoPullRequestUnion = GitPullRequest;

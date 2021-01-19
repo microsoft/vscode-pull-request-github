@@ -53,7 +53,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	private _commentHandlerId: string;
 
 	private _commentController?: vscode.CommentController;
-	private _commonCommentHandler: CommonCommentHandler;
+	protected _commonCommentHandler: CommonCommentHandler;
 
 	public get commentController(): vscode.CommentController | undefined {
 		return this._commentController;

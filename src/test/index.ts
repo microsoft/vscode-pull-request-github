@@ -45,7 +45,8 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	});
 	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
 
-	await addTests(mocha, path.resolve(testsRoot, './azdo'));
+	await addTests(mocha, path.resolve(testsRoot, testsRoot));
+	// await addTests(mocha, path.resolve(testsRoot, './azdo'));
 	await addTests(mocha, path.resolve(testsRoot, '../../webviews/test'));
 
 	if (process.env.TEST_JUNIT_XML_PATH) {

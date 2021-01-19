@@ -3,6 +3,7 @@ import { UserBuilder } from './userBuilder';
 import { OrganizationBuilder } from './organizationBuilder';
 import { createBuilderClass, createLink } from '../base';
 import { OctokitCommon } from '../../../github/common';
+import { GitRepository } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export type RepoUnion =
 	OctokitTypes.ReposGetResponseData &
@@ -120,3 +121,7 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 });
 
 export type RepositoryBuilder = InstanceType<typeof RepositoryBuilder>;
+
+export type AzdoRepoUnion = GitRepository;
+
+

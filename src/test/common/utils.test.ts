@@ -31,7 +31,7 @@ describe('utils', () => {
 
 		it('should format an error with field errors', () => {
 			const error = new HookError('Validation Failed', [{ field: 'title', value: 'garbage', code: 'custom' }]);
-			assert.equal(utils.formatError(error), 'Value "garbage" cannot be set for field title (code: custom)');
+			assert.equal(utils.formatError(error), 'Validation Failed: Value "garbage" cannot be set for field title (code: custom)');
 		});
 
 		it('should format an error with custom ', () => {

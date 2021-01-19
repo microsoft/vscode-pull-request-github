@@ -1,5 +1,7 @@
 import { createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
+import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 
 type UserUnion =
 	OctokitCommon.PullsListResponseItemUser |
@@ -34,3 +36,18 @@ export const UserBuilder = createBuilderClass<UserUnion>()({
 });
 
 export type UserBuilder = InstanceType<typeof UserBuilder>;
+
+type AzdoUserUnion =
+	Identity |
+	IdentityRef;
+
+export const AzdoUserBuilder = createBuilderClass<AzdoUserUnion>()({
+	id: { default: '0' },
+	url: { default: 'https://dev.azure.com/user/profile'},
+	displayName: { default: 'User Display Name'},
+	imageUrl: { default: 'https://dev.azure.com/user/profile/image'},
+	profileUrl: { default: 'https://dev.azure.com/user/profile' },
+	uniqueName: { default: 'UserUniqueName@email.com' }
+});
+
+export type AzdoUserBuilder = InstanceType<typeof AzdoUserBuilder>;

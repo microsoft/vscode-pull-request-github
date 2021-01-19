@@ -1,18 +1,21 @@
 import assert = require('assert');
 
 import { MockRepository } from '../mocks/mockRepository';
-import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
-import { PullRequestModel } from '../../github/pullRequestModel';
-import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
+import { PullRequestGitHelper } from '../../azdo/pullRequestGitHelper';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { createMock } from 'ts-auto-mock';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
-import { CredentialStore } from '../../github/credentials';
+import { CredentialStore } from '../../azdo/credentials';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { SinonSandbox, createSandbox } from 'sinon';
-import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { RefType } from '../../api/api';
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
+import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
+import { IRepository } from '../../azdo/interface';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
@@ -27,7 +30,8 @@ describe('PullRequestGitHelper', function () {
 
 		repository = new MockRepository();
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		const secretStore = createFakeSecretStorage();
+		credentialStore = new CredentialStore(telemetry, secretStore);
 	});
 
 	afterEach(function () {
@@ -38,29 +42,39 @@ describe('PullRequestGitHelper', function () {
 		it('fetches, checks out, and configures a branch from a fork', async function () {
 			const url = 'git@github.com:owner/name.git';
 			const remote = new Remote('elsewhere', url, new Protocol(url));
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			// const azdoRepository = sinon.mock(new AzdoRepository(remote, credentialStore, telemetry));
+			// azdoRepository.expects('getBranchRef').resolves({
+			// 	ref: '',
+			// 	sha: '',
+			// 	exist: true,
+			// });
 
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder()
-					.number(100)
-					.user(u => u.login('me'))
-					.base(b => {
-						b.repo(r => r.clone_url('git@github.com:owner/name.git'));
-					})
-					.head(h => {
-						h.repo(r => r.clone_url('git@github.com:you/name.git'));
-						h.ref('my-branch');
-					})
-					.build(),
-				gitHubRepository,
-			);
+			const azdoRepository = new MockAzdoRepository(remote, credentialStore, telemetry, sinon);
+			azdoRepository.getBranchRef = sinon.stub(azdoRepository, 'getBranchRef').resolves({
+				ref: 'my-branch',
+				sha: '',
+				exists: true,
+				repo: createMock<IRepository>({
+					cloneUrl: 'https://dev.azure.com/aaa/bbb/you/bbb'
+				})
+			});
+
+			const prItem = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>({
+				pullRequestId: 100,
+				createdBy: {
+					id: '1134',
+					uniqueName: 'me'
+				},
+				sourceRefName: 'ref/heads/my-branch',
+				targetRefName: 'ref/heads/main'
+			}), azdoRepository);
 
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);
 			repository.expectPull(true);
 
-			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, remote, prItem);
+			const pullRequest = new PullRequestModel(telemetry, azdoRepository, remote, prItem);
 
-			if (!pullRequest.isResolved()) {
+			if (pullRequest.isResolved() === false) {
 				assert(pullRequest.isResolved(), 'pull request head not resolved successfully');
 				return;
 			}
@@ -69,8 +83,8 @@ describe('PullRequestGitHelper', function () {
 
 			assert.deepEqual(repository.state.remotes, [{
 				name: 'you',
-				fetchUrl: 'git@github.com:you/name',
-				pushUrl: 'git@github.com:you/name',
+				fetchUrl: 'git@dev.azure.com:you/bbb',
+				pushUrl: 'git@dev.azure.com:you/bbb',
 				isReadOnly: false,
 			}]);
 			assert.deepEqual(repository.state.HEAD, {

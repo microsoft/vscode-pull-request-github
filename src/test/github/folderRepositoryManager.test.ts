@@ -1,18 +1,20 @@
 import assert = require('assert');
 import { createSandbox, SinonSandbox } from 'sinon';
+import { createMock } from 'ts-auto-mock';
+import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
-import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, titleAndBodyFrom } from '../../azdo/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
-import { GitHubRepository } from '../../github/githubRepository';
-import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
-import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
+import { AzdoRepository } from '../../azdo/azdoRepository';
 import { GitApiImpl } from '../../api/api1';
-import { CredentialStore } from '../../github/credentials';
+import { CredentialStore } from '../../azdo/credentials';
+import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -25,7 +27,8 @@ describe('PullRequestManager', function () {
 
 		telemetry = new MockTelemetry();
 		const repository = new MockRepository();
-		const credentialStore = new CredentialStore(telemetry);
+		const secretStorage = createFakeSecretStorage();
+		const credentialStore = new CredentialStore(telemetry, secretStorage);
 		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 	});
 
@@ -34,7 +37,7 @@ describe('PullRequestManager', function () {
 	});
 
 	describe('activePullRequest', function () {
-		it('gets and sets the active pull request', function () {
+		it('gets and sets the active pull request', async function () {
 			assert.strictEqual(manager.activePullRequest, undefined);
 
 			const changeFired = sinon.spy();
@@ -43,8 +46,8 @@ describe('PullRequestManager', function () {
 			const url = 'https://github.com/aaa/bbb.git';
 			const protocol = new Protocol(url);
 			const remote = new Remote('origin', url, protocol);
-			const repository = new GitHubRepository(remote, manager.credentialStore, telemetry);
-			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const repository = new AzdoRepository(remote, manager.credentialStore, telemetry);
+			const prItem = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>(), repository);
 			const pr = new PullRequestModel(telemetry, repository, remote, prItem);
 
 			manager.activePullRequest = pr;

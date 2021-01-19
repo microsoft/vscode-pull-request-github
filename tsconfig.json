@@ -18,7 +18,10 @@
 		],
 		"noImplicitAny": true,
 		"strictNullChecks": true,
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		"plugins": [
+			{ "transform": "ts-auto-mock/transformer" }
+		]
 	},
 	"include": [
 		"src/**/*"
