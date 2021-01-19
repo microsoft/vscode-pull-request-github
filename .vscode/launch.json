@@ -46,10 +46,13 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
+				"${workspaceFolder}/test_workspace/",
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/test"
 			],
 			"preLaunchTask": "npm: preprocess",
+			"smartStep": true,
+			"sourceMaps": true,
 			"outFiles": [
 				"${workspaceFolder}/out/test/**/*.js"
 			]

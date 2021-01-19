@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks } from '../../src/github/interface';
+import { IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks } from '../../src/azdo/interface';
 import { TimelineEvent } from '../../src/common/timelineEvent';
+import { GitCommitRef, GitPullRequestCommentThread, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 
 export enum ReviewType {
 	Comment = 'comment',
@@ -21,7 +23,7 @@ export interface PullRequest {
 	body: string;
 	bodyHTML?: string;
 	author: IAccount;
-	state: GithubItemStateEnum;
+	state: PullRequestStatus;
 	events: TimelineEvent[];
 	isCurrentlyCheckedOut: boolean;
 	base: string;
@@ -50,6 +52,9 @@ export interface PullRequest {
 	isIssue: boolean;
 
 	isAuthor?: boolean;
+	threads?: GitPullRequestCommentThread[];
+	commits: GitCommitRef[];
+	currentUser: Identity;
 }
 
 export function getState(): PullRequest {

@@ -32,11 +32,11 @@ fs.writeFileSync('./package.insiders.json', JSON.stringify(insiderPackageJson));
 
 const readme = fs.readFileSync('./README.md');
 const previewReadme = `
-# GitHub Pull Request Nightly Build
+# Azure Devops Pull Request Nightly Build
 
-This is the nightly build of [GitHub Pull Request extension](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) for early feedback and testing.
+This is the nightly build of [Azure Devops Pull Request extension](https://marketplace.visualstudio.com/items?itemName=ankitbko.vscode-pull-request-azdo) for early feedback and testing.
 
-The extension can be installed side-by-side with the current GitHub Pull Request extension, use the Extensions Viewlet to disable this version of the extension you do not want to use.
+The extension can be installed side-by-side with the current Azure Devops Pull Request extension, use the Extensions Viewlet to disable this version of the extension you do not want to use.
 
 ${readme}
 `;
@@ -44,5 +44,5 @@ ${readme}
 fs.writeFileSync('./README.insiders.md', previewReadme);
 
 const constants = fs.readFileSync('./src/constants.ts').toString();
-const insiderConstants = constants.replace(`export const EXTENSION_ID = 'GitHub.vscode-pull-request-github';`, `export const EXTENSION_ID = 'GitHub.vscode-pull-request-github-insiders';`);
+const insiderConstants = constants.replace(`export const EXTENSION_ID = 'ankitbko.vscode-pull-request-azdo';`, `export const EXTENSION_ID = 'ankitbko.vscode-pull-request-azdo-insiders';`);
 fs.writeFileSync('./src/constants.insiders.ts', insiderConstants);

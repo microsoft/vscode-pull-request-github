@@ -12,21 +12,21 @@ import { Spaced } from './space';
 import PullRequestContext from '../common/context';
 import { checkIcon, editIcon,copyIcon } from './icon';
 import Timestamp from './timestamp';
-import { GithubItemStateEnum } from '../../src/github/interface';
 import { useStateProp } from '../common/hooks';
+import { CommentThreadStatus, GitPullRequestCommentThread, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
-export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue }: PullRequest) {
+export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue, threads }: PullRequest) {
 	return <>
 		<Title {...{ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }} />
 		<div className='subtitle'>
 			<div id='status'>{getStatus(state, isDraft)}</div>
 			{(!isIssue)
-				? <Avatar for={author} />
+				? <Avatar url={author.url} avatarUrl={author.avatarUrl} />
 				: null}
 			<span className='author'>
 				{(!isIssue)
 					? <Spaced>
-						<AuthorLink for={author} />
+						<AuthorLink url={author.url} text={author.name} />
 						{getActionText(state)}
 						into <code>{base}</code>
 						from <code>{head}</code>
@@ -38,6 +38,9 @@ export function Header({ canEdit, state, head, base, title, number, url, created
 					Created <Timestamp date={createdAt} href={url} />
 				</Spaced>
 			</span>
+		</div>
+		<div className='subtitle'>
+			{getClosedCommentDescription(threads)}
 		</div>
 	</>;
 }
@@ -137,20 +140,27 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
 	}
 };
 
-export function getStatus(state: GithubItemStateEnum, isDraft: boolean) {
-	if (state === GithubItemStateEnum.Merged) {
+export function getStatus(state: PullRequestStatus, isDraft: boolean) {
+	if (state === PullRequestStatus.Completed) {
 		return 'Merged';
-	} else if (state === GithubItemStateEnum.Open) {
+	} else if (state === PullRequestStatus.Active) {
 		return isDraft ? 'Draft' : 'Open';
 	} else {
 		return 'Closed';
 	}
 }
 
-function getActionText(state: GithubItemStateEnum) {
-	if (state === GithubItemStateEnum.Merged) {
+function getActionText(state: PullRequestStatus) {
+	if (state === PullRequestStatus.Completed) {
 		return 'merged changes';
 	} else {
 		return 'wants to merge changes';
 	}
+}
+
+export function getClosedCommentDescription(threads: GitPullRequestCommentThread[]) {
+	const active = threads.filter(t => !t.isDeleted).filter(t => t.status === CommentThreadStatus.Active || t.status === CommentThreadStatus.Pending).length;
+	const all = threads.filter(t => !t.isDeleted).filter(t => t.status !== undefined && t.status !== CommentThreadStatus.Unknown).length;
+
+	return all > 0 ? `${all-active}/${all} comments resolved`: 'No comments';
 }

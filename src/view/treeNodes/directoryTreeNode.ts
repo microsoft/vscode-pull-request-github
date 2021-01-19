@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { TreeNode } from './treeNode';
 import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
+import { GitChangeType } from '../../common/file';
 
 export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
@@ -90,7 +91,14 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	public addFile(file: GitFileChangeNode | RemoteFileChangeNode | InMemFileChangeNode): void {
-		const paths = file.fileName.split('/');
+		let paths = file.fileName.split('/');
+		if (file.status === GitChangeType.DELETE) {
+			if (file instanceof GitFileChangeNode) {
+				paths = file.fileName.split('/');
+			} else {
+				paths = (file as InMemFileChangeNode).previousFileName!.split('/');
+			}
+		}
 		file.description = '';
 
 		this.addPathRecc(paths, file);

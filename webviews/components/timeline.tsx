@@ -4,54 +4,57 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { useContext, useRef } from 'react';
+import { useContext, useRef, useState } from 'react';
 
-import { IComment } from '../../src/common/comment';
-import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent, isHeadDeleteEvent, HeadRefDeleteEvent } from '../../src/common/timelineEvent';
+import {  ReviewEvent, CommitEvent, MergedEvent, AssignEvent, HeadRefDeleteEvent } from '../../src/common/timelineEvent';
 import { commitIcon, mergeIcon } from './icon';
 import { Avatar, AuthorLink } from './user';
 import { groupBy } from '../../src/common/utils';
 import { Spaced, nbsp } from './space';
 import Timestamp from './timestamp';
-import { CommentView, CommentBody } from './comment';
-import Diff from './diff';
+import { CommentView, CommentBody, ReplyToThread } from './comment';
 import PullRequestContext from '../common/context';
+import { CommentType, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
+// import { isUserThread } from '../../src/azdo/utils';
 
-export const Timeline = ({ events }: { events: TimelineEvent[] }) =>
+export const Timeline = ({ threads, currentUser }: { threads: GitPullRequestCommentThread[], currentUser: Identity }) =>
 	<>{
-		events.map(event =>
+		threads.sort((a,b) => new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime()).map(thread =>
 			// TODO: Maybe make TimelineEvent a tagged union type?
-			isCommitEvent(event)
-				? <CommitEventView key={event.id} {...event} />
-				:
-			isReviewEvent(event)
-				? <ReviewEventView key={event.id} {...event} />
-				:
-			isCommentEvent(event)
-				? <CommentEventView key={event.id} {...event} />
-				:
-			isMergedEvent(event)
-				? <MergedEventView key={event.id} {...event} />
-				:
-			isAssignEvent(event)
-				? <AssignEventView key={event.id} {...event} />
-				:
-			isHeadDeleteEvent(event)
-				? <HeadDeleteEventView key={event.id} {...event} />
-				: null
+			thread.comments?.find(c => c.id === 1)?.commentType === CommentType.Text ?
+				<CommentEventView key={thread.id} thread={thread} currentUser={currentUser} /> : null
+			// isCommitEvent(event)
+			// 	? <CommitEventView key={event.id} {...event} />
+			// 	:
+			// isReviewEvent(event)
+			// 	? <ReviewEventView key={event.id} {...event} />
+			// 	:
+			// isCommentEvent(event)
+			// 	? <CommentEventView key={event.id} {...event} />
+			// 	:
+			// isMergedEvent(event)
+			// 	? <MergedEventView key={event.id} {...event} />
+			// 	:
+			// isAssignEvent(event)
+			// 	? <AssignEventView key={event.id} {...event} />
+			// 	:
+			// isHeadDeleteEvent(event)
+			// 	? <HeadDeleteEventView key={event.id} {...event} />
+			// 	: null
 		)
 	}</>;
 
 export default Timeline;
 
-const CommitEventView = (event: CommitEvent) =>
+export const CommitEventView = (event: CommitEvent) =>
 	<div className='comment-container commit'>
 		<div className='commit-message'>
 			{commitIcon}{nbsp}
 			<div className='avatar-container'>
-				<Avatar for={event.author} />
+				<Avatar url={event.author.url} avatarUrl={event.author.avatarUrl} />
 			</div>
-			<AuthorLink for={event.author} />
+			<AuthorLink url={event.author.url} text={event.author.name} />
 			<a className='message' href={event.htmlUrl}>{event.message}</a>
 		</div>
 		<a className='sha' href={event.htmlUrl}>{event.sha.slice(0, 7)}</a>
@@ -69,14 +72,15 @@ const association = (
 			? format(authorAssociation)
 			: null;
 
-const positionKey = (comment: IComment) =>
-	comment.position !== null
-		? `pos:${comment.position}`
-		: `ori:${comment.originalPosition}`;
+const positionKey = (comment: GitPullRequestCommentThread) =>
+	// comment.position !== null
+	// 		? `pos:${comment.position}`
+	// 		: `ori:${comment.originalPosition}`;
+	comment.threadContext?.rightFileStart?.line ?? comment.threadContext?.leftFileStart?.line!;
 
-const groupCommentsByPath = (comments: IComment[]) =>
+const groupCommentsByPath = (comments: GitPullRequestCommentThread[]) =>
 	groupBy(comments,
-		comment => comment.path + ':' + positionKey(comment));
+		comment => comment.threadContext.filePath + ':' + positionKey(comment));
 
 const DESCRIPTORS = {
 	PENDING: 'will review',
@@ -88,15 +92,15 @@ const DESCRIPTORS = {
 const reviewDescriptor = (state: string) =>
 	DESCRIPTORS[state] || 'reviewed';
 
-const ReviewEventView = (event: ReviewEvent) => {
+export const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
 	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
 	return <div className='comment-container comment'>
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
 				<Spaced>
-					<Avatar for={event.user} />
-					<AuthorLink for={event.user} />{association(event)}
+					<Avatar url={event.user.url} avatarUrl={event.user.avatarUrl} />
+					<AuthorLink url={event.user.url} text={event.user.name} />{association(event)}
 					{ reviewIsPending
 						? <em>review pending</em>
 						: <>
@@ -115,12 +119,12 @@ const ReviewEventView = (event: ReviewEvent) => {
 					.map(
 						([key, thread]) =>
 							<div className='diff-container'>
-								<Diff key={key}
+								{/* <Diff key={key}
 									comment={thread[0]}
 									hunks={thread[0].diffHunks}
 									outdated={thread[0].position === null}
-									path={thread[0].path} />
-								{thread.map(c => <CommentView {...c} pullRequestReviewId={event.id} />)}
+									path={thread[0].path} /> */}
+								{/* {thread.map(c => <CommentView {...c} pullRequestReviewId={event.id} />)} */}
 							</div>
 					)
 			}</div>
@@ -134,31 +138,71 @@ const ReviewEventView = (event: ReviewEvent) => {
 };
 
 function AddReviewSummaryComment() {
-	const { requestChanges, approve, submit } = useContext(PullRequestContext);
+	const { requestChanges, submit } = useContext(PullRequestContext);
 	const comment = useRef<HTMLTextAreaElement>();
 	return <div className='comment-form'>
 		<textarea ref={comment} placeholder='Leave a review summary comment'></textarea>
 		<div className='form-actions'>
 			<button id='request-changes'
 				onClick={() => requestChanges(comment.current.value)}>Request Changes</button>
-			<button id='approve'
-				onClick={() => approve(comment.current.value)}>Approve</button>
+			{/* <button id='approve'
+				onClick={() => votePullRequest(comment.current.value)}>Approve</button> */}
 			<button id='submit'
 				onClick={() => submit(comment.current.value)}>Comment</button>
 		</div>
 	</div>;
 }
 
-const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode {...event} />;
+const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommentThread, currentUser: Identity}) => {
+	const { replyThread, openDiff, changeThreadStatus } = useContext(PullRequestContext);
+	const [inEditMode, setEditMode] = useState(false);
 
-const MergedEventView = (event: MergedEvent) =>
+	const onCancel = () => {
+		setEditMode(false);
+	}
+
+	const onSave = async (text) => {
+		try {
+			await replyThread(text, thread);
+		} finally {
+			setEditMode(false);
+		}
+	}
+
+	const onThreadStatusChange = async (status) => {
+		await changeThreadStatus(parseInt(status), thread);
+	}
+
+	return (
+		<div className='thread-container'>
+			{
+				!!thread.threadContext && !!thread.threadContext.filePath ?
+					<div className='diff-container diff'>
+					<div className='diffHeader'>
+							<a className='diffPath' onClick={() => openDiff(thread)}>{thread.threadContext.filePath}</a>
+					</div>
+					</div> : null
+			}
+			{
+				thread.comments.map(c => <CommentView key={c.id} headerInEditMode {...c} canEdit={c.author.id === currentUser.id} threadId={thread.id} isFirstCommentInThread={c.id===1} threadStatus={thread.status} changeThreadStatus={(status) => onThreadStatusChange(status)} />)
+			}
+			{  !inEditMode
+				? <div className='reply-thread'><button title='Reply' onClick={() => setEditMode(true)} >Reply</button></div>
+				/* <input id='reply'	value='Reply' onClick={ (e) => { e.}} className='secondary' disabled={isBusy} /> */
+				: <ReplyToThread onSave={onSave} onCancel={onCancel} />
+			}
+
+		</div>);
+};
+
+export const MergedEventView = (event: MergedEvent) =>
 	<div className='comment-container commit'>
 		<div className='commit-message'>
 			{mergeIcon}{nbsp}
 			<div className='avatar-container'>
-				<Avatar for={event.user} />
+				<Avatar url={event.user.url} avatarUrl={event.user.avatarUrl} />
 			</div>
-			<AuthorLink for={event.user} />
+			<AuthorLink url={event.user.url} text={event.user.name} />
 			<div className='message'>
 				merged commit{nbsp}
 				<a className='sha' href={event.commitUrl}>{event.sha.substr(0, 7)}</a>{nbsp}
@@ -168,13 +212,13 @@ const MergedEventView = (event: MergedEvent) =>
 		</div>
 	</div>;
 
-const HeadDeleteEventView = (event: HeadRefDeleteEvent) =>
+export const HeadDeleteEventView = (event: HeadRefDeleteEvent) =>
 	<div className='comment-container commit'>
 		<div className='commit-message'>
 			<div className='avatar-container'>
-				<Avatar for={event.actor} />
+				<Avatar url={event.actor.url} avatarUrl={event.actor.avatarUrl} />
 			</div>
-			<AuthorLink for={event.actor} />
+			<AuthorLink url={event.actor.url} text={event.actor.name} />
 			<div className='message'>
 				deleted the {event.headRef} branch{nbsp}
 			</div>
@@ -184,4 +228,4 @@ const HeadDeleteEventView = (event: HeadRefDeleteEvent) =>
 
 // TODO: We should show these, but the pre-React overview page didn't. Add
 // support in a separate PR.
-const AssignEventView = (event: AssignEvent) => null;
+export const AssignEventView = (event: AssignEvent) => null;

@@ -5,7 +5,13 @@ import { agent } from '../env/node/net';
 import { HostHelper } from './configuration';
 
 export class GitHubManager {
-	private _servers: Map<string, boolean> = new Map().set('github.com', true);
+
+	// TODO WTF Does this do?
+	private _servers: Map<string, boolean> = new Map()
+		.set('dev.azure.com', true)
+		.set('visualstudio.com', true)
+		.set('ssh.dev.azure.com', true)
+		.set('vs-ssh.visualstudio.com', true);
 
 	public async isGitHub(host: vscode.Uri): Promise<boolean> {
 		if (host === null) {

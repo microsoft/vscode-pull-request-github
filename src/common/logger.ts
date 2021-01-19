@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 const enum LogLevel {
 	Info,
@@ -6,7 +7,6 @@ const enum LogLevel {
 	Off
 }
 
-const SETTINGS_NAMESPACE = 'githubPullRequests';
 const LOG_LEVEL_SETTING = 'logLevel';
 
 class Log {
@@ -15,7 +15,7 @@ class Log {
 	private _disposable: vscode.Disposable;
 
 	constructor() {
-		this._outputChannel = vscode.window.createOutputChannel('GitHub Pull Request');
+		this._outputChannel = vscode.window.createOutputChannel('AzDO Pull Request');
 		this._disposable = vscode.workspace.onDidChangeConfiguration(() => {
 			this.getLogLevel();
 		});

@@ -9,28 +9,34 @@ import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Spaced, nbsp } from './space';
 import { Avatar, AuthorLink } from './user';
 import Timestamp from './timestamp';
-import { IComment } from '../../src/common/comment';
 import { PullRequest, ReviewType } from '../common/cache';
 import PullRequestContext from '../common/context';
-import { editIcon, deleteIcon, commentIcon } from './icon';
-import { GithubItemStateEnum } from '../../src/github/interface';
+import { editIcon, commentIcon } from './icon';
 import { useStateProp } from '../common/hooks';
 import emitter from '../common/events';
 import { Dropdown } from './dropdown';
+import { Comment, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
-export type Props = Partial<IComment & PullRequest> & {
+export type Props = Partial<Comment> & {
 	headerInEditMode?: boolean
-	isPRDescription?: boolean
+	isPRDescription?: boolean,
+	threadId: number,
+	canEdit?: boolean,
+	isFirstCommentInThread?: boolean
+	threadStatus?: number
+	changeThreadStatus?: (string) => void
 };
 
 export function CommentView(comment: Props) {
-	const { id, pullRequestReviewId, canEdit, canDelete, bodyHTML, body, isPRDescription } = comment;
-	const [bodyMd, setBodyMd] = useStateProp(body);
-	const [bodyHTMLState, setBodyHtml] = useStateProp(bodyHTML);
-	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
+	const { threadId, content, canEdit, isPRDescription, threadStatus, isFirstCommentInThread, changeThreadStatus } = comment;
+	const id = threadId * 1000 + comment.id;
+	const [bodyMd, setBodyMd] = useStateProp(content);
+	const [bodyHTMLState, setBodyHtml] = useStateProp(content);
+	const { editComment, setDescription, pr } = useContext(PullRequestContext);
 	const currentDraft = pr.pendingCommentDrafts && pr.pendingCommentDrafts[id];
 	const [inEditMode, setEditMode] = useState(!!currentDraft);
 	const [showActionBar, setShowActionBar] = useState(false);
+	const statusProps = !!isFirstCommentInThread ? {threadStatus: threadStatus, changeThreadStatus: changeThreadStatus}: null;
 
 	if (inEditMode) {
 		return React.cloneElement(
@@ -51,7 +57,7 @@ export function CommentView(comment: Props) {
 						try {
 							const result = isPRDescription
 								? await setDescription(text)
-								: await editComment({ comment: comment as IComment, text });
+								: await editComment({ comment: comment, threadId, text });
 
 							setBodyHtml(result.bodyHTML);
 							setBodyMd(text);
@@ -67,52 +73,78 @@ export function CommentView(comment: Props) {
 		for={comment}
 		onMouseEnter={() => setShowActionBar(true)}
 		onMouseLeave={() => setShowActionBar(false)}
+		{...statusProps}
 	>{showActionBar
 		? <div className='action-bar comment-actions'>
 			<button title='Quote reply' onClick={() => emitter.emit('quoteReply', bodyMd)}>{commentIcon}</button>
 			{canEdit ? <button title='Edit comment' onClick={() => setEditMode(true)} >{editIcon}</button> : null}
-			{canDelete ? <button title='Delete comment' onClick={() => deleteComment({ id, pullRequestReviewId })} >{deleteIcon}</button> : null}
+			{/* {canDelete ? <button title='Delete comment' onClick={() => deleteComment({ id, pullRequestReviewId })} >{deleteIcon}</button> : null} */}
 		</div>
 		: null
 		}
-		<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} />
+		<CommentBody comment={comment} bodyHTML={bodyHTMLState} body={bodyMd} />
 	</CommentBox>;
 }
 
+export const ThreadStatus = {
+	'0': 'UNKNOWN',
+	'1': 'Active',
+	'2': 'Fixed',
+	'3': 'WontFix',
+	'4': 'Closed',
+	// '5': 'ByDesign',
+	'6': 'Pending'
+}
+
+const ThreadStatusOrder = ['1', '6', '2', '3', '4']
+
 type CommentBoxProps = {
-	for: Partial<IComment & PullRequest>
+	for: Partial<Comment>
 	header?: React.ReactChild
 	onMouseEnter?: any
 	onMouseLeave?: any
 	children?: any
+	threadStatus?: number,
+	changeThreadStatus?: (string) => void
 };
 
 function CommentBox({
 	for: comment,
-	onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
-	const { user, author, createdAt, htmlUrl, isDraft } = comment;
+	onMouseEnter, onMouseLeave, children, threadStatus, changeThreadStatus }: CommentBoxProps) {
+	const { author, publishedDate, _links  } = comment;
+	const htmlUrl = _links.self.href;
 	return <div className='comment-container comment review-comment'
 		{...{ onMouseEnter, onMouseLeave }}
 	>
 		<div className='review-comment-container'>
 			<div className='review-comment-header'>
 				<Spaced>
-					<Avatar for={user || author} />
-					<AuthorLink for={user || author} />
+					<Avatar url={author.profileUrl} avatarUrl={author['_links']?.['avatar']?.['href']}  />
+					<AuthorLink url={author.profileUrl} text={author.displayName} />
 					{
-						createdAt
+						publishedDate
 							? <>
 								commented{nbsp}
-								<Timestamp href={htmlUrl} date={createdAt} />
+								<Timestamp href={htmlUrl} date={publishedDate} />
 							</>
 							: <em>pending</em>
 					}
-					{
+					{/* {
 						isDraft
 							? <>
 								<span className='pending-label'>Pending</span>
 							</>
 							: null
+					} */}
+					{
+						!!threadStatus ? <select onChange={(e) => changeThreadStatus(e.target.value)} defaultValue={threadStatus.toString()}>{
+							ThreadStatusOrder
+								.map((status) =>
+									<option key={status} value={status}>
+										{ThreadStatus[status]}
+									</option>
+								)
+						}</select> : null
 					}
 				</Spaced>
 			</div>
@@ -202,7 +234,7 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 }
 
 export interface Embodied {
-	comment?: IComment;
+	comment?: Comment;
 	bodyHTML?: string;
 	body?: string;
 }
@@ -226,8 +258,59 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	</div>;
 };
 
+export type ReplyToThreadProps = {
+	onCancel: () => void
+	onSave: (body: string) => Promise<any>
+};
+
+
+export function ReplyToThread({ onCancel, onSave }: ReplyToThreadProps) {
+	const form = useRef<HTMLFormElement>();
+
+	const submit = useCallback(
+		async () => {
+			const { markdown, submitButton }: FormInputSet = form.current;
+			submitButton.disabled = true;
+			try {
+				await onSave(markdown.value);
+			} finally {
+				submitButton.disabled = false;
+			}
+		},
+		[form, onSave]);
+
+	const onSubmit = useCallback(
+		event => {
+			event.preventDefault();
+			submit();
+		},
+		[submit]
+	);
+
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				e.preventDefault();
+				submit();
+			}
+		},
+		[submit]
+	);
+
+	return <form ref={form} onSubmit={onSubmit}>
+		<textarea
+			name='markdown'
+			onKeyDown={onKeyDown}
+		/>
+		<div className='form-actions'>
+			<button className='secondary' onClick={onCancel}>Cancel</button>
+			<input type='submit' name='submitButton' value='Save' />
+		</div>
+	</form>;
+}
+
 export function AddComment({ pendingCommentText, state, hasWritePermission, isIssue }: PullRequest) {
-	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
+	const { updatePR, comment, close } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -270,9 +353,9 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 		e => {
 			e.preventDefault();
 			const { command } = e.target.dataset;
-			submit({ approve, requestChanges, close }[command]);
+			submit({ close }[command]);
 		},
-		[submit, approve, requestChanges, close]);
+		[submit, close]);
 
 	return <form id='comment-form'
 		ref={form}
@@ -292,23 +375,9 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 			{hasWritePermission && !isIssue
 				? <button id='close'
 					className='secondary'
-					disabled={isBusy || state !== GithubItemStateEnum.Open}
+					disabled={isBusy || state !== PullRequestStatus.Active}
 					onClick={onClick}
 					data-command='close'>Close Pull Request</button>
-				: null}
-			{!isIssue
-				? <button id='request-changes'
-					disabled={isBusy || !pendingCommentText}
-					className='secondary'
-					onClick={onClick}
-					data-command='requestChanges'>Request Changes</button>
-				: null}
-			{!isIssue
-				? < button id='approve'
-					className='secondary'
-					disabled={isBusy}
-					onClick={onClick}
-					data-command='approve'>Approve</button>
 				: null}
 			<input id='reply'
 				value='Comment'
@@ -326,7 +395,7 @@ const COMMENT_METHODS = {
 }
 
 export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, comment } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, comment } = useContext(PullRequestContext);
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
 	async function submitAction(selected: string): Promise<void> {
@@ -335,9 +404,9 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
 				break;
-			case ReviewType.Approve:
-				await approve(value);
-				break;
+			// case ReviewType.Approve:
+			// 	await votePullRequest(value);
+			// 	break;
 			default:
 				await comment(value);
 		}

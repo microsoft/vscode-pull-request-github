@@ -5,30 +5,32 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React = require('react');
-import { ReviewState } from '../../src/github/interface';
+import { PullRequestVote, ReviewState } from '../../src/azdo/interface';
 import PullRequestContext from '../common/context';
 import { nbsp } from './space';
 import { cloneElement, useContext, useState } from 'react';
 import { Avatar, AuthorLink } from './user';
-import { pendingIcon, commentIcon, checkIcon, diffIcon, deleteIcon } from './icon';
+import { pendingIcon, checkIcon, deleteIcon } from './icon';
+import { VoteText } from './sidebar';
 
 export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 	const { reviewer, state, canDelete } = reviewState;
 	const [showDelete, setShowDelete] = useState(false);
 	const { removeReviewer } = useContext(PullRequestContext);
 	return <div className='section-item reviewer'
-		onMouseEnter={state === 'REQUESTED' ? () => setShowDelete(true) : null}
-		onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}>
-		<Avatar for={reviewer} />
-		<AuthorLink for={reviewer} />
-		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.login)}>{deleteIcon}️</a></> : null}
-		{REVIEW_STATE[state]}
+		onMouseEnter={state === PullRequestVote.NO_VOTE ? () => setShowDelete(true) : null}
+		onMouseLeave={state === PullRequestVote.NO_VOTE ? () => setShowDelete(false) : null}>
+		<Avatar url={reviewer.url} avatarUrl={reviewer.avatarUrl} />
+		<AuthorLink url={reviewer.url} text={reviewer.name} />
+		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.id)}>{deleteIcon}️</a></> : null}
+		{REVIEW_STATE[state.toString()]}
 	</div>;
 }
 
 const REVIEW_STATE: { [state: string]: React.ReactElement } = {
-	REQUESTED: cloneElement(pendingIcon, { className: 'push-right', title: 'Awaiting requested review' }),
-	COMMENTED: cloneElement(commentIcon, { className: 'push-right', Root: 'div', title: 'Left review comments' }),
-	APPROVED: cloneElement(checkIcon, { className: 'push-right', title: 'Approved these changes' }),
-	CHANGES_REQUESTED: cloneElement(diffIcon, { className: 'push-right', title: 'Requested changes' }),
+	'10': cloneElement(checkIcon, { className: 'push-right', title: VoteText['10'] }),
+	'5': cloneElement(checkIcon, { className: 'push-right', title: VoteText['5'] }),
+	'-5': cloneElement(pendingIcon, { className: 'push-right', title: VoteText['-5'] }),
+	'-10': cloneElement(deleteIcon, { className: 'push-right', title: VoteText['-10'] }),
+	'0':  cloneElement(pendingIcon, { className: 'push-right', title: VoteText['0'] }),
 };

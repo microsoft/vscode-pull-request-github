@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
 import { DirectoryTreeNode } from './directoryTreeNode';
+import { SETTINGS_NAMESPACE } from '../../constants';
 
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Files';
@@ -35,7 +36,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 
 	async getChildren(): Promise<TreeNode[]> {
 		let nodes: TreeNode[];
-		const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+		const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('fileListLayout');
 		if (layout === 'tree') {
 			nodes = this.directories;
 		} else {

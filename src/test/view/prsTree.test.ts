@@ -96,7 +96,7 @@ describe('GitHub Pull Requests view', function () {
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
 		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
-		provider.initialize(manager);
+		provider.initialize(manager as any);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 1);
@@ -118,7 +118,7 @@ describe('GitHub Pull Requests view', function () {
 		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.folderManagers[0].updateRepositories();
-		provider.initialize(manager);
+		provider.initialize(manager as any);
 
 		const rootNodes = await provider.getChildren();
 
@@ -186,7 +186,7 @@ describe('GitHub Pull Requests view', function () {
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();
-			provider.initialize(reposManager);
+			provider.initialize(reposManager as any);
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();

@@ -6,8 +6,8 @@
 
 import * as vscode from 'vscode';
 import { fromPRUri } from '../common/uri';
-import { GHPRCommentThread, GHPRComment } from '../github/prComment';
-import { CommentReactionHandler } from '../github/utils';
+import { GHPRCommentThread, GHPRComment } from '../azdo/prComment';
+import { CommentReactionHandler } from '../azdo/utils';
 
 export class PRCommentController implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
 	private _prCommentControllers: { [key: number]: vscode.CommentingRangeProvider & CommentReactionHandler } = {};

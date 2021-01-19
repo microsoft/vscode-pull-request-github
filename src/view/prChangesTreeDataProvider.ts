@@ -6,10 +6,11 @@
 import * as vscode from 'vscode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
-import { IComment } from '../common/comment';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
-import { PullRequestModel } from '../github/pullRequestModel';
+import { FolderRepositoryManager } from '../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../azdo/pullRequestModel';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { SETTINGS_NAMESPACE } from '../constants';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
@@ -25,7 +26,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	constructor(private _context: vscode.ExtensionContext) {
 		super(() => this.dispose());
-		this._view = vscode.window.createTreeView('prStatus:github', {
+		this._view = vscode.window.createTreeView('azdoprStatus:azdo', {
 			treeDataProvider: this,
 			showCollapseAll: true
 		});
@@ -44,12 +45,12 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._onDidChangeTreeData.fire();
 	}
 
-	async addPrToView(pullRequestManager: FolderRepositoryManager, pullRequest: PullRequestModel, localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: IComment[]) {
+	async addPrToView(pullRequestManager: FolderRepositoryManager, pullRequest: PullRequestModel, localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: GitPullRequestCommentThread[]) {
 		const node: RepositoryChangesNode = new RepositoryChangesNode(this._view, pullRequest, pullRequestManager, comments, localFileChanges);
 		this._pullRequestManagerMap.set(pullRequestManager, node);
 		await vscode.commands.executeCommand(
 			'setContext',
-			'github:inReviewMode',
+			'azdo:inReviewMode',
 			true
 		);
 		this._onDidChangeTreeData.fire();
@@ -66,7 +67,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	async hide() {
 		await vscode.commands.executeCommand(
 			'setContext',
-			'github:inReviewMode',
+			'azdo:inReviewMode',
 			false
 		);
 	}

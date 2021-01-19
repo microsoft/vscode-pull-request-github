@@ -111,6 +111,7 @@ function repoCommitDate(user: User, repoNameWithOwner: string): string | undefin
 
 export class UserCompletion extends vscode.CompletionItem {
 	login: string;
+	email?: string;
 	uri: vscode.Uri;
 }
 

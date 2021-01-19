@@ -8,8 +8,10 @@
 import { Uri, UriHandler, EventEmitter } from 'vscode';
 import { GitChangeType } from './file';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestModel as AzdoPullRequestModel } from '../azdo/pullRequestModel';
 import { Repository } from '../api/api';
 import * as pathUtils from 'path';
+import { URI_SCHEME_PR, URI_SCHEME_REVIEW } from '../constants';
 
 export interface ReviewUriParams {
 	path: string;
@@ -61,7 +63,7 @@ export const EMPTY_IMAGE_URI = Uri.parse(`data:image/gif;base64,R0lGODlhAQABAIAA
 export async function asImageDataURI(uri: Uri, repository: Repository): Promise<Uri | undefined> {
 	try {
 		const { commit, baseCommit, headCommit, isBase } = JSON.parse(uri.query);
-		const ref = uri.scheme === 'review' ? commit :
+		const ref = uri.scheme === URI_SCHEME_REVIEW ? commit :
 			isBase ? baseCommit : headCommit;
 		const { size, object } = await repository.getObjectDetails(ref, uri.fsPath);
 		const { mimetype } = await repository.detectObjectType(object);
@@ -96,7 +98,7 @@ export function toReviewUri(uri: Uri, filePath: string | undefined, ref: string 
 	}
 
 	return uri.with({
-		scheme: 'review',
+		scheme: URI_SCHEME_REVIEW,
 		path,
 		query: JSON.stringify(params)
 	});
@@ -141,6 +143,26 @@ export function toPRUri(uri: Uri, pullRequestModel: PullRequestModel, baseCommit
 
 	return uri.with({
 		scheme: 'pr',
+		path,
+		query: JSON.stringify(params)
+	});
+}
+
+export function toPRUriAzdo(uri: Uri, pullRequestModel: AzdoPullRequestModel, baseCommit: string, headCommit: string, fileName: string, base: boolean, status: GitChangeType): Uri {
+	const params: PRUriParams = {
+		baseCommit: baseCommit,
+		headCommit: headCommit,
+		isBase: base,
+		fileName: fileName,
+		prNumber: pullRequestModel.getPullRequestId(),
+		status: status,
+		remoteName: pullRequestModel.azdoRepository.remote.remoteName
+	};
+
+	const path = uri.path;
+
+	return uri.with({
+		scheme: URI_SCHEME_PR,
 		path,
 		query: JSON.stringify(params)
 	});

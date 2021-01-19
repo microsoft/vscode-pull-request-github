@@ -7,11 +7,12 @@ import * as vscode from 'vscode';
 import { TreeNode } from './treeNodes/treeNode';
 import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { SETTINGS_NAMESPACE, REMOTES_SETTING, ReposManagerState } from '../github/folderRepositoryManager';
+import { REMOTES_SETTING, ReposManagerState } from '../azdo/folderRepositoryManager';
 import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
-import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';
-import { RepositoriesManager } from '../github/repositoriesManager';
+import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import { RepositoriesManager } from '../azdo/repositoriesManager';
+import { SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../constants';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -32,18 +33,18 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		private _telemetry: ITelemetry
 	) {
 		this._disposables = [];
-		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('pr', getInMemPRContentProvider()));
+		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider(URI_SCHEME_PR, getInMemPRContentProvider()));
 		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
-		this._disposables.push(vscode.commands.registerCommand('pr.refreshList', _ => {
+		this._disposables.push(vscode.commands.registerCommand('azdopr.refreshList', _ => {
 			this._onDidChangeTreeData.fire();
 		}));
 
-		this._disposables.push(vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
+		this._disposables.push(vscode.commands.registerCommand('azdopr.loadMore', (node: CategoryTreeNode) => {
 			node.fetchNextPage = true;
 			this._onDidChangeTreeData.fire(node);
 		}));
 
-		this._view = vscode.window.createTreeView('pr:github', {
+		this._view = vscode.window.createTreeView('azdopr:azdo', {
 			treeDataProvider: this,
 			showCollapseAll: true
 		});
@@ -51,20 +52,20 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._disposables.push(this._view);
 		this._childrenDisposables = [];
 
-		this._disposables.push(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
+		this._disposables.push(vscode.commands.registerCommand('azdopr.configurePRViewlet', async () => {
 			const isLoggedIn = this._reposManager.state === ReposManagerState.RepositoriesLoaded;
-			const configuration = await vscode.window.showQuickPick(['Configure Remotes...', 'Configure Queries...', ...isLoggedIn ? ['Sign out of GitHub...'] : []]);
+			const configuration = await vscode.window.showQuickPick(['Configure Project Name...', 'Configure Organization URL...', ...isLoggedIn ? ['Sign out of Azure Devops...'] : []]);
 
 			const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
 			const extensionId = `${publisher}.${name}`;
 
 			switch (configuration) {
-				case 'Configure Queries...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} queries`);
-				case 'Configure Remotes...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
-				case 'Sign out of GitHub...':
-					return vscode.commands.executeCommand('auth.signout');
+				case 'Configure Project Name...':
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} projectName`);
+				case 'Configure Organization URL...':
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} orgUrl`);
+				case 'Sign out of Azure Devops...':
+					return vscode.commands.executeCommand('azdopr.signout');
 				default:
 					return;
 			}
@@ -94,16 +95,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			});
 		}));
 
-		this.initializeCategories();
 		this.refresh();
-	}
-
-	private async initializeCategories() {
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES_SETTING}`)) {
-				this.refresh();
-			}
-		}));
 	}
 
 	async refresh(node?: TreeNode) {

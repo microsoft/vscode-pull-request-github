@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { TreeNode, Revealable } from './treeNode';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
 
 export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;
@@ -17,14 +17,14 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 
 		this.command = {
 			title: 'View Pull Request Description',
-			command: 'pr.openDescription',
+			command: 'azdopr.openDescription',
 			arguments: [
 				this
 			]
 		};
 
 		this.contextValue = 'description';
-		this.tooltip = `Description of pull request #${pullRequestModel.number}`;
+		this.tooltip = `Description of pull request #${pullRequestModel.getPullRequestId()}`;
 	}
 
 	getTreeItem(): vscode.TreeItem {

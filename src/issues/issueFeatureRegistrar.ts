@@ -9,7 +9,7 @@ import { IssueHoverProvider } from './issueHoverProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { IssueCompletionProvider } from './issueCompletionProvider';
-import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION, QUERIES_CONFIGURATION, pushAndCreatePR } from './util';
+import { NewIssue, createGithubPermalink, USER_EXPRESSION, ISSUES_CONFIGURATION, QUERIES_CONFIGURATION } from './util';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { StateManager } from './stateManager';
 import { IssuesTreeData, IssueUriTreeItem } from './issuesView';
@@ -30,7 +30,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo: { document: vscode.TextDocument, newIssue: NewIssue | undefined, lineNumber: number | undefined, insertIndex: number | undefined } | undefined;
 
-	constructor(private gitAPI: GitApiImpl, private manager: RepositoriesManager, private reviewManagers: ReviewManager[], private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
+	constructor(private gitAPI: GitApiImpl, private manager: RepositoriesManager, public reviewManagers: ReviewManager[], private context: vscode.ExtensionContext, private telemetry: ITelemetry) {
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
 	}
 
@@ -425,16 +425,16 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		switch (response) {
 			case openIssueText: return this.openIssue(currentIssue.issue);
 			case pullRequestText: {
-				const reviewManager = ReviewManager.getReviewManagerForFolderManager(this.reviewManagers, currentIssue.manager);
-				if (reviewManager) {
-					return pushAndCreatePR(currentIssue.manager, reviewManager, this._stateManager);
-				}
+				// const reviewManager = ReviewManager.getReviewManagerForFolderManager(this.reviewManagers, currentIssue.manager);
+				// if (reviewManager) {
+				// 	return pushAndCreatePR(currentIssue.manager, reviewManager, this._stateManager);
+				// }
 			}
 			case draftPullRequestText: {
-				const reviewManager = ReviewManager.getReviewManagerForFolderManager(this.reviewManagers, currentIssue.manager);
-				if (reviewManager) {
-					return pushAndCreatePR(currentIssue.manager, reviewManager, this._stateManager, true);
-				}
+				// const reviewManager = ReviewManager.getReviewManagerForFolderManager(this.reviewManagers, currentIssue.manager);
+				// if (reviewManager) {
+				// 	return pushAndCreatePR(currentIssue.manager, reviewManager, this._stateManager, true);
+				// }
 			}
 			case stopWorkingText: return this._stateManager.setCurrentIssue(currentIssue.manager, undefined);
 		}

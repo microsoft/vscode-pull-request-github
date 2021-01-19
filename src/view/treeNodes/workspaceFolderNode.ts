@@ -5,9 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PRType } from '../../github/interface';
+import { PRType } from '../../azdo/interface';
 import { TreeNode } from './treeNode';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { ITelemetry } from '../../common/telemetry';
 import { CategoryTreeNode } from './categoryNode';
 
@@ -15,8 +15,6 @@ export interface IQueryInfo {
 	label: string;
 	query: string;
 }
-
-export const QUERIES_SETTING = 'queries';
 
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	public readonly label: string;
@@ -30,10 +28,6 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		this.label = path.basename(uri.fsPath);
 	}
 
-	private static getQueries(folderManager: FolderRepositoryManager): IQueryInfo[] {
-		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE, folderManager.repository.rootUri).get<IQueryInfo[]>(QUERIES_SETTING) || [];
-	}
-
 	getTreeItem(): vscode.TreeItem {
 		return this;
 	}
@@ -43,11 +37,11 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	public static getCategoryTreeNodes(folderManager: FolderRepositoryManager, telemetry: ITelemetry, parent: TreeNode | vscode.TreeView<TreeNode>) {
-		const queryCategories = WorkspaceFolderNode.getQueries(folderManager).map(queryInfo => new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, queryInfo.label, queryInfo.query));
 		return [
 			new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest),
-			...queryCategories,
-			new CategoryTreeNode(parent, folderManager, telemetry, PRType.All)
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.CreatedByMe),
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.AssignedToMe),
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.AllActive)
 		];
 	}
 }

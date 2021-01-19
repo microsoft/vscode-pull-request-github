@@ -6,9 +6,9 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler } from './message';
 import { PullRequest, getState, setState, updateState } from './cache';
-import { MergeMethod } from '../../src/github/interface';
-import { IComment } from '../../src/common/comment';
-import { EventType, ReviewEvent, isReviewEvent } from '../../src/common/timelineEvent';
+import { MergeMethod } from '../../src/azdo/interface';
+import { ReviewEvent } from '../../src/common/timelineEvent';
+import { Comment, GitPullRequestCommentThread, GitPullRequestMergeStrategy } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export class PRContext {
 	constructor(
@@ -47,21 +47,35 @@ export class PRContext {
 		this.postMessage({ command: 'pr.checkMergeability' })
 
 	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
-		this.postMessage({ command: 'pr.merge', args })
+		this.postMessage({ command: 'azdopr.merge', args })
 
 	public deleteBranch = () =>
 		this.postMessage({ command: 'pr.deleteBranch' })
 
 	public readyForReview = () =>
-		this.postMessage({ command: 'pr.readyForReview' })
+		this.postMessage({ command: 'azdopr.readyForReview' })
+
+	public replyThread = async (body: string, thread: GitPullRequestCommentThread) => {
+		const result = await this.postMessage({ command: 'pr.reply-thread', args: { text: body, threadId: thread.id} });
+		thread.comments.push(result.comment);
+		this.updatePR({
+			threads: [...this.pr.threads.filter(t => t.id !== thread.id), thread]
+		});
+	}
 
 	public comment = async (args: string) => {
 		const result = await this.postMessage({ command: 'pr.comment', args });
-		const newComment = result.value;
-		newComment.event = EventType.Commented;
+		const thread = result.thread;
 		this.updatePR({
-			events: [...this.pr.events, newComment],
-			pendingCommentText: '',
+			threads: [...this.pr.threads, thread]
+		});
+	}
+
+	public changeThreadStatus = async (status: number, thread: GitPullRequestCommentThread) => {
+		const result = await this.postMessage({ command: 'pr.change-thread-status', args: { status: status, threadId: thread.id} });
+		const updatedThread = result.thread;
+		this.updatePR({
+			threads: [...this.pr.threads.filter(t => t.id !== updatedThread?.id), updatedThread]
 		});
 	}
 
@@ -98,7 +112,7 @@ export class PRContext {
 		this.updatePR(this.pr);
 	}
 
-	public editComment = (args: { comment: IComment, text: string }) =>
+	public editComment = (args: { comment: Comment, threadId: number, text: string }) =>
 		this.postMessage({ command: 'pr.edit-comment', args })
 
 	public updateDraft = (id: number, body: string) => {
@@ -112,23 +126,29 @@ export class PRContext {
 	public requestChanges = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }))
 
-	public approve = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.approve', args: body }))
+	public votePullRequest = async (body: number) =>
+		this.appendReview(await this.postMessage({ command: 'pr.vote', args: body }))
 
 	public submit = async (body: string) =>
 		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
 
 	public close = async (body?: string) => {
 		try {
-			this.appendReview(await this.postMessage({ command: 'pr.close', args: body }))
+			this.appendReview(await this.postMessage({ command: 'azdopr.close', args: body }))
 		} catch (_) {
 			// Ignore
 		}
 	}
 
+	public complete = async (args: {deleteSourceBranch: boolean, completeWorkitem: boolean, mergeStrategy: string}) => {
+		const options = { ...args, mergeStrategy: GitPullRequestMergeStrategy[args.mergeStrategy] }
+		const result = await this.postMessage({ command: 'pr.complete', args: options});
+		this.updatePR(result);
+	}
+
 	public removeReviewer = async (login: string) => {
 		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
-		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== login);
+		const reviewers = this.pr.reviewers.filter(r => r.reviewer.id !== login);
 		this.updatePR({ reviewers });
 	}
 
@@ -138,29 +158,19 @@ export class PRContext {
 		this.updatePR({ labels });
 	}
 
-	public applyPatch = async (comment: IComment) => {
+	public applyPatch = async (comment: GitPullRequestCommentThread) => {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	}
 
 	private appendReview({ review, reviewers }: any) {
 		const state = this.pr;
-		const events = state.events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
-		events.forEach(event => {
-			if (isReviewEvent(event)) {
-				event.comments.forEach(c => c.isDraft = false);
-			}
-		});
+		review;
 		state.reviewers = reviewers;
-		state.events = [
-			...state.events
-				.filter(e => isReviewEvent(e) ? e.state !== 'PENDING' : e),
-			review
-		];
 		this.updatePR(state);
 	}
 
-	public openDiff = (comment: IComment) =>
-		this.postMessage({ command: 'pr.open-diff', args: { comment } })
+	public openDiff = (thread: GitPullRequestCommentThread) =>
+		this.postMessage({ command: 'pr.open-diff', args: { thread } })
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;

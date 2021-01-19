@@ -77,7 +77,7 @@ describe('ReviewCommentController', function () {
 	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri): GitFileChangeNode {
 		return new GitFileChangeNode(
 			provider.view,
-			activePullRequest,
+			activePullRequest as any,
 			GitChangeType.MODIFY,
 			fileName,
 			'https://example.com',
@@ -128,7 +128,7 @@ describe('ReviewCommentController', function () {
 			const fileName = 'data/products.json';
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
-			const reviewCommentController = new TestReviewCommentController(manager, repository, localFileChanges, [], []);
+			const reviewCommentController = new TestReviewCommentController(manager as any, repository, localFileChanges, [], [], undefined as any);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
 			sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
@@ -169,7 +169,7 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
 			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 0);
 
-			await reviewCommentController.createOrReplyComment(thread, 'hello world');
+			await reviewCommentController.createOrReplyComment(thread as any, 'hello world');
 
 			assert.strictEqual(thread.comments.length, 1);
 			assert(replaceCommentSpy.calledOnce);

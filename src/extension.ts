@@ -14,22 +14,20 @@ import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
-import { EXTENSION_ID } from './constants';
-import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { EXTENSION_ID, SETTINGS_NAMESPACE } from './constants';
+import { FolderRepositoryManager } from './azdo/folderRepositoryManager';
 import { registerBuiltinGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
-import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
-import { CredentialStore } from './github/credentials';
-import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
+import { CredentialStore } from './azdo/credentials';
 import { LiveShare } from 'vsls/vscode.js';
-import { RepositoriesManager } from './github/repositoriesManager';
+import { RepositoriesManager } from './azdo/repositoriesManager';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
 import { registerLiveShareGitProvider } from './gitProviders/api';
 
-const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
+const aiKey: string = '6d22c8ed-52c8-4779-a6f8-09c748e18e95';
 
 // fetch.promise polyfill
 const fetch = require('node-fetch');
@@ -42,8 +40,17 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
-	vscode.authentication.onDidChangeSessions(async e => {
-		if (e.provider.id === 'github') {
+	// vscode.authentication.onDidChangeSessions(async e => {
+	// 	if (e.provider.id === 'github') {
+	// 		await reposManager.clearCredentialCache();
+	// 		if (reviewManagers) {
+	// 			reviewManagers.forEach(reviewManager => reviewManager.updateState());
+	// 		}
+	// 	}
+	// });
+
+	context.secrets.onDidChange(async (e) => {
+		if (e.key === credentialStore.getTokenKey()) {
 			await reposManager.clearCredentialCache();
 			if (reviewManagers) {
 				reviewManagers.forEach(reviewManager => reviewManager.updateState());
@@ -80,7 +87,8 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	liveshareApiPromise.then((api) => {
 		if (api) {
 			// register the pull request provider to suggest PR contacts
-			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(reposManager));
+			// TODO used by VLSS.
+			// api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(reposManager));
 		}
 	});
 	const changesTree = new PullRequestChangesTreeDataProvider(context);
@@ -90,7 +98,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	context.subscriptions.push(reviewsManager);
 	tree.initialize(reposManager);
 	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
-	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+	const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('fileListLayout');
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
 
 	git.onDidChangeState(() => {
@@ -121,10 +129,11 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 		tree.refresh();
 	});
 
-	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
-	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
-	context.subscriptions.push(issuesFeatures);
-	await issuesFeatures.initialize();
+	await vscode.commands.executeCommand('setContext', 'azdo:initialized', true);
+	// TODO Investigate what is intialized in issues
+	// const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
+	// context.subscriptions.push(issuesFeatures);
+	// await issuesFeatures.initialize();
 
 	/* __GDPR__
 		"startup" : {}
@@ -142,7 +151,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	context.subscriptions.push(telemetry);
 
 	PersistentState.init(context);
-	const credentialStore = new CredentialStore(telemetry);
+	const credentialStore = new CredentialStore(telemetry, context.secrets);
 	context.subscriptions.push(credentialStore);
 	await credentialStore.initialize();
 

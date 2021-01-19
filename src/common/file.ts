@@ -27,7 +27,9 @@ export class InMemFileChange {
 		public readonly diffHunks: DiffHunk[],
 
 		public readonly isPartial: boolean,
-		public readonly blobUrl: string
+		public readonly blobUrl: string,
+		public readonly fileSHA?: string,
+		public readonly previousFileSHA?: string
 	) { }
 }
 
@@ -37,6 +39,8 @@ export class SlimFileChange {
 		public readonly blobUrl: string,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
-		public readonly previousFileName: string | undefined
+		public readonly previousFileName: string | undefined,
+		public readonly fileSHA?: string,
+		public readonly previousFileSHA?: string
 	) { }
 }

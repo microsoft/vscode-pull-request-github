@@ -25,6 +25,20 @@
 	padding-left: 20px;
 }
 
+#sidebar .vote  {
+	margin-bottom: 20px;
+}
+
+#sidebar .vote .vote-select  {
+	margin-bottom: 5px;
+}
+
+.vote .vote-button {
+	margin-left: auto;
+	display: flex;
+	align-self: auto;
+}
+
 a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
@@ -212,7 +226,7 @@ body .comment-container .review-comment-header {
 #status-checks {
 	padding: 10px;
 	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
-	margin-top: 20px;
+	margin-bottom: 20px;
 }
 
 #status-checks summary {
@@ -242,6 +256,10 @@ body .comment-container .review-comment-header {
 	display: inline-block;
 	line-height: 100%;
 	padding: 0 10px;
+}
+#status-checks .merge-option-container {
+	padding: 5px;
+	margin-top: 5px;
 }
 
 body .comment-container .review-comment-header > span,
@@ -597,6 +615,7 @@ textarea {
 .form-actions {
 	display: flex;
 	padding-top: 10px;
+	padding-bottom: 10px;
 }
 
 .main-comment-form > .form-actions {
@@ -965,4 +984,27 @@ code {
 
 .title-editing-form > .form-actions {
 	margin-left: 0;
+}
+
+.thread-container .comment-container {
+	padding-top: 0px;
+}
+
+.thread-container .comment-container ~ .comment-container {
+	padding-left: 20px;
+	width: auto;
+}
+
+.thread-container .reply-thread {
+	text-align: right;
+}
+
+.thread-container .diff-container {
+	margin-top: 10px;
+	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+}
+
+body .comment-container .review-comment-header > select {
+	margin-left: 5px;
+	margin-right: 5px;
 }

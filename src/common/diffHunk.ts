@@ -10,6 +10,9 @@
 import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
 import { Repository } from '../api/api';
 import { IRawFileChange } from '../github/interface';
+import { IRawFileChange as IAzdoRawFileChange } from '../azdo/interface';
+import { VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { removeLeadingSlash } from '../azdo/utils';
 
 export enum DiffChangeType {
 	Context,
@@ -32,7 +35,7 @@ export class DiffLine {
 		public oldLineNumber: number, /* 1 based */
 		public newLineNumber: number, /* 1 based */
 		public positionInHunk: number,
-		private _raw: string,
+		private _raw: string = '',
 		public endwithLineBreak: boolean = true
 	) { }
 }
@@ -237,6 +240,41 @@ export function getModifiedContentFromDiffHunk(originalContent: string, patch: s
 	return right.join('\n');
 }
 
+export function getModifiedContentFromDiffHunkAzdo(originalContent: string, diffHunks: DiffHunk[]) {
+	const left = originalContent.split(/\r?\n/);
+
+	const right = [];
+	let lastCommonLine = 0;
+	for (const diffHunk of diffHunks) {
+		const oriStartLine = diffHunk.oldLineNumber;
+
+		for (let j = lastCommonLine + 1; j < oriStartLine; j++) {
+			right.push(left[j - 1]);
+		}
+
+		lastCommonLine = oriStartLine + diffHunk.oldLength - 1;
+
+		for (let j = 0; j < diffHunk.diffLines.length; j++) {
+			const diffLine = diffHunk.diffLines[j];
+			if (diffLine.type === DiffChangeType.Delete || diffLine.type === DiffChangeType.Control) {
+			} else if (diffLine.type === DiffChangeType.Add) {
+				right.push(diffLine.text);
+			} else {
+				const codeInFirstLine = diffLine.text;
+				right.push(codeInFirstLine);
+			}
+		}
+	}
+
+	if (lastCommonLine < left.length) {
+		for (let j = lastCommonLine + 1; j <= left.length; j++) {
+			right.push(left[j - 1]);
+		}
+	}
+
+	return right.join('\n');
+}
+
 export function getGitChangeType(status: string): GitChangeType {
 	switch (status) {
 		case 'removed':
@@ -288,4 +326,58 @@ export async function parseDiff(reviews: IRawFileChange[], repository: Repositor
 	}
 
 	return fileChanges;
+}
+
+export async function parseDiffAzdo(reviews: IAzdoRawFileChange[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
+	const fileChanges: (InMemFileChange | SlimFileChange)[] = [];
+
+	for (let i = 0; i < reviews.length; i++) {
+		const review = reviews[i];
+		const gitChangeType = getGitChangeTypeFromVersionControlChangeType(review.status);
+
+		if (review.diffHunk === undefined) {
+			fileChanges.push(new SlimFileChange(parentCommit, review.blob_url, gitChangeType, review.filename, review.previous_filename, review.file_sha, review.previous_file_sha));
+			continue;
+		}
+
+		let originalFileExist = false;
+
+		switch (gitChangeType) {
+			case GitChangeType.MODIFY:
+				try {
+					await repository.getObjectDetails(parentCommit, removeLeadingSlash(review.filename));
+					originalFileExist = true;
+				} catch (err) {/* noop */ }
+				break;
+			case GitChangeType.RENAME:
+			case GitChangeType.DELETE:
+				try {
+					await repository.getObjectDetails(parentCommit, removeLeadingSlash(review.previous_filename!));
+					originalFileExist = true;
+				} catch (err) { /* noop */ }
+				break;
+		}
+
+		const diffHunks = review.diffHunk ?? [];
+		const isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
+		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.previous_filename, 'review.patch', diffHunks, isPartial, review.blob_url, review.file_sha, review.previous_file_sha));
+	}
+
+	return fileChanges;
+}
+
+export function getGitChangeTypeFromVersionControlChangeType(status: VersionControlChangeType): GitChangeType {
+	// tslint:disable-next-line: no-bitwise
+	if (status & VersionControlChangeType.Delete || status & VersionControlChangeType.SourceRename) {
+		return GitChangeType.DELETE;
+	// tslint:disable-next-line: no-bitwise
+	} else if (status & VersionControlChangeType.Rename) {
+		return GitChangeType.RENAME;
+	} else if (status === VersionControlChangeType.Add) {
+		return GitChangeType.ADD;
+	// tslint:disable-next-line: no-bitwise
+	} else if (status & VersionControlChangeType.Edit) {
+		return GitChangeType.MODIFY;
+	}
+	return GitChangeType.UNKNOWN;
 }

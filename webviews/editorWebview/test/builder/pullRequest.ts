@@ -1,9 +1,10 @@
 import { createBuilderClass } from '../../../../src/test/builders/base';
 import { PullRequest } from '../../../common/cache';
-import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
+import { PullRequestMergeability } from '../../../../src/azdo/interface';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
 
 import { AccountBuilder } from './account';
+import { PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	number: { default: 1234 },
@@ -13,7 +14,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	body: { default: 'the *default* body' },
 	bodyHTML: { default: 'the <b>default</b> body' },
 	author: { linked: AccountBuilder },
-	state: { default: GithubItemStateEnum.Open },
+	state: { default: PullRequestStatus.Active },
 	events: { default: [] },
 	isCurrentlyCheckedOut: { default: true },
 	base: { default: 'master' },
@@ -26,10 +27,12 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	pendingCommentText: { default: null },
 	pendingCommentDrafts: { default: null },
 	status: { linked: CombinedStatusBuilder },
-	mergeable: { default: PullRequestMergeability.Mergeable },
-	defaultMergeMethod: { default: 'merge' },
-	mergeMethodsAvailability: { default: { merge: true, squash: true, rebase: true } },
+	mergeable: { default: PullRequestMergeability.NotSet },
+	defaultMergeMethod: { default: 'Squash' },
+	mergeMethodsAvailability: { default: { NoFastForward: true, Squash: true, Rebase: true, RebaseMerge: true } },
 	reviewers: { default: [] },
 	isDraft: { default: false },
-	isIssue: { default: false }
+	isIssue: { default: false },
+	commits: {default: []},
+	currentUser: {default: {}}
 });

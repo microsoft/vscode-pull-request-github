@@ -25,6 +25,7 @@ export class MockExtensionContext implements ExtensionContext {
 	globalStorageUri: Uri;
 
 	extensionRuntime: any;
+	secrets: any;
 
 	constructor() {
 		this.storagePath = temp.mkdirSync('storage-path');

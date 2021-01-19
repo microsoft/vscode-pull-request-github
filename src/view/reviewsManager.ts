@@ -7,10 +7,11 @@ import * as vscode from 'vscode';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { ITelemetry } from '../common/telemetry';
-import { RepositoriesManager } from '../github/repositoriesManager';
+import { RepositoriesManager } from '../azdo/repositoriesManager';
 import { ReviewManager } from './reviewManager';
 import { GitContentProvider } from './gitContentProvider';
 import { GitApiImpl } from '../api/api1';
+import { URI_SCHEME_REVIEW } from '../constants';
 
 export class ReviewsManager {
 	public static ID = 'Reviews';
@@ -28,7 +29,7 @@ export class ReviewsManager {
 		this._disposables = [];
 		const gitContentProvider = new GitContentProvider(gitApi);
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
-		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
+		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider(URI_SCHEME_REVIEW, gitContentProvider));
 		this.registerListeners();
 		this._disposables.push(this._prsTreeDataProvider);
 	}

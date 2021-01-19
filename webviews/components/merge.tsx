@@ -7,13 +7,14 @@ import * as React from 'react';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
-import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
+import { MergeMethod, PullRequestMergeability } from '../../src/azdo/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
 import { groupBy } from '../../src/common/utils';
 import { Reviewer } from '../components/reviewer';
 import { Dropdown } from './dropdown';
+import { PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
 	if (pr.isIssue) {
@@ -33,18 +34,18 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: bool
 	}, status.statuses);
 
 	return <div id='status-checks'>{
-		state === GithubItemStateEnum.Merged
+		state === PullRequestStatus.Completed
 			?
 			<>
 				<div className='branch-status-message'>{'Pull request successfully merged.'}</div>
-				<DeleteBranch {...pr} />
+				{/* <DeleteBranch {...pr} /> */}
 			</>
 			:
-			state === GithubItemStateEnum.Closed
+			state === PullRequestStatus.Abandoned
 				?
 				<>
-					<div className='branch-status-message'>{'This pull request is closed.'}</div>
-					<DeleteBranch {...pr} />
+					<div className='branch-status-message'>{'This pull request is abondoned.'}</div>
+					{/* <DeleteBranch {...pr} /> */}
 				</>
 				:
 				<>
@@ -69,7 +70,7 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: bool
 						isSimple
 							? pr.reviewers
 								? pr.reviewers.map(state =>
-									<Reviewer key={state.reviewer.login} {...state} canDelete={false} />
+									<Reviewer key={state.reviewer.id} {...state} canDelete={false} />
 								)
 								: []
 							: null
@@ -87,7 +88,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest, isSim
 
 	useEffect(() => {
 		const handle = setInterval(async () => {
-			if (mergeable === PullRequestMergeability.Unknown) {
+			if (mergeable === PullRequestMergeability.NotSet || mergeable === PullRequestMergeability.Queued) {
 				setMergeability(await checkMergeability());
 			}
 		}, 3000);
@@ -106,17 +107,18 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 	return <div className='status-item status-section'>
 		{ isSimple
 			? null
-			: mergeable === PullRequestMergeability.Mergeable
+			: mergeable === PullRequestMergeability.Succeeded
 				? checkIcon
-				: mergeable === PullRequestMergeability.NotMergeable
+				: mergeable === PullRequestMergeability.RejectedByPolicy || mergeable === PullRequestMergeability.Failure
 					? deleteIcon
 					: pendingIcon}
 		<div>{
-			mergeable === PullRequestMergeability.Mergeable
+			mergeable === PullRequestMergeability.Succeeded
 				? 'This branch has no conflicts with the base branch.'
-				: mergeable === PullRequestMergeability.NotMergeable
-					? 'This branch has conflicts that must be resolved.'
-					: 'Checking if this branch can be merged...'
+				: mergeable === PullRequestMergeability.Queued
+					? 'Checking if this branch can be merged...'
+					: 'This branch has conflicts that must be resolved.'
+
 		}</div>
 	</div>;
 };
@@ -153,11 +155,12 @@ export const Merge = (pr: PullRequest) => {
 		return <ConfirmMerge pr={pr} method={selectedMethod} cancel={() => selectMethod(null)} />;
 	}
 
-	return <div className='merge-select-container'>
+	return <><div className='merge-select-container'>
 		<button onClick={() => selectMethod(select.current.value as MergeMethod)}>Merge Pull Request</button>
 		{nbsp}using method{nbsp}
 		<MergeSelect ref={select} {...pr} />
-	</div>;
+		</div>
+	</>;
 };
 
 
@@ -170,7 +173,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean
 		? canEdit
 			? <ReadyForReview />
 			: null
-		: mergeable === PullRequestMergeability.Mergeable && hasWritePermission
+		: mergeable === PullRequestMergeability.Succeeded && hasWritePermission
 			? isSimple
 				? <MergeSimple {...pr} />
 				: <Merge {...pr} />
@@ -228,7 +231,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 };
 
 function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest, method: MergeMethod, cancel: () => void }) {
-	const { merge, updatePR } = useContext(PullRequestContext);
+	const { complete } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
 	return <form onSubmit={
@@ -237,20 +240,38 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest, method: MergeMe
 
 			try {
 				setBusy(true);
-				const { title, description }: any = event.target;
-				const { state } = await merge({
-					title: title.value,
-					description: description.value,
-					method,
+				const { completeWorkitem, deleteBranch }: any = event.target;
+				await complete({
+					deleteSourceBranch: deleteBranch.checked,
+					completeWorkitem: completeWorkitem.checked,
+					mergeStrategy: method.toString(),
 				});
-				updatePR({ state });
 			} finally {
 				setBusy(false);
 			}
 		}
 	}>
-		<input type='text' name='title' defaultValue={getDefaultTitleText(method, pr)} />
-		<textarea name='description' defaultValue={getDefaultDescriptionText(method, pr)} />
+
+		<div className='merge-option-container'>
+			<div>
+				<label>
+				<input
+					name="completeWorkitem"
+					type="checkbox"
+					defaultChecked={true} />
+				Complete associated work items after merging
+				</label>
+			</div>
+			<div>
+				<label>
+				<input
+					name="deleteBranch"
+					type="checkbox"
+					defaultChecked={true}/>
+				Delete branch after merging
+				</label>
+			</div>
+		</div>
 		<div className='form-actions'>
 			<button className='secondary' onClick={cancel}>Cancel</button>
 			<input disabled={isBusy} type='submit' id='confirm-merge' value={MERGE_METHODS[method]} />
@@ -258,32 +279,33 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest, method: MergeMe
 	</form>;
 }
 
-function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
-	switch (mergeMethod) {
-		case 'merge':
-			return `Merge pull request #${pr.number} from ${pr.head}`;
-		case 'squash':
-			return `${pr.title} (#${pr.number})`;
-		default:
-			return '';
-	}
-}
+// function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
+// 	switch (mergeMethod) {
+// 		case 'merge':
+// 			return `Merge pull request #${pr.number} from ${pr.head}`;
+// 		case 'squash':
+// 			return `${pr.title} (#${pr.number})`;
+// 		default:
+// 			return '';
+// 	}
+// }
 
-function getDefaultDescriptionText(mergeMethod: string, pr: PullRequest) {
-	return mergeMethod === 'merge' ? pr.title : '';
-}
+// function getDefaultDescriptionText(mergeMethod: string, pr: PullRequest) {
+// 	return mergeMethod === 'merge' ? pr.title : '';
+// }
 
 const MERGE_METHODS = {
-	merge: 'Create Merge Commit',
-	squash: 'Squash and Merge',
-	rebase: 'Rebase and Merge',
+	NoFastForward: 'Create Merge Commit',
+	Squash: 'Squash Commit',
+	Rebase: 'Rebase and Fast Forward',
+	RebaseMerge: 'Semi-Linear Merge'
 };
 
-type MergeSelectProps =
+export type MergeSelectProps =
 	Pick<PullRequest, 'mergeMethodsAvailability'> &
 	Pick<PullRequest, 'defaultMergeMethod'>;
 
-const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>((
+export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>((
 	{ defaultMergeMethod, mergeMethodsAvailability: avail }: MergeSelectProps,
 	ref) =>
 	<select ref={ref} defaultValue={defaultMergeMethod}>{
@@ -301,7 +323,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 			<div key={s.id} className='status-check'>
 				<div>
 					<StateIcon state={s.state} />
-					<Avatar for={{ avatarUrl: s.avatar_url, url: s.url }} />
+					<Avatar url={s.url } avatarUrl={s.avatar_url} />
 					<span className='status-check-detail-text'>{s.context} {s.description ? `— ${s.description}` : ''}</span>
 				</div>
 				{!!s.target_url ? <a href={s.target_url}>Details</a> : null}

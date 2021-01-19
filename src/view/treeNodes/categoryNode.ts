@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PRType } from '../../github/interface';
+import { PRType } from '../../azdo/interface';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
 import { formatError } from '../../common/utils';
 import { AuthenticationError } from '../../common/authentication';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { ITelemetry } from '../../common/telemetry';
 
 export enum PRCategoryActionType {
@@ -46,7 +46,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Load more';
 				this.command = {
 					title: 'Load more',
-					command: 'pr.loadMore',
+					command: 'azdopr.loadMore',
 					arguments: [
 						node
 					]
@@ -56,7 +56,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Continue fetching from other remotes';
 				this.command = {
 					title: 'Load more',
-					command: 'pr.loadMore',
+					command: 'azdopr.loadMore',
 					arguments: [
 						node
 					]
@@ -66,7 +66,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Sign in';
 				this.command = {
 					title: 'Sign in',
-					command: 'pr.signinAndRefreshList',
+					command: 'azdopr.signinAndRefreshList',
 					arguments: []
 				};
 				break;
@@ -86,7 +86,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Configure remotes...';
 				this.command = {
 					title: 'Configure remotes',
-					command: 'pr.configureRemotes',
+					command: 'azdopr.configureRemotes',
 					arguments: []
 				};
 				break;
@@ -127,14 +127,20 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		this.prs = [];
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		switch (_type) {
-			case PRType.All:
-				this.label = 'All';
+			case PRType.AllActive:
+				this.label = 'All Active';
 				break;
 			case PRType.Query:
 				this.label = _categoryLabel!;
 				break;
 			case PRType.LocalPullRequest:
 				this.label = 'Local Pull Request Branches';
+				break;
+			case PRType.AssignedToMe:
+				this.label = 'Assigned To Me';
+				break;
+			case PRType.CreatedByMe:
+				this.label = 'Created By Me';
 				break;
 			default:
 				break;
@@ -165,12 +171,18 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 
 					switch (this._type) {
-						case PRType.All:
+						case PRType.AllActive:
 							/* __GDPR__
 								"pr.expand.all" : {}
 							*/
 							this._telemetry.sendTelemetryEvent('pr.expand.all');
-						case PRType.Query:
+						case PRType.CreatedByMe:
+							/* __GDPR__
+								"pr.expand.query" : {}
+							*/
+							this._telemetry.sendTelemetryEvent('pr.expand.createdByMe');
+							break;
+						case PRType.AssignedToMe:
 							/* __GDPR__
 								"pr.expand.query" : {}
 							*/

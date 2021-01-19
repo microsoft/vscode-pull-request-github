@@ -21,11 +21,14 @@ export const Overview = (pr: PullRequest) =>
 		</div>
 		<Sidebar {...pr} />
 		<div id='main'>
-			<div id='description'>
-				<CommentView isPRDescription {...pr} />
-			</div>
-			<Timeline events={pr.events} />
 			<StatusChecks pr={pr} isSimple={false}/>
+			<div id='description'>
+				<CommentView isPRDescription threadId={0} content={pr.body}
+					author={{displayName: pr.author.name, profileUrl: pr.author.url, id: pr.author.id, uniqueName: pr.author.email, _links: { avatar: { href: pr.author.avatarUrl }}}}
+					_links={{self: {href: pr.url}}} publishedDate={new Date(pr.createdAt)} canEdit={pr.canEdit}
+				/>
+			</div>
 			<AddComment {...pr} />
+			<Timeline threads={pr.threads} currentUser={pr.currentUser} />
 		</div>
 	</>;
