@@ -20,6 +20,7 @@ export interface CreateParams {
 	pendingDescription?: string;
 	selectedRemote?: RemoteInfo;
 	selectedBranch?: string;
+	isDraft: boolean;
 
 	validate: boolean;
 	showTitleValidationError: boolean;
@@ -33,7 +34,8 @@ const defaultCreateParams: CreateParams = {
 	branchesForRemote: [],
 	validate: false,
 	showTitleValidationError: false,
-	showDescriptionValidationError: false
+	showDescriptionValidationError: false,
+	isDraft: false
 };
 
 export class CreatePRContext {
@@ -103,7 +105,8 @@ export class CreatePRContext {
 					body: this.createParams.pendingDescription,
 					owner: this.createParams.selectedRemote.owner,
 					repo: this.createParams.selectedRemote.repositoryName,
-					base: this.createParams.selectedBranch
+					base: this.createParams.selectedBranch,
+					draft: this.createParams.isDraft
 				}
 			});
 			vscode.setState(defaultCreateParams);
