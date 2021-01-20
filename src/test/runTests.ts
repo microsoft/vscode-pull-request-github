@@ -18,7 +18,8 @@ async function go() {
 			extensionTestsPath,
 			launchArgs: [
 				path.resolve(__dirname,'../../test_workspace/'),
-				'--disable-extensions'
+				'--disable-extensions',
+				// '--user-data-dir=' + path.resolve(__dirname,'../../.temp'),
 			]
 		});
 	} catch (e) {

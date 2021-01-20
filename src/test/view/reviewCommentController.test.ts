@@ -5,34 +5,57 @@
 
 import assert = require('assert');
 import { SinonSandbox, createSandbox } from 'sinon';
-import { CredentialStore } from '../../github/credentials';
+import { CredentialStore } from '../../azdo/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { ReviewCommentController } from '../../view/reviewCommentController';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
-import { GitFileChangeNode } from '../../view/treeNodes/fileChangeNode';
+import { GitFileChangeNode, RemoteFileChangeNode } from '../../view/treeNodes/fileChangeNode';
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
 import { GitChangeType } from '../../common/file';
 import { toReviewUri } from '../../common/uri';
 import * as vscode from 'vscode';
-import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
-import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { PullRequestModel } from '../../github/pullRequestModel';
-import { GitHubRepository } from '../../github/githubRepository';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { AzdoRepository } from '../../azdo/azdoRepository';
 import { Protocol } from '../../common/protocol';
 import { Remote } from '../../common/remote';
-import { GHPRCommentThread } from '../../github/prComment';
+import { GHPRCommentThread } from '../../azdo/prComment';
 import { DiffLine } from '../../common/diffHunk';
-import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
+import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { GitPullRequest, GitPullRequestCommentThread, Comment, CommentType, CommentThreadStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { createMock } from 'ts-auto-mock';
+import { Repository } from '../../api/api';
+import { CommentPermissions } from '../../azdo/interface';
+import { CommonCommentHandler } from '../../common/commonCommentHandler';
 
 const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new Remote('test', 'github/test', protocol);
 
 class TestReviewCommentController extends ReviewCommentController {
+	/**
+	 *
+	 */
+	constructor(
+		_reposManager: FolderRepositoryManager,
+		_repository: Repository,
+		_localFileChanges: GitFileChangeNode[],
+		_obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+		_comments: GitPullRequestCommentThread[],
+		_getCommentPermissions: (comment: Comment) => CommentPermissions,
+		commonCommentHandler: CommonCommentHandler) {
+		super(_reposManager, _repository, _localFileChanges, _obsoleteFileChanges, _comments, _getCommentPermissions);
+		this._commonCommentHandler = commonCommentHandler;
+	}
 	public workspaceFileChangeCommentThreads() {
 		return this._workspaceFileChangeCommentThreads;
+	}
+
+	public buildCommonCommentHandler(handler: CommonCommentHandler) {
+		this._commonCommentHandler = handler;
 	}
 }
 
@@ -50,22 +73,22 @@ describe('ReviewCommentController', function () {
 		MockCommandRegistry.install(sinon);
 
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		credentialStore = new CredentialStore(telemetry, createFakeSecretStorage());
 
 		repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		repository.addRemote('origin', 'git@dev.azure.com.com:aaa/aaa/bbb_git/bbb');
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
-			return new MockGitHubRepository(r, cStore, telemetry, sinon);
+			return new MockAzdoRepository(r, cStore, telemetry, sinon);
 		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();
 
-		const pr = new PullRequestBuilder().build();
-		const repo = new GitHubRepository(remote, credentialStore, telemetry);
-		activePullRequest = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const pr = createMock<GitPullRequest>();
+		const repo = new AzdoRepository(remote, credentialStore, telemetry);
+		activePullRequest = new PullRequestModel(telemetry, repo, remote, await convertAzdoPullRequestToRawPullRequest(pr, repo));
 
 		manager.activePullRequest = activePullRequest;
 	});
@@ -112,14 +135,15 @@ describe('ReviewCommentController', function () {
 
 	function createGHPRCommentThread(threadId: string, uri: vscode.Uri): GHPRCommentThread {
 		return {
-			threadId,
+			threadId: Number.parseInt(threadId),
 			uri,
 			range: new vscode.Range(new vscode.Position(21, 0), new vscode.Position(21, 0)),
 			comments: [],
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 			label: 'Start discussion',
 			canReply: false,
-			dispose: () => { }
+			dispose: () => { },
+			rawThread: createMock<GitPullRequestCommentThread>()
 		};
 	}
 
@@ -128,25 +152,23 @@ describe('ReviewCommentController', function () {
 			const fileName = 'data/products.json';
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
-			const reviewCommentController = new TestReviewCommentController(manager as any, repository, localFileChanges, [], [], undefined as any);
+			const commonCommentHandler = new CommonCommentHandler(manager.activePullRequest!, manager);
+			const reviewCommentController = new TestReviewCommentController(manager, repository, localFileChanges, [], [], undefined as any, commonCommentHandler);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
-			sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
+			// sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 
 			sinon.stub(manager, 'getCurrentUser').returns({
-				login: 'rmacfarlane',
-				url: 'https://github.com/rmacfarlane'
+				email: 'alias@microsoft.com',
+				id: '111-222-333-444',
+				url: 'https://github.com/rmacfarlane',
 			});
 
-			sinon.stub(reviewCommentController, 'createNewThread' as any).returns(Promise.resolve({
-				url: 'https://example.com',
+			sinon.stub(activePullRequest, 'createThread').resolves({
 				id: 1,
-				diffHunk: '',
-				body: 'hello world',
-				createdAt: '',
-				htmlUrl: '',
-				graphNodeId: ''
-			}));
+				comments: [{ id: 1, commentType: CommentType.Text, content: 'text'}],
+				status: CommentThreadStatus.Active
+			});
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 				uri: repository.rootUri,
@@ -161,7 +183,7 @@ describe('ReviewCommentController', function () {
 
 			sinon.stub(repository, 'diffWith').returns(Promise.resolve(''));
 
-			const replaceCommentSpy = sinon.spy(reviewCommentController, 'replaceTemporaryComment' as any);
+			const replaceCommentSpy = sinon.spy(commonCommentHandler, 'replaceTemporaryComment');
 
 			await reviewCommentController.initialize();
 			const workspaceFileChangeCommentThreads = reviewCommentController.workspaceFileChangeCommentThreads();
@@ -169,7 +191,7 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
 			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 0);
 
-			await reviewCommentController.createOrReplyComment(thread as any, 'hello world');
+			await reviewCommentController.createOrReplyComment(thread, 'hello world');
 
 			assert.strictEqual(thread.comments.length, 1);
 			assert(replaceCommentSpy.calledOnce);

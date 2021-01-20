@@ -2,21 +2,22 @@ import assert = require('assert');
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
+import { createMock } from 'ts-auto-mock';
 
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockRepository } from '../mocks/mockRepository';
-import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestOverviewPanel } from '../../azdo/pullRequestOverview';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
-import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
-import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
+import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExtensionContext';
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
 import { GitApiImpl } from '../../api/api1';
-import { CredentialStore } from '../../github/credentials';
+import { CredentialStore } from '../../azdo/credentials';
+import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
@@ -25,7 +26,7 @@ describe('PullRequestOverview', function () {
 	let pullRequestManager: FolderRepositoryManager;
 	let context: MockExtensionContext;
 	let remote: Remote;
-	let repo: MockGitHubRepository;
+	let repo: MockAzdoRepository;
 	let telemetry: MockTelemetry;
 
 	beforeEach(async function () {
@@ -35,12 +36,12 @@ describe('PullRequestOverview', function () {
 
 		const repository = new MockRepository();
 		telemetry = new MockTelemetry();
-		const credentialStore = new CredentialStore(telemetry);
+		const credentialStore = new CredentialStore(telemetry, createFakeSecretStorage());
 		pullRequestManager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 
-		const url = 'https://github.com/aaa/bbb';
+		const url = 'https://dev.azure.com.com/aaa/bbb/_git/bbb';
 		remote = new Remote('origin', url, new Protocol(url));
-		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, telemetry, sinon);
+		repo = new MockAzdoRepository(remote, pullRequestManager.credentialStore, telemetry, sinon);
 	});
 
 	afterEach(function () {
@@ -58,16 +59,8 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
-			repo.addGraphQLPullRequest((builder) => {
-				builder.pullRequest(response => {
-					response.repository(r => {
-						r.pullRequest(pr => pr.number(1000));
-					});
-				});
-			});
-
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(1000).build(),
+			const prItem = await convertAzdoPullRequestToRawPullRequest(
+				createMock<GitPullRequest>({pullRequestId: 1000}),
 				repo,
 			);
 			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
@@ -90,29 +83,14 @@ describe('PullRequestOverview', function () {
 		it('reveals and updates an existing panel', async function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
-			repo.addGraphQLPullRequest((builder) => {
-				builder.pullRequest(response => {
-					response.repository(r => {
-						r.pullRequest(pr => pr.number(1000));
-					});
-				});
-			});
-			repo.addGraphQLPullRequest((builder) => {
-				builder.pullRequest(response => {
-					response.repository(r => {
-						r.pullRequest(pr => pr.number(2000));
-					});
-				});
-			});
-
-			const prItem0 = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(1000).build(),
+			const prItem0 = await convertAzdoPullRequestToRawPullRequest(
+				createMock<GitPullRequest>({pullRequestId: 1000}),
 				repo,
 			);
 			const prModel0 = new PullRequestModel(telemetry, repo, remote, prItem0);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
-			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
-			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
+			// sinon.stub(prModel0, 'getReviewRequests').resolves([]);
+			// sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0);
 
@@ -120,14 +98,14 @@ describe('PullRequestOverview', function () {
 			assert.notStrictEqual(panel0, undefined);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
 
-			const prItem1 = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(2000).build(),
+			const prItem1 = await convertAzdoPullRequestToRawPullRequest(
+				createMock<GitPullRequest>({pullRequestId: 2000}),
 				repo,
 			);
 			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);
 			resolveStub.resolves(prModel1);
-			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
-			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
+			// sinon.stub(prModel1, 'getReviewRequests').resolves([]);
+			// sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1);
 

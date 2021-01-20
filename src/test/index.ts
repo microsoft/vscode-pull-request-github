@@ -42,10 +42,12 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	const mocha = new Mocha({
 		ui: 'bdd',
 		useColors: true,
+		timeout: 60000,
 	});
 	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
 
-	await addTests(mocha, path.resolve(testsRoot, './azdo'));
+	await addTests(mocha, path.resolve(testsRoot, testsRoot));
+	// await addTests(mocha, path.resolve(testsRoot, './azdo'));
 	await addTests(mocha, path.resolve(testsRoot, '../../webviews/test'));
 
 	if (process.env.TEST_JUNIT_XML_PATH) {

@@ -50,7 +50,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/test"
 			],
-			"preLaunchTask": "npm: preprocess",
+			"preLaunchTask": "npm: preprocess-test",
 			"smartStep": true,
 			"sourceMaps": true,
 			"outFiles": [

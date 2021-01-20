@@ -1,25 +1,28 @@
 import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox } from 'sinon';
 import assert = require('assert');
-import { Octokit } from '@octokit/rest';
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
-import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
-import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { PullRequestGitHelper } from '../../azdo/pullRequestGitHelper';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
-import { CredentialStore, GitHub } from '../../github/credentials';
-import { parseGraphQLPullRequest } from '../../github/utils';
+import { CredentialStore, Azdo } from '../../azdo/credentials';
 import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
-import { RepositoriesManager } from '../../github/repositoriesManager';
+import { RepositoriesManager } from '../../azdo/repositoriesManager';
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { createMock } from 'ts-auto-mock';
+import { IMetadata } from '../../azdo/azdoRepository';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
+import { GitPullRequest, GitRepository } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { IRepository } from '../../azdo/interface';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -36,22 +39,14 @@ describe('GitHub Pull Requests view', function () {
 
 		telemetry = new MockTelemetry();
 		provider = new PullRequestsTreeDataProvider(telemetry);
-		credentialStore = new CredentialStore(telemetry);
+		credentialStore = new CredentialStore(telemetry, createFakeSecretStorage());
 
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
 		// a dummy GitHub/Octokit object.
-		sinon.stub(credentialStore, 'showSignInNotification').callsFake(async () => {
-			const github: GitHub = {
-				octokit: new Octokit({
-					request: {},
-					baseUrl: 'https://github.com',
-					userAgent: 'GitHub VSCode Pull Requests',
-					previews: ['shadow-cat-preview']
-				}),
-				graphql: null
-			};
+		sinon.stub(credentialStore, 'login').callsFake(async () => {
+			const azdo: Azdo = new Azdo(',',',',',');
 
-			return github;
+			return azdo;
 		});
 
 		Resource.initialize(context);
@@ -96,7 +91,7 @@ describe('GitHub Pull Requests view', function () {
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
 		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
-		provider.initialize(manager as any);
+		provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 1);
@@ -114,7 +109,7 @@ describe('GitHub Pull Requests view', function () {
 
 		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
-			return new MockGitHubRepository(remote, cStore, telemetry, sinon);
+			return new MockAzdoRepository(remote, cStore, telemetry, sinon);
 		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.folderManagers[0].updateRepositories();
@@ -125,47 +120,61 @@ describe('GitHub Pull Requests view', function () {
 		assert(rootNodes.every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
 		assert.deepEqual(rootNodes.map(n => n.getTreeItem().label), [
 			'Local Pull Request Branches',
-			'Waiting For My Review',
-			'Assigned To Me',
 			'Created By Me',
-			'All',
+			'Assigned To Me',
+			'All Active',
 		]);
 	});
 
 	describe('Local Pull Request Branches', function () {
 		it('creates a node for each local pull request', async function () {
-			const url = 'git@github.com:aaa/bbb';
+			const url = 'https://aaa@dev.azure.com/aaa/bbb/_git/bbb';
 			const remote = new Remote('origin', url, new Protocol(url));
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
-			gitHubRepository.buildMetadata(m => {
-				m.clone_url('https://github.com/aaa/bbb');
+			const azdoRepository = new MockAzdoRepository(remote, credentialStore, telemetry, sinon);
+
+			azdoRepository.buildMetadata(createMock<IMetadata>({
+				url: 'https://dev.azure.com/aaa/bbb/_git/bbb'
+			}));
+
+			sinon.stub(azdoRepository, 'getBranchRef').resolves({
+				ref: 'main',
+				sha: '123',
+				exists: true,
+				repo: createMock<IRepository>({
+					cloneUrl: 'https://dev.azure.com/aaa/bbb/_git/bbb'
+				})
 			});
 
-			const pr0 = gitHubRepository.addGraphQLPullRequest((builder) => {
-				builder.pullRequest(pr => {
-					pr.repository(r => r.pullRequest(p => {
-						p.number(1111);
-						p.title('zero');
-						p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg'));
-						p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
-					}));
-				});
-			}).pullRequest;
-			const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository);
-			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
+			const azdoGetPRStub = sinon.stub(azdoRepository, 'getPullRequest');
 
-			const pr1 = gitHubRepository.addGraphQLPullRequest((builder) => {
-				builder.pullRequest(pr => {
-					pr.repository(r => r.pullRequest(p => {
-						p.number(2222);
-						p.title('one');
-						p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
-						p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
-					}));
-				});
-			}).pullRequest;
-			const prItem1 = parseGraphQLPullRequest(pr1, gitHubRepository);
-			const pullRequest1 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem1);
+			const prItem0 = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>({
+				pullRequestId: 1111,
+				title: 'zero',
+				createdBy: {
+					uniqueName: 'me',
+					imageUrl: 'https://avatars.com/me.jpg'
+				},
+				sourceRefName: 'ref/heads/branch',
+				targetRefName: 'ref/heads/main',
+				repository: createMock<GitRepository>()
+			}), azdoRepository);
+
+			const pullRequest0 = new PullRequestModel(telemetry, azdoRepository, remote, prItem0);
+			azdoGetPRStub.withArgs(1111).resolves(pullRequest0);
+
+			const prItem1 = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>({
+				pullRequestId: 2222,
+				title: 'one',
+				createdBy: {
+					uniqueName: 'you',
+					imageUrl: 'https://avatars.com/you.jpg'
+				},
+				sourceRefName: 'ref/heads/branch',
+				targetRefName: 'ref/heads/main',
+				repository: createMock<GitRepository>()
+			}), azdoRepository);
+			const pullRequest1 = new PullRequestModel(telemetry, azdoRepository, remote, prItem1);
+			azdoGetPRStub.withArgs(2222).resolves(pullRequest1);
 
 			const repository = new MockRepository();
 			await repository.addRemote(remote.remoteName, remote.url);
@@ -182,7 +191,7 @@ describe('GitHub Pull Requests view', function () {
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
-				return gitHubRepository;
+				return azdoRepository;
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();
@@ -197,19 +206,19 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localChildren.length, 2);
 			const [localItem0, localItem1] = localChildren.map(node => node.getTreeItem());
 
-			assert.strictEqual(localItem0.label, 'zero');
-			assert.strictEqual(localItem0.tooltip, 'zero (#1111) by @me');
-			assert.strictEqual(localItem0.description, '#1111 by @me');
+			assert.strictEqual(localItem0.label, '#1111: zero');
+			assert.strictEqual(localItem0.tooltip, 'zero by me');
+			assert.strictEqual(localItem0.description, '#1111 by me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive');
-			assert.deepEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
+			assert.deepEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
 
-			assert.strictEqual(localItem1.label, '✓ one');
-			assert.strictEqual(localItem1.tooltip, 'Current Branch * one (#2222) by @you');
-			assert.strictEqual(localItem1.description, '#2222 by @you');
+			assert.strictEqual(localItem1.label, '✓ #2222: one');
+			assert.strictEqual(localItem1.tooltip, 'Current Branch * one by you');
+			assert.strictEqual(localItem1.description, '#2222 by you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active');
-			assert.deepEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
+			assert.deepEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
 		});
 	});
 });
