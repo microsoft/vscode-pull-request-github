@@ -87,6 +87,11 @@ export function main() {
 					{params.createError}
 				</div>
 
+				<div className='wrapper'>
+					<input type='checkbox' name='draft' checked={params.isDraft} onClick={() => ctx.updateState({ isDraft: !params.isDraft })}></input>
+					<label htmlFor="checkbox">Create as draft</label>
+				</div>
+
 				<div className='actions'>
 					<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>Cancel</button>
 					<button disabled={isBusy} onClick={() => create()}>Create</button>

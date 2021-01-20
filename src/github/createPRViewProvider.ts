@@ -188,7 +188,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 					defaultBranch: this._pullRequestDefaults.base,
 					branchesForRemote,
 					defaultTitle,
-					defaultDescription
+					defaultDescription,
+					isDraft: this._isDraft
 				}
 			});
 		});
@@ -221,7 +222,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			}
 
 			const head = `${headRepo.remote.owner}:${branchName}`;
-			const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head, draft: this._isDraft });
+			const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
 
 			// Create was cancelled
 			if (!createdPR) {
