@@ -145,6 +145,8 @@ describe('GitHub Pull Requests view', function () {
 				})
 			});
 
+			const azdoGetPRStub = sinon.stub(azdoRepository, 'getPullRequest');
+
 			const prItem0 = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>({
 				pullRequestId: 1111,
 				title: 'zero',
@@ -158,19 +160,21 @@ describe('GitHub Pull Requests view', function () {
 			}), azdoRepository);
 
 			const pullRequest0 = new PullRequestModel(telemetry, azdoRepository, remote, prItem0);
+			azdoGetPRStub.withArgs(1111).resolves(pullRequest0);
 
 			const prItem1 = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>({
 				pullRequestId: 2222,
 				title: 'one',
 				createdBy: {
-					uniqueName: 'me',
-					imageUrl: 'https://avatars.com/me.jpg'
+					uniqueName: 'you',
+					imageUrl: 'https://avatars.com/you.jpg'
 				},
 				sourceRefName: 'ref/heads/branch',
 				targetRefName: 'ref/heads/main',
 				repository: createMock<GitRepository>()
 			}), azdoRepository);
 			const pullRequest1 = new PullRequestModel(telemetry, azdoRepository, remote, prItem1);
+			azdoGetPRStub.withArgs(2222).resolves(pullRequest1);
 
 			const repository = new MockRepository();
 			await repository.addRemote(remote.remoteName, remote.url);
@@ -202,19 +206,19 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localChildren.length, 2);
 			const [localItem0, localItem1] = localChildren.map(node => node.getTreeItem());
 
-			assert.strictEqual(localItem0.label, 'zero');
-			assert.strictEqual(localItem0.tooltip, 'zero (#1111) by @me');
-			assert.strictEqual(localItem0.description, '#1111 by @me');
+			assert.strictEqual(localItem0.label, '#1111: zero');
+			assert.strictEqual(localItem0.tooltip, 'zero by me');
+			assert.strictEqual(localItem0.description, '#1111 by me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive');
-			assert.deepEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
+			assert.deepEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
 
-			assert.strictEqual(localItem1.label, '✓ one');
-			assert.strictEqual(localItem1.tooltip, 'Current Branch * one (#2222) by @you');
-			assert.strictEqual(localItem1.description, '#2222 by @you');
+			assert.strictEqual(localItem1.label, '✓ #2222: one');
+			assert.strictEqual(localItem1.tooltip, 'Current Branch * one by you');
+			assert.strictEqual(localItem1.description, '#2222 by you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active');
-			assert.deepEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
+			assert.deepEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
 		});
 	});
 });

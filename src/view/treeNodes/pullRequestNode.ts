@@ -411,7 +411,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const formattedPRNumber = number.toString();
 		const label = `${labelPrefix}#${formattedPRNumber}: ${isDraft ? '[DRAFT] ' : ''}${title}`;
 		const tooltip = `${tooltipPrefix}${title} by ${login}`;
-		const description = `by ${login}`;
+		const description = `#${formattedPRNumber} by ${login}`;
 
 		return {
 			label,

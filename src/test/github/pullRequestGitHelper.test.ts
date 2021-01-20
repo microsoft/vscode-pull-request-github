@@ -40,7 +40,7 @@ describe('PullRequestGitHelper', function () {
 
 	describe('checkoutFromFork', function () {
 		it('fetches, checks out, and configures a branch from a fork', async function () {
-			const url = 'git@github.com:owner/name.git';
+			const url = 'https://aaa@dev.azure.com/aaa/bbb/you/bbb';
 			const remote = new Remote('elsewhere', url, new Protocol(url));
 			// const azdoRepository = sinon.mock(new AzdoRepository(remote, credentialStore, telemetry));
 			// azdoRepository.expects('getBranchRef').resolves({
@@ -83,8 +83,8 @@ describe('PullRequestGitHelper', function () {
 
 			assert.deepEqual(repository.state.remotes, [{
 				name: 'you',
-				fetchUrl: 'git@dev.azure.com:you/bbb',
-				pushUrl: 'git@dev.azure.com:you/bbb',
+				fetchUrl: 'https://dev.azure.com/aaa/bbb/you/bbb',
+				pushUrl: 'https://dev.azure.com/aaa/bbb/you/bbb',
 				isReadOnly: false,
 			}]);
 			assert.deepEqual(repository.state.HEAD, {
@@ -96,7 +96,7 @@ describe('PullRequestGitHelper', function () {
 					name: 'my-branch',
 				}
 			});
-			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
+			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'you#bbb#100');
 		});
 	});
 });

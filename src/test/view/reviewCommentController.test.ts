@@ -164,7 +164,7 @@ describe('ReviewCommentController', function () {
 				url: 'https://github.com/rmacfarlane',
 			});
 
-			sinon.stub(commonCommentHandler, 'createOrReplyComment').resolves({
+			sinon.stub(activePullRequest, 'createThread').resolves({
 				id: 1,
 				comments: [{ id: 1, commentType: CommentType.Text, content: 'text'}],
 				status: CommentThreadStatus.Active
@@ -183,7 +183,7 @@ describe('ReviewCommentController', function () {
 
 			sinon.stub(repository, 'diffWith').returns(Promise.resolve(''));
 
-			const replaceCommentSpy = sinon.spy(reviewCommentController, 'replaceTemporaryComment' as any);
+			const replaceCommentSpy = sinon.spy(commonCommentHandler, 'replaceTemporaryComment');
 
 			await reviewCommentController.initialize();
 			const workspaceFileChangeCommentThreads = reviewCommentController.workspaceFileChangeCommentThreads();
@@ -191,7 +191,7 @@ describe('ReviewCommentController', function () {
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
 			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 0);
 
-			await reviewCommentController.createOrReplyComment(thread as any, 'hello world');
+			await reviewCommentController.createOrReplyComment(thread, 'hello world');
 
 			assert.strictEqual(thread.comments.length, 1);
 			assert(replaceCommentSpy.calledOnce);

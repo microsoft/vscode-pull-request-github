@@ -24,8 +24,11 @@ export class Protocol {
 
 	public repositoryName: string = '';
 
+	public org: string = '';
+
 	public get nameWithOwner(): string {
-		return this.owner ? `${this.owner}/${this.repositoryName}` : this.repositoryName;
+		const owner = this.owner ? `${this.owner}/${this.repositoryName}` : this.repositoryName;
+		return this.org ? `${this.org}/${this.repositoryName}/${owner}` : owner;
 	}
 
 	public readonly url: vscode.Uri;
@@ -44,10 +47,26 @@ export class Protocol {
 			if (this.host) {
 				this.repositoryName = this.getRepositoryName(this.url.path) || '';
 				this.owner = this.getOwnerName(this.url.path) || '';
+				this.org = this.getOrg(this.url.path, this.owner, this.repositoryName) || '';
 			}
 		} catch (e) {
 			Logger.appendLine(`Failed to parse '${uriString}'`);
 			vscode.window.showWarningMessage(`Unable to parse remote '${uriString}'. Please check that it is correctly formatted.`);
+		}
+	}
+
+	private getOrg(path: string, ownerName: string, repositoryName: string) {
+		let normalized = path.replace(/\\/g, '/');
+		if (normalized.endsWith('/')) {
+			normalized = normalized.substr(0, normalized.length - 1);
+		}
+
+		const fragments = normalized.split('/');
+		if (fragments.length > 1) {
+			const part = fragments[1];
+			if (part !== ownerName && part !== repositoryName) {
+				return part;
+			}
 		}
 	}
 

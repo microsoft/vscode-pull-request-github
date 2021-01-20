@@ -211,7 +211,7 @@ export class CommonCommentHandler {
 		}
 	}
 
-	private replaceTemporaryComment(thread: GHPRCommentThread, realComment: Comment, temporaryCommentId: number): void {
+	public replaceTemporaryComment(thread: GHPRCommentThread, realComment: Comment, temporaryCommentId: number): void {
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
 				return new GHPRComment(realComment, this.pullRequestModel.getCommentPermission(realComment),thread);
