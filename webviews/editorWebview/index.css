@@ -1008,3 +1008,11 @@ body .comment-container .review-comment-header > select {
 	margin-left: 5px;
 	margin-right: 5px;
 }
+
+.thread-container {
+	padding-top: 16px;
+}
+
+.system-timestamp {
+	margin-left: auto;
+}

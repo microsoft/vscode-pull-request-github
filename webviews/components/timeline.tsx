@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { useContext, useRef, useState } from 'react';
 
-import {  ReviewEvent, CommitEvent, MergedEvent, AssignEvent, HeadRefDeleteEvent } from '../../src/common/timelineEvent';
+import {  ReviewEvent, CommitEvent, MergedEvent, AssignEvent, HeadRefDeleteEvent, isUserCommentThread, isSystemThread } from '../../src/common/timelineEvent';
 import { commitIcon, mergeIcon } from './icon';
 import { Avatar, AuthorLink } from './user';
 import { groupBy } from '../../src/common/utils';
@@ -14,7 +14,7 @@ import { Spaced, nbsp } from './space';
 import Timestamp from './timestamp';
 import { CommentView, CommentBody, ReplyToThread } from './comment';
 import PullRequestContext from '../common/context';
-import { CommentType, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 // import { isUserThread } from '../../src/azdo/utils';
 
@@ -22,8 +22,10 @@ export const Timeline = ({ threads, currentUser }: { threads: GitPullRequestComm
 	<>{
 		threads.sort((a,b) => new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime()).map(thread =>
 			// TODO: Maybe make TimelineEvent a tagged union type?
-			thread.comments?.find(c => c.id === 1)?.commentType === CommentType.Text ?
-				<CommentEventView key={thread.id} thread={thread} currentUser={currentUser} /> : null
+			isUserCommentThread(thread) ?
+				<CommentEventView key={thread.id} thread={thread} currentUser={currentUser} /> :
+			isSystemThread(thread) ?
+				<SystemThreadView key={thread.id} thread={thread} /> : null
 			// isCommitEvent(event)
 			// 	? <CommitEventView key={event.id} {...event} />
 			// 	:
@@ -46,6 +48,31 @@ export const Timeline = ({ threads, currentUser }: { threads: GitPullRequestComm
 	}</>;
 
 export default Timeline;
+
+export const SystemThreadView = ({thread}: {thread: GitPullRequestCommentThread}) => {
+	const identities = (thread.identities && Object.values(thread.identities)) || [];
+
+	return <div className='comment-container commit'>
+		<div className='commit-message'>
+			{commitIcon}{nbsp}
+			{
+				identities.length > 0 ?
+				<>
+					<div className='avatar-container'>
+					<Avatar url={identities[0].profileUrl} avatarUrl={identities[0]['_links']?.['avatar']?.['href']} />
+					</div>
+					<AuthorLink url={identities[0].profileUrl} text={identities[0].displayName} />
+				</> : null
+			}
+
+			<div className='message' >{thread.comments[0].content}</div>
+		</div>
+		{nbsp}
+		<div className='system-timestamp'>
+			<Timestamp date={thread.publishedDate} />
+		</div>
+	</div>;
+}
 
 export const CommitEventView = (event: CommitEvent) =>
 	<div className='comment-container commit'>

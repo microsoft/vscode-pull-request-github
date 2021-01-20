@@ -5,6 +5,7 @@
 
 import { IComment } from './comment';
 import { IAccount } from '../github/interface';
+import { CommentType, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export enum EventType {
 	Committed,
@@ -115,4 +116,12 @@ export function isAssignEvent(event: TimelineEvent): event is AssignEvent {
 
 export function isHeadDeleteEvent(event: TimelineEvent): event is HeadRefDeleteEvent {
 	return event.event === EventType.HeadRefDeleted;
+}
+
+export function isUserCommentThread(thread: GitPullRequestCommentThread) {
+	return thread.comments?.find(c => c.id === 1)?.commentType === CommentType.Text;
+}
+
+export function isSystemThread(thread: GitPullRequestCommentThread) {
+	return thread.comments?.find(c => c.id === 1)?.commentType === CommentType.System;
 }
