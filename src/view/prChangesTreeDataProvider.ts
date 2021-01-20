@@ -46,9 +46,23 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._onDidChangeTreeData.fire();
 	}
 
+	private updateViewTitle(): void {
+		let pullRequestNumber: number | undefined;
+		if (this._pullRequestManagerMap.size === 1) {
+			const pullRequestIterator = this._pullRequestManagerMap.values().next();
+			if (!pullRequestIterator.done) {
+				pullRequestNumber = pullRequestIterator.value.pullRequestModel.number;
+			}
+		}
+
+		this._view.title = pullRequestNumber ? `Changes in Pull Request #${pullRequestNumber}` : 'Changes in Pull Request';
+	}
+
 	async addPrToView(pullRequestManager: FolderRepositoryManager, pullRequest: PullRequestModel, localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: IComment[]) {
 		const node: RepositoryChangesNode = new RepositoryChangesNode(this._view, pullRequest, pullRequestManager, comments, localFileChanges);
 		this._pullRequestManagerMap.set(pullRequestManager, node);
+		this.updateViewTitle();
+
 		await vscode.commands.executeCommand(
 			'setContext',
 			'github:inReviewMode',
@@ -59,6 +73,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	async removePrFromView(pullRequestManager: FolderRepositoryManager) {
 		this._pullRequestManagerMap.delete(pullRequestManager);
+		this.updateViewTitle();
 		if (this._pullRequestManagerMap.size === 0) {
 			this.hide();
 		}
