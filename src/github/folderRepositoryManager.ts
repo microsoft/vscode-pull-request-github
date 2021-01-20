@@ -621,7 +621,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async listBranches(owner: string, repo: string): Promise<string[]> {
 		const repository = this._githubRepositories.find(r => r.remote.owner === owner && r.remote.repositoryName === repo);
 		if (!repository) {
-			throw new Error('No matching repository found');
+			if (this._githubRepositories.length) {
+				return this._githubRepositories[0].listBranches();
+			} else {
+				throw new Error('No GitHub repositories found');
+			}
 		}
 
 		return repository.listBranches();
