@@ -591,9 +591,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			} catch (e) {
 				Logger.appendLine(`PR> Fetching file content failed: ${e}`);
 				vscode.window
-					.showWarningMessage('Opening this file locally failed. Would you like to view it on GitHub?', 'Open in GitHub')
+					.showWarningMessage('Opening this file locally failed. Would you like to view it on GitHub?', 'Open on GitHub')
 					.then(result => {
-						if (result === 'Open in GitHub') {
+						if (result === 'Open on GitHub') {
 							vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(fileChange.blobUrl));
 						}
 					});

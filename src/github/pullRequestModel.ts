@@ -129,8 +129,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			message = reason;
 		}
 
-		vscode.window.showWarningMessage(message, 'Open in GitHub').then(action => {
-			if (action && action === 'Open in GitHub') {
+		vscode.window.showWarningMessage(message, 'Open on GitHub').then(action => {
+			if (action && action === 'Open on GitHub') {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.html_url));
 			}
 		});
