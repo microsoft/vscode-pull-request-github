@@ -17,7 +17,7 @@ import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExte
 import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../azdo/credentials';
-import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { GitPullRequest, GitStatusState } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
@@ -91,7 +91,7 @@ describe('PullRequestOverview', function () {
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			// sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			// sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
-			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
+			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: GitStatusState.Pending, statuses: [] });
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
@@ -106,7 +106,7 @@ describe('PullRequestOverview', function () {
 			resolveStub.resolves(prModel1);
 			// sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			// sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
-			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
+			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: GitStatusState.Pending, statuses: [] });
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);

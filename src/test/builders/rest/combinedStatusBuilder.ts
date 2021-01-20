@@ -1,7 +1,8 @@
 
 import { createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
-import { PullRequestChecks } from '../../../github/interface';
+import { PullRequestChecks } from '../../../azdo/interface';
+import { GitStatusState } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export const StatusItemBuilder = createBuilderClass<OctokitCommon.ReposGetCombinedStatusForRefResponseStatusesItem>()({
 	url: { default: 'https://api.github.com/repos/octocat/Hello-World/statuses/0000000000000000000000000000000000000000' },
@@ -19,7 +20,7 @@ export const StatusItemBuilder = createBuilderClass<OctokitCommon.ReposGetCombin
 export type StatusItemBuilder = InstanceType<typeof StatusItemBuilder>;
 
 export const CombinedStatusBuilder = createBuilderClass<PullRequestChecks>()({
-	state: { default: 'success' },
+	state: { default: GitStatusState.Succeeded },
 	statuses: { default: [] }
 });
 
