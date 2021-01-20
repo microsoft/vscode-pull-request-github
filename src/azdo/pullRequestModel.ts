@@ -72,6 +72,16 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 	}
 
+	public get url(): string {
+		if (!!this.item.repository?.webUrl) {
+			return `${this.item.repository?.webUrl}/pullrequest/${this.getPullRequestId()}`;
+		}
+
+		const org = this.azdoRepository.azdo!.orgUrl;
+		const project = this.azdoRepository.azdo!.projectName;
+		return `${org}/${this.item.repository?.project?.name ?? project}/_git/${this.item.repository?.name}/pullrequest/${this.getPullRequestId()}`;
+	}
+
 	public head: GitHubRef;
 	public base: GitHubRef;
 
@@ -130,7 +140,7 @@ export class PullRequestModel implements IPullRequestModel {
 
 		vscode.window.showWarningMessage(message, 'Open in Azure Devops').then(action => {
 			if (action && action === 'Open in Azure Devops') {
-				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.item.url || ''));
+				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.url || ''));
 			}
 		});
 

@@ -185,7 +185,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				pullrequest: {
 					number: pullRequest.getPullRequestId(),
 					title: pullRequest.item.title,
-					url: pullRequest.item.url,
+					url: pullRequest.url,
 					createdAt: pullRequest.item.creationDate,
 					body: pullRequest.item.description,
 					bodyHTML: pullRequest.item.description,
@@ -628,7 +628,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	}
 
 	private async copyPrLink(message: IRequestMessage<string>): Promise<void> {
-		await vscode.env.clipboard.writeText(this._item.item.url ?? '');
+		await vscode.env.clipboard.writeText(this._item.url ?? '');
 		vscode.window.showInformationMessage(`Copied link to PR ${this._item.item.title}!`);
 	}
 

@@ -403,7 +403,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		const { isDraft } = this.pullRequestModel;
 		const title = this.pullRequestModel.item.title;
 		const number = this.pullRequestModel.getPullRequestId();
-		const html_url = this.pullRequestModel.item.url;
+		const html_url = this.pullRequestModel.url;
 		const login = this.pullRequestModel.item.createdBy?.uniqueName;
 
 		const labelPrefix = (currentBranchIsForThisPR ? '✓ ' : '');

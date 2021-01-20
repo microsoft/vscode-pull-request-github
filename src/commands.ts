@@ -76,15 +76,15 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
 
 			if (activePullRequests.length >= 1) {
-				const result = await chooseItem<PullRequestModel>(activePullRequests, (itemValue) => itemValue.item.url!);
+				const result = await chooseItem<PullRequestModel>(activePullRequests, (itemValue) => itemValue.url);
 				if (result) {
-					vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(result.item.url!));
+					vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(result.url));
 				}
 			}
 		} else if (e instanceof PRNode || e instanceof DescriptionNode) {
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.item.url!));
+			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.url));
 		} else {
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.item.url!));
+			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.url));
 		}
 
 		/* __GDPR__

@@ -114,7 +114,7 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 				pullrequest: {
 					number: pullRequest.getPullRequestId(),
 					title: pullRequest.item.title,
-					url: pullRequest.item.url,
+					url: pullRequest.url,
 					createdAt: pullRequest.item.createdBy,
 					body: pullRequest.item.description,
 					bodyHTML: pullRequest.item.description,
