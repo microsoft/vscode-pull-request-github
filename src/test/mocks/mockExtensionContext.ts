@@ -13,7 +13,7 @@ export class MockExtensionContext implements ExtensionContext {
 		get(key: string): Thenable<string | undefined> {
 			throw new Error('Method not implemented.');
 		}
-		set(key: string, value: string): Thenable<void> {
+		store(key: string, value: string): Thenable<void> {
 			throw new Error('Method not implemented.');
 		}
 		delete(key: string): Thenable<void> {
