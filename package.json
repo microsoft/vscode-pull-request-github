@@ -374,6 +374,7 @@
           "when": "ReposManagerStateContext == NeedsAuthentication",
           "icon": "resources/icons/pull-request.png"
         },
+
         {
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
