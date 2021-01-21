@@ -71,7 +71,6 @@ export function main() {
 					<div className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required.</div>
 				</div>
 
-
 				<div className='wrapper'>
 					<textarea name='description' placeholder='Pull Request Description' value={params.pendingDescription} required onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}></textarea>
 				</div>
@@ -82,7 +81,7 @@ export function main() {
 
 				<div className='wrapper'>
 					<input type='checkbox' name='draft' checked={params.isDraft} onClick={() => ctx.updateState({ isDraft: !params.isDraft })}></input>
-					<label htmlFor="checkbox">Create as draft</label>
+					<label htmlFor='checkbox'>Create as draft</label>
 				</div>
 
 				<div className='actions'>
