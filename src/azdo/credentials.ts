@@ -146,7 +146,7 @@ export class CredentialStore implements vscode.Disposable {
 		if (!token) {
 			token = await this.requestPersonalAccessToken();
 			if (!!token) {
-				this._secretStore.set(tokenKey, token);
+				this._secretStore.store(tokenKey, token);
 			}
 		}
 		return token;

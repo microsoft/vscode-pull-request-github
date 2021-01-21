@@ -47,7 +47,7 @@ export const createFakeSecretStorage = (): SecretStorage => {
 	const secretStorage = <SecretStorage>{};
 
 	secretStorage.get = sinon.stub().returns(process.env.VSCODE_PR_AZDO_TEST_PAT);
-	secretStorage.set = sinon.stub();
+	secretStorage.store = sinon.stub();
 	secretStorage.delete = sinon.stub();
 	secretStorage.onDidChange = sinon.stub();
 	return secretStorage;
