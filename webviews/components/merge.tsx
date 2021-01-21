@@ -7,14 +7,14 @@ import * as React from 'react';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
-import { MergeMethod, PullRequestMergeability } from '../../src/azdo/interface';
+import { MergeMethod, PullRequestChecks, PullRequestMergeability } from '../../src/azdo/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
 import { nbsp } from './space';
 import { groupBy } from '../../src/common/utils';
 import { Reviewer } from '../components/reviewer';
 import { Dropdown } from './dropdown';
-import { PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { GitStatusState, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
 export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
 	if (pr.isIssue) {
@@ -23,10 +23,10 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: bool
 	const { state, status } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
-		status.statuses.some(s => s.state === 'failure')) as [boolean, () => void];
+		status.statuses.some(s => s.state === GitStatusState.Failed)) as [boolean, () => void];
 
 	useEffect(() => {
-		if (status.statuses.some(s => s.state === 'failure')) {
+		if (status.statuses.some(s => s.state === GitStatusState.Failed || s.state === GitStatusState.Error)) {
 			if (!showDetails) { toggleDetails(); }
 		} else {
 			if (showDetails) { toggleDetails(); }
@@ -331,23 +331,12 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) =>
 		)
 	}</div>;
 
-function getSummaryLabel(statuses: any[]) {
-	const statusTypes = groupBy(statuses, (status: any) => status.state);
+function getSummaryLabel(statuses: PullRequestChecks['statuses']) {
+	const statusTypes = groupBy(statuses, (status) => status.state.toString());
 	const statusPhrases = [];
 	for (const statusType of Object.keys(statusTypes)) {
 		const numOfType = statusTypes[statusType].length;
-		let statusAdjective = '';
-
-		switch (statusType) {
-			case 'success':
-				statusAdjective = 'successful';
-				break;
-			case 'failure':
-				statusAdjective = 'failed';
-				break;
-			default:
-				statusAdjective = 'pending';
-		}
+		const statusAdjective = GitStatusState[statusType].toString()
 
 		const status = numOfType > 1
 			? `${numOfType} ${statusAdjective} checks`
@@ -359,10 +348,11 @@ function getSummaryLabel(statuses: any[]) {
 	return statusPhrases.join(' and ');
 }
 
-function StateIcon({ state }: { state: string }) {
+function StateIcon({ state }: { state: GitStatusState }) {
 	switch (state) {
-		case 'success': return checkIcon;
-		case 'failure': return deleteIcon;
+		case GitStatusState.Succeeded: return checkIcon;
+		case GitStatusState.Error: return deleteIcon;
+		case GitStatusState.Failed: return deleteIcon;
 	}
 	return pendingIcon;
 }

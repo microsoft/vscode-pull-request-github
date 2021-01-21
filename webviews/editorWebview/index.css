@@ -214,10 +214,6 @@ body .comment-container .review-comment-header {
 	padding-bottom: 12px;
 }
 
-.status-section:last-of-type {
-	padding-bottom: 0px;
-}
-
 #status-checks a {
 	margin-left: 10px;
 	cursor: pointer;
@@ -1007,4 +1003,12 @@ code {
 body .comment-container .review-comment-header > select {
 	margin-left: 5px;
 	margin-right: 5px;
+}
+
+.thread-container {
+	padding-top: 16px;
+}
+
+.system-timestamp {
+	margin-left: auto;
 }

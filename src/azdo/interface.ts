@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Comment, GitPullRequest, GitPullRequestMergeStrategy, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, GitPullRequest, GitPullRequestMergeStrategy, GitStatusState, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { DiffHunk } from '../common/diffHunk';
 
 export enum PRType {
@@ -179,12 +179,12 @@ export interface User extends IAccount {
 }
 
 export interface PullRequestChecks {
-	state: string;
+	state: GitStatusState;
 	statuses: {
 		id: string;
 		url?: string;
 		avatar_url?: string;
-		state?: string;
+		state?: GitStatusState;
 		description?: string;
 		target_url?: string;
 		context: string;

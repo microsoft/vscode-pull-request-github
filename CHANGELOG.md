@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.9
+### Changes
+
+- Status shows properly in Dashboard
+- Added system text to timeline view
+- Adapted to Secrets API changes in vscode
+
 ## 0.0.8
 ### Changes
 

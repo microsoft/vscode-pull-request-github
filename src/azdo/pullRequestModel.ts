@@ -434,16 +434,19 @@ export class PullRequestModel implements IPullRequestModel {
 		const azdo = azdoRepo.azdo;
 		const git = await azdo?.connection.getGitApi();
 
-		const pr_statuses = await git?.getPullRequestStatuses(repoId, this.getPullRequestId());
+		let pr_statuses = await git?.getPullRequestStatuses(repoId, this.getPullRequestId()) ?? [];
+		pr_statuses = pr_statuses
+			.filter(p => p.iterationId === Math.max(...pr_statuses.map(s => s.iterationId ?? 0)))
+			.filter(p => p.id === Math.max(...pr_statuses.filter(s => s.context?.name === p.context?.name && s.context?.genre===p.context?.genre).map(t => t.id!)));
 
 		const statuses: PullRequestChecks = {
-			state: GitStatusState.Pending.toString(),
+			state: GitStatusState.Pending,
 			statuses: pr_statuses?.map(status => {
 				return {
 					id: status.id!.toString(),
 					url: status.targetUrl,
 					description: status.description,
-					state: status.state?.toString(),
+					state: status.state,
 					context: status.context?.name || 'pending',
 					target_url: status.targetUrl,
 					genre: status.context?.genre
@@ -452,9 +455,11 @@ export class PullRequestModel implements IPullRequestModel {
 		};
 
 		if (pr_statuses?.every(s => s.state === GitStatusState.Succeeded)) {
-			statuses.state = GitStatusState.Succeeded.toString();
+			statuses.state = GitStatusState.Succeeded;
 		} else if (pr_statuses?.some(s => s.state === GitStatusState.Error || s.state === GitStatusState.Failed)) {
-			statuses.state = GitStatusState.Failed.toString();
+			statuses.state = GitStatusState.Failed;
+		} else if (pr_statuses?.every(s => s.state === GitStatusState.NotApplicable)) {
+			statuses.state = GitStatusState.NotApplicable;
 		}
 
 		return statuses;
