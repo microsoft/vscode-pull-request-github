@@ -24,7 +24,6 @@ export interface CreateParams {
 
 	validate: boolean;
 	showTitleValidationError: boolean;
-	showDescriptionValidationError: boolean;
 	createError?: boolean;
 
 }
@@ -34,7 +33,6 @@ const defaultCreateParams: CreateParams = {
 	branchesForRemote: [],
 	validate: false,
 	showTitleValidationError: false,
-	showDescriptionValidationError: false,
 	isDraft: false
 };
 
@@ -79,11 +77,6 @@ export class CreatePRContext {
 		let isValid = true;
 		if (!this.createParams.pendingTitle) {
 			this.updateState({ showTitleValidationError: true });
-			isValid = false;
-		}
-
-		if (!this.createParams.pendingDescription) {
-			this.updateState({ showDescriptionValidationError: true });
 			isValid = false;
 		}
 

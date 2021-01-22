@@ -26,12 +26,6 @@ export function main() {
 					: ctx.updateState({ pendingTitle: title });
 			}
 
-			function updateDescription(description: string): void {
-				params.validate
-					? ctx.updateState({ pendingDescription: description, showDescriptionValidationError: !description })
-					: ctx.updateState({ pendingDescription: description });
-			}
-
 			async function create(): Promise<void> {
 				setBusy(true);
 				await ctx.submit();
@@ -77,11 +71,9 @@ export function main() {
 					<div className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required.</div>
 				</div>
 
-
 				<div className='wrapper'>
-					<textarea name='description' className={params.showDescriptionValidationError ? 'input-error' : ''} placeholder='Pull Request Description' value={params.pendingDescription} required onChange={(e) => updateDescription(e.currentTarget.value)}></textarea>
+					<textarea name='description' placeholder='Pull Request Description' value={params.pendingDescription} required onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}></textarea>
 				</div>
-				<div className={params.showDescriptionValidationError ? 'validation-error below-input-error' : 'hidden'}>A description is required.</div>
 
 				<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'}>
 					{params.createError}
@@ -89,7 +81,7 @@ export function main() {
 
 				<div className='wrapper'>
 					<input type='checkbox' name='draft' checked={params.isDraft} onClick={() => ctx.updateState({ isDraft: !params.isDraft })}></input>
-					<label htmlFor="checkbox">Create as draft</label>
+					<label htmlFor='checkbox'>Create as draft</label>
 				</div>
 
 				<div className='actions'>
