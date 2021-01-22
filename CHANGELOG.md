@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.23.0
+
+### Changes
+
+- Creating a pull request now uses views in the activity bar. You can enter the details of the pull request and view the diff between
+the current branch and the base branch.
+![Create a pull request](documentation/changelog/0.23.0/new-create-experience.gif)
+
+- When you publish a branch using the terminal, clicking on the resulting link can also be used to start the create pull request flow.
+![Create from terminal link](documentation/changelog/0.23.0/create-from-terminal.gif)
+
+- The command to create a pull request now also appears in the SCM view.
+
+- Add a command to copy a GitHub permalink as markdown.
+![Copy permalink as markdown](documentation/changelog/0.23.0/copy-as-markdown.gif)
+
+### Fixes
+
+- Thanks to @IllusionMH, timestamps in the commit list do not text wrap.
+
 ## 0.22.0
 
 ### Changes
