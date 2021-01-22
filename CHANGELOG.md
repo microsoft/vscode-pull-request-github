@@ -8,6 +8,7 @@
 ![Copy permalink as markdown](documentation/changelog/0.23.0/copy-as-markdown.gif)
 
 ## 0.22.0
+
 ### Changes
 
 - Colored icons are used in the issues view.<br/>
