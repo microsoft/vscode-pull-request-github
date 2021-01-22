@@ -227,7 +227,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						}
 					}
 
-					const prRelatedUsersPromise = new Promise(async resolve => {
+					const prRelatedUsersPromise = new Promise<void>(async resolve => {
 						if (prNumber && remoteName) {
 							Logger.debug('get Timeline Events and parse users', FolderRepositoryManager.ID);
 							if (lastPullRequest && lastPullRequest.number === prNumber) {
@@ -248,7 +248,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						resolve();
 					});
 
-					const fileRelatedUsersNamesPromise = new Promise(async resolve => {
+					const fileRelatedUsersNamesPromise = new Promise<void>(async resolve => {
 						if (activeTextEditors.length) {
 							try {
 								Logger.debug('git blame and parse users', FolderRepositoryManager.ID);
@@ -279,7 +279,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						resolve();
 					});
 
-					const getMentionableUsersPromise = new Promise(async resolve => {
+					const getMentionableUsersPromise = new Promise<void>(async resolve => {
 						Logger.debug('get mentionable users', FolderRepositoryManager.ID);
 						mentionableUsers = await this.getMentionableUsers();
 						resolve();
@@ -872,6 +872,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return '';
 	}
 
+	async getTipCommitMessage(branch: string): Promise<string> {
+		const { repository } = this;
+		const { commit } = await repository.getBranch(branch);
+		if (commit) {
+			const { message } = await repository.getCommit(commit);
+			return message;
+		}
+
+		return '';
+	}
+
 	async getOrigin(): Promise<GitHubRepository> {
 		if (!this._githubRepositories.length) {
 			throw new NoGitHubReposError(this.repository);
@@ -1306,7 +1317,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async deleteLocalBranchesNRemotes() {
-		return new Promise(async resolve => {
+		return new Promise<void>(async resolve => {
 			const quickPick = vscode.window.createQuickPick();
 			quickPick.canSelectMany = true;
 			quickPick.ignoreFocusOut = true;
@@ -1585,7 +1596,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		await matchingRepo.renameRemote(workingRemoteName, 'upstream');
 		await matchingRepo.addRemote(workingRemoteName, result);
 		// Now the extension is responding to all the git changes.
-		await new Promise((resolve) => {
+		await new Promise<void>((resolve) => {
 			if (this.gitHubRepositories.length === 0) {
 				const disposable = this.onDidChangeRepositories(() => {
 					if (this.gitHubRepositories.length > 0) {

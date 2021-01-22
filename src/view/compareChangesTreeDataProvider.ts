@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Repository } from '../api/api';
+import { Branch, Repository } from '../api/api';
 import { getGitChangeType } from '../common/diffHunk';
 import { fromGitHubURI } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -25,6 +25,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		public readonly repository: Repository,
 		private baseOwner: string,
 		public baseBranchName: string,
+		public compareBranch: Branch,
 		private folderRepoManager: FolderRepositoryManager
 	) {
 		this._view = vscode.window.createTreeView('github:compareChanges', {
@@ -33,7 +34,8 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 		this._disposables.push(this._view);
 
-		this._disposables.push(this.repository.state.onDidChange(e => {
+		this._disposables.push(this.repository.state.onDidChange(async e => {
+			this.compareBranch = await this.repository.getBranch(this.compareBranch.name!)!;
 			this._onDidChangeTreeData.fire();
 		}));
 	}
@@ -54,14 +56,14 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 	async getChildren() {
 		// If no upstream, show error.
-		if (!this.repository.state.HEAD || !this.repository.state.HEAD.upstream) {
+		if (!this.compareBranch?.upstream) {
 			vscode.commands.executeCommand('setContext', 'github:noUpstream', true);
 			return [];
 		} else {
 			vscode.commands.executeCommand('setContext', 'github:noUpstream', false);
 		}
 
-		const upstream = this.repository.state.HEAD.upstream.remote;
+		const upstream = this.compareBranch.upstream!.remote;
 
 		if (!this._contentProvider) {
 			this._contentProvider = new GitHubContentProvider(this.folderRepoManager, upstream);
@@ -79,7 +81,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 			repo: remote.repositoryName,
 			owner: remote.owner,
 			base: `${this.baseOwner}:${this.baseBranchName}`,
-			head: `${remote.owner}:${this.repository.state.HEAD.name}`,
+			head: `${remote.owner}:${this.compareBranch.name}`,
 		});
 
 		if (!data.files.length) {
@@ -90,7 +92,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 		return data.files.map(file => {
 			// Note: the oktokit typings are slightly incorrect for this data and do not include previous_filename, which is why this cast is here.
-			return new GitHubFileChangeNode(this._view, file.filename, (file as any).previous_filename, getGitChangeType(file.status), this.baseBranchName, this.repository.state.HEAD!.name!);
+			return new GitHubFileChangeNode(this._view, file.filename, (file as any).previous_filename, getGitChangeType(file.status), this.baseBranchName, this.compareBranch.name!);
 		});
 	}
 

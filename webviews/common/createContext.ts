@@ -20,6 +20,7 @@ export interface CreateParams {
 	pendingDescription?: string;
 	selectedRemote?: RemoteInfo;
 	selectedBranch?: string;
+	compareBranch?: string;
 
 	validate: boolean;
 	showTitleValidationError: boolean;
@@ -70,8 +71,13 @@ export class CreatePRContext {
 	}
 
 	public changeBranch = async (branch: string): Promise<void> => {
-		this.postMessage({ command: 'pr.changeBranch', args: branch });
+		this.postMessage({ command: 'pr.changeBaseBranch', args: branch });
 	}
+
+	public changeCompareBranch = async (branch: string): Promise<void> => {
+		this.postMessage({ command: 'pr.changeCompareBranch', args: branch });
+	}
+
 
 	private validate = () => {
 		let isValid = true;
@@ -139,6 +145,13 @@ export class CreatePRContext {
 				} else {
 					// Notify the extension of the stored selected branch state
 					this.changeBranch(this.createParams.selectedBranch);
+				}
+
+				if (this.createParams.compareBranch === undefined) {
+					message.params.compareBranch = message.params.compareBranch;
+				} else {
+					// Notify the extension of the stored compare branch state
+					this.changeCompareBranch(this.createParams.compareBranch);
 				}
 
 				this.updateState(message.params);

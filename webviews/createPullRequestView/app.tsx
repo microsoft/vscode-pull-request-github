@@ -39,7 +39,7 @@ export function main() {
 			}
 
 			return <div>
-				Choose a branch to compare to the current branch.
+				Choose a base branch to compare the {params.compareBranch} branch to.
 
 				<div className='wrapper'>
 					{repoIcon}<select value={`${params.selectedRemote?.owner}/${params.selectedRemote?.repositoryName}`} onChange={(e) => {

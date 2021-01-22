@@ -573,7 +573,7 @@ export class ReviewManager {
 							modal: true
 						});
 
-						resolve();
+						resolve(undefined);
 					}
 
 					if (err.gitErrorCode === GitErrorCodes.RemoteConnectionError) {
@@ -581,7 +581,7 @@ export class ReviewManager {
 							modal: true
 						});
 
-						resolve();
+						resolve(undefined);
 					}
 
 					// we can't handle the error
@@ -591,7 +591,7 @@ export class ReviewManager {
 				// we don't want to wait for repository status update
 				const latestBranch = await this._repository.getBranch(branch.name!);
 				if (!latestBranch || !latestBranch.upstream) {
-					resolve();
+					resolve(undefined);
 				}
 
 				resolve(latestBranch);
@@ -646,7 +646,7 @@ export class ReviewManager {
 		return selected;
 	}
 
-	public async createPullRequest(isDraft?: boolean): Promise<void> {
+	public async createPullRequest(compareBranch?: string, isDraft?: boolean): Promise<void> {
 		if (!this._createPullRequestHelper) {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
@@ -655,7 +655,7 @@ export class ReviewManager {
 			});
 		}
 
-		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, !!isDraft);
+		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch, !!isDraft);
 	}
 
 	private updateFocusedViewMode(): void {
