@@ -1,7 +1,13 @@
 # Changelog
 
-## 0.22.0
+## 0.23.0
 
+### Changes
+
+- Add a command to copy a GitHub permalink as markdown.
+![Copy permalink as markdown](documentation/changelog/0.23.0/copy-as-markdown.gif)
+
+## 0.22.0
 ### Changes
 
 - Colored icons are used in the issues view.<br/>
