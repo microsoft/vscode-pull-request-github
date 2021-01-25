@@ -60,6 +60,11 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 			return;
 		}
 
+		const reviewManager = reviewManagers.find(reviewManager => reviewManager.repository.rootUri.toString() === e.repository.rootUri.toString());
+		if (reviewManager?.isCreatingPullRequest) {
+			return;
+		}
+
 		const create = 'Create Pull Request';
 		const dontShowAgain = 'Don\'t Show Again';
 		const result = await vscode.window.showInformationMessage(`Would you like to create a Pull Request for branch '${e.branch}'?`, create);

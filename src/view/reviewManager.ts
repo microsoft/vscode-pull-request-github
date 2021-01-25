@@ -658,6 +658,10 @@ export class ReviewManager {
 		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, !!isDraft);
 	}
 
+	get isCreatingPullRequest() {
+		return this._createPullRequestHelper?.isCreatingPullRequest ?? false;
+	}
+
 	private updateFocusedViewMode(): void {
 		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
 		if (focusedSetting && this._folderRepoManager.activePullRequest) {
