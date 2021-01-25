@@ -492,7 +492,7 @@ export async function pushAndCreatePR(manager: FolderRepositoryManager, reviewMa
 
 	if (manager.repository.state.HEAD?.upstream) {
 		await manager.repository.push();
-		await reviewManager.createPullRequest(draft);
+		await reviewManager.createPullRequest(undefined, draft);
 		return true;
 	} else {
 		let remote: string | undefined;
@@ -503,7 +503,7 @@ export async function pushAndCreatePR(manager: FolderRepositoryManager, reviewMa
 		}
 		if (remote) {
 			await manager.repository.push(remote, manager.repository.state.HEAD?.name, true);
-			await reviewManager.createPullRequest(draft);
+			await reviewManager.createPullRequest(undefined, draft);
 			return true;
 		} else {
 			vscode.window.showWarningMessage('The current repository has no remotes to push to. Please set up a remote and try again.');

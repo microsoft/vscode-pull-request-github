@@ -89,3 +89,16 @@ export class WebviewBase {
 		this._disposables.forEach(d => d.dispose());
 	}
 }
+
+export class WebviewViewBase extends WebviewBase {
+	public readonly viewType: string;
+	protected _view?: vscode.WebviewView;
+
+	public show() {
+		if (this._view) {
+			this._view.show();
+		} else {
+			vscode.commands.executeCommand(`${this.viewType}.focus`);
+		}
+	}
+}

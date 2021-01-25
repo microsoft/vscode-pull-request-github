@@ -282,7 +282,11 @@ export class ReviewManager {
 
 		if (!this._webviewViewProvider) {
 			this._webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, pr);
-			this._context.subscriptions.push(vscode.window.registerWebviewViewProvider(PullRequestViewProvider.viewType, this._webviewViewProvider));
+			this._context.subscriptions.push(vscode.window.registerWebviewViewProvider(this._webviewViewProvider.viewType, this._webviewViewProvider));
+
+			if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE) && vscode.env.remoteName === 'codespaces') {
+				this._webviewViewProvider.show();
+			}
 		} else {
 			this._webviewViewProvider.updatePullRequest(pr);
 		}
@@ -573,7 +577,7 @@ export class ReviewManager {
 							modal: true
 						});
 
-						resolve();
+						resolve(undefined);
 					}
 
 					if (err.gitErrorCode === GitErrorCodes.RemoteConnectionError) {
@@ -581,7 +585,7 @@ export class ReviewManager {
 							modal: true
 						});
 
-						resolve();
+						resolve(undefined);
 					}
 
 					// we can't handle the error
@@ -591,7 +595,7 @@ export class ReviewManager {
 				// we don't want to wait for repository status update
 				const latestBranch = await this._repository.getBranch(branch.name!);
 				if (!latestBranch || !latestBranch.upstream) {
-					resolve();
+					resolve(undefined);
 				}
 
 				resolve(latestBranch);
@@ -646,7 +650,7 @@ export class ReviewManager {
 		return selected;
 	}
 
-	public async createPullRequest(isDraft?: boolean): Promise<void> {
+	public async createPullRequest(compareBranch?: string, isDraft?: boolean): Promise<void> {
 		if (!this._createPullRequestHelper) {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
@@ -655,7 +659,7 @@ export class ReviewManager {
 			});
 		}
 
-		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, !!isDraft);
+		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch, !!isDraft);
 	}
 
 	get isCreatingPullRequest() {

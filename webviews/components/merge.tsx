@@ -104,7 +104,7 @@ export default StatusChecks;
 
 export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMergeability, isSimple: boolean }) => {
 	return <div className='status-item status-section'>
-		{ isSimple
+		{isSimple
 			? null
 			: mergeable === PullRequestMergeability.Mergeable
 				? checkIcon
@@ -121,7 +121,7 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 	</div>;
 };
 
-export const ReadyForReview = () => {
+export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 	const [isBusy, setBusy] = useState(false);
 	const { readyForReview, updatePR } = useContext(PullRequestContext);
 
@@ -138,8 +138,10 @@ export const ReadyForReview = () => {
 		[setBusy, readyForReview, updatePR]);
 
 	return <div className='ready-for-review-container'>
-		<button className='ready-for-review-button' disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
-		<div className='ready-for-review-icon'>{alertIcon}</div>
+		<div className='select-control'>
+			<button className='ready-for-review-button' disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+		</div>
+		{ isSimple ? '' : <div className='ready-for-review-icon'>{alertIcon}</div>}
 		<div className='ready-for-review-heading'>This pull request is still a work in progress.</div>
 		<span className='ready-for-review-meta'>Draft pull requests cannot be merged.</span>
 	</div>;
@@ -168,7 +170,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean
 	return isDraft
 		// Only PR author and users with push rights can mark draft as ready for review
 		? canEdit
-			? <ReadyForReview />
+			? <ReadyForReview isSimple={isSimple}/>
 			: null
 		: mergeable === PullRequestMergeability.Mergeable && hasWritePermission
 			? isSimple
