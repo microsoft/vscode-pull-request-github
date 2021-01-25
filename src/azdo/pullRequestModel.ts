@@ -4,7 +4,7 @@ import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { AzdoRepository } from './azdoRepository';
 import { ITelemetry } from '../common/telemetry';
-import { CommentPermissions, IRawFileChange, PullRequest, PullRequestChecks, PullRequestCompletion, PullRequestVote } from './interface';
+import { CommentPermissions, DiffBaseConfig, IRawFileChange, PullRequest, PullRequestChecks, PullRequestCompletion, PullRequestVote } from './interface';
 import { CommentThreadStatus, CommentType, GitPullRequestCommentThread, GitPullRequestCommentThreadContext, PullRequestStatus, Comment, IdentityRefWithVote, GitCommitRef, GitChange, GitBaseVersionDescriptor, GitVersionOptions, GitVersionType, GitCommitDiffs, FileDiffParams, FileDiff, VersionControlChangeType, GitStatusState, GitPullRequest, PullRequestAsyncStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readableToString, removeLeadingSlash } from './utils';
 import Logger from '../common/logger';
@@ -390,13 +390,13 @@ export class PullRequestModel implements IPullRequestModel {
 		return fileContent ?? '';
 	}
 
-	async getCommitDiffs(base:GitBaseVersionDescriptor, target: GitBaseVersionDescriptor): Promise<GitCommitDiffs | undefined> {
+	async getCommitDiffs(base:GitBaseVersionDescriptor, target: GitBaseVersionDescriptor, diffCommonCommit?: boolean): Promise<GitCommitDiffs | undefined> {
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = await azdoRepo.getRepositoryId() || '';
 		const azdo = azdoRepo.azdo;
 		const git = await azdo?.connection.getGitApi();
 
-		return await git?.getCommitDiffs(repoId, undefined, undefined, undefined, undefined, base, target);
+		return await git?.getCommitDiffs(repoId, undefined, diffCommonCommit, undefined, undefined, base, target);
 	}
 
 	async getFileDiff(baseVersionCommit: string, targetVersionCommit: string, fileDiffParams: FileDiffParams[]): Promise<FileDiff[]> {
@@ -476,6 +476,7 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 
 		// baseVersion does not work. So using version.
+		// target: feature branch, base: main branch
 		const target: GitBaseVersionDescriptor = { version: this.item.head?.sha, versionOptions: GitVersionOptions.None, versionType: GitVersionType.Commit};
 		const base: GitBaseVersionDescriptor = { version: this.item.base?.sha, versionOptions: GitVersionOptions.None, versionType: GitVersionType.Commit};
 
@@ -484,7 +485,18 @@ export class PullRequestModel implements IPullRequestModel {
 			base.version = this.item.lastMergeTargetCommit?.commitId;
 		}
 
-		const commitDiffs = await this.getCommitDiffs(base, target);
+		// Find mergebase to be used later.
+		this.mergeBase = (await this.getMergeBase(base.version!, target.version!))?.[0].commitId;
+
+		const diffBase = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('diffBase');
+		const useCommonCommit = diffBase !== DiffBaseConfig.head;
+
+		const commitDiffs = await this.getCommitDiffs(base, target, useCommonCommit);
+		const commonCommit = commitDiffs?.commonCommit ?? this.mergeBase!;
+		Logger.debug(`Fetching file changes for PR #${this.getPullRequestId()}. base: ${base.version}, mergeBase: ${this.mergeBase}, commonCommit: ${commitDiffs?.commonCommit}, target: ${target.version}, diffBaseSetting: ${diffBase}`, PullRequestModel.ID);
+
+		const baseCommit = diffBase !== DiffBaseConfig.head ? commonCommit : base.version!;
+
 		const changes = commitDiffs?.changes?.filter(c => <any>c.item?.gitObjectType === 'blob'); // The API returns string not enum (int)
 		if (!changes?.length) {
 			Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.getPullRequestId()} - No changes found - done`, PullRequestModel.ID);
@@ -496,7 +508,7 @@ export class PullRequestModel implements IPullRequestModel {
 		const diffsPromises: Promise<FileDiff[]>[] = [];
 		for (let i: number = 0; i <=batches; i++) {
 			const batchedChanges = changes!.slice(i*BATCH_SIZE, Math.min((i+1)*BATCH_SIZE, changes!.length));
-			diffsPromises.push(this.getFileDiff(base.version!, target.version!, this.getFileDiffParamsFromChanges(batchedChanges)));
+			diffsPromises.push(this.getFileDiff(baseCommit!, target.version!, this.getFileDiffParamsFromChanges(batchedChanges)));
 		}
 
 		const diffsPromisesResult = await Promise.all(diffsPromises);
@@ -516,9 +528,6 @@ export class PullRequestModel implements IPullRequestModel {
 				status: change_map?.changeType!
 			});
 		}
-
-		// Find mergebase to be used later.
-		this.mergeBase = (await this.getMergeBase(base.version!, target.version!))?.[0].commitId;
 
 		return result;
 	}
@@ -544,7 +553,7 @@ export class PullRequestModel implements IPullRequestModel {
 
 	public getDiffTarget(): string {
 		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('diffBase');
-		if (config === 'head') {
+		if (config === DiffBaseConfig.head) {
 			return this.base.sha;
 		}
 		if (!this.mergeBase) {

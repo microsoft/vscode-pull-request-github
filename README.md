@@ -52,7 +52,7 @@ It's easy to get started with Azure Devops Pull Requests for Visual Studio Code.
 #### azdoPullRequests.diffBase
 - *type*: enum
 - *required*: false
-- *default*: head
+- *default*: mergebase
 - *Description*: The commit to use to get diff against the PR branch's HEAD. TODO Add more explaination.
 
 ## Known Major Issues

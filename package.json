@@ -52,7 +52,7 @@
             "Use the merge base of PR",
             "Use the target branch's HEAD"
           ],
-          "default": "head",
+          "default": "mergebase",
           "description": "The commit used to calculate diff against PR's HEAD."
         },
         "azdoPullRequests.pullRequestTitle": {
