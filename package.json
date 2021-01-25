@@ -603,7 +603,7 @@
         "command": "pr.deleteComment",
         "title": "Delete Comment",
         "category": "GitHub Pull Requests",
-        "icon": "$(close)"
+        "icon": "$(trash)"
       },
       {
         "command": "pr.finishReview",
