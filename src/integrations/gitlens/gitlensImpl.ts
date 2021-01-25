@@ -26,21 +26,14 @@ export class GitLensIntegration implements Disposable {
 				name: 'GitHub Pull Requests and Issues',
 				label: 'Create Pull Request',
 				run: function (context: CreatePullRequestActionContext) {
-					// For now only work with branches that aren't remote and have an upstream
-					if (context.branch.isRemote || !context.branch.upstream) {
+					// For now only work with branches that aren't remote
+					if (context.branch.isRemote) {
 						return;
 					}
 
 					commands.executeCommand('pr.create', { repoPath: context.repoPath, compareBranch: context.branch.name });
 				}
-			}),
-			// api.registerActionRunner('openPullRequest', {
-			// 	name: 'GitHub Pull Requests and Issues',
-			// 	label: 'Open Pull Request',
-			// 	run: function (context: OpenPullRequestActionContext) {
-			// 		commands.executeCommand('pr.openDescription');
-			// 	}
-			// })
+			})
 		);
 	}
 

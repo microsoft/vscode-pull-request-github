@@ -35,9 +35,15 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		this._disposables.push(this._view);
 
 		this._disposables.push(this.repository.state.onDidChange(async e => {
+			// Refresh the compare branch stats if the repo changes
 			this.compareBranch = await this.repository.getBranch(this.compareBranch.name!)!;
 			this._onDidChangeTreeData.fire();
 		}));
+	}
+
+	async updateCompareBranch(branch: string): Promise<void> {
+		this.compareBranch = await this.repository.getBranch(branch)!;
+		this._onDidChangeTreeData.fire();
 	}
 
 	updateBaseBranch(branch: string): void {
@@ -85,9 +91,10 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		});
 
 		if (!data.files.length) {
-			vscode.commands.executeCommand('setContext', 'github:noCommitDifference', true);
+			this._view.message =
+				`The are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranch.name}' branch`;
 		} else {
-			vscode.commands.executeCommand('setContext', 'github:noCommitDifference', false);
+			this._view.message = undefined;
 		}
 
 		return data.files.map(file => {

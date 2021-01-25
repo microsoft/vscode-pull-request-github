@@ -14,7 +14,7 @@ import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelpe
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, Predicate } from '../common/utils';
-import { Repository, RefType, UpstreamRef, GitErrorCodes } from '../api/api';
+import { Repository, RefType, UpstreamRef, GitErrorCodes, Branch } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
@@ -840,11 +840,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
 	}
 
-	async getPullRequestDefaults(): Promise<PullRequestDefaults> {
-		if (!this.repository.state.HEAD) {
+	async getPullRequestDefaults(branch?: Branch): Promise<PullRequestDefaults> {
+		if (!branch && !this.repository.state.HEAD) {
 			throw new DetachedHeadError(this.repository);
 		}
-		const origin = await this.getOrigin();
+
+		const origin = await this.getOrigin(branch);
 		const meta = await origin.getMetadata();
 		const parent = meta.fork
 			? meta.parent
@@ -883,12 +884,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return '';
 	}
 
-	async getOrigin(): Promise<GitHubRepository> {
+	async getOrigin(branch?: Branch): Promise<GitHubRepository> {
 		if (!this._githubRepositories.length) {
 			throw new NoGitHubReposError(this.repository);
 		}
 
-		const { upstreamRef } = this;
+		const upstreamRef = branch ? branch.upstream : this.upstreamRef;
 		if (upstreamRef) {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));

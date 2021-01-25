@@ -15,9 +15,9 @@ export function main() {
 			const ctx = useContext(PullRequestContext);
 			const [isBusy, setBusy] = useState(false);
 
-			function updateSelectedBranch(branch: string): void {
-				ctx.changeBranch(branch);
-				ctx.updateState({ selectedBranch: branch });
+			function updateBaseBranch(branch: string): void {
+				ctx.changeBaseBranch(branch);
+				ctx.updateState({ baseBranch: branch });
 			}
 
 			function updateTitle(title: string): void {
@@ -42,9 +42,9 @@ export function main() {
 				Choose a base branch to compare the {params.compareBranch} branch to.
 
 				<div className='wrapper'>
-					{repoIcon}<select value={`${params.selectedRemote?.owner}/${params.selectedRemote?.repositoryName}`} onChange={(e) => {
+					{repoIcon}<select value={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`} onChange={(e) => {
 						const [owner, repositoryName] = e.currentTarget.value.split('/');
-						ctx.changeRemote(owner, repositoryName);
+						ctx.changeBaseRemote(owner, repositoryName);
 					}}>
 						{params.availableRemotes.map(param => {
 							const value = param.owner + '/' + param.repositoryName;
@@ -61,7 +61,7 @@ export function main() {
 				</div>
 
 				<div className='wrapper'>
-					{gitCompareIcon}<select value={params.selectedBranch} onChange={(e) => updateSelectedBranch(e.currentTarget.value)}>
+					{gitCompareIcon}<select value={params.baseBranch} onChange={(e) => updateBaseBranch(e.currentTarget.value)}>
 						{params.branchesForRemote.map(branchName =>
 							<option
 								key={branchName}
