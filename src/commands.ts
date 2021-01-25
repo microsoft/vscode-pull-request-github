@@ -244,16 +244,24 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	function chooseReviewManager() {
+	function chooseReviewManager(repoPath?: string) {
+		if (repoPath) {
+			const uri = vscode.Uri.file(repoPath).toString();
+			for (const mgr of reviewManagers) {
+				if (mgr.repository.rootUri.toString() === uri) {
+					return mgr;
+				}
+			}
+		}
 		return chooseItem<ReviewManager>(reviewManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath));
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async () => {
-		(await chooseReviewManager())?.createPullRequest();
+	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async (args?: { repoPath: string; compareBranch: string; }) => {
+		(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.createDraft', async () => {
-		(await chooseReviewManager())?.createPullRequest(true);
+	context.subscriptions.push(vscode.commands.registerCommand('pr.createDraft', async (args?: { repoPath: string; compareBranch: string; }) => {
+		(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch, true);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {

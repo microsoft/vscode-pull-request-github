@@ -28,6 +28,7 @@ import { RepositoriesManager } from './github/repositoriesManager';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
 import { registerLiveShareGitProvider } from './gitProviders/api';
+import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -125,6 +126,8 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
+
+	context.subscriptions.push(new GitLensIntegration());
 
 	/* __GDPR__
 		"startup" : {}

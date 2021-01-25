@@ -14,7 +14,7 @@ import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelpe
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, Predicate } from '../common/utils';
-import { Repository, RefType, UpstreamRef, GitErrorCodes } from '../api/api';
+import { Repository, RefType, UpstreamRef, GitErrorCodes, Branch } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
@@ -227,7 +227,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						}
 					}
 
-					const prRelatedUsersPromise = new Promise(async resolve => {
+					const prRelatedUsersPromise = new Promise<void>(async resolve => {
 						if (prNumber && remoteName) {
 							Logger.debug('get Timeline Events and parse users', FolderRepositoryManager.ID);
 							if (lastPullRequest && lastPullRequest.number === prNumber) {
@@ -248,7 +248,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						resolve();
 					});
 
-					const fileRelatedUsersNamesPromise = new Promise(async resolve => {
+					const fileRelatedUsersNamesPromise = new Promise<void>(async resolve => {
 						if (activeTextEditors.length) {
 							try {
 								Logger.debug('git blame and parse users', FolderRepositoryManager.ID);
@@ -279,7 +279,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						resolve();
 					});
 
-					const getMentionableUsersPromise = new Promise(async resolve => {
+					const getMentionableUsersPromise = new Promise<void>(async resolve => {
 						Logger.debug('get mentionable users', FolderRepositoryManager.ID);
 						mentionableUsers = await this.getMentionableUsers();
 						resolve();
@@ -839,11 +839,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
 	}
 
-	async getPullRequestDefaults(): Promise<PullRequestDefaults> {
-		if (!this.repository.state.HEAD) {
+	async getPullRequestDefaults(branch?: Branch): Promise<PullRequestDefaults> {
+		if (!branch && !this.repository.state.HEAD) {
 			throw new DetachedHeadError(this.repository);
 		}
-		const origin = await this.getOrigin();
+
+		const origin = await this.getOrigin(branch);
 		const meta = await origin.getMetadata();
 		const parent = meta.fork
 			? meta.parent
@@ -871,12 +872,23 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return '';
 	}
 
-	async getOrigin(): Promise<GitHubRepository> {
+	async getTipCommitMessage(branch: string): Promise<string> {
+		const { repository } = this;
+		const { commit } = await repository.getBranch(branch);
+		if (commit) {
+			const { message } = await repository.getCommit(commit);
+			return message;
+		}
+
+		return '';
+	}
+
+	async getOrigin(branch?: Branch): Promise<GitHubRepository> {
 		if (!this._githubRepositories.length) {
 			throw new NoGitHubReposError(this.repository);
 		}
 
-		const { upstreamRef } = this;
+		const upstreamRef = branch ? branch.upstream : this.upstreamRef;
 		if (upstreamRef) {
 			// If our current branch has an upstream ref set, find its GitHubRepository.
 			const upstream = this.findRepo(byRemoteName(upstreamRef.remote));
@@ -1305,7 +1317,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async deleteLocalBranchesNRemotes() {
-		return new Promise(async resolve => {
+		return new Promise<void>(async resolve => {
 			const quickPick = vscode.window.createQuickPick();
 			quickPick.canSelectMany = true;
 			quickPick.ignoreFocusOut = true;
@@ -1584,7 +1596,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		await matchingRepo.renameRemote(workingRemoteName, 'upstream');
 		await matchingRepo.addRemote(workingRemoteName, result);
 		// Now the extension is responding to all the git changes.
-		await new Promise((resolve) => {
+		await new Promise<void>((resolve) => {
 			if (this.gitHubRepositories.length === 0) {
 				const disposable = this.onDidChangeRepositories(() => {
 					if (this.gitHubRepositories.length > 0) {

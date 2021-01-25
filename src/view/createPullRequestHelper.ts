@@ -37,28 +37,35 @@ export class CreatePullRequestHelper {
 			}
 		}));
 
-		this._disposables.push(this._createPRViewProvider!.onDidChangeSelectedBranch(selectedBranch => {
-			this._treeView?.updateBaseBranch(selectedBranch);
+		this._disposables.push(this._createPRViewProvider!.onDidChangeCompareBranch(compareBranch => {
+			this._treeView?.updateCompareBranch(compareBranch);
 		}));
 
-		this._disposables.push(this._createPRViewProvider!.onDidChangeSelectedRemote(remoteInfo => {
+		this._disposables.push(this._createPRViewProvider!.onDidChangeBaseBranch(baseBranch => {
+			this._treeView?.updateBaseBranch(baseBranch);
+		}));
+
+		this._disposables.push(this._createPRViewProvider!.onDidChangeBaseRemote(remoteInfo => {
 			this._treeView?.updateBaseOwner(remoteInfo.owner);
 		}));
 	}
 
-	async create(extensionUri: vscode.Uri, folderRepoManager: FolderRepositoryManager, isDraft: boolean) {
+	async create(extensionUri: vscode.Uri, folderRepoManager: FolderRepositoryManager, compareBranch: string | undefined, isDraft: boolean) {
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
-		if (!this._createPRViewProvider) {
-			const pullRequestDefaults = await folderRepoManager.getPullRequestDefaults();
 
-			this._createPRViewProvider = new CreatePullRequestViewProvider(extensionUri, folderRepoManager, pullRequestDefaults, !!isDraft);
-			this._treeView = new CompareChangesTreeProvider(this.repository, pullRequestDefaults.owner, pullRequestDefaults.base, folderRepoManager);
+		const branch = (compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ?? folderRepoManager.repository.state.HEAD;
+
+		if (!this._createPRViewProvider) {
+			const pullRequestDefaults = await folderRepoManager.getPullRequestDefaults(branch);
+
+			this._createPRViewProvider = new CreatePullRequestViewProvider(extensionUri, folderRepoManager, pullRequestDefaults, branch!, !!isDraft);
+			this._treeView = new CompareChangesTreeProvider(this.repository, pullRequestDefaults.owner, pullRequestDefaults.base, branch!, folderRepoManager);
 
 			this.registerListeners();
 
 			this._disposables.push(vscode.window.registerWebviewViewProvider(this._createPRViewProvider.viewType, this._createPRViewProvider));
 		}
 
-		this._createPRViewProvider.show();
+		this._createPRViewProvider.show(branch);
 	}
 }

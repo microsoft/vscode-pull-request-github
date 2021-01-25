@@ -18,8 +18,9 @@ export interface CreateParams {
 
 	pendingTitle?: string;
 	pendingDescription?: string;
-	selectedRemote?: RemoteInfo;
-	selectedBranch?: string;
+	baseRemote?: RemoteInfo;
+	baseBranch?: string;
+	compareBranch?: string;
 	isDraft: boolean;
 
 	validate: boolean;
@@ -57,20 +58,24 @@ export class CreatePRContext {
 		if (this.onchange) { this.onchange(this.createParams); }
 	}
 
-	public changeRemote = async (owner: string, repositoryName: string): Promise<void> => {
+	public changeBaseRemote = async (owner: string, repositoryName: string): Promise<void> => {
 		const response = await this.postMessage({
-			command: 'pr.changeRemote',
+			command: 'pr.changeBaseRemote',
 			args: {
 				owner,
 				repositoryName
 			}
 		});
 
-		this.updateState({ selectedRemote: { owner, repositoryName }, branchesForRemote: response.branches, selectedBranch:  response.defaultBranch });
+		this.updateState({ baseRemote: { owner, repositoryName }, branchesForRemote: response.branches, baseBranch:  response.defaultBranch });
 	}
 
-	public changeBranch = async (branch: string): Promise<void> => {
-		this.postMessage({ command: 'pr.changeBranch', args: branch });
+	public changeBaseBranch = async (branch: string): Promise<void> => {
+		this.postMessage({ command: 'pr.changeBaseBranch', args: branch });
+	}
+
+	public changeCompareBranch = async (branch: string): Promise<void> => {
+		this.postMessage({ command: 'pr.changeCompareBranch', args: branch });
 	}
 
 	private validate = () => {
@@ -96,10 +101,11 @@ export class CreatePRContext {
 				args: {
 					title: this.createParams.pendingTitle,
 					body: this.createParams.pendingDescription,
-					owner: this.createParams.selectedRemote.owner,
-					repo: this.createParams.selectedRemote.repositoryName,
-					base: this.createParams.selectedBranch,
+					owner: this.createParams.baseRemote.owner,
+					repo: this.createParams.baseRemote.repositoryName,
+					base: this.createParams.baseBranch,
 					draft: this.createParams.isDraft
+
 				}
 			});
 			vscode.setState(defaultCreateParams);
@@ -123,22 +129,35 @@ export class CreatePRContext {
 					message.params.pendingDescription = message.params.defaultDescription;
 				}
 
-				if (this.createParams.selectedRemote === undefined) {
-					message.params.selectedRemote = message.params.defaultRemote;
+				if (this.createParams.baseRemote === undefined) {
+					message.params.baseRemote = message.params.defaultRemote;
 				} else {
 					// Notify the extension of the stored selected remote state
-					this.changeRemote(this.createParams.selectedRemote.owner, this.createParams.selectedRemote.repositoryName);
+					this.changeBaseRemote(this.createParams.baseRemote.owner, this.createParams.baseRemote.repositoryName);
 				}
 
-				if (this.createParams.selectedBranch === undefined) {
-					message.params.selectedBranch = message.params.defaultBranch;
+				if (this.createParams.baseBranch === undefined) {
+					message.params.baseBranch = message.params.defaultBranch;
 				} else {
-					// Notify the extension of the stored selected branch state
-					this.changeBranch(this.createParams.selectedBranch);
+					// Notify the extension of the stored base branch state
+					this.changeBaseBranch(this.createParams.baseBranch);
+				}
+
+				if (this.createParams.compareBranch === undefined) {
+					message.params.compareBranch = message.params.compareBranch;
+				} else {
+					// Notify the extension of the stored compare branch state
+					this.changeCompareBranch(this.createParams.compareBranch);
 				}
 
 				this.updateState(message.params);
 				return;
+			case 'reset':
+				message.params.pendingTitle = message.params.defaultTitle;
+				message.params.pendingDescription = message.params.defaultDescription;
+				message.params.baseRemote = message.params.defaultRemote;
+				message.params.baseBranch = message.params.defaultBranch;
+				this.updateState(message.params);
 			case 'set-scroll':
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 		}
