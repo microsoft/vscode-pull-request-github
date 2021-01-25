@@ -60,7 +60,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 			return;
 		}
 
-		const reviewManager = reviewManagers.find(reviewManager => reviewManager.repository.rootUri.toString() === e.repository.rootUri.toString());
+		const reviewManager = reviewManagers.find(manager => manager.repository.rootUri.toString() === e.repository.rootUri.toString());
 		if (reviewManager?.isCreatingPullRequest) {
 			return;
 		}
@@ -69,11 +69,11 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 		const dontShowAgain = 'Don\'t Show Again';
 		const result = await vscode.window.showInformationMessage(`Would you like to create a Pull Request for branch '${e.branch}'?`, create);
 		if (result === create) {
-			void vscode.commands.executeCommand('pr.create')
+			void vscode.commands.executeCommand('pr.create');
 		} else if (result === dontShowAgain) {
 			PersistentState.store(PROMPTS_SCOPE, PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY, false);
 		}
-	}))
+	}));
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
