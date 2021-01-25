@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { CreatePullRequestViewProvider } from '../github/createPRViewProvider';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { CompareChangesTreeProvider } from './compareChangesTreeDataProvider';
 
@@ -54,13 +54,28 @@ export class CreatePullRequestHelper {
 		return !!this._createPRViewProvider;
 	}
 
+	private async ensureDefaultsAreLocal(folderRepoManager: FolderRepositoryManager, defaults: PullRequestDefaults): Promise<PullRequestDefaults> {
+		if (!folderRepoManager.gitHubRepositories.some(repo => repo.remote.owner === defaults.owner && repo.remote.repositoryName === defaults.repo)) {
+			// There is an upstream/parent repo, but the remote for it does not exist in the current workspace. Fall back to using origin instead.
+			const origin = await folderRepoManager.getOrigin();
+			const metadata = await folderRepoManager.getMetadata(origin.remote.remoteName);
+			return {
+				owner: metadata.owner.login,
+				repo: metadata.name,
+				base: metadata.default_branch
+			};
+		} else {
+			return defaults;
+		}
+	}
+
 	async create(extensionUri: vscode.Uri, folderRepoManager: FolderRepositoryManager, compareBranch: string | undefined, isDraft: boolean) {
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
 
 		const branch = (compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ?? folderRepoManager.repository.state.HEAD;
 
 		if (!this._createPRViewProvider) {
-			const pullRequestDefaults = await folderRepoManager.getPullRequestDefaults(branch);
+			const pullRequestDefaults = await this.ensureDefaultsAreLocal(folderRepoManager, await folderRepoManager.getPullRequestDefaults(branch));
 
 			this._createPRViewProvider = new CreatePullRequestViewProvider(extensionUri, folderRepoManager, pullRequestDefaults, branch!, !!isDraft);
 			this._treeView = new CompareChangesTreeProvider(this.repository, pullRequestDefaults.owner, pullRequestDefaults.base, branch!, folderRepoManager);
