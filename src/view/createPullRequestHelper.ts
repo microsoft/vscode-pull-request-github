@@ -50,6 +50,10 @@ export class CreatePullRequestHelper {
 		}));
 	}
 
+	get isCreatingPullRequest() {
+		return !!this._createPRViewProvider;
+	}
+
 	async create(extensionUri: vscode.Uri, folderRepoManager: FolderRepositoryManager, compareBranch: string | undefined, isDraft: boolean) {
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
 

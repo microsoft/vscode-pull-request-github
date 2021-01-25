@@ -39,6 +39,9 @@ fetch.Promise = PolyfillPromise;
 
 let telemetry: TelemetryReporter;
 
+const PROMPTS_SCOPE = 'prompts';
+const PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY = 'createPROnPublish';
+
 async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentialStore: CredentialStore, repositories: Repository[], tree: PullRequestsTreeDataProvider, liveshareApiPromise: Promise<LiveShare | undefined>): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
@@ -51,6 +54,27 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 			}
 		}
 	});
+
+	context.subscriptions.push(git.onDidPublish(async e => {
+		// Only notify on branch publish events
+		if (!e.branch || PersistentState.fetch(PROMPTS_SCOPE, PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY) === false) {
+			return;
+		}
+
+		const reviewManager = reviewManagers.find(manager => manager.repository.rootUri.toString() === e.repository.rootUri.toString());
+		if (reviewManager?.isCreatingPullRequest) {
+			return;
+		}
+
+		const create = 'Create Pull Request';
+		const dontShowAgain = 'Don\'t Show Again';
+		const result = await vscode.window.showInformationMessage(`Would you like to create a Pull Request for branch '${e.branch}'?`, create);
+		if (result === create) {
+			void vscode.commands.executeCommand('pr.create');
+		} else if (result === dontShowAgain) {
+			PersistentState.store(PROMPTS_SCOPE, PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY, false);
+		}
+	}));
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
