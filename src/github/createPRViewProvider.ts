@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { byRemoteName, DetachedHeadError, FolderRepositoryManager, PullRequestDefaults, titleAndBodyFrom } from './folderRepositoryManager';
 import webviewContent from '../../media/createPR-webviewIndex.js';
-import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
+import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PR_SETTINGS_NAMESPACE, PR_TITLE } from '../common/settingKeys';
 import { OctokitCommon } from './common';
 import { PullRequestModel } from './pullRequestModel';
@@ -37,10 +37,8 @@ interface RemoteInfo {
 	repositoryName: string;
 }
 
-export class CreatePullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider {
-	public static readonly viewType = 'github:createPullRequest';
-
-	private _webviewView: vscode.WebviewView | undefined;
+export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
+	public readonly viewType = 'github:createPullRequest';
 
 	private _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
@@ -72,7 +70,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 		_token: vscode.CancellationToken,
 	) {
 
-		this._webviewView = webviewView;
+		this._view = webviewView;
 		this._webview = webviewView.webview;
 		super.initialize();
 		webviewView.webview.options = {
@@ -101,11 +99,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 			this._onDidChangeCompareBranch.fire(this._compareBranch.name!);
 		}
 
-		if (this._webviewView) {
-			this._webviewView.show();
-		} else {
-			vscode.commands.executeCommand('github:createPullRequest.focus');
-		}
+		super.show();
 	}
 
 	private async getTitle(): Promise<string> {
@@ -214,7 +208,8 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 				branchesForRemote,
 				defaultTitle,
 				defaultDescription,
-				compareBranch: this.compareBranch.name!
+				compareBranch: this.compareBranch.name!,
+				isDraft: this._isDraft
 			}
 		});
 	}
@@ -252,7 +247,7 @@ export class CreatePullRequestViewProvider extends WebviewBase implements vscode
 			}
 
 			const head = `${headRepo.remote.owner}:${branchName}`;
-			const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head, draft: this._isDraft });
+			const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
 
 			// Create was cancelled
 			if (!createdPR) {

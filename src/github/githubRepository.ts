@@ -625,21 +625,21 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async listBranches(): Promise<string[]> {
-		const { octokit, remote } = await this.ensure();
-		Logger.debug(`List branches for ${remote.owner}/${remote.repositoryName} - enter`, GitHubRepository.ID);
+	async listBranches(owner: string, repositoryName: string): Promise<string[]> {
+		const { octokit } = await this.ensure();
+		Logger.debug(`List branches for ${owner}/${repositoryName} - enter`, GitHubRepository.ID);
 
 		try {
 			const result = await octokit.paginate('GET /repos/:owner/:repo/branches', {
-				owner: remote.owner,
-				repo: remote.repositoryName,
+				owner: owner,
+				repo: repositoryName,
 				per_page: 100
 			});
 
-			Logger.debug(`List branches for ${remote.owner}/${remote.repositoryName} - done`, GitHubRepository.ID);
+			Logger.debug(`List branches for ${owner}/${repositoryName} - done`, GitHubRepository.ID);
 			return result.map(branch => branch.name);
 		} catch (e) {
-			Logger.debug(`List branches for ${remote.owner}/${remote.repositoryName} failed`, GitHubRepository.ID);
+			Logger.debug(`List branches for ${owner}/${repositoryName} failed`, GitHubRepository.ID);
 			throw e;
 		}
 	}

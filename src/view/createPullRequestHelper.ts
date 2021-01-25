@@ -63,7 +63,7 @@ export class CreatePullRequestHelper {
 
 			this.registerListeners();
 
-			this._disposables.push(vscode.window.registerWebviewViewProvider(CreatePullRequestViewProvider.viewType, this._createPRViewProvider));
+			this._disposables.push(vscode.window.registerWebviewViewProvider(this._createPRViewProvider.viewType, this._createPRViewProvider));
 		}
 
 		this._createPRViewProvider.show(branch);

@@ -12,13 +12,11 @@ import * as OctokitTypes from '@octokit/types';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import webviewContent from '../../media/activityBar-webviewIndex.js';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
+import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { parseReviewers } from './utils';
 
-export class PullRequestViewProvider extends WebviewBase implements vscode.WebviewViewProvider {
-	public static readonly viewType = 'github:activePullRequest';
-
-	private _view?: vscode.WebviewView;
+export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
+	public readonly viewType = 'github:activePullRequest';
 
 	private _existingReviewers: ReviewState[];
 

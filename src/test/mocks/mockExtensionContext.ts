@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as temp from 'temp';
-import { ExtensionContext, Uri, SecretStorage, Event } from 'vscode';
+import { ExtensionContext, Uri, SecretStorage, Event, SecretStorageChangeEvent } from 'vscode';
 
 import { InMemoryMemento } from './inMemoryMemento';
 
@@ -13,13 +13,13 @@ export class MockExtensionContext implements ExtensionContext {
 		get(key: string): Thenable<string | undefined> {
 			throw new Error('Method not implemented.');
 		}
-		set(key: string, value: string): Thenable<void> {
+		store(key: string, value: string): Thenable<void> {
 			throw new Error('Method not implemented.');
 		}
 		delete(key: string): Thenable<void> {
 			throw new Error('Method not implemented.');
 		}
-		onDidChange: Event<void>;
+		onDidChange: Event<SecretStorageChangeEvent>;
 	};
 	subscriptions: { dispose(): any; }[] = [];
 

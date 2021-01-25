@@ -21,10 +21,10 @@ export interface CreateParams {
 	baseRemote?: RemoteInfo;
 	baseBranch?: string;
 	compareBranch?: string;
+	isDraft: boolean;
 
 	validate: boolean;
 	showTitleValidationError: boolean;
-	showDescriptionValidationError: boolean;
 	createError?: boolean;
 
 }
@@ -34,7 +34,7 @@ const defaultCreateParams: CreateParams = {
 	branchesForRemote: [],
 	validate: false,
 	showTitleValidationError: false,
-	showDescriptionValidationError: false
+	isDraft: false
 };
 
 export class CreatePRContext {
@@ -78,16 +78,10 @@ export class CreatePRContext {
 		this.postMessage({ command: 'pr.changeCompareBranch', args: branch });
 	}
 
-
 	private validate = () => {
 		let isValid = true;
 		if (!this.createParams.pendingTitle) {
 			this.updateState({ showTitleValidationError: true });
-			isValid = false;
-		}
-
-		if (!this.createParams.pendingDescription) {
-			this.updateState({ showDescriptionValidationError: true });
 			isValid = false;
 		}
 
@@ -109,7 +103,9 @@ export class CreatePRContext {
 					body: this.createParams.pendingDescription,
 					owner: this.createParams.baseRemote.owner,
 					repo: this.createParams.baseRemote.repositoryName,
-					base: this.createParams.baseBranch
+					base: this.createParams.baseBranch,
+					draft: this.createParams.isDraft
+
 				}
 			});
 			vscode.setState(defaultCreateParams);

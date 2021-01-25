@@ -20,11 +20,11 @@ export interface CreatePullRequestActionContext {
 		readonly isRemote: boolean;
 	};
 	readonly remote:
-		| {
+		|	{
 				readonly name: string;
 				readonly provider?: RemoteProvider;
 				readonly url?: string;
-		  }
+			}
 		| undefined;
 }
 
