@@ -32,6 +32,9 @@ svg, svg path {
 
 .wrapper {
 	margin-top: 10px;
+}
+
+.flex {
 	display: flex;
 }
 

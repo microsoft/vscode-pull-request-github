@@ -35,7 +35,7 @@ export function main() {
 			return <div>
 				Choose a base branch to compare the {params.compareBranch} branch to.
 
-				<div className='wrapper'>
+				<div className='wrapper flex'>
 					{repoIcon}<select value={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`} onChange={(e) => {
 						const [owner, repositoryName] = e.currentTarget.value.split('/');
 						ctx.changeBaseRemote(owner, repositoryName);
@@ -54,7 +54,7 @@ export function main() {
 					</select>
 				</div>
 
-				<div className='wrapper'>
+				<div className='wrapper flex'>
 					{gitCompareIcon}<select value={params.baseBranch} onChange={(e) => updateBaseBranch(e.currentTarget.value)}>
 						{params.branchesForRemote.map(branchName =>
 							<option
@@ -79,7 +79,7 @@ export function main() {
 					{params.createError}
 				</div>
 
-				<div className='wrapper'>
+				<div className='wrapper flex'>
 					<input type='checkbox' name='draft' checked={params.isDraft} onClick={() => ctx.updateState({ isDraft: !params.isDraft })}></input>
 					<label htmlFor='checkbox'>Create as draft</label>
 				</div>

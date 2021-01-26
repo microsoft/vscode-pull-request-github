@@ -172,7 +172,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			default:
 				// Try to match github's default, first look for template, then use commit body if available.
 				const pullRequestTemplate = this.getPullRequestTemplate();
-				return pullRequestTemplate ?? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).body ?? '';
+				return (await pullRequestTemplate) ?? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).body ?? '';
 		}
 	}
 
