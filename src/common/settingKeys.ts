@@ -4,6 +4,3 @@
  *--------------------------------------------------------------------------------------------*/
 
 export const PR_SETTINGS_NAMESPACE = 'githubPullRequests';
-
-export const PR_TITLE = 'pullRequestTitle';
-export const PR_DESCRIPTION = 'pullRequestDescription';
