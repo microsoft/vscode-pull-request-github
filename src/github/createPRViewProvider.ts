@@ -92,11 +92,17 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return this._compareBranch;
 	}
 
-	public show(compareBranch?: Branch) {
+	set compareBranch(compareBranch: Branch) {
+		this._compareBranch = compareBranch;
 		if (compareBranch && compareBranch.name !== this._compareBranch.name) {
-			this._compareBranch = compareBranch;
 			void this.initializeParams(true);
 			this._onDidChangeCompareBranch.fire(this._compareBranch.name!);
+		}
+	}
+
+	public show(compareBranch?: Branch): void {
+		if (compareBranch) {
+			this.compareBranch = compareBranch;
 		}
 
 		super.show();
@@ -239,6 +245,21 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			} else {
 				branchName = this.compareBranch.name!;
 				remote = this.compareBranch.upstream?.remote;
+			}
+
+			if (!remote) {
+				// We assume this happens only when the compare branch is based on the current branch.
+				const shouldPushUpstream = await vscode.window.showInformationMessage(`There is currently no upstream branch for '${branchName}'. Do you want to publish it and try again?`, { modal: true }, 'Yes');
+				if (shouldPushUpstream === 'Yes') {
+					await vscode.commands.executeCommand('git.publish');
+					if (this._folderRepositoryManager.repository.state.HEAD) {
+						this.compareBranch = this._folderRepositoryManager.repository.state.HEAD;
+						remote = this.compareBranch.upstream?.remote;
+					}
+				} else {
+					this._throwError(message, 'No upstream for the compare branch.');
+					return;
+				}
 			}
 
 			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(remote!));
