@@ -20,7 +20,7 @@ export class CreatePullRequestHelper {
 
 	constructor(private readonly repository: Repository) { }
 
-	private registerListeners() {
+	private registerListeners(usingCurrentBranchAsCompare: boolean) {
 		this._disposables.push(this._createPRViewProvider!.onDone(async createdPR => {
 			vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
 
@@ -48,6 +48,14 @@ export class CreatePullRequestHelper {
 		this._disposables.push(this._createPRViewProvider!.onDidChangeBaseRemote(remoteInfo => {
 			this._treeView?.updateBaseOwner(remoteInfo.owner);
 		}));
+
+		if (usingCurrentBranchAsCompare) {
+			this._disposables.push(this.repository.state.onDidChange(_ => {
+				if (this._createPRViewProvider && this.repository.state.HEAD) {
+					this._createPRViewProvider.compareBranch = this.repository.state.HEAD;
+				}
+			}));
+		}
 	}
 
 	get isCreatingPullRequest() {
@@ -80,7 +88,7 @@ export class CreatePullRequestHelper {
 			this._createPRViewProvider = new CreatePullRequestViewProvider(extensionUri, folderRepoManager, pullRequestDefaults, branch!);
 			this._treeView = new CompareChangesTreeProvider(this.repository, pullRequestDefaults.owner, pullRequestDefaults.base, branch!, folderRepoManager);
 
-			this.registerListeners();
+			this.registerListeners(!compareBranch);
 
 			this._disposables.push(vscode.window.registerWebviewViewProvider(this._createPRViewProvider.viewType, this._createPRViewProvider));
 		}
