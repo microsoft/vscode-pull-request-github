@@ -7,30 +7,11 @@ import * as vscode from 'vscode';
 import { byRemoteName, DetachedHeadError, FolderRepositoryManager, PullRequestDefaults, titleAndBodyFrom } from './folderRepositoryManager';
 import webviewContent from '../../media/createPR-webviewIndex.js';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
-import { PR_SETTINGS_NAMESPACE, PR_TITLE } from '../common/settingKeys';
 import { OctokitCommon } from './common';
 import { PullRequestModel } from './pullRequestModel';
 import Logger from '../common/logger';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { Branch, RefType } from '../api/api';
-
-export type PullRequestTitleSource = 'commit' | 'branch' | 'custom' | 'ask';
-
-export enum PullRequestTitleSourceEnum {
-	Commit = 'commit',
-	Branch = 'branch',
-	Custom = 'custom',
-	Ask = 'ask'
-}
-
-export type PullRequestDescriptionSource = 'template' | 'commit' | 'custom' | 'ask';
-
-export enum PullRequestDescriptionSourceEnum {
-	Template = 'template',
-	Commit = 'commit',
-	Custom = 'custom',
-	Ask = 'ask'
-}
 
 interface RemoteInfo {
 	owner: string;
@@ -108,40 +89,25 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	private async getTitle(): Promise<string> {
-		const method = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullRequestTitleSource>(PR_TITLE, PullRequestTitleSourceEnum.Ask);
+		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name.
+		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
+		// compare branch if it has a GitHub remote.
+		const origin = await this._folderRepositoryManager.getOrigin(this._compareBranch);
 
-		switch (method) {
+		let hasMultipleCommits = true;
+		if (this.compareBranch.upstream) {
+			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
+			if (headRepo) {
+				const headBranch = `${headRepo.remote.owner}:${this.compareBranch.name ?? ''}`;
+				const commits = await origin.compareCommits(this._pullRequestDefaults.base, headBranch);
+				hasMultipleCommits = commits.total_commits > 1;
+			}
+		}
 
-			case PullRequestTitleSourceEnum.Branch:
-				return this.compareBranch.name!;
-
-			case PullRequestTitleSourceEnum.Commit:
-				return titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).title;
-
-			case PullRequestTitleSourceEnum.Custom:
-				return '';
-
-			default:
-				// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name.
-				// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
-				// compare branch if it has a GitHub remote.
-				const origin = await this._folderRepositoryManager.getOrigin(this._compareBranch);
-
-				let hasMultipleCommits = true;
-				if (this.compareBranch.upstream) {
-					const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
-					if (headRepo) {
-						const headBranch = `${headRepo.remote.owner}:${this.compareBranch.name ?? ''}`;
-						const commits = await origin.compareCommits(this._pullRequestDefaults.base, headBranch);
-						hasMultipleCommits = commits.total_commits > 1;
-					}
-				}
-
-				if (hasMultipleCommits) {
-					return this.compareBranch.name!;
-				} else {
-					return titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).title;
-				}
+		if (hasMultipleCommits) {
+			return this.compareBranch.name!;
+		} else {
+			return titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).title;
 		}
 	}
 
@@ -161,24 +127,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	private async getDescription(): Promise<string> {
-		const method = vscode.workspace.getConfiguration('githubPullRequests').get<PullRequestDescriptionSource>('pullRequestDescription', PullRequestDescriptionSourceEnum.Ask);
-
-		switch (method) {
-
-			case PullRequestDescriptionSourceEnum.Template:
-				return await this.getPullRequestTemplate() || '';
-
-			case PullRequestDescriptionSourceEnum.Commit:
-				return titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).title;
-
-			case PullRequestDescriptionSourceEnum.Custom:
-				return '';
-
-			default:
-				// Try to match github's default, first look for template, then use commit body if available.
-				const pullRequestTemplate = this.getPullRequestTemplate();
-				return (await pullRequestTemplate) ?? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).body ?? '';
-		}
+		// Try to match github's default, first look for template, then use commit body if available.
+		const pullRequestTemplate = this.getPullRequestTemplate();
+		return (await pullRequestTemplate) ?? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).body ?? '';
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
