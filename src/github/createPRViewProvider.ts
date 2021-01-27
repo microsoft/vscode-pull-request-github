@@ -140,7 +140,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 	}
 
-	private async getPullRequestTemplate(): Promise<string> {
+	private async getPullRequestTemplate(): Promise<string | undefined> {
 		const templateUris = await this._folderRepositoryManager.getPullRequestTemplates();
 		if (templateUris[0]) {
 			try {
@@ -148,11 +148,11 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				return templateContent.toString();
 			} catch (e) {
 				Logger.appendLine(`Reading pull request template failed: ${e}`);
-				return '';
+				return undefined;
 			}
 		}
 
-		return '';
+		return undefined;
 	}
 
 	private async getDescription(): Promise<string> {
@@ -161,7 +161,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		switch (method) {
 
 			case PullRequestDescriptionSourceEnum.Template:
-				return this.getPullRequestTemplate();
+				return await this.getPullRequestTemplate() || '';
 
 			case PullRequestDescriptionSourceEnum.Commit:
 				return titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).title;
