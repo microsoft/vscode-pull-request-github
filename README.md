@@ -52,8 +52,8 @@ It's easy to get started with Azure Devops Pull Requests for Visual Studio Code.
 #### azdoPullRequests.diffBase
 - *type*: enum
 - *required*: false
-- *default*: head
-- *Description*: The commit to use to get diff against the PR branch's HEAD. TODO Add more explaination.
+- *default*: mergebase
+- *Description*: The commit to use to get diff against the PR branch's HEAD. Read more about different options in [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki/Diff-Options:-HEAD-vs-Merge-Base)
 
 ## Known Major Issues
 1. Can't remove or add reviewers in PR Dashboard

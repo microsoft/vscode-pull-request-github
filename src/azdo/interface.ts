@@ -207,3 +207,8 @@ export interface PullRequestCompletion {
 	mergeStrategy: GitPullRequestMergeStrategy;
 	transitionWorkItems: boolean;
 }
+
+export enum DiffBaseConfig {
+	head='head',
+	mergeBase='mergebase'
+}
