@@ -964,40 +964,34 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				// There are unpushed commits
 				if (this._repository.state.HEAD?.ahead) {
 					// Offer to push changes
-					const shouldPush = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to push your local commits and try again?`, { modal: true }, 'Yes', 'Cancel');
+					const shouldPush = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to push your local commits and try again?`, { modal: true }, 'Yes');
 					if (shouldPush === 'Yes') {
 						await this._repository.push();
 						return this.createPullRequest(params);
-					}
-
-					if (shouldPush === 'Cancel') {
+					} else {
 						return;
 					}
 				}
 
 				// There are uncommited changes
 				if (this._repository.state.workingTreeChanges.length || this._repository.state.indexChanges.length) {
-					const shouldCommit = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to commit your changes and try again?`, { modal: true }, 'Yes', 'Cancel');
+					const shouldCommit = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to commit your changes and try again?`, { modal: true }, 'Yes');
 					if (shouldCommit === 'Yes') {
 						await vscode.commands.executeCommand('git.commit');
 						await this._repository.push();
 						return this.createPullRequest(params);
-					}
-
-					if (shouldCommit === 'Cancel') {
+					} else {
 						return;
 					}
 				}
 			}
 
 			if (!this._repository.state.HEAD?.upstream) {
-				const shouldPushUpstream = await vscode.window.showInformationMessage(`There is currently no upstream branch for '${params.base}'. Do you want to push it and try again?`, { modal: true }, 'Yes', 'Cancel');
+				const shouldPushUpstream = await vscode.window.showInformationMessage(`There is currently no upstream branch for '${params.base}'. Do you want to push it and try again?`, { modal: true }, 'Yes');
 				if (shouldPushUpstream === 'Yes') {
 					await this._repository.push(repo.remote.remoteName, params.base, true);
 					return this.createPullRequest(params);
-				}
-
-				if (shouldPushUpstream === 'Cancel') {
+				} else {
 					return;
 				}
 			}
