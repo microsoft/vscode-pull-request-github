@@ -72,7 +72,7 @@ export async function openDescription(
 	telemetry.sendTelemetryEvent('pr.openDescription');
 }
 
-async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue: T) => string, placeHolder?: string): Promise<T | undefined> {
+async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue: T) => string, options?: vscode.QuickPickOptions): Promise<T | undefined> {
 	if (activePullRequests.length === 1) {
 		return activePullRequests[0];
 	}
@@ -85,7 +85,7 @@ async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue
 			itemValue: currentItem
 		};
 	});
-	return (await vscode.window.showQuickPick(items, { placeHolder }))?.itemValue;
+	return (await vscode.window.showQuickPick(items, options))?.itemValue;
 }
 
 export function registerCommands(context: vscode.ExtensionContext, reposManager: RepositoriesManager, reviewManagers: ReviewManager[], telemetry: ITelemetry, credentialStore: CredentialStore, tree: PullRequestsTreeDataProvider) {
@@ -253,7 +253,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 				}
 			}
 		}
-		return chooseItem<ReviewManager>(reviewManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath));
+		return chooseItem<ReviewManager>(reviewManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath), { placeHolder: 'Choose a repository to create a pull request in', ignoreFocusOut: true });
 	}
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async (args?: { repoPath: string; compareBranch: string; }) => {
@@ -365,7 +365,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
 			pullRequestModel = await chooseItem<PullRequestModel>(activePullRequests,
 				(itemValue) => `${itemValue.number}: ${itemValue.title}`,
-				'Pull request to close');
+				{ placeHolder: 'Pull request to close' });
 		}
 		if (!pullRequestModel) {
 			return;
