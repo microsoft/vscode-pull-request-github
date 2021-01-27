@@ -650,7 +650,7 @@ export class ReviewManager {
 		return selected;
 	}
 
-	public async createPullRequest(compareBranch?: string, isDraft?: boolean): Promise<void> {
+	public async createPullRequest(compareBranch?: string): Promise<void> {
 		if (!this._createPullRequestHelper) {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
@@ -659,7 +659,7 @@ export class ReviewManager {
 			});
 		}
 
-		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch, !!isDraft);
+		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch);
 	}
 
 	get isCreatingPullRequest() {

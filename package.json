@@ -422,12 +422,6 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.createDraft",
-        "title": "Create Draft Pull Request",
-        "icon": "$(plus)",
-        "category": "GitHub Pull Requests"
-      },
-      {
         "command": "auth.signout",
         "title": "Sign out of GitHub",
         "category": "GitHub Pull Requests"
@@ -810,10 +804,6 @@
         },
         {
           "command": "pr.create",
-          "when": "gitOpenRepositoryCount != 0 && github:authenticated"
-        },
-        {
-          "command": "pr.createDraft",
           "when": "gitOpenRepositoryCount != 0 && github:authenticated"
         },
         {

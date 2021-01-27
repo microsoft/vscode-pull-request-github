@@ -419,7 +419,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private async statusBarActions(currentIssue: CurrentIssue) {
 		const openIssueText: string = `$(globe) Open #${currentIssue.issue.number} ${currentIssue.issue.title}`;
 		const pullRequestText: string = `$(git-pull-request) Create pull request for #${currentIssue.issue.number} (pushes branch)`;
-		const draftPullRequestText: string = `$(comment-discussion) Create draft pull request for #${currentIssue.issue.number} (pushes branch)`;
 		let defaults: PullRequestDefaults | undefined;
 		try {
 			defaults = await currentIssue.manager.getPullRequestDefaults();
@@ -427,7 +426,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			// leave defaults undefined
 		}
 		const stopWorkingText: string = `$(primitive-square) Stop working on #${currentIssue.issue.number}`;
-		const choices = currentIssue.branchName && defaults ? [openIssueText, pullRequestText, draftPullRequestText, stopWorkingText] : [openIssueText, pullRequestText, draftPullRequestText, stopWorkingText];
+		const choices = currentIssue.branchName && defaults ? [openIssueText, pullRequestText, stopWorkingText] : [openIssueText, pullRequestText, stopWorkingText];
 		const response: string | undefined = await vscode.window.showQuickPick(choices, { placeHolder: 'Current issue options' });
 		switch (response) {
 			case openIssueText: return this.openIssue(currentIssue.issue);
@@ -435,12 +434,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				const reviewManager = ReviewManager.getReviewManagerForFolderManager(this.reviewManagers, currentIssue.manager);
 				if (reviewManager) {
 					return pushAndCreatePR(currentIssue.manager, reviewManager, this._stateManager);
-				}
-			}
-			case draftPullRequestText: {
-				const reviewManager = ReviewManager.getReviewManagerForFolderManager(this.reviewManagers, currentIssue.manager);
-				if (reviewManager) {
-					return pushAndCreatePR(currentIssue.manager, reviewManager, this._stateManager, true);
 				}
 			}
 			case stopWorkingText: return this._stateManager.setCurrentIssue(currentIssue.manager, undefined);

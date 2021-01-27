@@ -69,7 +69,7 @@ export class CreatePullRequestHelper {
 		}
 	}
 
-	async create(extensionUri: vscode.Uri, folderRepoManager: FolderRepositoryManager, compareBranch: string | undefined, isDraft: boolean) {
+	async create(extensionUri: vscode.Uri, folderRepoManager: FolderRepositoryManager, compareBranch: string | undefined) {
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
 
 		const branch = (compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ?? folderRepoManager.repository.state.HEAD;
@@ -77,7 +77,7 @@ export class CreatePullRequestHelper {
 		if (!this._createPRViewProvider) {
 			const pullRequestDefaults = await this.ensureDefaultsAreLocal(folderRepoManager, await folderRepoManager.getPullRequestDefaults(branch));
 
-			this._createPRViewProvider = new CreatePullRequestViewProvider(extensionUri, folderRepoManager, pullRequestDefaults, branch!, !!isDraft);
+			this._createPRViewProvider = new CreatePullRequestViewProvider(extensionUri, folderRepoManager, pullRequestDefaults, branch!);
 			this._treeView = new CompareChangesTreeProvider(this.repository, pullRequestDefaults.owner, pullRequestDefaults.base, branch!, folderRepoManager);
 
 			this.registerListeners();

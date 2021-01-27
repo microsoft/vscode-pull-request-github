@@ -260,10 +260,6 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch);
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.createDraft', async (args?: { repoPath: string; compareBranch: string; }) => {
-		(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch, true);
-	}));
-
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 		let pullRequestModel: PullRequestModel;
 
