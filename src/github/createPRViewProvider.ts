@@ -57,7 +57,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
 		private readonly _pullRequestDefaults: PullRequestDefaults,
 		compareBranch: Branch,
-		private readonly _isDraft: boolean,
 	) {
 		super();
 
@@ -209,7 +208,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				defaultTitle,
 				defaultDescription,
 				compareBranch: this.compareBranch.name!,
-				isDraft: this._isDraft
+				isDraft: false
 			}
 		});
 	}

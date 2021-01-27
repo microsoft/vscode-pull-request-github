@@ -467,7 +467,7 @@ async function commitWithDefault(manager: FolderRepositoryManager, stateManager:
 
 const commitStaged = 'Commit Staged';
 const commitAll = 'Commit All';
-export async function pushAndCreatePR(manager: FolderRepositoryManager, reviewManager: ReviewManager, stateManager: StateManager, draft: boolean = false): Promise<boolean> {
+export async function pushAndCreatePR(manager: FolderRepositoryManager, reviewManager: ReviewManager, stateManager: StateManager): Promise<boolean> {
 	if (manager.repository.state.workingTreeChanges.length > 0 || manager.repository.state.indexChanges.length > 0) {
 		const responseOptions: string[] = [];
 		if (manager.repository.state.indexChanges) {
@@ -492,7 +492,7 @@ export async function pushAndCreatePR(manager: FolderRepositoryManager, reviewMa
 
 	if (manager.repository.state.HEAD?.upstream) {
 		await manager.repository.push();
-		await reviewManager.createPullRequest(undefined, draft);
+		await reviewManager.createPullRequest(undefined);
 		return true;
 	} else {
 		let remote: string | undefined;
@@ -503,7 +503,7 @@ export async function pushAndCreatePR(manager: FolderRepositoryManager, reviewMa
 		}
 		if (remote) {
 			await manager.repository.push(remote, manager.repository.state.HEAD?.name, true);
-			await reviewManager.createPullRequest(undefined, draft);
+			await reviewManager.createPullRequest(undefined);
 			return true;
 		} else {
 			vscode.window.showWarningMessage('The current repository has no remotes to push to. Please set up a remote and try again.');
