@@ -396,7 +396,8 @@ export class PullRequestModel implements IPullRequestModel {
 		const azdo = azdoRepo.azdo;
 		const git = await azdo?.connection.getGitApi();
 
-		return await git?.getCommitDiffs(repoId, undefined, diffCommonCommit, undefined, undefined, base, target);
+		// diffCommonCommit is any because https://github.com/microsoft/azure-devops-node-api/issues/429
+		return await git?.getCommitDiffs(repoId, undefined, String(diffCommonCommit) as any, undefined, undefined, base, target);
 	}
 
 	async getFileDiff(baseVersionCommit: string, targetVersionCommit: string, fileDiffParams: FileDiffParams[]): Promise<FileDiff[]> {
