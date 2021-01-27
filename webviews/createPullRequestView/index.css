@@ -36,6 +36,7 @@ svg, svg path {
 
 .flex {
 	display: flex;
+	align-items: center;
 }
 
 .wrapper span {
