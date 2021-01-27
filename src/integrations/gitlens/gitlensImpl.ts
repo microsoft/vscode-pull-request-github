@@ -23,6 +23,7 @@ export class GitLensIntegration implements Disposable {
 	private register(api: GitLensApi) {
 		this._subscriptions.push(
 			api.registerActionRunner('createPullRequest', {
+				partnerId: 'ghpr',
 				name: 'GitHub Pull Requests and Issues',
 				label: 'Create Pull Request',
 				run: function (context: CreatePullRequestActionContext) {
