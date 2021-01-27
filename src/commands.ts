@@ -256,8 +256,17 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		return chooseItem<ReviewManager>(reviewManagers, (itemValue) => pathLib.basename(itemValue.repository.rootUri.fsPath), { placeHolder: 'Choose a repository to create a pull request in', ignoreFocusOut: true });
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async (args?: { repoPath: string; compareBranch: string; }) => {
-		(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch);
+	function isSourceControl(x: any): x is { rootUri: vscode.Uri } {
+		return !!x.rootUri;
+	}
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async (args?: { repoPath: string; compareBranch: string; } | { rootUri: vscode.Uri }) => {
+		// The arguments this is called with are either from the SCM view, or manually passed.
+		if (args && isSourceControl(args)) {
+			(await chooseReviewManager(args.rootUri.fsPath))?.createPullRequest();
+		} else {
+			(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch);
+		}
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
