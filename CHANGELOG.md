@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.10
+### Changes
+
+- Diff options now properly work.
+- Changed default diff option to merge-base.
+
 ## 0.0.9
 ### Changes
 
