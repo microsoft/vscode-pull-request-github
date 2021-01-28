@@ -64,6 +64,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		// If no upstream, show error.
 		if (!this.compareBranch?.upstream) {
 			vscode.commands.executeCommand('setContext', 'github:noUpstream', true);
+			this._view.message = undefined;
 			return [];
 		} else {
 			vscode.commands.executeCommand('setContext', 'github:noUpstream', false);
