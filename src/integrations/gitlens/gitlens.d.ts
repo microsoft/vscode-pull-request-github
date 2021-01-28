@@ -11,7 +11,6 @@ export interface RemoteProvider {
 
 export interface CreatePullRequestActionContext {
 	readonly type: 'createPullRequest';
-	readonly runnerId?: number;
 
 	readonly repoPath: string;
 	readonly branch: {
@@ -20,17 +19,16 @@ export interface CreatePullRequestActionContext {
 		readonly isRemote: boolean;
 	};
 	readonly remote:
-		|	{
+		| {
 				readonly name: string;
 				readonly provider?: RemoteProvider;
 				readonly url?: string;
-			}
+		}
 		| undefined;
 }
 
 export interface OpenPullRequestActionContext {
 	readonly type: 'openPullRequest';
-	readonly runnerId?: number;
 
 	readonly repoPath: string;
 	readonly provider: RemoteProvider | undefined;
@@ -44,8 +42,20 @@ export type ActionContext = CreatePullRequestActionContext | OpenPullRequestActi
 export type Action<T extends ActionContext> = T['type'];
 
 export interface ActionRunner {
+	/*
+	 * A unique key to identify the extension/product/company to which the runner belongs
+	 */
+	readonly partnerId: string;
+
+	/*
+	 * A user-friendly name to which the runner belongs, i.e. your extension/product/company name. Will be shown, less prominently, to the user when offering this action
+	 */
 	readonly name: string;
-	readonly label: string;
+
+	/*
+	 * A user-friendly string which describes the action that will be taken. Will be shown to the user when offering this action
+	 */
+	readonly label: string | ((context: ActionContext) => string);
 
 	run(context: ActionContext): void | Promise<void>;
 }
