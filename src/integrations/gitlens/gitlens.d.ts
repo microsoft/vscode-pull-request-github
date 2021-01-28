@@ -23,7 +23,7 @@ export interface CreatePullRequestActionContext {
 				readonly name: string;
 				readonly provider?: RemoteProvider;
 				readonly url?: string;
-		  }
+		}
 		| undefined;
 }
 
@@ -58,7 +58,6 @@ export interface ActionRunner {
 	readonly label: string | ((context: ActionContext) => string);
 
 	run(context: ActionContext): void | Promise<void>;
-	// when?(context: ActionContext): boolean;
 }
 
 export interface GitLensApi {
