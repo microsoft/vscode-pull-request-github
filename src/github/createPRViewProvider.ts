@@ -251,7 +251,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			// Create was cancelled
 			if (!createdPR) {
-				this._throwError(message, undefined);
+				this._throwError(message, 'There must be a difference in commits to create a pull request.');
 			} else {
 				await this._replyMessage(message, {});
 				await PullRequestGitHelper.associateBranchWithPullRequest(this._folderRepositoryManager.repository, createdPR, branchName);
