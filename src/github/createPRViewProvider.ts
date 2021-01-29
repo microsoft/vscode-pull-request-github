@@ -33,6 +33,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private _onDidChangeCompareBranch = new vscode.EventEmitter<string>();
 	readonly onDidChangeCompareBranch: vscode.Event<string> = this._onDidChangeCompareBranch.event;
 
+	private _firstLoad: boolean = true;
+
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
@@ -64,7 +66,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		webviewView.webview.html = this._getHtmlForWebview();
 
-		this.initializeParams();
+		if (this._firstLoad) {
+			this._firstLoad = false;
+			// Reset any stored state.
+			// TODO @RMacfarlane Clear stored state on extension deactivation instead.
+			this.initializeParams(true);
+		} else {
+			this.initializeParams();
+		}
 	}
 
 	private _compareBranch: Branch;
