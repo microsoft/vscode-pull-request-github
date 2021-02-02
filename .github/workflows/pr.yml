@@ -39,11 +39,15 @@ jobs:
       # Runs a single command using the runners shell
       - name: Run tests
         run: |
-          xvfb-run -a yarn run test
+          /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          sleep 1
+          yarn run test
           echo "Exited with '$?'"
+          killall Xvfb
         env:
           TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
-
+          DISPLAY: ':99.0'
+      
       - name: Upload Unit Test Results
         if: always()
         uses: actions/upload-artifact@v2
