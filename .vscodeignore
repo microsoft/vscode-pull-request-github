@@ -16,5 +16,7 @@ documentation/**
 .vscode-test/**
 **/*webpack.config.js
 **/*.svg
+!resources/icons/dark/create-pull-request.svg
+!resources/icons/create-pull-request.svg
 scripts/**
 azure-pipeline.*
