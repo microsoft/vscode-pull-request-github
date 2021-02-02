@@ -34,7 +34,7 @@ jobs:
           install-command: yarn install
       
       # Runs a single command using the runners shell
-      - name: Run a one-line script
+      - name: Run tests
         run: yarn run test
         env:
           TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
