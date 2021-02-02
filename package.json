@@ -421,8 +421,8 @@
         "command": "pr.create",
         "title": "Create Pull Request",
         "icon": {
-          "dark": "resources/icons/dark/create-pull-request.svg",
-          "light": "resources/icons/create-pull-request.svg"
+          "dark": "resources/icons/create-pull-request-dark.png",
+          "light": "resources/icons/create-pull-request-light.png"
         },
         "category": "GitHub Pull Requests"
       },
