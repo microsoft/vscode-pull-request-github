@@ -16,7 +16,7 @@ jobs:
   # This workflow contains a single job called "build"
   build-and-test:
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -38,9 +38,7 @@ jobs:
       
       # Runs a single command using the runners shell
       - name: Run tests
-        uses: GabrielBB/xvfb-action@v1.0
-        with:
-          run: yarn run test
+        run: yarn run test
         env:
           TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
       
@@ -54,7 +52,7 @@ jobs:
   publish-test-results:
     name: "Publish Unit Tests Results"
     needs: build-and-test
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     # the build-and-test job might be skipped, we don't need to run this job then
     if: success() || failure()
 
