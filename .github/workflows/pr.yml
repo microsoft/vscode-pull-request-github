@@ -34,11 +34,13 @@ jobs:
           install-command: yarn install
           
       - name: Build
-        run: yarn run webpack
+        run: yarn run vscode:prepublish
       
       # Runs a single command using the runners shell
       - name: Run tests
-        run: xvfb-run -a yarn run test
+        run: |
+          xvfb-run -a yarn run test
+          echo "Exited with '$?'"
         env:
           TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
 
