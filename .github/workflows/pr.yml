@@ -14,7 +14,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
-  build:
+  build-and-test:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
@@ -32,6 +32,9 @@ jobs:
         uses: bahmutov/npm-install@v1.6.0
         with:
           install-command: yarn install
+          
+      - name: Build
+        run: yarn run webpack
       
       # Runs a single command using the runners shell
       - name: Run tests
@@ -39,10 +42,30 @@ jobs:
         env:
           TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
 
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1.6
+      - name: Upload Unit Test Results
         if: always()
+        uses: actions/upload-artifact@v2
         with:
+          name: Unit Test Results
+          path: test-results/**/*.xml
+          
+  publish-test-results:
+    name: "Publish Unit Tests Results"
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    # the build-and-test job might be skipped, we don't need to run this job then
+    if: success() || failure()
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1.7
+        with:
+          check_name: Unit Test Results
           github_token: ${{ secrets.GITHUB_TOKEN }}
           files: test-results/**/*.xml
 
