@@ -35,7 +35,7 @@ jobs:
       
       # Runs a single command using the runners shell
       - name: Run tests
-        run: yarn run test
+        run: xvfb-run -a yarn run test
         env:
           TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
 
