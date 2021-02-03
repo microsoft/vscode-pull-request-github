@@ -103,7 +103,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		// compare branch if it has a GitHub remote.
 		const origin = await this._folderRepositoryManager.getOrigin(this._compareBranch);
 
-		let hasMultipleCommits = true;
+		let hasMultipleCommits = false;
 		if (this.compareBranch.upstream) {
 			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
 			if (headRepo) {
