@@ -458,8 +458,8 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.openPullRequestInGitHub",
-        "title": "Open Pull Request in GitHub",
+        "command": "pr.openPullRequestOnGitHub",
+        "title": "Open Pull Request on GitHub",
         "category": "GitHub Pull Requests",
         "icon": "$(globe)"
       },
@@ -469,8 +469,8 @@
         "category": "GitHub Pull Requests"
       },
       {
-        "command": "pr.openFileInGitHub",
-        "title": "Open File in GitHub",
+        "command": "pr.openFileOnGitHub",
+        "title": "Open File on GitHub",
         "category": "GitHub Pull Requests"
       },
       {
@@ -642,7 +642,7 @@
       },
       {
         "command": "issue.openGithubPermalink",
-        "title": "Open Permalink in GitHub",
+        "title": "Open Permalink on GitHub",
         "category": "GitHub Issues"
       },
       {
@@ -820,7 +820,7 @@
           "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
-          "command": "pr.openPullRequestInGitHub",
+          "command": "pr.openPullRequestOnGitHub",
           "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
@@ -828,7 +828,7 @@
           "when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
         },
         {
-          "command": "pr.openFileInGitHub",
+          "command": "pr.openFileOnGitHub",
           "when": "false"
         },
         {
@@ -1050,7 +1050,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "pr.openPullRequestInGitHub",
+          "command": "pr.openPullRequestOnGitHub",
           "when": "view == github:activePullRequest && github:hasGitHubRemotes",
           "group": "navigation"
         }
@@ -1077,7 +1077,7 @@
           "group": "pullrequest@2"
         },
         {
-          "command": "pr.openPullRequestInGitHub",
+          "command": "pr.openPullRequestOnGitHub",
           "when": "view == pr:github && viewItem =~ /pullrequest|description/",
           "group": "pullrequest@3"
         },
@@ -1087,7 +1087,7 @@
           "group": "pullrequest@4"
         },
         {
-          "command": "pr.openFileInGitHub",
+          "command": "pr.openFileOnGitHub",
           "when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange/"
         },
         {

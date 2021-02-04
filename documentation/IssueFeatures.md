@@ -11,7 +11,7 @@ You can also create an issue from a text selection by running the **Create Issue
 
 # Commands
 
-There are two new commands for easily creating GitHub permalinks. The **Copy GitHub Permalink** command will take the text you have selected and make a git hub permalink. The **Open Permalink in GitHub** command creates the same permalink, but also opens the link in your browser.
+There are two new commands for easily creating GitHub permalinks. The **Copy GitHub Permalink** command will take the text you have selected and make a git hub permalink. The **Open Permalink on GitHub** command creates the same permalink, but also opens the link in your browser.
 
 # Inline Completion Suggestions
 
