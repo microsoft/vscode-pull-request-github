@@ -420,10 +420,7 @@
       {
         "command": "pr.create",
         "title": "Create Pull Request",
-        "icon": {
-          "dark": "resources/icons/create-pull-request-dark.png",
-          "light": "resources/icons/create-pull-request-light.png"
-        },
+        "icon": "git-pull-request-create",
         "category": "GitHub Pull Requests"
       },
       {
