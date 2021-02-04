@@ -100,7 +100,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 		return data.files.map(file => {
 			// Note: the oktokit typings are slightly incorrect for this data and do not include previous_filename, which is why this cast is here.
-			return new GitHubFileChangeNode(this._view, file.filename, (file as any).previous_filename, getGitChangeType(file.status), this.baseBranchName, this.compareBranch.name!);
+			return new GitHubFileChangeNode(this._view, file.filename, (file as any).previous_filename, getGitChangeType(file.status), data.merge_base_commit.sha, this.compareBranch.name!);
 		});
 	}
 
