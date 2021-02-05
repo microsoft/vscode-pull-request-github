@@ -47,19 +47,12 @@ function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | Pull
 export async function openDescription(
 	context: vscode.ExtensionContext,
 	telemetry: ITelemetry,
-	argument: DescriptionNode | PullRequestModel,
+	pullRequestModel: PullRequestModel,
 	folderManager: FolderRepositoryManager,
 	reviewManager: ReviewManager
 ) {
-	const pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
-	let descriptionNode: DescriptionNode;
-	if (!(argument instanceof DescriptionNode)) {
-		// the command is triggered from command palette or status bar, which means we are already in checkout mode.
-		const rootNodes = await reviewManager.changesInPrDataProvider.getChildren();
-		descriptionNode = rootNodes[0] as DescriptionNode;
-	} else {
-		descriptionNode = argument;
-	}
+	const rootNodes = await reviewManager.changesInPrDataProvider.getChildren();
+	const descriptionNode = rootNodes[0] as DescriptionNode;
 
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
 	descriptionNode.reveal(descriptionNode, { select: true, focus: true });
@@ -402,8 +395,22 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (argument: DescriptionNode | PullRequestModel) => {
-		const pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (argument: DescriptionNode | PullRequestModel | undefined) => {
+		let pullRequestModel: PullRequestModel | undefined;
+		if (!argument) {
+			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
+			if (activePullRequests.length >= 1) {
+				pullRequestModel = await chooseItem<PullRequestModel>(activePullRequests, (itemValue) => itemValue.title);
+			}
+		} else {
+			pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
+		}
+
+		if (!pullRequestModel) {
+			Logger.appendLine('No pull request found.');
+			return;
+		}
+
 		const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
 		if (!folderManager) {
 			return;
@@ -414,7 +421,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			return;
 		}
 
-		await openDescription(context, telemetry, argument, folderManager, reviewManager);
+		await openDescription(context, telemetry, pullRequestModel, folderManager, reviewManager);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshDescription', async () => {

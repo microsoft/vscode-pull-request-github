@@ -498,7 +498,8 @@
         "command": "pr.openDescription",
         "title": "View Pull Request Description",
         "category": "GitHub Pull Requests",
-        "when": "github:inReviewMode"
+        "when": "github:inReviewMode",
+        "icon": "$(note)"
       },
       {
         "command": "pr.openDescriptionToTheSide",
@@ -1050,9 +1051,14 @@
           "group": "navigation@1"
         },
         {
+          "command": "pr.openDescription",
+          "when": "view == github:activePullRequest && github:hasGitHubRemotes",
+          "group": "navigation@1"
+        },
+        {
           "command": "pr.openPullRequestInGitHub",
           "when": "view == github:activePullRequest && github:hasGitHubRemotes",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
