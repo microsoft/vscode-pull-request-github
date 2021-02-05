@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.11
+### Changes
+
+- Proposed API flag is disabled.
+- **Released to VS Code Stable.**
+
 ## 0.0.10
 ### Changes
 
