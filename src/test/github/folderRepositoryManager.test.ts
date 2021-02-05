@@ -43,7 +43,7 @@ describe('PullRequestManager', function () {
 			const changeFired = sinon.spy();
 			manager.onDidChangeActivePullRequest(changeFired);
 
-			const url = 'https://github.com/aaa/bbb.git';
+			const url = 'https://dev.azure.com.com/aaa/bbb/_git/bbb';
 			const protocol = new Protocol(url);
 			const remote = new Remote('origin', url, protocol);
 			const repository = new AzdoRepository(remote, manager.credentialStore, telemetry);

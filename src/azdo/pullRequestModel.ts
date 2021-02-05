@@ -77,8 +77,8 @@ export class PullRequestModel implements IPullRequestModel {
 			return `${this.item.repository?.webUrl}/pullrequest/${this.getPullRequestId()}`;
 		}
 
-		const org = this.azdoRepository.azdo!.orgUrl;
-		const project = this.azdoRepository.azdo!.projectName;
+		const org = this.azdoRepository.azdo?.orgUrl;
+		const project = this.azdoRepository.azdo?.projectName;
 		return `${org}/${this.item.repository?.project?.name ?? project}/_git/${this.item.repository?.name}/pullrequest/${this.getPullRequestId()}`;
 	}
 
