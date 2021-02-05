@@ -15,7 +15,7 @@
   "version": "0.23.0",
   "publisher": "GitHub",
   "engines": {
-    "vscode": "^1.53.0"
+    "vscode": "^1.53.2"
   },
   "categories": [
     "Other"
@@ -420,10 +420,7 @@
       {
         "command": "pr.create",
         "title": "Create Pull Request",
-        "icon": {
-          "dark": "resources/icons/create-pull-request-dark.png",
-          "light": "resources/icons/create-pull-request-light.png"
-        },
+        "icon": "$(git-pull-request-create)",
         "category": "GitHub Pull Requests"
       },
       {
