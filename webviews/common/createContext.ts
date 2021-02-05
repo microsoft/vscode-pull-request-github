@@ -78,7 +78,7 @@ export class CreatePRContext {
 		this.postMessage({ command: 'pr.changeCompareBranch', args: branch });
 	}
 
-	private validate = () => {
+	public validate = (): boolean => {
 		let isValid = true;
 		if (!this.createParams.pendingTitle) {
 			this.updateState({ showTitleValidationError: true });
@@ -91,10 +91,6 @@ export class CreatePRContext {
 	}
 
 	public submit = async (): Promise<void> => {
-		if (!this.validate()) {
-			return;
-		}
-
 		try {
 			await this.postMessage({
 				command: 'pr.create',

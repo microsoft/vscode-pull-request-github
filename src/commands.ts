@@ -87,7 +87,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		credentialStore.logout();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestInGitHub', async (e: PRNode | DescriptionNode | PullRequestModel) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openPullRequestOnGitHub', async (e: PRNode | DescriptionNode | PullRequestModel) => {
 		if (!e) {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
 
@@ -159,7 +159,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		}
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: GitFileChangeNode) => {
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileOnGitHub', (e: GitFileChangeNode) => {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl!));
 	}));
 
@@ -398,7 +398,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	context.subscriptions.push(vscode.commands.registerCommand('pr.openDescription', async (argument: DescriptionNode | PullRequestModel | undefined) => {
 		let pullRequestModel: PullRequestModel | undefined;
 		if (!argument) {
-			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(folderManager => folderManager.activePullRequest!).filter(activePR => !!activePR);
+			const activePullRequests: PullRequestModel[] = reposManager.folderManagers.map(manager => manager.activePullRequest!).filter(activePR => !!activePR);
 			if (activePullRequests.length >= 1) {
 				pullRequestModel = await chooseItem<PullRequestModel>(activePullRequests, (itemValue) => itemValue.title);
 			}
