@@ -23,8 +23,12 @@ const IGNORE_COMMAND = "Don't show again";
 const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
-const AUTH_PROVIDER_ID = 'github';
 const SCOPES = ['read:user', 'user:email', 'repo'];
+
+export enum AuthProvider {
+	github = 'github',
+	'github-enterprise' = 'github-enterprise'
+}
 
 export interface GitHub {
 	octokit: Octokit;
@@ -51,7 +55,17 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async initialize(): Promise<void> {
-		const session = await vscode.authentication.getSession(AUTH_PROVIDER_ID, SCOPES, { createIfNone: false });
+		const authProviderId = vscode.workspace.getConfiguration('githubPullRequests').get<AuthProvider>('authenticationProvider') || AuthProvider.github;
+		const session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: false });
+
+		if (authProviderId === AuthProvider['github-enterprise']) {
+			try {
+				vscode.Uri.parse(vscode.workspace.getConfiguration('github-enterprise').get<string>('uri') || '', true);
+			} catch {
+				Logger.debug(`GitHub Enterprise provider selected without Uri.`, 'Authentication');
+				return;
+			}
+		}
 
 		if (session) {
 			const token = session.accessToken;
@@ -175,22 +189,37 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private async getSessionOrLogin(): Promise<string> {
-		const session = await vscode.authentication.getSession(AUTH_PROVIDER_ID, SCOPES, { createIfNone: true });
+		const authProviderId = vscode.workspace.getConfiguration('githubPullRequests').get<AuthProvider>('authenticationProvider') || AuthProvider.github;
+		const session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: true });
 		this._sessionId = session.id;
 		return session.accessToken;
 	}
 
 	private async createHub(token: string): Promise<GitHub> {
+		const authProviderId = vscode.workspace.getConfiguration('githubPullRequests').get<AuthProvider>('authenticationProvider') || AuthProvider.github;
+		let baseUrl = 'https://api.github.com';
+		if (authProviderId === AuthProvider['github-enterprise']) {
+			const server = vscode.workspace.getConfiguration('github-enterprise').get<string>('uri') || '';
+			const serverUri = vscode.Uri.parse(server, true);
+			baseUrl = `${serverUri.scheme}://${serverUri.authority}/api/v3`;
+		}
+
 		const octokit = new Octokit({
 			request: { agent },
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
 			previews: ['shadow-cat-preview'],
 			auth: `${token || ''}`,
+			baseUrl: baseUrl,
 		});
 
+		if (authProviderId === AuthProvider['github-enterprise']) {
+			const server = vscode.workspace.getConfiguration('github-enterprise').get<string>('uri') || '';
+			const serverUri = vscode.Uri.parse(server, true);
+			baseUrl = `${serverUri.scheme}://${serverUri.authority}/api`;
+		}
 		const graphql = new ApolloClient({
-			link: link('https://api.github.com', token || ''),
+			link: link(baseUrl, token || ''),
 			cache: new InMemoryCache(),
 			defaultOptions: {
 				query: {
