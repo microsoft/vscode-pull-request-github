@@ -1,7 +1,5 @@
 # Review and manage your Azure Devops pull requests directly in VS Code
 
-> This extension is in early stages of development. It currently works only in VSCode Insider.
-
 This extension is inspired and based on [Github Pull Request Extension for VS Code](https://github.com/Microsoft/vscode-pull-request-github). The extension only works with *git* based repository. *TFVC* is not supported. Currently the extension supports following feature -
 
 - Authenticating and connecting VS Code to Azure Devops.
