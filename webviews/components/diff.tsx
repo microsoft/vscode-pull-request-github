@@ -4,22 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { useContext } from 'react';
 
-import { IComment } from '../../src/common/comment';
 import { DiffHunk, DiffLine, DiffChangeType } from '../../src/common/diffHunk';
-import PullRequestContext from '../common/context';
 
-function Diff({ comment, hunks, path, outdated=false }: { comment: IComment, hunks: DiffHunk[], outdated: boolean, path: string }) {
-	const { openDiff } = useContext(PullRequestContext);
+function Diff({ hunks }: { hunks: DiffHunk[] }) {
 	return <div className='diff'>
-		<div className='diffHeader'>
-			{
-				outdated
-					? <span><span>{path}</span><span className='outdatedLabel'>Outdated</span></span>
-					: <a className='diffPath' onClick={() => openDiff(comment)}>{path}</a>
-			}
-		</div>
 		{hunks.map(hunk => <Hunk hunk={hunk} />)}
 	</div>;
 }

@@ -216,8 +216,9 @@ query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100) {
 	repository(owner:$owner, name:$name) {
 		pullRequest(number:$number) {
-			reviews(first:$first) {
+			reviewThreads(first:$first) {
 				nodes {
+					isResolved
 					comments(first:100) {
 						nodes { ...ReviewComment }
 					}
