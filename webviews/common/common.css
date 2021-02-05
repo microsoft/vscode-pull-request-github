@@ -70,7 +70,7 @@ textarea:focus, input[type='text']:focus, select:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-body button svg, body button svg path {
+svg path {
 	fill: var(--vscode-foreground);
 }
 
