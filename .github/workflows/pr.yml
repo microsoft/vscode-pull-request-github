@@ -41,6 +41,7 @@ jobs:
         run: yarn run test
         env:
           TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
+          VSCODE_PR_AZDO_TEST_PAT: ${{ secrets.AZDO_PAT_TOKEN_TEST }}
       
       - name: Upload Unit Test Results
         if: always()
