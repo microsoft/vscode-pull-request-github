@@ -1,6 +1,6 @@
 # Review and manage your Azure Devops pull requests directly in VS Code
 
-![Build and Test](https://github.com/ankitbko/vscode-pull-request-azdo/workflows/Build%20and%20Test/badge.svg)
+![Build and Test](https://github.com/ankitbko/vscode-pull-request-azdo/workflows/Build%20and%20Test/badge.svg?branch=master&event=push)
 
 This extension is inspired and based on [Github Pull Request Extension for VS Code](https://github.com/Microsoft/vscode-pull-request-github). The extension only works with *git* based repository. *TFVC* is not supported. Currently the extension supports following feature -
 
