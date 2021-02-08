@@ -66,8 +66,20 @@ select {
 	color: var(--vscode-dropdown-foreground);
 }
 
-textarea:focus, input[type='text']:focus, select:focus {
+textarea:focus, input[type='text']:focus, input[type='checkbox']:focus, select:focus {
 	outline: 1px solid var(--vscode-focusBorder);
+}
+
+input[type='checkbox'] {
+	outline-offset: 1px;
+}
+
+.vscode-high-contrast input[type='checkbox'] {
+	outline: 1px solid var(--vscode-contrastBorder);
+}
+
+.vscode-high-contrast input[type='checkbox']:focus {
+	outline: 1px solid var(--vscode-contrastActiveBorder);
 }
 
 svg path {

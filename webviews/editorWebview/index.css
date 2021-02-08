@@ -253,7 +253,7 @@ body .merged .merged-message > a {
 }
 
 body .comment-container .review-comment-container .pending-label,
-body .diff .diffHeader .outdatedLabel {
+body .resolved-container .outdatedLabel {
 		border: 1px solid;
 		border-radius: 2px 2px 2px 2px;
 		padding: 0.1rem 0.3rem;
@@ -785,13 +785,16 @@ code {
 	height: 18px;
 }
 
-.diff .diffHeader {
+.resolved-container {
 	padding: 6px 12px;
-	line-height: 1.5;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 	background: var(--vscode-editorGroupHeader-tabsBackground);
+	line-height: 1.5;
 }
 
-.diff .diffHeader .diffPath:hover {
+.resolved-container .diffPath:hover {
 	text-decoration: underline;
 	color: var(--vscode-textLink-activeForeground);
 	cursor: pointer;
@@ -861,7 +864,7 @@ code {
 	background: none;
 }
 
-.vscode-high-contrast .diff .diffHeader {
+.vscode-high-contrast .resolved-container {
 	background: none;
 }
 

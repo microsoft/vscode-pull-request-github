@@ -194,9 +194,10 @@ export interface PullRequestState {
 export interface PullRequestCommentsResponse {
 	repository: {
 		pullRequest: {
-			reviews: {
+			reviewThreads: {
 				nodes: [
 					{
+						isResolved: boolean;
 						comments: {
 							nodes: ReviewComment[];
 						}

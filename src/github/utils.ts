@@ -255,7 +255,7 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment): IComment {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean): IComment {
 	const c: IComment = {
 		id: comment.databaseId,
 		url: comment.url,
@@ -276,7 +276,8 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment): IComment {
 		graphNodeId: comment.id,
 		isDraft: comment.state === 'PENDING',
 		inReplyToId: comment.replyTo && comment.replyTo.databaseId,
-		reactions: parseGraphQLReaction(comment.reactionGroups)
+		reactions: parseGraphQLReaction(comment.reactionGroups),
+		isResolved
 	};
 
 	const diffHunks = parseCommentDiffHunk(c);
@@ -491,7 +492,7 @@ export function loginComparator(a: IAccount, b: IAccount) {
 export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
-		comments: review.comments.nodes.map(parseGraphQLComment).filter(c => !c.inReplyToId),
+		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false)).filter(c => !c.inReplyToId),
 		submittedAt: review.submittedAt,
 		body: review.body,
 		bodyHTML: review.bodyHTML,

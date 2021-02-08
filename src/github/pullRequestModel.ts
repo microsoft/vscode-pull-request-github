@@ -282,7 +282,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 
 		return {
 			deletedReviewId: databaseId,
-			deletedReviewComments: comments.nodes.map(parseGraphQLComment)
+			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false))
 		};
 	}
 
@@ -312,7 +312,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		this.hasPendingReview = true;
 		await this.updateDraftModeContext();
 
-		return parseGraphQLComment(data.addPullRequestReview.pullRequestReview.comments.nodes[0]);
+		return parseGraphQLComment(data.addPullRequestReview.pullRequestReview.comments.nodes[0], false);
 	}
 
 	/**
@@ -395,7 +395,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		});
 
 		const { comment } = data!.addPullRequestReviewComment;
-		return parseGraphQLComment(comment);
+		return parseGraphQLComment(comment, false);
 	}
 
 	/**
@@ -445,7 +445,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			}
 		});
 
-		return parseGraphQLComment(data!.updatePullRequestReviewComment.pullRequestReviewComment);
+		return parseGraphQLComment(data!.updatePullRequestReviewComment.pullRequestReviewComment, !!comment.isResolved);
 	}
 
 	/**
@@ -524,8 +524,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				}
 			});
 
-			const comments = data.repository.pullRequest.reviews.nodes
-				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
+			const comments = data.repository.pullRequest.reviewThreads.nodes
+				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment, node.isResolved), remote))
 				.reduce((prev: any, curr: any) => prev.concat(curr), [])
 				.sort((a: IComment, b: IComment) => { return a.createdAt > b.createdAt ? 1 : -1; });
 

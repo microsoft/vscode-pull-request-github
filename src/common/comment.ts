@@ -37,4 +37,5 @@ export interface IComment {
 	inReplyToId?: number;
 	graphNodeId: string;
 	reactions?: Reaction[];
+	isResolved?: boolean;
 }
