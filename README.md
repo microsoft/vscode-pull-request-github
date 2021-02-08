@@ -32,13 +32,13 @@ It's easy to get started with Azure Devops Pull Requests for Visual Studio Code.
 #### azdoPullRequests.orgUrl
 - *type*: string
 - *required*: true
-- *Description*: The organization URL of Azure Devops. You can get it from the URL of the AZDO. This is typically the first segment of URL after host name in AZDO. `https://dev.azure.com/<org_name>`. You will need to enter the complete URL.
-- *Example*: `https://dev.azure.com/anksinha`
+- *Description*: The organization URL of Azure Devops. You can get it from the URL of the AZDO. This is typically the first segment of URL after host name in AZDO. `https://dev.azure.com/<org_name>` or `https://<org_name>.visualstudio.com`. You will need to enter the complete URL.
+- *Example*: `https://dev.azure.com/anksinha` or `https://anksinha.visualstudio.com`
 
 #### azdoPullRequests.projectName
 - *type*: string
 - *required*: true
-- *Description*: The project in the Azure Devops. This is typically the next segment of URL after organization name in AZDO. `https://dev.azure.com/<org_name>/<project_name>`. You only need to enter the *project_name* part.
+- *Description*: The project in the Azure Devops. This is typically the next segment of URL after organization name in AZDO. `https://dev.azure.com/<org_name>/<project_name>` or `https://<org_name>.visualstudio.com/<project_name>`. You only need to enter the *project_name* part.
 - *Example*: prExtension
 
 #### azdoPullRequests.logLevel
