@@ -2,7 +2,7 @@
 
 name: PR
 
-# Controls when the action will run. 
+# Controls when the action will run.
 on:
   # Triggers the workflow pull request events but only for the master branch
   pull_request:
@@ -16,40 +16,47 @@ jobs:
   # This workflow contains a single job called "build"
   build-and-test:
     # The type of runner that the job will run on
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-      
+
       - name: Setup Node.js environment
         uses: actions/setup-node@v2.1.4
         with:
-          node-version: '10.x'
-      
+          node-version: '12.x'
+
       - name: NPM or Yarn install with caching
         uses: bahmutov/npm-install@v1.6.0
         with:
           install-command: yarn install
-          
+
       - name: Build
         run: yarn run vscode:prepublish
-      
+
       # Runs a single command using the runners shell
       - name: Run tests
-        run: yarn run test
+        run: xvfb-run -a yarn run test
+        if: runner.os == 'Linux'
         env:
           TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
           VSCODE_PR_AZDO_TEST_PAT: ${{ secrets.AZDO_PAT_TOKEN_TEST }}
-      
+
+      - run: yarn run test
+        if: runner.os != 'Linux'
+        env:
+          TEST_JUNIT_XML_PATH: $(GITHUB_WORKSPACE)/test-results
+          VSCODE_PR_AZDO_TEST_PAT: ${{ secrets.AZDO_PAT_TOKEN_TEST }}
+
       - name: Upload Unit Test Results
         if: always()
         uses: actions/upload-artifact@v2
         with:
           name: Unit Test Results
           path: test-results/**/*.xml
-          
+
   publish-test-results:
     name: "Publish Unit Tests Results"
     needs: build-and-test

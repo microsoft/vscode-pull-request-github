@@ -1,6 +1,5 @@
 // This file is providing the test runner to use when running extension tests.
 import * as path from 'path';
-import * as vscode from 'vscode';
 import glob = require('glob');
 import Mocha = require('mocha');
 
@@ -32,10 +31,10 @@ function addTests(mocha: Mocha, root: string): Promise<void> {
 
 async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	// Ensure the dev-mode extension is activated
-	const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
-	const extensionId = `${publisher}.${name}`;
+	// const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
+	// const extensionId = `${publisher}.${name}`;
 
-	await vscode.extensions.getExtension(extensionId)!.activate();
+	// await vscode.extensions.getExtension(extensionId)!.activate();
 
 	mockWebviewEnvironment.install(global);
 

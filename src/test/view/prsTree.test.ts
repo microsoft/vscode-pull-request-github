@@ -88,7 +88,7 @@ describe('GitHub Pull Requests view', function () {
 
 	it('displays a message when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		repository.addRemote('origin', 'https://aaa@dev.azure.com/aaa/bbb/_git/bbb');
 
 		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
 		provider.initialize(manager);
@@ -105,7 +105,7 @@ describe('GitHub Pull Requests view', function () {
 
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		repository.addRemote('origin', 'https://aaa@dev.azure.com/aaa/bbb/_git/bbb');
 
 		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
