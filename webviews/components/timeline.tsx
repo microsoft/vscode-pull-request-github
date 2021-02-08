@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { useContext, useRef } from 'react';
+import { useContext, useRef, useState } from 'react';
 
 import { IComment } from '../../src/common/comment';
 import { TimelineEvent, isReviewEvent, isCommitEvent, isCommentEvent, isMergedEvent, isAssignEvent, ReviewEvent, CommitEvent, CommentEvent, MergedEvent, AssignEvent, isHeadDeleteEvent, HeadRefDeleteEvent } from '../../src/common/timelineEvent';
@@ -113,15 +113,9 @@ const ReviewEventView = (event: ReviewEvent) => {
 			<div className='comment-body review-comment-body'>{
 				Object.entries(comments)
 					.map(
-						([key, thread]) =>
-							<div className='diff-container'>
-								<Diff key={key}
-									comment={thread[0]}
-									hunks={thread[0].diffHunks}
-									outdated={thread[0].position === null}
-									path={thread[0].path} />
-								{thread.map(c => <CommentView {...c} pullRequestReviewId={event.id} />)}
-							</div>
+						([key, thread]) => {
+							return <CommentThread key={key} thread={thread} eventId={event.id} />;
+						}
 					)
 			}</div>
 			{
@@ -132,6 +126,35 @@ const ReviewEventView = (event: ReviewEvent) => {
 		</div>
 	</div>;
 };
+
+function CommentThread({ key, thread, eventId }: { key: string, thread: IComment[], eventId: number }) {
+	const comment = thread[0];
+	const [revealed, setRevealed] = useState(!comment.isResolved);
+	const { openDiff } = useContext(PullRequestContext);
+	return <div key={key} className='diff-container'>
+		<div className='resolved-container'>
+			<div>
+				{
+					comment.position === null
+						? <span><span>{comment.path}</span><span className='outdatedLabel'>Outdated</span></span>
+						: <a className='diffPath' onClick={() => openDiff(comment)}>{comment.path}</a>
+				}
+			</div>
+			{comment.isResolved
+				? <button className='secondary' onClick={() => setRevealed(!revealed)}>{revealed ? 'Hide resolved' : 'Show resolved'}</button>
+				: null
+			}
+		</div>
+		{
+			revealed
+				? <div>
+					<Diff hunks={comment.diffHunks} />
+					{thread.map(c => <CommentView {...c} pullRequestReviewId={eventId} />)}
+				</div>
+				: null
+		}
+	</div>;
+}
 
 function AddReviewSummaryComment() {
 	const { requestChanges, approve, submit } = useContext(PullRequestContext);
