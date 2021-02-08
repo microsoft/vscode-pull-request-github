@@ -1,11 +1,14 @@
 # This is a basic workflow to help you get started with Actions
 
-name: PR
+name: Build and Test
 
 # Controls when the action will run.
 on:
   # Triggers the workflow pull request events but only for the master branch
   pull_request:
+    branches: [ master ]
+  
+  push:
     branches: [ master ]
 
   # Allows you to run this workflow manually from the Actions tab
@@ -41,13 +44,13 @@ jobs:
         run: xvfb-run -a yarn run test
         if: runner.os == 'Linux'
         env:
-          TEST_JUNIT_XML_PATH: ${{github.workspace}}/test-results
+          TEST_JUNIT_XML_PATH: ${{github.workspace}}/test-results.xml
           VSCODE_PR_AZDO_TEST_PAT: ${{ secrets.AZDO_PAT_TOKEN_TEST }}
 
       - run: yarn run test
         if: runner.os != 'Linux'
         env:
-          TEST_JUNIT_XML_PATH: ${{github.workspace}}/test-results
+          TEST_JUNIT_XML_PATH: ${{github.workspace}}/test-results.xml
           VSCODE_PR_AZDO_TEST_PAT: ${{ secrets.AZDO_PAT_TOKEN_TEST }}
 
       - name: Upload Unit Test Results
@@ -55,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: Unit Test Results
-          path: ${{github.workspace}}/test-results/**/*.xml
+          path: ${{github.workspace}}/test-results.xml
 
   publish-test-results:
     name: "Publish Unit Tests Results"
@@ -75,5 +78,5 @@ jobs:
         with:
           check_name: Unit Test Results
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: ${{github.workspace}}/test-results/**/*.xml
+          files:  ./**/test-results.xml
 
