@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: Unit Test Results
-          path: test-results/**/*.xml
+          path: $(GITHUB_WORKSPACE)/test-results/**/*.xml
 
   publish-test-results:
     name: "Publish Unit Tests Results"
@@ -75,5 +75,5 @@ jobs:
         with:
           check_name: Unit Test Results
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: test-results/**/*.xml
+          files: $(GITHUB_WORKSPACE)/test-results/**/*.xml
 
