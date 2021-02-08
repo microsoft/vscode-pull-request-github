@@ -12,7 +12,7 @@ import { AzdoRepository } from './azdoRepository';
 import { IPullRequestsPagingOptions, PRType, IAccount, RepoAccessAndMergeMethods } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { GitHubManager } from '../authentication/githubServer';
+import { AzdoManager } from '../authentication/azdoServer';
 import { formatError, Predicate } from '../common/utils';
 import { Repository, RefType, UpstreamRef, GitErrorCodes } from '../api/api';
 import Logger from '../common/logger';
@@ -106,7 +106,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _assignableUsers?: { [key: string]: IAccount[] };
 	private _fetchAssignableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _gitBlameCache: { [key: string]: string } = {};
-	private _githubManager: GitHubManager;
+	private _githubManager: AzdoManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
@@ -131,7 +131,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	) {
 		this._subs = [];
 		this._azdoRepositories = [];
-		this._githubManager = new GitHubManager();
+		this._githubManager = new AzdoManager();
 
 		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
@@ -149,7 +149,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private computeAllGitHubRemotes(): Promise<Remote[]> {
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
-		return Promise.all(potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)))
+		return Promise.all(potentialRemotes.map(remote => this._githubManager.isAzdo(remote.gitProtocol.normalizeUri()!)))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
 				Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);

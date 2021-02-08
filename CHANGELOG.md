@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.12
+### Changes
+
+- Fixed bug [ankitbko/vscode-pull-request-azdo#18](https://github.com/ankitbko/vscode-pull-request-azdo/issues/18)
+
 ## 0.0.11
 ### Changes
 
