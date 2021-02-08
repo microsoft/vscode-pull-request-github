@@ -82,7 +82,7 @@ input[type='checkbox'] {
 	outline: 1px solid var(--vscode-contrastActiveBorder);
 }
 
-body button svg, body button svg path {
+svg path {
 	fill: var(--vscode-foreground);
 }
 
