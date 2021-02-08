@@ -41,13 +41,13 @@ jobs:
         run: xvfb-run -a yarn run test
         if: runner.os == 'Linux'
         env:
-          TEST_JUNIT_XML_PATH: ${{github.workspace}}/test-results
+          TEST_JUNIT_XML_PATH: ${{github.workspace}}/test-results.xml
           VSCODE_PR_AZDO_TEST_PAT: ${{ secrets.AZDO_PAT_TOKEN_TEST }}
 
       - run: yarn run test
         if: runner.os != 'Linux'
         env:
-          TEST_JUNIT_XML_PATH: ${{github.workspace}}/test-results
+          TEST_JUNIT_XML_PATH: ${{github.workspace}}/test-results.xml
           VSCODE_PR_AZDO_TEST_PAT: ${{ secrets.AZDO_PAT_TOKEN_TEST }}
 
       - name: Upload Unit Test Results
@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: Unit Test Results
-          path: ${{github.workspace}}/test-results/**/*.xml
+          path: ${{github.workspace}}/test-results.xml
 
   publish-test-results:
     name: "Publish Unit Tests Results"
@@ -75,5 +75,5 @@ jobs:
         with:
           check_name: Unit Test Results
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: ${{github.workspace}}/test-results/**/*.xml
+          files:  ${{github.workspace}}/test-results.xml
 
