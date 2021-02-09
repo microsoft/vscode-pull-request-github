@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
@@ -160,6 +161,13 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
+	if (path.basename(context.globalStorageUri.fsPath) === 'github.vscode-pull-request-github-insiders') {
+		const stable = vscode.extensions.getExtension('github.vscode-pull-request-github');
+		if (stable !== null) {
+			throw new Error('GitHub Pull Requests and Issues Nightly cannot be used while GitHub Pull Requests and Issues is also enabled. Please ensure that only one version of the extension is enabled.');
+		}
+	}
+
 	// initialize resources
 	Resource.initialize(context);
 	const apiImpl = new GitApiImpl();
