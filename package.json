@@ -619,6 +619,12 @@
         "category": "GitHub Pull Requests"
       },
       {
+        "command": "pr.refreshActivePullRequest",
+        "title": "Refresh",
+        "category": "GitHub Pull Requests",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "issue.createIssueFromSelection",
         "title": "Create Issue From Selection",
         "category": "GitHub Issues"
@@ -1004,6 +1010,10 @@
         {
           "command": "issue.goToLinkedCode",
           "when": "false"
+        },
+        {
+          "command": "pr.refreshActivePullRequest",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -1048,14 +1058,19 @@
           "group": "navigation@1"
         },
         {
-          "command": "pr.openDescription",
+          "command": "pr.refreshActivePullRequest",
           "when": "view == github:activePullRequest && github:hasGitHubRemotes",
           "group": "navigation@1"
         },
         {
-          "command": "pr.openPullRequestOnGitHub",
+          "command": "pr.openDescription",
           "when": "view == github:activePullRequest && github:hasGitHubRemotes",
           "group": "navigation@2"
+        },
+        {
+          "command": "pr.openPullRequestOnGitHub",
+          "when": "view == github:activePullRequest && github:hasGitHubRemotes",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
