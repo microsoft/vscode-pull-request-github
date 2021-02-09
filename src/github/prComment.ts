@@ -38,6 +38,11 @@ export interface GHPRCommentThread extends vscode.CommentThread {
 	 */
 	label?: string;
 
+	/**
+	 * Whether the thread has been marked as resolved.
+	 */
+	isResolved: boolean;
+
 	dispose: () => void;
 }
 

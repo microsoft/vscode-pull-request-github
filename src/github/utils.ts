@@ -33,9 +33,12 @@ export function createVSCodeCommentThread(thread: ThreadData, commentController:
 	(vscodeThread as GHPRCommentThread).threadId = thread.threadId;
 
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
+	const isResolved = !!thread.comments[0]?.isResolved;
+	(vscodeThread as GHPRCommentThread).isResolved = isResolved;
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
-	vscodeThread.collapsibleState = thread.collapsibleState;
+	const isOnLocalFile = thread.uri.scheme !== 'pr' && thread.uri.scheme !== 'review';
+	vscodeThread.collapsibleState = isOnLocalFile || isResolved ? vscode.CommentThreadCollapsibleState.Collapsed : vscode.CommentThreadCollapsibleState.Expanded;
 	return vscodeThread as GHPRCommentThread;
 }
 

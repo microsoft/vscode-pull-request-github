@@ -119,6 +119,7 @@ describe('ReviewCommentController', function () {
 			comments: [],
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 			label: 'Start discussion',
+			isResolved: false,
 			canReply: false,
 			dispose: () => { }
 		};
