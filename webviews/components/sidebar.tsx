@@ -8,11 +8,11 @@ import { useContext, useRef, useState } from 'react';
 import { PullRequest } from '../common/cache';
 import { plusIcon, deleteIcon } from './icon';
 import PullRequestContext from '../common/context';
-import { ILabel } from '../../src/azdo/interface';
 import { nbsp } from './space';
 import { Reviewer } from './reviewer';
+import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 
-export default function Sidebar({ reviewers, labels, hasWritePermission }: PullRequest) {
+export default function Sidebar({ reviewers, workItems, hasWritePermission }: PullRequest) {
 	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
 
 	return <div id='sidebar'>
@@ -25,34 +25,45 @@ export default function Sidebar({ reviewers, labels, hasWritePermission }: PullR
 			addReviewers={addReviewers} hasWritePermission={hasWritePermission}
 			updatePR={(newReviewers) => updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) })}
 		/>
-		<div id='labels' className='section'>
+		<div id='work-item' className='section'>
 			<div className='section-header'>
-				<div>Labels</div>
+				<div>Work Items</div>
 				{hasWritePermission ? (
-					<button title='Add Labels' onClick={async () => {
+					<button title='Add Work Items' onClick={async () => {
 						const newLabels = await addLabels();
 						updatePR({ labels: pr.labels.concat(newLabels.added) });
 					}}>{plusIcon}</button>
 				) : null}
 			</div>
 			{
-				labels && labels.map(label => <Label key={label.name} {...label} canDelete={hasWritePermission} />)
+				workItems && workItems.map(workItem => <WorkItem key={workItem.id} {...workItem} canDelete={hasWritePermission} />)
 			}
 		</div>
 	</div>;
 }
 
-function Label(label: ILabel & { canDelete: boolean }) {
-	const { name, canDelete } = label;
+function WorkItem(workItem: WorkItem & { canDelete: boolean }) {
+	const canDelete = workItem.canDelete;
 	const [showDelete, setShowDelete] = useState(false);
 	const { removeLabel } = useContext(PullRequestContext);
-	return <div className='section-item label'
+	return <div className='section-item work-item'
 		onMouseEnter={() => setShowDelete(true)}
 		onMouseLeave={() => setShowDelete(false)}>
-		{name}
-		{canDelete && showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeLabel(name)}>{deleteIcon}️</a>{nbsp}</> : null}
+		<WorkItemDetails {...workItem} />
+		{canDelete && showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeLabel('workItem.id')}>{deleteIcon}️</a>{nbsp}</> : null}
 	</div>;
 }
+
+const WorkItemDetails = (workItem: WorkItem) => (
+	<div>
+		<div>
+			{workItem.fields["System.WorkItemType"]}
+		</div>
+		<div>
+			{workItem.id}: {workItem.fields["System.Title"]}{}
+		</div>
+	</div>
+)
 
 const ReviewerPanel = ({reviewers, labelText, hasWritePermission, addReviewers, updatePR}) => (
 	<div id='reviewers' className='section'>

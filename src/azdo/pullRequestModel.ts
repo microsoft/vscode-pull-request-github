@@ -14,6 +14,7 @@ import { parseDiffAzdo } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { toPRUriAzdo, toReviewUri } from '../common/uri';
 import { SETTINGS_NAMESPACE } from '../constants';
+import { ResourceRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -193,6 +194,16 @@ export class PullRequestModel implements IPullRequestModel {
 				mergeStrategy: options.mergeStrategy,
 				transitionWorkItems: options.transitionWorkItems
 			}}, repoId!, this.getPullRequestId());
+	}
+
+	public async getWorkItemRefs(): Promise<ResourceRef[] | undefined> {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId();
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		const refs = await git?.getPullRequestWorkItemRefs(repoId!, this.getPullRequestId());
+		return refs;
 	}
 
 	async createThread(
