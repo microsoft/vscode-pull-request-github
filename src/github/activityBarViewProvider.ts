@@ -80,6 +80,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
+	public async refresh(): Promise<void> {
+		await this.updatePullRequest(this._item);
+	}
+
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
