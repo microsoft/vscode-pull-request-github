@@ -291,6 +291,9 @@ export class ReviewManager {
 		if (!this._webviewViewProvider) {
 			this._webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, this._folderRepoManager, pr);
 			this._context.subscriptions.push(vscode.window.registerWebviewViewProvider(this._webviewViewProvider.viewType, this._webviewViewProvider));
+			this._context.subscriptions.push(vscode.commands.registerCommand('pr.refreshActivePullRequest', _ => {
+				this._webviewViewProvider?.refresh();
+			}));
 
 			if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE) && vscode.env.remoteName === 'codespaces') {
 				this._webviewViewProvider.show();

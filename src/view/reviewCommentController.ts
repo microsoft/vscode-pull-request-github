@@ -23,7 +23,7 @@ import { CommentThreadCache } from './commentThreadCache';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { GitChangeType } from '../common/file';
 
-function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
+function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: IComment[]): ThreadData[] {
 	if (!fileChange) {
 		return [];
 	}
@@ -48,8 +48,7 @@ function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChan
 			threadId: firstComment.id.toString(),
 			uri: newUri,
 			range,
-			comments,
-			collapsibleState
+			comments
 		});
 	}
 
@@ -132,7 +131,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		});
 
 		const outdatedFileChangePromises = gitFileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
-			const threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!));
+			const threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments).map(thread => createVSCodeCommentThread(thread, this._commentController!));
 			this._obsoleteFileChangeCommentThreads[fileChange.fileName] = threads;
 			return;
 		});
@@ -149,7 +148,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		const fileComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchedFile.comments)
 			.filter(comment => comment.absolutePosition !== undefined);
 
-		return workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, fileComments, vscode.CommentThreadCollapsibleState.Collapsed);
+		return workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, fileComments);
 	}
 
 	async initializeDocumentCommentThreadsAndListeners(): Promise<void> {
@@ -206,7 +205,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				// If the editor has no view column, assume it is part of a diff editor and expand the comments. Otherwise, collapse them.
 				const isEmbedded = !editor.viewColumn;
 				this._workspaceFileChangeCommentThreads[fileName] = threadsForEditor.map(thread => {
-					thread.collapsibleState = isEmbedded
+					thread.collapsibleState = isEmbedded && !thread.isResolved
 						? vscode.CommentThreadCollapsibleState.Expanded
 						: vscode.CommentThreadCollapsibleState.Collapsed;
 
@@ -543,7 +542,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		return contentDiff;
 	}
 
-	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
+	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: IComment[]): ThreadData[] {
 		if (!fileComments || !fileComments.length) {
 			return [];
 		}
@@ -568,8 +567,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				threadId: firstComment.id.toString(),
 				uri: fileChange.filePath,
 				range,
-				comments,
-				collapsibleState: collapsibleState
+				comments
 			});
 		}
 
@@ -584,7 +582,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 			const isBase = query.base;
 			matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile!.diffHunks, isBase); });
 
-			return workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded).map(thread => {
+			return workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0)).map(thread => {
 				thread.uri = document.uri;
 				return thread;
 			});
@@ -634,8 +632,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				threadId: String(firstComment.id),
 				uri: document.uri,
 				range,
-				comments,
-				collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
+				comments
 			});
 		}
 
@@ -1043,7 +1040,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				: this._workspaceFileChangeCommentThreads[fileName];
 
 			const newThreads = forOutdated
-				? this.outdatedCommentsToCommentThreads(matchedFile, matchedFile.comments, vscode.CommentThreadCollapsibleState.Expanded)
+				? this.outdatedCommentsToCommentThreads(matchedFile, matchedFile.comments)
 				: await this.getWorkspaceFileThreadDatas(matchedFile);
 
 			const resultThreads: GHPRCommentThread[] = [];
