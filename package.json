@@ -365,6 +365,11 @@
           "id": "github-pull-requests",
           "title": "GitHub",
           "icon": "resources/icons/dark/github.svg"
+        },
+        {
+          "id": "github-pull-request",
+          "title": "GitHub Pull Request",
+          "icon": "resources/icons/pull-request.png"
         }
       ]
     },
@@ -377,30 +382,19 @@
           "icon": "resources/icons/pull-request.png"
         },
         {
-          "id": "prStatus:github",
-          "name": "Changes In Pull Request",
-          "when": "github:inReviewMode",
-          "icon": "resources/icons/pull-request.png",
-          "visibility": "visible"
-        },
-        {
           "id": "pr:github",
           "name": "Pull Requests",
-          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview && !github:createPullRequest",
+          "when": "ReposManagerStateContext != NeedsAuthentication",
           "icon": "resources/icons/pull-request.png"
-        },
-        {
-          "id": "github:activePullRequest",
-          "type": "webview",
-          "name": "Active Pull Request",
-          "when": "github:focusedReview"
         },
         {
           "id": "issues:github",
           "name": "Issues",
-          "when": "ReposManagerStateContext != NeedsAuthentication && !github:focusedReview &&!github:createPullRequest",
+          "when": "ReposManagerStateContext != NeedsAuthentication",
           "icon": "resources/icons/issues.png"
-        },
+        }
+      ],
+      "github-pull-request": [
         {
           "id": "github:createPullRequest",
           "type": "webview",
@@ -413,6 +407,19 @@
           "name": "Compare Changes",
           "when": "github:createPullRequest",
           "visibility": "visible"
+        },
+        {
+          "id": "prStatus:github",
+          "name": "Changes In Pull Request",
+          "when": "github:inReviewMode",
+          "icon": "resources/icons/pull-request.png",
+          "visibility": "visible"
+        },
+        {
+          "id": "github:activePullRequest",
+          "type": "webview",
+          "name": "Active Pull Request",
+          "when": "github:focusedReview"
         }
       ]
     },
