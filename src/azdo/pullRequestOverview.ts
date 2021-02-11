@@ -275,6 +275,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this.applyPatch(message);
 			case 'pr.open-diff':
 				return this.openDiff(message);
+			case 'pr.remove-workItem':
+				return this.removeWorkItemFromPR(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this._item.getMergability());
 			// case 'pr.add-reviewers':
@@ -408,6 +410,21 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		const wts = await Promise.all(tasks);
 
 		return wts.filter((w): w is WorkItem => !!w);
+	}
+
+	private removeWorkItemFromPR(message: IRequestMessage<any>): void {
+		const workItem = message.args as WorkItem;
+
+		this._workItem.disassociateWorkItemWithPR(workItem, this._item).then(result => {
+			if (!!result?.relations?.find(w => w.rel === 'ArtifactLink' && w.url?.toUpperCase() === this._item.item.artifactId?.toUpperCase())) {
+				this._replyMessage(message, { success: true });
+			} else {
+				this._replyMessage(message, { success: false });
+			}
+		}).catch(e => {
+			this._throwError(message, e);
+			vscode.window.showWarningMessage(`Unable to removing PR link in workitem. Error: ${e.message}`);
+		});
 	}
 
 	private async applyPatch(message: IRequestMessage<{ comment: Comment }>): Promise<void> {

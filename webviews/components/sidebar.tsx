@@ -47,12 +47,12 @@ export default function Sidebar({ reviewers, workItems, hasWritePermission }: Pu
 function WorkItem(workItem: WorkItem & { canDelete: boolean }) {
 	const canDelete = workItem.canDelete;
 	const [showDelete, setShowDelete] = useState(false);
-	const { removeLabel } = useContext(PullRequestContext);
+	const { removeWorkItemFromPR } = useContext(PullRequestContext);
 	return <div className='section-item work-item'
 		onMouseEnter={() => setShowDelete(true)}
 		onMouseLeave={() => setShowDelete(false)}>
 		<WorkItemDetails {...workItem} />
-		{canDelete && showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeLabel('workItem.id')}>{deleteIcon}️</a>{nbsp}</> : null}
+		{canDelete && showDelete ? <>{nbsp}<a className='push-right remove-item' onClick={() => removeWorkItemFromPR(workItem.id!)}>{deleteIcon}️</a>{nbsp}</> : null}
 	</div>;
 }
 

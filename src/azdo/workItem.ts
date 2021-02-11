@@ -3,9 +3,9 @@ import * as vscode from 'vscode';
 import { ITelemetry } from '../common/telemetry';
 import { Azdo, CredentialStore } from './credentials';
 import Logger from '../common/logger';
-import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
+import { WorkItem, WorkItemExpand } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 import { PullRequestModel } from '../azdo/pullRequestModel';
-import { JsonPatchOperation, Operation } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
+import { JsonPatchDocument, JsonPatchOperation, Operation } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 
 export class AzdoWorkItem implements vscode.Disposable {
 	static ID = 'WorkItem';
@@ -29,7 +29,7 @@ export class AzdoWorkItem implements vscode.Disposable {
 	public async getWorkItemById(id: number): Promise<WorkItem | undefined> {
 		try {
 			Logger.appendLine(`Fetching workitem for id: ${id} - started`, AzdoWorkItem.ID);
-			const res = await this._workTracking?.getWorkItem(id);
+			const res = await this._workTracking?.getWorkItem(id, undefined, undefined, WorkItemExpand.All);
 			Logger.appendLine(`Fetching workitem for id: ${id} - finished`, AzdoWorkItem.ID);
 			return res;
 
@@ -63,6 +63,32 @@ export class AzdoWorkItem implements vscode.Disposable {
 		} catch (error) {
 			Logger.appendLine(`Associating work item: ${workItemId} with PR ${pr.getPullRequestId()} - failed. Error: ${error.message}`, AzdoWorkItem.ID);
 			vscode.window.showWarningMessage(`Unable to associate workitem. Error: ${error.message}`);
+		}
+	}
+
+	public async disassociateWorkItemWithPR(workItem: WorkItem, pr: PullRequestModel): Promise<WorkItem | undefined> {
+		try {
+			Logger.appendLine(`Removing work item: ${workItem.id} link with PR ${pr.getPullRequestId()} - started`, AzdoWorkItem.ID);
+			this._telemetry.sendTelemetryEvent("wt.disassociate");
+
+			// Get relation index
+			const idx = workItem.relations?.findIndex(w => w.rel === 'ArtifactLink' && w.url?.toUpperCase() === pr.item.artifactId?.toUpperCase());
+
+			const po: JsonPatchOperation = {
+				op: Operation.Remove,
+				path: `/relations/${idx}`
+			};
+
+			const doc: JsonPatchDocument = [po];
+
+			const res = await this._workTracking?.updateWorkItem({}, doc, pr.getPullRequestId());
+
+			Logger.appendLine(`Removing work item: ${workItem.id} link with PR ${pr.getPullRequestId()} - finished`, AzdoWorkItem.ID);
+			return res;
+
+		} catch (error) {
+			Logger.appendLine(`Removing work item: ${workItem.id} with PR ${pr.getPullRequestId()} - failed. Error: ${error.message}`, AzdoWorkItem.ID);
+			throw error;
 		}
 	}
 

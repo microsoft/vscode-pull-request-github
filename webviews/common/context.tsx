@@ -152,10 +152,12 @@ export class PRContext {
 		this.updatePR({ reviewers });
 	}
 
-	public removeLabel = async (label: string) => {
-		await this.postMessage({ command: 'pr.remove-label', args: label });
-		const labels = this.pr.labels.filter(r => r.name !== label);
-		this.updatePR({ labels });
+	public removeWorkItemFromPR = async (id: number) => {
+		const res = await this.postMessage({ command: 'pr.remove-workItem', args: this.pr.workItems.find(w => w.id === id) });
+		if (!!res.success) {
+			const workItems = this.pr.workItems.filter(r => r.id !== id);
+			this.updatePR({ workItems });
+		}
 	}
 
 	public applyPatch = async (comment: GitPullRequestCommentThread) => {
