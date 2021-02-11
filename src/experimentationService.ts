@@ -6,7 +6,13 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import TelemetryReporter from 'vscode-extension-telemetry';
-import { getExperimentationService, IExperimentationTelemetry, TargetPopulation } from 'vscode-tas-client';
+import { getExperimentationService, IExperimentationService, IExperimentationTelemetry, TargetPopulation } from 'vscode-tas-client';
+
+/* __GDPR__
+	"query-expfeature" : {
+		"ABExp.queriedFeature": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+	}
+*/
 
 interface ProductConfiguration {
 	quality?: 'stable' | 'insider' | 'exploration';
@@ -75,10 +81,37 @@ function getTargetPopulation(product: ProductConfiguration): TargetPopulation {
 	}
 }
 
-export async function createExperimentationService(context: vscode.ExtensionContext, experimentationTelemetry: ExperimentationTelemetry) {
+class NullExperimentationService implements IExperimentationService {
+	readonly initializePromise: Promise<void> = Promise.resolve();
+
+	isFlightEnabled(flight: string): boolean {
+		return false;
+	}
+
+	isCachedFlightEnabled(flight: string): Promise<boolean> {
+		return Promise.resolve(false);
+	}
+
+	isFlightEnabledAsync(flight: string): Promise<boolean> {
+		return Promise.resolve(false);
+	}
+
+	getTreatmentVariable<T extends boolean | number | string>(configId: string, name: string): T | undefined {
+		return undefined;
+	}
+
+	getTreatmentVariableAsync<T extends boolean | number | string>(configId: string, name: string): Promise<T | undefined> {
+		return Promise.resolve(undefined);
+	}
+}
+
+export async function createExperimentationService(context: vscode.ExtensionContext, experimentationTelemetry: ExperimentationTelemetry): Promise<IExperimentationService> {
 	const pkg = await getPackageConfig(context.extensionPath);
 	const product = await getProductConfig(vscode.env.appRoot);
 	const targetPopulation = getTargetPopulation(product);
 
-	return getExperimentationService(`${pkg.publisher}.${pkg.name}`, pkg.version, targetPopulation, experimentationTelemetry, context.globalState);
+	// We only create a real experimentation service for the stable version of the extension, not insiders.
+	return pkg.name === 'vscode-pull-request-github'
+		? getExperimentationService(`${pkg.publisher}.${pkg.name}`, pkg.version, targetPopulation, experimentationTelemetry, context.globalState)
+		: new NullExperimentationService();
 }
