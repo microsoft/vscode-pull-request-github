@@ -15,9 +15,9 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	public get repositories(): Repository[] {
 		const ret: Repository[] = [];
 
-		this._providers.forEach(provider => {
-			if (provider.repositories) {
-				ret.push(...provider.repositories);
+		this._providers.forEach(({ repositories }) => {
+			if (repositories) {
+				ret.push(...repositories);
 			}
 		});
 
@@ -25,15 +25,17 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	}
 
 	public get state(): APIState | undefined {
-		let state: APIState | undefined;
+		if (this._providers.size === 0) {
+			return undefined;
+		}
 
-		this._providers.forEach(provider => {
-			if (provider.state) {
-				state = provider.state;
+		for (const [, { state }] of this._providers) {
+			if (state !== 'initialized') {
+				return 'uninitialized';
 			}
-		});
+		}
 
-		return state;
+		return 'initialized';
 	}
 
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
@@ -51,8 +53,8 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	}
 
 	registerGitProvider(provider: IGit): vscode.Disposable {
-		const handler = this._nextHandle();
-		this._providers.set(handler, provider);
+		const handle = this._nextHandle();
+		this._providers.set(handle, provider);
 
 		this._disposables.push(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
 		this._disposables.push(provider.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
@@ -69,12 +71,11 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 
 		return {
 			dispose: () => {
-				if (provider && provider.repositories) {
-					provider.repositories.forEach(repository => {
-						this._onDidCloseRepository.fire(repository);
-					});
+				const repos = provider?.repositories;
+				if (repos && repos.length > 0) {
+					repos.forEach(r => this._onDidCloseRepository.fire(r));
 				}
-				this._providers.delete(handler);
+				this._providers.delete(handle);
 			}
 		};
 	}
