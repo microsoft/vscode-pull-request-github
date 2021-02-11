@@ -80,19 +80,18 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	}
 
 	getGitProvider(uri: vscode.Uri): IGit | undefined {
-		const foldersMap = TernarySearchTree.forPaths<IGit>();
+		const foldersMap = TernarySearchTree.forUris<IGit>();
 
 		this._providers.forEach(provider => {
-			if (provider.repositories) {
-				const repositories = provider.repositories;
-
-				for (const repository of repositories) {
-					foldersMap.set(repository.rootUri.toString(), provider);
+			const repos = provider.repositories;
+			if (repos && repos.length > 0) {
+				for (const repository of repos) {
+					foldersMap.set(repository.rootUri, provider);
 				}
 			}
 		});
 
-		return foldersMap.findSubstr(uri.toString());
+		return foldersMap.findSubstr(uri);
 	}
 
 	private _nextHandle(): number {

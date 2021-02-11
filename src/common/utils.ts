@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event, Disposable } from 'vscode';
+import { Event, Disposable, Uri } from 'vscode';
 import { sep } from 'path';
 import moment = require('moment');
 
@@ -217,11 +217,206 @@ export interface Predicate<T> {
 	(input: T): boolean;
 }
 
-export class PathIterator implements IKeyIterator {
+export const enum CharCode {
+	Period = 46,
+	/**
+	 * The `/` character.
+	 */
+	Slash = 47,
 
-	private _value: string;
-	private _from: number;
-	private _to: number;
+	A = 65,
+	Z = 90,
+
+	Backslash = 92,
+
+	a = 97,
+	z = 122,
+}
+
+export function compare(a: string, b: string): number {
+	if (a < b) {
+		return -1;
+	} else if (a > b) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+export function compareSubstring(a: string, b: string, aStart: number = 0, aEnd: number = a.length, bStart: number = 0, bEnd: number = b.length): number {
+	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
+		let codeA = a.charCodeAt(aStart);
+		let codeB = b.charCodeAt(bStart);
+		if (codeA < codeB) {
+			return -1;
+		} else if (codeA > codeB) {
+			return 1;
+		}
+	}
+	const aLen = aEnd - aStart;
+	const bLen = bEnd - bStart;
+	if (aLen < bLen) {
+		return -1;
+	} else if (aLen > bLen) {
+		return 1;
+	}
+	return 0;
+}
+
+export function compareIgnoreCase(a: string, b: string): number {
+	return compareSubstringIgnoreCase(a, b, 0, a.length, 0, b.length);
+}
+
+export function compareSubstringIgnoreCase(a: string, b: string, aStart: number = 0, aEnd: number = a.length, bStart: number = 0, bEnd: number = b.length): number {
+
+	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
+
+		let codeA = a.charCodeAt(aStart);
+		let codeB = b.charCodeAt(bStart);
+
+		if (codeA === codeB) {
+			// equal
+			continue;
+		}
+
+		const diff = codeA - codeB;
+		if (diff === 32 && isUpperAsciiLetter(codeB)) { //codeB =[65-90] && codeA =[97-122]
+			continue;
+
+		} else if (diff === -32 && isUpperAsciiLetter(codeA)) {  //codeB =[97-122] && codeA =[65-90]
+			continue;
+		}
+
+		if (isLowerAsciiLetter(codeA) && isLowerAsciiLetter(codeB)) {
+			//
+			return diff;
+
+		} else {
+			return compareSubstring(a.toLowerCase(), b.toLowerCase(), aStart, aEnd, bStart, bEnd);
+		}
+	}
+
+	const aLen = aEnd - aStart;
+	const bLen = bEnd - bStart;
+
+	if (aLen < bLen) {
+		return -1;
+	} else if (aLen > bLen) {
+		return 1;
+	}
+
+	return 0;
+}
+
+export function isLowerAsciiLetter(code: number): boolean {
+	return code >= CharCode.a && code <= CharCode.z;
+}
+
+export function isUpperAsciiLetter(code: number): boolean {
+	return code >= CharCode.A && code <= CharCode.Z;
+}
+
+export interface IKeyIterator<K> {
+	reset(key: K): this;
+	next(): this;
+
+	hasNext(): boolean;
+	cmp(a: string): number;
+	value(): string;
+}
+
+export class StringIterator implements IKeyIterator<string> {
+
+	private _value: string = '';
+	private _pos: number = 0;
+
+	reset(key: string): this {
+		this._value = key;
+		this._pos = 0;
+		return this;
+	}
+
+	next(): this {
+		this._pos += 1;
+		return this;
+	}
+
+	hasNext(): boolean {
+		return this._pos < this._value.length - 1;
+	}
+
+	cmp(a: string): number {
+		const aCode = a.charCodeAt(0);
+		const thisCode = this._value.charCodeAt(this._pos);
+		return aCode - thisCode;
+	}
+
+	value(): string {
+		return this._value[this._pos];
+	}
+}
+
+export class ConfigKeysIterator implements IKeyIterator<string> {
+
+	private _value!: string;
+	private _from!: number;
+	private _to!: number;
+
+	constructor(
+		private readonly _caseSensitive: boolean = true
+	) { }
+
+	reset(key: string): this {
+		this._value = key;
+		this._from = 0;
+		this._to = 0;
+		return this.next();
+	}
+
+	hasNext(): boolean {
+		return this._to < this._value.length;
+	}
+
+	next(): this {
+		// this._data = key.split(/[\\/]/).filter(s => !!s);
+		this._from = this._to;
+		let justSeps = true;
+		for (; this._to < this._value.length; this._to++) {
+			const ch = this._value.charCodeAt(this._to);
+			if (ch === CharCode.Period) {
+				if (justSeps) {
+					this._from++;
+				} else {
+					break;
+				}
+			} else {
+				justSeps = false;
+			}
+		}
+		return this;
+	}
+
+	cmp(a: string): number {
+		return this._caseSensitive
+			? compareSubstring(a, this._value, 0, a.length, this._from, this._to)
+			: compareSubstringIgnoreCase(a, this._value, 0, a.length, this._from, this._to);
+	}
+
+	value(): string {
+		return this._value.substring(this._from, this._to);
+	}
+}
+
+export class PathIterator implements IKeyIterator<string> {
+
+	private _value!: string;
+	private _from!: number;
+	private _to!: number;
+
+	constructor(
+		private readonly _splitOnBackslash: boolean = true,
+		private readonly _caseSensitive: boolean = true
+	) { }
 
 	reset(key: string): this {
 		this._value = key.replace(/\\$|\/$/, '');
@@ -240,7 +435,7 @@ export class PathIterator implements IKeyIterator {
 		let justSeps = true;
 		for (; this._to < this._value.length; this._to++) {
 			const ch = this._value.charCodeAt(this._to);
-			if (ch === 47 /* CharCode.Slash */ || ch === 92 /* CharCode.Backslash */) {
+			if (ch === CharCode.Slash || this._splitOnBackslash && ch === CharCode.Backslash) {
 				if (justSeps) {
 					this._from++;
 				} else {
@@ -254,27 +449,9 @@ export class PathIterator implements IKeyIterator {
 	}
 
 	cmp(a: string): number {
-
-		let aPos = 0;
-		const aLen = a.length;
-		let thisPos = this._from;
-
-		while (aPos < aLen && thisPos < this._to) {
-			const cmp = a.charCodeAt(aPos) - this._value.charCodeAt(thisPos);
-			if (cmp !== 0) {
-				return cmp;
-			}
-			aPos += 1;
-			thisPos += 1;
-		}
-
-		if (aLen === this._to - this._from) {
-			return 0;
-		} else if (aPos < aLen) {
-			return -1;
-		} else {
-			return 1;
-		}
+		return this._caseSensitive
+			? compareSubstring(a, this._value, 0, a.length, this._from, this._to)
+			: compareSubstringIgnoreCase(a, this._value, 0, a.length, this._from, this._to);
 	}
 
 	value(): string {
@@ -282,44 +459,125 @@ export class PathIterator implements IKeyIterator {
 	}
 }
 
-export interface IteratorUndefinedResult {
-	readonly done: true;
-	readonly value: undefined;
-}
-export const FIN: IteratorUndefinedResult = { done: true, value: undefined };
-
-export interface IKeyIterator {
-	reset(key: string): this;
-	next(): this;
-
-	hasNext(): boolean;
-	cmp(a: string): number;
-	value(): string;
+const enum UriIteratorState {
+	Scheme = 1, Authority = 2, Path = 3, Query = 4, Fragment = 5
 }
 
-class TernarySearchTreeNode<E> {
-	segment: string;
-	value: E | undefined;
-	key: string;
-	left: TernarySearchTreeNode<E> | undefined;
-	mid: TernarySearchTreeNode<E> | undefined;
-	right: TernarySearchTreeNode<E> | undefined;
+export class UriIterator implements IKeyIterator<Uri> {
+
+	private _pathIterator!: PathIterator;
+	private _value!: Uri;
+	private _states: UriIteratorState[] = [];
+	private _stateIdx: number = 0;
+
+	constructor(private readonly _ignorePathCasing: (uri: Uri) => boolean) { }
+
+	reset(key: Uri): this {
+		this._value = key;
+		this._states = [];
+		if (this._value.scheme) {
+			this._states.push(UriIteratorState.Scheme);
+		}
+		if (this._value.authority) {
+			this._states.push(UriIteratorState.Authority);
+		}
+		if (this._value.path) {
+			this._pathIterator = new PathIterator(false, !this._ignorePathCasing(key));
+			this._pathIterator.reset(key.path);
+			if (this._pathIterator.value()) {
+				this._states.push(UriIteratorState.Path);
+			}
+		}
+		if (this._value.query) {
+			this._states.push(UriIteratorState.Query);
+		}
+		if (this._value.fragment) {
+			this._states.push(UriIteratorState.Fragment);
+		}
+		this._stateIdx = 0;
+		return this;
+	}
+
+	next(): this {
+		if (this._states[this._stateIdx] === UriIteratorState.Path && this._pathIterator.hasNext()) {
+			this._pathIterator.next();
+		} else {
+			this._stateIdx += 1;
+		}
+		return this;
+	}
+
+	hasNext(): boolean {
+		return (this._states[this._stateIdx] === UriIteratorState.Path && this._pathIterator.hasNext())
+			|| this._stateIdx < this._states.length - 1;
+	}
+
+	cmp(a: string): number {
+		if (this._states[this._stateIdx] === UriIteratorState.Scheme) {
+			return compareIgnoreCase(a, this._value.scheme);
+		} else if (this._states[this._stateIdx] === UriIteratorState.Authority) {
+			return compareIgnoreCase(a, this._value.authority);
+		} else if (this._states[this._stateIdx] === UriIteratorState.Path) {
+			return this._pathIterator.cmp(a);
+		} else if (this._states[this._stateIdx] === UriIteratorState.Query) {
+			return compare(a, this._value.query);
+		} else if (this._states[this._stateIdx] === UriIteratorState.Fragment) {
+			return compare(a, this._value.fragment);
+		}
+		throw new Error();
+	}
+
+	value(): string {
+		if (this._states[this._stateIdx] === UriIteratorState.Scheme) {
+			return this._value.scheme;
+		} else if (this._states[this._stateIdx] === UriIteratorState.Authority) {
+			return this._value.authority;
+		} else if (this._states[this._stateIdx] === UriIteratorState.Path) {
+			return this._pathIterator.value();
+		} else if (this._states[this._stateIdx] === UriIteratorState.Query) {
+			return this._value.query;
+		} else if (this._states[this._stateIdx] === UriIteratorState.Fragment) {
+			return this._value.fragment;
+		}
+		throw new Error();
+	}
+}
+
+class TernarySearchTreeNode<K, V> {
+	segment!: string;
+	value: V | undefined;
+	key!: K;
+	left: TernarySearchTreeNode<K, V> | undefined;
+	mid: TernarySearchTreeNode<K, V> | undefined;
+	right: TernarySearchTreeNode<K, V> | undefined;
 
 	isEmpty(): boolean {
 		return !this.left && !this.mid && !this.right && !this.value;
 	}
 }
 
-export class TernarySearchTree<E> {
+export class TernarySearchTree<K, V> {
 
-	static forPaths<E>(): TernarySearchTree<E> {
-		return new TernarySearchTree<E>(new PathIterator());
+	static forUris<E>(ignorePathCasing: (key: Uri) => boolean = () => false): TernarySearchTree<Uri, E> {
+		return new TernarySearchTree<Uri, E>(new UriIterator(ignorePathCasing));
 	}
 
-	private _iter: IKeyIterator;
-	private _root: TernarySearchTreeNode<E> | undefined;
+	static forPaths<E>(): TernarySearchTree<string, E> {
+		return new TernarySearchTree<string, E>(new PathIterator());
+	}
 
-	constructor(segments: IKeyIterator) {
+	static forStrings<E>(): TernarySearchTree<string, E> {
+		return new TernarySearchTree<string, E>(new StringIterator());
+	}
+
+	static forConfigKeys<E>(): TernarySearchTree<string, E> {
+		return new TernarySearchTree<string, E>(new ConfigKeysIterator());
+	}
+
+	private _iter: IKeyIterator<K>;
+	private _root: TernarySearchTreeNode<K, V> | undefined;
+
+	constructor(segments: IKeyIterator<K>) {
 		this._iter = segments;
 	}
 
@@ -327,12 +585,12 @@ export class TernarySearchTree<E> {
 		this._root = undefined;
 	}
 
-	set(key: string, element: E): E | undefined {
+	set(key: K, element: V): V | undefined {
 		const iter = this._iter.reset(key);
-		let node: TernarySearchTreeNode<E>;
+		let node: TernarySearchTreeNode<K, V>;
 
 		if (!this._root) {
-			this._root = new TernarySearchTreeNode<E>();
+			this._root = new TernarySearchTreeNode<K, V>();
 			this._root.segment = iter.value();
 		}
 
@@ -342,14 +600,15 @@ export class TernarySearchTree<E> {
 			if (val > 0) {
 				// left
 				if (!node.left) {
-					node.left = new TernarySearchTreeNode<E>();
+					node.left = new TernarySearchTreeNode<K, V>();
 					node.left.segment = iter.value();
 				}
 				node = node.left;
+
 			} else if (val < 0) {
 				// right
 				if (!node.right) {
-					node.right = new TernarySearchTreeNode<E>();
+					node.right = new TernarySearchTreeNode<K, V>();
 					node.right.segment = iter.value();
 				}
 				node = node.right;
@@ -358,7 +617,7 @@ export class TernarySearchTree<E> {
 				// mid
 				iter.next();
 				if (!node.mid) {
-					node.mid = new TernarySearchTreeNode<E>();
+					node.mid = new TernarySearchTreeNode<K, V>();
 					node.mid.segment = iter.value();
 				}
 				node = node.mid;
@@ -372,7 +631,11 @@ export class TernarySearchTree<E> {
 		return oldElement;
 	}
 
-	get(key: string): E | undefined {
+	get(key: K): V | undefined {
+		return this._getNode(key)?.value;
+	}
+
+	private _getNode(key: K) {
 		const iter = this._iter.reset(key);
 		let node = this._root;
 		while (node) {
@@ -391,13 +654,25 @@ export class TernarySearchTree<E> {
 				break;
 			}
 		}
-		return node ? node.value : undefined;
+		return node;
 	}
 
-	delete(key: string): void {
+	has(key: K): boolean {
+		const node = this._getNode(key);
+		return !(node?.value === undefined && node?.mid === undefined);
+	}
 
+	delete(key: K): void {
+		return this._delete(key, false);
+	}
+
+	deleteSuperstr(key: K): void {
+		return this._delete(key, true);
+	}
+
+	private _delete(key: K, superStr: boolean): void {
 		const iter = this._iter.reset(key);
-		const stack: [-1 | 0 | 1, TernarySearchTreeNode<E>][] = [];
+		const stack: [-1 | 0 | 1, TernarySearchTreeNode<K, V>][] = [];
 		let node = this._root;
 
 		// find and unset node
@@ -417,12 +692,19 @@ export class TernarySearchTree<E> {
 				stack.push([0, node]);
 				node = node.mid;
 			} else {
-				// remove element
-				node.value = undefined;
+				if (superStr) {
+					// remove children
+					node.left = undefined;
+					node.mid = undefined;
+					node.right = undefined;
+				} else {
+					// remove element
+					node.value = undefined;
+				}
 
 				// clean up empty nodes
 				while (stack.length > 0 && node.isEmpty()) {
-					const [dir, parent] = stack.pop()!;
+					let [dir, parent] = stack.pop()!;
 					switch (dir) {
 						case 1: parent.left = undefined; break;
 						case 0: parent.mid = undefined; break;
@@ -435,10 +717,10 @@ export class TernarySearchTree<E> {
 		}
 	}
 
-	findSubstr(key: string): E | undefined {
+	findSubstr(key: K): V | undefined {
 		const iter = this._iter.reset(key);
 		let node = this._root;
-		let candidate: E | undefined = undefined;
+		let candidate: V | undefined = undefined;
 		while (node) {
 			const val = iter.cmp(node.segment);
 			if (val > 0) {
@@ -459,7 +741,7 @@ export class TernarySearchTree<E> {
 		return node && node.value || candidate;
 	}
 
-	findSuperstr(key: string): Iterator<E | undefined> | undefined {
+	findSuperstr(key: K): IterableIterator<[K, V]> | undefined {
 		const iter = this._iter.reset(key);
 		let node = this._root;
 		while (node) {
@@ -479,57 +761,38 @@ export class TernarySearchTree<E> {
 				if (!node.mid) {
 					return undefined;
 				} else {
-					return this._nodeIterator(node.mid);
+					return this._entries(node.mid);
 				}
 			}
 		}
 		return undefined;
 	}
 
-	private _nodeIterator(node: TernarySearchTreeNode<E>): Iterator<E | undefined> {
-		let res: { done: false; value: E; };
-		let idx: number;
-		let data: E[];
-		const next = (): IteratorResult<E | undefined> => {
-			if (!data) {
-				// lazy till first invocation
-				data = [];
-				idx = 0;
-				this._forEach(node, value => data.push(value));
-			}
-			if (idx >= data.length) {
-				return { done: true, value: undefined };
-			}
-
-			if (!res) {
-				res = { done: false, value: data[idx++] };
-			} else {
-				res.value = data[idx++];
-			}
-			return res;
-		};
-		return { next };
+	forEach(callback: (value: V, index: K) => any): void {
+		for (const [key, value] of this) {
+			callback(value, key);
+		}
 	}
 
-	forEach(callback: (value: E, index: string) => any) {
-		this._forEach(this._root, callback);
+	*[Symbol.iterator](): IterableIterator<[K, V]> {
+		yield* this._entries(this._root);
 	}
 
-	private _forEach(node: TernarySearchTreeNode<E> | undefined, callback: (value: E, index: string) => any) {
+	private *_entries(node: TernarySearchTreeNode<K, V> | undefined): IterableIterator<[K, V]> {
 		if (node) {
 			// left
-			this._forEach(node.left, callback);
+			yield* this._entries(node.left);
 
 			// node
 			if (node.value) {
 				// callback(node.value, this._iter.join(parts));
-				callback(node.value, node.key);
+				yield [node.key, node.value];
 			}
 			// mid
-			this._forEach(node.mid, callback);
+			yield* this._entries(node.mid);
 
 			// right
-			this._forEach(node.right, callback);
+			yield* this._entries(node.right);
 		}
 	}
 }
