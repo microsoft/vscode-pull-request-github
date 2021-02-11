@@ -364,7 +364,7 @@
         {
           "id": "github-pull-requests",
           "title": "GitHub",
-          "icon": "resources/icons/pull-request.png"
+          "icon": "resources/icons/dark/github.svg"
         }
       ]
     },
