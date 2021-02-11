@@ -416,9 +416,11 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		const workItem = message.args as WorkItem;
 
 		this._workItem.disassociateWorkItemWithPR(workItem, this._item).then(result => {
-			if (!!result?.relations?.find(w => w.rel === 'ArtifactLink' && w.url?.toUpperCase() === this._item.item.artifactId?.toUpperCase())) {
+			if (result !== undefined
+				&& result?.relations?.find(w => w.rel === 'ArtifactLink' && w.url?.toUpperCase() === this._item.item.artifactId?.toUpperCase()) === undefined) {
 				this._replyMessage(message, { success: true });
 			} else {
+				vscode.window.showWarningMessage(`Disassociating work item from PR failed.`)
 				this._replyMessage(message, { success: false });
 			}
 		}).catch(e => {

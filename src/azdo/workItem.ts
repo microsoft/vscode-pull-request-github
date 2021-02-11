@@ -41,7 +41,7 @@ export class AzdoWorkItem implements vscode.Disposable {
 	public async associateWorkItemWithPR(workItemId: number, pr: PullRequestModel): Promise<WorkItem | undefined> {
 		try {
 			Logger.appendLine(`Associating work item: ${workItemId} with PR ${pr.getPullRequestId()} - started`, AzdoWorkItem.ID);
-			this._telemetry.sendTelemetryEvent("wt.associate");
+			this._telemetry.sendTelemetryEvent('wt.associate');
 
 			const po: JsonPatchOperation = {
 				op: Operation.Add,
@@ -55,7 +55,9 @@ export class AzdoWorkItem implements vscode.Disposable {
 				}
 			};
 
-			const res = await this._workTracking?.updateWorkItem({}, po, pr.getPullRequestId());
+			const doc: JsonPatchDocument = [po];
+
+			const res = await this._workTracking?.updateWorkItem({}, doc, workItemId);
 
 			Logger.appendLine(`Associating work item: ${workItemId} with PR ${pr.getPullRequestId()} - finished`, AzdoWorkItem.ID);
 			return res;
@@ -69,7 +71,7 @@ export class AzdoWorkItem implements vscode.Disposable {
 	public async disassociateWorkItemWithPR(workItem: WorkItem, pr: PullRequestModel): Promise<WorkItem | undefined> {
 		try {
 			Logger.appendLine(`Removing work item: ${workItem.id} link with PR ${pr.getPullRequestId()} - started`, AzdoWorkItem.ID);
-			this._telemetry.sendTelemetryEvent("wt.disassociate");
+			this._telemetry.sendTelemetryEvent('wt.disassociate');
 
 			// Get relation index
 			const idx = workItem.relations?.findIndex(w => w.rel === 'ArtifactLink' && w.url?.toUpperCase() === pr.item.artifactId?.toUpperCase());
@@ -81,8 +83,7 @@ export class AzdoWorkItem implements vscode.Disposable {
 
 			const doc: JsonPatchDocument = [po];
 
-			const res = await this._workTracking?.updateWorkItem({}, doc, pr.getPullRequestId());
-
+			const res = await this._workTracking?.updateWorkItem({}, doc, workItem.id!);
 			Logger.appendLine(`Removing work item: ${workItem.id} link with PR ${pr.getPullRequestId()} - finished`, AzdoWorkItem.ID);
 			return res;
 

@@ -89,7 +89,6 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
 
-
 	liveshareApiPromise.then((api) => {
 		if (api) {
 			// register the pull request provider to suggest PR contacts
