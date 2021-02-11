@@ -13,7 +13,7 @@ import { Reviewer } from './reviewer';
 import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 
 export default function Sidebar({ reviewers, workItems, hasWritePermission }: PullRequest) {
-	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
+	const { addReviewers, associateWorkItem, updatePR, pr } = useContext(PullRequestContext);
 
 	return <div id='sidebar'>
 		<VotePanel vote={pr.reviewers.find(r => r.reviewer.id === pr.currentUser.id)?.state ?? 0} />
@@ -30,8 +30,7 @@ export default function Sidebar({ reviewers, workItems, hasWritePermission }: Pu
 				<div>Work Items</div>
 				{hasWritePermission ? (
 					<button title='Add Work Items' onClick={async () => {
-						const newLabels = await addLabels();
-						updatePR({ labels: pr.labels.concat(newLabels.added) });
+						await associateWorkItem();
 					}}>{plusIcon}</button>
 				) : null}
 			</div>

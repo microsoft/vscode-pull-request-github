@@ -17,7 +17,8 @@ import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { Comment, GitPullRequestCommentThread, IdentityRefWithVote, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { SETTINGS_NAMESPACE } from '../constants';
 import { AzdoWorkItem } from './workItem';
-import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
+import { AccountRecentActivityWorkItemModel2, WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
+import { Disposable } from 'vscode';
 
 export class PullRequestOverviewPanel extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -275,6 +276,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this.applyPatch(message);
 			case 'pr.open-diff':
 				return this.openDiff(message);
+			case 'pr.associate-workItem':
+				return this.associateWorkItemWithPR(message);
 			case 'pr.remove-workItem':
 				return this.removeWorkItemFromPR(message);
 			case 'pr.checkMergeability':
@@ -412,6 +415,56 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		return wts.filter((w): w is WorkItem => !!w);
 	}
 
+	private async associateWorkItemWithPR(message: IRequestMessage<any>) {
+		const disposables: Disposable[] = [];
+		const recentWorkItems = await this._workItem.getRecentWorkItems();
+		try {
+			const quickpick = vscode.window.createQuickPick();
+			quickpick.placeholder = 'Select work item from below list or enter the work item number and press *Enter*';
+			quickpick.items = recentWorkItems.map(w => new WorkItemPick(w));
+			quickpick.matchOnDetail = true;
+			const wid = await new Promise<number | undefined>((resolve, _) => {
+				disposables.push(quickpick.onDidChangeValue(async value => {
+					const id = Number.parseInt(value);
+					if (Number.isInteger(id)) {
+						if (!quickpick.items.some(w => w.label === value)) {
+							quickpick.busy = true;
+							const wt = await this._workItem.getWorkItemById(id);
+							if (!!wt) {
+								quickpick.items = quickpick.items.concat([new WorkItemPick(wt)]);
+							}
+							quickpick.busy = false;
+						}
+					}
+				}),
+				quickpick.onDidChangeSelection(value => {
+					resolve(Number.parseInt(value[0].label));
+					quickpick.hide();
+				}),
+				quickpick.onDidHide(() => {
+					resolve(undefined);
+					quickpick.dispose();
+				}));
+				quickpick.show();
+			});
+
+			if (!!wid) {
+				try {
+					const wt = await this._workItem.associateWorkItemWithPR(wid, this._item);
+					this._replyMessage(message, wt);
+				} catch (e) {
+					this._throwError(message, e);
+					vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${e.message}`);
+				}
+			}
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${e.message}`);
+		} finally {
+			disposables.forEach(d => d.dispose());
+		}
+	}
+
 	private removeWorkItemFromPR(message: IRequestMessage<any>): void {
 		const workItem = message.args as WorkItem;
 
@@ -420,7 +473,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				&& result?.relations?.find(w => w.rel === 'ArtifactLink' && w.url?.toUpperCase() === this._item.item.artifactId?.toUpperCase()) === undefined) {
 				this._replyMessage(message, { success: true });
 			} else {
-				vscode.window.showWarningMessage(`Disassociating work item from PR failed.`)
+				vscode.window.showWarningMessage(`Disassociating work item from PR failed.`);
 				this._replyMessage(message, { success: false });
 			}
 		}).catch(e => {
@@ -772,4 +825,24 @@ export function getDefaultMergeMethod(methodsAvailability: MergeMethodsAvailabil
 	const methods: MergeMethod[] = ['Squash', 'NoFastForward', 'Rebase', 'RebaseMerge'];
 	// GitHub requires to have at leas one merge method to be enabled; use first available as default
 	return methods.find(method => methodsAvailability[method])!;
+}
+
+class WorkItemPick implements vscode.QuickPickItem {
+
+	label: string;
+	description = '';
+	detail: string;
+
+	constructor(workItem: AccountRecentActivityWorkItemModel2 | WorkItem) {
+		this.label = String(workItem.id!);
+		if ('title' in workItem) {
+			this.description = workItem.workItemType!;
+			this.detail = workItem.title!;
+		} else  {
+			const wt: WorkItem = workItem;
+			this.description = wt.fields?.['System.WorkItemType'] ?? '';
+			this.detail = wt.fields?.['System.Title'] ?? '';
+		}
+
+	}
 }

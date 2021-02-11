@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { ITelemetry } from '../common/telemetry';
 import { Azdo, CredentialStore } from './credentials';
 import Logger from '../common/logger';
-import { WorkItem, WorkItemExpand } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
+import { AccountRecentActivityWorkItemModel2, WorkItem, WorkItemExpand } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 import { PullRequestModel } from '../azdo/pullRequestModel';
 import { JsonPatchDocument, JsonPatchOperation, Operation } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 
@@ -35,6 +35,18 @@ export class AzdoWorkItem implements vscode.Disposable {
 
 		} catch (error) {
 			Logger.appendLine(`Fetching workitem for id: ${id} - failed. Error: ${error.message}`, AzdoWorkItem.ID);
+		}
+	}
+
+	public async getRecentWorkItems():  Promise<AccountRecentActivityWorkItemModel2[]> {
+		try {
+			Logger.appendLine(`Fetching recent workitem - started`, AzdoWorkItem.ID);
+			const result = await this._workTracking?.getRecentActivityData() ?? [];
+			Logger.appendLine(`Fetching recent workitem - finished`, AzdoWorkItem.ID);
+			return result;
+		} catch (error) {
+			Logger.appendLine(`Fetching recent workitem - failed. Error: ${error.message}`, AzdoWorkItem.ID);
+			return [];
 		}
 	}
 
