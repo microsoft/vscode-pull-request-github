@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.1
+
+### Fixes
+
+- Update the new "Create Pull Request" icon to be a sharper image.
+
 ## 0.23.0
 
 ### Changes
