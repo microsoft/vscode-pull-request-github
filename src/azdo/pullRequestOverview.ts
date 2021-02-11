@@ -16,7 +16,7 @@ import { onDidUpdatePR } from '../commands';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { Comment, GitPullRequestCommentThread, IdentityRefWithVote, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { SETTINGS_NAMESPACE } from '../constants';
-import { AzdoWorkItem } from './workitem';
+import { AzdoWorkItem } from './workItem';
 import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 
 export class PullRequestOverviewPanel extends WebviewBase {

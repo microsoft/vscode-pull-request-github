@@ -31,7 +31,7 @@ import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { getPositionFromThread } from './azdo/utils';
 import { SETTINGS_NAMESPACE } from './constants';
-import { AzdoWorkItem } from './azdo/workitem';
+import { AzdoWorkItem } from './azdo/workItem';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;

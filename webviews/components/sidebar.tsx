@@ -35,9 +35,11 @@ export default function Sidebar({ reviewers, workItems, hasWritePermission }: Pu
 					}}>{plusIcon}</button>
 				) : null}
 			</div>
-			{
-				workItems && workItems.map(workItem => <WorkItem key={workItem.id} {...workItem} canDelete={hasWritePermission} />)
-			}
+			<div className="work-item-body-container">
+				{
+					workItems && workItems.map(workItem => <WorkItem key={workItem.id} {...workItem} canDelete={hasWritePermission} />)
+				}
+			</div>
 		</div>
 	</div>;
 }
@@ -56,10 +58,10 @@ function WorkItem(workItem: WorkItem & { canDelete: boolean }) {
 
 const WorkItemDetails = (workItem: WorkItem) => (
 	<div>
-		<div>
+		<div className="work-item-type">
 			{workItem.fields["System.WorkItemType"]}
 		</div>
-		<div>
+		<div className="work-item-title">
 			{workItem.id}: {workItem.fields["System.Title"]}{}
 		</div>
 	</div>

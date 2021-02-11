@@ -26,7 +26,7 @@ import { RepositoriesManager } from './azdo/repositoriesManager';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
 import { registerLiveShareGitProvider } from './gitProviders/api';
-import { AzdoWorkItem } from './azdo/workitem';
+import { AzdoWorkItem } from './azdo/workItem';
 
 const aiKey: string = '6d22c8ed-52c8-4779-a6f8-09c748e18e95';
 

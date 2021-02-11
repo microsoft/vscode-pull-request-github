@@ -18,7 +18,7 @@ import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../azdo/credentials';
 import { GitPullRequest, GitStatusState } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { AzdoWorkItem } from '../../azdo/workitem';
+import { AzdoWorkItem } from '../../azdo/workItem';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 

@@ -426,15 +426,6 @@ body .overview-title .button-group button {
 	margin-right: 0;
 }
 
-.work-item {
-	padding: 2px 0 2px 6px;
-	height: 16px;
-	border-radius: 2px;
-	/* background: var(--vscode-badge-background); */
-	/* color: var(--vscode-badge-foreground); */
-	white-space: nowrap;
-}
-
 .commit svg {
 	width: 16px;
 	height: auto;
@@ -1011,4 +1002,29 @@ body .comment-container .review-comment-header > select {
 
 .system-timestamp {
 	margin-left: auto;
+}
+
+.work-item-type {
+	font-size: 0.7rem;
+	padding-bottom: 3px;
+}
+
+.work-item-title {
+	word-wrap: break-word;
+	width: 80%;
+}
+
+.work-item {
+	padding: 2px 0 2px 6px;
+	/* height: 16px; */
+	border-radius: 2px;
+	/* background: var(--vscode-badge-background); */
+	/* color: var(--vscode-badge-foreground); */
+	/* white-space: nowrap; */
+}
+
+.work-item-body-container .work-item:not(:first-child) {
+	margin-top: 5px;
+	padding-top: 5px;
+	border-top: 1px solid var(--vscode-foreground);
 }
