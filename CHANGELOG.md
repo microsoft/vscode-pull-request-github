@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.14
+### Changes
+
+- Mardown rendering in PR Description panel.
+
 ## 0.0.13
 ### Changes
 
