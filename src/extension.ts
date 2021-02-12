@@ -30,6 +30,7 @@ import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProv
 import { ReviewsManager } from './view/reviewsManager';
 import { registerLiveShareGitProvider } from './gitProviders/api';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
+import { ExperimentationTelemetry } from './experimentationService';
 
 const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -38,7 +39,7 @@ const fetch = require('node-fetch');
 const PolyfillPromise = require('es6-promise').Promise;
 fetch.Promise = PolyfillPromise;
 
-let telemetry: TelemetryReporter;
+let telemetry: ExperimentationTelemetry;
 
 const PROMPTS_SCOPE = 'prompts';
 const PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY = 'createPROnPublish';
@@ -173,7 +174,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	const apiImpl = new GitApiImpl();
 
 	const version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
-	telemetry = new TelemetryReporter(EXTENSION_ID, version, aiKey);
+	telemetry = new ExperimentationTelemetry(new TelemetryReporter(EXTENSION_ID, version, aiKey));
 	context.subscriptions.push(telemetry);
 
 	PersistentState.init(context);
