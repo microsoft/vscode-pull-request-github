@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.13
+### Changes
+
+- Work Item integration with PR. **The PAT token now requires `vso.work_write` permission**.
+
 ## 0.0.12
 ### Changes
 
