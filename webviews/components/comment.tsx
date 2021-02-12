@@ -5,6 +5,10 @@
 
 import * as React from 'react';
 import { useContext, useState, useEffect, useRef, useCallback } from 'react';
+import * as ReactMarkdown from 'react-markdown';
+import * as gfm from 'remark-gfm';
+import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+import {dracula as dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 import { Spaced, nbsp } from './space';
 import { Avatar, AuthorLink } from './user';
@@ -239,14 +243,20 @@ export interface Embodied {
 	body?: string;
 }
 
+const renderers = {
+	code: ({language, value}) => {
+	  return <SyntaxHighlighter style={dracula} language={language} showLineNumbers={true} wrapLongLines={true} children={value} />
+	}
+  }
+
 export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	if (!body && !bodyHTML) {
 		return <div className='comment-body'><em>No description provided.</em></div>;
 	}
 
 	const { applyPatch } = useContext(PullRequestContext);
-	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
-
+	// const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
+	const renderedBody = <ReactMarkdown renderers={renderers} plugins={[gfm]} children={body} />
 	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
 	const applyPatchButton = containsSuggestion
 		? <button onClick={() => applyPatch(comment)}>Apply Patch</button>

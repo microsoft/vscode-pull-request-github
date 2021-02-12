@@ -1039,3 +1039,7 @@ body .comment-container .review-comment-header > select {
 	text-decoration: none;
 	color: inherit
 }
+
+.comment-body li {
+	white-space: pre-wrap;
+}
