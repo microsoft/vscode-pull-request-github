@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { parseDiffHunk } from '../common/diffHunk';
 
 describe('Extension Tests', function () {

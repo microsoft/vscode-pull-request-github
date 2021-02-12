@@ -47,7 +47,7 @@ export class ReviewsManager {
 
 				this._prsTreeDataProvider.dispose();
 				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-				await this._prsTreeDataProvider.initialize(this._reposManager);
+				this._prsTreeDataProvider.initialize(this._reposManager);
 				this._disposables.push(this._prsTreeDataProvider);
 			}
 		}));

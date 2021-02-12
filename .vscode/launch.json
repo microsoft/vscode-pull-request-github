@@ -2,9 +2,9 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Launch Extension",
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "Launch Extension",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
@@ -17,13 +17,13 @@
 			"smartStep": true,
 			"sourceMaps": true,
 			"outFiles": [
-				"${workspaceFolder}/media/*.js"
+				"${workspaceFolder}/dist/*.js"
 			]
 		},
 		{
+			"name": "Launch Extension in Webworker",
 			"type": "pwa-extensionHost",
 			"request": "launch",
-			"name": "Launch Extension in Webworker",
 			"debugWebWorkerHost": true,
 			"runtimeExecutable": "${execPath}",
 			"args": [
@@ -41,17 +41,62 @@
 			]
 		},
 		{
-			"name": "Extension Tests",
+			"name": "Watch & Launch Extension",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/test"
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
-			"preLaunchTask": "npm: preprocess",
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
+			"preLaunchTask": "npm: watch",
+			"smartStep": true,
+			"sourceMaps": true,
 			"outFiles": [
-				"${workspaceFolder}/out/test/**/*.js"
+				"${workspaceFolder}/dist/*.js"
+			]
+		},
+		{
+			"name": "Watch & Launch Extension in Webworker",
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"debugWebWorkerHost": true,
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+			],
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
+			"preLaunchTask": "npm: watch",
+			"smartStep": true,
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceFolder}/dist/browser/*.js"
+			]
+		},
+		{
+			"name": "Extension Tests",
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/src/test",
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders",
+				"--disable-extensions"
+			],
+			"preLaunchTask": "npm: compile:test",
+			"smartStep": true,
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceFolder}/out/src/test/**/*.js"
 			]
 		}
 	]

@@ -21,7 +21,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		}
 
 		if ((context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter) &&
-			(<string[]>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreUserCompletionTrigger', [])).find(value => value === document.languageId)) {
+			(vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string[]>('ignoreUserCompletionTrigger', [])).find(value => value === document.languageId)) {
 			return [];
 		}
 

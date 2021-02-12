@@ -1,9 +1,9 @@
 import * as React from 'react';
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { render, cleanup } from 'react-testing-library';
 import { SinonSandbox, createSandbox } from 'sinon';
 
-import PullRequestContext, { PRContext } from '../../common/context';
+import { default as PullRequestContext, PRContext } from '../../common/context';
 import { Root } from '../app';
 import { PullRequestBuilder } from './builder/pullRequest';
 

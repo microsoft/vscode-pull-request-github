@@ -15,9 +15,10 @@ import { Protocol } from '../common/protocol';
 import { getRepositoryForFile } from '../github/utils';
 import { GitApiImpl } from '../api/api1';
 import { Repository, Commit, Remote, Ref } from '../api/api';
-import * as LRUCache from 'lru-cache';
+import LRUCache from 'lru-cache';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
+import { URLSearchParams } from 'url';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -86,7 +87,7 @@ export async function getIssue(stateManager: StateManager, manager: FolderReposi
 				if (issue) {
 					let cached: LRUCache<string, IssueModel>;
 					if (!stateManager.resolvedIssues.has(manager.repository.rootUri.path)) {
-						stateManager.resolvedIssues.set(manager.repository.rootUri.path, cached = new LRUCache(50));
+						stateManager.resolvedIssues.set(manager.repository.rootUri.path, cached = new LRUCache<string, IssueModel>(50));
 					} else {
 						cached = stateManager.resolvedIssues.get(manager.repository.rootUri.path)!;
 					}

@@ -1,8 +1,8 @@
 // This file is providing the test runner to use when running extension tests.
 import * as path from 'path';
 import * as vscode from 'vscode';
-import glob = require('glob');
-import Mocha = require('mocha');
+import glob from 'glob';
+import Mocha from 'mocha';
 
 import { mockWebviewEnvironment } from './mocks/mockWebviewEnvironment';
 
@@ -32,7 +32,7 @@ function addTests(mocha: Mocha, root: string): Promise<void> {
 
 async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	// Ensure the dev-mode extension is activated
-	const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
+	const { name, publisher } = require('../../../package.json') as { name: string, publisher: string };
 	const extensionId = `${publisher}.${name}`;
 	await vscode.extensions.getExtension(extensionId)!.activate();
 
@@ -45,7 +45,7 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
 
 	await addTests(mocha, testsRoot);
-	await addTests(mocha, path.resolve(testsRoot, '../../webviews/test'));
+	await addTests(mocha, path.resolve(testsRoot, '../../../webviews/test'));
 
 	if (process.env.TEST_JUNIT_XML_PATH) {
 		mocha.reporter('mocha-multi-reporters', {

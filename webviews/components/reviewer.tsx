@@ -1,14 +1,11 @@
-
-
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import React = require('react');
+import React, { cloneElement, useContext, useState } from 'react';
 import { ReviewState } from '../../src/github/interface';
-import PullRequestContext from '../common/context';
+import { default as PullRequestContext } from '../common/context';
 import { nbsp } from './space';
-import { cloneElement, useContext, useState } from 'react';
 import { Avatar, AuthorLink } from './user';
 import { pendingIcon, commentIcon, checkIcon, diffIcon, deleteIcon } from './icon';
 

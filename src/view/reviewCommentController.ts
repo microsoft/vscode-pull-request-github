@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nodePath from 'path';
-import * as uuid from 'uuid';
+import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -391,6 +391,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 					this._reviewDocumentCommentThreads.setDocumentThreads(documentFileName, reviewParams.base, existingThreads.concat(thread));
 					return;
 				}
+				break;
 
 			case currentWorkspace.uri.scheme:
 				const workspaceFileName = this.gitRelativeRootPath(uri.path);
@@ -680,6 +681,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (matchedFiles && matchedFiles.length) {
 			return matchedFiles[0] as GitFileChangeNode;
 		}
+		return undefined;
 	}
 
 	private findMatchedFileByUri(uri: vscode.Uri): GitFileChangeNode | undefined {
@@ -707,6 +709,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (matchedFiles && matchedFiles.length) {
 			return matchedFiles[0];
 		}
+		return undefined;
 	}
 
 	private gitRelativeRootPath(path: string) {
@@ -769,7 +772,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	private getUpdatedThreads(originalCommentThreads: GHPRCommentThread[], deletedReviewComments: IComment[]): GHPRCommentThread[] {
 		const threads: GHPRCommentThread[] = [];
 		originalCommentThreads.forEach(thread => {
-			thread.comments = thread.comments.filter((comment: GHPRComment) => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
+			thread.comments = thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
 			updateCommentThreadLabel(thread);
 			if (!thread.comments.length) {
 				thread.dispose!();
@@ -1108,11 +1111,11 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 					...(this._reviewDocumentCommentThreads.getAllThreadsForDocument(fileName) || []),
 					...(this._workspaceFileChangeCommentThreads[fileName] || []),
 					...(this._obsoleteFileChangeCommentThreads[fileName] || [])
-				].filter(td => !!td.comments.find((cmt: GHPRComment) => cmt.commentId === comment.commentId));
+				].filter(td => !!td.comments.find(cmt => cmt.commentId === comment.commentId));
 
 				modifiedThreads.forEach(thread => {
-					thread.comments = thread.comments.map((cmt: GHPRComment) => {
-						if (cmt.commentId === comment.commentId) {
+					thread.comments = thread.comments.map(cmt => {
+						if (cmt.commentId === comment.commentId && GHPRComment.is(cmt)) {
 							cmt.reactions = vscodeCommentReactions;
 						}
 

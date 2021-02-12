@@ -38,7 +38,6 @@ export function openFileCommand(uri: vscode.Uri): vscode.Command {
  * File change node whose content can not be resolved locally and we direct users to GitHub.
  */
 export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public description: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public command: vscode.Command;
@@ -80,7 +79,6 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
  * File change node whose content is stored in memory and resolved when being revealed.
  */
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public description: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public resourceUri: vscode.Uri;
@@ -202,15 +200,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
  * File change node whose content is stored in memory and resolved when being revealed.
  */
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
-	public label: string;
-	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
-	public resourceUri: vscode.Uri;
-	public parentSha: string;
-	public contextValue: string;
-	public command: vscode.Command;
-	public opts: vscode.TextDocumentShowOptions;
-
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: PullRequestModel,
@@ -239,15 +228,6 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
  * File change node whose content can be resolved by git commit sha.
  */
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
-	public label: string;
-	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
-	public resourceUri: vscode.Uri;
-	public parentSha: string;
-	public contextValue: string;
-	public command: vscode.Command;
-	public opts: vscode.TextDocumentShowOptions;
-
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		private readonly pullRequestManager: FolderRepositoryManager,
@@ -335,7 +315,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			if (openDiff) {
 				this.command = await this.openDiffCommand(this.pullRequestManager);
 			} else {
-				this.command = await this.openFileCommand();
+				this.command = this.openFileCommand();
 			}
 		}
 	}
@@ -345,7 +325,6 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
  * File change node whose content is resolved from GitHub. For files not yet associated with a pull request.
  */
 export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public description: string;
 	public iconPath: vscode.ThemeIcon;
 	public resourceUri: vscode.Uri;

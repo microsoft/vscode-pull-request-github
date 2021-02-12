@@ -3,8 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { render } from 'react-dom';
 import PullRequestContext, { CreateParams } from '../common/createContext';
 import { gitCompareIcon, repoIcon } from '../components/icon';
@@ -23,14 +22,16 @@ export function main() {
 			}
 
 			function updateTitle(title: string): void {
-				params.validate
-					? ctx.updateState({ pendingTitle: title, showTitleValidationError: !title })
-					: ctx.updateState({ pendingTitle: title });
+				if (params.validate) {
+					ctx.updateState({ pendingTitle: title, showTitleValidationError: !title });
+				} else {
+					ctx.updateState({pendingTitle: title });
+				}
 			}
 
 			async function create(): Promise<void> {
 				setBusy(true);
-				const hasValidTitle = await ctx.validate();
+				const hasValidTitle = ctx.validate();
 				if (!hasValidTitle) {
 					titleInput.current.focus();
 				} else {

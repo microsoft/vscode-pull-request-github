@@ -84,7 +84,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 
 		this._subs.push(..._folderManagers.map(folderManager => {
-			return folderManager.onDidLoadRepositories(state => this.state = state);
+			return folderManager.onDidLoadRepositories(state => (this.state = state));
 		}));
 	}
 
@@ -139,6 +139,7 @@ export class RepositoriesManager implements vscode.Disposable {
 				return folderManager;
 			}
 		}
+		return undefined;
 	}
 
 	get state() {

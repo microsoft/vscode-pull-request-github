@@ -8,17 +8,16 @@ import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { ReviewEvent, GithubItemStateEnum, ReviewState, MergeMethod } from './interface';
 import { PullRequestModel } from './pullRequestModel';
-import * as OctokitTypes from '@octokit/types';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import webviewContent from '../../media/activityBar-webviewIndex.js';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { parseReviewers } from './utils';
+import { IComment } from '../common/comment';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';
 
-	private _existingReviewers: ReviewState[];
+	private _existingReviewers: ReviewState[]  = [];
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
@@ -156,7 +155,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<OctokitTypes.PullsGetResponseData>('pr.close', this._item, message.args).then(comment => {
+		vscode.commands.executeCommand<IComment>('pr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -301,7 +300,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 							const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
 							await this._folderRepositoryManager.repository.checkout(defaultBranch);
 						}
-						return await this._folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
+						return this._folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
 					case 'remote':
 						return this._folderRepositoryManager.repository.removeRemote(branchInfo!.remote!);
 				}
@@ -321,7 +320,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private setReadyForReview(message: IRequestMessage<{}>): void {
+	private setReadyForReview(message: IRequestMessage<Record<string, unknown>>): void {
 		this._item.setReadyForReview().then(isDraft => {
 			vscode.commands.executeCommand('pr.refreshList');
 
@@ -359,19 +358,21 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private _getHtmlForWebview() {
 		const nonce = getNonce();
 
-		return `<!DOCTYPE html>
-		<html lang="en">
-		<head>
-			<meta charset="UTF-8">
-			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-open-pr-view.js');
 
-			<title>Active Pull Request</title>
-		</head>
-		<body>
-			<div id="app"></div>
-			<script nonce="${nonce}">${webviewContent}</script>
-		</body>
-		</html>`;
+		return `<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+		<title>Active Pull Request</title>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script nonce="${nonce}" src="${this._webview!.asWebviewUri(uri).toString()}"></script>
+	</body>
+</html>`;
 	}
 }

@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
@@ -18,7 +18,7 @@ import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 
-const EXTENSION_PATH = path.resolve(__dirname, '../../..');
+const EXTENSION_URI = vscode.Uri.file(path.resolve(__dirname, '../../..'));
 
 describe('PullRequestOverview', function () {
 	let sinon: SinonSandbox;
@@ -72,7 +72,7 @@ describe('PullRequestOverview', function () {
 			);
 			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
 
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel);
 
 			assert(createWebviewPanel.calledWith(
 				sinonMatch.string,
@@ -81,7 +81,7 @@ describe('PullRequestOverview', function () {
 				{
 					enableScripts: true,
 					retainContextWhenHidden: true,
-					localResourceRoots: [vscode.Uri.file(path.resolve(EXTENSION_PATH, 'media'))]
+					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'media')]
 				}
 			));
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);
@@ -114,7 +114,7 @@ describe('PullRequestOverview', function () {
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
 			assert.notStrictEqual(panel0, undefined);
@@ -129,7 +129,7 @@ describe('PullRequestOverview', function () {
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
 			assert.strictEqual(createWebviewPanel.callCount, 1);

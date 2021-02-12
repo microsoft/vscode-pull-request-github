@@ -3,8 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { useContext, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { PullRequest } from '../common/cache';
 import { plusIcon, deleteIcon } from './icon';
 import PullRequestContext from '../common/context';
@@ -15,7 +14,7 @@ import { Avatar, AuthorLink } from '../components/user';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone,assignees}: PullRequest) {
 	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
-	
+
 	return <div id='sidebar'>
 		{!isIssue
 			? <div id='reviewers' className='section'>

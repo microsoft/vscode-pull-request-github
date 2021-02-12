@@ -1,4 +1,4 @@
-import installJsDomGlobal = require('jsdom-global');
+import installJsDomGlobal from 'jsdom-global';
 import { Suite } from 'mocha';
 
 interface WebviewEnvironmentSetters {

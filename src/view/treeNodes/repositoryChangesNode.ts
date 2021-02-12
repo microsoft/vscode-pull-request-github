@@ -16,9 +16,7 @@ import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 export class RepositoryChangesNode extends DescriptionNode implements vscode.TreeItem {
 	private _filesCategoryNode?: FilesCategoryNode;
 	private _commitsCategoryNode?: CommitsNode;
-	public label: string;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-	public contextValue?: string;
 
 	private _disposables: vscode.Disposable[] = [];
 

@@ -5,14 +5,14 @@
 
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
-import { parseDiff, parsePatch, DiffHunk } from '../common/diffHunk';
+import { parseDiff, parsePatch, DiffChangeType, DiffHunk } from '../common/diffHunk';
 import { toReviewUri, fromReviewUri } from '../common/uri';
 import { groupBy, formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
-import { Repository, GitErrorCodes, Branch } from '../api/api';
+import type { Branch, Repository,  } from '../api/api';
+import { GitErrorCodes } from '../api/api1';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
-import { DiffChangeType } from '../common/diffHunk';
 import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
 import Logger from '../common/logger';
 import { Remote, parseRepositoryRemotes } from '../common/remote';
@@ -302,7 +302,7 @@ export class ReviewManager {
 			this._webviewViewProvider.updatePullRequest(pr);
 		}
 
-		this.statusBarItem.text = '$(git-branch) Pull Request #' + this._prNumber;
+		this.statusBarItem.text = `$(git-branch) Pull Request #${this._prNumber}`;
 		this.statusBarItem.command = { command: 'pr.openDescription', title: 'View Pull Request Description', arguments: [pr] };
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
@@ -679,11 +679,11 @@ export class ReviewManager {
 		return this._createPullRequestHelper?.isCreatingPullRequest ?? false;
 	}
 
-	private updateFocusedViewMode(): void {
+	private async updateFocusedViewMode(): Promise<void> {
 		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
 		if (focusedSetting && this._folderRepoManager.activePullRequest) {
 			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
-			this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
+			await this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		} else {
 			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, false);
 			this._context.workspaceState.update(FOCUS_REVIEW_MODE, false);

@@ -4,9 +4,50 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event, Disposable, Uri } from 'vscode';
 import { sep } from 'path';
-import moment = require('moment');
+import { Disposable, Event, Uri } from 'vscode';
+import dayjs from 'dayjs';
+import * as relativeTime from 'dayjs/plugin/relativeTime';
+import * as updateLocale from 'dayjs/plugin/updateLocale';
+
+dayjs.extend(relativeTime.default, {
+	thresholds: [
+		{ l: 's', r: 44, d: 'second' },
+		{ l: 'm', r: 89 },
+		{ l: 'mm', r: 44, d: 'minute' },
+		{ l: 'h', r: 89 },
+		{ l: 'hh', r: 21, d: 'hour' },
+		{ l: 'd', r: 35 },
+		{ l: 'dd', r: 6, d: 'day' },
+		{ l: 'w', r: 7 },
+		{ l: 'ww', r: 3, d: 'week' },
+		{ l: 'M', r: 4 },
+		{ l: 'MM', r: 10, d: 'month' },
+		{ l: 'y', r: 17 },
+		{ l: 'yy', d: 'year' },
+	],
+});
+
+dayjs.extend(updateLocale.default);
+dayjs.updateLocale('en', {
+	relativeTime: {
+		future: 'in %s',
+		past: '%s ago',
+		s: 'seconds',
+		m: 'a minute',
+		mm: '%d minutes',
+		h: 'an hour',
+		hh: '%d hours',
+		d: 'a day',
+		dd: '%d days',
+		w: 'a week',
+		ww: '%d weeks',
+		M: 'a month',
+		MM: '%d months',
+		y: 'a year',
+		yy: '%d years',
+	},
+});
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -98,7 +139,7 @@ interface HookError extends Error {
 }
 
 function isHookError(e: Error): e is HookError {
-	return !!(<any>e).errors;
+	return !!(e as any).errors;
 }
 
 function hasFieldErrors(e: any): e is (Error & { errors: { value: string, field: string, code: string }[] }) {
@@ -124,7 +165,7 @@ export function formatError(e: HookError | any): string {
 
 		if (e.gitErrorCode) {
 			// known git errors, we should display detailed git error messages.
-			return e.message + '. Please check git output for more details';
+			return `${e.message}. Please check git output for more details`;
 		}
 		return 'Error';
 	}
@@ -182,14 +223,14 @@ export async function promiseFromEvent<T, U>(
 	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
 	let subscription: Disposable;
 	return new Promise<U>((resolve, reject) =>
-		subscription = event((value: T) => {
+		(subscription = event((value: T) => {
 			try {
-				Promise.resolve(adapter(value, resolve, reject))
+				Promise.resolve<U>(adapter(value, resolve as any, reject))
 					.catch(reject);
 			} catch (error) {
 				reject(error);
 			}
-		})
+		}))
 	).then(
 		(result: U) => {
 			subscription.dispose();
@@ -203,16 +244,20 @@ export async function promiseFromEvent<T, U>(
 }
 
 export function dateFromNow(date: Date | string): string {
-	const duration = moment.duration(moment().diff(date));
+	const djs = dayjs(date);
 
-	if (duration.asMonths() < 1) {
-		return moment(date).fromNow();
-	} else if (duration.asYears() < 1) {
-		return 'on ' + moment(date).format('MMM D');
-	} else {
-		return 'on ' + moment(date).format('MMM D, YYYY');
+	const now = Date.now();
+	djs.diff(now, 'month');
+
+	if (djs.diff(now, 'month') < 1) {
+		return djs.fromNow();
+	} else if (djs.diff(now, 'year') < 1) {
+		return `on ${ djs.format('MMM D')}`;
 	}
+		return `on ${ djs.format('MMM D, YYYY')}`;
+
 }
+
 export interface Predicate<T> {
 	(input: T): boolean;
 }
@@ -238,15 +283,15 @@ export function compare(a: string, b: string): number {
 		return -1;
 	} else if (a > b) {
 		return 1;
-	} else {
-		return 0;
 	}
+		return 0;
+
 }
 
 export function compareSubstring(a: string, b: string, aStart: number = 0, aEnd: number = a.length, bStart: number = 0, bEnd: number = b.length): number {
 	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
-		let codeA = a.charCodeAt(aStart);
-		let codeB = b.charCodeAt(bStart);
+		const codeA = a.charCodeAt(aStart);
+		const codeB = b.charCodeAt(bStart);
 		if (codeA < codeB) {
 			return -1;
 		} else if (codeA > codeB) {

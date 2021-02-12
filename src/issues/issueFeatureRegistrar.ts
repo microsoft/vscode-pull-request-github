@@ -358,6 +358,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (currentIssues.length > 0) {
 			return { owner: currentIssues[0].issue.remote.owner, repo: currentIssues[0].issue.remote.repositoryName, number: currentIssues[0].issue.number };
 		}
+		return undefined;
 	}
 
 	refreshView() {
@@ -374,6 +375,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (issueModel instanceof IssueModel) {
 			return vscode.env.openExternal(vscode.Uri.parse(issueModel.html_url));
 		}
+		return undefined;
 	}
 
 	async doStartWorking(repoManager: FolderRepositoryManager | undefined, issueModel: IssueModel, needsBranchPrompt?: boolean) {
@@ -435,6 +437,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				if (reviewManager) {
 					return pushAndCreatePR(currentIssue.manager, reviewManager, this._stateManager);
 				}
+				break;
 			}
 			case stopWorkingText: return this._stateManager.setCurrentIssue(currentIssue.manager, undefined);
 		}
@@ -470,12 +473,14 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		if (issueModel instanceof IssueModel) {
 			return vscode.env.clipboard.writeText(issueModel.number.toString());
 		}
+		return undefined;
 	}
 
 	copyIssueUrl(issueModel: any) {
 		if (issueModel instanceof IssueModel) {
 			return vscode.env.clipboard.writeText(issueModel.html_url);
 		}
+		return undefined;
 	}
 
 	async createTodoIssueClipboard() {
@@ -537,6 +542,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			quickInput.hide();
 		});
 		quickInput.show();
+
+		return undefined;
 	}
 
 	private async makeNewIssueFile(originUri: vscode.Uri, title?: string, body?: string, assignees?: string[] | undefined) {
@@ -587,6 +594,10 @@ ${body ?? ''}\n
 		const newLabels: string[] = [];
 		const filteredLabels: string[] = [];
 		createParams.labels?.forEach(label => {
+			if (typeof label !== 'string') {
+				label = label.name;
+			}
+
 			if (allLabels.includes(label)) {
 				filteredLabels.push(label);
 			} else {
@@ -740,5 +751,6 @@ ${body ?? ''}\n
 		if (link) {
 			return vscode.env.openExternal(vscode.Uri.parse(link));
 		}
+		return undefined;
 	}
 }

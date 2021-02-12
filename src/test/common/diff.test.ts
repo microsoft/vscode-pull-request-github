@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { parseDiffHunk, DiffHunk, getModifiedContentFromDiffHunk } from '../../common/diffHunk';
 import { DiffLine, DiffChangeType } from '../../common/diffHunk';
 import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition, mapCommentsToHead } from '../../common/diffPositionMapping';

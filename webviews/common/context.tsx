@@ -120,7 +120,7 @@ export class PRContext {
 
 	public close = async (body?: string) => {
 		try {
-			this.appendReview(await this.postMessage({ command: 'pr.close', args: body }))
+			this.appendReview(await this.postMessage({ command: 'pr.close', args: body }));
 		} catch (_) {
 			// Ignore
 		}
@@ -147,7 +147,7 @@ export class PRContext {
 		const events = state.events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
 		events.forEach(event => {
 			if (isReviewEvent(event)) {
-				event.comments.forEach(c => c.isDraft = false);
+				event.comments.forEach(c => (c.isDraft = false));
 			}
 		});
 		state.reviewers = reviewers;

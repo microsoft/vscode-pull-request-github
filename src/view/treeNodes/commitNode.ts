@@ -15,7 +15,6 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { OctokitCommon } from '../../github/common';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public sha: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath: vscode.Uri | undefined;

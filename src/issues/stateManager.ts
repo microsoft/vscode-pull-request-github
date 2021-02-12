@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as LRUCache from 'lru-cache';
+import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { IssueModel } from '../github/issueModel';
 import { IAccount } from '../github/interface';
@@ -233,7 +233,7 @@ export class StateManager {
 	}
 
 	private async getCurrentUser(): Promise<string | undefined> {
-		return (await this.manager.credentialStore.getCurrentUser())?.login;
+		return this.manager.credentialStore.getCurrentUser()?.login;
 	}
 
 	private async setAllIssueData() {
@@ -274,7 +274,7 @@ export class StateManager {
 			const issues = await folderManager.getIssues({ fetchNextPage: false }, query);
 			this._onDidChangeIssueData.fire();
 			resolve(issues.items.map(item => {
-				const issueItem: IssueItem = <IssueItem>item;
+				const issueItem: IssueItem = item as IssueItem;
 				issueItem.uri = folderManager.repository.rootUri;
 				return issueItem;
 			}));
@@ -282,7 +282,7 @@ export class StateManager {
 	}
 
 	private async setCurrentIssueFromBranch(singleRepoState: SingleRepoState, branchName: string) {
-		const createBranchConfig = <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
+		const createBranchConfig = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_CONFIGURATION);
 		if (createBranchConfig === 'off') {
 			return;
 		}
@@ -326,7 +326,7 @@ export class StateManager {
 
 			// The number of milestones is expected to be very low, so two passes through is negligible
 			for (let i = 0; i < milestones.items.length; i++) {
-				const item: MilestoneItem = <MilestoneItem>milestones.items[i];
+				const item: MilestoneItem = milestones.items[i] as MilestoneItem;
 				item.uri = folderManager.repository.rootUri;
 				const milestone = milestones.items[i].milestone;
 				if ((item.issues && item.issues.length <= 0) || (skipMilestones.indexOf(milestone.title) >= 0)) {
@@ -362,7 +362,7 @@ export class StateManager {
 	}
 
 	private removeDateExcludeStrings(possibleDate: string): string {
-		excludeFromDate.forEach(exclude => possibleDate = possibleDate.replace(exclude, ''));
+		excludeFromDate.forEach(exclude => (possibleDate = possibleDate.replace(exclude, '')));
 		return possibleDate;
 	}
 

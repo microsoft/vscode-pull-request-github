@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 import * as utils from '../../common/utils';
 import { EventEmitter } from 'vscode';
 

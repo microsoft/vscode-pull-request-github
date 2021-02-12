@@ -5,7 +5,7 @@ import { ExtensionContext, Uri, SecretStorage, Event, SecretStorageChangeEvent }
 import { InMemoryMemento } from './inMemoryMemento';
 
 export class MockExtensionContext implements ExtensionContext {
-	extensionPath = path.resolve(__dirname, '..');
+	extensionPath: string;
 
 	workspaceState = new InMemoryMemento();
 	globalState = new InMemoryMemento();
@@ -19,14 +19,14 @@ export class MockExtensionContext implements ExtensionContext {
 		delete(key: string): Thenable<void> {
 			throw new Error('Method not implemented.');
 		}
-		onDidChange: Event<SecretStorageChangeEvent>;
-	};
+		onDidChange!: Event<SecretStorageChangeEvent>;
+	}();
 	subscriptions: { dispose(): any; }[] = [];
 
 	storagePath: string;
 	globalStoragePath: string;
 	logPath: string;
-	extensionUri: Uri;
+	extensionUri: Uri = Uri.file(path.resolve(__dirname, '..'));
 	environmentVariableCollection: any;
 	extensionMode: any;
 
@@ -41,9 +41,14 @@ export class MockExtensionContext implements ExtensionContext {
 	extensionVersion: string;
 
 	constructor() {
+		this.extensionPath = path.resolve(__dirname, '..');
+		this.extensionUri = Uri.file(this.extensionPath);
 		this.storagePath = temp.mkdirSync('storage-path');
+		this.storageUri = Uri.file(this.storagePath);
 		this.globalStoragePath = temp.mkdirSync('global-storage-path');
+		this.globalStorageUri = Uri.file(this.globalStoragePath);
 		this.logPath = temp.mkdirSync('log-path');
+		this.logUri = Uri.file(this.logPath);
 	}
 
 	asAbsolutePath(relativePath: string): string {

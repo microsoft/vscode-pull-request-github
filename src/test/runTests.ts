@@ -5,6 +5,7 @@ async function go() {
 	try {
 		const extensionDevelopmentPath = path.resolve(__dirname, '../../');
 		const extensionTestsPath = path.resolve(__dirname, './');
+		console.log(extensionDevelopmentPath, extensionTestsPath);
 
 		/**
 		 * Basic usage
@@ -22,4 +23,4 @@ async function go() {
 	}
 }
 
-go();
+setTimeout(() => go(), 10000);

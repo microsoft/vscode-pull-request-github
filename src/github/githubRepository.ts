@@ -19,7 +19,8 @@ import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse,
 import { IssueModel } from './issueModel';
 import { Protocol } from '../common/protocol';
 import { ITelemetry } from '../common/telemetry';
-const defaultSchema = require('./queries.gql');
+import defaultSchema from './queries.gql';
+import { OctokitCommon } from './common';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
@@ -61,15 +62,15 @@ export interface ForkDetails {
 	};
 }
 
-export interface IMetadata extends OctokitTypes.ReposGetResponseData {
+export interface IMetadata extends OctokitCommon.ReposGetResponseData {
 	currentUser: any;
 }
 
 export class GitHubRepository implements vscode.Disposable {
 	static ID = 'GitHubRepository';
-	protected _initialized: boolean;
+	protected _initialized: boolean = false;
 	protected _hub: GitHub | undefined;
-	protected _metadata: IMetadata;
+	protected _metadata: IMetadata | undefined;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentController;
@@ -156,7 +157,7 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	get schema() {
-		return defaultSchema;
+		return defaultSchema as any;
 	}
 
 	async getMetadata(): Promise<any> {
@@ -171,7 +172,7 @@ export class GitHubRepository implements vscode.Disposable {
 			repo: remote.repositoryName
 		});
 		Logger.debug(`Fetch metadata ${remote.owner}/${remote.repositoryName} - done`, GitHubRepository.ID);
-		this._metadata = Object.assign(result.data, { currentUser: (octokit as any).currentUser });
+		this._metadata = { ...result.data, currentUser: (octokit as any).currentUser } as unknown as IMetadata;
 		return this._metadata;
 	}
 
@@ -190,7 +191,7 @@ export class GitHubRepository implements vscode.Disposable {
 		if (!this._credentialStore.isAuthenticated()) {
 			this._hub = await this._credentialStore.showSignInNotification();
 		} else {
-			this._hub = await this._credentialStore.getHub();
+			this._hub = this._credentialStore.getHub();
 		}
 
 		return this;
@@ -227,11 +228,11 @@ export class GitHubRepository implements vscode.Disposable {
 			return {
 				// Users with push access to repo have rights to merge/close PRs,
 				// edit title/description, assign reviewers/labels etc.
-				hasWritePermission: data.permissions.push,
+				hasWritePermission: data.permissions?.push ?? false,
 				mergeMethodsAvailability: {
-					merge: data.allow_merge_commit,
-					squash: data.allow_squash_merge,
-					rebase: data.allow_rebase_merge
+					merge: data.allow_merge_commit ?? false,
+					squash: data.allow_squash_merge ?? false,
+					rebase: data.allow_rebase_merge ?? false
 				}
 			};
 		} catch (e) {
@@ -280,7 +281,7 @@ export class GitHubRepository implements vscode.Disposable {
 							return null;
 						}
 
-						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
+						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest as any, this));
 					}
 				)
 				.filter(item => item !== null) as PullRequestModel[];
@@ -299,6 +300,7 @@ export class GitHubRepository implements vscode.Disposable {
 				throw e;
 			}
 		}
+		return undefined;
 	}
 
 	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[] | undefined> {
@@ -313,7 +315,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const pullRequests = result.data
 				.map(pullRequest => {
-						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
+						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest as any, this));
 					}
 				)
 				.filter(item => item !== null) as PullRequestModel[];
@@ -329,6 +331,8 @@ export class GitHubRepository implements vscode.Disposable {
 				throw e;
 			}
 		}
+
+		return undefined;
 	}
 
 	private getRepoForIssue(githubRepository: GitHubRepository, parsedIssue: Issue): GitHubRepository {
@@ -495,7 +499,7 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			Logger.debug(`Fork repository`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const result = await octokit.repos.createFork({ owner: remote.owner, repo: remote.repositoryName });
+			const result = await octokit.repos.createFork({ owner: remote.owner, repo: remote.repositoryName }) as any;
 			return result.data.clone_url;
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Forking repository failed: ${e}`);
@@ -540,7 +544,7 @@ export class GitHubRepository implements vscode.Disposable {
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1
 			});
-			const promises: Promise<OctokitTypes.OctokitResponse<OctokitTypes.PullsGetResponseData>>[] = [];
+			const promises: Promise<OctokitTypes.OctokitResponse<OctokitCommon.PullsGetResponseData>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(new Promise(async (resolve, reject) => {
 					const prData = await octokit.pulls.get({
@@ -579,6 +583,7 @@ export class GitHubRepository implements vscode.Disposable {
 				throw e;
 			}
 		}
+		return undefined;
 	}
 
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
@@ -630,11 +635,11 @@ export class GitHubRepository implements vscode.Disposable {
 		Logger.debug(`List branches for ${owner}/${repositoryName} - enter`, GitHubRepository.ID);
 
 		try {
-			const result = await octokit.paginate('GET /repos/:owner/:repo/branches', {
+			const result = await octokit.paginate<OctokitCommon.ReposListBranchesResponseData>('GET /repos/:owner/:repo/branches', {
 				owner: owner,
 				repo: repositoryName,
 				per_page: 100
-			});
+			}) as any;
 
 			Logger.debug(`List branches for ${owner}/${repositoryName} - done`, GitHubRepository.ID);
 			return result.map(branch => branch.name);
@@ -753,7 +758,7 @@ export class GitHubRepository implements vscode.Disposable {
 	 * @param base The base branch. Must be a branch name. If comparing acrossing repositories, use the format <repo_owner>:branch.
 	 * @param head The head branch. Must be a branch name. If comparing acrossing repositories, use the format <repo_owner>:branch.
 	 */
-	public async compareCommits(base: string, head: string): Promise<OctokitTypes.ReposCompareCommitsResponseData> {
+	public async compareCommits(base: string, head: string): Promise<OctokitCommon.ReposCompareCommitsResponseData> {
 		const { remote, octokit } = await this.ensure();
 		const { data } = await octokit.repos.compareCommits({
 			repo: remote.repositoryName,
@@ -770,6 +775,7 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	private getPRFetchQuery(repo: string, user: string, query: string) {
+		// eslint-disable-next-line no-template-curly-in-string
 		const filter = query.replace('${user}', user);
 		return `is:pull-request ${filter} type:pr repo:${repo}`;
 	}

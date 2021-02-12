@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { parseIssueExpressionOutput, sanitizeIssueTitle, ISSUE_OR_URL_EXPRESSION } from '../../issues/util';
 
 describe('Issues utilities', function () {

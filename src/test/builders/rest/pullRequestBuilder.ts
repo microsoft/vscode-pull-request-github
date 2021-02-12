@@ -1,10 +1,10 @@
-import * as OctokitTypes from '@octokit/types';
 import { UserBuilder } from './userBuilder';
 import { RefBuilder } from './refBuilder';
 import { createLink, createBuilderClass } from '../base';
+import { OctokitCommon } from '../../../github/common';
 
 export type PullRequestUnion =
-	OctokitTypes.PullsGetResponseData;
+	OctokitCommon.PullsGetResponseData;
 type Links = PullRequestUnion['_links'];
 type Milestone = PullRequestUnion['milestone'];
 
@@ -98,6 +98,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 			href: { default: 'https://api.github.com/repos/octocat/reponame/statuses/6dcb09b5b57875f334f61aebed695e2e4193db5e' }
 		})
 	}),
+	auto_merge: { default: null },
 });
 
 export type PullRequestBuilder = InstanceType<typeof PullRequestBuilder>;

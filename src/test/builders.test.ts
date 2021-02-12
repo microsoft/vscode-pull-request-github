@@ -1,5 +1,5 @@
 import { createBuilderClass, createLink } from './builders/base';
-import assert = require('assert');
+import { default as assert } from 'assert';
 
 interface IGrandChild {
 	attr: number;

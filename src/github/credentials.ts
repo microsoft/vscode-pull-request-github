@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Octokit } from '@octokit/rest';
-import * as OctokitTypes from '@octokit/types';
 import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import * as vscode from 'vscode';
@@ -14,6 +13,7 @@ import * as PersistentState from '../common/persistentState';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import { ITelemetry } from '../common/telemetry';
+import { OctokitCommon } from './common';
 
 const TRY_AGAIN = 'Try again?';
 const CANCEL = 'Cancel';
@@ -29,7 +29,7 @@ const SCOPES = ['read:user', 'user:email', 'repo'];
 export interface GitHub {
 	octokit: Octokit;
 	graphql: ApolloClient<NormalizedCacheObject> | null;
-	currentUser?: OctokitTypes.PullsGetResponseData['user'];
+	currentUser?: OctokitCommon.PullsGetResponseUser;
 }
 
 export class CredentialStore implements vscode.Disposable {
@@ -158,7 +158,7 @@ export class CredentialStore implements vscode.Disposable {
 		return this._githubAPI?.currentUser?.login === username;
 	}
 
-	public getCurrentUser(): OctokitTypes.PullsGetResponseData['user'] {
+	public getCurrentUser(): OctokitCommon.PullsGetResponseUser {
 		const octokit = this._githubAPI?.octokit;
 		// TODO remove cast
 		return octokit && (this._githubAPI as any).currentUser;
@@ -187,7 +187,7 @@ export class CredentialStore implements vscode.Disposable {
 
 		const graphql = new ApolloClient({
 			link: link('https://api.github.com', token || ''),
-			cache: new InMemoryCache,
+			cache: new InMemoryCache(),
 			defaultOptions: {
 				query: {
 					fetchPolicy: 'no-cache'

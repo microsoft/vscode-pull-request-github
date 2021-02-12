@@ -3,9 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { vscode } from './message';
 import { createContext } from 'react';
-import { getMessageHandler, MessageHandler } from './message';
+import { getMessageHandler, MessageHandler, vscode } from './message';
 
 interface RemoteInfo {
 	owner: string;
@@ -140,6 +139,7 @@ export class CreatePRContext {
 				}
 
 				if (this.createParams.compareBranch === undefined) {
+					// eslint-disable-next-line no-self-assign
 					message.params.compareBranch = message.params.compareBranch;
 				} else {
 					// Notify the extension of the stored compare branch state
@@ -154,6 +154,7 @@ export class CreatePRContext {
 				message.params.baseRemote = message.params.defaultRemote;
 				message.params.baseBranch = message.params.defaultBranch;
 				this.updateState(message.params);
+				break;
 			case 'set-scroll':
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 		}

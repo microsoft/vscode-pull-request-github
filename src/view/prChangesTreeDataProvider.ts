@@ -36,7 +36,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
 				this._onDidChangeTreeData.fire();
 				const layout = vscode.workspace.getConfiguration(`${SETTINGS_NAMESPACE}`).get<string>('fileListLayout');
-				await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
+				await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 			} else if (e.affectsConfiguration('git.openDiffOnClick')) {
 				this._onDidChangeTreeData.fire();
 			}

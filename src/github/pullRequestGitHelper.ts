@@ -213,7 +213,7 @@ export class PullRequestGitHelper {
 	}
 
 	static buildPullRequestMetadata(pullRequest: PullRequestModel) {
-		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.number;
+		return `${pullRequest.base.repositoryCloneUrl.owner}#${pullRequest.base.repositoryCloneUrl.repositoryName}#${pullRequest.number}`;
 	}
 
 	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
@@ -228,6 +228,7 @@ export class PullRequestGitHelper {
 				};
 			}
 		}
+		return undefined;
 	}
 
 	static getMetadataKeyForBranch(branchName: string): string {
@@ -282,7 +283,7 @@ export class PullRequestGitHelper {
 		while (true) {
 			try {
 				await repository.getBranch(result);
-				result = branchName + '-' + number++;
+				result = `${branchName}-${number++}`;
 			} catch (err) {
 				break;
 			}
@@ -296,8 +297,9 @@ export class PullRequestGitHelper {
 		let number = 1;
 		const remotes = parseRepositoryRemotes(repository);
 
+		// eslint-disable-next-line no-loop-func
 		while (remotes.find(e => e.remoteName === uniqueName)) {
-			uniqueName = name + number++;
+			uniqueName = `${name}${number++}`;
 		}
 
 		return uniqueName;
