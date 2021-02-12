@@ -31,6 +31,7 @@ import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { getPositionFromThread } from './azdo/utils';
 import { SETTINGS_NAMESPACE } from './constants';
+import { AzdoWorkItem } from './azdo/workItem';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
@@ -65,7 +66,7 @@ async function chooseItem<T>(activePullRequests: T[], propertyGetter: (itemValue
 	return (await vscode.window.showQuickPick(items, { placeHolder }))?.itemValue;
 }
 
-export function registerCommands(context: vscode.ExtensionContext, reposManager: RepositoriesManager, reviewManagers: ReviewManager[], telemetry: ITelemetry, credentialStore: CredentialStore, tree: PullRequestsTreeDataProvider) {
+export function registerCommands(context: vscode.ExtensionContext, reposManager: RepositoriesManager, reviewManagers: ReviewManager[], workItem: AzdoWorkItem, telemetry: ITelemetry, credentialStore: CredentialStore, tree: PullRequestsTreeDataProvider) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('azdopr.signout', async () => {
 		credentialStore.logout();
@@ -349,7 +350,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		const pullRequest = ensurePR(folderManager, pullRequestModel);
 		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, workItem);
 
 		/* __GDPR__
 			"azdopr.openDescription" : {}
@@ -372,7 +373,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		const pullRequest = ensurePR(folderManager, pr);
 		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, true);
+		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, workItem, true);
 
 		/* __GDPR__
 			"azdopr.openDescriptionToTheSide" : {}

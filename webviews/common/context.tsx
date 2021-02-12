@@ -82,9 +82,6 @@ export class PRContext {
 	public addReviewers = () =>
 		this.postMessage({ command: 'pr.add-reviewers' })
 
-	public addLabels = () =>
-		this.postMessage({ command: 'pr.add-labels' })
-
 	public deleteComment = async (args: { id: number, pullRequestReviewId?: number }) => {
 		await this.postMessage({ command: 'pr.delete-comment', args });
 		const { pr } = this;
@@ -152,10 +149,20 @@ export class PRContext {
 		this.updatePR({ reviewers });
 	}
 
-	public removeLabel = async (label: string) => {
-		await this.postMessage({ command: 'pr.remove-label', args: label });
-		const labels = this.pr.labels.filter(r => r.name !== label);
-		this.updatePR({ labels });
+	public associateWorkItem = async () => {
+		const res = await this.postMessage({ command: 'pr.associate-workItem' });
+		if (!!res) {
+			const workItems = [...this.pr.workItems, res];
+			this.updatePR({ workItems });
+		}
+	}
+
+	public removeWorkItemFromPR = async (id: number) => {
+		const res = await this.postMessage({ command: 'pr.remove-workItem', args: this.pr.workItems.find(w => w.id === id) });
+		if (!!res.success) {
+			const workItems = this.pr.workItems.filter(r => r.id !== id);
+			this.updatePR({ workItems });
+		}
 	}
 
 	public applyPatch = async (comment: GitPullRequestCommentThread) => {

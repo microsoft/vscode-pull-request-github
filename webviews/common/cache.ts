@@ -8,6 +8,7 @@ import { IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, P
 import { TimelineEvent } from '../../src/common/timelineEvent';
 import { GitCommitRef, GitPullRequestCommentThread, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
+import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 
 export enum ReviewType {
 	Comment = 'comment',
@@ -55,6 +56,7 @@ export interface PullRequest {
 	threads?: GitPullRequestCommentThread[];
 	commits: GitCommitRef[];
 	currentUser: Identity;
+	workItems: WorkItem[];
 }
 
 export function getState(): PullRequest {

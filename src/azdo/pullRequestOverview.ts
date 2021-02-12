@@ -16,6 +16,9 @@ import { onDidUpdatePR } from '../commands';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { Comment, GitPullRequestCommentThread, IdentityRefWithVote, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { SETTINGS_NAMESPACE } from '../constants';
+import { AzdoWorkItem } from './workItem';
+import { AccountRecentActivityWorkItemModel2, WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
+import { Disposable } from 'vscode';
 
 export class PullRequestOverviewPanel extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -35,8 +38,9 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	private _extensionPath: string;
 	private _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
+	private _workItem: AzdoWorkItem;
 
-	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, pr: PullRequestModel, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, pr: PullRequestModel, workItem: AzdoWorkItem, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -49,7 +53,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${pr.getPullRequestId().toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager, workItem);
 		}
 
 		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, pr);
@@ -71,11 +75,12 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager) {
+	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, workItem: AzdoWorkItem) {
 		super();
 
 		this._extensionPath = extensionPath;
 		this._folderRepositoryManager = folderRepositoryManager;
+		this._workItem = workItem;
 
 		// Create and show a new webview panel
 		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel._viewType, title, column, {
@@ -145,9 +150,10 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 				pullRequestModel.getStatusChecks(),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-				pullRequestModel.azdoRepository.getAuthenticatedUser()
+				pullRequestModel.azdoRepository.getAuthenticatedUser(),
+				this.getWorkItemsWithPr(pullRequestModel)
 			]);
-			const [pullRequest, threads, commits , defaultBranch, status, repositoryAccess, currentUser] = result;
+			const [pullRequest, threads, commits , defaultBranch, status, repositoryAccess, currentUser, workItems] = result;
 			const canEditPr = pullRequest?.canEdit();
 			const requestedReviewers = pullRequestModel.item.reviewers;
 			if (!pullRequest) {
@@ -213,7 +219,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					mergeMethodsAvailability,
 					defaultMergeMethod,
 					isIssue: false,
-					currentUser: currentUser
+					currentUser: currentUser,
+					workItems: workItems
 				}
 			});
 		} catch (e) {
@@ -269,6 +276,10 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this.applyPatch(message);
 			case 'pr.open-diff':
 				return this.openDiff(message);
+			case 'pr.associate-workItem':
+				return this.associateWorkItemWithPR(message);
+			case 'pr.remove-workItem':
+				return this.removeWorkItemFromPR(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this._item.getMergability());
 			// case 'pr.add-reviewers':
@@ -394,6 +405,82 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	// 		vscode.window.showErrorMessage(formatError(e));
 	// 	}
 	// }
+
+	private async getWorkItemsWithPr(pr: PullRequestModel): Promise<WorkItem[]> {
+		const refs = await pr.getWorkItemRefs();
+
+		const tasks = refs?.map(r => this._workItem.getWorkItemById(Number.parseInt(r.id!))) ?? [];
+		const wts = await Promise.all(tasks);
+
+		return wts.filter((w): w is WorkItem => !!w);
+	}
+
+	private async associateWorkItemWithPR(message: IRequestMessage<any>) {
+		const disposables: Disposable[] = [];
+		const recentWorkItems = await this._workItem.getRecentWorkItems();
+		try {
+			const quickpick = vscode.window.createQuickPick();
+			quickpick.placeholder = 'Select work item from below list or enter the work item number and press *Enter*';
+			quickpick.items = recentWorkItems.map(w => new WorkItemPick(w));
+			quickpick.matchOnDetail = true;
+			const wid = await new Promise<number | undefined>((resolve, _) => {
+				disposables.push(quickpick.onDidChangeValue(async value => {
+					const id = Number.parseInt(value);
+					if (Number.isInteger(id)) {
+						if (!quickpick.items.some(w => w.label === value)) {
+							quickpick.busy = true;
+							const wt = await this._workItem.getWorkItemById(id);
+							if (!!wt) {
+								quickpick.items = quickpick.items.concat([new WorkItemPick(wt)]);
+							}
+							quickpick.busy = false;
+						}
+					}
+				}),
+				quickpick.onDidChangeSelection(value => {
+					resolve(Number.parseInt(value[0].label));
+					quickpick.hide();
+				}),
+				quickpick.onDidHide(() => {
+					resolve(undefined);
+					quickpick.dispose();
+				}));
+				quickpick.show();
+			});
+
+			if (!!wid) {
+				try {
+					const wt = await this._workItem.associateWorkItemWithPR(wid, this._item);
+					this._replyMessage(message, wt);
+				} catch (e) {
+					this._throwError(message, e);
+					vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${e.message}`);
+				}
+			}
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${e.message}`);
+		} finally {
+			disposables.forEach(d => d.dispose());
+		}
+	}
+
+	private removeWorkItemFromPR(message: IRequestMessage<any>): void {
+		const workItem = message.args as WorkItem;
+
+		this._workItem.disassociateWorkItemWithPR(workItem, this._item).then(result => {
+			if (result !== undefined
+				&& result?.relations?.find(w => w.rel === 'ArtifactLink' && w.url?.toUpperCase() === this._item.item.artifactId?.toUpperCase()) === undefined) {
+				this._replyMessage(message, { success: true });
+			} else {
+				vscode.window.showWarningMessage(`Disassociating work item from PR failed.`);
+				this._replyMessage(message, { success: false });
+			}
+		}).catch(e => {
+			this._throwError(message, e);
+			vscode.window.showWarningMessage(`Unable to removing PR link in workitem. Error: ${e.message}`);
+		});
+	}
 
 	private async applyPatch(message: IRequestMessage<{ comment: Comment }>): Promise<void> {
 		try {
@@ -738,4 +825,24 @@ export function getDefaultMergeMethod(methodsAvailability: MergeMethodsAvailabil
 	const methods: MergeMethod[] = ['Squash', 'NoFastForward', 'Rebase', 'RebaseMerge'];
 	// GitHub requires to have at leas one merge method to be enabled; use first available as default
 	return methods.find(method => methodsAvailability[method])!;
+}
+
+class WorkItemPick implements vscode.QuickPickItem {
+
+	label: string;
+	description = '';
+	detail: string;
+
+	constructor(workItem: AccountRecentActivityWorkItemModel2 | WorkItem) {
+		this.label = String(workItem.id!);
+		if ('title' in workItem) {
+			this.description = workItem.workItemType!;
+			this.detail = workItem.title!;
+		} else  {
+			const wt: WorkItem = workItem;
+			this.description = wt.fields?.['System.WorkItemType'] ?? '';
+			this.detail = wt.fields?.['System.Title'] ?? '';
+		}
+
+	}
 }

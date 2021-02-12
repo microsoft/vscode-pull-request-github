@@ -26,6 +26,7 @@ import { RepositoriesManager } from './azdo/repositoriesManager';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
 import { registerLiveShareGitProvider } from './gitProviders/api';
+import { AzdoWorkItem } from './azdo/workItem';
 
 const aiKey: string = '6d22c8ed-52c8-4779-a6f8-09c748e18e95';
 
@@ -79,6 +80,10 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 			return indexA - indexB;
 		});
 	}
+
+	const workItem = new AzdoWorkItem(credentialStore, telemetry);
+	await workItem.ensure();
+	context.subscriptions.push(workItem);
 	const folderManagers = repositories.map(repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore));
 	context.subscriptions.push(...folderManagers);
 	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
@@ -97,7 +102,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, git);
 	context.subscriptions.push(reviewsManager);
 	tree.initialize(reposManager);
-	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
+	registerCommands(context, reposManager, reviewManagers, workItem, telemetry, credentialStore, tree);
 	const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('fileListLayout');
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
 

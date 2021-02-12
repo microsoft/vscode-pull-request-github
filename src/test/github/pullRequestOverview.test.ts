@@ -18,6 +18,7 @@ import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../azdo/credentials';
 import { GitPullRequest, GitStatusState } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { AzdoWorkItem } from '../../azdo/workItem';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
@@ -28,6 +29,7 @@ describe('PullRequestOverview', function () {
 	let remote: Remote;
 	let repo: MockAzdoRepository;
 	let telemetry: MockTelemetry;
+	let workItem: AzdoWorkItem;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -38,6 +40,7 @@ describe('PullRequestOverview', function () {
 		telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry, createFakeSecretStorage());
 		pullRequestManager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
+		workItem = new AzdoWorkItem(credentialStore, telemetry);
 
 		const url = 'https://dev.azure.com.com/aaa/bbb/_git/bbb';
 		remote = new Remote('origin', url, new Protocol(url));
@@ -65,7 +68,7 @@ describe('PullRequestOverview', function () {
 			);
 			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
 
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel, workItem);
 
 			assert(createWebviewPanel.calledWith(
 				sinonMatch.string,
@@ -92,7 +95,7 @@ describe('PullRequestOverview', function () {
 			// sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			// sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: GitStatusState.Pending, statuses: [] });
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0, workItem);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
 			assert.notStrictEqual(panel0, undefined);
@@ -107,7 +110,7 @@ describe('PullRequestOverview', function () {
 			// sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			// sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: GitStatusState.Pending, statuses: [] });
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1, workItem);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
