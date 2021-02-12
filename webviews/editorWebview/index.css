@@ -1028,3 +1028,14 @@ body .comment-container .review-comment-header > select {
 	padding-top: 5px;
 	border-top: 1px solid var(--vscode-foreground);
 }
+
+.work-item-container a {
+	text-decoration: none;
+	color: inherit
+}
+
+.work-item-container:hover {
+	outline: 1px solid var(--vscode-focusBorder);
+	text-decoration: none;
+	color: inherit
+}
