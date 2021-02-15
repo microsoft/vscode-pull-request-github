@@ -164,7 +164,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
 	if (path.basename(context.globalStorageUri.fsPath) === 'github.vscode-pull-request-github-insiders') {
 		const stable = vscode.extensions.getExtension('github.vscode-pull-request-github');
-		if (stable !== null) {
+		if (stable !== undefined) {
 			throw new Error('GitHub Pull Requests and Issues Nightly cannot be used while GitHub Pull Requests and Issues is also installed. Please ensure that only one version of the extension is installed.');
 		}
 	}
