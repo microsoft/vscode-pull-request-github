@@ -15,8 +15,6 @@ dist/browser/*.map
 documentation/**
 .vscode-test/**
 **/*webpack.config.js
+**/*.svg
 scripts/**
 azure-pipeline.*
-**/*.svg
-# include icon for Activity Bar into the package
-!resources/icons/dark/github.svg
