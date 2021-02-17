@@ -48,11 +48,11 @@ export async function openDescription(
 	context: vscode.ExtensionContext,
 	telemetry: ITelemetry,
 	pullRequestModel: PullRequestModel,
-	descriptionNode: DescriptionNode,
+	descriptionNode: DescriptionNode | undefined,
 	folderManager: FolderRepositoryManager
 ) {
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
-	descriptionNode.reveal(descriptionNode, { select: true, focus: true });
+	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	// Create and show a new webview
 	PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest);
 
@@ -413,7 +413,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			return;
 		}
 
-		let descriptionNode: DescriptionNode;
+		let descriptionNode: DescriptionNode | undefined;
 		if (argument instanceof DescriptionNode) {
 			descriptionNode = argument;
 		} else {
@@ -422,9 +422,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 				return;
 			}
 
-			// the command is triggered from command palette or status bar, which means we are already in checkout mode.
-			const rootNodes = await reviewManager.changesInPrDataProvider.getChildren();
-			descriptionNode = rootNodes[0] as DescriptionNode;
+			descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 		}
 
 		await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager);

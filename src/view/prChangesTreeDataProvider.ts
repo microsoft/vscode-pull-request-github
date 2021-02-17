@@ -10,6 +10,7 @@ import { IComment } from '../common/comment';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
+import { DescriptionNode } from './treeNodes/descriptionNode';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
@@ -116,6 +117,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		} else {
 			return await element.getChildren();
 		}
+	}
+
+	getDescriptionNode(folderRepoManager: FolderRepositoryManager): DescriptionNode | undefined {
+		return this._pullRequestManagerMap.get(folderRepoManager);
 	}
 
 	async resolveTreeItem?(item: vscode.TreeItem, element: TreeNode): Promise<vscode.TreeItem> {
