@@ -667,7 +667,8 @@ export class ReviewManager {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
 				await this.updateState();
-				await openDescription(this._context, this._telemetry, createdPR, this._folderRepoManager, this);
+				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
+				await openDescription(this._context, this._telemetry, createdPR, descriptionNode, this._folderRepoManager);
 			});
 		}
 

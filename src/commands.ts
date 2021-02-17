@@ -48,14 +48,11 @@ export async function openDescription(
 	context: vscode.ExtensionContext,
 	telemetry: ITelemetry,
 	pullRequestModel: PullRequestModel,
-	folderManager: FolderRepositoryManager,
-	reviewManager: ReviewManager
+	descriptionNode: DescriptionNode | undefined,
+	folderManager: FolderRepositoryManager
 ) {
-	const rootNodes = await reviewManager.changesInPrDataProvider.getChildren();
-	const descriptionNode = rootNodes[0] as DescriptionNode;
-
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
-	descriptionNode.reveal(descriptionNode, { select: true, focus: true });
+	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	// Create and show a new webview
 	PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest);
 
@@ -416,12 +413,19 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 			return;
 		}
 
-		const reviewManager = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
-		if (!reviewManager) {
-			return;
+		let descriptionNode: DescriptionNode | undefined;
+		if (argument instanceof DescriptionNode) {
+			descriptionNode = argument;
+		} else {
+			const reviewManager = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+			if (!reviewManager) {
+				return;
+			}
+
+			descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 		}
 
-		await openDescription(context, telemetry, pullRequestModel, folderManager, reviewManager);
+		await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshDescription', async () => {
