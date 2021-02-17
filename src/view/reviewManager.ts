@@ -27,6 +27,7 @@ import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { openDescription } from '../commands';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
+import { DescriptionNode } from './treeNodes/descriptionNode';
 
 const FOCUS_REVIEW_MODE = 'github:focusedReview';
 
@@ -667,7 +668,9 @@ export class ReviewManager {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
 				await this.updateState();
-				await openDescription(this._context, this._telemetry, createdPR, this._folderRepoManager, this);
+				const treeNodes = await this.changesInPrDataProvider.getChildren();
+				const descriptionNode = treeNodes[0] as DescriptionNode;
+				await openDescription(this._context, this._telemetry, createdPR, descriptionNode, this._folderRepoManager);
 			});
 		}
 
