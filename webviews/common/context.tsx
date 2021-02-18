@@ -67,7 +67,8 @@ export class PRContext {
 
 	public addReviewers = () =>
 		this.postMessage({ command: 'pr.add-reviewers' })
-
+	public addAssignees = () =>
+		this.postMessage({command: 'pr.add-assignees'})
 	public addLabels = () =>
 		this.postMessage({ command: 'pr.add-labels' })
 

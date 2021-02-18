@@ -212,6 +212,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				return this._replyMessage(message, await this._item.getMergability());
 			case 'pr.add-reviewers':
 				return this.addReviewers(message);
+			case 'pr.add-assignees':
+				return this.addAssignees(message);
 			case 'pr.remove-reviewer':
 				return this.removeReviewer(message);
 			case 'pr.copy-prlink':
@@ -294,6 +296,39 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				this._existingReviewers = this._existingReviewers.concat(addedReviewers);
 				this._replyMessage(message, {
 					added: addedReviewers
+				});
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
+		try {
+			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
+			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+
+			const assigneesToAdd = await vscode.window.showQuickPick(
+				this.getReviewersQuickPickItems(assignableUsers, []),
+				{
+					canPickMany: true,
+					matchOnDescription: true
+				}
+			);
+
+			if (assigneesToAdd) {
+				await this._item.requestReview(assigneesToAdd.map(r => r.label));
+				const addedAsignees: ReviewState[] = assigneesToAdd.map(reviewer => {
+					return {
+						// assumes that suggested reviewers will be a subset of assignable users
+						reviewer: assignableUsers.find(r => r.login === reviewer.label)!,
+						state: 'REQUESTED'
+					};
+				});
+
+				this._existingReviewers = this._existingReviewers.concat(addedAsignees);
+				this._replyMessage(message, {
+					added: addedAsignees
 				});
 			}
 		} catch (e) {
