@@ -266,6 +266,21 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			id
 			databaseId
 			isDraft
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+			}
+			assignees(first: 10) {
+				nodes {
+					login
+					name
+					avatarUrl
+					url
+					email
+				}
+			}
 			suggestedReviewers {
 				isAuthor
 				isCommenter
