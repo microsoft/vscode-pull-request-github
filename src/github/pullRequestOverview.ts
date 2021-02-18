@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, ISuggestedReviewer } from './interface';
+import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, ISuggestedReviewer, AssigneeState } from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -30,6 +30,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	protected _item: PullRequestModel;
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[];
+	private _existingAssignees: AssigneeState[];
 
 	private _changeActivePullRequestListener: vscode.Disposable | undefined;
 
@@ -212,6 +213,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				return this._replyMessage(message, await this._item.getMergability());
 			case 'pr.add-reviewers':
 				return this.addReviewers(message);
+			case 'pr.add-milestones':
+				return this.addMilestones(message);
 			case 'pr.add-assignees':
 				return this.addAssignees(message);
 			case 'pr.remove-reviewer':
@@ -269,6 +272,53 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 		return reviewers;
 	}
+	private getAssigneesQuickPickItems(assignableUsers: IAccount[], suggestedReviewers: ISuggestedReviewer[] | undefined): vscode.QuickPickItem[] {
+		if (!suggestedReviewers) {
+			return [];
+		}
+		// used to track logins that shouldn't be added to pick list
+		// e.g. author, existing and already added reviewers
+		const skipList: Set<string> = new Set([
+			...this._existingAssignees.map(assignee => assignee.assignee.login)
+		]);
+
+		const assignees: vscode.QuickPickItem[] = [];
+		for (const { login, name, isAuthor, isCommenter } of suggestedReviewers) {
+			if (skipList.has(login)) {
+				continue;
+			}
+
+			const suggestionReason: string =
+				isAuthor && isCommenter
+					? 'Recently edited and reviewed changes to these files'
+					: isAuthor
+						? 'Recently edited these files'
+						: isCommenter
+							? 'Recently reviewed changes to these files'
+							: 'Suggested reviewer';
+
+			assignees.push({
+				label: login,
+				description: name,
+				detail: suggestionReason
+			});
+			// this user shouldn't be added later from assignable users list
+			skipList.add(login);
+		}
+
+		for (const { login, name } of assignableUsers) {
+			if (skipList.has(login)) {
+				continue;
+			}
+
+			assignees.push({
+				label: login,
+				description: name
+			});
+		}
+
+		return assignees;
+	}
 
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
@@ -302,14 +352,42 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
+	private async addMilestones(message: IRequestMessage<void>){
+		try {
+			const milestones = await this._folderRepositoryManager.getMilestones();
 
+			// const assigneesToAdd = await vscode.window.showQuickPick(
+			// 	this.getAssigneesQuickPickItems(assignableUsers, []),
+			// 	{
+			// 		canPickMany: true,
+			// 		matchOnDescription: true
+			// 	}
+			// );
+
+			const milestoneLabels = [];
+			for (var i = 0; i < milestones.items.length; i++) {
+				milestoneLabels.push({label: milestones.items[i].milestone.title})
+			}
+			const milestonesToAdd = await vscode.window.showQuickPick(
+				milestoneLabels,
+				{
+					canPickMany: false
+				}
+			);
+			
+
+			return milestones;
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
 	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
 			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
 
 			const assigneesToAdd = await vscode.window.showQuickPick(
-				this.getReviewersQuickPickItems(assignableUsers, []),
+				this.getAssigneesQuickPickItems(assignableUsers, []),
 				{
 					canPickMany: true,
 					matchOnDescription: true
@@ -318,15 +396,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 			if (assigneesToAdd) {
 				await this._item.requestReview(assigneesToAdd.map(r => r.label));
-				const addedAsignees: ReviewState[] = assigneesToAdd.map(reviewer => {
+				const addedAsignees: AssigneeState[] = assigneesToAdd.map(assignee => {
 					return {
 						// assumes that suggested reviewers will be a subset of assignable users
-						reviewer: assignableUsers.find(r => r.login === reviewer.label)!,
+						assignee: assignableUsers.find(r => r.login === assignee.label)!,
 						state: 'REQUESTED'
 					};
 				});
 
-				this._existingReviewers = this._existingReviewers.concat(addedAsignees);
+				this._existingAssignees = this._existingAssignees.concat(addedAsignees);
 				this._replyMessage(message, {
 					added: addedAsignees
 				});

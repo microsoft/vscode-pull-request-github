@@ -14,7 +14,7 @@ import { Reviewer } from './reviewer';
 import { Avatar, AuthorLink } from '../components/user';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone,assignees}: PullRequest) {
-	const { addReviewers,addAssignees, addLabels, updatePR, pr } = useContext(PullRequestContext);
+	const { addReviewers,addAssignees, addMilestones, addLabels, updatePR, pr } = useContext(PullRequestContext);
 
 	return <div id='sidebar'>
 		{!isIssue
@@ -69,6 +69,12 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		<div id='milestone' className="section">
 			<div className='section-header'>
 				<div>Milestone</div>
+				{hasWritePermission ? (
+					<button title='Add Labels' onClick={async () => {
+						const milestones = await addMilestones();
+						console.log(milestones);
+					}}>{plusIcon}</button>
+				) : null}
 			</div>
 			<div className='section-item label'>
 				{milestone ? (milestone.title): (null)}
