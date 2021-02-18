@@ -15,9 +15,7 @@ import { Avatar, AuthorLink } from '../components/user';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone,assignees}: PullRequest) {
 	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
-
-	console.log(milestone,assignees,labels);
-
+	
 	return <div id='sidebar'>
 		{!isIssue
 			? <div id='reviewers' className='section'>
