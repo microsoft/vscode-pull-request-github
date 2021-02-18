@@ -395,7 +395,9 @@ export function parseGraphQLPullRequest(pullRequest: GraphQL.PullRequestResponse
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
-		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository)
+		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository),
+		milestone: parseMilestone(graphQLPullRequest.milestone),
+		assignees:graphQLPullRequest.assignees.nodes
 	};
 }
 

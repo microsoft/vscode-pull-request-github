@@ -152,7 +152,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					isDraft: pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
-					isIssue: false
+					isIssue: false,
+					milestone: pullRequest.milestone,
+					assignees: pullRequest.assignees
 				}
 			});
 		}).catch(e => {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks } from '../../src/github/interface';
+import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks, IMilestone} from '../../src/github/interface';
 import { TimelineEvent } from '../../src/common/timelineEvent';
 
 export enum ReviewType {
@@ -27,7 +27,9 @@ export interface PullRequest {
 	base: string;
 	head: string;
 	labels: ILabel[];
+	assignees: IAccount[];
 	commitsCount: number;
+	milestone: IMilestone;
 	repositoryDefaultBranch: any;
 	/**
 	 * User can edit PR title and description (author or user with push access)
