@@ -11,10 +11,11 @@ import PullRequestContext from '../common/context';
 import { ILabel } from '../../src/github/interface';
 import { nbsp } from './space';
 import { Reviewer } from './reviewer';
+import { Avatar, AuthorLink } from '../components/user';
 
-export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue }: PullRequest) {
+export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone,assignees}: PullRequest) {
 	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
-
+	
 	return <div id='sidebar'>
 		{!isIssue
 			? <div id='reviewers' className='section'>
@@ -34,6 +35,17 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				}
 			</div>
 			: ''}
+		<div id='assignes' className="section">
+			<div className='section-header'>
+				<div>Assignees</div>
+			</div>
+			{assignees ? (assignees.map((x,i) => {
+				return <div key={i} className='section-item reviewer'>
+					<Avatar for={x} />
+					<AuthorLink for={x} />
+				</div>;
+			})): (null)}
+		</div>
 		<div id='labels' className='section'>
 			<div className='section-header'>
 				<div>Labels</div>
@@ -47,6 +59,14 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			{
 				labels.map(label => <Label key={label.name} {...label} canDelete={hasWritePermission} />)
 			}
+		</div>
+		<div id='milestone' className="section">
+			<div className='section-header'>
+				<div>Milestone</div>
+			</div>
+			<div className='section-item label'>
+				{milestone ? (milestone.title): (null)}
+			</div>
 		</div>
 	</div>;
 }
