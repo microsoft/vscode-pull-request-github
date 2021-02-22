@@ -12,7 +12,7 @@ import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
 import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { extensionId } from '../extension';
+import { EXTENSION_ID } from '../constants';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -58,9 +58,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 			switch (configuration) {
 				case 'Configure Queries...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} queries`);
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${EXTENSION_ID} queries`);
 				case 'Configure Remotes...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${EXTENSION_ID} remotes`);
 				case 'Sign out of GitHub...':
 					return vscode.commands.executeCommand('auth.signout');
 				default:

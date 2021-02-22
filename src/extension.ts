@@ -38,8 +38,6 @@ let telemetry: ExperimentationTelemetry;
 const PROMPTS_SCOPE = 'prompts';
 const PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY = 'createPROnPublish';
 
-export let extensionId: string;
-
 async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentialStore: CredentialStore, repositories: Repository[], tree: PullRequestsTreeDataProvider, liveshareApiPromise: Promise<LiveShare | undefined>): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
@@ -158,10 +156,9 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
-	extensionId = 'github.vscode-pull-request-github';
-	if (path.basename(context.globalStorageUri.fsPath) === 'github.vscode-pull-request-github-insiders') {
-		extensionId = 'github.vscode-pull-request-github-insiders';
-
+	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+	// @ts-ignore
+	if (EXTENSION_ID === 'GitHub.vscode-pull-request-github-insiders') {
 		const stable = vscode.extensions.getExtension('github.vscode-pull-request-github');
 		if (stable !== undefined) {
 			throw new Error('GitHub Pull Requests and Issues Nightly cannot be used while GitHub Pull Requests and Issues is also installed. Please ensure that only one version of the extension is installed.');

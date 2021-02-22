@@ -14,7 +14,6 @@ export const TeamBuilder = createBuilderClass<TeamUnion>()({
 	permission: { default: 'admin' },
 	members_url: { default: 'https://api.github.com/teams/1/members{/member}' },
 	repositories_url: { default: 'https://api.github.com/teams/1/repos' },
-	// parent: { default: { test: 'test' } },
 	html_url: { default: 'https://api.github.com/teams/1' },
 	ldap_dn: { default: '' }
 });

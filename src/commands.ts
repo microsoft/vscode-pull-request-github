@@ -16,6 +16,7 @@ import { PullRequest } from './github/interface';
 import { formatError } from './common/utils';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import Logger from './common/logger';
+import { EXTENSION_ID } from './constants';
 import { GitErrorCodes } from './api/api1';
 import { IComment } from './common/comment';
 import { GHPRComment, TemporaryComment } from './github/prComment';
@@ -26,7 +27,6 @@ import { ITelemetry } from './common/telemetry';
 import { CredentialStore } from './github/credentials';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
-import { extensionId } from './extension';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
@@ -469,7 +469,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.configureRemotes', async () => {
-		return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
+		return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${EXTENSION_ID} remotes`);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (reply: CommentReply) => {

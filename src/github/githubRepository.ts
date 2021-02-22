@@ -281,7 +281,7 @@ export class GitHubRepository implements vscode.Disposable {
 							return null;
 						}
 
-						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest as any, this));
+						return new PullRequestModel(this._telemetry, this, this.remote, convertRESTPullRequestToRawPullRequest(pullRequest, this));
 					}
 				)
 				.filter(item => item !== null) as PullRequestModel[];

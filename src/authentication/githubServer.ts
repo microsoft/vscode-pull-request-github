@@ -48,7 +48,7 @@ export class GitHubManager {
 		return [
 			uri,
 			{
-				hostname: (await HostHelper.getApiHost(hostUri)).authority,
+				hostname: uri.authority,
 				port: 443,
 				method,
 				headers,

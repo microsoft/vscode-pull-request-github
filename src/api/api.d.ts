@@ -11,11 +11,6 @@ export interface InputBox {
 }
 
 export { RefType } from './api1';
-// export const enum RefType {
-// 	Head,
-// 	RemoteHead,
-// 	Tag
-// }
 
 export interface Ref {
 	readonly type: RefType;
@@ -229,40 +224,6 @@ export interface LogOptions {
 }
 
 export { GitErrorCodes } from './api1';
-// export const enum GitErrorCodes {
-// 	BadConfigFile = 'BadConfigFile',
-// 	AuthenticationFailed = 'AuthenticationFailed',
-// 	NoUserNameConfigured = 'NoUserNameConfigured',
-// 	NoUserEmailConfigured = 'NoUserEmailConfigured',
-// 	NoRemoteRepositorySpecified = 'NoRemoteRepositorySpecified',
-// 	NotAGitRepository = 'NotAGitRepository',
-// 	NotAtRepositoryRoot = 'NotAtRepositoryRoot',
-// 	Conflict = 'Conflict',
-// 	StashConflict = 'StashConflict',
-// 	UnmergedChanges = 'UnmergedChanges',
-// 	PushRejected = 'PushRejected',
-// 	RemoteConnectionError = 'RemoteConnectionError',
-// 	DirtyWorkTree = 'DirtyWorkTree',
-// 	CantOpenResource = 'CantOpenResource',
-// 	GitNotFound = 'GitNotFound',
-// 	CantCreatePipe = 'CantCreatePipe',
-// 	CantAccessRemote = 'CantAccessRemote',
-// 	RepositoryNotFound = 'RepositoryNotFound',
-// 	RepositoryIsLocked = 'RepositoryIsLocked',
-// 	BranchNotFullyMerged = 'BranchNotFullyMerged',
-// 	NoRemoteReference = 'NoRemoteReference',
-// 	InvalidBranchName = 'InvalidBranchName',
-// 	BranchAlreadyExists = 'BranchAlreadyExists',
-// 	NoLocalChanges = 'NoLocalChanges',
-// 	NoStashFound = 'NoStashFound',
-// 	LocalChangesOverwritten = 'LocalChangesOverwritten',
-// 	NoUpstreamBranch = 'NoUpstreamBranch',
-// 	IsInSubmodule = 'IsInSubmodule',
-// 	WrongCase = 'WrongCase',
-// 	CantLockRef = 'CantLockRef',
-// 	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
-// 	PatchDoesNotApply = 'PatchDoesNotApply'
-// }
 
 export interface IGit {
 	readonly repositories: Repository[];
