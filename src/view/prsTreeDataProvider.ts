@@ -12,6 +12,7 @@ import { ITelemetry } from '../common/telemetry';
 import { DecorationProvider } from './treeDecorationProvider';
 import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { EXTENSION_ID } from '../constants';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -21,7 +22,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _disposables: vscode.Disposable[];
 	private _childrenDisposables: vscode.Disposable[];
 	private _view: vscode.TreeView<TreeNode>;
-	private _reposManager: RepositoriesManager;
+	private _reposManager: RepositoriesManager | undefined;
 	private _initialized: boolean = false;
 
 	get view(): vscode.TreeView<TreeNode> {
@@ -52,17 +53,14 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._childrenDisposables = [];
 
 		this._disposables.push(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
-			const isLoggedIn = this._reposManager.state === ReposManagerState.RepositoriesLoaded;
+			const isLoggedIn = this._reposManager?.state === ReposManagerState.RepositoriesLoaded;
 			const configuration = await vscode.window.showQuickPick(['Configure Remotes...', 'Configure Queries...', ...isLoggedIn ? ['Sign out of GitHub...'] : []]);
-
-			const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
-			const extensionId = `${publisher}.${name}`;
 
 			switch (configuration) {
 				case 'Configure Queries...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} queries`);
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${EXTENSION_ID} queries`);
 				case 'Configure Remotes...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
+					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${EXTENSION_ID} remotes`);
 				case 'Sign out of GitHub...':
 					return vscode.commands.executeCommand('auth.signout');
 				default:
@@ -115,7 +113,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	}
 
 	private needsRemotes() {
-		if (this._reposManager.state === ReposManagerState.NeedsAuthentication) {
+		if (this._reposManager?.state === ReposManagerState.NeedsAuthentication) {
 			return Promise.resolve([]);
 		}
 

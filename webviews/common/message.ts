@@ -15,7 +15,7 @@ interface IReplyMessage {
 	res: any;
 }
 
-declare var acquireVsCodeApi: any;
+declare let acquireVsCodeApi: any;
 export const vscode = acquireVsCodeApi();
 
 export class MessageHandler {

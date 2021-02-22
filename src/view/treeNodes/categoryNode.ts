@@ -27,7 +27,6 @@ export enum PRCategoryActionType {
 }
 
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
-	public readonly label: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 	public type: PRCategoryActionType;
@@ -92,6 +91,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				break;
 			case PRCategoryActionType.Initializing:
 				this.label = 'Loading...';
+				break;
 			default:
 				break;
 		}
@@ -108,7 +108,6 @@ interface PageInformation {
 }
 
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
-	public readonly label: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public prs: PullRequestModel[];
 	public fetchNextPage: boolean = false;
@@ -170,6 +169,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 								"pr.expand.all" : {}
 							*/
 							this._telemetry.sendTelemetryEvent('pr.expand.all');
+							break;
 						case PRType.Query:
 							/* __GDPR__
 								"pr.expand.query" : {}

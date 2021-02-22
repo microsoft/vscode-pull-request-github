@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
 import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
-import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
+import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../@types/git';
 import { Repository, IGit } from '../api/api';
 
 export class VSLSGuest implements IGit, vscode.Disposable {
@@ -119,8 +119,8 @@ class LiveShareRepositoryProxyHandler {
 			return obj[prop];
 		}
 
-		return function () {
-			return obj.proxy.request(VSLS_REQUEST_NAME, [prop, obj.workspaceFolder.uri.toString(), ...arguments]);
+		return function (...args: any[]) {
+			return obj.proxy.request(VSLS_REQUEST_NAME, [prop, obj.workspaceFolder.uri.toString(), ...args]);
 		};
 	}
 }
@@ -129,11 +129,11 @@ class LiveShareRepositoryState implements RepositoryState {
 	HEAD: Branch | undefined;
 	refs: Ref[];
 	remotes: Remote[];
-	submodules: Submodule[];
-	rebaseCommit: Commit;
-	mergeChanges: Change[];
-	indexChanges: Change[];
-	workingTreeChanges: Change[];
+	submodules: Submodule[] = [];
+	rebaseCommit: Commit | undefined;
+	mergeChanges: Change[] = [];
+	indexChanges: Change[] = [];
+	workingTreeChanges: Change[] = [];
 	_onDidChange = new vscode.EventEmitter<void>();
 	onDidChange = this._onDidChange.event;
 
@@ -153,8 +153,8 @@ class LiveShareRepositoryState implements RepositoryState {
 }
 
 class LiveShareRepository {
-	rootUri: vscode.Uri;
-	state: LiveShareRepositoryState;
+	rootUri: vscode.Uri | undefined;
+	state: LiveShareRepositoryState | undefined;;
 
 	constructor(
 		public workspaceFolder: vscode.WorkspaceFolder,
@@ -169,6 +169,6 @@ class LiveShareRepository {
 	}
 
 	private _notifyHandler(args: any) {
-		this.state.update(args);
+		this.state?.update(args);
 	}
 }

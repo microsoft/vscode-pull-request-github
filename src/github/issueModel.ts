@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as OctokitTypes from '@octokit/types';
 import { IComment } from '../common/comment';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
@@ -14,8 +13,9 @@ import { getReactionGroup, parseGraphQlIssueComment, parseGraphQLTimelineEvents 
 import { formatError } from '../common/utils';
 import Logger from '../common/logger';
 import { TimelineEvent } from '../common/timelineEvent';
+import { OctokitCommon } from './common';
 
-export class IssueModel {
+export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
 	public id: number;
 	public graphNodeId: string;
@@ -30,14 +30,17 @@ export class IssueModel {
 	public milestone?: IMilestone;
 	public readonly githubRepository: GitHubRepository;
 	public readonly remote: Remote;
-	public item: Issue;
+	public item: TItem;
 	public bodyHTML?: string;
 
-	constructor(githubRepository: GitHubRepository, remote: Remote, item: Issue) {
+	constructor(githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
 		this.githubRepository = githubRepository;
 		this.remote = remote;
 		this.item = item;
-		this.update(item);
+
+		if (!skipUpdate) {
+			this.update(item);
+		}
 	}
 
 	public get isOpen(): boolean {
@@ -86,7 +89,7 @@ export class IssueModel {
 		}
 	}
 
-	update(issue: Issue): void {
+	update(issue: TItem): void {
 		this.id = issue.id;
 		this.graphNodeId = issue.graphNodeId;
 		this.number = issue.number;
@@ -105,7 +108,7 @@ export class IssueModel {
 		}
 	}
 
-	equals(other: IssueModel | undefined): boolean {
+	equals(other: IssueModel<TItem> | undefined): boolean {
 		if (!other) {
 			return false;
 		}
@@ -147,7 +150,7 @@ export class IssueModel {
 		return this.githubRepository.isCurrentUser(username);
 	}
 
-	async getIssueComments(): Promise<OctokitTypes.IssuesListCommentsResponseData> {
+	async getIssueComments(): Promise<OctokitCommon.IssuesListCommentsResponseData> {
 		Logger.debug(`Fetch issue comments of PR #${this.number} - enter`, IssueModel.ID);
 		const { octokit, remote } = await this.githubRepository.ensure();
 

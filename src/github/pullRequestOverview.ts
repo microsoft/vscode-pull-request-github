@@ -18,7 +18,7 @@ import { onDidUpdatePR } from '../commands';
 import { IRequestMessage } from '../common/webview';
 import { parseReviewers } from './utils';
 
-export class PullRequestOverviewPanel extends IssueOverviewPanel {
+export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
@@ -27,13 +27,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	protected static readonly _viewType: string = 'PullRequestOverview';
 
-	protected _item: PullRequestModel;
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[];
 
 	private _changeActivePullRequestListener: vscode.Disposable | undefined;
 
-	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: PullRequestModel, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionUri: vscode.Uri, folderRepositoryManager: FolderRepositoryManager, issue: PullRequestModel, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -46,7 +45,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${issue.number.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionUri, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager);
 		}
 
 		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
@@ -62,8 +61,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager) {
-		super(extensionPath, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
+	protected constructor(
+		extensionUri: vscode.Uri,
+		column: vscode.ViewColumn,
+		title: string,
+		folderRepositoryManager: FolderRepositoryManager
+	) {
+		super(extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
 
 		this.registerFolderRepositoryListener();
 

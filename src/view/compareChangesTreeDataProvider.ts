@@ -17,7 +17,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-	private _contentProvider: GitHubContentProvider;
+	private _contentProvider: GitHubContentProvider | undefined;
 
 	private _disposables: vscode.Disposable[] = [];
 
@@ -138,8 +138,8 @@ class GitHubContentProvider {
 			ref: params.branch
 		});
 
-		const contents = fileContent.data.content ?? '';
-		const buff = Buffer.from(contents, <any>fileContent.data.encoding);
+		const contents = (fileContent.data as any).content ?? '';
+		const buff = Buffer.from(contents, (fileContent.data as any).encoding);
 		return buff.toString();
 	}
 }

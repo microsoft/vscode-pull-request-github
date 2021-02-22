@@ -4,9 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as path from 'path';
 import * as vscode from 'vscode';
-import * as OctokitTypes from '@octokit/types';
 import { ILabel } from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
@@ -14,10 +12,10 @@ import Logger from '../common/logger';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
-import webviewContent from '../../media/webviewIndex.js';
 import { IRequestMessage, getNonce, WebviewBase } from '../common/webview';
+import { OctokitCommon } from './common';
 
-export class IssueOverviewPanel extends WebviewBase {
+export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
@@ -27,14 +25,13 @@ export class IssueOverviewPanel extends WebviewBase {
 	protected static readonly _viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
-	private readonly _extensionPath: string;
 	protected _disposables: vscode.Disposable[] = [];
 	protected _descriptionNode: DescriptionNode;
-	protected _item: IssueModel;
+	protected _item: TItem;
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
 
-	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: IssueModel, toTheSide: Boolean = false) {
+	public static async createOrShow(extensionUri: vscode.Uri, folderRepositoryManager: FolderRepositoryManager, issue: IssueModel, toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -47,7 +44,7 @@ export class IssueOverviewPanel extends WebviewBase {
 			IssueOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Issue #${issue.number.toString()}`;
-			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager);
+			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(extensionUri, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager);
 		}
 
 		await IssueOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
@@ -59,9 +56,14 @@ export class IssueOverviewPanel extends WebviewBase {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, type: string = IssueOverviewPanel._viewType) {
+	protected constructor(
+		private readonly _extensionUri: vscode.Uri,
+		column: vscode.ViewColumn,
+		title: string,
+		folderRepositoryManager: FolderRepositoryManager,
+		type: string = IssueOverviewPanel._viewType
+	) {
 		super();
-		this._extensionPath = extensionPath;
 		this._folderRepositoryManager = folderRepositoryManager;
 
 		// Create and show a new webview panel
@@ -70,9 +72,9 @@ export class IssueOverviewPanel extends WebviewBase {
 			enableScripts: true,
 			retainContextWhenHidden: true,
 
-			// And restrict the webview to only loading content from our extension's `media` directory.
+			// And restrict the webview to only loading content from our extension's `dist` directory.
 			localResourceRoots: [
-				vscode.Uri.file(path.join(this._extensionPath, 'media'))
+				vscode.Uri.joinPath(_extensionUri, 'dist')
 			]
 		});
 
@@ -115,7 +117,7 @@ export class IssueOverviewPanel extends WebviewBase {
 				throw new Error(`Fail to resolve issue #${issueModel.number} in ${issueModel.remote.owner}/${issueModel.remote.repositoryName}`);
 			}
 
-			this._item = issue;
+			this._item = issue as TItem;
 			this._panel.title = `Pull Request #${issueModel.number.toString()}`;
 
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
@@ -139,7 +141,8 @@ export class IssueOverviewPanel extends WebviewBase {
 					events: timelineEvents,
 					repositoryDefaultBranch: defaultBranch,
 					canEdit: true,
-					status: status ? status : { statuses: [] },
+					// TODO@eamodio What is status?
+					status: /*status ? status :*/ { statuses: [] },
 					isIssue: true
 				}
 			});
@@ -298,7 +301,7 @@ export class IssueOverviewPanel extends WebviewBase {
 	}
 
 	private close(message: IRequestMessage<string>): void {
-		vscode.commands.executeCommand<OctokitTypes.PullsGetResponseData>('pr.close', this._item, message.args).then(comment => {
+		vscode.commands.executeCommand<OctokitCommon.PullsGetResponseData>('pr.close', this._item, message.args).then(comment => {
 			if (comment) {
 				this._replyMessage(message, {
 					value: comment
@@ -338,20 +341,22 @@ export class IssueOverviewPanel extends WebviewBase {
 	protected getHtmlForWebview(number: string) {
 		const nonce = getNonce();
 
-		return `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-pr-description.js');
 
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Pull Request #${number}</title>
-			</head>
-			<body class="${process.platform}">
-				<div id=app></div>
-				<script nonce="${nonce}">${webviewContent}</script>
-			</body>
-			</html>`;
+		return `<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Pull Request #${number}</title>
+	</head>
+	<body class="${process.platform}">
+		<div id=app></div>
+		<script nonce="${nonce}" src="${this._webview!.asWebviewUri(uri).toString()}"></script>
+	</body>
+</html>`;
 	}
 
 	public getCurrentTitle(): string {

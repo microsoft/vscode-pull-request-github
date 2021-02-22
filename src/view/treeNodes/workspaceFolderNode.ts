@@ -19,7 +19,6 @@ export interface IQueryInfo {
 export const QUERIES_SETTING = 'queries';
 
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
-	public readonly label: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 

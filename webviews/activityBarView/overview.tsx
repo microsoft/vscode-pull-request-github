@@ -7,7 +7,7 @@ import * as React from 'react';
 import { PullRequest } from '../common/cache';
 
 import { AddCommentSimple } from '../components/comment';
-import { StatusChecks } from '../components/merge'
+import { StatusChecks } from '../components/merge';
 
 export const Overview = (pr: PullRequest) =>
 	<>

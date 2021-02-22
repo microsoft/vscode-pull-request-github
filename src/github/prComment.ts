@@ -51,6 +51,12 @@ export interface GHPRCommentThread extends vscode.CommentThread {
  * set when a command is run, and then replaced with real data when the operation finishes.
  */
 export class TemporaryComment implements vscode.Comment {
+	static is(comment: GHPRComment | TemporaryComment): comment is TemporaryComment {
+		return comment.commentId === undefined;
+	}
+
+	public commentId: undefined;
+
 	/**
 	 * The id of the comment
 	 */
@@ -136,6 +142,10 @@ export class TemporaryComment implements vscode.Comment {
 }
 
 export class GHPRComment implements vscode.Comment {
+	static is(comment: GHPRComment | TemporaryComment): comment is GHPRComment {
+		return comment.commentId !== undefined;
+	}
+
 	/**
 	 * The database id of the comment
 	 */

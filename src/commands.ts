@@ -16,7 +16,8 @@ import { PullRequest } from './github/interface';
 import { formatError } from './common/utils';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import Logger from './common/logger';
-import { GitErrorCodes } from './api/api';
+import { EXTENSION_ID } from './constants';
+import { GitErrorCodes } from './api/api1';
 import { IComment } from './common/comment';
 import { GHPRComment, TemporaryComment } from './github/prComment';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
@@ -54,7 +55,7 @@ export async function openDescription(
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
 	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	// Create and show a new webview
-	PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest);
+	PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
 
 	/* __GDPR__
 		"pr.openDescription" : {}
@@ -247,12 +248,12 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}
 
 	function isSourceControl(x: any): x is { rootUri: vscode.Uri } {
-		return !!x.rootUri;
+		return !!x?.rootUri;
 	}
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.create', async (args?: { repoPath: string; compareBranch: string; } | { rootUri: vscode.Uri }) => {
 		// The arguments this is called with are either from the SCM view, or manually passed.
-		if (args && isSourceControl(args)) {
+		if (isSourceControl(args)) {
 			(await chooseReviewManager(args.rootUri.fsPath))?.createPullRequest();
 		} else {
 			(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch);
@@ -417,7 +418,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		if (argument instanceof DescriptionNode) {
 			descriptionNode = argument;
 		} else {
-			const reviewManager = await ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
 			if (!reviewManager) {
 				return;
 			}
@@ -443,7 +444,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 		const pullRequest = ensurePR(folderManager, pr);
 		descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 		// Create and show a new webview
-		PullRequestOverviewPanel.createOrShow(context.extensionPath, folderManager, pullRequest, true);
+		PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, true);
 
 		/* __GDPR__
 			"pr.openDescriptionToTheSide" : {}
@@ -468,10 +469,7 @@ export function registerCommands(context: vscode.ExtensionContext, reposManager:
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.configureRemotes', async () => {
-		const { name, publisher } = require('../package.json') as { name: string, publisher: string };
-		const extensionId = `${publisher}.${name}`;
-
-		return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} remotes`);
+		return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${EXTENSION_ID} remotes`);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('pr.startReview', async (reply: CommentReply) => {

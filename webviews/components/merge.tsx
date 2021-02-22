@@ -3,10 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
-import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
+import React, { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
 import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
 import { Avatar, } from './user';
@@ -97,8 +96,8 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest, isSim
 	return <span>
 		<MergeStatus mergeable={mergeable} isSimple={isSimple} />
 		<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
-	</span>
-}
+	</span>;
+};
 
 export default StatusChecks;
 
@@ -193,11 +192,11 @@ export const MergeSimple = (pr: PullRequest) => {
 	const availableOptions = Object.keys(MERGE_METHODS)
 		.filter(method => pr.mergeMethodsAvailability[method])
 		.reduce((methods, key) => {
-			methods[key] = MERGE_METHODS[key]
+			methods[key] = MERGE_METHODS[key];
 			return methods;
-		}, {})
+		}, {});
 
-	return <Dropdown options={availableOptions} defaultOption={pr.defaultMergeMethod} submitAction={submitAction} />
+	return <Dropdown options={availableOptions} defaultOption={pr.defaultMergeMethod} submitAction={submitAction} />;
 };
 
 export const DeleteBranch = (pr: PullRequest) => {

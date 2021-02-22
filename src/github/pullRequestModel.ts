@@ -4,15 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as OctokitTypes from '@octokit/types';
 import * as path from 'path';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability } from './interface';
+import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability, ReviewEvent } from './interface';
 import { IssueModel } from './issueModel';
 import { isReviewEvent, ReviewEvent as CommonReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { ReviewEvent } from './interface';
 import { convertPullRequestsGetCommentsResponseItemToComment, convertRESTPullRequestToRawPullRequest, convertRESTReviewEvent, convertRESTUserToAccount, parseGraphQLComment, parseGraphQLReviewEvent, parseGraphQLTimelineEvents, parseMergeability } from './utils';
 import { AddCommentResponse, DeleteReviewResponse, EditCommentResponse, GetChecksResponse, isCheckRun, MarkPullRequestReadyForReviewResponse, PendingReviewIdResponse, PullRequestCommentsResponse, PullRequestResponse, StartReviewResponse, SubmitReviewResponse, TimelineEventsResponse } from './graphql';
 import Logger from '../common/logger';
@@ -23,6 +21,7 @@ import { toPRUri, toReviewUri } from '../common/uri';
 import { parseDiff } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { OctokitCommon } from './common';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -41,11 +40,10 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
-export class PullRequestModel extends IssueModel implements IPullRequestModel {
+export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static ID = 'PullRequestModel';
 
 	public isDraft?: boolean;
-	public item: PullRequest;
 	public localBranchName?: string;
 	public mergeBase?: string;
 	public suggestedReviewers?: ISuggestedReviewer[];
@@ -58,10 +56,12 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	_telemetry: ITelemetry;
 
 	constructor(telemetry: ITelemetry, githubRepository: GitHubRepository, remote: Remote, item: PullRequest, isActive?: boolean) {
-		super(githubRepository, remote, item);
+		super(githubRepository, remote, item, true);
 
 		this._telemetry = telemetry;
 		this.isActive = !!isActive;
+
+		this.update(item);
 	}
 
 	public get isMerged(): boolean {
@@ -539,7 +539,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	/**
 	 * Get a list of the commits within a pull request.
 	 */
-	async getCommits(): Promise<OctokitTypes.PullsListCommitsResponseData> {
+	async getCommits(): Promise<OctokitCommon.PullsListCommitsResponseData> {
 		try {
 			Logger.debug(`Fetch commits of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { remote, octokit } = await this.githubRepository.ensure();
@@ -561,7 +561,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 * Get all changed files within a commit
 	 * @param commit The commit
 	 */
-	async getCommitChangedFiles(commit: OctokitTypes.PullsListCommitsResponseData[0]): Promise<OctokitTypes.ReposGetCommitResponseData['files']> {
+	async getCommitChangedFiles(commit: OctokitCommon.PullsListCommitsResponseData[0]): Promise<OctokitCommon.ReposGetCommitResponseFiles> {
 		try {
 			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${this.number} - enter`, PullRequestModel.ID);
 			const { octokit, remote } = await this.githubRepository.ensure();
@@ -597,8 +597,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			throw new Error(`Unexpected array response when getting file ${filePath}`);
 		}
 
-		const contents = fileContent.data.content ?? '';
-		const buff = new Buffer(contents, <any>fileContent.data.encoding);
+		const contents = (fileContent.data as any).content ?? '';
+		const buff = Buffer.from(contents, (fileContent.data as any).encoding);
 		return buff.toString();
 	}
 
@@ -790,7 +790,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			// Use the original base to compare against for merged PRs
 			this.mergeBase = this.base.sha;
 
-			return repsonse.data;
+			return repsonse.data as IRawFileChange[];
 		}
 
 		const { data } = await octokit.repos.compareCommits({
@@ -804,7 +804,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		this.mergeBase = data.merge_base_commit.sha;
 
 		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 300;
-		let files: Array<IRawFileChange> = [];
+		let files: IRawFileChange[] = [];
 
 		if (data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
 			// compareCommits will return a maximum of 300 changed files
@@ -818,7 +818,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			});
 		} else {
 			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
-			files = data.files;
+			files = data.files as IRawFileChange[];
 		}
 
 		Logger.debug(`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `, PullRequestModel.ID);

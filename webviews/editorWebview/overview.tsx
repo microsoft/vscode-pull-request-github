@@ -8,8 +8,8 @@ import { PullRequest } from '../common/cache';
 import { Header } from '../components/header';
 
 import { AddComment, CommentView } from '../components/comment';
-import Timeline from '../components/timeline';
-import StatusChecks from '../components/merge';
+import { Timeline } from '../components/timeline';
+import { StatusChecks } from '../components/merge';
 import Sidebar from '../components/sidebar';
 
 export const Overview = (pr: PullRequest) =>

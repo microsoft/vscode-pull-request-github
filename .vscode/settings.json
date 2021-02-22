@@ -1,4 +1,8 @@
 {
+	"files.associations": {
+		".eslintrc.json": "jsonc",
+		".eslintrc.*.json": "jsonc"
+	},
 	"files.trimTrailingWhitespace": true,
-	"editor.insertSpaces": false
+	"editor.insertSpaces": false,
 }

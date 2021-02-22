@@ -1,11 +1,11 @@
-import * as OctokitTypes from '@octokit/types';
 import { UserBuilder } from './userBuilder';
 import { OrganizationBuilder } from './organizationBuilder';
 import { createBuilderClass, createLink } from '../base';
 import { OctokitCommon } from '../../../github/common';
+import { ForkDetails } from '../../../github/githubRepository';
 
 export type RepoUnion =
-	OctokitTypes.ReposGetResponseData &
+OctokitCommon.ReposGetResponseData &
 	OctokitCommon.PullsListResponseItemHeadRepo &
 	OctokitCommon.PullsListResponseItemBaseRepo;
 
@@ -116,7 +116,10 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 		key: { default: 'key' },
 		name: { default: 'name' },
 		url: { default: 'https://github.com/octocat/reponame' }
-	})
+	}),
+	forks: { default: null },
+	open_issues: { default: null },
+	watchers: { default: null },
 });
 
 export type RepositoryBuilder = InstanceType<typeof RepositoryBuilder>;

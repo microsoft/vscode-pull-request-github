@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox } from 'sinon';
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { Octokit } from '@octokit/rest';
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';

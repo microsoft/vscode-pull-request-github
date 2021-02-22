@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
-import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User, Issue, ReviewState } from './interface';
+import { IAccount, PullRequest, IGitHubRef, PullRequestMergeability, ISuggestedReviewer, IMilestone, User, Issue, ReviewState, ILabel } from './interface';
 import { IComment, Reaction } from '../common/comment';
 import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
 import * as Common from '../common/timelineEvent';
@@ -103,7 +102,7 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 	};
 }
 
-export function convertRESTPullRequestToRawPullRequest(pullRequest: OctokitTypes.PullsCreateResponseData | OctokitTypes.PullsGetResponseData | OctokitCommon.PullsListResponseItem, githubRepository: GitHubRepository): PullRequest {
+export function convertRESTPullRequestToRawPullRequest(pullRequest: OctokitCommon.PullsCreateResponseData | OctokitCommon.PullsGetResponseData | OctokitCommon.PullsListResponseItem, githubRepository: GitHubRepository): PullRequest {
 	const {
 		number,
 		body,
@@ -131,14 +130,14 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: OctokitTypes
 		url: html_url,
 		user: convertRESTUserToAccount(user, githubRepository),
 		state,
-		merged: (pullRequest as OctokitTypes.PullsGetResponseData).merged || false,
+		merged: (pullRequest as OctokitCommon.PullsGetResponseData).merged || false,
 		assignees: assignees ? assignees.map(assignee => convertRESTUserToAccount(assignee, githubRepository)) : undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
 		head: convertRESTHeadToIGitHubRef(head),
 		base: convertRESTHeadToIGitHubRef(base),
-		mergeable: (pullRequest as OctokitTypes.PullsGetResponseData).mergeable ? PullRequestMergeability.Mergeable : PullRequestMergeability.NotMergeable,
-		labels,
+		mergeable: (pullRequest as OctokitCommon.PullsGetResponseData).mergeable ? PullRequestMergeability.Mergeable : PullRequestMergeability.NotMergeable,
+		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
 		isDraft: draft,
 		suggestedReviewers: [] // suggested reviewers only available through GraphQL API
 	};
@@ -146,7 +145,7 @@ export function convertRESTPullRequestToRawPullRequest(pullRequest: OctokitTypes
 	return item;
 }
 
-export function convertRESTIssueToRawPullRequest(pullRequest: OctokitTypes.IssuesCreateResponseData, githubRepository: GitHubRepository): PullRequest {
+export function convertRESTIssueToRawPullRequest(pullRequest: OctokitCommon.IssuesCreateResponseData, githubRepository: GitHubRepository): PullRequest {
 	const {
 		number,
 		body,
@@ -174,14 +173,14 @@ export function convertRESTIssueToRawPullRequest(pullRequest: OctokitTypes.Issue
 		assignees: assignees ? assignees.map(assignee => convertRESTUserToAccount(assignee, githubRepository)) : undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
-		labels,
+		labels: labels.map<ILabel>(l => (typeof l === 'string' ? { name: l, color: '' } : { name: '', color: '', ...l })),
 		suggestedReviewers: [] // suggested reviewers only available through GraphQL API
 	};
 
 	return item;
 }
 
-export function convertRESTReviewEvent(review: OctokitTypes.PullsCreateReviewResponseData, githubRepository: GitHubRepository): Common.ReviewEvent {
+export function convertRESTReviewEvent(review: OctokitCommon.PullsCreateReviewResponseData, githubRepository: GitHubRepository): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
@@ -210,7 +209,7 @@ export function parseCommentDiffHunk(comment: IComment): DiffHunk[] {
 	return diffHunks;
 }
 
-export function convertPullRequestsGetCommentsResponseItemToComment(comment: OctokitTypes.PullsCreateReviewCommentResponseData, githubRepository: GitHubRepository): IComment {
+export function convertPullRequestsGetCommentsResponseItemToComment(comment: OctokitCommon.PullsCreateReviewCommentResponseData, githubRepository: GitHubRepository): IComment {
 	const ret: IComment = {
 		url: comment.url,
 		id: comment.id,
@@ -336,6 +335,7 @@ function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
 			}
 		};
 	}
+	return undefined;
 }
 
 function parseAuthor(author: { login: string, url: string, avatarUrl: string } | null, githubRepository: GitHubRepository): IAccount {
@@ -702,8 +702,8 @@ export function getRelatedUsersFromTimelineEvents(timelineEvents: Common.Timelin
 
 export function parseGraphQLViewerPermission(viewerPermissionResponse: GraphQL.ViewerPermissionResponse): ViewerPermission {
 	if (viewerPermissionResponse && viewerPermissionResponse.repository.viewerPermission) {
-		if ((<string[]>Object.values(ViewerPermission)).includes(viewerPermissionResponse.repository.viewerPermission)) {
-			return <ViewerPermission>viewerPermissionResponse.repository.viewerPermission;
+		if ((Object.values(ViewerPermission) as string[]).includes(viewerPermissionResponse.repository.viewerPermission)) {
+			return viewerPermissionResponse.repository.viewerPermission as ViewerPermission;
 		}
 	}
 	return ViewerPermission.Unknown;

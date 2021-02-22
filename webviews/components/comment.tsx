@@ -3,12 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { useContext, useState, useEffect, useRef, useCallback } from 'react';
-
+import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Spaced, nbsp } from './space';
 import { Avatar, AuthorLink } from './user';
-import Timestamp from './timestamp';
+import { Timestamp } from './timestamp';
 import { IComment } from '../../src/common/comment';
 import { PullRequest, ReviewType } from '../common/cache';
 import PullRequestContext from '../common/context';
@@ -323,7 +321,7 @@ const COMMENT_METHODS = {
 	comment: 'Comment',
 	approve: 'Approve',
 	requestChanges: 'Request Changes'
-}
+};
 
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, comment } = useContext(PullRequestContext);
@@ -346,7 +344,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 
 	const onChangeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
 		updatePR({ pendingCommentText: e.target.value });
-	}
+	};
 
 	const availableActions = pr.isAuthor
 		? { comment: 'Comment' }
@@ -360,4 +358,4 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			value={pr.pendingCommentText}
 			onChange={onChangeTextarea} />
 		<Dropdown options={availableActions} defaultOption='comment' submitAction={submitAction} /></span>;
-}
+};

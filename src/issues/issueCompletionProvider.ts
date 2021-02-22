@@ -35,7 +35,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		}
 
 		if ((context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter) &&
-			(<string[]>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('ignoreCompletionTrigger', [])).find(value => value === document.languageId)) {
+			(vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string[]>('ignoreCompletionTrigger', [])).find(value => value === document.languageId)) {
 			return [];
 		}
 
@@ -71,7 +71,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		}
 
 		try {
-			repo = await (await this.repositoriesManager.getManagerForFile(uri))?.getPullRequestDefaults();
+			repo = await this.repositoriesManager.getManagerForFile(uri)?.getPullRequestDefaults();
 		} catch (e) {
 			// leave repo undefined
 		}
@@ -84,11 +84,11 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			if (issuesOrMilestones[0] instanceof IssueModel) {
 				let index = 0;
 				for (const issue of issuesOrMilestones) {
-					completionItems.set(getIssueNumberLabel(<IssueModel>issue), await this.completionItemFromIssue(repo, <IssueModel>issue, now, range, document, index++));
+					completionItems.set(getIssueNumberLabel(issue as IssueModel), await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++));
 				}
 			} else {
 				for (let index = 0; index < issuesOrMilestones.length; index++) {
-					const value: MilestoneModel = <MilestoneModel>issuesOrMilestones[index];
+					const value: MilestoneModel = issuesOrMilestones[index] as MilestoneModel;
 					for (const issue of value.issues) {
 						completionItems.set(getIssueNumberLabel(issue), await this.completionItemFromIssue(repo, issue, now, range, document, index, value.milestone));
 					}

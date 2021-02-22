@@ -163,4 +163,4 @@ class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
 	}
 }
 
-export const handler = new UriEventHandler;
+export const handler = new UriEventHandler();

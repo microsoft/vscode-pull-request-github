@@ -153,13 +153,13 @@ export class CurrentIssue {
 		const editSetting = `Edit Setting`;
 		vscode.window.showErrorMessage(error, editSetting).then(result => {
 			if (result === editSetting) {
-				return vscode.commands.executeCommand('workbench.action.openSettings', `${ISSUES_CONFIGURATION}.${BRANCH_NAME_CONFIGURATION}`);
+				vscode.commands.executeCommand('workbench.action.openSettings', `${ISSUES_CONFIGURATION}.${BRANCH_NAME_CONFIGURATION}`);
 			}
 		});
 	}
 
 	private async createIssueBranch(): Promise<boolean> {
-		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : <string>vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(BRANCH_CONFIGURATION);
+		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_CONFIGURATION);
 		if (createBranchConfig === 'off') {
 			return true;
 		}
@@ -196,6 +196,7 @@ export class CurrentIssue {
 		if (typeof configuration === 'string') {
 			return variableSubstitution(configuration, this.issueModel, this._repoDefaults);
 		}
+		return undefined;
 	}
 
 	private async setCommitMessageAndGitEvent() {

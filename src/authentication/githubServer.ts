@@ -1,5 +1,5 @@
-import * as https from 'https';
 import * as vscode from 'vscode';
+import fetch, { RequestInit } from 'node-fetch';
 import Logger from '../common/logger';
 import { agent } from '../env/node/net';
 import { HostHelper } from './configuration';
@@ -16,26 +16,23 @@ export class GitHubManager {
 			return !!this._servers.get(host.authority);
 		}
 
-		const options = await GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
-		return new Promise<boolean>((resolve, _) => {
-			const get = https.request(options, res => {
-				const ret = res.headers['x-github-request-id'];
-				resolve(ret !== undefined);
-			});
+		const [uri, options] = await GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
 
-			get.end();
-			get.on('error', err => {
-				Logger.appendLine(`No response from host ${host}: ${err.message}`, 'GitHubServer');
-				resolve(false);
-			});
-		}).then(isGitHub => {
+		let isGitHub = false;
+		try {
+			const response = await fetch(uri.toString(), options);
+			isGitHub = response.headers['x-github-request-id'] !== undefined;
+			return isGitHub;
+		} catch (ex) {
+			Logger.appendLine(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
+			return isGitHub;
+		} finally {
 			Logger.debug(`Host ${host} is associated with GitHub: ${isGitHub}`, 'GitHubServer');
 			this._servers.set(host.authority, isGitHub);
-			return isGitHub;
-		});
+		}
 	}
 
-	public static async getOptions(hostUri: vscode.Uri, method: string = 'GET', path: string, token?: string) {
+	public static async getOptions(hostUri: vscode.Uri, method: string = 'GET', path: string, token?: string): Promise<[vscode.Uri, RequestInit]> {
 		const headers: {
 			'user-agent': string;
 			authorization?: string;
@@ -46,13 +43,17 @@ export class GitHubManager {
 			headers.authorization = `token ${token}`;
 		}
 
-		return {
-			host: (await HostHelper.getApiHost(hostUri)).authority,
-			port: 443,
-			method,
-			path: HostHelper.getApiPath(hostUri, path),
-			headers,
-			agent,
-		};
+		const uri = vscode.Uri.joinPath(await HostHelper.getApiHost(hostUri), HostHelper.getApiPath(hostUri, path));
+
+		return [
+			uri,
+			{
+				hostname: uri.authority,
+				port: 443,
+				method,
+				headers,
+				agent,
+			}
+		];
 	}
 }

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { parsePatch } from '../../common/diffHunk';
 

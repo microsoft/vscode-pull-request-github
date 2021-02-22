@@ -2,10 +2,10 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-'use strict';
 
-import * as vscode from 'vscode';
+'use strict';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
@@ -17,7 +17,7 @@ import { onceEvent } from './common/utils';
 import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
-import { registerBuiltinGitProvider } from './gitProviders/api';
+import { registerBuiltinGitProvider , registerLiveShareGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
@@ -28,16 +28,10 @@ import { LiveShare } from 'vsls/vscode.js';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
-import { registerLiveShareGitProvider } from './gitProviders/api';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { ExperimentationTelemetry } from './experimentationService';
 
-const aiKey: string = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
-
-// fetch.promise polyfill
-const fetch = require('node-fetch');
-const PolyfillPromise = require('es6-promise').Promise;
-fetch.Promise = PolyfillPromise;
+const aiKey = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
 let telemetry: ExperimentationTelemetry;
 
@@ -118,7 +112,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	tree.initialize(reposManager);
 	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
 	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
-	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
+	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
 	git.onDidChangeState(() => {
 		reviewManagers.forEach(reviewManager => reviewManager.updateState());
@@ -162,7 +156,9 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
-	if (path.basename(context.globalStorageUri.fsPath) === 'github.vscode-pull-request-github-insiders') {
+	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+	// @ts-ignore
+	if (EXTENSION_ID === 'GitHub.vscode-pull-request-github-insiders') {
 		const stable = vscode.extensions.getExtension('github.vscode-pull-request-github');
 		if (stable !== undefined) {
 			throw new Error('GitHub Pull Requests and Issues Nightly cannot be used while GitHub Pull Requests and Issues is also installed. Please ensure that only one version of the extension is installed.');
@@ -192,15 +188,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 
 	context.subscriptions.push(apiImpl);
 
-	Logger.appendLine('Looking for git repository');
-
 	const prTree = new PullRequestsTreeDataProvider(telemetry);
 	context.subscriptions.push(prTree);
 
-	if (apiImpl.repositories.length > 0) {
-		await init(context, apiImpl, credentialStore, apiImpl.repositories, prTree, liveshareApiPromise);
+	Logger.appendLine('Looking for git repository');
+
+	const repositories = apiImpl.repositories;
+	if (repositories.length > 0) {
+		await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise);
 	} else {
-		onceEvent(apiImpl.onDidOpenRepository)(r => init(context, apiImpl, credentialStore, [r], prTree, liveshareApiPromise));
+		onceEvent(apiImpl.onDidOpenRepository)(async r => {
+			await init(context, apiImpl, credentialStore, [r], prTree, liveshareApiPromise);
+		});
 	}
 
 	return apiImpl;

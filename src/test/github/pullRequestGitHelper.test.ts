@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
@@ -61,8 +61,7 @@ describe('PullRequestGitHelper', function () {
 			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, remote, prItem);
 
 			if (!pullRequest.isResolved()) {
-				assert(pullRequest.isResolved(), 'pull request head not resolved successfully');
-				return;
+				assert(false, 'pull request head not resolved successfully');
 			}
 
 			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);

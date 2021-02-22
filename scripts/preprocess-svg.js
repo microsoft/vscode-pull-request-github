@@ -59,8 +59,8 @@ async function processDirectory(inDirectory, outDirectory) {
 	const files = await glob('**/*.svg', {cwd: inDirectory});
 	return Promise.all(
 		files.map(async subPath => {
-			const inFilename = path.join(inDirectory, subPath);
-			const outFilename = path.join(outDirectory, subPath);
+			const inFilename = path.join(__dirname, inDirectory, subPath);
+			const outFilename = path.join(__dirname, outDirectory, subPath);
 			await mkdirp(path.dirname(outFilename));
 			await processFile(inFilename, outFilename);
 		}),

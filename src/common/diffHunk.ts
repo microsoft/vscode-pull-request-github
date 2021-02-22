@@ -203,7 +203,7 @@ export function getModifiedContentFromDiffHunk(originalContent: string, patch: s
 	const right = [];
 	let lastCommonLine = 0;
 	while (!diffHunkIter.done) {
-		const diffHunk = diffHunkIter.value;
+		const diffHunk: DiffHunk = diffHunkIter.value;
 		diffHunks.push(diffHunk);
 
 		const oriStartLine = diffHunk.oldLineNumber;

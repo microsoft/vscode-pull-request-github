@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as uuid from 'uuid';
+import { v4 as uuid } from 'uuid';
 import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
 import { getZeroBased, getAbsolutePosition, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 import { SlimFileChange, GitChangeType } from '../../common/file';
@@ -192,7 +192,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			if (!newDraftMode) {
 				(await this.getFileChanges()).forEach(fileChange => {
 					if (fileChange instanceof InMemFileChangeNode) {
-						fileChange.comments.forEach(c => c.isDraft = newDraftMode);
+						fileChange.comments.forEach(c => (c.isDraft = newDraftMode));
 					}
 				});
 			}
@@ -488,17 +488,19 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			const params = fromPRUri(document.uri);
 
 			if (!params || params.prNumber !== this.pullRequestModel.number) {
-				return;
+				return undefined;
 			}
 
 			const fileChange = (await this.getFileChanges()).find(change => change.fileName === params.fileName);
 
 			if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
-				return;
+				return undefined;
 			}
 
 			return getCommentingRanges(fileChange.diffHunks, params.isBase);
 		}
+
+		return undefined;
 	}
 
 	// #endregion
@@ -868,7 +870,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					const threads: GHPRCommentThread[] = [];
 
 					commentThreadCache[matchingFileChange.fileName].forEach(thread => {
-						this.updateCommentThreadComments(thread, thread.comments.filter((comment: GHPRComment) => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId)));
+						this.updateCommentThreadComments(thread, thread.comments.filter(comment => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId)));
 						if (!thread.comments.length) {
 							thread.dispose!();
 						} else {
@@ -929,9 +931,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					return;
 				}
 
-				if (thread.comments.find((cmt: GHPRComment) => cmt.commentId === comment.commentId)) {
+				if (thread.comments.find(cmt => cmt.commentId === comment.commentId)) {
 					// The following line is necessary to refresh the comments thread UI
 					// Read more: https://github.com/microsoft/vscode-pull-request-github/issues/1421#issuecomment-546995347
+					// eslint-disable-next-line no-self-assign
 					thread.comments = thread.comments;
 				}
 			});

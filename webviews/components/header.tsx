@@ -3,15 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { useContext, useState } from 'react';
-
+import React, { useContext, useState } from 'react';
 import { PullRequest } from '../common/cache';
 import { Avatar, AuthorLink } from './user';
 import { Spaced } from './space';
 import PullRequestContext from '../common/context';
 import { checkIcon, editIcon,copyIcon } from './icon';
-import Timestamp from './timestamp';
+import { Timestamp } from './timestamp';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { useStateProp } from '../common/hooks';
 

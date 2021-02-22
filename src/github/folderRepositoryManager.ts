@@ -14,14 +14,14 @@ import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelpe
 import { PullRequestModel } from './pullRequestModel';
 import { GitHubManager } from '../authentication/githubServer';
 import { formatError, Predicate } from '../common/utils';
-import { Repository, RefType, UpstreamRef, GitErrorCodes, Branch } from '../api/api';
+import type { Branch, Repository, UpstreamRef } from '../api/api';
+import { GitApiImpl, GitErrorCodes, RefType } from '../api/api1';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, getRelatedUsersFromTimelineEvents, convertRESTUserToAccount, loginComparator, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
 import { PullRequestState, UserResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
-import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
@@ -263,8 +263,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 								const blameLines = blames.split('\n');
 
-								for (const line in blameLines) {
-									const matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(blameLines[line]);
+								for (const line of blameLines) {
+									const matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(line);
 
 									if (matches && matches.length === 2) {
 										const name = matches[1].trim();
@@ -300,7 +300,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const secondMap: { [key: string]: boolean } = {};
 
 					for (const mentionableUserGroup in mentionableUsers) {
-						mentionableUsers[mentionableUserGroup].forEach(user => {
+						for (const user of mentionableUsers[mentionableUserGroup]) {
 							if (!prRelatedUsersMap[user.login] && !secondMap[user.login]) {
 								secondMap[user.login] = true;
 
@@ -324,7 +324,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 									uri: this.repository.rootUri
 								});
 							}
-						});
+						};
 					}
 
 					for (const user in prRelatedUsersMap) {
@@ -464,6 +464,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			return allAssignableUsers;
 		}
+
+		return undefined;
 	}
 
 	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
@@ -477,7 +479,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		if (!this._fetchMentionableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
-			return this._fetchMentionableUsersPromise = new Promise((resolve) => {
+			return (this._fetchMentionableUsersPromise = new Promise((resolve) => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getMentionableUsers();
 					cache[githubRepository.remote.remoteName] = data;
@@ -489,7 +491,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					this._fetchMentionableUsersPromise = undefined;
 					resolve(cache);
 				});
-			});
+			}));
 		}
 
 		return this._fetchMentionableUsersPromise;
@@ -507,7 +509,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
 			const allAssignableUsers: IAccount[] = [];
-			return this._fetchAssignableUsersPromise = new Promise((resolve) => {
+			return (this._fetchAssignableUsersPromise = new Promise((resolve) => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getAssignableUsers();
 					cache[githubRepository.remote.remoteName] = data.sort(loginComparator);
@@ -521,7 +523,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					resolve(cache);
 					this._onDidChangeAssignableUsers.fire(allAssignableUsers);
 				});
-			});
+			}));
 		}
 
 		return this._fetchAssignableUsersPromise;
@@ -1046,6 +1048,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			});
 			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
 		}
+
+		return undefined;
 	}
 
 	async assignIssue(issue: IssueModel, login: string): Promise<void> {
@@ -1236,7 +1240,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (result.legacy) {
 				result.picked = true;
 			} else {
-				result.description = result.description + ' is still Open';
+				result.description = `${result.description} is still Open`;
 			}
 		});
 
@@ -1440,6 +1444,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (githubRepo) {
 			return githubRepo.getPullRequest(pullRequestNumber);
 		}
+		return undefined;
 	}
 
 	async resolveIssue(owner: string, repositoryName: string, pullRequestNumber: number, withComments: boolean = false): Promise<IssueModel | undefined> {
@@ -1447,6 +1452,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (githubRepo) {
 			return githubRepo.getIssue(pullRequestNumber, withComments);
 		}
+		return undefined;
 	}
 
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
@@ -1465,6 +1471,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		} catch (e) {
 			console.log(e);
 		}
+		return undefined;
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {
@@ -1611,8 +1618,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			try {
 				return this.forkWithProgress(progress, githubRepository, repoString, matchingRepo);
 			} catch (e) {
-				vscode.window.showErrorMessage('Creating fork failed: ' + e);
+				vscode.window.showErrorMessage(`Creating fork failed: ${e}`);
 			}
+			return undefined;
 		});
 	}
 
