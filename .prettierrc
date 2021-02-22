@@ -1,0 +1,23 @@
+{
+	"arrowParens": "avoid",
+	"endOfLine": "lf",
+	"trailingComma": "all",
+	"printWidth": 120,
+	"singleQuote": true,
+	"tabWidth": 4,
+	"useTabs": true,
+	"overrides": [
+		{
+			"files": ".prettierrc",
+			"options": { "parser": "json" }
+		},
+		{
+			"files": "*.md",
+			"options": { "tabWidth": 2 }
+		},
+		{
+			"files": "*.yml",
+			"options": { "tabWidth": 2 }
+		}
+	]
+}
