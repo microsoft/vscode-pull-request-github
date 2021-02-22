@@ -27,8 +27,7 @@ import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { openDescription } from '../commands';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
-
-const FOCUS_REVIEW_MODE = 'github:focusedReview';
+import { FOCUS_REVIEW_MODE } from '../constants';
 
 export class ReviewManager {
 	public static ID = 'Review';
