@@ -13,6 +13,7 @@ webviews/**
 .eslintrc*
 .gitattributes
 .gitignore
+.gitignore-revs
 .prettierignore
 .prettierrc
 .yarnrc
