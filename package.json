@@ -789,17 +789,17 @@
       {
         "view": "pr:github",
         "when": "!github:initialized",
-        "contents": "Loading pull requests..."
+        "contents": "Loading..."
       },
       {
         "view": "issues:github",
         "when": "!github:initialized",
-        "contents": "Loading issues..."
+        "contents": "Loading..."
       },
       {
         "view": "github:activePullRequest:welcome",
         "when": "!github:initialized",
-        "contents": "Loading pull request..."
+        "contents": "Loading..."
       }
     ],
     "keybindings": [
