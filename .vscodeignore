@@ -26,3 +26,7 @@ yarn.lock
 **/*.svg
 **/*.ts
 *.vsix
+*.bak
+package.insiders.json
+README.insiders.md
+
