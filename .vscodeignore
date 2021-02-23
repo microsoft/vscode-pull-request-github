@@ -2,6 +2,7 @@
 .readme/**
 .vscode/**
 build/**
+out/**
 dist/test/**
 documentation/**
 node_modules/**
