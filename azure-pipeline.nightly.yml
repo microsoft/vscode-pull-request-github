@@ -8,7 +8,7 @@ schedules:
   always: true
   branches:
     include:
-    - master
+    - main
 
 jobs:
 - job: nightly_release

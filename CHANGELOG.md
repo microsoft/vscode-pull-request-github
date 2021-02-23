@@ -187,7 +187,7 @@ the current branch and the base branch.
 
 ## 0.16.0
 
-We have been working on a new set of GitHub issue related features. Take a look at our [documentation](https://github.com/microsoft/vscode-pull-request-github/blob/master/documentation/IssueFeatures.md) for more details on these and how to use them!
+We have been working on a new set of GitHub issue related features. Take a look at our [documentation](https://github.com/microsoft/vscode-pull-request-github/blob/main/documentation/IssueFeatures.md) for more details on these and how to use them!
 
 ### Changes
 - New issues view that supports custom queries
