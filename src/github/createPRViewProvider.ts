@@ -208,8 +208,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			if (!remote) {
 				// We assume this happens only when the compare branch is based on the current branch.
-				const shouldPushUpstream = await vscode.window.showInformationMessage(`There is currently no upstream branch for '${branchName}'. Do you want to publish it and try again?`, { modal: true }, 'Yes');
-				if (shouldPushUpstream === 'Yes') {
+				const shouldPushUpstream = await vscode.window.showInformationMessage(`There is no upstream branch for '${branchName}'.\n\nDo you want to publish it and then create the pull request?`, { modal: true }, 'Publish branch');
+				if (shouldPushUpstream === 'Publish branch') {
 					await vscode.commands.executeCommand('git.publish');
 					if (this._folderRepositoryManager.repository.state.HEAD) {
 						this.compareBranch = this._folderRepositoryManager.repository.state.HEAD;
