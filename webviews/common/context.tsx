@@ -14,46 +14,42 @@ export class PRContext {
 	constructor(
 		public pr: PullRequest = getState(),
 		public onchange: ((ctx: PullRequest) => void) | null = null,
-		private _handler: MessageHandler = null) {
+		private _handler: MessageHandler = null,
+	) {
 		if (!_handler) {
 			this._handler = getMessageHandler(this.handleMessage);
 		}
 	}
 
-	public setTitle = (title: string) =>
-		this.postMessage({ command: 'pr.edit-title', args: { text: title } })
+	public setTitle = (title: string) => this.postMessage({ command: 'pr.edit-title', args: { text: title } });
 
 	public setDescription = (description: string) =>
-		this.postMessage({ command: 'pr.edit-description', args: { text: description } })
+		this.postMessage({ command: 'pr.edit-description', args: { text: description } });
 
-	public checkout = () =>
-		this.postMessage({ command: 'pr.checkout' })
+	public checkout = () => this.postMessage({ command: 'pr.checkout' });
 
-	public copyPrLink = () =>
-		this.postMessage({ command: 'pr.copy-prlink' })
+	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
 
 	public exitReviewMode = async () => {
-		if (!this.pr) { return; }
+		if (!this.pr) {
+			return;
+		}
 		return this.postMessage({
 			command: 'pr.checkout-default-branch',
 			args: this.pr.repositoryDefaultBranch,
 		});
-	}
+	};
 
-	public refresh = () =>
-		this.postMessage({ command: 'pr.refresh' })
+	public refresh = () => this.postMessage({ command: 'pr.refresh' });
 
-	public checkMergeability = () =>
-		this.postMessage({ command: 'pr.checkMergeability' })
+	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
 
-	public merge = (args: { title: string, description: string, method: MergeMethod }) =>
-		this.postMessage({ command: 'pr.merge', args })
+	public merge = (args: { title: string; description: string; method: MergeMethod }) =>
+		this.postMessage({ command: 'pr.merge', args });
 
-	public deleteBranch = () =>
-		this.postMessage({ command: 'pr.deleteBranch' })
+	public deleteBranch = () => this.postMessage({ command: 'pr.deleteBranch' });
 
-	public readyForReview = () =>
-		this.postMessage({ command: 'pr.readyForReview' })
+	public readyForReview = () => this.postMessage({ command: 'pr.readyForReview' });
 
 	public comment = async (args: string) => {
 		const result = await this.postMessage({ command: 'pr.comment', args });
@@ -63,21 +59,19 @@ export class PRContext {
 			events: [...this.pr.events, newComment],
 			pendingCommentText: '',
 		});
-	}
+	};
 
-	public addReviewers = () =>
-		this.postMessage({ command: 'pr.add-reviewers' })
+	public addReviewers = () => this.postMessage({ command: 'pr.add-reviewers' });
 
-	public addLabels = () =>
-		this.postMessage({ command: 'pr.add-labels' })
+	public addLabels = () => this.postMessage({ command: 'pr.add-labels' });
 
-	public deleteComment = async (args: { id: number, pullRequestReviewId?: number }) => {
+	public deleteComment = async (args: { id: number; pullRequestReviewId?: number }) => {
 		await this.postMessage({ command: 'pr.delete-comment', args });
 		const { pr } = this;
 		const { id, pullRequestReviewId } = args;
 		if (!pullRequestReviewId) {
 			this.updatePR({
-				events: pr.events.filter(e => e.id !== id)
+				events: pr.events.filter(e => e.id !== id),
 			});
 			return;
 		}
@@ -93,30 +87,32 @@ export class PRContext {
 		}
 		this.pr.events.splice(index, 1, {
 			...review,
-			comments: review.comments.filter(c => c.id !== id)
+			comments: review.comments.filter(c => c.id !== id),
 		});
 		this.updatePR(this.pr);
-	}
+	};
 
-	public editComment = (args: { comment: IComment, text: string }) =>
-		this.postMessage({ command: 'pr.edit-comment', args })
+	public editComment = (args: { comment: IComment; text: string }) =>
+		this.postMessage({ command: 'pr.edit-comment', args });
 
 	public updateDraft = (id: number, body: string) => {
 		const pullRequest = getState();
 		const pendingCommentDrafts = pullRequest.pendingCommentDrafts || Object.create(null);
-		if (body === pendingCommentDrafts[id]) { return; }
+		if (body === pendingCommentDrafts[id]) {
+			return;
+		}
 		pendingCommentDrafts[id] = body;
 		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
-	}
+	};
 
 	public requestChanges = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }))
+		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }));
 
 	public approve = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.approve', args: body }))
+		this.appendReview(await this.postMessage({ command: 'pr.approve', args: body }));
 
 	public submit = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }))
+		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }));
 
 	public close = async (body?: string) => {
 		try {
@@ -124,23 +120,23 @@ export class PRContext {
 		} catch (_) {
 			// Ignore
 		}
-	}
+	};
 
 	public removeReviewer = async (login: string) => {
 		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
 		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== login);
 		this.updatePR({ reviewers });
-	}
+	};
 
 	public removeLabel = async (label: string) => {
 		await this.postMessage({ command: 'pr.remove-label', args: label });
 		const labels = this.pr.labels.filter(r => r.name !== label);
 		this.updatePR({ labels });
-	}
+	};
 
 	public applyPatch = async (comment: IComment) => {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
-	}
+	};
 
 	private appendReview({ review, reviewers }: any) {
 		const state = this.pr;
@@ -151,30 +147,29 @@ export class PRContext {
 			}
 		});
 		state.reviewers = reviewers;
-		state.events = [
-			...state.events
-				.filter(e => isReviewEvent(e) ? e.state !== 'PENDING' : e),
-			review
-		];
+		state.events = [...state.events.filter(e => (isReviewEvent(e) ? e.state !== 'PENDING' : e)), review];
 		this.updatePR(state);
 	}
 
-	public openDiff = (comment: IComment) =>
-		this.postMessage({ command: 'pr.open-diff', args: { comment } })
+	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;
 		setState(this.pr);
-		if (this.onchange) { this.onchange(this.pr); }
+		if (this.onchange) {
+			this.onchange(this.pr);
+		}
 		return this;
-	}
+	};
 
 	updatePR = (pr: Partial<PullRequest>) => {
 		updateState(pr);
 		this.pr = { ...this.pr, ...pr };
-		if (this.onchange) { this.onchange(this.pr); }
+		if (this.onchange) {
+			this.onchange(this.pr);
+		}
 		return this;
-	}
+	};
 
 	postMessage(message: any) {
 		return this._handler.postMessage(message);
@@ -195,7 +190,7 @@ export class PRContext {
 			case 'set-scroll':
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 		}
-	}
+	};
 
 	public static instance = new PRContext();
 }

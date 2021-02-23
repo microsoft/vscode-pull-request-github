@@ -3,8 +3,7 @@ import { RefBuilder } from './refBuilder';
 import { createLink, createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
 
-export type PullRequestUnion =
-	OctokitCommon.PullsGetResponseData;
+export type PullRequestUnion = OctokitCommon.PullsGetResponseData;
 type Links = PullRequestUnion['_links'];
 type Milestone = PullRequestUnion['milestone'];
 
@@ -22,7 +21,9 @@ export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 	review_comments_url: { default: 'https://api.github.com/repos/octocat/reponame/pulls/1347/comments' },
 	review_comment_url: { default: 'https://api.github.com/repos/octocat/reponame/pulls/comments{/number}' },
 	comments_url: { default: 'https://api.github.com/repos/octocat/reponame/issues/1347/comments' },
-	statuses_url: { default: 'https://api.github.com/repos/octocat/reponame/statuses/6dcb09b5b57875f334f61aebed695e2e4193db5e' },
+	statuses_url: {
+		default: 'https://api.github.com/repos/octocat/reponame/statuses/6dcb09b5b57875f334f61aebed695e2e4193db5e',
+	},
 	locked: { default: false },
 	title: { default: 'New feature' },
 	body: { default: 'Please merge thx' },
@@ -70,33 +71,36 @@ export const PullRequestBuilder = createBuilderClass<PullRequestUnion>()({
 		created_at: { default: '2019-01-01T10:00:00Z' },
 		updated_at: { default: '2019-01-01T10:00:00Z' },
 		closed_at: { default: '2019-01-01T10:00:00Z' },
-		due_on: { default: '2019-01-01T10:00:00Z' }
+		due_on: { default: '2019-01-01T10:00:00Z' },
 	}),
 	_links: createLink<Links>()({
 		self: createLink<Links['self']>()({
-			href: { default: 'https://api.github.com/repos/octocat/reponame/pulls/1347' }
+			href: { default: 'https://api.github.com/repos/octocat/reponame/pulls/1347' },
 		}),
 		html: createLink<Links['html']>()({
-			href: { default: 'https://github.com/octocat/reponame/pull/1347' }
+			href: { default: 'https://github.com/octocat/reponame/pull/1347' },
 		}),
 		issue: createLink<Links['issue']>()({
-			href: { default: 'https://api.github.com/repos/octocat/reponame/issues/1347' }
+			href: { default: 'https://api.github.com/repos/octocat/reponame/issues/1347' },
 		}),
 		comments: createLink<Links['comments']>()({
-			href: { default: 'https://api.github.com/repos/octocat/reponame/issues/1347/comments' }
+			href: { default: 'https://api.github.com/repos/octocat/reponame/issues/1347/comments' },
 		}),
 		review_comments: createLink<Links['review_comments']>()({
-			href: { default: 'https://api.github.com/repos/octocat/reponame/pulls/1347/comments' }
+			href: { default: 'https://api.github.com/repos/octocat/reponame/pulls/1347/comments' },
 		}),
 		review_comment: createLink<Links['review_comment']>()({
-			href: { default: 'https://api.github.com/repos/octocat/reponame/pulls/comments{/number}' }
+			href: { default: 'https://api.github.com/repos/octocat/reponame/pulls/comments{/number}' },
 		}),
 		commits: createLink<Links['commits']>()({
-			href: { default: 'https://api.github.com/repos/octocat/reponame/pulls/1347/commits' }
+			href: { default: 'https://api.github.com/repos/octocat/reponame/pulls/1347/commits' },
 		}),
 		statuses: createLink<Links['statuses']>()({
-			href: { default: 'https://api.github.com/repos/octocat/reponame/statuses/6dcb09b5b57875f334f61aebed695e2e4193db5e' }
-		})
+			href: {
+				default:
+					'https://api.github.com/repos/octocat/reponame/statuses/6dcb09b5b57875f334f61aebed695e2e4193db5e',
+			},
+		}),
 	}),
 	auto_merge: { default: null },
 });

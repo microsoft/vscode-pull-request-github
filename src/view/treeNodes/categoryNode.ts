@@ -23,7 +23,7 @@ export enum PRCategoryActionType {
 	NoOpenFolder,
 	NoMatchingRemotes,
 	ConfigureRemotes,
-	Initializing
+	Initializing,
 }
 
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
@@ -46,9 +46,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.command = {
 					title: 'Load more',
 					command: 'pr.loadMore',
-					arguments: [
-						node
-					]
+					arguments: [node],
 				};
 				break;
 			case PRCategoryActionType.TryOtherRemotes:
@@ -56,9 +54,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.command = {
 					title: 'Load more',
 					command: 'pr.loadMore',
-					arguments: [
-						node
-					]
+					arguments: [node],
 				};
 				break;
 			case PRCategoryActionType.Login:
@@ -66,7 +62,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.command = {
 					title: 'Sign in',
 					command: 'pr.signinAndRefreshList',
-					arguments: []
+					arguments: [],
 				};
 				break;
 			case PRCategoryActionType.NoRemotes:
@@ -86,7 +82,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.command = {
 					title: 'Configure remotes',
 					command: 'pr.configureRemotes',
-					arguments: []
+					arguments: [],
 				};
 				break;
 			case PRCategoryActionType.Initializing:
@@ -119,7 +115,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		private _telemetry: ITelemetry,
 		private _type: PRType,
 		_categoryLabel?: string,
-		private _categoryQuery?: string
+		private _categoryQuery?: string,
 	) {
 		super();
 
@@ -158,7 +154,11 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			if (!this.fetchNextPage) {
 				try {
-					const response = await this._folderRepoManager.getPullRequests(this._type, { fetchNextPage: false }, this._categoryQuery);
+					const response = await this._folderRepoManager.getPullRequests(
+						this._type,
+						{ fetchNextPage: false },
+						this._categoryQuery,
+					);
 					this.prs = response.items;
 					hasMorePages = response.hasMorePages;
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
@@ -177,14 +177,17 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 							this._telemetry.sendTelemetryEvent('pr.expand.query');
 							break;
 					}
-
 				} catch (e) {
 					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);
 					needLogin = e instanceof AuthenticationError;
 				}
 			} else {
 				try {
-					const response = await this._folderRepoManager.getPullRequests(this._type, { fetchNextPage: true }, this._categoryQuery);
+					const response = await this._folderRepoManager.getPullRequests(
+						this._type,
+						{ fetchNextPage: true },
+						this._categoryQuery,
+					);
 					this.prs = this.prs.concat(response.items);
 					hasMorePages = response.hasMorePages;
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
@@ -198,7 +201,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			const nodes: TreeNode[] = this.prs.map(prItem => new PRNode(this, this._folderRepoManager, prItem, this._type === PRType.LocalPullRequest));
+			const nodes: TreeNode[] = this.prs.map(
+				prItem => new PRNode(this, this._folderRepoManager, prItem, this._type === PRType.LocalPullRequest),
+			);
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));
 			} else if (hasUnsearchedRepositories) {

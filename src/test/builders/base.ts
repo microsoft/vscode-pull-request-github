@@ -73,7 +73,9 @@ type FieldTemplate<F, T extends Template<F>> = ScalarFieldTemplate<F> | LinkedFi
  *
  * @param fieldTemplate Instance of a field template from some template object.
  */
-function isLinked<F, T extends Template<F>>(fieldTemplate: FieldTemplate<F, T>): fieldTemplate is LinkedFieldTemplate<F, T> {
+function isLinked<F, T extends Template<F>>(
+	fieldTemplate: FieldTemplate<F, T>,
+): fieldTemplate is LinkedFieldTemplate<F, T> {
 	return (fieldTemplate as LinkedFieldTemplate<F, T>).linked !== undefined;
 }
 
@@ -119,7 +121,9 @@ type ScalarSetterFn<F, Self> = (value: F) => Self;
  * Conditional type used to infer the call signature of a single setter function on a generated {@link Builder} type based on
  * the (compile-time) type of a {@link Template} property.
  */
-type SetterFn<F, FT, Self> = FT extends LinkedFieldTemplate<any, infer T> ? LinkedSetterFn<F, T, Self> : ScalarSetterFn<F, Self>;
+type SetterFn<F, FT, Self> = FT extends LinkedFieldTemplate<any, infer T>
+	? LinkedSetterFn<F, T, Self>
+	: ScalarSetterFn<F, Self>;
 
 /**
  * Instance that progressively assembles an object of record type `R` as you call a sequence of {@link SetterFn|setter functions}.
@@ -141,7 +145,7 @@ export type Builder<R, T extends Template<R>> = {
  * Class that constructs {@link Builder} instances for a specific record type `R`, according to a specific template `T`.
  */
 type BuilderClass<R, T extends Template<R>> = {
-	new(): Builder<R, T>;
+	new (): Builder<R, T>;
 };
 
 /**

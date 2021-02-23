@@ -12,15 +12,22 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public contextValue?: string;
 	public tooltip: string;
 
-	constructor(public parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>, public label: string, public iconPath: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon, public pullRequestModel: PullRequestModel) {
+	constructor(
+		public parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>,
+		public label: string,
+		public iconPath:
+			| string
+			| vscode.Uri
+			| { light: string | vscode.Uri; dark: string | vscode.Uri }
+			| vscode.ThemeIcon,
+		public pullRequestModel: PullRequestModel,
+	) {
 		super();
 
 		this.command = {
 			title: 'View Pull Request Description',
 			command: 'pr.openDescription',
-			arguments: [
-				this
-			]
+			arguments: [this],
 		};
 
 		this.contextValue = 'description';

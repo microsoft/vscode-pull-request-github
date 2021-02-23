@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-input, textarea {
+input,
+textarea {
 	padding: 5px !important;
 }
 
@@ -23,7 +24,8 @@ textarea {
 	justify-content: space-between;
 }
 
-svg, svg path {
+svg,
+svg path {
 	fill: var(--vscode-foreground);
 }
 

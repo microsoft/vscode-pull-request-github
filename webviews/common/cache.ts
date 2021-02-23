@@ -4,13 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { vscode } from './message';
-import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks, IMilestone} from '../../src/github/interface';
+import {
+	GithubItemStateEnum,
+	IAccount,
+	ReviewState,
+	ILabel,
+	MergeMethod,
+	MergeMethodsAvailability,
+	PullRequestMergeability,
+	PullRequestChecks,
+	IMilestone,
+} from '../../src/github/interface';
 import { TimelineEvent } from '../../src/common/timelineEvent';
 
 export enum ReviewType {
 	Comment = 'comment',
 	Approve = 'approve',
-	RequestChanges = 'requestChanges'
+	RequestChanges = 'requestChanges',
 }
 
 export interface PullRequest {
@@ -41,7 +51,7 @@ export interface PullRequest {
 	 */
 	hasWritePermission: boolean;
 	pendingCommentText?: string;
-	pendingCommentDrafts?: { [key: string]: string; };
+	pendingCommentDrafts?: { [key: string]: string };
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks;
 	mergeable: PullRequestMergeability;
@@ -61,12 +71,13 @@ export function getState(): PullRequest {
 export function setState(pullRequest: PullRequest): void {
 	const oldPullRequest = getState();
 
-	if (oldPullRequest &&
-		oldPullRequest.number && oldPullRequest.number === pullRequest.number) {
+	if (oldPullRequest && oldPullRequest.number && oldPullRequest.number === pullRequest.number) {
 		pullRequest.pendingCommentText = oldPullRequest.pendingCommentText;
 	}
 
-	if (pullRequest) { vscode.setState(pullRequest); }
+	if (pullRequest) {
+		vscode.setState(pullRequest);
+	}
 }
 
 export function updateState(data: Partial<PullRequest>): void {

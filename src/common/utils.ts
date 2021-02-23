@@ -90,15 +90,20 @@ export function anyEvent<T>(...events: Event<T>[]): Event<T> {
 }
 
 export function filterEvent<T>(event: Event<T>, filter: (e: T) => boolean): Event<T> {
-	return (listener, thisArgs = null, disposables?) => event(e => filter(e) && listener.call(thisArgs, e), null, disposables);
+	return (listener, thisArgs = null, disposables?) =>
+		event(e => filter(e) && listener.call(thisArgs, e), null, disposables);
 }
 
 export function onceEvent<T>(event: Event<T>): Event<T> {
 	return (listener, thisArgs = null, disposables?) => {
-		const result = event(e => {
-			result.dispose();
-			return listener.call(thisArgs, e);
-		}, null, disposables);
+		const result = event(
+			e => {
+				result.dispose();
+				return listener.call(thisArgs, e);
+			},
+			null,
+			disposables,
+		);
 
 		return result;
 	};
@@ -142,7 +147,7 @@ function isHookError(e: Error): e is HookError {
 	return !!(e as any).errors;
 }
 
-function hasFieldErrors(e: any): e is (Error & { errors: { value: string, field: string, code: string }[] }) {
+function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; code: string }[] } {
 	let areFieldErrors = true;
 	if (!!e.errors && Array.isArray(e.errors)) {
 		for (const error of e.errors) {
@@ -173,17 +178,21 @@ export function formatError(e: HookError | any): string {
 	let errorMessage = e.message;
 	let furtherInfo: string | undefined;
 	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
-		furtherInfo = e.errors.map(error => {
-			return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
-		}).join(', ');
+		furtherInfo = e.errors
+			.map(error => {
+				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
+			})
+			.join(', ');
 	} else if (isHookError(e) && e.errors) {
-		return e.errors.map((error: any) => {
-			if (typeof error === 'string') {
-				return error;
-			} else {
-				return error.message;
-			}
-		}).join(', ');
+		return e.errors
+			.map((error: any) => {
+				if (typeof error === 'string') {
+					return error;
+				} else {
+					return error.message;
+				}
+			})
+			.join(', ');
 	}
 	if (furtherInfo) {
 		errorMessage = `${errorMessage}: ${furtherInfo}`;
@@ -193,13 +202,7 @@ export function formatError(e: HookError | any): string {
 }
 
 export interface PromiseAdapter<T, U> {
-	(
-		value: T,
-		resolve:
-			(value?: U | PromiseLike<U>) => void,
-		reject:
-			(reason: any) => void
-	): any;
+	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
 const passthrough = (value: any, resolve: (value?: any) => void) => resolve(value);
@@ -218,19 +221,17 @@ const passthrough = (value: any, resolve: (value?: any) => void) => resolve(valu
  * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
  * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
  */
-export async function promiseFromEvent<T, U>(
-	event: Event<T>,
-	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
+export async function promiseFromEvent<T, U>(event: Event<T>, adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
 	let subscription: Disposable;
-	return new Promise<U>((resolve, reject) =>
-		(subscription = event((value: T) => {
-			try {
-				Promise.resolve<U>(adapter(value, resolve as any, reject))
-					.catch(reject);
-			} catch (error) {
-				reject(error);
-			}
-		}))
+	return new Promise<U>(
+		(resolve, reject) =>
+			(subscription = event((value: T) => {
+				try {
+					Promise.resolve<U>(adapter(value, resolve as any, reject)).catch(reject);
+				} catch (error) {
+					reject(error);
+				}
+			})),
 	).then(
 		(result: U) => {
 			subscription.dispose();
@@ -239,7 +240,7 @@ export async function promiseFromEvent<T, U>(
 		error => {
 			subscription.dispose();
 			throw error;
-		}
+		},
 	);
 }
 
@@ -252,10 +253,9 @@ export function dateFromNow(date: Date | string): string {
 	if (djs.diff(now, 'month') < 1) {
 		return djs.fromNow();
 	} else if (djs.diff(now, 'year') < 1) {
-		return `on ${ djs.format('MMM D')}`;
+		return `on ${djs.format('MMM D')}`;
 	}
-		return `on ${ djs.format('MMM D, YYYY')}`;
-
+	return `on ${djs.format('MMM D, YYYY')}`;
 }
 
 export interface Predicate<T> {
@@ -284,11 +284,17 @@ export function compare(a: string, b: string): number {
 	} else if (a > b) {
 		return 1;
 	}
-		return 0;
-
+	return 0;
 }
 
-export function compareSubstring(a: string, b: string, aStart: number = 0, aEnd: number = a.length, bStart: number = 0, bEnd: number = b.length): number {
+export function compareSubstring(
+	a: string,
+	b: string,
+	aStart: number = 0,
+	aEnd: number = a.length,
+	bStart: number = 0,
+	bEnd: number = b.length,
+): number {
 	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
 		const codeA = a.charCodeAt(aStart);
 		const codeB = b.charCodeAt(bStart);
@@ -312,10 +318,15 @@ export function compareIgnoreCase(a: string, b: string): number {
 	return compareSubstringIgnoreCase(a, b, 0, a.length, 0, b.length);
 }
 
-export function compareSubstringIgnoreCase(a: string, b: string, aStart: number = 0, aEnd: number = a.length, bStart: number = 0, bEnd: number = b.length): number {
-
+export function compareSubstringIgnoreCase(
+	a: string,
+	b: string,
+	aStart: number = 0,
+	aEnd: number = a.length,
+	bStart: number = 0,
+	bEnd: number = b.length,
+): number {
 	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
-
 		let codeA = a.charCodeAt(aStart);
 		let codeB = b.charCodeAt(bStart);
 
@@ -325,17 +336,17 @@ export function compareSubstringIgnoreCase(a: string, b: string, aStart: number 
 		}
 
 		const diff = codeA - codeB;
-		if (diff === 32 && isUpperAsciiLetter(codeB)) { //codeB =[65-90] && codeA =[97-122]
+		if (diff === 32 && isUpperAsciiLetter(codeB)) {
+			//codeB =[65-90] && codeA =[97-122]
 			continue;
-
-		} else if (diff === -32 && isUpperAsciiLetter(codeA)) {  //codeB =[97-122] && codeA =[65-90]
+		} else if (diff === -32 && isUpperAsciiLetter(codeA)) {
+			//codeB =[97-122] && codeA =[65-90]
 			continue;
 		}
 
 		if (isLowerAsciiLetter(codeA) && isLowerAsciiLetter(codeB)) {
 			//
 			return diff;
-
 		} else {
 			return compareSubstring(a.toLowerCase(), b.toLowerCase(), aStart, aEnd, bStart, bEnd);
 		}
@@ -371,7 +382,6 @@ export interface IKeyIterator<K> {
 }
 
 export class StringIterator implements IKeyIterator<string> {
-
 	private _value: string = '';
 	private _pos: number = 0;
 
@@ -402,14 +412,11 @@ export class StringIterator implements IKeyIterator<string> {
 }
 
 export class ConfigKeysIterator implements IKeyIterator<string> {
-
 	private _value!: string;
 	private _from!: number;
 	private _to!: number;
 
-	constructor(
-		private readonly _caseSensitive: boolean = true
-	) { }
+	constructor(private readonly _caseSensitive: boolean = true) {}
 
 	reset(key: string): this {
 		this._value = key;
@@ -453,15 +460,11 @@ export class ConfigKeysIterator implements IKeyIterator<string> {
 }
 
 export class PathIterator implements IKeyIterator<string> {
-
 	private _value!: string;
 	private _from!: number;
 	private _to!: number;
 
-	constructor(
-		private readonly _splitOnBackslash: boolean = true,
-		private readonly _caseSensitive: boolean = true
-	) { }
+	constructor(private readonly _splitOnBackslash: boolean = true, private readonly _caseSensitive: boolean = true) {}
 
 	reset(key: string): this {
 		this._value = key.replace(/\\$|\/$/, '');
@@ -480,7 +483,7 @@ export class PathIterator implements IKeyIterator<string> {
 		let justSeps = true;
 		for (; this._to < this._value.length; this._to++) {
 			const ch = this._value.charCodeAt(this._to);
-			if (ch === CharCode.Slash || this._splitOnBackslash && ch === CharCode.Backslash) {
+			if (ch === CharCode.Slash || (this._splitOnBackslash && ch === CharCode.Backslash)) {
 				if (justSeps) {
 					this._from++;
 				} else {
@@ -505,17 +508,20 @@ export class PathIterator implements IKeyIterator<string> {
 }
 
 const enum UriIteratorState {
-	Scheme = 1, Authority = 2, Path = 3, Query = 4, Fragment = 5
+	Scheme = 1,
+	Authority = 2,
+	Path = 3,
+	Query = 4,
+	Fragment = 5,
 }
 
 export class UriIterator implements IKeyIterator<Uri> {
-
 	private _pathIterator!: PathIterator;
 	private _value!: Uri;
 	private _states: UriIteratorState[] = [];
 	private _stateIdx: number = 0;
 
-	constructor(private readonly _ignorePathCasing: (uri: Uri) => boolean) { }
+	constructor(private readonly _ignorePathCasing: (uri: Uri) => boolean) {}
 
 	reset(key: Uri): this {
 		this._value = key;
@@ -553,8 +559,10 @@ export class UriIterator implements IKeyIterator<Uri> {
 	}
 
 	hasNext(): boolean {
-		return (this._states[this._stateIdx] === UriIteratorState.Path && this._pathIterator.hasNext())
-			|| this._stateIdx < this._states.length - 1;
+		return (
+			(this._states[this._stateIdx] === UriIteratorState.Path && this._pathIterator.hasNext()) ||
+			this._stateIdx < this._states.length - 1
+		);
 	}
 
 	cmp(a: string): number {
@@ -602,7 +610,6 @@ class TernarySearchTreeNode<K, V> {
 }
 
 export class TernarySearchTree<K, V> {
-
 	static forUris<E>(ignorePathCasing: (key: Uri) => boolean = () => false): TernarySearchTree<Uri, E> {
 		return new TernarySearchTree<Uri, E>(new UriIterator(ignorePathCasing));
 	}
@@ -649,7 +656,6 @@ export class TernarySearchTree<K, V> {
 					node.left.segment = iter.value();
 				}
 				node = node.left;
-
 			} else if (val < 0) {
 				// right
 				if (!node.right) {
@@ -657,7 +663,6 @@ export class TernarySearchTree<K, V> {
 					node.right.segment = iter.value();
 				}
 				node = node.right;
-
 			} else if (iter.hasNext()) {
 				// mid
 				iter.next();
@@ -751,9 +756,15 @@ export class TernarySearchTree<K, V> {
 				while (stack.length > 0 && node.isEmpty()) {
 					let [dir, parent] = stack.pop()!;
 					switch (dir) {
-						case 1: parent.left = undefined; break;
-						case 0: parent.mid = undefined; break;
-						case -1: parent.right = undefined; break;
+						case 1:
+							parent.left = undefined;
+							break;
+						case 0:
+							parent.mid = undefined;
+							break;
+						case -1:
+							parent.right = undefined;
+							break;
 					}
 					node = parent;
 				}
@@ -783,7 +794,7 @@ export class TernarySearchTree<K, V> {
 				break;
 			}
 		}
-		return node && node.value || candidate;
+		return (node && node.value) || candidate;
 	}
 
 	findSuperstr(key: K): IterableIterator<[K, V]> | undefined {

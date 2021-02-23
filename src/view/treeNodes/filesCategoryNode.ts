@@ -13,7 +13,10 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private directories: TreeNode[] = [];
 
-	constructor(public parent: TreeNode | vscode.TreeView<TreeNode>, private _fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
+	constructor(
+		public parent: TreeNode | vscode.TreeView<TreeNode>,
+		private _fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+	) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 

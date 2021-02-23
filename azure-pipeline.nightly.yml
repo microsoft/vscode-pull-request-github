@@ -3,48 +3,47 @@ trigger: none
 pr: none
 
 schedules:
-- cron: "0 9 * * Mon-Thu"
-  displayName: Nightly Release Schedule
-  always: true
-  branches:
-    include:
-    - main
+  - cron: '0 9 * * Mon-Thu'
+    displayName: Nightly Release Schedule
+    always: true
+    branches:
+      include:
+        - main
 
 jobs:
-- job: nightly_release
-  displayName: Nightly Release
-  pool:
-    name: Hosted macOS
-  steps:
+  - job: nightly_release
+    displayName: Nightly Release
+    pool:
+      name: Hosted macOS
+    steps:
+      - template: scripts/ci/common-setup.yml
 
-  - template: scripts/ci/common-setup.yml
+      - script: yarn run test
+        displayName: Run test suite
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-  - script: yarn run test
-    displayName: Run test suite
-    env:
-      TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
+      - script: yarn global add vsce
+        displayName: Install vsce
 
-  - script: yarn global add vsce
-    displayName: Install vsce
+      - script: >
+          node ./scripts/prepare-nightly-build.js
+          -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"
+        displayName: Generate package.json
+        env:
+          NAME: vscode-pull-request-github-insiders
+          DISPLAYNAME: GitHub Pull Request Nightly Build
+          DESCRIPTION: Nightly Build GitHub Pull Request extension
+          PUBLISHER: GitHub
 
-  - script: >
-      node ./scripts/prepare-nightly-build.js
-      -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"
-    displayName: Generate package.json
-    env:
-      NAME: vscode-pull-request-github-insiders
-      DISPLAYNAME: GitHub Pull Request Nightly Build
-      DESCRIPTION: Nightly Build GitHub Pull Request extension
-      PUBLISHER: GitHub
-
-  - script: |
-      mv ./package.json ./package.json.bak
-      mv ./package.insiders.json ./package.json
-      mv ./README.md ./README.md.bak
-      mv ./README.insiders.md ./README.md
-      mv ./src/constants.ts ./src/constants.ts.bak
-      mv ./src/constants.insiders.ts ./src/constants.ts
-      vsce publish -p "$TOKEN" --yarn --noVerify --web
-    displayName: Publish
-    env:
-      TOKEN: $(vsce.token)
+      - script: |
+          mv ./package.json ./package.json.bak
+          mv ./package.insiders.json ./package.json
+          mv ./README.md ./README.md.bak
+          mv ./README.insiders.md ./README.md
+          mv ./src/constants.ts ./src/constants.ts.bak
+          mv ./src/constants.insiders.ts ./src/constants.ts
+          vsce publish -p "$TOKEN" --yarn --noVerify --web
+        displayName: Publish
+        env:
+          TOKEN: $(vsce.token)

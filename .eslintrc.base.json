@@ -79,11 +79,7 @@
 		"prefer-rest-params": "error",
 		"prefer-spread": "error",
 		"prefer-template": "off", // TODO@eamodio revisit
-		"quotes": [
-			"error",
-			"single",
-			{ "avoidEscape": true, "allowTemplateLiterals": true }
-		],
+		"quotes": ["error", "single", { "avoidEscape": true, "allowTemplateLiterals": true }],
 		// Turn off until fix for: https://github.com/eslint/eslint/issues/11899
 		"require-atomic-updates": "off",
 		"semi": ["error", "always"],
@@ -108,10 +104,7 @@
 		"import/no-default-export": "off", // TODO@eamodio revisit
 		"import/no-duplicates": "off", // TODO@eamodio revisit
 		"import/no-self-import": "error",
-		"import/no-unresolved": [
-			"warn",
-			{ "ignore": ["vscode", "ghpr", "git", "extensionApi"] }
-		],
+		"import/no-unresolved": ["warn", { "ignore": ["vscode", "ghpr", "git", "extensionApi"] }],
 		// "import/order": [  // TODO@eamodio revisit
 		// 	"warn",
 		// 	{
@@ -221,10 +214,7 @@
 		"@typescript-eslint/no-implied-eval": "error",
 		"@typescript-eslint/no-inferrable-types": "off", // TODO@eamodio revisit
 		// "@typescript-eslint/no-inferrable-types": ["warn", { "ignoreParameters": true, "ignoreProperties": true }],
-		"@typescript-eslint/no-misused-promises": [
-			"error",
-			{ "checksConditionals": false, "checksVoidReturn": false }
-		],
+		"@typescript-eslint/no-misused-promises": ["error", { "checksConditionals": false, "checksVoidReturn": false }],
 		"@typescript-eslint/no-namespace": "off",
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-parameter-properties": "off",
@@ -235,10 +225,7 @@
 		"@typescript-eslint/no-unsafe-call": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unsafe-member-access": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unsafe-return": "off", // TODO@eamodio revisit
-		"@typescript-eslint/no-unused-expressions": [
-			"warn",
-			{ "allowShortCircuit": true }
-		],
+		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],
 		"@typescript-eslint/no-unused-vars": "off", // TODO@eamodio revisit
 		// "@typescript-eslint/no-unused-vars": [
 		// 	"warn",

@@ -6,7 +6,14 @@
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import * as vscode from 'vscode';
-import { ISSUES_CONFIGURATION, variableSubstitution, BRANCH_NAME_CONFIGURATION, BRANCH_CONFIGURATION, SCM_MESSAGE_CONFIGURATION, BRANCH_NAME_CONFIGURATION_DEPRECATED } from './util';
+import {
+	ISSUES_CONFIGURATION,
+	variableSubstitution,
+	BRANCH_NAME_CONFIGURATION,
+	BRANCH_CONFIGURATION,
+	SCM_MESSAGE_CONFIGURATION,
+	BRANCH_NAME_CONFIGURATION_DEPRECATED,
+} from './util';
 import { StateManager, IssueState } from './stateManager';
 import { Remote } from '../common/remote';
 import { Repository } from '../api/api';
@@ -19,7 +26,13 @@ export class CurrentIssue {
 	private _repoDefaults: PullRequestDefaults | undefined;
 	private _onDidChangeCurrentIssueState: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeCurrentIssueState: vscode.Event<void> = this._onDidChangeCurrentIssueState.event;
-	constructor(private issueModel: IssueModel, public readonly manager: FolderRepositoryManager, private stateManager: StateManager, remote?: Remote, private shouldPromptForBranch?: boolean) {
+	constructor(
+		private issueModel: IssueModel,
+		public readonly manager: FolderRepositoryManager,
+		private stateManager: StateManager,
+		remote?: Remote,
+		private shouldPromptForBranch?: boolean,
+	) {
 		this.setRepo(remote ?? this.issueModel.githubRepository.remote);
 	}
 
@@ -28,8 +41,12 @@ export class CurrentIssue {
 			const repo = this.stateManager.gitAPI.repositories[i];
 			for (let j = 0; j < repo.state.remotes.length; j++) {
 				const remote = repo.state.remotes[j];
-				if (remote.name === repoRemote?.remoteName &&
-					(remote.fetchUrl?.toLowerCase().search(`${repoRemote.owner.toLowerCase()}/${repoRemote.repositoryName.toLowerCase()}`) !== -1)) {
+				if (
+					remote.name === repoRemote?.remoteName &&
+					remote.fetchUrl
+						?.toLowerCase()
+						.search(`${repoRemote.owner.toLowerCase()}/${repoRemote.repositoryName.toLowerCase()}`) !== -1
+				) {
 					this.repo = repo;
 					return;
 				}
@@ -56,8 +73,10 @@ export class CurrentIssue {
 				await this.setCommitMessageAndGitEvent();
 				this._onDidChangeCurrentIssueState.fire();
 				const login = this.manager.getCurrentUser(this.issueModel).login;
-				if (vscode.workspace.getConfiguration('githubIssues').get('assignWhenWorking') &&
-					!this.issueModel.assignees?.find(value => value.login === login)) {
+				if (
+					vscode.workspace.getConfiguration('githubIssues').get('assignWhenWorking') &&
+					!this.issueModel.assignees?.find(value => value.login === login)
+				) {
 					await this.manager.assignIssue(this.issueModel, login);
 					await this.stateManager.refresh();
 				}
@@ -65,7 +84,7 @@ export class CurrentIssue {
 			}
 		} catch (e) {
 			// leave repoDefaults undefined
-			vscode.window.showErrorMessage('There is no remote. Can\'t start working on an issue.');
+			vscode.window.showErrorMessage("There is no remote. Can't start working on an issue.");
 		}
 		return false;
 	}
@@ -108,7 +127,9 @@ export class CurrentIssue {
 			}
 			return true;
 		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to checkout branch ${branch}. There may be file conflicts that prevent this branch change. Git error: ${e.error}`);
+			vscode.window.showErrorMessage(
+				`Unable to checkout branch ${branch}. There may be file conflicts that prevent this branch change. Git error: ${e.error}`,
+			);
 			return false;
 		}
 	}
@@ -137,7 +158,10 @@ export class CurrentIssue {
 		if (deprecatedConfigInspect?.workspaceFolderValue) {
 			await migrate(deprecatedConfigInspect.workspaceFolderValue, vscode.ConfigurationTarget.WorkspaceFolder);
 		}
-		return vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_NAME_CONFIGURATION) ?? this.getBasicBranchName(await this.getUser());
+		return (
+			vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_NAME_CONFIGURATION) ??
+			this.getBasicBranchName(await this.getUser())
+		);
 	}
 
 	private validateBranchName(branch: string): string | undefined {
@@ -153,20 +177,30 @@ export class CurrentIssue {
 		const editSetting = `Edit Setting`;
 		vscode.window.showErrorMessage(error, editSetting).then(result => {
 			if (result === editSetting) {
-				vscode.commands.executeCommand('workbench.action.openSettings', `${ISSUES_CONFIGURATION}.${BRANCH_NAME_CONFIGURATION}`);
+				vscode.commands.executeCommand(
+					'workbench.action.openSettings',
+					`${ISSUES_CONFIGURATION}.${BRANCH_NAME_CONFIGURATION}`,
+				);
 			}
 		});
 	}
 
 	private async createIssueBranch(): Promise<boolean> {
-		const createBranchConfig = this.shouldPromptForBranch ? 'prompt' : vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_CONFIGURATION);
+		const createBranchConfig = this.shouldPromptForBranch
+			? 'prompt'
+			: vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_CONFIGURATION);
 		if (createBranchConfig === 'off') {
 			return true;
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
 		if (!this._branchName) {
-			const branchNameConfig = await variableSubstitution(await this.ensureBranchTitleConfigMigrated(), this.issue, undefined, await this.getUser());
+			const branchNameConfig = await variableSubstitution(
+				await this.ensureBranchTitleConfigMigrated(),
+				this.issue,
+				undefined,
+				await this.getUser(),
+			);
 			if (createBranchConfig === 'on') {
 				const validateBranchName = this.validateBranchName(branchNameConfig);
 				if (validateBranchName) {
@@ -175,7 +209,10 @@ export class CurrentIssue {
 				}
 				this._branchName = branchNameConfig;
 			} else {
-				this._branchName = await vscode.window.showInputBox({ value: branchNameConfig, prompt: 'Enter the label for the new branch.' });
+				this._branchName = await vscode.window.showInputBox({
+					value: branchNameConfig,
+					prompt: 'Enter the label for the new branch.',
+				});
 			}
 		}
 		if (!this._branchName) {
@@ -185,7 +222,7 @@ export class CurrentIssue {
 
 		state.branch = this._branchName;
 		this.stateManager.setSavedIssueState(this.issueModel, state);
-		if (!await this.createOrCheckoutBranch(this._branchName)) {
+		if (!(await this.createOrCheckoutBranch(this._branchName))) {
 			this._branchName = undefined;
 		}
 		return true;

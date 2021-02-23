@@ -24,9 +24,11 @@ interface CodeLink {
 	end: number;
 }
 
-export async function findCodeLinkLocally(codeLink: RegExpMatchArray, repositoriesManager: RepositoriesManager,
-	silent: boolean = true): Promise<CodeLink | undefined> {
-
+export async function findCodeLinkLocally(
+	codeLink: RegExpMatchArray,
+	repositoriesManager: RepositoriesManager,
+	silent: boolean = true,
+): Promise<CodeLink | undefined> {
 	const owner = codeLink[2];
 	const repo = codeLink[3];
 	const repoSubPath = codeLink[5];
@@ -38,8 +40,10 @@ export async function findCodeLinkLocally(codeLink: RegExpMatchArray, repositori
 	for (const folderManager of repositoriesManager.folderManagers) {
 		const remotes = folderManager.getGitHubRemotes();
 		for (const remote of remotes) {
-			if (owner.toLowerCase() === remote.owner.toLowerCase() &&
-				repo.toLowerCase() === remote.repositoryName.toLowerCase()) {
+			if (
+				owner.toLowerCase() === remote.owner.toLowerCase() &&
+				repo.toLowerCase() === remote.repositoryName.toLowerCase()
+			) {
 				linkFolderManager = folderManager;
 				break;
 			}
@@ -62,7 +66,7 @@ export async function findCodeLinkLocally(codeLink: RegExpMatchArray, repositori
 	return {
 		file: path,
 		start: startingLine,
-		end: endingLine
+		end: endingLine,
 	};
 }
 
@@ -77,8 +81,9 @@ export async function openCodeLink(issueModel: IssueModel, repositoriesManager: 
 		return vscode.env.openExternal(vscode.Uri.parse(issueLink[0]));
 	}
 	const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
-	const endingTextDocumentLine =
-		textDocument.lineAt(codeLink.end < textDocument.lineCount ? codeLink.end : textDocument.lineCount - 1);
+	const endingTextDocumentLine = textDocument.lineAt(
+		codeLink.end < textDocument.lineCount ? codeLink.end : textDocument.lineCount - 1,
+	);
 	const selection = new vscode.Range(codeLink.start, 0, codeLink.end, endingTextDocumentLine.text.length);
 	return vscode.window.showTextDocument(codeLink.file, { selection });
 }

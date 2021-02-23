@@ -12,20 +12,21 @@ import { Timeline } from '../components/timeline';
 import { StatusChecks } from '../components/merge';
 import Sidebar from '../components/sidebar';
 
-export const Overview = (pr: PullRequest) =>
+export const Overview = (pr: PullRequest) => (
 	<>
-		<div id='title' className='title'>
-			<div className='details'>
+		<div id="title" className="title">
+			<div className="details">
 				<Header {...pr} />
 			</div>
 		</div>
 		<Sidebar {...pr} />
-		<div id='main'>
-			<div id='description'>
+		<div id="main">
+			<div id="description">
 				<CommentView isPRDescription {...pr} />
 			</div>
 			<Timeline events={pr.events} />
-			<StatusChecks pr={pr} isSimple={false}/>
+			<StatusChecks pr={pr} isSimple={false} />
 			<AddComment {...pr} />
 		</div>
-	</>;
+	</>
+);

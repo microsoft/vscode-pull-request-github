@@ -28,7 +28,7 @@ describe('Root', function () {
 		const out = render(
 			<PullRequestContext.Provider value={context}>
 				<Root>{children}</Root>
-			</PullRequestContext.Provider>
+			</PullRequestContext.Provider>,
 		);
 
 		assert(out.queryByText('Loading...'));
@@ -43,7 +43,7 @@ describe('Root', function () {
 		render(
 			<PullRequestContext.Provider value={context}>
 				<Root>{children}</Root>
-			</PullRequestContext.Provider>
+			</PullRequestContext.Provider>,
 		);
 
 		assert(children.calledWith(pr));

@@ -46,9 +46,9 @@ describe('GitHub Pull Requests view', function () {
 					request: {},
 					baseUrl: 'https://github.com',
 					userAgent: 'GitHub VSCode Pull Requests',
-					previews: ['shadow-cat-preview']
+					previews: ['shadow-cat-preview'],
 				}),
-				graphql: null
+				graphql: null,
 			};
 
 			return github;
@@ -77,9 +77,9 @@ describe('GitHub Pull Requests view', function () {
 	});
 
 	it('displays a message when no GitHub remotes are available', async function () {
-		sinon.stub(vscode.workspace, 'workspaceFolders').value([
-			{ index: 0, name: __dirname, uri: vscode.Uri.file(__dirname) },
-		]);
+		sinon
+			.stub(vscode.workspace, 'workspaceFolders')
+			.value([{ index: 0, name: __dirname, uri: vscode.Uri.file(__dirname) }]);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 1);
@@ -95,7 +95,11 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
+		const manager = new RepositoriesManager(
+			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)],
+			credentialStore,
+			telemetry,
+		);
 		provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
@@ -112,7 +116,11 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
+		const manager = new RepositoriesManager(
+			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)],
+			credentialStore,
+			telemetry,
+		);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockGitHubRepository(remote, cStore, telemetry, sinon);
 		});
@@ -123,13 +131,10 @@ describe('GitHub Pull Requests view', function () {
 		const rootNodes = await provider.getChildren();
 
 		assert(rootNodes.every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
-		assert.deepEqual(rootNodes.map(n => n.getTreeItem().label), [
-			'Local Pull Request Branches',
-			'Waiting For My Review',
-			'Assigned To Me',
-			'Created By Me',
-			'All',
-		]);
+		assert.deepEqual(
+			rootNodes.map(n => n.getTreeItem().label),
+			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All'],
+		);
 	});
 
 	describe('Local Pull Request Branches', function () {
@@ -141,27 +146,31 @@ describe('GitHub Pull Requests view', function () {
 				m.clone_url('https://github.com/aaa/bbb');
 			});
 
-			const pr0 = gitHubRepository.addGraphQLPullRequest((builder) => {
+			const pr0 = gitHubRepository.addGraphQLPullRequest(builder => {
 				builder.pullRequest(pr => {
-					pr.repository(r => r.pullRequest(p => {
-						p.number(1111);
-						p.title('zero');
-						p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg'));
-						p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
-					}));
+					pr.repository(r =>
+						r.pullRequest(p => {
+							p.number(1111);
+							p.title('zero');
+							p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg'));
+							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
+						}),
+					);
 				});
 			}).pullRequest;
 			const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository);
 			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
 
-			const pr1 = gitHubRepository.addGraphQLPullRequest((builder) => {
+			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
 				builder.pullRequest(pr => {
-					pr.repository(r => r.pullRequest(p => {
-						p.number(2222);
-						p.title('one');
-						p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
-						p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
-					}));
+					pr.repository(r =>
+						r.pullRequest(p => {
+							p.number(2222);
+							p.title('one');
+							p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
+							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
+						}),
+					);
 				});
 			}).pullRequest;
 			const prItem1 = parseGraphQLPullRequest(pr1, gitHubRepository);

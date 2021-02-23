@@ -9,7 +9,7 @@ export class MockExtensionContext implements ExtensionContext {
 
 	workspaceState = new InMemoryMemento();
 	globalState = new InMemoryMemento();
-	secrets = new class implements SecretStorage {
+	secrets = new (class implements SecretStorage {
 		get(key: string): Thenable<string | undefined> {
 			throw new Error('Method not implemented.');
 		}
@@ -20,8 +20,8 @@ export class MockExtensionContext implements ExtensionContext {
 			throw new Error('Method not implemented.');
 		}
 		onDidChange!: Event<SecretStorageChangeEvent>;
-	}();
-	subscriptions: { dispose(): any; }[] = [];
+	})();
+	subscriptions: { dispose(): any }[] = [];
 
 	storagePath: string;
 	globalStoragePath: string;

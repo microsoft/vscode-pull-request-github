@@ -11,7 +11,7 @@ import { APIState, PublishEvent } from '../@types/git';
 export const enum RefType {
 	Head,
 	RemoteHead,
-	Tag
+	Tag,
 }
 
 export const enum GitErrorCodes {
@@ -46,7 +46,7 @@ export const enum GitErrorCodes {
 	WrongCase = 'WrongCase',
 	CantLockRef = 'CantLockRef',
 	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
-	PatchDoesNotApply = 'PatchDoesNotApply'
+	PatchDoesNotApply = 'PatchDoesNotApply',
 }
 
 export class GitApiImpl implements API, IGit, vscode.Disposable {
@@ -117,7 +117,7 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 					repos.forEach(r => this._onDidCloseRepository.fire(r));
 				}
 				this._providers.delete(handle);
-			}
+			},
 		};
 	}
 

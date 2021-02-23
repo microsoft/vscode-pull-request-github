@@ -20,23 +20,29 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 	private _disposables: vscode.Disposable[] = [];
 
-	constructor(public parent: vscode.TreeView<TreeNode>,
+	constructor(
+		public parent: vscode.TreeView<TreeNode>,
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
 		private _comments: IComment[],
-		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
+		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+	) {
 		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest);
 		this.label = this._pullRequest.title;
 
-		this._disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
-			const activeEditorUri = e?.document.uri.toString();
-			this.revealActiveEditorInTree(activeEditorUri);
-		}));
+		this._disposables.push(
+			vscode.window.onDidChangeActiveTextEditor(e => {
+				const activeEditorUri = e?.document.uri.toString();
+				this.revealActiveEditorInTree(activeEditorUri);
+			}),
+		);
 
-		this._disposables.push(this.parent.onDidChangeVisibility(_ => {
-			const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
-			this.revealActiveEditorInTree(activeEditorUri);
-		}));
+		this._disposables.push(
+			this.parent.onDidChangeVisibility(_ => {
+				const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
+				this.revealActiveEditorInTree(activeEditorUri);
+			}),
+		);
 	}
 
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
@@ -51,7 +57,12 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	async getChildren(): Promise<TreeNode[]> {
 		if (!this._filesCategoryNode || !this._commitsCategoryNode) {
 			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._localFileChanges);
-			this._commitsCategoryNode = new CommitsNode(this.parent, this._pullRequestManager, this._pullRequest, this._comments);
+			this._commitsCategoryNode = new CommitsNode(
+				this.parent,
+				this._pullRequestManager,
+				this._pullRequest,
+				this._comments,
+			);
 		}
 		return [this._filesCategoryNode, this._commitsCategoryNode];
 	}

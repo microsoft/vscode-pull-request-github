@@ -38,10 +38,10 @@ export class MessageHandler {
 		return new Promise<any>((resolve, reject) => {
 			this.pendingReplies[req] = {
 				resolve: resolve,
-				reject: reject
+				reject: reject,
 			};
 			message = Object.assign(message, {
-				req: req
+				req: req,
 			});
 			vscode.postMessage(message as IRequestMessage<any>);
 		});

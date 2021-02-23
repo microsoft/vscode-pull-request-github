@@ -66,12 +66,14 @@ describe('PullRequestGitHelper', function () {
 
 			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);
 
-			assert.deepEqual(repository.state.remotes, [{
-				name: 'you',
-				fetchUrl: 'git@github.com:you/name',
-				pushUrl: 'git@github.com:you/name',
-				isReadOnly: false,
-			}]);
+			assert.deepEqual(repository.state.remotes, [
+				{
+					name: 'you',
+					fetchUrl: 'git@github.com:you/name',
+					pushUrl: 'git@github.com:you/name',
+					isReadOnly: false,
+				},
+			]);
 			assert.deepEqual(repository.state.HEAD, {
 				type: RefType.Head,
 				name: 'pr/me/100',
@@ -79,7 +81,7 @@ describe('PullRequestGitHelper', function () {
 				upstream: {
 					remote: 'you',
 					name: 'my-branch',
-				}
+				},
 			});
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
 		});
