@@ -3,17 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { CredentialStore } from './credentials';
-import { Remote } from '../common/remote';
-import { EventType } from '../common/timelineEvent';
-import { GitHubRepository } from './githubRepository';
+import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
 import { Protocol } from '../common/protocol';
-import { IssueModel } from './issueModel';
-import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
+import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
+import { EventType } from '../common/timelineEvent';
+import { CredentialStore } from './credentials';
+import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
+import { IssueModel } from './issueModel';
 
 export interface ItemsResponseResult<T> {
 	items: T[];

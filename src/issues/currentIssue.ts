@@ -3,20 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
+import { Repository } from '../api/api';
+import { Remote } from '../common/remote';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
-import * as vscode from 'vscode';
+import { IssueState, StateManager } from './stateManager';
 import {
-	ISSUES_CONFIGURATION,
-	variableSubstitution,
-	BRANCH_NAME_CONFIGURATION,
 	BRANCH_CONFIGURATION,
-	SCM_MESSAGE_CONFIGURATION,
+	BRANCH_NAME_CONFIGURATION,
 	BRANCH_NAME_CONFIGURATION_DEPRECATED,
+	ISSUES_CONFIGURATION,
+	SCM_MESSAGE_CONFIGURATION,
+	variableSubstitution,
 } from './util';
-import { StateManager, IssueState } from './stateManager';
-import { Remote } from '../common/remote';
-import { Repository } from '../api/api';
 
 export class CurrentIssue {
 	private repoChangeDisposable: vscode.Disposable | undefined;

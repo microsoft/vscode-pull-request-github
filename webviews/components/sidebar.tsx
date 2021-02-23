@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useState } from 'react';
-import { PullRequest } from '../common/cache';
-import { plusIcon, deleteIcon } from './icon';
-import PullRequestContext from '../common/context';
 import { ILabel } from '../../src/github/interface';
-import { nbsp } from './space';
+import { PullRequest } from '../common/cache';
+import PullRequestContext from '../common/context';
+import { AuthorLink, Avatar } from '../components/user';
+import { deleteIcon, plusIcon } from './icon';
 import { Reviewer } from './reviewer';
-import { Avatar, AuthorLink } from '../components/user';
+import { nbsp } from './space';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone, assignees }: PullRequest) {
 	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);

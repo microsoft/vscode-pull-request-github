@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 
 export const CODE_PERMALINK = /http(s)?\:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/([0-9a-fA-F]{40})\/([^#]+)#L(\d+)(-L(\d+))?/;
 

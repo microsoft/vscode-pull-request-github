@@ -3,16 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { TreeNode } from './treeNode';
-import { GitFileChangeNode } from './fileChangeNode';
-import { toReviewUri } from '../../common/uri';
-import { getGitChangeType } from '../../common/diffHunk';
+import * as vscode from 'vscode';
 import { IComment } from '../../common/comment';
+import { getGitChangeType } from '../../common/diffHunk';
+import { toReviewUri } from '../../common/uri';
+import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { OctokitCommon } from '../../github/common';
+import { GitFileChangeNode } from './fileChangeNode';
+import { TreeNode } from './treeNode';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public sha: string;

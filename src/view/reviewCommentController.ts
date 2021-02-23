@@ -6,37 +6,37 @@
 import * as nodePath from 'path';
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
+import { Repository } from '../api/api';
+import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { IComment } from '../common/comment';
-import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
+import { getCommentingRanges } from '../common/commentingRanges';
+import { DiffChangeType, DiffHunk } from '../common/diffHunk';
 import {
 	getAbsolutePosition,
-	getLastDiffLine,
-	mapCommentsToHead,
-	mapOldPositionToNew,
 	getDiffLineByPosition,
+	getLastDiffLine,
 	getZeroBased,
+	mapCommentsToHead,
 	mapHeadLineToDiffHunkPosition,
+	mapOldPositionToNew,
 } from '../common/diffPositionMapping';
+import { GitChangeType } from '../common/file';
 import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
-import { Repository } from '../api/api';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { ReactionGroup } from '../github/graphql';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
+import {
+	CommentReactionHandler,
+	createVSCodeCommentThread,
+	generateCommentReactions,
+	parseGraphQLReaction,
+	updateCommentReviewState,
+	updateCommentThreadLabel,
+} from '../github/utils';
+import { CommentThreadCache } from './commentThreadCache';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
-import {
-	parseGraphQLReaction,
-	createVSCodeCommentThread,
-	updateCommentThreadLabel,
-	updateCommentReviewState,
-	CommentReactionHandler,
-	generateCommentReactions,
-} from '../github/utils';
-import { ReactionGroup } from '../github/graphql';
-import { DiffHunk, DiffChangeType } from '../common/diffHunk';
-import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
-import { CommentThreadCache } from './commentThreadCache';
-import { getCommentingRanges } from '../common/commentingRanges';
-import { GitChangeType } from '../common/file';
 
 function workspaceLocalCommentsToCommentThreads(
 	repository: Repository,

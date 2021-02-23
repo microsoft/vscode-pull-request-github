@@ -5,8 +5,8 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { GHPRCommentThread, GHPRComment, TemporaryComment } from './github/prComment';
 import Logger from './common/logger';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 
 export interface CommentHandler {
 	commentController?: vscode.CommentController;

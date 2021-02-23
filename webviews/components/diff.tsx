@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 
-import { DiffHunk, DiffLine, DiffChangeType } from '../../src/common/diffHunk';
+import { DiffChangeType, DiffHunk, DiffLine } from '../../src/common/diffHunk';
 
 function Diff({ hunks }: { hunks: DiffHunk[] }) {
 	return (

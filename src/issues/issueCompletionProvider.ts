@@ -4,20 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PullRequestDefaults } from '../github/folderRepositoryManager';
+import { IMilestone } from '../github/interface';
+import { IssueModel } from '../github/issueModel';
+import { MilestoneModel } from '../github/milestoneModel';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { StateManager } from './stateManager';
 import {
+	getIssueNumberLabel,
+	getRootUriFromScmInputUri,
+	isComment,
 	issueMarkdown,
 	ISSUES_CONFIGURATION,
 	variableSubstitution,
-	getIssueNumberLabel,
-	isComment,
-	getRootUriFromScmInputUri,
 } from './util';
-import { StateManager } from './stateManager';
-import { IssueModel } from '../github/issueModel';
-import { IMilestone } from '../github/interface';
-import { MilestoneModel } from '../github/milestoneModel';
-import { PullRequestDefaults } from '../github/folderRepositoryManager';
-import { RepositoriesManager } from '../github/repositoriesManager';
 
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {

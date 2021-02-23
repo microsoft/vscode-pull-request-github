@@ -6,24 +6,24 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {
-	GithubItemStateEnum,
-	ReviewEvent,
-	ReviewState,
-	IAccount,
-	MergeMethodsAvailability,
-	MergeMethod,
-	ISuggestedReviewer,
-} from './interface';
-import { formatError } from '../common/utils';
+import { onDidUpdatePR } from '../commands';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { PullRequestModel } from './pullRequestModel';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { IssueOverviewPanel } from './issueOverview';
-import { onDidUpdatePR } from '../commands';
+import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import {
+	GithubItemStateEnum,
+	IAccount,
+	ISuggestedReviewer,
+	MergeMethod,
+	MergeMethodsAvailability,
+	ReviewEvent,
+	ReviewState,
+} from './interface';
+import { IssueOverviewPanel } from './issueOverview';
+import { PullRequestModel } from './pullRequestModel';
 import { parseReviewers } from './utils';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {

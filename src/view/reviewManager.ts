@@ -5,29 +5,29 @@
 
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
-import { parseDiff, parsePatch, DiffChangeType, DiffHunk } from '../common/diffHunk';
-import { toReviewUri, fromReviewUri } from '../common/uri';
-import { groupBy, formatError } from '../common/utils';
-import { IComment } from '../common/comment';
-import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import type { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
-import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
-import { GitFileChangeNode, RemoteFileChangeNode, gitFileChangeNodeFilter } from './treeNodes/fileChangeNode';
-import Logger from '../common/logger';
-import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { RemoteQuickPickItem } from './quickpick';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
-import { PullRequestModel, IResolvedPullRequestModel } from '../github/pullRequestModel';
-import { ReviewCommentController } from './reviewCommentController';
-import { ITelemetry } from '../common/telemetry';
-import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
-import { PullRequestViewProvider } from '../github/activityBarViewProvider';
-import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
-import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { openDescription } from '../commands';
-import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
+import { IComment } from '../common/comment';
+import { DiffChangeType, DiffHunk, parseDiff, parsePatch } from '../common/diffHunk';
+import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
+import Logger from '../common/logger';
+import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { fromReviewUri, toReviewUri } from '../common/uri';
+import { formatError, groupBy } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
+import { PullRequestViewProvider } from '../github/activityBarViewProvider';
+import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
+import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
+import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
+import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
+import { CreatePullRequestHelper } from './createPullRequestHelper';
+import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
+import { RemoteQuickPickItem } from './quickpick';
+import { ReviewCommentController } from './reviewCommentController';
+import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export class ReviewManager {
 	public static ID = 'Review';

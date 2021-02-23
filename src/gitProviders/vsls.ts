@@ -5,9 +5,9 @@
 
 import * as vscode from 'vscode';
 import { LiveShare } from 'vsls/vscode.js';
+import { API } from '../api/api';
 import { VSLSGuest } from './vslsguest';
 import { VSLSHost } from './vslshost';
-import { API } from '../api/api';
 
 /**
  * Should be removed once we fix the webpack bundling issue.

@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
-import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
+import { GitApiImpl } from '../api/api1';
 import { ITelemetry } from '../common/telemetry';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ReviewManager } from './reviewManager';
 import { GitContentProvider } from './gitContentProvider';
-import { GitApiImpl } from '../api/api1';
+import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
+import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
+import { ReviewManager } from './reviewManager';
 
 export class ReviewsManager {
 	public static ID = 'Reviews';

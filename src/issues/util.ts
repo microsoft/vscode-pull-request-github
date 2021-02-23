@@ -3,22 +3,22 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { URLSearchParams } from 'url';
+import LRUCache from 'lru-cache';
 import * as marked from 'marked';
 import * as vscode from 'vscode';
-import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
-import { IssueModel } from '../github/issueModel';
-import { GithubItemStateEnum, User } from '../github/interface';
-import { PullRequestModel } from '../github/pullRequestModel';
-import { StateManager } from './stateManager';
-import { ReviewManager } from '../view/reviewManager';
-import { Protocol } from '../common/protocol';
-import { getRepositoryForFile } from '../github/utils';
+import { Commit, Ref, Remote, Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
-import { Repository, Commit, Remote, Ref } from '../api/api';
-import LRUCache from 'lru-cache';
+import { Protocol } from '../common/protocol';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { GithubItemStateEnum, User } from '../github/interface';
+import { IssueModel } from '../github/issueModel';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { getRepositoryForFile } from '../github/utils';
+import { ReviewManager } from '../view/reviewManager';
 import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
-import { URLSearchParams } from 'url';
+import { StateManager } from './stateManager';
 
 export const ISSUE_EXPRESSION = /(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([^\s]+)\/([^\s]+))?(#|GH-)([1-9][0-9]*)($|\b)/;

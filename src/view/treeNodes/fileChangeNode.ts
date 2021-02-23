@@ -3,17 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
-import { GitChangeType } from '../../common/file';
-import { TreeNode } from './treeNode';
+import * as vscode from 'vscode';
 import { IComment } from '../../common/comment';
+import { DiffChangeType, DiffHunk } from '../../common/diffHunk';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
-import { toResourceUri, asImageDataURI, EMPTY_IMAGE_URI, ReviewUriParams, fromReviewUri } from '../../common/uri';
+import { GitChangeType } from '../../common/file';
+import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { DecorationProvider } from '../treeDecorationProvider';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { TreeNode } from './treeNode';
 
 export function openFileCommand(uri: vscode.Uri): vscode.Command {
 	const activeTextEditor = vscode.window.activeTextEditor;

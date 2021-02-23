@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { userMarkdown, USER_EXPRESSION, shouldShowHover } from './util';
 import { ITelemetry } from '../common/telemetry';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { shouldShowHover, USER_EXPRESSION, userMarkdown } from './util';
 
 export class UserHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: RepositoriesManager, private telemetry: ITelemetry) {}

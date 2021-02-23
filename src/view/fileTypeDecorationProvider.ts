@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
 import { GitChangeType } from '../common/file';
+import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
 
 export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[];

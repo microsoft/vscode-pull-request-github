@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as vscode from 'vscode';
 import * as pathLib from 'path';
+import * as vscode from 'vscode';
+import { GitApiImpl } from '../api/api1';
 import { fromReviewUri } from '../common/uri';
 import { getRepositoryForFile } from '../github/utils';
-import { GitApiImpl } from '../api/api1';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();

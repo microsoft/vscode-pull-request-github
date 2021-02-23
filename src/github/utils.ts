@@ -5,30 +5,30 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import {
-	IAccount,
-	PullRequest,
-	IGitHubRef,
-	PullRequestMergeability,
-	ISuggestedReviewer,
-	IMilestone,
-	User,
-	Issue,
-	ReviewState,
-	ILabel,
-} from './interface';
+import { Repository } from '../api/api';
+import { GitApiImpl } from '../api/api1';
 import { IComment, Reaction } from '../common/comment';
-import { parseDiffHunk, DiffHunk } from '../common/diffHunk';
-import * as Common from '../common/timelineEvent';
-import * as GraphQL from './graphql';
+import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { Resource } from '../common/resources';
+import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
-import { GitHubRepository, ViewerPermission } from './githubRepository';
-import { GHPRCommentThread, GHPRComment } from './prComment';
 import { ThreadData } from '../view/treeNodes/pullRequestNode';
 import { OctokitCommon } from './common';
-import { GitApiImpl } from '../api/api1';
-import { Repository } from '../api/api';
+import { GitHubRepository, ViewerPermission } from './githubRepository';
+import * as GraphQL from './graphql';
+import {
+	IAccount,
+	IGitHubRef,
+	ILabel,
+	IMilestone,
+	Issue,
+	ISuggestedReviewer,
+	PullRequest,
+	PullRequestMergeability,
+	ReviewState,
+	User,
+} from './interface';
+import { GHPRComment, GHPRCommentThread } from './prComment';
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;

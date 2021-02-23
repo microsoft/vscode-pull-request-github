@@ -1,9 +1,9 @@
-import * as React from 'react';
 import { default as assert } from 'assert';
-import { render, cleanup } from 'react-testing-library';
-import { SinonSandbox, createSandbox } from 'sinon';
+import * as React from 'react';
+import { cleanup, render } from 'react-testing-library';
+import { createSandbox, SinonSandbox } from 'sinon';
 
-import { default as PullRequestContext, PRContext } from '../../common/context';
+import { PRContext, default as PullRequestContext } from '../../common/context';
 import { Root } from '../app';
 import { PullRequestBuilder } from './builder/pullRequest';
 

@@ -5,10 +5,10 @@
 
 import * as vscode from 'vscode';
 import { User } from '../github/interface';
-import { userMarkdown, ISSUES_CONFIGURATION, UserCompletion, isComment, getRootUriFromScmInputUri } from './util';
-import { StateManager } from './stateManager';
-import { NEW_ISSUE_SCHEME, extractIssueOriginFromQuery } from './issueFile';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
+import { StateManager } from './stateManager';
+import { getRootUriFromScmInputUri, isComment, ISSUES_CONFIGURATION, UserCompletion, userMarkdown } from './util';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	constructor(

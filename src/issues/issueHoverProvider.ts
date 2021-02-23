@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ITelemetry } from '../common/telemetry';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { StateManager } from './stateManager';
 import {
 	getIssue,
 	ISSUE_OR_URL_EXPRESSION,
+	issueMarkdown,
 	ParsedIssue,
 	parseIssueExpressionOutput,
-	issueMarkdown,
 	shouldShowHover,
 } from './util';
-import { StateManager } from './stateManager';
-import { ITelemetry } from '../common/telemetry';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 
 export class IssueHoverProvider implements vscode.HoverProvider {
 	constructor(

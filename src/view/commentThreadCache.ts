@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { GHPRCommentThread } from '../github/prComment';
 import * as vscode from 'vscode';
+import { GHPRCommentThread } from '../github/prComment';
 
 export class CommentThreadCache {
 	private _data: { [key: string]: { original?: GHPRCommentThread[]; modified?: GHPRCommentThread[] } } = {};

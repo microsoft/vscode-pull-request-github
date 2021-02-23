@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { API, IGit, Repository } from './api';
-import { TernarySearchTree } from '../common/utils';
 import { APIState, PublishEvent } from '../@types/git';
+import { TernarySearchTree } from '../common/utils';
+import { API, IGit, Repository } from './api';
 
 export const enum RefType {
 	Head,

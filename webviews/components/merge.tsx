@@ -3,16 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import React, { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import { groupBy } from '../../src/common/utils';
+import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
-import React, { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
-import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
-import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
-import { Avatar } from './user';
-import { nbsp } from './space';
-import { groupBy } from '../../src/common/utils';
 import { Reviewer } from '../components/reviewer';
 import { Dropdown } from './dropdown';
+import { alertIcon, checkIcon, deleteIcon, pendingIcon } from './icon';
+import { nbsp } from './space';
+import { Avatar } from './user';
 
 export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	if (pr.isIssue) {

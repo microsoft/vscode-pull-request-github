@@ -4,6 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import type { Branch } from '../api/api';
+import { RefType } from '../api/api1';
+import Logger from '../common/logger';
+import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { OctokitCommon } from './common';
 import {
 	byRemoteName,
 	DetachedHeadError,
@@ -11,13 +16,8 @@ import {
 	PullRequestDefaults,
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
-import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
-import { OctokitCommon } from './common';
-import { PullRequestModel } from './pullRequestModel';
-import Logger from '../common/logger';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
-import type { Branch } from '../api/api';
-import { RefType } from '../api/api1';
+import { PullRequestModel } from './pullRequestModel';
 
 interface RemoteInfo {
 	owner: string;

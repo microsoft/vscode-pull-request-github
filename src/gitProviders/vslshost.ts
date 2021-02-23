@@ -5,13 +5,14 @@
 
 import * as vscode from 'vscode';
 import { LiveShare, SharedService } from 'vsls/vscode.js';
+import { API } from '../api/api';
 import {
 	VSLS_GIT_PR_SESSION_NAME,
-	VSLS_REQUEST_NAME,
 	VSLS_REPOSITORY_INITIALIZATION_NAME,
+	VSLS_REQUEST_NAME,
 	VSLS_STATE_CHANGE_NOFITY_NAME,
 } from '../constants';
-import { API } from '../api/api';
+
 export class VSLSHost implements vscode.Disposable {
 	private _sharedService?: SharedService;
 	private _disposables: vscode.Disposable[];

@@ -5,12 +5,12 @@
 
 import * as React from 'react';
 import { PullRequest } from '../common/cache';
-import { Header } from '../components/header';
 
 import { AddComment, CommentView } from '../components/comment';
-import { Timeline } from '../components/timeline';
+import { Header } from '../components/header';
 import { StatusChecks } from '../components/merge';
 import Sidebar from '../components/sidebar';
+import { Timeline } from '../components/timeline';
 
 export const Overview = (pr: PullRequest) => (
 	<>

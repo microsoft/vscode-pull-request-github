@@ -1,7 +1,7 @@
-import { parse as parseConfig } from 'ssh-config';
 import { readFileSync } from 'fs';
-import { join } from 'path';
 import { homedir } from 'os';
+import { join } from 'path';
+import { parse as parseConfig } from 'ssh-config';
 import Logger from '../../common/logger';
 
 const SSH_URL_RE = /^(?:([^@:]+)@)?([^:/]+):?(.+)$/;

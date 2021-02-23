@@ -3,33 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
+import * as vscode from 'vscode';
+import { IComment } from '../common/comment';
+import { parseDiff } from '../common/diffHunk';
+import { GitChangeType } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
+import Logger from '../common/logger';
 import { Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { ReviewEvent as CommonReviewEvent, isReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { toPRUri, toReviewUri } from '../common/uri';
+import { formatError } from '../common/utils';
+import { OctokitCommon } from './common';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
-import {
-	PullRequest,
-	GithubItemStateEnum,
-	ISuggestedReviewer,
-	PullRequestChecks,
-	IAccount,
-	IRawFileChange,
-	PullRequestMergeability,
-	ReviewEvent,
-} from './interface';
-import { IssueModel } from './issueModel';
-import { isReviewEvent, ReviewEvent as CommonReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import {
-	convertPullRequestsGetCommentsResponseItemToComment,
-	convertRESTPullRequestToRawPullRequest,
-	convertRESTReviewEvent,
-	convertRESTUserToAccount,
-	parseGraphQLComment,
-	parseGraphQLReviewEvent,
-	parseGraphQLTimelineEvents,
-	parseMergeability,
-} from './utils';
 import {
 	AddCommentResponse,
 	DeleteReviewResponse,
@@ -44,15 +32,27 @@ import {
 	SubmitReviewResponse,
 	TimelineEventsResponse,
 } from './graphql';
-import Logger from '../common/logger';
-import { IComment } from '../common/comment';
-import { formatError } from '../common/utils';
-import { ITelemetry } from '../common/telemetry';
-import { toPRUri, toReviewUri } from '../common/uri';
-import { parseDiff } from '../common/diffHunk';
-import { GitChangeType } from '../common/file';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { OctokitCommon } from './common';
+import {
+	GithubItemStateEnum,
+	IAccount,
+	IRawFileChange,
+	ISuggestedReviewer,
+	PullRequest,
+	PullRequestChecks,
+	PullRequestMergeability,
+	ReviewEvent,
+} from './interface';
+import { IssueModel } from './issueModel';
+import {
+	convertPullRequestsGetCommentsResponseItemToComment,
+	convertRESTPullRequestToRawPullRequest,
+	convertRESTReviewEvent,
+	convertRESTUserToAccount,
+	parseGraphQLComment,
+	parseGraphQLReviewEvent,
+	parseGraphQLTimelineEvents,
+	parseMergeability,
+} from './utils';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
