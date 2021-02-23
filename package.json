@@ -379,19 +379,19 @@
           "id": "github:login",
           "name": "Login",
           "when": "ReposManagerStateContext == NeedsAuthentication",
-          "icon": "resources/icons/pull-request.png"
+          "icon": "$(git-pull-request)"
         },
         {
           "id": "pr:github",
           "name": "Pull Requests",
           "when": "ReposManagerStateContext != NeedsAuthentication",
-          "icon": "resources/icons/pull-request.png"
+          "icon": "$(git-pull-request)"
         },
         {
           "id": "issues:github",
           "name": "Issues",
           "when": "ReposManagerStateContext != NeedsAuthentication",
-          "icon": "resources/icons/issues.png"
+          "icon": "$(issues)"
         }
       ],
       "github-pull-request": [
@@ -412,7 +412,7 @@
           "id": "prStatus:github",
           "name": "Changes In Pull Request",
           "when": "github:inReviewMode",
-          "icon": "resources/icons/pull-request.png",
+          "icon": "$(git-pull-request)",
           "visibility": "visible"
         },
         {
