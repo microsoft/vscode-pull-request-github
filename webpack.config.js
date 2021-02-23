@@ -71,6 +71,7 @@ async function getWebviewConfig(mode, env, entry) {
 
 	return {
 		name: 'webviews',
+		context: basePath,
 		entry: entry,
 		mode: mode,
 		target: 'web',
@@ -78,6 +79,7 @@ async function getWebviewConfig(mode, env, entry) {
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist'),
+			publicPath: path.join(__dirname, 'dist'),
 		},
 		optimization: {
 			minimizer: [
@@ -359,9 +361,9 @@ module.exports =
 			getExtensionConfig('node', mode, env),
 			getExtensionConfig('webworker', mode, env),
 			getWebviewConfig(mode, env, {
-				'webview-pr-description': './webviews/editorWebview/index.ts',
-				'webview-open-pr-view': './webviews/activityBarView/index.ts',
-				'webview-create-pr-view': './webviews/createPullRequestView/index.ts',
+				'webview-pr-description': './editorWebview/index.ts',
+				'webview-open-pr-view': './activityBarView/index.ts',
+				'webview-create-pr-view': './createPullRequestView/index.ts',
 			}),
 		]);
 	};
