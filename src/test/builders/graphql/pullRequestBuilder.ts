@@ -4,7 +4,7 @@ import { PullRequestResponse, Ref } from '../../../github/graphql';
 import { RateLimitBuilder } from './rateLimitBuilder';
 
 const RefBuilder = createBuilderClass<Ref>()({
-	name: { default: 'master' },
+	name: { default: 'main' },
 	repository: createLink<Ref['repository']>()({
 		owner: createLink<Ref['repository']['owner']>()({
 			login: { default: 'me' },

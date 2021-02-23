@@ -82,7 +82,7 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 	stargazers_count: { default: 80 },
 	watchers_count: { default: 80 },
 	size: { default: 108 },
-	default_branch: { default: 'master' },
+	default_branch: { default: 'main' },
 	open_issues_count: { default: 0 },
 	topics: { default: [] },
 	has_issues: { default: true },
