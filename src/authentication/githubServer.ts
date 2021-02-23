@@ -32,7 +32,12 @@ export class GitHubManager {
 		}
 	}
 
-	public static async getOptions(hostUri: vscode.Uri, method: string = 'GET', path: string, token?: string): Promise<[vscode.Uri, RequestInit]> {
+	public static async getOptions(
+		hostUri: vscode.Uri,
+		method: string = 'GET',
+		path: string,
+		token?: string,
+	): Promise<[vscode.Uri, RequestInit]> {
 		const headers: {
 			'user-agent': string;
 			authorization?: string;
@@ -53,7 +58,7 @@ export class GitHubManager {
 				method,
 				headers,
 				agent,
-			}
+			},
 		];
 	}
 }

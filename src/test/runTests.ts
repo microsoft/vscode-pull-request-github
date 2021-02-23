@@ -14,9 +14,7 @@ async function go() {
 			version: 'insiders',
 			extensionDevelopmentPath,
 			extensionTestsPath,
-			launchArgs: [
-				'--disable-extensions'
-			]
+			launchArgs: ['--disable-extensions'],
 		});
 	} catch (e) {
 		console.log(e);

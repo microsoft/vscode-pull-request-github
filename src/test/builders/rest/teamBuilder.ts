@@ -15,7 +15,7 @@ export const TeamBuilder = createBuilderClass<TeamUnion>()({
 	members_url: { default: 'https://api.github.com/teams/1/members{/member}' },
 	repositories_url: { default: 'https://api.github.com/teams/1/repos' },
 	html_url: { default: 'https://api.github.com/teams/1' },
-	ldap_dn: { default: '' }
+	ldap_dn: { default: '' },
 });
 
 export type TeamBuilder = InstanceType<typeof TeamBuilder>;

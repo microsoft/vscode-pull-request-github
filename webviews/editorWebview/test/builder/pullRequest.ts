@@ -33,5 +33,5 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isDraft: { default: false },
 	isIssue: { default: false },
 	assignees: { default: [] },
-	milestone: { default: undefined }
+	milestone: { default: undefined },
 });

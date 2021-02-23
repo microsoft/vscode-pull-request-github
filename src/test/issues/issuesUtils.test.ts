@@ -49,10 +49,10 @@ describe('Issues utilities', function () {
 		[
 			{ input: 'Issue', expected: 'Issue' },
 			{ input: 'Issue A', expected: 'Issue-A' },
-			{ input: 'Issue \ A', expected: 'Issue-A' },
+			{ input: 'Issue  A', expected: 'Issue-A' },
 			{ input: 'Issue     A', expected: 'Issue-A' },
 			{ input: 'Issue @ A', expected: 'Issue-A' },
-			{ input: 'Issue \'A\'', expected: 'Issue-A' },
+			{ input: "Issue 'A'", expected: 'Issue-A' },
 			{ input: 'Issue "A"', expected: 'Issue-A' },
 			{ input: '@Issue "A"', expected: 'Issue-A' },
 			{ input: 'Issue "A"%', expected: 'Issue-A' },
@@ -62,8 +62,7 @@ describe('Issues utilities', function () {
 			{ input: 'Issue ;A', expected: 'Issue-A' },
 			{ input: 'Issue ~A', expected: 'Issue-A' },
 			{ input: 'Issue #A', expected: 'Issue-A' },
-		]
-		.forEach((testCase) => {
+		].forEach(testCase => {
 			it(`Transforms '${testCase.input}' into '${testCase.expected}'`, () => {
 				const actual = sanitizeIssueTitle(testCase.input);
 				assert.equal(actual, testCase.expected);

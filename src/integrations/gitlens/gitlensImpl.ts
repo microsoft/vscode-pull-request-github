@@ -32,15 +32,19 @@ export class GitLensIntegration implements Disposable {
 						return;
 					}
 
-					commands.executeCommand('pr.create', { repoPath: context.repoPath, compareBranch: context.branch.name });
-				}
-			})
+					commands.executeCommand('pr.create', {
+						repoPath: context.repoPath,
+						compareBranch: context.branch.name,
+					});
+				},
+			}),
 		);
 	}
 
 	private async onExtensionsChanged() {
-		const extension = extensions.getExtension<Promise<GitLensApi>>('eamodio.gitlens') ??
-		extensions.getExtension<Promise<GitLensApi>>('eamodio.gitlens-insiders');
+		const extension =
+			extensions.getExtension<Promise<GitLensApi>>('eamodio.gitlens') ??
+			extensions.getExtension<Promise<GitLensApi>>('eamodio.gitlens-insiders');
 		if (extension) {
 			this._extensionsDisposable.dispose();
 

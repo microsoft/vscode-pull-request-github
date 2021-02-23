@@ -2,15 +2,15 @@ import { createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
 
 type UserUnion =
-	OctokitCommon.PullsListResponseItemUser |
-	OctokitCommon.PullsListResponseItemAssignee |
-	OctokitCommon.PullsListResponseItemAssigneesItem |
-	OctokitCommon.PullsListResponseItemRequestedReviewersItem |
-	OctokitCommon.PullsListResponseItemBaseUser |
-	OctokitCommon.PullsListResponseItemBaseRepoOwner |
-	OctokitCommon.PullsListResponseItemHeadUser |
-	OctokitCommon.PullsListResponseItemHeadRepoOwner |
-	OctokitCommon.IssuesListEventsForTimelineResponseItemActor;
+	| OctokitCommon.PullsListResponseItemUser
+	| OctokitCommon.PullsListResponseItemAssignee
+	| OctokitCommon.PullsListResponseItemAssigneesItem
+	| OctokitCommon.PullsListResponseItemRequestedReviewersItem
+	| OctokitCommon.PullsListResponseItemBaseUser
+	| OctokitCommon.PullsListResponseItemBaseRepoOwner
+	| OctokitCommon.PullsListResponseItemHeadUser
+	| OctokitCommon.PullsListResponseItemHeadRepoOwner
+	| OctokitCommon.IssuesListEventsForTimelineResponseItemActor;
 
 export const UserBuilder = createBuilderClass<Required<UserUnion>>()({
 	id: { default: 0 },

@@ -3,6 +3,7 @@
 > Review and manage your GitHub pull requests and issues directly in VS Code
 
 This extension allows you to review and manage GitHub pull requests and issues in Visual Studio Code. The support includes:
+
 - Authenticating and connecting VS Code to GitHub. **Note**: GitHub Enterprise is not supported
 - Listing and browsing PRs from within VS Code.
 - Reviewing PRs from within VS Code with in-editor commenting.
@@ -19,6 +20,7 @@ This extension allows you to review and manage GitHub pull requests and issues i
 ![Issue Demo](.readme/issueDemo.gif)
 
 # Getting Started
+
 It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simply follow these steps to get started.
 
 1. Install the extension from within VS Code or download it from [the marketplace](https://aka.ms/vscodepr-download).
@@ -29,6 +31,7 @@ It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simpl
 1. You should be good to go!
 
 # Configuring the extension
+
 There are several settings that can be used to configure the extension.
 
 As mentioned above, `githubPullRequests.remotes` is used to specify what remotes the extension should try to fetch pull requests from.
@@ -63,6 +66,7 @@ Queries use [GitHub search syntax](https://help.github.com/en/articles/understan
 To view additional settings for the extension, you can open VS Code settings and search for "github pull requests".
 
 # Issues
+
 This extension is still in development, so please refer to our [issue tracker for known issues](https://github.com/Microsoft/vscode-pull-request-github/issues), and please contribute with additional information if you encounter an issue yourself.
 
 ## Questions? Authentication? GitHub Enterprise?
@@ -74,7 +78,8 @@ See our [wiki](https://github.com/Microsoft/vscode-pull-request-github/wiki) for
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/Microsoft/vscode-pull-request-github.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Microsoft/vscode-pull-request-github/alerts/)
 
 If you're interested in contributing, or want to explore the source code of this extension yourself, see our [contributing guide](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing), which includes:
- - [How to Build and Run](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#build-and-run)
- - [Architecture](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#architecture)
- - [Making Pull Requests](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#pull-requests)
- - [Code of Conduct](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#code-of-conduct)
+
+- [How to Build and Run](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#build-and-run)
+- [Architecture](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#architecture)
+- [Making Pull Requests](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#pull-requests)
+- [Code of Conduct](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#code-of-conduct)

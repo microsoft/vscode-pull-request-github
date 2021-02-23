@@ -18,7 +18,7 @@ function repoResponseAsRemoteSource(raw: OctokitCommon.SearchReposResponseItem):
 	return {
 		name: `$(github) ${raw.full_name}`,
 		description: raw.description || undefined,
-		url: raw.url
+		url: raw.url,
 	};
 }
 
@@ -26,19 +26,18 @@ function asRemoteSource(raw: Repository): RemoteSource {
 	return {
 		name: `$(github) ${raw.full_name}`,
 		description: raw.description || undefined,
-		url: raw.clone_url
+		url: raw.clone_url,
 	};
 }
 
 export class GithubRemoteSourceProvider implements RemoteSourceProvider {
-
 	readonly name = 'GitHub';
 	readonly icon = 'github';
 	readonly supportsQuery = true;
 
 	private userReposCache: RemoteSource[] = [];
 
-	constructor(private readonly credentialStore: CredentialStore) { }
+	constructor(private readonly credentialStore: CredentialStore) {}
 
 	async getRemoteSources(query?: string): Promise<RemoteSource[]> {
 		const hub = await this.credentialStore.getHubOrLogin();
@@ -49,15 +48,12 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 		const [fromUser, fromQuery] = await Promise.all([
 			this.getUserRemoteSources(hub, query),
-			this.getQueryRemoteSources(hub, query)
+			this.getQueryRemoteSources(hub, query),
 		]);
 
 		const userRepos = new Set(fromUser.map(r => r.name));
 
-		return [
-			...fromUser,
-			...fromQuery.filter(r => !userRepos.has(r.name))
-		];
+		return [...fromUser, ...fromQuery.filter(r => !userRepos.has(r.name))];
 	}
 
 	private async getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {

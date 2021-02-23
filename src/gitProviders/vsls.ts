@@ -18,8 +18,7 @@ async function getVSLSApi() {
 		// The extension is not installed.
 		return null;
 	}
-	const extensionApi = liveshareExtension.isActive ?
-		liveshareExtension.exports : await liveshareExtension.activate();
+	const extensionApi = liveshareExtension.isActive ? liveshareExtension.exports : await liveshareExtension.activate();
 	if (!extensionApi) {
 		// The extensibility API is not enabled.
 		return null;
@@ -39,9 +38,7 @@ export class LiveShareManager implements vscode.Disposable {
 	private _localDisposables: vscode.Disposable[];
 	private _globalDisposables: vscode.Disposable[];
 
-	constructor(
-		private _api: API
-	) {
+	constructor(private _api: API) {
 		this._localDisposables = [];
 		this._globalDisposables = [];
 	}
@@ -58,7 +55,9 @@ export class LiveShareManager implements vscode.Disposable {
 			return;
 		}
 
-		this._globalDisposables.push(this._liveShareAPI.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
+		this._globalDisposables.push(
+			this._liveShareAPI.onDidChangeSession(e => this._onDidChangeSession(e.session), this),
+		);
 		if (this._liveShareAPI!.session) {
 			this._onDidChangeSession(this._liveShareAPI!.session);
 		}

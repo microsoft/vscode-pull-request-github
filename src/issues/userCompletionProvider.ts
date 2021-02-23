@@ -11,21 +11,40 @@ import { NEW_ISSUE_SCHEME, extractIssueOriginFromQuery } from './issueFile';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
-	constructor(private stateManager: StateManager, private manager: RepositoriesManager, context: vscode.ExtensionContext) {
-	}
+	constructor(
+		private stateManager: StateManager,
+		private manager: RepositoriesManager,
+		context: vscode.ExtensionContext,
+	) {}
 
-	async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): Promise<vscode.CompletionItem[]> {
+	async provideCompletionItems(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+		token: vscode.CancellationToken,
+		context: vscode.CompletionContext,
+	): Promise<vscode.CompletionItem[]> {
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
-		if ((document.languageId !== 'scminput') && (document.uri.scheme !== NEW_ISSUE_SCHEME) && (position.character > 0) && (context.triggerKind === vscode.CompletionTriggerKind.Invoke) && (document.getText(new vscode.Range(position.with(undefined, position.character - 1), position)) !== '@')) {
+		if (
+			document.languageId !== 'scminput' &&
+			document.uri.scheme !== NEW_ISSUE_SCHEME &&
+			position.character > 0 &&
+			context.triggerKind === vscode.CompletionTriggerKind.Invoke &&
+			document.getText(new vscode.Range(position.with(undefined, position.character - 1), position)) !== '@'
+		) {
 			return [];
 		}
 
-		if ((context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter) &&
-			(vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string[]>('ignoreUserCompletionTrigger', [])).find(value => value === document.languageId)) {
+		if (
+			context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter &&
+			vscode.workspace
+				.getConfiguration(ISSUES_CONFIGURATION)
+				.get<string[]>('ignoreUserCompletionTrigger', [])
+				.find(value => value === document.languageId)
+		) {
 			return [];
 		}
 
-		if ((document.languageId !== 'scminput') && !(await isComment(document, position))) {
+		if (document.languageId !== 'scminput' && !(await isComment(document, position))) {
 			return [];
 		}
 
@@ -36,8 +55,12 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 				range = new vscode.Range(position.translate(0, -1), position);
 			}
 		}
-		const uri = document.uri.scheme === NEW_ISSUE_SCHEME ? (extractIssueOriginFromQuery(document.uri) ?? document.uri) :
-			(document.languageId === 'scminput' ? getRootUriFromScmInputUri(document.uri) : document.uri);
+		const uri =
+			document.uri.scheme === NEW_ISSUE_SCHEME
+				? extractIssueOriginFromQuery(document.uri) ?? document.uri
+				: document.languageId === 'scminput'
+				? getRootUriFromScmInputUri(document.uri)
+				: document.uri;
 		if (!uri) {
 			return [];
 		}
@@ -70,7 +93,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			item.documentation = userMarkdown(repo, user);
 			item.command = {
 				command: 'issues.userCompletion',
-				title: 'User Completion Chosen'
+				title: 'User Completion Chosen',
 			};
 		}
 		return item;

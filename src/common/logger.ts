@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 const enum LogLevel {
 	Info,
 	Debug,
-	Off
+	Off,
 }
 
 const SETTINGS_NAMESPACE = 'githubPullRequests';
@@ -27,7 +27,7 @@ class Log {
 			case LogLevel.Off:
 				return;
 			case LogLevel.Debug:
-				const hrtime = new Date().getTime()/1000;
+				const hrtime = new Date().getTime() / 1000;
 				const timeStamp = `${hrtime}s`;
 				const info = component ? `${component}> ${message}` : `${message}`;
 				this._outputChannel.appendLine(`[Debug ${timeStamp}] ${info}`);

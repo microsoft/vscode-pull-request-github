@@ -22,7 +22,12 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 
-	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, uri: vscode.Uri, private folderManager: FolderRepositoryManager, private telemetry: ITelemetry) {
+	constructor(
+		parent: TreeNode | vscode.TreeView<TreeNode>,
+		uri: vscode.Uri,
+		private folderManager: FolderRepositoryManager,
+		private telemetry: ITelemetry,
+	) {
 		super();
 		this.parent = parent;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
@@ -30,7 +35,11 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	private static getQueries(folderManager: FolderRepositoryManager): IQueryInfo[] {
-		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE, folderManager.repository.rootUri).get<IQueryInfo[]>(QUERIES_SETTING) || [];
+		return (
+			vscode.workspace
+				.getConfiguration(SETTINGS_NAMESPACE, folderManager.repository.rootUri)
+				.get<IQueryInfo[]>(QUERIES_SETTING) || []
+		);
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -41,12 +50,19 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		return WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this);
 	}
 
-	public static getCategoryTreeNodes(folderManager: FolderRepositoryManager, telemetry: ITelemetry, parent: TreeNode | vscode.TreeView<TreeNode>) {
-		const queryCategories = WorkspaceFolderNode.getQueries(folderManager).map(queryInfo => new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, queryInfo.label, queryInfo.query));
+	public static getCategoryTreeNodes(
+		folderManager: FolderRepositoryManager,
+		telemetry: ITelemetry,
+		parent: TreeNode | vscode.TreeView<TreeNode>,
+	) {
+		const queryCategories = WorkspaceFolderNode.getQueries(folderManager).map(
+			queryInfo =>
+				new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, queryInfo.label, queryInfo.query),
+		);
 		return [
 			new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest),
 			...queryCategories,
-			new CategoryTreeNode(parent, folderManager, telemetry, PRType.All)
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.All),
 		];
 	}
 }

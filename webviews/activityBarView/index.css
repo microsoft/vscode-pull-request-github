@@ -17,9 +17,9 @@ textarea {
 	padding: 10px 0;
 }
 
-.icon svg{
+.icon svg {
 	margin-right: 6px;
-	width: 16px
+	width: 16px;
 }
 
 #status-checks {
@@ -43,11 +43,13 @@ textarea {
 	width: 100%;
 }
 
-.ready-for-review-container, .select-control {
+.ready-for-review-container,
+.select-control {
 	padding-bottom: 10px;
 }
 
-.select-control, form {
+.select-control,
+form {
 	display: flex;
 	margin: auto;
 	max-width: 260px;
@@ -62,7 +64,8 @@ textarea {
 	flex-grow: 2;
 }
 
-.select-control form input, form button {
+.select-control form input,
+form button {
 	width: 100%;
 }
 
@@ -70,11 +73,13 @@ textarea {
 	fill: var(--vscode-button-foreground);
 }
 
-button:focus, input[type=submit]:focus {
+button:focus,
+input[type='submit']:focus {
 	outline-offset: -1px;
 }
 
-.select-control button, input[type=submit] {
+.select-control button,
+input[type='submit'] {
 	min-height: 31px;
 	white-space: normal;
 }
@@ -87,7 +92,7 @@ button .icon svg {
 	margin-right: 0;
 }
 
-.options-select  {
+.options-select {
 	display: flex;
 	flex-direction: column;
 	width: inherit;
@@ -102,7 +107,8 @@ button .icon svg {
 	text-align: start;
 }
 
-.options-select button:hover, .options-select button:focus {
+.options-select button:hover,
+.options-select button:focus {
 	color: var(--vscode-button-foreground);
 }
 

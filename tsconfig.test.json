@@ -5,5 +5,5 @@
 		"module": "commonjs",
 		"outDir": "out",
 		"tsBuildInfoFile": "tsconfig.test.tsbuildinfo"
-	},
+	}
 }

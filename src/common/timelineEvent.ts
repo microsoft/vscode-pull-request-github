@@ -17,7 +17,7 @@ export enum EventType {
 	Assigned,
 	HeadRefDeleted,
 	Merged,
-	Other
+	Other,
 }
 
 export interface Committer {

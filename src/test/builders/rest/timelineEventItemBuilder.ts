@@ -9,7 +9,9 @@ export const TimelineEventItemBuilder = createBuilderClass<OctokitCommon.IssuesL
 	actor: { linked: UserBuilder },
 	event: { default: 'closed' },
 	commit_id: { default: '0000000000000000000000000000000000000000' },
-	commit_url: { default: 'https://api.github.com/repos/octocat/Hello-World/commits/0000000000000000000000000000000000000000' },
+	commit_url: {
+		default: 'https://api.github.com/repos/octocat/Hello-World/commits/0000000000000000000000000000000000000000',
+	},
 	created_at: { default: '2019-01-01T10:00:00Z' },
 	sha: { default: '00000000000000000000000000000000' },
 	author_association: { default: 'COLLABORATOR' },
@@ -23,7 +25,7 @@ export const TimelineEventItemBuilder = createBuilderClass<OctokitCommon.IssuesL
 	pull_request_url: { default: 'https://github.com/octocat/pulls/1' },
 	state: { default: '' },
 	submitted_at: { default: '' },
-	updated_at: { default: ''}
+	updated_at: { default: '' },
 });
 
 export type TimelineEventItemBuilder = InstanceType<typeof TimelineEventItemBuilder>;

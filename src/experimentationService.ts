@@ -6,7 +6,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import TelemetryReporter from 'vscode-extension-telemetry';
-import { getExperimentationService, IExperimentationService, IExperimentationTelemetry, TargetPopulation } from 'vscode-tas-client';
+import {
+	getExperimentationService,
+	IExperimentationService,
+	IExperimentationTelemetry,
+	TargetPopulation,
+} from 'vscode-tas-client';
 
 /* __GDPR__
 	"query-expfeature" : {
@@ -35,22 +40,29 @@ async function getPackageConfig(packageFolder: string): Promise<PackageConfigura
 }
 
 export class ExperimentationTelemetry implements IExperimentationTelemetry {
-
 	private sharedProperties: Record<string, string> = {};
 
-	constructor(private baseReporter: TelemetryReporter) { }
+	constructor(private baseReporter: TelemetryReporter) {}
 
 	sendTelemetryEvent(eventName: string, properties?: Record<string, string>, measurements?: Record<string, number>) {
-		this.baseReporter.sendTelemetryEvent(eventName, {
-			...this.sharedProperties,
-			...properties
-		}, measurements);
+		this.baseReporter.sendTelemetryEvent(
+			eventName,
+			{
+				...this.sharedProperties,
+				...properties,
+			},
+			measurements,
+		);
 	}
 
-	sendTelemetryErrorEvent(eventName: string, properties?: Record<string, string>, measurements?: Record<string, number>) {
+	sendTelemetryErrorEvent(
+		eventName: string,
+		properties?: Record<string, string>,
+		measurements?: Record<string, number>,
+	) {
 		this.baseReporter.sendTelemetryErrorEvent(eventName, {
 			...this.sharedProperties,
-			...properties
+			...properties,
 		});
 	}
 
@@ -73,11 +85,16 @@ export class ExperimentationTelemetry implements IExperimentationTelemetry {
 
 function getTargetPopulation(product: ProductConfiguration): TargetPopulation {
 	switch (product.quality) {
-		case 'stable': return TargetPopulation.Public;
-		case 'insider': return TargetPopulation.Insiders;
-		case 'exploration': return TargetPopulation.Internal;
-		case undefined: return TargetPopulation.Team;
-		default: return TargetPopulation.Public;
+		case 'stable':
+			return TargetPopulation.Public;
+		case 'insider':
+			return TargetPopulation.Insiders;
+		case 'exploration':
+			return TargetPopulation.Internal;
+		case undefined:
+			return TargetPopulation.Team;
+		default:
+			return TargetPopulation.Public;
 	}
 }
 
@@ -100,18 +117,30 @@ class NullExperimentationService implements IExperimentationService {
 		return undefined;
 	}
 
-	getTreatmentVariableAsync<T extends boolean | number | string>(configId: string, name: string): Promise<T | undefined> {
+	getTreatmentVariableAsync<T extends boolean | number | string>(
+		configId: string,
+		name: string,
+	): Promise<T | undefined> {
 		return Promise.resolve(undefined);
 	}
 }
 
-export async function createExperimentationService(context: vscode.ExtensionContext, experimentationTelemetry: ExperimentationTelemetry): Promise<IExperimentationService> {
+export async function createExperimentationService(
+	context: vscode.ExtensionContext,
+	experimentationTelemetry: ExperimentationTelemetry,
+): Promise<IExperimentationService> {
 	const pkg = await getPackageConfig(context.extensionPath);
 	const product = await getProductConfig(vscode.env.appRoot);
 	const targetPopulation = getTargetPopulation(product);
 
 	// We only create a real experimentation service for the stable version of the extension, not insiders.
 	return pkg.name === 'vscode-pull-request-github'
-		? getExperimentationService(`${pkg.publisher}.${pkg.name}`, pkg.version, targetPopulation, experimentationTelemetry, context.globalState)
+		? getExperimentationService(
+				`${pkg.publisher}.${pkg.name}`,
+				pkg.version,
+				targetPopulation,
+				experimentationTelemetry,
+				context.globalState,
+		  )
 		: new NullExperimentationService();
 }

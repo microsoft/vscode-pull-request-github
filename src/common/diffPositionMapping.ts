@@ -76,7 +76,12 @@ export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: num
 	return undefined;
 }
 
-export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: string, line: number, isBase: boolean = false): number {
+export function mapHeadLineToDiffHunkPosition(
+	diffHunks: DiffHunk[],
+	localDiff: string,
+	line: number,
+	isBase: boolean = false,
+): number {
 	const localDiffReader = parseDiffHunk(localDiff);
 	let localDiffIter = localDiffReader.next();
 	let lineInPRDiff = line;

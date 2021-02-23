@@ -12,7 +12,9 @@ import { mockWebviewEnvironment } from './mocks/mockWebviewEnvironment';
 // https://github.com/microsoft/vscode-extension-vscode/blob/master/lib/testrunner.ts
 const tty = require('tty') as any;
 if (!tty.getWindowSize) {
-	tty.getWindowSize = function () { return [80, 75]; };
+	tty.getWindowSize = function () {
+		return [80, 75];
+	};
 }
 
 function addTests(mocha: Mocha, root: string): Promise<void> {
@@ -32,7 +34,7 @@ function addTests(mocha: Mocha, root: string): Promise<void> {
 
 async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	// Ensure the dev-mode extension is activated
-	const { name, publisher } = require('../../../package.json') as { name: string, publisher: string };
+	const { name, publisher } = require('../../../package.json') as { name: string; publisher: string };
 	const extensionId = `${publisher}.${name}`;
 	await vscode.extensions.getExtension(extensionId)!.activate();
 
@@ -54,11 +56,11 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 				mochaFile: process.env.TEST_JUNIT_XML_PATH,
 				suiteTitleSeparatedBy: ' / ',
 				outputs: true,
-			}
+			},
 		});
 	}
 
-	return new Promise((resolve) => mocha.run(resolve));
+	return new Promise(resolve => mocha.run(resolve));
 }
 
 export function run(testsRoot: string, clb: (error: Error | null, failures?: number) => void): void {

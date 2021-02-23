@@ -32,7 +32,7 @@ const patch = [
 	`+        expect(term.buffer.lines.get(0).loadCell(term.cols - 1, cell).getChars().length).eql(2);`,
 	`         expect(term.buffer.lines.get(1).loadCell(1, cell).getChars()).eql('');`,
 	`         term.reset();`,
-	` }"`
+	` }"`,
 ].join('\n');
 
 const deletionPatch = [
@@ -41,7 +41,7 @@ const deletionPatch = [
 	`-var path = require('path');`,
 	`-var favicon = require('serve-favicon');`,
 	`-var logger = require('morgan');`,
-	`-var cookieParser = require('cookie-parser');`
+	`-var cookieParser = require('cookie-parser');`,
 ].join('\n');
 
 const diffHunks = parsePatch(patch);

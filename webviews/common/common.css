@@ -10,7 +10,8 @@ body a {
 body a:hover {
 	text-decoration: underline;
 }
-button, input[type=submit] {
+button,
+input[type='submit'] {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	border-radius: 0px;
@@ -23,12 +24,16 @@ button, input[type=submit] {
 	user-select: none;
 }
 
-button:focus, input[type=submit]:focus {
+button:focus,
+input[type='submit']:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
 }
 
-button:hover:enabled, button:focus:enabled, input[type=submit]:focus:enabled, input[type=submit]:hover:enabled {
+button:hover:enabled,
+button:focus:enabled,
+input[type='submit']:focus:enabled,
+input[type='submit']:hover:enabled {
 	background-color: var(--vscode-button-hoverBackground);
 	cursor: pointer;
 }
@@ -42,7 +47,8 @@ body button.secondary:hover {
 	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-textarea, input[type='text'] {
+textarea,
+input[type='text'] {
 	display: block;
 	box-sizing: border-box;
 	padding: 8px;
@@ -66,7 +72,10 @@ select {
 	color: var(--vscode-dropdown-foreground);
 }
 
-textarea:focus, input[type='text']:focus, input[type='checkbox']:focus, select:focus {
+textarea:focus,
+input[type='text']:focus,
+input[type='checkbox']:focus,
+select:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
@@ -87,7 +96,7 @@ svg path {
 }
 
 body button:disabled,
-input[type=submit]:disabled {
+input[type='submit']:disabled {
 	opacity: 0.4;
 }
 
@@ -135,7 +144,7 @@ body img.avatar {
 
 .author-link {
 	font-weight: bolder;
-	color: var(--vscode-editor-foreground)
+	color: var(--vscode-editor-foreground);
 }
 
 .section-item {
@@ -144,13 +153,14 @@ body img.avatar {
 
 /** Theming */
 
-.vscode-high-contrast button, .vscode-high-contrast input {
+.vscode-high-contrast button,
+.vscode-high-contrast input {
 	outline: none;
 	background: none !important;
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
-.vscode-high-contrast button:focus{
+.vscode-high-contrast button:focus {
 	border: 1px solid var(--vscode-contrastActiveBorder);
 }
 

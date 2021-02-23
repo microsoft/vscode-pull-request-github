@@ -58,7 +58,7 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
-			repo.addGraphQLPullRequest((builder) => {
+			repo.addGraphQLPullRequest(builder => {
 				builder.pullRequest(response => {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(1000));
@@ -66,38 +66,32 @@ describe('PullRequestOverview', function () {
 				});
 			});
 
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(1000).build(),
-				repo,
-			);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
 			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
 
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel);
 
-			assert(createWebviewPanel.calledWith(
-				sinonMatch.string,
-				'Pull Request #1000',
-				vscode.ViewColumn.One,
-				{
+			assert(
+				createWebviewPanel.calledWith(sinonMatch.string, 'Pull Request #1000', vscode.ViewColumn.One, {
 					enableScripts: true,
 					retainContextWhenHidden: true,
-					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'media')]
-				}
-			));
+					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'media')],
+				}),
+			);
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 		});
 
 		it('reveals and updates an existing panel', async function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
-			repo.addGraphQLPullRequest((builder) => {
+			repo.addGraphQLPullRequest(builder => {
 				builder.pullRequest(response => {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(1000));
 					});
 				});
 			});
-			repo.addGraphQLPullRequest((builder) => {
+			repo.addGraphQLPullRequest(builder => {
 				builder.pullRequest(response => {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(2000));
@@ -105,10 +99,7 @@ describe('PullRequestOverview', function () {
 				});
 			});
 
-			const prItem0 = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(1000).build(),
-				repo,
-			);
+			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
 			const prModel0 = new PullRequestModel(telemetry, repo, remote, prItem0);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
@@ -120,10 +111,7 @@ describe('PullRequestOverview', function () {
 			assert.notStrictEqual(panel0, undefined);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
 
-			const prItem1 = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(2000).build(),
-				repo,
-			);
+			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
 			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);

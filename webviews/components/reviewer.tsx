@@ -13,14 +13,25 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 	const { reviewer, state, canDelete } = reviewState;
 	const [showDelete, setShowDelete] = useState(false);
 	const { removeReviewer } = useContext(PullRequestContext);
-	return <div className='section-item reviewer'
-		onMouseEnter={state === 'REQUESTED' ? () => setShowDelete(true) : null}
-		onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}>
-		<Avatar for={reviewer} />
-		<AuthorLink for={reviewer} />
-		{canDelete && showDelete ? <>{nbsp}<a className='remove-item' onClick={() => removeReviewer(reviewState.reviewer.login)}>{deleteIcon}️</a></> : null}
-		{REVIEW_STATE[state]}
-	</div>;
+	return (
+		<div
+			className="section-item reviewer"
+			onMouseEnter={state === 'REQUESTED' ? () => setShowDelete(true) : null}
+			onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}
+		>
+			<Avatar for={reviewer} />
+			<AuthorLink for={reviewer} />
+			{canDelete && showDelete ? (
+				<>
+					{nbsp}
+					<a className="remove-item" onClick={() => removeReviewer(reviewState.reviewer.login)}>
+						{deleteIcon}️
+					</a>
+				</>
+			) : null}
+			{REVIEW_STATE[state]}
+		</div>
+	);
 }
 
 const REVIEW_STATE: { [state: string]: React.ReactElement } = {
