@@ -3,19 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { vscode } from './message';
+import { TimelineEvent } from '../../src/common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
-	ReviewState,
 	ILabel,
+	IMilestone,
 	MergeMethod,
 	MergeMethodsAvailability,
-	PullRequestMergeability,
 	PullRequestChecks,
-	IMilestone,
+	PullRequestMergeability,
+	ReviewState,
 } from '../../src/github/interface';
-import { TimelineEvent } from '../../src/common/timelineEvent';
+import { vscode } from './message';
 
 export enum ReviewType {
 	Comment = 'comment',

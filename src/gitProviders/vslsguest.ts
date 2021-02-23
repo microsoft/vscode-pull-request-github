@@ -5,14 +5,14 @@
 
 import * as vscode from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
+import { Branch, Change, Commit, Ref, Remote, RepositoryState, Submodule } from '../@types/git';
+import { IGit, Repository } from '../api/api';
 import {
 	VSLS_GIT_PR_SESSION_NAME,
-	VSLS_REQUEST_NAME,
 	VSLS_REPOSITORY_INITIALIZATION_NAME,
+	VSLS_REQUEST_NAME,
 	VSLS_STATE_CHANGE_NOFITY_NAME,
 } from '../constants';
-import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../@types/git';
-import { Repository, IGit } from '../api/api';
 
 export class VSLSGuest implements IGit, vscode.Disposable {
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();

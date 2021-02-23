@@ -3,14 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { StateManager, MilestoneItem, IssueItem } from './stateManager';
-import { issueMarkdown } from './util';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { ReposManagerState, FolderRepositoryManager } from '../github/folderRepositoryManager';
+import * as vscode from 'vscode';
+import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
+import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
+import { IssueItem, MilestoneItem, StateManager } from './stateManager';
+import { issueMarkdown } from './util';
 
 export class IssueUriTreeItem extends vscode.TreeItem {
 	constructor(

@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useState } from 'react';
-import { PullRequest } from '../common/cache';
-import { Avatar, AuthorLink } from './user';
-import { Spaced } from './space';
-import PullRequestContext from '../common/context';
-import { checkIcon, editIcon, copyIcon } from './icon';
-import { Timestamp } from './timestamp';
 import { GithubItemStateEnum } from '../../src/github/interface';
+import { PullRequest } from '../common/cache';
+import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
+import { checkIcon, copyIcon, editIcon } from './icon';
+import { Spaced } from './space';
+import { Timestamp } from './timestamp';
+import { AuthorLink, Avatar } from './user';
 
 export function Header({
 	canEdit,

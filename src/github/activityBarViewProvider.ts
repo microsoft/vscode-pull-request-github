@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { IComment } from '../common/comment';
+import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
+import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { ReviewEvent, GithubItemStateEnum, ReviewState, MergeMethod } from './interface';
+import { GithubItemStateEnum, MergeMethod, ReviewEvent, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { parseReviewers } from './utils';
-import { IComment } from '../common/comment';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ISSUE_OR_URL_EXPRESSION, MAX_LINE_LENGTH, ISSUES_CONFIGURATION } from './util';
+import { ISSUE_OR_URL_EXPRESSION, ISSUES_CONFIGURATION, MAX_LINE_LENGTH } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;

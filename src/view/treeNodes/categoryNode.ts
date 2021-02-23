@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { AuthenticationError } from '../../common/authentication';
+import { ITelemetry } from '../../common/telemetry';
+import { formatError } from '../../common/utils';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
+import { PullRequestModel } from '../../github/pullRequestModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode } from './treeNode';
-import { formatError } from '../../common/utils';
-import { AuthenticationError } from '../../common/authentication';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { PullRequestModel } from '../../github/pullRequestModel';
-import { ITelemetry } from '../../common/telemetry';
 
 export enum PRCategoryActionType {
 	Empty,

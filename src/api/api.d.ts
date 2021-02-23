@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, Event, Disposable } from 'vscode';
+import { Disposable, Event, Uri } from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
 
 export interface InputBox {

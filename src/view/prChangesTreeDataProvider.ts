@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { TreeNode } from './treeNodes/treeNode';
 import { IComment } from '../common/comment';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { DescriptionNode } from './treeNodes/descriptionNode';
+import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
+import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
+import { TreeNode } from './treeNodes/treeNode';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();

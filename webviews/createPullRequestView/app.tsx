@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import PullRequestContext, { CreateParams } from '../common/createContext';
 import { gitCompareIcon, repoIcon } from '../components/icon';

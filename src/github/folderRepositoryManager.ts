@@ -3,37 +3,37 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { CredentialStore } from './credentials';
-import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType } from '../common/timelineEvent';
-import { GitHubRepository, PullRequestData, ItemsData, ViewerPermission } from './githubRepository';
-import { IPullRequestsPagingOptions, PRType, IAccount, ILabel, RepoAccessAndMergeMethods, User } from './interface';
-import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
-import { PullRequestModel } from './pullRequestModel';
-import { GitHubManager } from '../authentication/githubServer';
-import { formatError, Predicate } from '../common/utils';
+import * as vscode from 'vscode';
 import type { Branch, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes, RefType } from '../api/api1';
+import { GitHubManager } from '../authentication/githubServer';
 import Logger from '../common/logger';
-import { EXTENSION_ID } from '../constants';
-import { fromPRUri } from '../common/uri';
-import {
-	convertRESTPullRequestToRawPullRequest,
-	getRelatedUsersFromTimelineEvents,
-	convertRESTUserToAccount,
-	loginComparator,
-	convertRESTIssueToRawPullRequest,
-	parseGraphQLUser,
-} from './utils';
-import { PullRequestState, UserResponse } from './graphql';
-import { ITelemetry } from '../common/telemetry';
 import { Protocol } from '../common/protocol';
+import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { EventType, TimelineEvent } from '../common/timelineEvent';
+import { fromPRUri } from '../common/uri';
+import { formatError, Predicate } from '../common/utils';
+import { EXTENSION_ID } from '../constants';
+import { UserCompletion, userMarkdown } from '../issues/util';
+import { OctokitCommon } from './common';
+import { CredentialStore } from './credentials';
+import { GitHubRepository, ItemsData, PullRequestData, ViewerPermission } from './githubRepository';
+import { PullRequestState, UserResponse } from './graphql';
+import { IAccount, ILabel, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
-import { userMarkdown, UserCompletion } from '../issues/util';
-import { OctokitCommon } from './common';
+import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
+import { PullRequestModel } from './pullRequestModel';
+import {
+	convertRESTIssueToRawPullRequest,
+	convertRESTPullRequestToRawPullRequest,
+	convertRESTUserToAccount,
+	getRelatedUsersFromTimelineEvents,
+	loginComparator,
+	parseGraphQLUser,
+} from './utils';
 
 interface PageInformation {
 	pullRequestPage: number;

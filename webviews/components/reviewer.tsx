@@ -5,9 +5,9 @@
 import React, { cloneElement, useContext, useState } from 'react';
 import { ReviewState } from '../../src/github/interface';
 import { default as PullRequestContext } from '../common/context';
+import { checkIcon, commentIcon, deleteIcon, diffIcon, pendingIcon } from './icon';
 import { nbsp } from './space';
-import { Avatar, AuthorLink } from './user';
-import { pendingIcon, commentIcon, checkIcon, diffIcon, deleteIcon } from './icon';
+import { AuthorLink, Avatar } from './user';
 
 export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 	const { reviewer, state, canDelete } = reviewState;

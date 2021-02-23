@@ -3,18 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { Spaced, nbsp } from './space';
-import { Avatar, AuthorLink } from './user';
-import { Timestamp } from './timestamp';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { IComment } from '../../src/common/comment';
+import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest, ReviewType } from '../common/cache';
 import PullRequestContext from '../common/context';
-import { editIcon, deleteIcon, commentIcon } from './icon';
-import { GithubItemStateEnum } from '../../src/github/interface';
-import { useStateProp } from '../common/hooks';
 import emitter from '../common/events';
+import { useStateProp } from '../common/hooks';
 import { Dropdown } from './dropdown';
+import { commentIcon, deleteIcon, editIcon } from './icon';
+import { nbsp, Spaced } from './space';
+import { Timestamp } from './timestamp';
+import { AuthorLink, Avatar } from './user';
 
 export type Props = Partial<IComment & PullRequest> & {
 	headerInEditMode?: boolean;

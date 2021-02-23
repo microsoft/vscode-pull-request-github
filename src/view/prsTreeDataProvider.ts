@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode } from './treeNodes/treeNode';
-import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
-import { getInMemPRContentProvider } from './inMemPRContentProvider';
-import { SETTINGS_NAMESPACE, REMOTES_SETTING, ReposManagerState } from '../github/folderRepositoryManager';
 import { ITelemetry } from '../common/telemetry';
-import { DecorationProvider } from './treeDecorationProvider';
-import { WorkspaceFolderNode, QUERIES_SETTING } from './treeNodes/workspaceFolderNode';
-import { RepositoriesManager } from '../github/repositoriesManager';
 import { EXTENSION_ID } from '../constants';
+import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { getInMemPRContentProvider } from './inMemPRContentProvider';
+import { DecorationProvider } from './treeDecorationProvider';
+import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
+import { TreeNode } from './treeNodes/treeNode';
+import { QUERIES_SETTING, WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();

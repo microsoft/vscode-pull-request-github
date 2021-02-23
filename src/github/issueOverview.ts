@@ -5,15 +5,15 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { ILabel } from './interface';
-import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
+import { formatError } from '../common/utils';
+import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { FolderRepositoryManager } from './folderRepositoryManager';
-import { IssueModel } from './issueModel';
-import { IRequestMessage, getNonce, WebviewBase } from '../common/webview';
 import { OctokitCommon } from './common';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { ILabel } from './interface';
+import { IssueModel } from './issueModel';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';

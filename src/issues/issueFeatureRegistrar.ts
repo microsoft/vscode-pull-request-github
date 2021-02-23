@@ -3,40 +3,40 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PullRequestDefaults, FolderRepositoryManager } from '../github/folderRepositoryManager';
 import * as vscode from 'vscode';
-import { IssueHoverProvider } from './issueHoverProvider';
-import { UserHoverProvider } from './userHoverProvider';
-import { IssueTodoProvider } from './issueTodoProvider';
-import { IssueCompletionProvider } from './issueCompletionProvider';
-import {
-	NewIssue,
-	createGithubPermalink,
-	USER_EXPRESSION,
-	ISSUES_CONFIGURATION,
-	QUERIES_CONFIGURATION,
-	pushAndCreatePR,
-} from './util';
-import { UserCompletionProvider } from './userCompletionProvider';
-import { StateManager } from './stateManager';
-import { IssuesTreeData, IssueUriTreeItem } from './issuesView';
-import { IssueModel } from '../github/issueModel';
-import { CurrentIssue } from './currentIssue';
-import { ReviewManager } from '../view/reviewManager';
-import {
-	IssueFileSystemProvider,
-	NEW_ISSUE_SCHEME,
-	ASSIGNEES,
-	LABELS,
-	LabelCompletionProvider,
-	NEW_ISSUE_FILE,
-	extractIssueOriginFromQuery,
-} from './issueFile';
+import { GitApiImpl } from '../api/api1';
 import { ITelemetry } from '../common/telemetry';
 import { OctokitCommon } from '../github/common';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { GitApiImpl } from '../api/api1';
+import { ReviewManager } from '../view/reviewManager';
+import { CurrentIssue } from './currentIssue';
+import { IssueCompletionProvider } from './issueCompletionProvider';
+import {
+	ASSIGNEES,
+	extractIssueOriginFromQuery,
+	IssueFileSystemProvider,
+	LabelCompletionProvider,
+	LABELS,
+	NEW_ISSUE_FILE,
+	NEW_ISSUE_SCHEME,
+} from './issueFile';
+import { IssueHoverProvider } from './issueHoverProvider';
 import { openCodeLink } from './issueLinkLookup';
+import { IssuesTreeData, IssueUriTreeItem } from './issuesView';
+import { IssueTodoProvider } from './issueTodoProvider';
+import { StateManager } from './stateManager';
+import { UserCompletionProvider } from './userCompletionProvider';
+import { UserHoverProvider } from './userHoverProvider';
+import {
+	createGithubPermalink,
+	ISSUES_CONFIGURATION,
+	NewIssue,
+	pushAndCreatePR,
+	QUERIES_CONFIGURATION,
+	USER_EXPRESSION,
+} from './util';
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';

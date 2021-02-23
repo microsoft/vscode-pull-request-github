@@ -3,35 +3,35 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
 import { v4 as uuid } from 'uuid';
-import { parseDiff, getModifiedContentFromDiffHunk, DiffChangeType } from '../../common/diffHunk';
-import { getZeroBased, getAbsolutePosition, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
-import { SlimFileChange, GitChangeType } from '../../common/file';
+import * as vscode from 'vscode';
+import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../../commentHandlerResolver';
+import { IComment } from '../../common/comment';
+import { getCommentingRanges } from '../../common/commentingRanges';
+import { DiffChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../../common/diffHunk';
+import { getAbsolutePosition, getZeroBased, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
+import { GitChangeType, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy, uniqBy } from '../../common/utils';
-import { DescriptionNode } from './descriptionNode';
-import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
-import { TreeNode } from './treeNode';
-import { getInMemPRContentProvider } from '../inMemPRContentProvider';
-import { IComment } from '../../common/comment';
-import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { ReactionGroup } from '../../github/graphql';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import {
+	CommentReactionHandler,
 	createVSCodeCommentThread,
 	parseGraphQLReaction,
-	updateCommentThreadLabel,
-	updateCommentReviewState,
 	updateCommentReactions,
-	CommentReactionHandler,
+	updateCommentReviewState,
+	updateCommentThreadLabel,
 } from '../../github/utils';
-import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../../commentHandlerResolver';
-import { ReactionGroup } from '../../github/graphql';
-import { getCommentingRanges } from '../../common/commentingRanges';
+import { getInMemPRContentProvider } from '../inMemPRContentProvider';
+import { DescriptionNode } from './descriptionNode';
 import { DirectoryTreeNode } from './directoryTreeNode';
+import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
+import { TreeNode } from './treeNode';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads

@@ -7,29 +7,29 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
+import { LiveShare } from 'vsls/vscode.js';
 import { Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
 import Logger from './common/logger';
+import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
-import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID } from './constants';
+import { ExperimentationTelemetry } from './experimentationService';
+import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
+import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
+import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
+import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
+import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
-import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
-import { CredentialStore } from './github/credentials';
-import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
-import { LiveShare } from 'vsls/vscode.js';
-import { RepositoriesManager } from './github/repositoriesManager';
-import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
-import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
-import { ExperimentationTelemetry } from './experimentationService';
 
 const aiKey = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 

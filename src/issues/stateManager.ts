@@ -5,26 +5,26 @@
 
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
-import { IssueModel } from '../github/issueModel';
-import { IAccount } from '../github/interface';
+import { GitApiImpl } from '../api/api1';
 import {
 	FolderRepositoryManager,
 	NO_MILESTONE,
 	PullRequestDefaults,
 	ReposManagerState,
 } from '../github/folderRepositoryManager';
+import { IAccount } from '../github/interface';
+import { IssueModel } from '../github/issueModel';
 import { MilestoneModel } from '../github/milestoneModel';
-import {
-	ISSUES_CONFIGURATION,
-	BRANCH_CONFIGURATION,
-	QUERIES_CONFIGURATION,
-	DEFAULT_QUERY_CONFIGURATION,
-	variableSubstitution,
-	getIssueNumberLabel,
-} from './util';
-import { CurrentIssue } from './currentIssue';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { GitApiImpl } from '../api/api1';
+import { CurrentIssue } from './currentIssue';
+import {
+	BRANCH_CONFIGURATION,
+	DEFAULT_QUERY_CONFIGURATION,
+	getIssueNumberLabel,
+	ISSUES_CONFIGURATION,
+	QUERIES_CONFIGURATION,
+	variableSubstitution,
+} from './util';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];

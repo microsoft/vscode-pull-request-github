@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode, Revealable } from './treeNode';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { Revealable, TreeNode } from './treeNode';
 
 export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;

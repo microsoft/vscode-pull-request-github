@@ -2,18 +2,18 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import { ReposManagerState } from '../github/folderRepositoryManager';
 import * as vscode from 'vscode';
+import { ReposManagerState } from '../github/folderRepositoryManager';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { StateManager } from './stateManager';
 import {
 	getIssue,
+	isComment,
 	ISSUE_EXPRESSION,
+	MAX_LINE_LENGTH,
 	ParsedIssue,
 	parseIssueExpressionOutput,
-	MAX_LINE_LENGTH,
-	isComment,
 } from './util';
-import { StateManager } from './stateManager';
-import { RepositoriesManager } from '../github/repositoriesManager';
 
 const MAX_LINE_COUNT = 2000;
 

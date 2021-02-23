@@ -5,10 +5,10 @@
 
 'use strict';
 import { sep } from 'path';
-import { Disposable, Event, Uri } from 'vscode';
 import dayjs from 'dayjs';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
+import { Disposable, Event, Uri } from 'vscode';
 
 dayjs.extend(relativeTime.default, {
 	thresholds: [

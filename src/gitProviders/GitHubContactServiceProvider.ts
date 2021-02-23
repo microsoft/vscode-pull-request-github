@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { RepositoriesManager } from '../github/repositoriesManager';
 import { IAccount } from '../github/interface';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 /**
  * The liveshare contact service contract

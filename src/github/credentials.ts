@@ -6,13 +6,13 @@
 import { Octokit } from '@octokit/rest';
 import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
-import * as vscode from 'vscode';
-import { agent } from '../env/node/net';
-import Logger from '../common/logger';
-import * as PersistentState from '../common/persistentState';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
+import * as vscode from 'vscode';
+import Logger from '../common/logger';
+import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
+import { agent } from '../env/node/net';
 import { OctokitCommon } from './common';
 
 const TRY_AGAIN = 'Try again?';

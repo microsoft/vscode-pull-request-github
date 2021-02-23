@@ -7,28 +7,28 @@ import React, { useContext, useRef, useState } from 'react';
 
 import { IComment } from '../../src/common/comment';
 import {
-	TimelineEvent,
-	isReviewEvent,
-	isCommitEvent,
-	isCommentEvent,
-	isMergedEvent,
-	isAssignEvent,
-	ReviewEvent,
-	CommitEvent,
-	CommentEvent,
-	MergedEvent,
 	AssignEvent,
-	isHeadDeleteEvent,
+	CommentEvent,
+	CommitEvent,
 	HeadRefDeleteEvent,
+	isAssignEvent,
+	isCommentEvent,
+	isCommitEvent,
+	isHeadDeleteEvent,
+	isMergedEvent,
+	isReviewEvent,
+	MergedEvent,
+	ReviewEvent,
+	TimelineEvent,
 } from '../../src/common/timelineEvent';
-import { commitIcon, mergeIcon } from './icon';
-import { Avatar, AuthorLink } from './user';
 import { groupBy } from '../../src/common/utils';
-import { Spaced, nbsp } from './space';
-import { Timestamp } from './timestamp';
-import { CommentView, CommentBody } from './comment';
-import Diff from './diff';
 import PullRequestContext from '../common/context';
+import { CommentBody, CommentView } from './comment';
+import Diff from './diff';
+import { commitIcon, mergeIcon } from './icon';
+import { nbsp, Spaced } from './space';
+import { Timestamp } from './timestamp';
+import { AuthorLink, Avatar } from './user';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 	<>

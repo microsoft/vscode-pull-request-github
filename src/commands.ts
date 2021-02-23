@@ -4,29 +4,29 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as vscode from 'vscode';
 import * as pathLib from 'path';
-import { ReviewManager } from './view/reviewManager';
-import { PullRequestOverviewPanel } from './github/pullRequestOverview';
-import { asImageDataURI } from './common/uri';
-import { GitFileChangeNode, InMemFileChangeNode, openFileCommand } from './view/treeNodes/fileChangeNode';
-import { CommitNode } from './view/treeNodes/commitNode';
-import { PRNode } from './view/treeNodes/pullRequestNode';
-import { PullRequest } from './github/interface';
-import { formatError } from './common/utils';
-import { DescriptionNode } from './view/treeNodes/descriptionNode';
-import Logger from './common/logger';
-import { EXTENSION_ID } from './constants';
+import * as vscode from 'vscode';
 import { GitErrorCodes } from './api/api1';
+import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
-import { GHPRComment, TemporaryComment } from './github/prComment';
-import { FolderRepositoryManager } from './github/folderRepositoryManager';
-import { PullRequestModel } from './github/pullRequestModel';
-import { resolveCommentHandler, CommentReply } from './commentHandlerResolver';
+import Logger from './common/logger';
 import { ITelemetry } from './common/telemetry';
+import { asImageDataURI } from './common/uri';
+import { formatError } from './common/utils';
+import { EXTENSION_ID } from './constants';
 import { CredentialStore } from './github/credentials';
+import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { PullRequest } from './github/interface';
+import { GHPRComment, TemporaryComment } from './github/prComment';
+import { PullRequestModel } from './github/pullRequestModel';
+import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
+import { ReviewManager } from './view/reviewManager';
+import { CommitNode } from './view/treeNodes/commitNode';
+import { DescriptionNode } from './view/treeNodes/descriptionNode';
+import { GitFileChangeNode, InMemFileChangeNode, openFileCommand } from './view/treeNodes/fileChangeNode';
+import { PRNode } from './view/treeNodes/pullRequestNode';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;

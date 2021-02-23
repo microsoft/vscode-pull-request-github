@@ -3,40 +3,40 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import { Octokit } from '@octokit/rest';
 import * as OctokitTypes from '@octokit/types';
-import Logger from '../common/logger';
-import { Remote, parseRemote } from '../common/remote';
-import { IAccount, RepoAccessAndMergeMethods, IMilestone, Issue } from './interface';
-import { PullRequestModel } from './pullRequestModel';
-import { CredentialStore, GitHub } from './credentials';
+import { ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
+import * as vscode from 'vscode';
 import { AuthenticationError } from '../common/authentication';
-import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
+import Logger from '../common/logger';
+import { Protocol } from '../common/protocol';
+import { parseRemote, Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
 import { PRCommentController } from '../view/prCommentController';
+import { OctokitCommon } from './common';
+import { CredentialStore, GitHub } from './credentials';
 import {
-	convertRESTPullRequestToRawPullRequest,
-	parseGraphQLPullRequest,
-	parseGraphQLIssue,
-	parseMilestone,
-	parseGraphQLViewerPermission,
-} from './utils';
-import {
-	PullRequestResponse,
-	MentionableUsersResponse,
 	AssignableUsersResponse,
-	MilestoneIssuesResponse,
+	ForkDetailsResponse,
 	IssuesResponse,
 	IssuesSearchResponse,
 	MaxIssueResponse,
-	ForkDetailsResponse,
+	MentionableUsersResponse,
+	MilestoneIssuesResponse,
+	PullRequestResponse,
 	ViewerPermissionResponse,
 } from './graphql';
+import { IAccount, IMilestone, Issue, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
-import { Protocol } from '../common/protocol';
-import { ITelemetry } from '../common/telemetry';
+import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
-import { OctokitCommon } from './common';
+import {
+	convertRESTPullRequestToRawPullRequest,
+	parseGraphQLIssue,
+	parseGraphQLPullRequest,
+	parseGraphQLViewerPermission,
+	parseMilestone,
+} from './utils';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 

@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { window } from 'vscode';
 import { Agent, globalAgent } from 'https';
 import { URL } from 'url';
 import { httpsOverHttp } from 'tunnel';
+import { window } from 'vscode';
 
 export const agent = getAgent();
 

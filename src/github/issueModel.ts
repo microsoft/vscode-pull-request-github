@@ -5,7 +5,11 @@
 
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import Logger from '../common/logger';
 import { Remote } from '../common/remote';
+import { TimelineEvent } from '../common/timelineEvent';
+import { formatError } from '../common/utils';
+import { OctokitCommon } from './common';
 import { GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
@@ -15,12 +19,8 @@ import {
 	TimelineEventsResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
-import { IAccount, Issue, GithubItemStateEnum, IMilestone, IPullRequestEditData } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IPullRequestEditData, Issue } from './interface';
 import { getReactionGroup, parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
-import { formatError } from '../common/utils';
-import Logger from '../common/logger';
-import { TimelineEvent } from '../common/timelineEvent';
-import { OctokitCommon } from './common';
 
 export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';

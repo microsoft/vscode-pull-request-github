@@ -5,11 +5,11 @@
 
 'use strict';
 
-import { Uri, UriHandler, EventEmitter } from 'vscode';
-import { GitChangeType } from './file';
-import { PullRequestModel } from '../github/pullRequestModel';
-import { Repository } from '../api/api';
 import * as pathUtils from 'path';
+import { EventEmitter, Uri, UriHandler } from 'vscode';
+import { Repository } from '../api/api';
+import { PullRequestModel } from '../github/pullRequestModel';
+import { GitChangeType } from './file';
 
 export interface ReviewUriParams {
 	path: string;

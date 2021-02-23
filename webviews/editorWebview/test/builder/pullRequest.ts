@@ -1,7 +1,7 @@
-import { createBuilderClass } from '../../../../src/test/builders/base';
-import { PullRequest } from '../../../common/cache';
 import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
+import { createBuilderClass } from '../../../../src/test/builders/base';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
+import { PullRequest } from '../../../common/cache';
 
 import { AccountBuilder } from './account';
 

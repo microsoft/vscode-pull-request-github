@@ -3,13 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { PRType } from '../../github/interface';
-import { TreeNode } from './treeNode';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import * as vscode from 'vscode';
 import { ITelemetry } from '../../common/telemetry';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { PRType } from '../../github/interface';
 import { CategoryTreeNode } from './categoryNode';
+import { TreeNode } from './treeNode';
 
 export interface IQueryInfo {
 	label: string;
