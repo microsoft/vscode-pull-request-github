@@ -23,7 +23,7 @@
 	"reportUnusedDisableDirectives": true,
 	"root": true,
 	"rules": {
-		// "linebreak-style": ["error", "unix"],
+		"linebreak-style": ["error", "unix"],
 		"new-parens": "error",
 		"no-async-promise-executor": "off",
 		"no-console": "off",
@@ -84,34 +84,38 @@
 		"require-atomic-updates": "off",
 		"semi": ["error", "always"],
 		"semi-style": ["error", "last"],
-		// "sort-imports": [ // TODO@eamodio revisit
-		// 	"error",
-		// 	{
-		// 		"ignoreCase": true,
-		// 		"ignoreDeclarationSort": true,
-		// 		"ignoreMemberSort": false,
-		// 		"memberSyntaxSortOrder": ["none", "all", "multiple", "single"]
-		// 	}
-		// ],
+		"sort-imports": [
+			"error",
+			{
+				"ignoreCase": true,
+				"ignoreDeclarationSort": true,
+				"ignoreMemberSort": false,
+				"memberSyntaxSortOrder": ["none", "all", "multiple", "single"]
+			}
+		],
 		"yoda": "error",
 		"import/export": "off",
 		"import/extensions": ["error", "never"],
 		"import/named": "off",
 		"import/namespace": "off",
-		"import/newline-after-import": "off",
+		"import/newline-after-import": "warn",
 		"import/no-cycle": "off",
 		"import/no-dynamic-require": "error",
 		"import/no-default-export": "off", // TODO@eamodio revisit
-		"import/no-duplicates": "off", // TODO@eamodio revisit
+		"import/no-duplicates": "error",
 		"import/no-self-import": "error",
 		"import/no-unresolved": ["warn", { "ignore": ["vscode", "ghpr", "git", "extensionApi"] }],
-		// "import/order": [  // TODO@eamodio revisit
-		// 	"warn",
-		// 	{
-		// 		"groups": ["builtin", "external", "internal", ["index", "sibling", "parent"]],
-		// 		"newlines-between": "never"
-		// 	}
-		// ],
+		"import/order": [
+			"warn",
+			{
+				"groups": ["builtin", "external", "internal", ["parent", "sibling", "index"]],
+				"newlines-between": "ignore",
+				"alphabetize": {
+					"order": "asc",
+					"caseInsensitive": true
+				}
+			}
+		],
 		"@typescript-eslint/await-thenable": "error",
 		"@typescript-eslint/ban-types": "off", // TODO@eamodio revisit
 		// "@typescript-eslint/ban-types": [
