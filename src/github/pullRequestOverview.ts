@@ -352,21 +352,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
-	private async addMilestones(message: IRequestMessage<void>){
+	private async addMilestones(message: IRequestMessage<void>): Promise<void>{
 		try {
 			const milestones = await this._folderRepositoryManager.getMilestones();
 
-			// const assigneesToAdd = await vscode.window.showQuickPick(
-			// 	this.getAssigneesQuickPickItems(assignableUsers, []),
-			// 	{
-			// 		canPickMany: true,
-			// 		matchOnDescription: true
-			// 	}
-			// );
-
 			const milestoneLabels = [];
 			for (var i = 0; i < milestones.items.length; i++) {
-				milestoneLabels.push({label: milestones.items[i].milestone.title})
+				milestoneLabels.push({label: milestones.items[i].milestone.title, id:milestones.items[i].milestone.id});
 			}
 			const milestonesToAdd = await vscode.window.showQuickPick(
 				milestoneLabels,
@@ -374,9 +366,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					canPickMany: false
 				}
 			);
-			
 
-			return milestones;
+			if(milestonesToAdd){
+				var updated = milestones.items.find(item => item.milestone.id == milestonesToAdd.id)?.milestone;
+				this._replyMessage(message, {
+					added: updated
+				});
+			}
+
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}

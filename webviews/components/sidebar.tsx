@@ -15,7 +15,6 @@ import { Avatar, AuthorLink } from '../components/user';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone,assignees}: PullRequest) {
 	const { addReviewers,addAssignees, addMilestones, addLabels, updatePR, pr } = useContext(PullRequestContext);
-
 	return <div id='sidebar'>
 		{!isIssue
 			? <div id='reviewers' className='section'>
@@ -58,6 +57,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				{hasWritePermission ? (
 					<button title='Add Labels' onClick={async () => {
 						const newLabels = await addLabels();
+						console.log(newLabels);
 						updatePR({ labels: pr.labels.concat(newLabels.added) });
 					}}>{plusIcon}</button>
 				) : null}
@@ -70,9 +70,9 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			<div className='section-header'>
 				<div>Milestone</div>
 				{hasWritePermission ? (
-					<button title='Add Labels' onClick={async () => {
-						const milestones = await addMilestones();
-						console.log(milestones);
+					<button title='Add Milestone' onClick={async() => {
+						const newMilestone = await addMilestones();
+						updatePR({ milestone: newMilestone.added});
 					}}>{plusIcon}</button>
 				) : null}
 			</div>
@@ -82,6 +82,9 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		</div>
 	</div>;
 }
+
+
+
 
 function Label(label: ILabel & { canDelete: boolean }) {
 	const { name, canDelete } = label;
