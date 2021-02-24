@@ -1,11 +1,11 @@
 # How to release
 
-1. Edit version in [package.json](https://github.com/Microsoft/vscode-pull-request-github/blob/master/package.json)
+1. Edit version in [package.json](https://github.com/Microsoft/vscode-pull-request-github/blob/main/package.json)
 
    - Update version of the extension - this is usually the minor version.
    - (If necessary) Update vscode engine version
 
-2. Update [CHANGELOG.md](https://github.com/Microsoft/vscode-pull-request-github/blob/master/CHANGELOG.md)
+2. Update [CHANGELOG.md](https://github.com/Microsoft/vscode-pull-request-github/blob/main/CHANGELOG.md)
 
    - In the **Changes** section, link to issues that were fixed or closed in the last sprint. Use a link to the pull request if there is no issue to reference.
    - In the **Thank You** section, @ mention users who contributed (if there were any).

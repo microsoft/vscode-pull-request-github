@@ -21,7 +21,8 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onStartupFinished",
+		"*",
+		"onCommand:pr.preload",
 		"onFileSystem:newIssue"
 	],
 	"browser": "./dist/browser/extension",
@@ -379,19 +380,19 @@
 					"id": "github:login",
 					"name": "Login",
 					"when": "ReposManagerStateContext == NeedsAuthentication",
-					"icon": "resources/icons/pull-request.png"
+					"icon": "$(git-pull-request)"
 				},
 				{
 					"id": "pr:github",
 					"name": "Pull Requests",
 					"when": "ReposManagerStateContext != NeedsAuthentication",
-					"icon": "resources/icons/pull-request.png"
+					"icon": "$(git-pull-request)"
 				},
 				{
 					"id": "issues:github",
 					"name": "Issues",
 					"when": "ReposManagerStateContext != NeedsAuthentication",
-					"icon": "resources/icons/issues.png"
+					"icon": "$(issues)"
 				}
 			],
 			"github-pull-request": [
@@ -412,18 +413,28 @@
 					"id": "prStatus:github",
 					"name": "Changes In Pull Request",
 					"when": "github:inReviewMode",
-					"icon": "resources/icons/pull-request.png",
+					"icon": "$(git-pull-request)",
 					"visibility": "visible"
 				},
 				{
 					"id": "github:activePullRequest",
 					"type": "webview",
 					"name": "Active Pull Request",
-					"when": "github:focusedReview"
+					"when": "github:initialized && github:focusedReview"
+				},
+				{
+					"id": "github:activePullRequest:welcome",
+					"name": "Active Pull Request",
+					"when": "!github:initialized && github:focusedReview"
 				}
 			]
 		},
 		"commands": [
+			{
+				"command": "pr.preload",
+				"title": "Preload Pull Request",
+				"category": "GitHub Pull Requests"
+			},
 			{
 				"command": "pr.create",
 				"title": "Create Pull Request",
@@ -774,6 +785,21 @@
 				"view": "github:compareChanges",
 				"when": "github:noUpstream",
 				"contents": "The comparing branch has no upstream remote\n[Publish branch](command:git.publish)"
+			},
+			{
+				"view": "pr:github",
+				"when": "!github:initialized",
+				"contents": "Loading..."
+			},
+			{
+				"view": "issues:github",
+				"when": "!github:initialized",
+				"contents": "Loading..."
+			},
+			{
+				"view": "github:activePullRequest:welcome",
+				"when": "!github:initialized",
+				"contents": "Loading..."
 			}
 		],
 		"keybindings": [
@@ -790,6 +816,10 @@
 		],
 		"menus": {
 			"commandPalette": [
+				{
+					"command": "pr.preload",
+					"when": "false"
+				},
 				{
 					"command": "auth.signout",
 					"when": "gitOpenRepositoryCount != 0 && github:authenticated"
@@ -1355,15 +1385,14 @@
 		"compile:test": "tsc -p tsconfig.test.json",
 		"compile:node": "webpack --mode development --config-name extension:node --config-name webviews",
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
-		"lint": "eslint --fix --cache --config .eslintrc.json --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
-		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
+		"lint": "eslint --fix --cache --config .eslintrc.json --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.ts?\"",
+		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.ts?\"",
 		"package": "vsce package --yarn",
-		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
 		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",
 		"test:preprocess": "yarn run compile:test && yarn run test:preprocess-gql && yarn run test:preprocess-svg",
 		"test:preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/src/github/queries.gql",
 		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
-		"update-dts": "pushd \"src/@types\" && npx vscode-dts master && npx vscode-dts dev && popd",
+		"update-dts": "pushd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev && popd",
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews"
 	},
@@ -1384,7 +1413,7 @@
 		"esbuild-loader": "2.9.2",
 		"eslint": "7.20.0",
 		"eslint-cli": "1.1.1",
-		"eslint-config-prettier": "8.0.0",
+		"eslint-config-prettier": "7.2.0",
 		"eslint-plugin-import": "2.22.1",
 		"fork-ts-checker-webpack-plugin": "6.1.0",
 		"glob": "7.1.6",
@@ -1400,7 +1429,6 @@
 		"mocha-junit-reporter": "1.23.0",
 		"mocha-multi-reporters": "1.1.7",
 		"path-browserify": "1.0.1",
-		"prettier": "2.2.1",
 		"raw-loader": "4.0.2",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",

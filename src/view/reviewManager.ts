@@ -16,6 +16,7 @@ import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, toReviewUri } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
+import { FOCUS_REVIEW_MODE } from '../constants';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
@@ -27,8 +28,6 @@ import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider'
 import { RemoteQuickPickItem } from './quickpick';
 import { ReviewCommentController } from './reviewCommentController';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-
-const FOCUS_REVIEW_MODE = 'github:focusedReview';
 
 export class ReviewManager {
 	public static ID = 'Review';

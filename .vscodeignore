@@ -2,6 +2,7 @@
 .readme/**
 .vscode/**
 build/**
+out/**
 dist/test/**
 documentation/**
 node_modules/**
@@ -27,3 +28,7 @@ yarn.lock
 **/*.svg
 **/*.ts
 *.vsix
+**/*.bak
+package.insiders.json
+README.insiders.md
+

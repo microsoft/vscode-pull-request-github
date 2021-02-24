@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import * as path from 'path';
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { LiveShare } from 'vsls/vscode.js';
@@ -16,7 +15,7 @@ import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
-import { EXTENSION_ID } from './constants';
+import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { ExperimentationTelemetry } from './experimentationService';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
@@ -169,12 +168,13 @@ async function init(
 		tree.refresh();
 	});
 
-	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
 	context.subscriptions.push(new GitLensIntegration());
+
+	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
 	/* __GDPR__
 		"startup" : {}
@@ -194,6 +194,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 		}
 	}
 
+	vscode.commands.registerCommand('pr.preload', async () => {
+		await vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
+		await vscode.commands.executeCommand('github:activePullRequest:welcome.focus');
+	});
+
 	// initialize resources
 	Resource.initialize(context);
 	const apiImpl = new GitApiImpl();
@@ -202,6 +207,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	telemetry = new ExperimentationTelemetry(new TelemetryReporter(EXTENSION_ID, version, aiKey));
 	context.subscriptions.push(telemetry);
 
+	void deferredActivate(context, apiImpl);
+
+	return apiImpl;
+}
+
+async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl) {
 	PersistentState.init(context);
 	const credentialStore = new CredentialStore(telemetry);
 	context.subscriptions.push(credentialStore);
@@ -211,6 +222,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	if (builtInGitProvider) {
 		context.subscriptions.push(builtInGitProvider);
 	}
+
 	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
 	context.subscriptions.push(liveshareGitProvider);
 	const liveshareApiPromise = liveshareGitProvider.initialize();
@@ -230,8 +242,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 			await init(context, apiImpl, credentialStore, [r], prTree, liveshareApiPromise);
 		});
 	}
-
-	return apiImpl;
 }
 
 export async function deactivate() {
