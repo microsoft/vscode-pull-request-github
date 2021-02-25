@@ -1059,7 +1059,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				}
 			})
 		]);
-		if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
+		if (branch.data.protected && branch.data.protection.required_status_checks && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
 			// We need to add the "review required" check manually.
 			return {
 				id: REVIEW_REQUIRED_CHECK_ID,
@@ -1266,7 +1266,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
 		let files: IRawFileChange[] = [];
 
-		if (data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
+		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
 			// compareCommits will return a maximum of 100 changed files
 			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
 			Logger.debug(
@@ -1280,7 +1280,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 		} else {
 			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
-			files = data.files as IRawFileChange[];
+			files = data.files ? data.files as IRawFileChange[] : [];
 		}
 
 		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {
