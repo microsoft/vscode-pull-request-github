@@ -60,6 +60,20 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 	}
 
 	handleTerminalLink(link: GitHubCreateTerminalLink): vscode.ProviderResult<void> {
+		const defaultHandler = vscode.workspace
+			.getConfiguration('githubPullRequests')
+			.get<'vscode' | 'github' | undefined>('terminalLinks.default');
+
+		if (defaultHandler === 'github') {
+			vscode.env.openExternal(vscode.Uri.parse(link.url));
+			return;
+		}
+
+		if (defaultHandler === 'vscode') {
+			this.reviewManager.createPullRequest();
+			return;
+		}
+
 		vscode.window
 			.showInformationMessage(
 				'Do you want to create a pull request using the GitHub Pull Requests and Issues extension?',
