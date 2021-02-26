@@ -352,6 +352,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
+
 	private async addMilestones(message: IRequestMessage<void>): Promise<void>{
 		try {
 			const milestones = await this._folderRepositoryManager.getMilestones();
@@ -369,9 +370,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 			if(milestonesToAdd){
 				var updated = milestones.items.find(item => item.milestone.id == milestonesToAdd.id)?.milestone;
+				this._item.updateMilestone(milestonesToAdd.id)
 				this._replyMessage(message, {
 					added: updated
 				});
+
 			}
 
 		} catch (e) {

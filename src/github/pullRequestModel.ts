@@ -9,12 +9,12 @@ import * as path from 'path';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability } from './interface';
+import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability, IMilestone } from './interface';
 import { IssueModel } from './issueModel';
 import { isReviewEvent, ReviewEvent as CommonReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { ReviewEvent } from './interface';
 import { convertPullRequestsGetCommentsResponseItemToComment, convertRESTPullRequestToRawPullRequest, convertRESTReviewEvent, convertRESTUserToAccount, parseGraphQLComment, parseGraphQLReviewEvent, parseGraphQLTimelineEvents, parseMergeability } from './utils';
-import { AddCommentResponse, DeleteReviewResponse, EditCommentResponse, GetChecksResponse, isCheckRun, MarkPullRequestReadyForReviewResponse, PendingReviewIdResponse, PullRequestCommentsResponse, PullRequestResponse, StartReviewResponse, SubmitReviewResponse, TimelineEventsResponse } from './graphql';
+import { AddCommentResponse, DeleteReviewResponse, EditCommentResponse, GetChecksResponse, isCheckRun, MarkPullRequestReadyForReviewResponse, PendingReviewIdResponse, PullRequestCommentsResponse, PullRequestResponse, StartReviewResponse, SubmitReviewResponse, TimelineEventsResponse, UpdateMilestone } from './graphql';
 import Logger from '../common/logger';
 import { IComment } from '../common/comment';
 import { formatError } from '../common/utils';
@@ -240,6 +240,27 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${this.number}.`);
 		}
+	}
+
+	async updateMilestone(id: string): Promise<string> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+
+		const { data } = await mutate<UpdateMilestone>({
+			mutation: schema.UpdatePullRequest,
+			variables: {
+				input: {
+					milestoneId: id,
+				}
+			}
+		});
+		if (data) {
+			return id
+		}
+		else {
+			console.log('Error')
+			return id;
+		}
+
 	}
 
 	/**
