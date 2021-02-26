@@ -249,6 +249,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			mutation: schema.UpdatePullRequest,
 			variables: {
 				input: {
+					pullRequestId: this.item.graphNodeId,
 					milestoneId: id,
 				}
 			}

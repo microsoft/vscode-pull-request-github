@@ -370,7 +370,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 			if(milestonesToAdd){
 				var updated = milestones.items.find(item => item.milestone.id == milestonesToAdd.id)?.milestone;
-				this._item.updateMilestone(milestonesToAdd.id)
+				var task = await this._item.updateMilestone(milestonesToAdd.id);
 				this._replyMessage(message, {
 					added: updated
 				});
