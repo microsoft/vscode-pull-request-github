@@ -40,8 +40,6 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				{hasWritePermission ? (
 						<button title='Add Assignees' onClick={async () => {
 							const newAssignees = await addAssignees();
-							console.log("new: ", newAssignees);
-							console.log(newAssignees.added);
 							{newAssignees.added.map(x => {
 								updatePR({ assignees: pr.assignees.concat(x.assignee) });
 							})
@@ -51,8 +49,6 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			</div>
 
 			{assignees ? (assignees.map((x,i) => {
-				console.log(assignees);
-				console.log(x);
 				return <div key={i} className='section-item reviewer'>
 					<Avatar for={x} />
 					<AuthorLink for={x} />
@@ -65,7 +61,6 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				{hasWritePermission ? (
 					<button title='Add Labels' onClick={async () => {
 						const newLabels = await addLabels();
-						console.log(newLabels);
 						updatePR({ labels: pr.labels.concat(newLabels.added) });
 					}}>{plusIcon}</button>
 				) : null}
