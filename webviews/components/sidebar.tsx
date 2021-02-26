@@ -80,7 +80,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				<div className="section-header">
 					<div>Milestone</div>
 				</div>
-				<div className="section-item label">{milestone ? milestone.title : null}</div>
+				{milestone ? <div className="section-item label">{milestone.title}</div> : null}
 			</div>
 		</div>
 	);
