@@ -59,10 +59,13 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			<div className='section-header'>
 				<div>Labels</div>
 				{hasWritePermission ? (
+					<>
 					<button title='Add Labels' onClick={async () => {
 						const newLabels = await addLabels();
 						updatePR({ labels: pr.labels.concat(newLabels.added) });
 					}}>{plusIcon}</button>
+					<a className='push-right remove-item' onClick={() => console.log('clicked')}>{deleteIcon}️</a>
+					</>
 				) : null}
 			</div>
 			{

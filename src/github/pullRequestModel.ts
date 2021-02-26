@@ -543,6 +543,16 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		});
 	}
 
+	async deleteAssignees(assignee: string): Promise<void> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		await octokit.issues.removeAssignees({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+			assignees: [assignee]
+		});
+	}
+
 	/**
 	 * Get all review comments.
 	 */

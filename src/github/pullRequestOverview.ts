@@ -440,6 +440,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
+	private async removeAssignee(message: IRequestMessage<string>): Promise<void> {
+		try {
+			await this._item.deleteAssignees(message.args);
+
+			const index = this._existingAssignees.findIndex(assignee => assignee.assignee.login === message.args);
+			this._existingAssignees.splice(index, 1);
+
+			this._replyMessage(message, {});
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
 	private async applyPatch(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
