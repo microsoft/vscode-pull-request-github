@@ -32,6 +32,7 @@ import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
+	getPRFetchQuery,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLViewerPermission,
@@ -586,7 +587,7 @@ export class GitHubRepository implements vscode.Disposable {
 			// Search api will not try to resolve repo that redirects, so get full name first
 			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
 			const { data, headers } = await octokit.search.issuesAndPullRequests({
-				q: this.getPRFetchQuery(repo.data.full_name, user.data.login, categoryQuery),
+				q: getPRFetchQuery(repo.data.full_name, user.data.login, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1,
 			});
@@ -842,11 +843,5 @@ export class GitHubRepository implements vscode.Disposable {
 
 	isCurrentUser(login: string): boolean {
 		return this._credentialStore.isCurrentUser(login);
-	}
-
-	private getPRFetchQuery(repo: string, user: string, query: string) {
-		// eslint-disable-next-line no-template-curly-in-string
-		const filter = query.replace('${user}', user);
-		return `is:pull-request ${filter} type:pr repo:${repo}`;
 	}
 }

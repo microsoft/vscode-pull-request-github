@@ -871,3 +871,8 @@ export function parseReviewers(
 
 	return reviewers;
 }
+
+export function getPRFetchQuery(repo: string, user: string, query: string): string {
+	const filter = query.replace(/\$\{user\}/g, user);
+	return `is:pull-request ${filter} type:pr repo:${repo}`;
+}
