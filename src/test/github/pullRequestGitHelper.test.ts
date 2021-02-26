@@ -66,7 +66,7 @@ describe('PullRequestGitHelper', function () {
 
 			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);
 
-			assert.deepEqual(repository.state.remotes, [
+			assert.deepStrictEqual(repository.state.remotes, [
 				{
 					name: 'you',
 					fetchUrl: 'git@github.com:you/name',
@@ -74,7 +74,7 @@ describe('PullRequestGitHelper', function () {
 					isReadOnly: false,
 				},
 			]);
-			assert.deepEqual(repository.state.HEAD, {
+			assert.deepStrictEqual(repository.state.HEAD, {
 				type: RefType.Head,
 				name: 'pr/me/100',
 				commit: undefined,

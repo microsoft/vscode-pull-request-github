@@ -6,7 +6,7 @@ describe('Extension Tests', function () {
 		it('should handle empty string', () => {
 			const diffHunk = parseDiffHunk('');
 			const itr = diffHunk.next();
-			assert.equal(itr.done, true);
+			assert.strictEqual(itr.done, true);
 		});
 
 		it('should handle additions', () => {
@@ -26,12 +26,12 @@ describe('Extension Tests', function () {
 
 			const itr = diffHunk.next();
 			assert.notEqual(itr.value, undefined);
-			assert.equal(itr.value.oldLineNumber, 5);
-			assert.equal(itr.value.newLineNumber, 5);
-			assert.equal(itr.value.oldLength, 6);
-			assert.equal(itr.value.newLength, 9);
-			assert.equal(itr.value.positionInHunk, 0);
-			assert.equal(itr.value.diffLines.length, 10);
+			assert.strictEqual(itr.value.oldLineNumber, 5);
+			assert.strictEqual(itr.value.newLineNumber, 5);
+			assert.strictEqual(itr.value.oldLength, 6);
+			assert.strictEqual(itr.value.newLength, 9);
+			assert.strictEqual(itr.value.positionInHunk, 0);
+			assert.strictEqual(itr.value.diffLines.length, 10);
 		});
 
 		it('should handle deletions', () => {
@@ -51,12 +51,12 @@ describe('Extension Tests', function () {
 
 			const itr = diffHunk.next();
 			assert.notEqual(itr.value, undefined);
-			assert.equal(itr.value.oldLineNumber, 5);
-			assert.equal(itr.value.newLineNumber, 5);
-			assert.equal(itr.value.oldLength, 9);
-			assert.equal(itr.value.newLength, 6);
-			assert.equal(itr.value.positionInHunk, 0);
-			assert.equal(itr.value.diffLines.length, 10);
+			assert.strictEqual(itr.value.oldLineNumber, 5);
+			assert.strictEqual(itr.value.newLineNumber, 5);
+			assert.strictEqual(itr.value.oldLength, 9);
+			assert.strictEqual(itr.value.newLength, 6);
+			assert.strictEqual(itr.value.positionInHunk, 0);
+			assert.strictEqual(itr.value.diffLines.length, 10);
 		});
 
 		it('should handle replacements', () => {
@@ -77,12 +77,12 @@ describe('Extension Tests', function () {
 
 			const itr = diffHunk.next();
 			assert.notEqual(itr.value, undefined);
-			assert.equal(itr.value.oldLineNumber, 5);
-			assert.equal(itr.value.newLineNumber, 5);
-			assert.equal(itr.value.oldLength, 9);
-			assert.equal(itr.value.newLength, 7);
-			assert.equal(itr.value.positionInHunk, 0);
-			assert.equal(itr.value.diffLines.length, 11);
+			assert.strictEqual(itr.value.oldLineNumber, 5);
+			assert.strictEqual(itr.value.newLineNumber, 5);
+			assert.strictEqual(itr.value.oldLength, 9);
+			assert.strictEqual(itr.value.newLength, 7);
+			assert.strictEqual(itr.value.positionInHunk, 0);
+			assert.strictEqual(itr.value.diffLines.length, 11);
 		});
 	});
 });

@@ -75,7 +75,7 @@ describe('PullRequestOverview', function () {
 				createWebviewPanel.calledWith(sinonMatch.string, 'Pull Request #1000', vscode.ViewColumn.One, {
 					enableScripts: true,
 					retainContextWhenHidden: true,
-					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'media')],
+					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'dist')],
 				}),
 			);
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);

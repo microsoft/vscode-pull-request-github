@@ -131,9 +131,9 @@ describe('GitHub Pull Requests view', function () {
 		const rootNodes = await provider.getChildren();
 
 		assert(rootNodes.every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
-		assert.deepEqual(
+		assert.deepStrictEqual(
 			rootNodes.map(n => n.getTreeItem().label),
-			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All'],
+			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All Open'],
 		);
 	});
 
@@ -189,7 +189,7 @@ describe('GitHub Pull Requests view', function () {
 			const manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
-				assert.deepEqual(r, remote);
+				assert.deepStrictEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
 				return gitHubRepository;
 			});
@@ -206,19 +206,19 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localChildren.length, 2);
 			const [localItem0, localItem1] = localChildren.map(node => node.getTreeItem());
 
-			assert.strictEqual(localItem0.label, 'zero');
-			assert.strictEqual(localItem0.tooltip, 'zero (#1111) by @me');
-			assert.strictEqual(localItem0.description, '#1111 by @me');
+			assert.strictEqual(localItem0.label, '#1111: zero');
+			assert.strictEqual(localItem0.tooltip, 'zero by @me');
+			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive');
-			assert.deepEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
+			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
 
-			assert.strictEqual(localItem1.label, '✓ one');
-			assert.strictEqual(localItem1.tooltip, 'Current Branch * one (#2222) by @you');
-			assert.strictEqual(localItem1.description, '#2222 by @you');
+			assert.strictEqual(localItem1.label, '✓ #2222: one');
+			assert.strictEqual(localItem1.tooltip, 'Current Branch * one by @you');
+			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active');
-			assert.deepEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
+			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
 		});
 	});
 });

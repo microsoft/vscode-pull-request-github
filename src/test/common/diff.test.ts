@@ -25,26 +25,26 @@ describe('diff hunk parsing', () => {
 		const diffHunkReader = parseDiffHunk(diff_hunk_0);
 		const diffHunkIter = diffHunkReader.next();
 		const diffHunk = diffHunkIter.value;
-		assert.equal(diffHunk.diffLines.length, 9);
+		assert.strictEqual(diffHunk.diffLines.length, 9);
 
-		assert.deepEqual(diffHunk.diffLines[0], new DiffLine(DiffChangeType.Control, -1, -1, 0, `@@ -1,5 +1,6 @@`));
-		assert.deepEqual(diffHunk.diffLines[1], new DiffLine(DiffChangeType.Context, 1, 1, 1, ` {`));
-		assert.deepEqual(
+		assert.deepStrictEqual(diffHunk.diffLines[0], new DiffLine(DiffChangeType.Control, -1, -1, 0, `@@ -1,5 +1,6 @@`));
+		assert.deepStrictEqual(diffHunk.diffLines[1], new DiffLine(DiffChangeType.Context, 1, 1, 1, ` {`));
+		assert.deepStrictEqual(
 			diffHunk.diffLines[2],
 			new DiffLine(DiffChangeType.Context, 2, 2, 2, `     "appService.zipIgnorePattern": [`),
 		);
-		assert.deepEqual(
+		assert.deepStrictEqual(
 			diffHunk.diffLines[3],
 			new DiffLine(DiffChangeType.Context, 3, 3, 3, `         "node_modules{,/**}"`),
 		);
-		assert.deepEqual(diffHunk.diffLines[4], new DiffLine(DiffChangeType.Delete, 4, -1, 4, `-    ]`));
-		assert.deepEqual(diffHunk.diffLines[5], new DiffLine(DiffChangeType.Delete, 5, -1, 5, `-}`, false));
-		assert.deepEqual(diffHunk.diffLines[6], new DiffLine(DiffChangeType.Add, -1, 4, 7, `+    ],`));
-		assert.deepEqual(
+		assert.deepStrictEqual(diffHunk.diffLines[4], new DiffLine(DiffChangeType.Delete, 4, -1, 4, `-    ]`));
+		assert.deepStrictEqual(diffHunk.diffLines[5], new DiffLine(DiffChangeType.Delete, 5, -1, 5, `-}`, false));
+		assert.deepStrictEqual(diffHunk.diffLines[6], new DiffLine(DiffChangeType.Add, -1, 4, 7, `+    ],`));
+		assert.deepStrictEqual(
 			diffHunk.diffLines[7],
 			new DiffLine(DiffChangeType.Add, -1, 5, 8, `+    "editor.insertSpaces": false`),
 		);
-		assert.deepEqual(diffHunk.diffLines[8], new DiffLine(DiffChangeType.Add, -1, 6, 9, `+}`));
+		assert.deepStrictEqual(diffHunk.diffLines[8], new DiffLine(DiffChangeType.Add, -1, 6, 9, `+}`));
 	});
 
 	// #GH-2000
@@ -138,7 +138,7 @@ describe('diff hunk parsing', () => {
 
 		for (let i = 0; i < diffHunk.diffLines.length; i++) {
 			const diffLine = diffHunk.diffLines[i];
-			assert.deepEqual(getDiffLineByPosition([diffHunk], diffLine.positionInHunk), diffLine, `diff line ${i}`);
+			assert.deepStrictEqual(getDiffLineByPosition([diffHunk], diffLine.positionInHunk), diffLine, `diff line ${i}`);
 		}
 	});
 
@@ -151,23 +151,23 @@ describe('diff hunk parsing', () => {
 			const diffLine = diffHunk.diffLines[i];
 			switch (diffLine.type) {
 				case DiffChangeType.Delete:
-					assert.equal(
+					assert.strictEqual(
 						mapHeadLineToDiffHunkPosition([diffHunk], '', diffLine.oldLineNumber, true),
 						diffLine.positionInHunk,
 					);
 					break;
 				case DiffChangeType.Add:
-					assert.equal(
+					assert.strictEqual(
 						mapHeadLineToDiffHunkPosition([diffHunk], '', diffLine.newLineNumber, false),
 						diffLine.positionInHunk,
 					);
 					break;
 				case DiffChangeType.Context:
-					assert.equal(
+					assert.strictEqual(
 						mapHeadLineToDiffHunkPosition([diffHunk], '', diffLine.oldLineNumber, true),
 						diffLine.positionInHunk,
 					);
-					assert.equal(
+					assert.strictEqual(
 						mapHeadLineToDiffHunkPosition([diffHunk], '', diffLine.newLineNumber, false),
 						diffLine.positionInHunk,
 					);
@@ -183,7 +183,7 @@ describe('diff hunk parsing', () => {
 		const diffHunkReader = parseDiffHunk('@@ -0,0 +1 @@');
 		const diffHunkIter = diffHunkReader.next();
 		const diffHunk = diffHunkIter.value;
-		assert.equal(diffHunk.diffLines.length, 1);
+		assert.strictEqual(diffHunk.diffLines.length, 1);
 	});
 
 	it('', () => {
@@ -195,7 +195,7 @@ describe('diff hunk parsing', () => {
 +Another line"`);
 		const diffHunkIter = diffHunkReader.next();
 		const diffHunk = diffHunkIter.value;
-		assert.equal(diffHunk.diffLines.length, 5);
+		assert.strictEqual(diffHunk.diffLines.length, 5);
 	});
 
 	describe('mapCommentsToHead', () => {
@@ -213,7 +213,7 @@ describe('diff hunk parsing', () => {
 
 			const mappedComments = mapCommentsToHead([diffHunk], '', comments as any);
 			assert(mappedComments.length === 1);
-			assert.equal(mappedComments[0].absolutePosition, undefined);
+			assert.strictEqual(mappedComments[0].absolutePosition, undefined);
 		});
 
 		it('should handle comments that are on an added diff line', () => {
@@ -230,7 +230,7 @@ describe('diff hunk parsing', () => {
 
 			const mappedComments = mapCommentsToHead([diffHunk], '', comments as any);
 			assert(mappedComments.length === 1);
-			assert.equal(mappedComments[0].absolutePosition, 482);
+			assert.strictEqual(mappedComments[0].absolutePosition, 482);
 		});
 	});
 
@@ -271,12 +271,12 @@ describe('diff hunk parsing', () => {
 		].join('\n');
 
 		it('returns the original file when there is no patch', () => {
-			assert.equal(getModifiedContentFromDiffHunk(originalContent, ''), originalContent);
+			assert.strictEqual(getModifiedContentFromDiffHunk(originalContent, ''), originalContent);
 		});
 
 		it('returns modified content for patch with multiple additions', () => {
 			const patch = [
-				`"@@ -9,6 +9,7 @@ import { window, commands, ExtensionContext } from 'vscode';`,
+				`@@ -9,6 +9,7 @@ import { window, commands, ExtensionContext } from 'vscode';`,
 				` import { showQuickPick, showInputBox } from './basicInput';`,
 				` import { multiStepInput } from './multiStepInput';`,
 				` import { quickOpen } from './quickOpen';`,
@@ -301,7 +301,7 @@ describe('diff hunk parsing', () => {
 			const expectedModifiedContent = lines.join('\n');
 
 			const modifiedContent = getModifiedContentFromDiffHunk(originalContent, patch);
-			assert.equal(modifiedContent, expectedModifiedContent);
+			assert.strictEqual(modifiedContent, expectedModifiedContent);
 		});
 	});
 });

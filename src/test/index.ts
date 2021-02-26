@@ -1,6 +1,5 @@
 // This file is providing the test runner to use when running extension tests.
 import * as path from 'path';
-import * as vscode from 'vscode';
 import glob from 'glob';
 import Mocha from 'mocha';
 
@@ -32,12 +31,7 @@ function addTests(mocha: Mocha, root: string): Promise<void> {
 	});
 }
 
-async function runAllExtensionTests(testsRoot: string): Promise<number> {
-	// Ensure the dev-mode extension is activated
-	const { name, publisher } = require('../../../package.json') as { name: string; publisher: string };
-	const extensionId = `${publisher}.${name}`;
-	await vscode.extensions.getExtension(extensionId)!.activate();
-
+async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null, failures?: number) => void): Promise<any> {
 	mockWebviewEnvironment.install(global);
 
 	const mocha = new Mocha({
@@ -47,7 +41,7 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
 
 	await addTests(mocha, testsRoot);
-	await addTests(mocha, path.resolve(testsRoot, '../../../webviews/test'));
+	await addTests(mocha, path.resolve(testsRoot, '../../../webviews/'));
 
 	if (process.env.TEST_JUNIT_XML_PATH) {
 		mocha.reporter('mocha-multi-reporters', {
@@ -60,17 +54,11 @@ async function runAllExtensionTests(testsRoot: string): Promise<number> {
 		});
 	}
 
-	return new Promise(resolve => mocha.run(resolve));
+	return mocha.run(failures => clb(null, failures));
 }
 
 export function run(testsRoot: string, clb: (error: Error | null, failures?: number) => void): void {
 	require('source-map-support').install();
 
-	runAllExtensionTests(testsRoot).then(
-		failures => clb(null, failures),
-		error => {
-			console.log(error.stack);
-			clb(error);
-		},
-	);
+	runAllExtensionTests(testsRoot, clb);
 }
