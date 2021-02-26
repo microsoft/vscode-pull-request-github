@@ -108,6 +108,7 @@ export function main() {
 						<div
 							className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'}
 							aria-live="assertive"
+							role="alert"
 						>
 							{params.createError}
 						</div>
