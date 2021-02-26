@@ -121,6 +121,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 			this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
+			this._existingAssignees = pullRequest.assignees?.map(item => {
+				return {
+					assignee: item,
+					state: "REQUESTED"
+				}
+			}) || [];
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			this._postMessage({
@@ -395,7 +401,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			);
 
 			if (assigneesToAdd) {
-				await this._item.requestReview(assigneesToAdd.map(r => r.label));
+
 				const addedAsignees: AssigneeState[] = assigneesToAdd.map(assignee => {
 					return {
 						// assumes that suggested reviewers will be a subset of assignable users
@@ -405,6 +411,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				});
 
 				this._existingAssignees = this._existingAssignees.concat(addedAsignees);
+
+				var ids = [];
+				for(var i = 0; i < this._existingAssignees.length; i++){
+					ids.push(this._existingAssignees[i].assignee.login);
+				}
+				const task = await this._item.updateAssignees(ids);
+
 				this._replyMessage(message, {
 					added: addedAsignees
 				});

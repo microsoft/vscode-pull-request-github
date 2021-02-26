@@ -264,6 +264,17 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 
 	}
 
+
+	async updateAssignees(assignees: string[]): Promise<void> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		await octokit.issues.addAssignees({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+			assignees
+		});
+	}
+
 	/**
 	 * Query to see if there is an existing review.
 	 */
@@ -516,6 +527,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			reviewers
 		});
 	}
+
 
 	/**
 	 * Remove a review request that has not yet been completed

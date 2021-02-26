@@ -40,11 +40,19 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				{hasWritePermission ? (
 						<button title='Add Assignees' onClick={async () => {
 							const newAssignees = await addAssignees();
-							updatePR({ assignees: pr.assignees.concat(newAssignees.added) });
+							console.log("new: ", newAssignees);
+							console.log(newAssignees.added);
+							{newAssignees.added.map(x => {
+								updatePR({ assignees: pr.assignees.concat(x.assignee) });
+							})
+							}
 						}}>{plusIcon}</button>
 					) : null}
 			</div>
+
 			{assignees ? (assignees.map((x,i) => {
+				console.log(assignees);
+				console.log(x);
 				return <div key={i} className='section-item reviewer'>
 					<Avatar for={x} />
 					<AuthorLink for={x} />
