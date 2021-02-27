@@ -333,7 +333,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._item.requestReview(reviewersToAdd.map(r => r.label));
 				const addedReviewers: ReviewState[] = reviewersToAdd.map(selected => {
 					return {
-						// assumes that suggested reviewers will be a subset of assignable users
 						reviewer: selected.reviewer,
 						state: 'REQUESTED',
 					};
