@@ -235,7 +235,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			}
 
 			const labelsToAdd = await vscode.window.showQuickPick(
-				await getLabelOptions(this._folderRepositoryManager, this._item),
+				getLabelOptions(this._folderRepositoryManager, this._item),
 				{ canPickMany: true },
 			);
 

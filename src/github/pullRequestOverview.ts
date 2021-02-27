@@ -261,13 +261,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private getReviewersQuickPickItems(
-		assignableUsers: IAccount[],
+	private async getReviewersQuickPickItems(
 		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): vscode.QuickPickItem[] {
+	): Promise<(vscode.QuickPickItem & { reviewer: IAccount })[]> {
 		if (!suggestedReviewers) {
 			return [];
 		}
+
+		const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
+		const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([
@@ -275,8 +278,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			...this._existingReviewers.map(reviewer => reviewer.reviewer.login),
 		]);
 
-		const reviewers: vscode.QuickPickItem[] = [];
-		for (const { login, name, isAuthor, isCommenter } of suggestedReviewers) {
+		const reviewers: (vscode.QuickPickItem & { reviewer: IAccount })[] = [];
+		for (const user of suggestedReviewers) {
+			const { login, name, isAuthor, isCommenter } = user;
 			if (skipList.has(login)) {
 				continue;
 			}
@@ -294,19 +298,21 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: login,
 				description: name,
 				detail: suggestionReason,
+				reviewer: user
 			});
 			// this user shouldn't be added later from assignable users list
 			skipList.add(login);
 		}
 
-		for (const { login, name } of assignableUsers) {
-			if (skipList.has(login)) {
+		for (const user of assignableUsers) {
+			if (skipList.has(user.login)) {
 				continue;
 			}
 
 			reviewers.push({
-				label: login,
-				description: name,
+				label: user.login,
+				description: user.name,
+				reviewer: user
 			});
 		}
 
@@ -315,11 +321,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
-
 			const reviewersToAdd = await vscode.window.showQuickPick(
-				this.getReviewersQuickPickItems(assignableUsers, this._item.suggestedReviewers),
+				this.getReviewersQuickPickItems(this._item.suggestedReviewers),
 				{
 					canPickMany: true,
 					matchOnDescription: true,
@@ -328,10 +331,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			if (reviewersToAdd) {
 				await this._item.requestReview(reviewersToAdd.map(r => r.label));
-				const addedReviewers: ReviewState[] = reviewersToAdd.map(reviewer => {
+				const addedReviewers: ReviewState[] = reviewersToAdd.map(selected => {
 					return {
 						// assumes that suggested reviewers will be a subset of assignable users
-						reviewer: assignableUsers.find(r => r.login === reviewer.label)!,
+						reviewer: selected.reviewer,
 						state: 'REQUESTED',
 					};
 				});
