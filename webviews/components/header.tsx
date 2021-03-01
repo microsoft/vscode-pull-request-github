@@ -44,9 +44,7 @@ export function Header({
 					) : null}
 				</span>
 				<span className="created-at">
-					<Spaced>
-						Created <Timestamp date={createdAt} href={url} />
-					</Spaced>
+					Created <Timestamp date={createdAt} href={url} />
 				</span>
 			</div>
 		</>
