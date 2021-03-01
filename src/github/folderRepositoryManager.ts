@@ -655,6 +655,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const result = await octokit.issues.listLabelsForRepo({
 				owner: remote.owner,
 				repo: remote.repositoryName,
+				per_page: 100,
 				page,
 			});
 
