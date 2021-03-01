@@ -31,11 +31,11 @@ const testRemote = (remote: {
 		before(() => (protocol = new Protocol(remote.uri)));
 
 		it(`type should be ${ProtocolType[remote.expectedType]}`, () =>
-			assert.equal(protocol.type, remote.expectedType));
-		it(`host should be ${str(remote.expectedHost)}`, () => assert.equal(protocol.host, remote.expectedHost));
-		it(`owner should be ${str(remote.expectedOwner)}`, () => assert.equal(protocol.owner, remote.expectedOwner));
+			assert.strictEqual(protocol.type, remote.expectedType));
+		it(`host should be ${str(remote.expectedHost)}`, () => assert.strictEqual(protocol.host, remote.expectedHost));
+		it(`owner should be ${str(remote.expectedOwner)}`, () => assert.strictEqual(protocol.owner, remote.expectedOwner));
 		it(`repositoryName should be ${str(remote.expectedRepositoryName)}`, () =>
-			assert.equal(protocol.repositoryName, remote.expectedRepositoryName));
+			assert.strictEqual(protocol.repositoryName, remote.expectedRepositoryName));
 	});
 
 describe('Protocol', () => {
@@ -251,7 +251,7 @@ describe('Protocol', () => {
 			{ uri: 'ssh://git@github.com:433/Microsoft/vscode', expected: 'git@github.com:Microsoft/vscode' },
 		].forEach(remote =>
 			it(`should generate "${remote.expected}" from "${remote.uri}`, () =>
-				assert.equal(new Protocol(remote.uri).toString(), remote.expected)),
+				assert.strictEqual(new Protocol(remote.uri).toString(), remote.expected)),
 		));
 
 	describe('Protocol.update when changing protocol type to SSH', () =>
@@ -325,7 +325,7 @@ describe('Protocol', () => {
 			it(`should change "${remote.uri}" to "${remote.expected}"`, () => {
 				const protocol = new Protocol(remote.uri);
 				protocol.update(remote.change);
-				assert.equal(protocol.toString(), remote.expected);
+				assert.strictEqual(protocol.toString(), remote.expected);
 			}),
 		));
 

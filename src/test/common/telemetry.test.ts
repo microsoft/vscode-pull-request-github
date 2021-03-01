@@ -25,8 +25,8 @@ describe('Telemetry', () => {
 		await deprecated.update('optout', true, target);
 
 		disposable = vscode.workspace.onDidChangeConfiguration(async () => {
-			assert.equal(deprecated.get('optout'), undefined);
-			assert.equal(migrated.get('enabled'), false);
+			assert.strictEqual(deprecated.get('optout'), undefined);
+			assert.strictEqual(migrated.get('enabled'), false);
 
 			// Clean up the workspace
 			await deprecated.update('optout', undefined, target);

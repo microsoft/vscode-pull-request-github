@@ -15,29 +15,29 @@ describe('utils', () => {
 	describe('formatError', () => {
 		it('should format a normal error', () => {
 			const error = new Error('No!');
-			assert.equal(utils.formatError(error), 'No!');
+			assert.strictEqual(utils.formatError(error), 'No!');
 		});
 
 		it('should format an error with submessages', () => {
 			const error = new HookError('Validation Failed', [
 				{ message: 'user_id can only have one pending review per pull request' },
 			]);
-			assert.equal(utils.formatError(error), 'user_id can only have one pending review per pull request');
+			assert.strictEqual(utils.formatError(error), 'user_id can only have one pending review per pull request');
 		});
 
 		it('should format an error with submessages that are strings', () => {
 			const error = new HookError('Validation Failed', ['Can not approve your own pull request']);
-			assert.equal(utils.formatError(error), 'Can not approve your own pull request');
+			assert.strictEqual(utils.formatError(error), 'Can not approve your own pull request');
 		});
 
 		it('should format an error with field errors', () => {
 			const error = new HookError('Validation Failed', [{ field: 'title', value: 'garbage', code: 'custom' }]);
-			assert.equal(utils.formatError(error), 'Value "garbage" cannot be set for field title (code: custom)');
+			assert.strictEqual(utils.formatError(error), 'Validation Failed: Value "garbage" cannot be set for field title (code: custom)');
 		});
 
 		it('should format an error with custom ', () => {
 			const error = new HookError('Validation Failed', [{ message: 'Cannot push to this repo', code: 'custom' }]);
-			assert.equal(utils.formatError(error), 'Cannot push to this repo');
+			assert.strictEqual(utils.formatError(error), 'Cannot push to this repo');
 		});
 	});
 
@@ -51,7 +51,7 @@ describe('utils', () => {
 				emitter.fire('hello');
 				emitter.fire('world');
 				const value = await promise;
-				assert.equal(value, 'hello');
+				assert.strictEqual(value, 'hello');
 			});
 
 			it('should unsubscribe after the promise resolves', async () => {
@@ -75,7 +75,7 @@ describe('utils', () => {
 				emitter.fire('hell');
 				const value = await promise;
 				assert(!hasListeners(emitter), 'should unsubscribe');
-				assert.equal(value, 'hell'.length);
+				assert.strictEqual(value, 'hell'.length);
 			});
 
 			it('should return a promise that rejects if the adapter does', async () => {
@@ -87,7 +87,7 @@ describe('utils', () => {
 					() => {
 						throw new Error('promise should have rejected');
 					},
-					e => assert.equal(e.message, 'the string is too damn long'),
+					e => assert.strictEqual(e.message, 'the string is too damn long'),
 				);
 				assert(!hasListeners(emitter), 'should unsubscribe');
 			});
@@ -103,7 +103,7 @@ describe('utils', () => {
 					() => {
 						throw new Error('promise should have rejected');
 					},
-					e => assert.equal(e.message, 'kaboom'),
+					e => assert.strictEqual(e.message, 'kaboom'),
 				);
 				assert(!hasListeners(emitter), 'should unsubscribe');
 			});
@@ -119,7 +119,7 @@ describe('utils', () => {
 					() => {
 						throw new Error('promise should have rejected');
 					},
-					e => assert.equal(e.message, 'kaboom'),
+					e => assert.strictEqual(e.message, 'kaboom'),
 				);
 				assert(!hasListeners(emitter), 'should unsubscribe');
 			});
@@ -142,11 +142,11 @@ describe('utils', () => {
 				emitter.fire('password');
 				emitter.fire('12345');
 				await tick();
-				assert.equal(hasResolved, false, "shouldn't have resolved yet");
+				assert.strictEqual(hasResolved, false, "shouldn't have resolved yet");
 				assert(hasListeners(emitter), 'should still be listening');
 				emitter.fire('sesame');
 				await tick();
-				assert.equal(hasResolved, true, 'should have resolved');
+				assert.strictEqual(hasResolved, true, 'should have resolved');
 				assert(!hasListeners(emitter), 'should have unsubscribed');
 			});
 
@@ -162,13 +162,13 @@ describe('utils', () => {
 				emitter.fire('password');
 				emitter.fire('12345');
 				await tick();
-				assert.equal(hasResolved, false, "shouldn't resolve");
-				assert.equal(hasRejected, false, "shouldn't have rejected yet");
+				assert.strictEqual(hasResolved, false, "shouldn't resolve");
+				assert.strictEqual(hasRejected, false, "shouldn't have rejected yet");
 				assert(hasListeners(emitter), 'should still be listening');
 				emitter.fire('mellon');
 				await tick();
-				assert.equal(hasResolved, false, "shouldn't resolve");
-				assert.equal(hasRejected, true, 'should have rejected');
+				assert.strictEqual(hasResolved, false, "shouldn't resolve");
+				assert.strictEqual(hasRejected, true, 'should have rejected');
 				assert(!hasListeners(emitter), 'should have unsubscribed');
 			});
 		});

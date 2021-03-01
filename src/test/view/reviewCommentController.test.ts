@@ -175,7 +175,7 @@ describe('ReviewCommentController', function () {
 				return path.substring('/root/'.length);
 			});
 
-			sinon.stub(repository, 'diffWith').returns(Promise.resolve(''));
+			sinon.stub(repository, 'diffWithHEAD').returns(Promise.resolve(''));
 
 			const replaceCommentSpy = sinon.spy(reviewCommentController, 'replaceTemporaryComment' as any);
 

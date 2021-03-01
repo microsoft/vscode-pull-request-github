@@ -17,4 +17,5 @@ jobs:
           testResultsFormat: JUnit
           testResultsFiles: $(Agent.HomeDirectory)/test-results.xml
           testRunTitle: Mocha test suite
+          failTaskOnFailedTests: true
         condition: succeededOrFailed()
