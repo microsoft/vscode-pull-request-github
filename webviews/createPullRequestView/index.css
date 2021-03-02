@@ -6,6 +6,7 @@
 input,
 textarea {
 	padding: 5px !important;
+	margin-top: 5px;
 }
 
 select {
@@ -64,4 +65,19 @@ body {
 
 .input-error {
 	border: 1px solid var(--vscode-inputValidation-errorBorder) !important;
+}
+
+.input-label {
+	text-transform: uppercase;
+	font-size: 11px;
+}
+
+.selector-group {
+	padding: 5px;
+	border: 1px solid var(--vscode-panel-border);
+	margin-bottom: 10px;
+}
+
+.selector-group .wrapper:last-of-type {
+	margin-bottom: 5px;
 }

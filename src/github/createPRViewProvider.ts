@@ -36,6 +36,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private _onDidChangeBaseBranch = new vscode.EventEmitter<string>();
 	readonly onDidChangeBaseBranch: vscode.Event<string> = this._onDidChangeBaseBranch.event;
 
+	private _onDidChangeCompareRemote = new vscode.EventEmitter<RemoteInfo>();
+	readonly onDidChangeCompareRemote: vscode.Event<RemoteInfo> = this._onDidChangeCompareRemote.event;
+
 	private _onDidChangeCompareBranch = new vscode.EventEmitter<string>();
 	readonly onDidChangeCompareBranch: vscode.Event<string> = this._onDidChangeCompareBranch.event;
 
@@ -152,22 +155,37 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		);
 	}
 
+	// Current branch should be used to set defaults - it's the current compare branch, and the upstream
+	// is either it's upstream or origin
+
+	// The list of branches for compare should be combo of remote branches + local branches with no remote
+	// Changing remote updates this list with same logic, just changing the remote branch part
+	// Changing the compare branch just updates that
+
 	public async initializeParams(reset: boolean = false): Promise<void> {
 		if (!this.compareBranch) {
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
 		}
 
-		const defaultRemote: RemoteInfo = {
+		const defaultBaseRemote: RemoteInfo = {
 			owner: this._pullRequestDefaults.owner,
 			repositoryName: this._pullRequestDefaults.repo,
 		};
 
+		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
+		const defaultCompareRemote: RemoteInfo = {
+			owner: origin.remote.owner,
+			repositoryName: origin.remote.repositoryName
+		};
+
+		// List branches for compare - add in current branch
 		const [githubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
 			this.getTitle(),
 			this.getDescription(),
 		]);
+
 		const remotes: RemoteInfo[] = githubRemotes.map(remote => {
 			return {
 				owner: remote.owner,
@@ -175,19 +193,54 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			};
 		});
 
+		let branchesForCompare = branchesForRemote;
+		if (defaultCompareRemote.owner !== defaultBaseRemote.owner) {
+			branchesForCompare = await this._folderRepositoryManager.listBranches(defaultCompareRemote.owner, defaultCompareRemote.repositoryName);
+			if (!branchesForCompare.includes(this.compareBranch.name!)) {
+				branchesForCompare.push(this.compareBranch.name!);
+			}
+		}
+
 		this._postMessage({
 			command: reset ? 'reset' : 'pr.initialize',
 			params: {
 				availableRemotes: remotes,
-				defaultRemote,
-				defaultBranch: this._pullRequestDefaults.base,
+				defaultBaseRemote,
+				defaultBaseBranch: this._pullRequestDefaults.base,
+				defaultCompareRemote,
+				defaultCompareBranch: this.compareBranch.name!,
 				branchesForRemote,
+				branchesForCompare,
 				defaultTitle,
 				defaultDescription,
 				compareBranch: this.compareBranch.name!,
 				isDraft: false,
-			},
+			}
 		});
+	}
+
+	private async changeRemote(message: IRequestMessage<{ owner: string; repositoryName: string }>, isBase: boolean): Promise<void> {
+		const { owner, repositoryName } = message.args;
+		const githubRepository = this._folderRepositoryManager.findRepo(
+			repo => owner === repo.remote.owner && repositoryName === repo.remote.repositoryName,
+		);
+
+		if (!githubRepository) {
+			throw new Error('No matching GitHub repository found.');
+		}
+
+		const defaultBranch = await githubRepository.getDefaultBranch();
+		const newBranches = await this._folderRepositoryManager.listBranches(owner, repositoryName);
+
+		if (isBase) {
+			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
+			this._onDidChangeBaseBranch.fire(defaultBranch);
+		} else {
+			this._onDidChangeCompareRemote.fire({ owner, repositoryName });
+			this._onDidChangeCompareBranch.fire(defaultBranch);
+		}
+
+		return this._replyMessage(message, { branches: newBranches, defaultBranch });
 	}
 
 	private async changeBaseRemote(message: IRequestMessage<{ owner: string; repositoryName: string }>): Promise<void> {
@@ -284,6 +337,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			case 'pr.changeBaseBranch':
 				this._onDidChangeBaseBranch.fire(message.args);
 				return;
+
+			case 'pr.changeCompareRemote':
+				return this.changeRemote(message, false);
 
 			case 'pr.changeCompareBranch':
 				this._onDidChangeCompareBranch.fire(message.args);

@@ -14,11 +14,13 @@ interface RemoteInfo {
 export interface CreateParams {
 	availableRemotes: RemoteInfo[];
 	branchesForRemote: string[];
+	branchesForCompare: string[];
 
 	pendingTitle?: string;
 	pendingDescription?: string;
 	baseRemote?: RemoteInfo;
 	baseBranch?: string;
+	compareRemote?: RemoteInfo;
 	compareBranch?: string;
 	isDraft: boolean;
 
@@ -30,6 +32,7 @@ export interface CreateParams {
 const defaultCreateParams: CreateParams = {
 	availableRemotes: [],
 	branchesForRemote: [],
+	branchesForCompare: [],
 	validate: false,
 	showTitleValidationError: false,
 	isDraft: false,
@@ -79,6 +82,22 @@ export class CreatePRContext {
 		this.postMessage({ command: 'pr.changeBaseBranch', args: branch });
 	};
 
+	public changeCompareRemote = async (owner: string, repositoryName: string): Promise<void> => {
+		const response = await this.postMessage({
+			command: 'pr.changeCompareRemote',
+			args: {
+				owner,
+				repositoryName,
+			},
+		});
+
+		this.updateState({
+			compareRemote: { owner, repositoryName },
+			branchesForCompare: response.branches,
+			compareBranch: response.defaultBranch,
+		});
+	};
+
 	public changeCompareBranch = async (branch: string): Promise<void> => {
 		this.postMessage({ command: 'pr.changeCompareBranch', args: branch });
 	};
@@ -119,8 +138,11 @@ export class CreatePRContext {
 	};
 
 	handleMessage = (message: any): void => {
+		console.log(message);
+		console.log('hello?');
 		switch (message.command) {
 			case 'pr.initialize':
+				console.log(message.params);
 				if (this.createParams.pendingTitle === undefined) {
 					message.params.pendingTitle = message.params.defaultTitle;
 				}
@@ -130,7 +152,7 @@ export class CreatePRContext {
 				}
 
 				if (this.createParams.baseRemote === undefined) {
-					message.params.baseRemote = message.params.defaultRemote;
+					message.params.baseRemote = message.params.defaultBaseRemote;
 				} else {
 					// Notify the extension of the stored selected remote state
 					this.changeBaseRemote(
@@ -140,15 +162,24 @@ export class CreatePRContext {
 				}
 
 				if (this.createParams.baseBranch === undefined) {
-					message.params.baseBranch = message.params.defaultBranch;
+					message.params.baseBranch = message.params.defaultBaseBranch;
 				} else {
 					// Notify the extension of the stored base branch state
 					this.changeBaseBranch(this.createParams.baseBranch);
 				}
 
+				if (this.createParams.compareRemote === undefined) {
+					message.params.compareRemote = message.params.defaultCompareRemote;
+				} else {
+					// Notify the extension of the stored base branch state
+					this.changeCompareRemote(
+						this.createParams.compareRemote.owner,
+						this.createParams.compareRemote.repositoryName,
+					);
+				}
+
 				if (this.createParams.compareBranch === undefined) {
-					// eslint-disable-next-line no-self-assign
-					message.params.compareBranch = message.params.compareBranch;
+					message.params.compareBranch = message.params.defaultCompareBranch;
 				} else {
 					// Notify the extension of the stored compare branch state
 					this.changeCompareBranch(this.createParams.compareBranch);
@@ -156,15 +187,21 @@ export class CreatePRContext {
 
 				this.updateState(message.params);
 				return;
+
 			case 'reset':
+				console.log(message.params);
 				message.params.pendingTitle = message.params.defaultTitle;
 				message.params.pendingDescription = message.params.defaultDescription;
-				message.params.baseRemote = message.params.defaultRemote;
-				message.params.baseBranch = message.params.defaultBranch;
+				message.params.baseRemote = message.params.defaultBaseRemote;
+				message.params.baseBranch = message.params.defaultBaseBranch;
+				message.params.compareBranch = message.params.defaultCompareBranch;
+				message.params.compareRemote = message.params.defaultCompareRemote;
 				this.updateState(message.params);
-				break;
+				return;
+
 			case 'set-scroll':
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
+				return;
 		}
 	};
 
