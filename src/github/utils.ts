@@ -456,7 +456,7 @@ export function parseGraphQLPullRequest(
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
 		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository),
 		milestone: parseMilestone(graphQLPullRequest.milestone),
-		assignees: graphQLPullRequest.assignees.nodes,
+		assignees: graphQLPullRequest.assignees?.nodes,
 	};
 }
 
