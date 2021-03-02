@@ -33,14 +33,6 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		});
 
 		this._disposables.push(this._view);
-
-		this._disposables.push(
-			this.repository.state.onDidChange(async e => {
-				// Refresh the compare branch stats if the repo changes
-				this.compareBranch = await this.repository.getBranch(this.compareBranch.name!)!;
-				this._onDidChangeTreeData.fire();
-			}),
-		);
 	}
 
 	async updateCompareBranch(branch: string): Promise<void> {
