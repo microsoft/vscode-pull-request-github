@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.15
+### Changes
+
+- Improved logging.
+
 ## 0.0.14
 ### Changes
 
