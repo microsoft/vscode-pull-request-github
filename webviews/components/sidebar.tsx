@@ -14,7 +14,8 @@ import { Reviewer } from './reviewer';
 import { Avatar, AuthorLink } from '../components/user';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone,assignees}: PullRequest) {
-	const { addReviewers,addAssignees, addMilestones, addLabels, updatePR, pr } = useContext(PullRequestContext);
+	const { addReviewers,addAssignees, addMilestones, addLabels, updatePR, removeMilestone, removeAssignee, pr } = useContext(PullRequestContext);
+
 	return <div id='sidebar'>
 		{!isIssue
 			? <div id='reviewers' className='section'>
@@ -52,6 +53,9 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				return <div key={i} className='section-item reviewer'>
 					<Avatar for={x} />
 					<AuthorLink for={x} />
+					<>{nbsp}<a className='push-right remove-item' onClick={async() => {
+						await removeAssignee(x.login);
+					}}>{deleteIcon}️</a>{nbsp}</>
 				</div>;
 			})): (null)}
 		</div>
@@ -64,7 +68,6 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						const newLabels = await addLabels();
 						updatePR({ labels: pr.labels.concat(newLabels.added) });
 					}}>{plusIcon}</button>
-					<a className='push-right remove-item' onClick={() => console.log('clicked')}>{deleteIcon}️</a>
 					</>
 				) : null}
 			</div>
@@ -82,12 +85,21 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					}}>{plusIcon}</button>
 				) : null}
 			</div>
-			<div className='section-item label'>
-				{milestone ? (milestone.title): (null)}
+			{milestone ? (
+				<div className='section-item label'>
+				{milestone.title}
+				<>{nbsp}<a className='push-right remove-item' onClick={async() => {
+					await removeMilestone();
+					updatePR({ milestone: null});
+				}}>{deleteIcon}️</a>{nbsp}</>
 			</div>
+			) : null
+			}
 		</div>
-	</div>;
+	</div>
 }
+
+
 
 
 

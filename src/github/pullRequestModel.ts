@@ -245,12 +245,14 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	async updateMilestone(id: string): Promise<string> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 
+		var finalId = id === "null" ? null : id;
+
 		const { data } = await mutate<UpdateMilestone>({
 			mutation: schema.UpdatePullRequest,
 			variables: {
 				input: {
 					pullRequestId: this.item.graphNodeId,
-					milestoneId: id,
+					milestoneId: finalId,
 				}
 			}
 		});

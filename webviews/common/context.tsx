@@ -69,6 +69,8 @@ export class PRContext {
 		this.postMessage({ command: 'pr.add-reviewers' })
 	public addMilestones = () =>
 		this.postMessage({command: 'pr.add-milestones'})
+	public removeMilestone = () =>
+		this.postMessage({command: 'pr.remove-milestone'})
 	public addAssignees = () =>
 		this.postMessage({command: 'pr.add-assignees'})
 	public addLabels = () =>
@@ -134,6 +136,13 @@ export class PRContext {
 		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== login);
 		this.updatePR({ reviewers });
 	}
+
+	public removeAssignee = async (login: string) => {
+		await this.postMessage({ command: 'pr.remove-assignee', args: login });
+		const assignees = this.pr.assignees.filter(a => a.login !== login);
+		this.updatePR({ assignees });
+	}
+
 
 	public removeLabel = async (label: string) => {
 		await this.postMessage({ command: 'pr.remove-label', args: label });

@@ -219,12 +219,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				return this._replyMessage(message, await this._item.getMergability());
 			case 'pr.add-reviewers':
 				return this.addReviewers(message);
+			case 'pr.remove-milestone':
+				return this.removeMilestone(message);
 			case 'pr.add-milestones':
 				return this.addMilestones(message);
 			case 'pr.add-assignees':
 				return this.addAssignees(message);
 			case 'pr.remove-reviewer':
 				return this.removeReviewer(message);
+			case 'pr.remove-assignee':
+				return this.removeAssignee(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink(message);
 		}
@@ -387,6 +391,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
+
+	private async removeMilestone(message: IRequestMessage<void>): Promise<void>{
+		try {
+				var task = await this._item.updateMilestone("null");
+				this._replyMessage(message, {});
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+
 	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
