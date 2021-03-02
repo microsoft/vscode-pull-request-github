@@ -155,13 +155,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		);
 	}
 
-	// Current branch should be used to set defaults - it's the current compare branch, and the upstream
-	// is either it's upstream or origin
-
-	// The list of branches for compare should be combo of remote branches + local branches with no remote
-	// Changing remote updates this list with same logic, just changing the remote branch part
-	// Changing the compare branch just updates that
-
 	public async initializeParams(reset: boolean = false): Promise<void> {
 		if (!this.compareBranch) {
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
@@ -178,7 +171,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			repositoryName: origin.remote.repositoryName
 		};
 
-		// List branches for compare - add in current branch
 		const [githubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
@@ -240,22 +232,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			this._onDidChangeCompareBranch.fire(defaultBranch);
 		}
 
-		return this._replyMessage(message, { branches: newBranches, defaultBranch });
-	}
-
-	private async changeBaseRemote(message: IRequestMessage<{ owner: string; repositoryName: string }>): Promise<void> {
-		const { owner, repositoryName } = message.args;
-		const githubRepository = this._folderRepositoryManager.findRepo(
-			repo => owner === repo.remote.owner && repositoryName === repo.remote.repositoryName,
-		);
-
-		if (!githubRepository) {
-			throw new Error('No matching GitHub repository found.');
-		}
-
-		const defaultBranch = await githubRepository.getDefaultBranch();
-		const newBranches = await this._folderRepositoryManager.listBranches(owner, repositoryName);
-		this._onDidChangeBaseRemote.fire({ owner, repositoryName });
 		return this._replyMessage(message, { branches: newBranches, defaultBranch });
 	}
 
@@ -332,7 +308,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				return this.create(message);
 
 			case 'pr.changeBaseRemote':
-				return this.changeBaseRemote(message);
+				return this.changeRemote(message, true);
 
 			case 'pr.changeBaseBranch':
 				this._onDidChangeBaseBranch.fire(message.args);
