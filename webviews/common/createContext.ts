@@ -138,11 +138,8 @@ export class CreatePRContext {
 	};
 
 	handleMessage = (message: any): void => {
-		console.log(message);
-		console.log('hello?');
 		switch (message.command) {
 			case 'pr.initialize':
-				console.log(message.params);
 				if (this.createParams.pendingTitle === undefined) {
 					message.params.pendingTitle = message.params.defaultTitle;
 				}
@@ -189,7 +186,6 @@ export class CreatePRContext {
 				return;
 
 			case 'reset':
-				console.log(message.params);
 				message.params.pendingTitle = message.params.defaultTitle;
 				message.params.pendingDescription = message.params.defaultDescription;
 				message.params.baseRemote = message.params.defaultBaseRemote;
