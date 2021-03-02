@@ -109,6 +109,7 @@ export class CredentialStore implements vscode.Disposable {
 			this._telemetry.sendTelemetryEvent('auth.failed');
 			return undefined;
 		}
+		Logger.appendLine(`projectName is ${projectName}`, CredentialStore.ID);
 
 		this._orgUrl = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(ORGURL_SETTINGS);
 		if (!this._orgUrl) {
@@ -116,6 +117,7 @@ export class CredentialStore implements vscode.Disposable {
 			this._telemetry.sendTelemetryEvent('auth.failed');
 			return undefined;
 		}
+		Logger.appendLine(`orgUrl is ${this._orgUrl}`, CredentialStore.ID);
 
 		const tokenKey = this.getTokenKey(this._orgUrl);
 		const token = await this.getToken(tokenKey);

@@ -77,7 +77,11 @@ export class AzdoRepository implements vscode.Disposable {
 			Logger.debug(`Fetch metadata for repo: ${this._metadata.id}/${this._metadata.name} - cache hit`, AzdoRepository.ID);
 			return this._metadata;
 		}
+
+		Logger.debug(`Searching for repos in ${this._hub?.projectName} project`, AzdoRepository.ID);
 		const repos = await gitApi?.getRepositories(this._hub?.projectName);
+
+		Logger.debug(`Found ${repos?.length} repos. Searching for repo with name ${this.remote.repositoryName}`, AzdoRepository.ID);
 		this._metadata = await repos?.find(v => v.name === this.remote.repositoryName);
 		if (!this._metadata) {
 			Logger.debug(`Fetch metadata ${this.remote.repositoryName} failed. No repo by that name.`, AzdoRepository.ID);
@@ -93,14 +97,16 @@ export class AzdoRepository implements vscode.Disposable {
 
 	async resolveRemote(): Promise<void> {
 		try {
+			Logger.debug(`Resolving Remote for remoteName: ${this.remote.remoteName} and gitProtocol: ${this.remote.gitProtocol}`, AzdoRepository.ID);
 			const metadata = await this.getMetadata();
+			Logger.debug(`Resolving Remote for remoteUrl: ${metadata?.remoteUrl}`, AzdoRepository.ID);
 			const remote = parseRemote(this.remote.remoteName, metadata?.remoteUrl, this.remote.gitProtocol)!;
 			// TODO Disabling this as it fixes #5 Dont know what it does
 			// this.remote = remote;
 			// tslint:disable-next-line: no-unused-expression
 			remote;
 		} catch (e) {
-			Logger.appendLine(`Unable to resolve remote: ${e}`);
+			Logger.appendLine(`Unable to resolve remote: ${e}`, AzdoRepository.ID);
 		}
 	}
 
