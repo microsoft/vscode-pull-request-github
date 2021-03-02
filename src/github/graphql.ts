@@ -369,7 +369,7 @@ export interface PullRequest {
 	body: string;
 	bodyHTML: string;
 	title: string;
-	assignees: {
+	assignees?: {
 		nodes: {
 			login: string;
 			url: string;
