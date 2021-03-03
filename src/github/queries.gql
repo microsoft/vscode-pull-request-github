@@ -512,7 +512,6 @@ mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
 	}
 }
 
-
 mutation AddIssueComment($input: AddCommentInput!) {
 	addComment(input: $input) {
 		commentEdge {
@@ -631,19 +630,6 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 			}
 		}
 	}
-}
-
-query GetMilestonesLite($owner: String!, $name: String!) {
-  repository(owner: $owner, name: $name) {
-	milestones(first: 12) {
-	  nodes {
-		title
-		dueOn
-		createdAt
-		id
-	  }
-	}
-  }
 }
 
 query MaxIssue($owner: String!, $name: String!) {

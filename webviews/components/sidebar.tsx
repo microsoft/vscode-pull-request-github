@@ -14,7 +14,7 @@ import { Reviewer } from './reviewer';
 import { Avatar, AuthorLink } from '../components/user';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone,assignees}: PullRequest) {
-	const { addReviewers,addAssignees, addMilestones, addLabels, updatePR, removeMilestone, removeAssignee, pr } = useContext(PullRequestContext);
+	const { addReviewers,addAssignees, addMilestone, addLabels, updatePR, removeMilestone, removeAssignee, pr } = useContext(PullRequestContext);
 
 	return <div id='sidebar'>
 		{!isIssue
@@ -41,21 +41,19 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				{hasWritePermission ? (
 						<button title='Add Assignees' onClick={async () => {
 							const newAssignees = await addAssignees();
-							{newAssignees.added.map(x => {
-								updatePR({ assignees: pr.assignees.concat(x.assignee) });
-							})
-							}
+							updatePR({ assignees: pr.assignees.concat(newAssignees.added)});
 						}}>{plusIcon}</button>
 					) : null}
 			</div>
-
 			{assignees ? (assignees.map((x,i) => {
 				return <div key={i} className='section-item reviewer'>
 					<Avatar for={x} />
 					<AuthorLink for={x} />
-					<>{nbsp}<a className='push-right remove-item' onClick={async() => {
+					{hasWritePermission ?
+					(<>{nbsp}<a className='push-right remove-item' onClick={async() => {
 						await removeAssignee(x.login);
-					}}>{deleteIcon}️</a>{nbsp}</>
+					}}>{deleteIcon}️</a>{nbsp}</>) : null
+					}
 				</div>;
 			})): (null)}
 		</div>
@@ -80,7 +78,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				<div>Milestone</div>
 				{hasWritePermission ? (
 					<button title='Add Milestone' onClick={async() => {
-						const newMilestone = await addMilestones();
+						const newMilestone = await addMilestone();
 						updatePR({ milestone: newMilestone.added});
 					}}>{plusIcon}</button>
 				) : null}
@@ -88,21 +86,18 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			{milestone ? (
 				<div className='section-item label'>
 				{milestone.title}
-				<>{nbsp}<a className='push-right remove-item' onClick={async() => {
+				{hasWritePermission ?
+				(<>{nbsp}<a className='push-right remove-item' onClick={async() => {
 					await removeMilestone();
 					updatePR({ milestone: null});
-				}}>{deleteIcon}️</a>{nbsp}</>
+				}}>{deleteIcon}️</a>{nbsp}</>) : null
+				}
 			</div>
 			) : null
 			}
 		</div>
 	</div>
 }
-
-
-
-
-
 
 function Label(label: ILabel & { canDelete: boolean }) {
 	const { name, canDelete } = label;

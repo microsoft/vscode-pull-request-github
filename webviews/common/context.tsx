@@ -67,8 +67,8 @@ export class PRContext {
 
 	public addReviewers = () =>
 		this.postMessage({ command: 'pr.add-reviewers' })
-	public addMilestones = () =>
-		this.postMessage({command: 'pr.add-milestones'})
+	public addMilestone = () =>
+		this.postMessage({command: 'pr.add-milestone'})
 	public removeMilestone = () =>
 		this.postMessage({command: 'pr.remove-milestone'})
 	public addAssignees = () =>

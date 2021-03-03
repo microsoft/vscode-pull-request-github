@@ -15,7 +15,7 @@ import { AuthenticationError } from '../common/authentication';
 import { QueryOptions, MutationOptions, ApolloQueryResult, NetworkStatus, FetchResult } from 'apollo-boost';
 import { PRCommentController } from '../view/prCommentController';
 import { convertRESTPullRequestToRawPullRequest, parseGraphQLPullRequest, parseGraphQLIssue, parseMilestone, parseGraphQLViewerPermission } from './utils';
-import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse, MaxIssueResponse, ForkDetailsResponse, ViewerPermissionResponse, MilestoneLiteResponse } from './graphql';
+import { PullRequestResponse, MentionableUsersResponse, AssignableUsersResponse, MilestoneIssuesResponse, IssuesResponse, IssuesSearchResponse, MaxIssueResponse, ForkDetailsResponse, ViewerPermissionResponse} from './graphql';
 import { IssueModel } from './issueModel';
 import { Protocol } from '../common/protocol';
 import { ITelemetry } from '../common/telemetry';
@@ -381,27 +381,6 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async GetMilestonesLite(): Promise<MilestoneLiteResponse | undefined> {
-		try {
-			Logger.debug(`Fetch milestones lite - enter`, GitHubRepository.ID);
-			const { query, remote, schema} = await this.ensure();
-
-			const { data } = await query<MilestoneLiteResponse>({
-				query: schema.GetMilestonesLite,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-				}
-			});
-			Logger.debug(`Fetch milestone lite - done`, GitHubRepository.ID);
-
-			return data;
-		} catch (e) {
-			Logger.appendLine(`GithubRepository> Unable to fetch milestones lite: ${e}`);
-			return;
-		}
-	}
-
 	async getIssuesWithoutMilestone(page?: number): Promise<IssueData | undefined> {
 		try {
 			Logger.debug(`Fetch issues without milestone- enter`, GitHubRepository.ID);
@@ -436,7 +415,6 @@ export class GitHubRepository implements vscode.Disposable {
 			return;
 		}
 	}
-
 
 	async getIssues(page?: number, queryString?: string): Promise<IssueData | undefined> {
 		try {
@@ -543,9 +521,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return;
 		}
 	}
-
-
-
+	
 	async getAuthenticatedUser(): Promise<string> {
 		const { octokit } = await this.ensure();
 		const user = await octokit.users.getAuthenticated({});

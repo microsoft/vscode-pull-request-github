@@ -442,22 +442,6 @@ export interface IssuesSearchResponse {
 	rateLimit: RateLimit;
 }
 
-export interface MilestoneLiteResponse {
-	milestones: {
-		nodes: {
-			dueOn: string,
-			createdAt: string,
-			title: string,
-			id: string,
-			issues: {
-				edges: {
-					node: PullRequest
-				}[]
-			}
-		}[],
-	}
-}
-
 export interface MilestoneIssuesResponse {
 	repository: {
 		milestones: {

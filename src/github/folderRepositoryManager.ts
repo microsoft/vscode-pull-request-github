@@ -19,7 +19,7 @@ import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
 import { convertRESTPullRequestToRawPullRequest, getRelatedUsersFromTimelineEvents, convertRESTUserToAccount, loginComparator, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
-import { MilestoneLiteResponse, PullRequestState, UserResponse } from './graphql';
+import { PullRequestState, UserResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
@@ -510,7 +510,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._fetchAssignableUsersPromise = new Promise((resolve) => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getAssignableUsers();
-
 					cache[githubRepository.remote.remoteName] = data.sort(loginComparator);
 					allAssignableUsers.push(...data);
 					return;
@@ -583,15 +582,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return Promise.all(promises).then(values => {
 			return values.filter(value => value !== null) as PullRequestModel[];
 		});
-	}
-
-	async getMilestonesLite() {
-		const data = [];
-		for (var i = 0; i < this._githubRepositories.length; i++) {
-			const milestone = await this._githubRepositories[i].GetMilestonesLite();
-			data.push(milestone);
-		}
-		return data;
 	}
 
 	async getLabels(issue?: IssueModel, repoInfo?: { owner: string, repo: string }): Promise<ILabel[]> {

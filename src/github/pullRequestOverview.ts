@@ -221,8 +221,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				return this.addReviewers(message);
 			case 'pr.remove-milestone':
 				return this.removeMilestone(message);
-			case 'pr.add-milestones':
-				return this.addMilestones(message);
+			case 'pr.add-milestone':
+				return this.addMilestone(message);
 			case 'pr.add-assignees':
 				return this.addAssignees(message);
 			case 'pr.remove-reviewer':
@@ -363,7 +363,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	private async addMilestones(message: IRequestMessage<void>): Promise<void>{
+	private async addMilestone(message: IRequestMessage<void>): Promise<void>{
 		try {
 			const milestones = await this._folderRepositoryManager.getMilestones();
 
@@ -416,7 +416,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			);
 
 			if (assigneesToAdd) {
-
+				var newIAccounts = [];
 				const addedAsignees: AssigneeState[] = assigneesToAdd.map(assignee => {
 					return {
 						// assumes that suggested reviewers will be a subset of assignable users
@@ -425,16 +425,21 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					};
 				});
 
+				for(var i = 0; i < addedAsignees.length; i++){
+					newIAccounts.push(addedAsignees[i].assignee);
+				}
+
 				this._existingAssignees = this._existingAssignees.concat(addedAsignees);
 
 				var ids = [];
 				for(var i = 0; i < this._existingAssignees.length; i++){
 					ids.push(this._existingAssignees[i].assignee.login);
 				}
-				const task = await this._item.updateAssignees(ids);
+				await this._item.updateAssignees(ids);
+
 
 				this._replyMessage(message, {
-					added: addedAsignees
+					added: newIAccounts
 				});
 			}
 		} catch (e) {

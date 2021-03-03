@@ -530,7 +530,6 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		});
 	}
 
-
 	/**
 	 * Remove a review request that has not yet been completed
 	 * @param reviewer A GitHub Login
