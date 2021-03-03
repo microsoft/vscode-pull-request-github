@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.16
+### Changes
+
+- visualstudio domain remotes should now resolve. Fixes [ankitbko/vscode-pull-request-azdo#25](https://github.com/ankitbko/vscode-pull-request-azdo/issues/25)
+
 ## 0.0.15
 ### Changes
 
