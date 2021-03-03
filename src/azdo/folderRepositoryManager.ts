@@ -152,8 +152,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return Promise.all(potentialRemotes.map(remote => this._githubManager.isAzdo(remote.gitProtocol.normalizeUri()!)))
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
-				Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
-				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
+				Logger.appendLine(`Resolving Azdo remotes failed: ${e}`, FolderRepositoryManager.ID);
+				vscode.window.showErrorMessage(`Resolving Azdo remotes failed: ${formatError(e)}`, FolderRepositoryManager.ID);
 				return [];
 			});
 	}
@@ -162,13 +162,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 
 		if (!remotesSetting) {
-			Logger.appendLine(`Unable to read remotes setting`);
+			Logger.appendLine(`Unable to read remotes setting`, FolderRepositoryManager.ID);
 			return Promise.resolve([]);
 		}
 
 		remotesSetting.forEach(remote => {
 			if (!allGitHubRemotes.some(repo => repo.remoteName === remote)) {
-				Logger.appendLine(`No remote with name '${remote}' found.`);
+				Logger.appendLine(`No remote with name '${remote}' found. All other remotes: ${allGitHubRemotes.map(r => r.remoteName).join(',')}`, FolderRepositoryManager.ID);
 			}
 		});
 
@@ -398,10 +398,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'azdo:hasAzdoRemotes', true);
-			Logger.appendLine('Found GitHub remote');
+			Logger.appendLine(`Found Azdo remotes ${activeRemotes.map(r => r.remoteName).join(',')}`, FolderRepositoryManager.ID);
 		} else {
 			await vscode.commands.executeCommand('setContext', 'azdo:hasAzdoRemotes', false);
-			Logger.appendLine('No GitHub remotes found');
+			Logger.appendLine(`No Azdo remotes found. All remotes: ${this._allGitHubRemotes.map(r => r.remoteName).join(',')}`, FolderRepositoryManager.ID);
 		}
 
 		return activeRemotes;

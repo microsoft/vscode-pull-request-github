@@ -5,7 +5,6 @@ export class AzdoManager {
 	// TODO WTF Does this do?
 	private _servers: Map<string, boolean> = new Map()
 		.set('dev.azure.com', true)
-		.set('msazure.visualstudio.com', true)
 		.set('ssh.dev.azure.com', true)
 		.set('vs-ssh.visualstudio.com', true);
 
@@ -19,6 +18,7 @@ export class AzdoManager {
 				return value;
 			}
 		}
-		return false;
+
+		return host.authority.includes('.visualstudio.com');
 	}
 }
