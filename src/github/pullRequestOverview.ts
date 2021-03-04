@@ -306,10 +306,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isAuthor && isCommenter
 					? 'Recently edited and reviewed changes to these files'
 					: isAuthor
-						? 'Recently edited these files'
-						: isCommenter
-							? 'Recently reviewed changes to these files'
-							: 'Suggested reviewer';
+					? 'Recently edited these files'
+					: isCommenter
+					? 'Recently reviewed changes to these files'
+					: 'Suggested reviewer';
 
 			reviewers.push({
 				label: login,
@@ -369,14 +369,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			skipList.add(login);
 		}
 
-		for (const { login, name } of assignableUsers) {
-			if (skipList.has(login)) {
+		for (const user of assignableUsers) {
+			if (skipList.has(user.login)) {
 				continue;
 			}
 
 			assignees.push({
-				label: login,
-				description: name
+				label: user.login,
+				description: user.name
 			});
 		}
 
@@ -460,8 +460,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this.getAssigneesQuickPickItems(assignableUsers, []),
 				{
 					canPickMany: true,
-					matchOnDescription: true
-				}
+					matchOnDescription: true,
+				},
 			);
 
 			if (assigneesToAdd) {
