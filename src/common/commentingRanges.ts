@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { DiffHunk, DiffChangeType } from './diffHunk';
+import { DiffChangeType, DiffHunk } from './diffHunk';
 import { getZeroBased } from './diffPositionMapping';
 
 /**

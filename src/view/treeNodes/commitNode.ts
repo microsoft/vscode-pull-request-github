@@ -3,19 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { TreeNode } from './treeNode';
-import { GitFileChangeNode } from './fileChangeNode';
-import { toReviewUri } from '../../common/uri';
-import { getGitChangeType } from '../../common/diffHunk';
+import * as vscode from 'vscode';
 import { IComment } from '../../common/comment';
+import { getGitChangeType } from '../../common/diffHunk';
+import { toReviewUri } from '../../common/uri';
+import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { OctokitCommon } from '../../github/common';
+import { GitFileChangeNode } from './fileChangeNode';
+import { TreeNode } from './treeNode';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public sha: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath: vscode.Uri | undefined;
@@ -26,7 +25,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
-		private readonly comments: IComment[]
+		private readonly comments: IComment[],
 	) {
 		super();
 		this.label = commit.commit.message;
@@ -53,7 +52,9 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		const fileChanges = await this.pullRequest.getCommitChangedFiles(this.commit);
 
 		const fileChangeNodes = fileChanges.map(change => {
-			const matchingComments = this.comments.filter(comment => comment.path === change.filename && comment.originalCommitId === this.commit.sha);
+			const matchingComments = this.comments.filter(
+				comment => comment.path === change.filename && comment.originalCommitId === this.commit.sha,
+			);
 			const fileName = change.filename;
 			const uri = vscode.Uri.parse(path.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
 			const fileChangeNode = new GitFileChangeNode(
@@ -63,11 +64,27 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				getGitChangeType(change.status),
 				fileName,
 				undefined,
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: false }, this.pullRequestManager.repository.rootUri),
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: true }, this.pullRequestManager.repository.rootUri),
+				toReviewUri(
+					uri,
+					fileName,
+					undefined,
+					this.commit.sha,
+					true,
+					{ base: false },
+					this.pullRequestManager.repository.rootUri,
+				),
+				toReviewUri(
+					uri,
+					fileName,
+					undefined,
+					this.commit.sha,
+					true,
+					{ base: true },
+					this.pullRequestManager.repository.rootUri,
+				),
 				[],
 				matchingComments,
-				this.commit.sha
+				this.commit.sha,
 			);
 
 			fileChangeNode.useViewChangesCommand();
@@ -77,5 +94,4 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 		return Promise.resolve(fileChangeNodes);
 	}
-
 }

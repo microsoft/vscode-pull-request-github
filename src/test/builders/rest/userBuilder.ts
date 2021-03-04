@@ -2,17 +2,17 @@ import { createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
 
 type UserUnion =
-	OctokitCommon.PullsListResponseItemUser |
-	OctokitCommon.PullsListResponseItemAssignee |
-	OctokitCommon.PullsListResponseItemAssigneesItem |
-	OctokitCommon.PullsListResponseItemRequestedReviewersItem |
-	OctokitCommon.PullsListResponseItemBaseUser |
-	OctokitCommon.PullsListResponseItemBaseRepoOwner |
-	OctokitCommon.PullsListResponseItemHeadUser |
-	OctokitCommon.PullsListResponseItemHeadRepoOwner |
-	OctokitCommon.IssuesListEventsForTimelineResponseItemActor;
+	| OctokitCommon.PullsListResponseItemUser
+	| OctokitCommon.PullsListResponseItemAssignee
+	| OctokitCommon.PullsListResponseItemAssigneesItem
+	| OctokitCommon.PullsListResponseItemRequestedReviewersItem
+	| OctokitCommon.PullsListResponseItemBaseUser
+	| OctokitCommon.PullsListResponseItemBaseRepoOwner
+	| OctokitCommon.PullsListResponseItemHeadUser
+	| OctokitCommon.PullsListResponseItemHeadRepoOwner
+	| OctokitCommon.IssuesListEventsForTimelineResponseItemActor;
 
-export const UserBuilder = createBuilderClass<UserUnion>()({
+export const UserBuilder = createBuilderClass<Required<UserUnion>>()({
 	id: { default: 0 },
 	node_id: { default: 'node0' },
 	login: { default: 'octocat' },
@@ -30,7 +30,8 @@ export const UserBuilder = createBuilderClass<UserUnion>()({
 	events_url: { default: 'https://api.github.com/users/octocat/events{/privacy}' },
 	received_events_url: { default: 'https://api.github.com/users/octocat/received_events' },
 	type: { default: 'User' },
-	site_admin: { default: false }
+	site_admin: { default: false },
+	starred_at: { default: '' },
 });
 
 export type UserBuilder = InstanceType<typeof UserBuilder>;

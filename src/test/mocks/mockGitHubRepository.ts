@@ -7,26 +7,25 @@ import { Remote } from '../../common/remote';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
-import { ManagedGraphQLPullRequestBuilder, ManagedRESTPullRequestBuilder, ManagedPullRequest } from '../builders/managedPullRequestBuilder';
+import {
+	ManagedGraphQLPullRequestBuilder,
+	ManagedRESTPullRequestBuilder,
+	ManagedPullRequest,
+} from '../builders/managedPullRequestBuilder';
 import { MockTelemetry } from './mockTelemetry';
 const queries = require('../../github/queries.gql');
 
 export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
-	constructor(
-		remote: Remote,
-		credentialStore: CredentialStore,
-		telemetry: MockTelemetry,
-		sinon: SinonSandbox
-	) {
+	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
 		super(remote, credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);
 
 		this._hub = {
 			octokit: this.queryProvider.octokit,
-			graphql: null
+			graphql: null,
 		};
 
 		this._metadata = {
@@ -41,13 +40,13 @@ export class MockGitHubRepository extends GitHubRepository {
 		return this;
 	}
 
-	query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> => this.queryProvider.emulateGraphQLQuery(query);
+	query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> =>
+		this.queryProvider.emulateGraphQLQuery(query);
 
-	mutate = async <T>(mutation: MutationOptions): Promise<FetchResult<T>> => this.queryProvider.emulateGraphQLMutation(mutation);
+	mutate = async <T>(mutation: MutationOptions): Promise<FetchResult<T>> =>
+		this.queryProvider.emulateGraphQLMutation(mutation);
 
-	buildMetadata(
-		block: (repoBuilder: RepositoryBuilder, userBuilder: UserBuilder) => void
-	) {
+	buildMetadata(block: (repoBuilder: RepositoryBuilder, userBuilder: UserBuilder) => void) {
 		const repoBuilder = new RepositoryBuilder();
 		const userBuilder = new UserBuilder();
 		block(repoBuilder, userBuilder);
@@ -65,23 +64,29 @@ export class MockGitHubRepository extends GitHubRepository {
 		const prNumber = responses.pullRequest.repository.pullRequest.number;
 		const headRef = responses.pullRequest.repository.pullRequest.headRef;
 
-		this.queryProvider.expectGraphQLQuery({
-			query: queries.PullRequest,
-			variables: {
-				owner: this.remote.owner,
-				name: this.remote.repositoryName,
-				number: prNumber,
-			}
-		}, { data: responses.pullRequest, loading: false, stale: false, networkStatus: NetworkStatus.ready });
+		this.queryProvider.expectGraphQLQuery(
+			{
+				query: queries.PullRequest,
+				variables: {
+					owner: this.remote.owner,
+					name: this.remote.repositoryName,
+					number: prNumber,
+				},
+			},
+			{ data: responses.pullRequest, loading: false, stale: false, networkStatus: NetworkStatus.ready },
+		);
 
-		this.queryProvider.expectGraphQLQuery({
-			query: queries.TimelineEvents,
-			variables: {
-				owner: this.remote.owner,
-				name: this.remote.repositoryName,
-				number: prNumber
-			}
-		}, { data: responses.timelineEvents, loading: false, stale: false, networkStatus: NetworkStatus.ready });
+		this.queryProvider.expectGraphQLQuery(
+			{
+				query: queries.TimelineEvents,
+				variables: {
+					owner: this.remote.owner,
+					name: this.remote.repositoryName,
+					number: prNumber,
+				},
+			},
+			{ data: responses.timelineEvents, loading: false, stale: false, networkStatus: NetworkStatus.ready },
+		);
 
 		this._addPullRequestCommon(prNumber, headRef && headRef.target.oid, responses);
 

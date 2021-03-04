@@ -4,24 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
 import { GitChangeType } from '../common/file';
+import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
 
 export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[];
 
-	constructor(
-	) {
+	constructor() {
 		this._disposables = [];
 		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
 	}
 
-	provideFileDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.FileDecoration> {
+	provideFileDecoration(
+		uri: vscode.Uri,
+		token: vscode.CancellationToken,
+	): vscode.ProviderResult<vscode.FileDecoration> {
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
 			return {
 				propagate: false,
-				badge: this.letter(fileChangeUriParams.status)
+				badge: this.letter(fileChangeUriParams.status),
 			};
 		}
 
@@ -30,7 +32,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		if (prParams && prParams.status !== undefined) {
 			return {
 				propagate: false,
-				badge: this.letter(prParams.status)
+				badge: this.letter(prParams.status),
 			};
 		}
 

@@ -4,7 +4,7 @@ import { PullRequestResponse, Ref } from '../../../github/graphql';
 import { RateLimitBuilder } from './rateLimitBuilder';
 
 const RefBuilder = createBuilderClass<Ref>()({
-	name: { default: 'master' },
+	name: { default: 'main' },
 	repository: createLink<Ref['repository']>()({
 		owner: createLink<Ref['repository']['owner']>()({
 			login: { default: 'me' },
@@ -13,7 +13,7 @@ const RefBuilder = createBuilderClass<Ref>()({
 	}),
 	target: createLink<Ref['target']>()({
 		oid: { default: '0000000000000000000000000000000000000000' },
-	})
+	}),
 });
 
 type Repository = PullRequestResponse['repository'];
@@ -35,11 +35,13 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			title: { default: 'plz merge' },
 			assignees: createLink<AssigneesConn>()({
 				nodes: {
-					default: [{
-						login: 'me',
-						url: 'https://github.com/me'
-					}]
-				}
+					default: [
+						{
+							login: 'me',
+							url: 'https://github.com/me',
+						},
+					],
+				},
 			}),
 			author: createLink<Author>()({
 				login: { default: 'me' },
@@ -56,7 +58,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			merged: { default: false },
 			mergeable: { default: 'MERGEABLE' },
 			isDraft: { default: false },
-			suggestedReviewers: { default: [] }
+			suggestedReviewers: { default: [] },
 		}),
 	}),
 	rateLimit: { linked: RateLimitBuilder },

@@ -1,7 +1,7 @@
-import { parse as parseConfig } from 'ssh-config';
 import { readFileSync } from 'fs';
-import { join } from 'path';
 import { homedir } from 'os';
+import { join } from 'path';
+import { parse as parseConfig } from 'ssh-config';
 import Logger from '../../common/logger';
 
 const SSH_URL_RE = /^(?:([^@:]+)@)?([^:/]+):?(.+)$/;
@@ -56,10 +56,7 @@ export const resolve = (url: string, resolveConfig = Resolvers.current) => {
 };
 
 export class Resolvers {
-	static default = chainResolvers(
-		baseResolver,
-		resolverFromConfigFile(),
-	);
+	static default = chainResolvers(baseResolver, resolverFromConfigFile());
 
 	static fromConfig(conf: string) {
 		return chainResolvers(baseResolver, resolverFromConfig(conf));
@@ -79,7 +76,9 @@ const parse = (url: string): Config | undefined => {
 		}
 	}
 	const match = SSH_URL_RE.exec(url);
-	if (!match) { return; }
+	if (!match) {
+		return;
+	}
 	const [, User, Host, path] = match;
 	return { User, Host, path };
 };
@@ -107,9 +106,12 @@ export function resolverFromConfig(text: string): ConfigResolver {
 
 function chainResolvers(...chain: (ConfigResolver | undefined)[]): ConfigResolver {
 	const resolvers = chain.filter(x => !!x) as ConfigResolver[];
-	return (config: Config) => resolvers
-		.reduce((resolved, next) => ({
-			...resolved,
-			...next(resolved),
-		}), config);
+	return (config: Config) =>
+		resolvers.reduce(
+			(resolved, next) => ({
+				...resolved,
+				...next(resolved),
+			}),
+			config,
+		);
 }

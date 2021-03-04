@@ -3,17 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { StateManager, MilestoneItem, IssueItem } from './stateManager';
-import { issueMarkdown } from './util';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { ReposManagerState, FolderRepositoryManager } from '../github/folderRepositoryManager';
+import * as vscode from 'vscode';
+import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
+import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
+import { IssueItem, MilestoneItem, StateManager } from './stateManager';
+import { issueMarkdown } from './util';
 
 export class IssueUriTreeItem extends vscode.TreeItem {
-	constructor(public readonly uri: vscode.Uri | undefined, label: string, collapsibleState?: vscode.TreeItemCollapsibleState) {
+	constructor(
+		public readonly uri: vscode.Uri | undefined,
+		label: string,
+		collapsibleState?: vscode.TreeItemCollapsibleState,
+	) {
 		super(label, collapsibleState);
 	}
 
@@ -22,21 +26,36 @@ export class IssueUriTreeItem extends vscode.TreeItem {
 	}
 }
 
-export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem> {
-	private _onDidChangeTreeData: vscode.EventEmitter<FolderRepositoryManager | IssueItem | MilestoneItem | null | undefined | void> = new vscode.EventEmitter();
-	public onDidChangeTreeData: vscode.Event<FolderRepositoryManager | IssueItem | MilestoneItem | null | undefined | void> = this._onDidChangeTreeData.event;
+export class IssuesTreeData
+	implements vscode.TreeDataProvider<FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem> {
+	private _onDidChangeTreeData: vscode.EventEmitter<
+		FolderRepositoryManager | IssueItem | MilestoneItem | null | undefined | void
+	> = new vscode.EventEmitter();
+	public onDidChangeTreeData: vscode.Event<
+		FolderRepositoryManager | IssueItem | MilestoneItem | null | undefined | void
+	> = this._onDidChangeTreeData.event;
 
-	constructor(private stateManager: StateManager, private manager: RepositoriesManager, private context: vscode.ExtensionContext) {
-		context.subscriptions.push(this.manager.onDidChangeState(() => {
-			this._onDidChangeTreeData.fire();
-		}));
-		context.subscriptions.push(this.stateManager.onDidChangeIssueData(() => {
-			this._onDidChangeTreeData.fire();
-		}));
+	constructor(
+		private stateManager: StateManager,
+		private manager: RepositoriesManager,
+		private context: vscode.ExtensionContext,
+	) {
+		context.subscriptions.push(
+			this.manager.onDidChangeState(() => {
+				this._onDidChangeTreeData.fire();
+			}),
+		);
+		context.subscriptions.push(
+			this.stateManager.onDidChangeIssueData(() => {
+				this._onDidChangeTreeData.fire();
+			}),
+		);
 
-		context.subscriptions.push(this.stateManager.onDidChangeCurrentIssue(() => {
-			this._onDidChangeTreeData.fire();
-		}));
+		context.subscriptions.push(
+			this.stateManager.onDidChangeCurrentIssue(() => {
+				this._onDidChangeTreeData.fire();
+			}),
+		);
 	}
 
 	getTreeItem(element: FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem): IssueUriTreeItem {
@@ -44,12 +63,28 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 		if (element instanceof IssueUriTreeItem) {
 			treeItem = element;
 		} else if (element instanceof FolderRepositoryManager) {
-			treeItem = new IssueUriTreeItem(element.repository.rootUri, path.basename(element.repository.rootUri.fsPath), vscode.TreeItemCollapsibleState.Expanded);
+			treeItem = new IssueUriTreeItem(
+				element.repository.rootUri,
+				path.basename(element.repository.rootUri.fsPath),
+				vscode.TreeItemCollapsibleState.Expanded,
+			);
 		} else if (!(element instanceof IssueModel)) {
-			treeItem = new IssueUriTreeItem(element.uri, element.milestone.title, element.issues.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
+			treeItem = new IssueUriTreeItem(
+				element.uri,
+				element.milestone.title,
+				element.issues.length > 0
+					? vscode.TreeItemCollapsibleState.Expanded
+					: vscode.TreeItemCollapsibleState.None,
+			);
 		} else {
-			treeItem = new IssueUriTreeItem(undefined, `${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
-			treeItem.iconPath = element.isOpen ? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open')) : new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+			treeItem = new IssueUriTreeItem(
+				undefined,
+				`${element.number}: ${element.title}`,
+				vscode.TreeItemCollapsibleState.None,
+			);
+			treeItem.iconPath = element.isOpen
+				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
 			if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
 				treeItem.label = `✓ ${treeItem.label!}`;
 				treeItem.contextValue = 'currentissue';
@@ -68,15 +103,20 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 		return treeItem;
 	}
 
-	getChildren(element: FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem | undefined): FolderRepositoryManager[] | Promise<(IssueItem | MilestoneItem)[]> | IssueItem[] | IssueUriTreeItem[] {
-		if ((element === undefined) && (this.manager.state !== ReposManagerState.RepositoriesLoaded)) {
+	getChildren(
+		element: FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem | undefined,
+	): FolderRepositoryManager[] | Promise<(IssueItem | MilestoneItem)[]> | IssueItem[] | IssueUriTreeItem[] {
+		if (element === undefined && this.manager.state !== ReposManagerState.RepositoriesLoaded) {
 			return this.getStateChildren();
 		} else {
 			return this.getIssuesChildren(element);
 		}
 	}
 
-	async resolveTreeItem(item: vscode.TreeItem, element: FolderRepositoryManager | IssueItem | MilestoneItem | vscode.TreeItem): Promise<vscode.TreeItem> {
+	async resolveTreeItem(
+		item: vscode.TreeItem,
+		element: FolderRepositoryManager | IssueItem | MilestoneItem | vscode.TreeItem,
+	): Promise<vscode.TreeItem> {
 		if (element instanceof IssueModel) {
 			item.tooltip = await issueMarkdown(element, this.context, this.manager);
 		}
@@ -101,12 +141,17 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 		return queryLabels.map(label => {
 			const item = new IssueUriTreeItem(folderManager.repository.rootUri, label);
 			item.contextValue = 'query';
-			item.collapsibleState = label === firstLabel ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+			item.collapsibleState =
+				label === firstLabel
+					? vscode.TreeItemCollapsibleState.Expanded
+					: vscode.TreeItemCollapsibleState.Collapsed;
 			return item;
 		});
 	}
 
-	getIssuesChildren(element: FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem | undefined): FolderRepositoryManager[] | Promise<(IssueItem | MilestoneItem)[]> | IssueItem[] | IssueUriTreeItem[] {
+	getIssuesChildren(
+		element: FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem | undefined,
+	): FolderRepositoryManager[] | Promise<(IssueItem | MilestoneItem)[]> | IssueItem[] | IssueUriTreeItem[] {
 		if (element === undefined) {
 			// If there's only one query, don't display a title for it
 			if (this.manager.folderManagers.length === 1) {
@@ -119,7 +164,9 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 		} else if (element instanceof FolderRepositoryManager) {
 			return this.getQueryItems(element);
 		} else if (element instanceof IssueUriTreeItem) {
-			return element.uri ? this.stateManager.getIssueCollection(element.uri).get(element.labelAsString!) ?? [] : [];
+			return element.uri
+				? this.stateManager.getIssueCollection(element.uri).get(element.labelAsString!) ?? []
+				: [];
 		} else if (!(element instanceof IssueModel)) {
 			return element.issues.map(item => {
 				const issueItem: IssueItem = Object.assign(item);
@@ -130,5 +177,4 @@ export class IssuesTreeData implements vscode.TreeDataProvider<FolderRepositoryM
 			return [];
 		}
 	}
-
 }

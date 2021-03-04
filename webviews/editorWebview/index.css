@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
- #app {
+#app {
 	display: grid;
 	grid-template-columns: 670px auto;
 }
@@ -25,7 +25,11 @@
 	padding-left: 20px;
 }
 
-a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
+a:focus,
+input:focus,
+select:focus,
+textarea:focus,
+.title-text:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
@@ -33,7 +37,7 @@ a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	margin-right: 5px;
 }
 
- .title {
+.title {
 	display: flex;
 	align-items: flex-start;
 	margin: 20px 0;
@@ -45,19 +49,21 @@ a:focus, input:focus, select:focus, textarea:focus, .title-text:focus {
 	margin-left: 5px;
 }
 
-.loading-indicator{
+.loading-indicator {
 	position: fixed;
 	top: 50%;
 	left: 40%;
-	transform: translate(-50%,-50%);
+	transform: translate(-50%, -50%);
 }
 
 .comment-body li div {
 	display: inline;
 }
 
-.comment-body code, .comment-body a, span.lineContent {
-    overflow-wrap: break-word;
+.comment-body code,
+.comment-body a,
+span.lineContent {
+	overflow-wrap: break-word;
 }
 
 #title:empty {
@@ -89,7 +95,6 @@ body .comment-container .avatar-container img.avatar,
 body .comment-container .avatar-container .avatar-icon svg {
 	margin-right: 0;
 }
-
 
 .vscode-light .avatar-icon {
 	filter: invert(100%);
@@ -158,11 +163,12 @@ body .comment-container .review-comment-header {
 	margin-left: 15px;
 }
 
-.status-item, .form-actions {
+.status-item,
+.form-actions {
 	display: flex;
 }
 
-.form-actions > input[type=submit] {
+.form-actions > input[type='submit'] {
 	margin-left: auto;
 }
 
@@ -254,18 +260,19 @@ body .merged .merged-message > a {
 
 body .comment-container .review-comment-container .pending-label,
 body .resolved-container .outdatedLabel {
-		border: 1px solid;
-		border-radius: 2px 2px 2px 2px;
-		padding: 0.1rem 0.3rem;
-		font-style: italic;
-		margin-left: 5px;
+	border: 1px solid;
+	border-radius: 2px 2px 2px 2px;
+	padding: 0.1rem 0.3rem;
+	font-style: italic;
+	margin-left: 5px;
 }
 
 body .diff .diffPath {
 	margin-right: 4px;
 }
 
-body .comment-container .comment-body, .review-body {
+body .comment-container .comment-body,
+.review-body {
 	padding: 10px;
 	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
 	border-top: none;
@@ -277,11 +284,15 @@ body .comment-container .review-comment-container .review-comment-body {
 	border: none;
 }
 
-body .comment-container .comment-body > p, body .comment-container .comment-body > div > p, .comment-container .review-body > p {
+body .comment-container .comment-body > p,
+body .comment-container .comment-body > div > p,
+.comment-container .review-body > p {
 	margin-top: 0;
 }
 
-body .comment-container .comment-body > p:last-child, body .comment-container .comment-body > div > p:last-child, .comment-container .review-body > p:last-child {
+body .comment-container .comment-body > p:last-child,
+body .comment-container .comment-body > div > p:last-child,
+.comment-container .review-body > p:last-child {
 	margin-bottom: 0;
 }
 
@@ -298,7 +309,8 @@ body .hidden-focusable {
 	overflow: hidden;
 }
 
-.comment-actions button:hover:enabled, .comment-actions button:focus:enabled {
+.comment-actions button:hover:enabled,
+.comment-actions button:focus:enabled {
 	background-color: transparent;
 }
 
@@ -401,7 +413,8 @@ body .overview-title .button-group button {
 	margin-right: 0;
 }
 
-.section button:hover, .section button:focus {
+.section button:hover,
+.section button:focus {
 	background: transparent;
 }
 
@@ -431,10 +444,12 @@ body .overview-title .button-group button {
 .comment-container.commit,
 .comment-container.merged {
 	padding: 16px 0 0 12px;
-	box-sizing: border-box
+	box-sizing: border-box;
 }
 
-.commit, .review, .merged {
+.commit,
+.review,
+.merged {
 	display: flex;
 	width: 100%;
 	border: none;
@@ -489,10 +504,10 @@ body .overview-title .button-group button {
 }
 
 .merged svg {
-    width: 14px;
-    height: auto;
-    margin-right: 8px;
-    flex-shrink: 0;
+	width: 14px;
+	height: auto;
+	margin-right: 8px;
+	flex-shrink: 0;
 }
 
 .details {
@@ -513,11 +528,11 @@ body .overview-title .button-group button {
 	margin: 0;
 }
 
-.comment-container[data-type="commit"] {
+.comment-container[data-type='commit'] {
 	padding: 8px 0;
 }
 
-.comment-container[data-type="commit"] + .comment-container[data-type="commit"],
+.comment-container[data-type='commit'] + .comment-container[data-type='commit'],
 .comment-container:first-of-type {
 	border-top: none;
 }
@@ -554,7 +569,6 @@ body .comment-form {
 	padding: 10px 0;
 }
 
-
 .task-list-item {
 	list-style-type: none;
 }
@@ -580,7 +594,7 @@ textarea {
 }
 
 .comment-form .form-actions > button,
-.comment-form .form-actions > input[type=submit] {
+.comment-form .form-actions > input[type='submit'] {
 	margin-right: 0;
 	margin-left: 0;
 }
@@ -604,7 +618,7 @@ textarea {
 }
 
 body .comment-form .form-actions button {
-	margin-right:10px;
+	margin-right: 10px;
 }
 
 .details .comment-body {
@@ -652,7 +666,9 @@ blockquote p:last-child {
 	border-bottom-style: solid;
 }
 
-.comment-body h1, h2, h3 {
+.comment-body h1,
+h2,
+h3 {
 	font-weight: normal;
 }
 
@@ -687,7 +703,7 @@ blockquote p:last-child {
 }
 
 code {
-	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-family: Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .comment-body body.wordWrap pre {
@@ -718,7 +734,6 @@ code {
 	color: var(--vscode-editor-foreground);
 }
 
-
 .vscode-light .comment-body pre:not(.hljs),
 .vscode-light .comment-body code > div {
 	background-color: rgba(220, 220, 220, 0.4);
@@ -738,12 +753,14 @@ code {
 	border: 1px solid rgb(0, 0, 0);
 }
 
-.vscode-high-contrast .comment-container .review-comment-header, .vscode-high-contrast #status-checks {
+.vscode-high-contrast .comment-container .review-comment-header,
+.vscode-high-contrast #status-checks {
 	background: none;
 	border: 1px solid var(--vscode-panel-border);
 }
 
-.vscode-high-contrast .comment-container .comment-body, .vscode-high-contrast .review-comment-container .review-body {
+.vscode-high-contrast .comment-container .comment-body,
+.vscode-high-contrast .review-comment-container .review-body {
 	border: 1px solid var(--vscode-panel-border);
 }
 
@@ -801,15 +818,15 @@ code {
 }
 
 .win32 .diff .diffLine {
-	font-family: Consolas, Inconsolata, "Courier New", monospace;
+	font-family: Consolas, Inconsolata, 'Courier New', monospace;
 }
 
 .darwin .diff .diffLine {
-	font-family: Monaco, Menlo, Inconsolata, "Courier New", monospace;
+	font-family: Monaco, Menlo, Inconsolata, 'Courier New', monospace;
 }
 
 .linux .diff .diffLine {
-	font-family: "Droid Sans Mono", Inconsolata, "Courier New", monospace, "Droid Sans Fallback";
+	font-family: 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .diff .diffLine.add {
@@ -918,7 +935,7 @@ code {
 	}
 
 	.section-item .avatar {
-		border-radius: 3px
+		border-radius: 3px;
 	}
 
 	.section-item .login {
@@ -956,7 +973,6 @@ code {
 	margin-left: 4px;
 	margin-right: 4px;
 }
-
 
 .remove-item {
 	height: 12px;

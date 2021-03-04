@@ -1,7 +1,7 @@
-import { createBuilderClass } from '../../../../src/test/builders/base';
-import { PullRequest } from '../../../common/cache';
 import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
+import { createBuilderClass } from '../../../../src/test/builders/base';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
+import { PullRequest } from '../../../common/cache';
 
 import { AccountBuilder } from './account';
 
@@ -16,11 +16,11 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	state: { default: GithubItemStateEnum.Open },
 	events: { default: [] },
 	isCurrentlyCheckedOut: { default: true },
-	base: { default: 'master' },
+	base: { default: 'main' },
 	head: { default: 'my-fork:my-branch' },
 	labels: { default: [] },
 	commitsCount: { default: 10 },
-	repositoryDefaultBranch: { default: 'master' },
+	repositoryDefaultBranch: { default: 'main' },
 	canEdit: { default: true },
 	hasWritePermission: { default: true },
 	pendingCommentText: { default: null },
@@ -31,5 +31,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	mergeMethodsAvailability: { default: { merge: true, squash: true, rebase: true } },
 	reviewers: { default: [] },
 	isDraft: { default: false },
-	isIssue: { default: false }
+	isIssue: { default: false },
+	assignees: { default: [] },
+	milestone: { default: undefined },
 });

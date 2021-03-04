@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { window } from 'vscode';
 import { Agent, globalAgent } from 'https';
 import { URL } from 'url';
 import { httpsOverHttp } from 'tunnel';
+import { window } from 'vscode';
 
 export const agent = getAgent();
 
@@ -18,7 +18,9 @@ export const agent = getAgent();
  * @returns {https.Agent}
  */
 function getAgent(url: string | undefined = process.env.HTTPS_PROXY): Agent {
-	if (!url) { return globalAgent; }
+	if (!url) {
+		return globalAgent;
+	}
 	try {
 		const { hostname, port, username, password } = new URL(url);
 		const auth = username && password && `${username}:${password}`;

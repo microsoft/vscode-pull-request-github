@@ -3,8 +3,9 @@ import { runTests } from 'vscode-test';
 
 async function go() {
 	try {
-		const extensionDevelopmentPath = path.resolve(__dirname, '../../');
+		const extensionDevelopmentPath = path.resolve(__dirname, '../../../');
 		const extensionTestsPath = path.resolve(__dirname, './');
+		console.log(extensionDevelopmentPath, extensionTestsPath);
 
 		/**
 		 * Basic usage
@@ -13,13 +14,11 @@ async function go() {
 			version: 'insiders',
 			extensionDevelopmentPath,
 			extensionTestsPath,
-			launchArgs: [
-				'--disable-extensions'
-			]
+			launchArgs: ['--disable-extensions'],
 		});
 	} catch (e) {
 		console.log(e);
 	}
 }
 
-go();
+setTimeout(() => go(), 10000);

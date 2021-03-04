@@ -4,15 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ISSUE_OR_URL_EXPRESSION, MAX_LINE_LENGTH, ISSUES_CONFIGURATION } from './util';
+import { ISSUE_OR_URL_EXPRESSION, ISSUES_CONFIGURATION, MAX_LINE_LENGTH } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;
 
 	constructor(context: vscode.ExtensionContext) {
-		context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
-			this.updateTriggers();
-		}));
+		context.subscriptions.push(
+			vscode.workspace.onDidChangeConfiguration(() => {
+				this.updateTriggers();
+			}),
+		);
 		this.updateTriggers();
 	}
 
@@ -21,7 +23,12 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 		this.expression = triggers.length > 0 ? new RegExp(triggers.join('|')) : undefined;
 	}
 
-	async provideCodeActions(document: vscode.TextDocument, range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.CodeAction[]> {
+	async provideCodeActions(
+		document: vscode.TextDocument,
+		range: vscode.Range | vscode.Selection,
+		context: vscode.CodeActionContext,
+		token: vscode.CancellationToken,
+	): Promise<vscode.CodeAction[]> {
 		if (this.expression === undefined || (context.only && context.only !== vscode.CodeActionKind.QuickFix)) {
 			return [];
 		}
@@ -34,13 +41,18 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 			if (!matches) {
 				const search = truncatedLine.search(this.expression);
 				if (search >= 0) {
-					const codeAction: vscode.CodeAction = new vscode.CodeAction('Create GitHub Issue', vscode.CodeActionKind.QuickFix);
+					const codeAction: vscode.CodeAction = new vscode.CodeAction(
+						'Create GitHub Issue',
+						vscode.CodeActionKind.QuickFix,
+					);
 					const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
-					const insertIndex = search + (indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression)![0].length);
+					const insertIndex =
+						search +
+						(indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression)![0].length);
 					codeAction.command = {
 						title: 'Create GitHub Issue',
 						command: 'issue.createIssueFromSelection',
-						arguments: [{ document, lineNumber, line, insertIndex, range }]
+						arguments: [{ document, lineNumber, line, insertIndex, range }],
 					};
 					codeActions.push(codeAction);
 					break;

@@ -4,14 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { byRemoteName, DetachedHeadError, FolderRepositoryManager, PullRequestDefaults, titleAndBodyFrom } from './folderRepositoryManager';
-import webviewContent from '../../media/createPR-webviewIndex.js';
+import type { Branch } from '../api/api';
+import { RefType } from '../api/api1';
+import Logger from '../common/logger';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { OctokitCommon } from './common';
-import { PullRequestModel } from './pullRequestModel';
-import Logger from '../common/logger';
+import {
+	byRemoteName,
+	DetachedHeadError,
+	FolderRepositoryManager,
+	PullRequestDefaults,
+	titleAndBodyFrom,
+} from './folderRepositoryManager';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
-import { Branch, RefType } from '../api/api';
+import { PullRequestModel } from './pullRequestModel';
 
 interface RemoteInfo {
 	owner: string;
@@ -51,7 +57,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken,
 	) {
-
 		this._view = webviewView;
 		this._webview = webviewView.webview;
 		super.initialize();
@@ -59,9 +64,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			// Allow scripts in the webview
 			enableScripts: true,
 
-			localResourceRoots: [
-				this._extensionUri
-			]
+			localResourceRoots: [this._extensionUri],
 		};
 
 		webviewView.webview.html = this._getHtmlForWebview();
@@ -81,9 +84,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return this._compareBranch;
 	}
 
-	set compareBranch(compareBranch: Branch) {
-		this._compareBranch = compareBranch;
-		if (compareBranch && compareBranch.name !== this._compareBranch.name) {
+	set compareBranch(compareBranch: Branch | undefined) {
+		if (
+			compareBranch?.name !== this._compareBranch.name ||
+			compareBranch?.upstream?.remote !== this._compareBranch.upstream?.remote
+		) {
+			this._compareBranch = compareBranch;
 			void this.initializeParams(true);
 			this._onDidChangeCompareBranch.fire(this._compareBranch.name!);
 		}
@@ -116,7 +122,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		if (hasMultipleCommits) {
 			return this.compareBranch.name!;
 		} else {
-			return titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).title;
+			return titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!))
+				.title;
 		}
 	}
 
@@ -138,7 +145,11 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private async getDescription(): Promise<string> {
 		// Try to match github's default, first look for template, then use commit body if available.
 		const pullRequestTemplate = this.getPullRequestTemplate();
-		return (await pullRequestTemplate) ?? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).body ?? '';
+		return (
+			(await pullRequestTemplate) ??
+			titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).body ??
+			''
+		);
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
@@ -148,19 +159,19 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		const defaultRemote: RemoteInfo = {
 			owner: this._pullRequestDefaults.owner,
-			repositoryName: this._pullRequestDefaults.repo
+			repositoryName: this._pullRequestDefaults.repo,
 		};
 
 		const [githubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
 			this.getTitle(),
-			this.getDescription()
+			this.getDescription(),
 		]);
 		const remotes: RemoteInfo[] = githubRemotes.map(remote => {
 			return {
 				owner: remote.owner,
-				repositoryName: remote.repositoryName
+				repositoryName: remote.repositoryName,
 			};
 		});
 
@@ -174,14 +185,16 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				defaultTitle,
 				defaultDescription,
 				compareBranch: this.compareBranch.name!,
-				isDraft: false
-			}
+				isDraft: false,
+			},
 		});
 	}
 
-	private async changeBaseRemote(message: IRequestMessage<{ owner: string, repositoryName: string }>): Promise<void> {
+	private async changeBaseRemote(message: IRequestMessage<{ owner: string; repositoryName: string }>): Promise<void> {
 		const { owner, repositoryName } = message.args;
-		const githubRepository = this._folderRepositoryManager.findRepo(repo => owner === repo.remote.owner && repositoryName === repo.remote.repositoryName);
+		const githubRepository = this._folderRepositoryManager.findRepo(
+			repo => owner === repo.remote.owner && repositoryName === repo.remote.repositoryName,
+		);
 
 		if (!githubRepository) {
 			throw new Error('No matching GitHub repository found.');
@@ -208,8 +221,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			if (!remote) {
 				// We assume this happens only when the compare branch is based on the current branch.
-				const shouldPushUpstream = await vscode.window.showInformationMessage(`There is currently no upstream branch for '${branchName}'. Do you want to publish it and try again?`, { modal: true }, 'Yes');
-				if (shouldPushUpstream === 'Yes') {
+				const shouldPushUpstream = await vscode.window.showInformationMessage(
+					`There is no upstream branch for '${branchName}'.\n\nDo you want to publish it and then create the pull request?`,
+					{ modal: true },
+					'Publish branch',
+				);
+				if (shouldPushUpstream === 'Publish branch') {
 					await vscode.commands.executeCommand('git.publish');
 					if (this._folderRepositoryManager.repository.state.HEAD) {
 						this.compareBranch = this._folderRepositoryManager.repository.state.HEAD;
@@ -234,13 +251,16 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				this._throwError(message, 'There must be a difference in commits to create a pull request.');
 			} else {
 				await this._replyMessage(message, {});
-				await PullRequestGitHelper.associateBranchWithPullRequest(this._folderRepositoryManager.repository, createdPR, branchName);
+				await PullRequestGitHelper.associateBranchWithPullRequest(
+					this._folderRepositoryManager.repository,
+					createdPR,
+					branchName,
+				);
 				this._onDone.fire(createdPR);
 			}
 		} catch (e) {
 			this._throwError(message, e.message);
 		}
-
 	}
 
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -250,7 +270,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 
 		switch (message.command) {
-
 			case 'pr.cancelCreate':
 				vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
 				this._onDone.fire(undefined);
@@ -279,19 +298,21 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private _getHtmlForWebview() {
 		const nonce = getNonce();
 
-		return `<!DOCTYPE html>
-		<html lang="en">
-		<head>
-			<meta charset="UTF-8">
-			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-create-pr-view.js');
 
-			<title>Create Pull Request</title>
-		</head>
-		<body>
-			<div id="app"></div>
-			<script nonce="${nonce}">${webviewContent}</script>
-		</body>
-		</html>`;
+		return `<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+		<title>Create Pull Request</title>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script nonce="${nonce}" src="${this._webview!.asWebviewUri(uri).toString()}"></script>
+	</body>
+</html>`;
 	}
 }

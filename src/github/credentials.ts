@@ -4,21 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Octokit } from '@octokit/rest';
-import * as OctokitTypes from '@octokit/types';
 import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
-import * as vscode from 'vscode';
-import { agent } from '../env/node/net';
-import Logger from '../common/logger';
-import * as PersistentState from '../common/persistentState';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
+import * as vscode from 'vscode';
+import Logger from '../common/logger';
+import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
+import { agent } from '../env/node/net';
+import { OctokitCommon } from './common';
 
 const TRY_AGAIN = 'Try again?';
 const CANCEL = 'Cancel';
 const SIGNIN_COMMAND = 'Sign in';
-const IGNORE_COMMAND = 'Don\'t show again';
+const IGNORE_COMMAND = "Don't show again";
 
 const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
@@ -29,7 +29,7 @@ const SCOPES = ['read:user', 'user:email', 'repo'];
 export interface GitHub {
 	octokit: Octokit;
 	graphql: ApolloClient<NormalizedCacheObject> | null;
-	currentUser?: OctokitTypes.PullsGetResponseData['user'];
+	currentUser?: OctokitCommon.PullsGetResponseUser;
 }
 
 export class CredentialStore implements vscode.Disposable {
@@ -41,11 +41,13 @@ export class CredentialStore implements vscode.Disposable {
 
 	constructor(private readonly _telemetry: ITelemetry) {
 		this._disposables = [];
-		this._disposables.push(vscode.authentication.onDidChangeSessions(() => {
-			if (!this.isAuthenticated()) {
-				return this.initialize();
-			}
-		}));
+		this._disposables.push(
+			vscode.authentication.onDidChangeSessions(() => {
+				if (!this.isAuthenticated()) {
+					return this.initialize();
+				}
+			}),
+		);
 	}
 
 	public async initialize(): Promise<void> {
@@ -77,7 +79,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async getHubOrLogin(): Promise<GitHub | undefined> {
-		return this._githubAPI ?? await this.login();
+		return this._githubAPI ?? (await this.login());
 	}
 
 	public async showSignInNotification(): Promise<GitHub | undefined> {
@@ -87,7 +89,9 @@ export class CredentialStore implements vscode.Disposable {
 
 		const result = await vscode.window.showInformationMessage(
 			`In order to use the Pull Requests functionality, you must sign in to GitHub`,
-			SIGNIN_COMMAND, IGNORE_COMMAND);
+			SIGNIN_COMMAND,
+			IGNORE_COMMAND,
+		);
 
 		if (result === SIGNIN_COMMAND) {
 			return await this.login();
@@ -109,7 +113,6 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async login(): Promise<GitHub | undefined> {
-
 		/* __GDPR__
 			"auth.start" : {}
 		*/
@@ -132,7 +135,9 @@ export class CredentialStore implements vscode.Disposable {
 			if (octokit) {
 				retry = false;
 			} else {
-				retry = (await vscode.window.showErrorMessage(`Error signing in to GitHub`, TRY_AGAIN, CANCEL)) === TRY_AGAIN;
+				retry =
+					(await vscode.window.showErrorMessage(`Error signing in to GitHub`, TRY_AGAIN, CANCEL)) ===
+					TRY_AGAIN;
 			}
 		}
 
@@ -158,7 +163,7 @@ export class CredentialStore implements vscode.Disposable {
 		return this._githubAPI?.currentUser?.login === username;
 	}
 
-	public getCurrentUser(): OctokitTypes.PullsGetResponseData['user'] {
+	public getCurrentUser(): OctokitCommon.PullsGetResponseUser {
 		const octokit = this._githubAPI?.octokit;
 		// TODO remove cast
 		return octokit && (this._githubAPI as any).currentUser;
@@ -181,23 +186,22 @@ export class CredentialStore implements vscode.Disposable {
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
 			previews: ['shadow-cat-preview'],
-			auth: `${token || ''}`
-
+			auth: `${token || ''}`,
 		});
 
 		const graphql = new ApolloClient({
 			link: link('https://api.github.com', token || ''),
-			cache: new InMemoryCache,
+			cache: new InMemoryCache(),
 			defaultOptions: {
 				query: {
-					fetchPolicy: 'no-cache'
-				}
-			}
+					fetchPolicy: 'no-cache',
+				},
+			},
 		});
 
 		const github: GitHub = {
 			octokit,
-			graphql
+			graphql,
 		};
 		await this.setCurrentUser(github);
 		return github;
@@ -209,14 +213,16 @@ export class CredentialStore implements vscode.Disposable {
 }
 
 const link = (url: string, token: string) =>
-	setContext((_, { headers }) => (({
+	setContext((_, { headers }) => ({
 		headers: {
 			...headers,
 			authorization: token ? `Bearer ${token}` : '',
-			Accept: 'application/vnd.github.shadow-cat-preview+json, application/vnd.github.antiope-preview+json'
-		}
-	}))).concat(createHttpLink({
-		uri: `${url}/graphql`,
-		// https://github.com/apollographql/apollo-link/issues/513
-		fetch: fetch as any
-	}));
+			Accept: 'application/vnd.github.shadow-cat-preview+json, application/vnd.github.antiope-preview+json',
+		},
+	})).concat(
+		createHttpLink({
+			uri: `${url}/graphql`,
+			// https://github.com/apollographql/apollo-link/issues/513
+			fetch: fetch as any,
+		}),
+	);

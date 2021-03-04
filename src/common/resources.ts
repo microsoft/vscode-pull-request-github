@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
+import * as vscode from 'vscode';
 
 export class Resource {
 	static icons: any;
@@ -20,7 +20,7 @@ export class Resource {
 				HOORAY: context.asAbsolutePath(path.join('resources', 'icons', 'reactions', 'hooray.png')),
 				LAUGH: context.asAbsolutePath(path.join('resources', 'icons', 'reactions', 'laugh.png')),
 				ROCKET: context.asAbsolutePath(path.join('resources', 'icons', 'reactions', 'rocket.png')),
-			}
+			},
 		};
 	}
 }

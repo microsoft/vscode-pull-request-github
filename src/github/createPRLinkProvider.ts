@@ -12,10 +12,15 @@ interface GitHubCreateTerminalLink extends vscode.TerminalLink {
 }
 
 export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkProvider {
+	constructor(
+		private readonly reviewManager: ReviewManager,
+		private readonly folderRepositoryManager: FolderRepositoryManager,
+	) {}
 
-	constructor(private readonly reviewManager: ReviewManager, private readonly folderRepositoryManager: FolderRepositoryManager) { }
-
-	provideTerminalLinks(context: vscode.TerminalLinkContext, token: vscode.CancellationToken): vscode.ProviderResult<GitHubCreateTerminalLink[]> {
+	provideTerminalLinks(
+		context: vscode.TerminalLinkContext,
+		token: vscode.CancellationToken,
+	): vscode.ProviderResult<GitHubCreateTerminalLink[]> {
 		const startIndex = context.line.indexOf('https://github.com');
 		if (startIndex === -1) {
 			return [];
@@ -33,8 +38,10 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 			const repositoryName = result[2];
 			const branchName = result[3];
 
-			const hasMatchingGitHubRepo = this.folderRepositoryManager.gitHubRepositories
-				.findIndex(repo => repo.remote.owner === owner && repo.remote.repositoryName === repositoryName) > -1;
+			const hasMatchingGitHubRepo =
+				this.folderRepositoryManager.gitHubRepositories.findIndex(
+					repo => repo.remote.owner === owner && repo.remote.repositoryName === repositoryName,
+				) > -1;
 
 			// The create flow compares against the current branch, so check that the published branch is this branch
 			if (hasMatchingGitHubRepo && this.reviewManager.repository.state.HEAD?.name === branchName) {
@@ -43,8 +50,8 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 						startIndex,
 						length: context.line.length - startIndex,
 						tooltip: 'Create a Pull Request',
-						url
-					}
+						url,
+					},
 				];
 			}
 		}
@@ -53,9 +60,13 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 	}
 
 	handleTerminalLink(link: GitHubCreateTerminalLink): vscode.ProviderResult<void> {
-		vscode.window.showInformationMessage('Do you want to create a pull request using the GitHub Pull Requests and Issues extension?',
-			'Yes',
-			'No, continue to github.com').then(notificationResult => {
+		vscode.window
+			.showInformationMessage(
+				'Do you want to create a pull request using the GitHub Pull Requests and Issues extension?',
+				'Yes',
+				'No, continue to github.com',
+			)
+			.then(notificationResult => {
 				if (notificationResult === 'Yes') {
 					this.reviewManager.createPullRequest();
 				} else {

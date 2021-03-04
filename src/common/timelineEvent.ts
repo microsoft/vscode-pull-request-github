@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IComment } from './comment';
 import { IAccount } from '../github/interface';
+import { IComment } from './comment';
 
 export enum EventType {
 	Committed,
@@ -17,7 +17,7 @@ export enum EventType {
 	Assigned,
 	HeadRefDeleted,
 	Merged,
-	Other
+	Other,
 }
 
 export interface Committer {

@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
@@ -61,26 +61,27 @@ describe('PullRequestGitHelper', function () {
 			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, remote, prItem);
 
 			if (!pullRequest.isResolved()) {
-				assert(pullRequest.isResolved(), 'pull request head not resolved successfully');
-				return;
+				assert(false, 'pull request head not resolved successfully');
 			}
 
 			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);
 
-			assert.deepEqual(repository.state.remotes, [{
-				name: 'you',
-				fetchUrl: 'git@github.com:you/name',
-				pushUrl: 'git@github.com:you/name',
-				isReadOnly: false,
-			}]);
-			assert.deepEqual(repository.state.HEAD, {
+			assert.deepStrictEqual(repository.state.remotes, [
+				{
+					name: 'you',
+					fetchUrl: 'git@github.com:you/name',
+					pushUrl: 'git@github.com:you/name',
+					isReadOnly: false,
+				},
+			]);
+			assert.deepStrictEqual(repository.state.HEAD, {
 				type: RefType.Head,
 				name: 'pr/me/100',
 				commit: undefined,
 				upstream: {
 					remote: 'you',
 					name: 'my-branch',
-				}
+				},
 			});
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
 		});

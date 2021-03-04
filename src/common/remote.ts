@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Protocol } from './protocol';
 import { Repository } from '../api/api';
+import { Protocol } from './protocol';
 
 export class Remote {
 	public get host(): string {
@@ -26,7 +26,7 @@ export class Remote {
 		public readonly remoteName: string,
 		public readonly url: string,
 		public readonly gitProtocol: Protocol,
-	) { }
+	) {}
 
 	equals(remote: Remote): boolean {
 		if (this.remoteName !== remote.remoteName) {
@@ -53,7 +53,7 @@ export function parseRemote(remoteName: string, url: string | undefined, origina
 	const gitProtocol = new Protocol(url);
 	if (originalProtocol) {
 		gitProtocol.update({
-			type: originalProtocol.type
+			type: originalProtocol.type,
 		});
 	}
 
@@ -65,7 +65,5 @@ export function parseRemote(remoteName: string, url: string | undefined, origina
 }
 
 export function parseRepositoryRemotes(repository: Repository): Remote[] {
-	return repository.state.remotes
-		.map(r => parseRemote(r.name, r.fetchUrl || r.pushUrl))
-		.filter(r => !!r) as Remote[];
+	return repository.state.remotes.map(r => parseRemote(r.name, r.fetchUrl || r.pushUrl)).filter(r => !!r) as Remote[];
 }

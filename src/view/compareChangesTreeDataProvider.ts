@@ -17,7 +17,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-	private _contentProvider: GitHubContentProvider;
+	private _contentProvider: GitHubContentProvider | undefined;
 
 	private _disposables: vscode.Disposable[] = [];
 
@@ -26,19 +26,13 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		private baseOwner: string,
 		public baseBranchName: string,
 		public compareBranch: Branch,
-		private folderRepoManager: FolderRepositoryManager
+		private folderRepoManager: FolderRepositoryManager,
 	) {
 		this._view = vscode.window.createTreeView('github:compareChanges', {
-			treeDataProvider: this
+			treeDataProvider: this,
 		});
 
 		this._disposables.push(this._view);
-
-		this._disposables.push(this.repository.state.onDidChange(async e => {
-			// Refresh the compare branch stats if the repo changes
-			this.compareBranch = await this.repository.getBranch(this.compareBranch.name!)!;
-			this._onDidChangeTreeData.fire();
-		}));
 	}
 
 	async updateCompareBranch(branch: string): Promise<void> {
@@ -74,10 +68,14 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 		if (!this._contentProvider) {
 			this._contentProvider = new GitHubContentProvider(this.folderRepoManager, upstream);
-			this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('github', this._contentProvider));
+			this._disposables.push(
+				vscode.workspace.registerTextDocumentContentProvider('github', this._contentProvider),
+			);
 		}
 
-		const githubRepository = this.folderRepoManager.gitHubRepositories.find(repo => repo.remote.remoteName === upstream);
+		const githubRepository = this.folderRepoManager.gitHubRepositories.find(
+			repo => repo.remote.remoteName === upstream,
+		);
 		if (!githubRepository) {
 			return [];
 		}
@@ -92,22 +90,27 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		});
 
 		if (!data.files.length) {
-			this._view.message =
-				`The are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranch.name}' branch`;
+			this._view.message = `The are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranch.name}' branch`;
 		} else {
 			this._view.message = undefined;
 		}
 
 		return data.files.map(file => {
 			// Note: the oktokit typings are slightly incorrect for this data and do not include previous_filename, which is why this cast is here.
-			return new GitHubFileChangeNode(this._view, file.filename, (file as any).previous_filename, getGitChangeType(file.status), data.merge_base_commit.sha, this.compareBranch.name!);
+			return new GitHubFileChangeNode(
+				this._view,
+				file.filename,
+				(file as any).previous_filename,
+				getGitChangeType(file.status),
+				data.merge_base_commit.sha,
+				this.compareBranch.name!,
+			);
 		});
 	}
 
 	dispose() {
 		this._disposables.forEach(d => d.dispose());
 	}
-
 }
 
 /**
@@ -115,8 +118,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
  * information in the document's query string.
  */
 class GitHubContentProvider {
-
-	constructor(private folderRepoManager: FolderRepositoryManager, private upstream: string) { }
+	constructor(private folderRepoManager: FolderRepositoryManager, private upstream: string) {}
 
 	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
 		const params = fromGitHubURI(uri);
@@ -124,7 +126,9 @@ class GitHubContentProvider {
 			return '';
 		}
 
-		const githubRepository = this.folderRepoManager.gitHubRepositories.find(repo => repo.remote.remoteName === this.upstream);
+		const githubRepository = this.folderRepoManager.gitHubRepositories.find(
+			repo => repo.remote.remoteName === this.upstream,
+		);
 
 		if (!githubRepository) {
 			return '';
@@ -135,11 +139,11 @@ class GitHubContentProvider {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			path: params.fileName,
-			ref: params.branch
+			ref: params.branch,
 		});
 
-		const contents = fileContent.data.content ?? '';
-		const buff = Buffer.from(contents, <any>fileContent.data.encoding);
+		const contents = (fileContent.data as any).content ?? '';
+		const buff = Buffer.from(contents, (fileContent.data as any).encoding);
 		return buff.toString();
 	}
 }

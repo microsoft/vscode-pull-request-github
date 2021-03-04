@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
 
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../github/folderRepositoryManager';
@@ -54,27 +54,27 @@ describe('PullRequestManager', function () {
 	});
 });
 
-describe('titleAndBodyFrom', function() {
-	it('separates title and body', function() {
+describe('titleAndBodyFrom', function () {
+	it('separates title and body', function () {
 		const message = 'title\n\ndescription 1\n\ndescription 2\n';
 
-		const {title, body} = titleAndBodyFrom(message);
+		const { title, body } = titleAndBodyFrom(message);
 		assert.strictEqual(title, 'title');
 		assert.strictEqual(body, 'description 1\n\ndescription 2');
 	});
 
-	it('returns only title with no body', function() {
+	it('returns only title with no body', function () {
 		const message = 'title';
 
-		const {title, body} = titleAndBodyFrom(message);
+		const { title, body } = titleAndBodyFrom(message);
 		assert.strictEqual(title, 'title');
 		assert.strictEqual(body, '');
 	});
 
-	it('returns only title when body contains only whitespace', function() {
+	it('returns only title when body contains only whitespace', function () {
 		const message = 'title\n\n';
 
-		const {title, body} = titleAndBodyFrom(message);
+		const { title, body } = titleAndBodyFrom(message);
 		assert.strictEqual(title, 'title');
 		assert.strictEqual(body, '');
 	});

@@ -4,18 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as OctokitTypes from '@octokit/types';
 import { IComment } from '../common/comment';
-import { Remote } from '../common/remote';
-import { GitHubRepository } from './githubRepository';
-import { AddIssueCommentResponse, AddReactionResponse, DeleteReactionResponse, EditIssueCommentResponse, TimelineEventsResponse, UpdatePullRequestResponse } from './graphql';
-import { IAccount, Issue, GithubItemStateEnum, IMilestone, IPullRequestEditData } from './interface';
-import { getReactionGroup, parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
-import { formatError } from '../common/utils';
 import Logger from '../common/logger';
+import { Remote } from '../common/remote';
 import { TimelineEvent } from '../common/timelineEvent';
+import { formatError } from '../common/utils';
+import { OctokitCommon } from './common';
+import { GitHubRepository } from './githubRepository';
+import {
+	AddIssueCommentResponse,
+	AddReactionResponse,
+	DeleteReactionResponse,
+	EditIssueCommentResponse,
+	TimelineEventsResponse,
+	UpdatePullRequestResponse,
+} from './graphql';
+import { GithubItemStateEnum, IAccount, IMilestone, IPullRequestEditData, Issue } from './interface';
+import { getReactionGroup, parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
-export class IssueModel {
+export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
 	public id: number;
 	public graphNodeId: string;
@@ -30,14 +37,17 @@ export class IssueModel {
 	public milestone?: IMilestone;
 	public readonly githubRepository: GitHubRepository;
 	public readonly remote: Remote;
-	public item: Issue;
+	public item: TItem;
 	public bodyHTML?: string;
 
-	constructor(githubRepository: GitHubRepository, remote: Remote, item: Issue) {
+	constructor(githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
 		this.githubRepository = githubRepository;
 		this.remote = remote;
 		this.item = item;
-		this.update(item);
+
+		if (!skipUpdate) {
+			this.update(item);
+		}
 	}
 
 	public get isOpen(): boolean {
@@ -86,7 +96,7 @@ export class IssueModel {
 		}
 	}
 
-	update(issue: Issue): void {
+	update(issue: TItem): void {
 		this.id = issue.id;
 		this.graphNodeId = issue.graphNodeId;
 		this.number = issue.number;
@@ -105,7 +115,7 @@ export class IssueModel {
 		}
 	}
 
-	equals(other: IssueModel | undefined): boolean {
+	equals(other: IssueModel<TItem> | undefined): boolean {
 		if (!other) {
 			return false;
 		}
@@ -121,7 +131,7 @@ export class IssueModel {
 		return true;
 	}
 
-	async edit(toEdit: IPullRequestEditData): Promise<{ body: string, bodyHTML: string, title: string }> {
+	async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string }> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -131,9 +141,9 @@ export class IssueModel {
 					input: {
 						pullRequestId: this.graphNodeId,
 						body: toEdit.body,
-						title: toEdit.title
-					}
-				}
+						title: toEdit.title,
+					},
+				},
 			});
 
 			return data!.updatePullRequest.pullRequest;
@@ -147,7 +157,7 @@ export class IssueModel {
 		return this.githubRepository.isCurrentUser(username);
 	}
 
-	async getIssueComments(): Promise<OctokitTypes.IssuesListCommentsResponseData> {
+	async getIssueComments(): Promise<OctokitCommon.IssuesListCommentsResponseData> {
 		Logger.debug(`Fetch issue comments of PR #${this.number} - enter`, IssueModel.ID);
 		const { octokit, remote } = await this.githubRepository.ensure();
 
@@ -155,7 +165,7 @@ export class IssueModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			per_page: 100
+			per_page: 100,
 		});
 		Logger.debug(`Fetch issue comments of PR #${this.number} - done`, IssueModel.ID);
 
@@ -169,9 +179,9 @@ export class IssueModel {
 			variables: {
 				input: {
 					subjectId: this.graphNodeId,
-					body: text
-				}
-			}
+					body: text,
+				},
+			},
 		});
 
 		return parseGraphQlIssueComment(data!.addComment.commentEdge.node);
@@ -186,9 +196,9 @@ export class IssueModel {
 				variables: {
 					input: {
 						id: comment.graphNodeId,
-						body: text
-					}
-				}
+						body: text,
+					},
+				},
 			});
 
 			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
@@ -204,7 +214,7 @@ export class IssueModel {
 			await octokit.issues.deleteComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				comment_id: Number(commentId)
+				comment_id: Number(commentId),
 			});
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -217,7 +227,7 @@ export class IssueModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			labels
+			labels,
 		});
 	}
 
@@ -227,7 +237,7 @@ export class IssueModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			name: label
+			name: label,
 		});
 	}
 
@@ -242,8 +252,8 @@ export class IssueModel {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					number: this.number
-				}
+					number: this.number,
+				},
 			});
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = parseGraphQLTimelineEvents(ret, githubRepository);
@@ -266,15 +276,18 @@ export class IssueModel {
 			variables: {
 				input: {
 					subjectId: graphNodeId,
-					content: reactionEmojiToContent[reaction.label!]
-				}
-			}
+					content: reactionEmojiToContent[reaction.label!],
+				},
+			},
 		});
 
 		return data!;
 	}
 
-	async deleteCommentReaction(graphNodeId: string, reaction: vscode.CommentReaction): Promise<DeleteReactionResponse> {
+	async deleteCommentReaction(
+		graphNodeId: string,
+		reaction: vscode.CommentReaction,
+	): Promise<DeleteReactionResponse> {
 		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
 			prev[curr.label] = curr.title;
 			return prev;
@@ -285,9 +298,9 @@ export class IssueModel {
 			variables: {
 				input: {
 					subjectId: graphNodeId,
-					content: reactionEmojiToContent[reaction.label!]
-				}
-			}
+					content: reactionEmojiToContent[reaction.label!],
+				},
+			},
 		});
 
 		return data!;

@@ -51,6 +51,12 @@ export interface GHPRCommentThread extends vscode.CommentThread {
  * set when a command is run, and then replaced with real data when the operation finishes.
  */
 export class TemporaryComment implements vscode.Comment {
+	static is(comment: GHPRComment | TemporaryComment): comment is TemporaryComment {
+		return comment.commentId === undefined;
+	}
+
+	public commentId: undefined;
+
 	/**
 	 * The id of the comment
 	 */
@@ -98,13 +104,19 @@ export class TemporaryComment implements vscode.Comment {
 
 	static idPool = 0;
 
-	constructor(parent: GHPRCommentThread, input: string, isDraft: boolean, currentUser: IAccount, originalComment?: GHPRComment) {
+	constructor(
+		parent: GHPRCommentThread,
+		input: string,
+		isDraft: boolean,
+		currentUser: IAccount,
+		originalComment?: GHPRComment,
+	) {
 		this.parent = parent;
 		this.body = new vscode.MarkdownString(input);
 		this.mode = vscode.CommentMode.Preview;
 		this.author = {
 			name: currentUser.login,
-			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined
+			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
 		this.label = isDraft ? 'Pending' : undefined;
 		this.contextValue = 'canEdit,canDelete';
@@ -136,6 +148,10 @@ export class TemporaryComment implements vscode.Comment {
 }
 
 export class GHPRComment implements vscode.Comment {
+	static is(comment: GHPRComment | TemporaryComment): comment is GHPRComment {
+		return comment.commentId !== undefined;
+	}
+
 	/**
 	 * The database id of the comment
 	 */
@@ -188,7 +204,7 @@ export class GHPRComment implements vscode.Comment {
 		this.body.isTrusted = true;
 		this.author = {
 			name: comment.user!.login,
-			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined
+			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
 		updateCommentReactions(this, comment.reactions);
 

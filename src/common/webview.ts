@@ -35,7 +35,7 @@ export class WebviewBase {
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 
-	constructor () {
+	constructor() {
 		this._waitForReady = new Promise(resolve => {
 			const disposable = this._onIsReady.event(() => {
 				disposable.dispose();
@@ -45,9 +45,13 @@ export class WebviewBase {
 	}
 
 	public initialize(): void {
-		this._webview?.onDidReceiveMessage(async message => {
-			await this._onDidReceiveMessage(message);
-		}, null, this._disposables);
+		this._webview?.onDidReceiveMessage(
+			async message => {
+				await this._onDidReceiveMessage(message);
+			},
+			null,
+			this._disposables,
+		);
 	}
 
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>): Promise<any> {
@@ -65,14 +69,14 @@ export class WebviewBase {
 		// isn't ready for any of the messages we post.
 		await this._waitForReady;
 		this._webview?.postMessage({
-			res: message
+			res: message,
 		});
 	}
 
 	protected async _replyMessage(originalMessage: IRequestMessage<any>, message: any) {
 		const reply: IReplyMessage = {
 			seq: originalMessage.req,
-			res: message
+			res: message,
 		};
 		this._webview?.postMessage(reply);
 	}
@@ -80,7 +84,7 @@ export class WebviewBase {
 	protected async _throwError(originalMessage: IRequestMessage<any>, error: any) {
 		const reply: IReplyMessage = {
 			seq: originalMessage.req,
-			err: error
+			err: error,
 		};
 		this._webview?.postMessage(reply);
 	}

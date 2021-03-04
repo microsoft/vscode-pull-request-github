@@ -1,16 +1,12 @@
 import * as vscode from 'vscode';
-import { RepositoriesManager } from '../github/repositoriesManager';
 import { IAccount } from '../github/interface';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 /**
  * The liveshare contact service contract
  */
 interface ContactServiceProvider {
-	requestAsync(
-		type: string,
-		parameters: Object,
-		cancellationToken?: vscode.CancellationToken)
-		: Promise<Object>;
+	requestAsync(type: string, parameters: Object, cancellationToken?: vscode.CancellationToken): Promise<Object>;
 
 	readonly onNotified: vscode.Event<NotifyContactServiceEventArgs>;
 }
@@ -48,8 +44,8 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 	public async requestAsync(
 		type: string,
 		_parameters: Object,
-		_cancellationToken?: vscode.CancellationToken)
-		: Promise<Object> {
+		_cancellationToken?: vscode.CancellationToken,
+	): Promise<Object> {
 		let result = null;
 
 		switch (type) {
@@ -61,8 +57,8 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 						supportsInviteLink: false,
 						supportsPresence: false,
 						supportsContactPresenceRequest: false,
-						supportsPublishPresence: false
-					}
+						supportsPublishPresence: false,
+					},
 				};
 
 				// if we get initialized and users are available on the pr manager
@@ -102,15 +98,18 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		if (currentLoginUser) {
 			// Note: only suggest if the current user is part of the aggregated mentionable users
 			if (accounts.findIndex(u => u.login === currentLoginUser) !== -1) {
-				this.notifySuggestedUsers(accounts
-					.filter(u => u.email)
-					.map(u => {
-						return {
-							id: u.login,
-							displayName: u.name ? u.name : u.login,
-							email: u.email
-						};
-					}), true);
+				this.notifySuggestedUsers(
+					accounts
+						.filter(u => u.email)
+						.map(u => {
+							return {
+								id: u.login,
+								displayName: u.name ? u.name : u.login,
+								email: u.email,
+							};
+						}),
+					true,
+				);
 			}
 		}
 	}
@@ -131,14 +130,14 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 	private notify(type: string, body: any) {
 		this.onNotifiedEmitter.fire({
 			type,
-			body
+			body,
 		});
 	}
 
 	private notifySuggestedUsers(contacts: Contact[], exclusive?: boolean) {
 		this.notify('suggestedUsers', {
 			contacts,
-			exclusive
+			exclusive,
 		});
 	}
 }

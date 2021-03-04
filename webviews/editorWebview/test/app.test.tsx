@@ -1,9 +1,9 @@
+import { default as assert } from 'assert';
 import * as React from 'react';
-import assert = require('assert');
-import { render, cleanup } from 'react-testing-library';
-import { SinonSandbox, createSandbox } from 'sinon';
+import { cleanup, render } from 'react-testing-library';
+import { createSandbox, SinonSandbox } from 'sinon';
 
-import PullRequestContext, { PRContext } from '../../common/context';
+import { PRContext, default as PullRequestContext } from '../../common/context';
 import { Root } from '../app';
 import { PullRequestBuilder } from './builder/pullRequest';
 
@@ -28,7 +28,7 @@ describe('Root', function () {
 		const out = render(
 			<PullRequestContext.Provider value={context}>
 				<Root>{children}</Root>
-			</PullRequestContext.Provider>
+			</PullRequestContext.Provider>,
 		);
 
 		assert(out.queryByText('Loading...'));
@@ -43,7 +43,7 @@ describe('Root', function () {
 		render(
 			<PullRequestContext.Provider value={context}>
 				<Root>{children}</Root>
-			</PullRequestContext.Provider>
+			</PullRequestContext.Provider>,
 		);
 
 		assert(children.calledWith(pr));

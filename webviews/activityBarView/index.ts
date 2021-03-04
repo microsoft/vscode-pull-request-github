@@ -5,4 +5,5 @@
 import '../common/common.css';
 import './index.css';
 import { main } from './app';
+
 addEventListener('load', main);

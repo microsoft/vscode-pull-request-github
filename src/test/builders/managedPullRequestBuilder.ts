@@ -1,29 +1,32 @@
 import {
 	PullRequestResponse as PullRequestGraphQL,
-	TimelineEventsResponse as TimelineEventsGraphQL
+	TimelineEventsResponse as TimelineEventsGraphQL,
 } from '../../github/graphql';
-import {
-	PullsListRequestedReviewersResponseData as ReviewRequestsREST,
-	IssuesListEventsForTimelineResponseData as TimelineEventREST,
-} from '@octokit/types';
-
 import { PullRequestBuilder as PullRequestGraphQLBuilder } from './graphql/pullRequestBuilder';
-import { PullRequestBuilder as PullRequestRESTBuilder, PullRequestUnion as PullRequestREST } from './rest/pullRequestBuilder';
+import {
+	PullRequestBuilder as PullRequestRESTBuilder,
+	PullRequestUnion as PullRequestREST,
+} from './rest/pullRequestBuilder';
 import { TimelineEventsBuilder as TimelineEventsGraphQLBuilder } from './graphql/timelineEventsBuilder';
 import { RepoUnion as RepositoryREST, RepositoryBuilder as RepositoryRESTBuilder } from './rest/repoBuilder';
 import { CombinedStatusBuilder as CombinedStatusRESTBuilder } from './rest/combinedStatusBuilder';
 import { ReviewRequestsBuilder as ReviewRequestsRESTBuilder } from './rest/reviewRequestsBuilder';
 import { createBuilderClass } from './base';
 import { PullRequestChecks } from '../../github/interface';
+import { OctokitCommon } from '../../github/common';
 
 type ResponseFlavor<APIFlavor, GQL, RST> = APIFlavor extends 'graphql' ? GQL : RST;
 
 export interface ManagedPullRequest<APIFlavor> {
 	pullRequest: ResponseFlavor<APIFlavor, PullRequestGraphQL, PullRequestREST>;
-	timelineEvents: ResponseFlavor<APIFlavor, TimelineEventsGraphQL, TimelineEventREST[]>;
+	timelineEvents: ResponseFlavor<
+		APIFlavor,
+		TimelineEventsGraphQL,
+		OctokitCommon.IssuesListEventsForTimelineResponseData[]
+	>;
 	repositoryREST: RepositoryREST;
 	combinedStatusREST: PullRequestChecks;
-	reviewRequestsREST: ReviewRequestsREST;
+	reviewRequestsREST: OctokitCommon.PullsListRequestedReviewersResponseData;
 }
 
 export const ManagedGraphQLPullRequestBuilder = createBuilderClass<ManagedPullRequest<'graphql'>>()({

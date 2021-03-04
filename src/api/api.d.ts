@@ -3,18 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, Event, Disposable } from 'vscode';
-import { APIState, PublishEvent } from '../typings/git';
+import { Disposable, Event, Uri } from 'vscode';
+import { APIState, PublishEvent } from '../@types/git';
 
 export interface InputBox {
 	value: string;
 }
 
-export const enum RefType {
-	Head,
-	RemoteHead,
-	Tag
-}
+export { RefType } from './api1';
 
 export interface Ref {
 	readonly type: RefType;
@@ -76,11 +72,10 @@ export const enum Status {
 	DELETED_BY_THEM,
 	BOTH_ADDED,
 	BOTH_DELETED,
-	BOTH_MODIFIED
+	BOTH_MODIFIED,
 }
 
 export interface Change {
-
 	/**
 	 * Returns either `originalUri` or `renameUri`, depending
 	 * on whether this change is a rename change. When
@@ -127,7 +122,6 @@ export interface BranchQuery {
 }
 
 export interface Repository {
-
 	readonly inputBox: InputBox;
 	readonly rootUri: Uri;
 	readonly state: RepositoryState;
@@ -154,7 +148,7 @@ export interface Repository {
 	 * github-pr-owner-number = "Microsoft#vscode-pull-request-github#123"
 	 * ```
 	 */
-	getConfigs(): Promise<{ key: string; value: string; }[]>;
+	getConfigs(): Promise<{ key: string; value: string }[]>;
 
 	/**
 	 * Git providers are recommended to implement a minimal key value lookup for git config but you can only provide config for following keys to activate GH PR successfully
@@ -170,8 +164,8 @@ export interface Repository {
 	setConfig(key: string, value: string): Promise<string>;
 	getGlobalConfig(key: string): Promise<string>;
 
-	getObjectDetails(treeish: string, path: string): Promise<{ mode: string, object: string, size: number }>;
-	detectObjectType(object: string): Promise<{ mimetype: string, encoding?: string }>;
+	getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number }>;
+	detectObjectType(object: string): Promise<{ mimetype: string; encoding?: string }>;
 	buffer(ref: string, path: string): Promise<Buffer>;
 	show(ref: string, path: string): Promise<string>;
 	getCommit(ref: string): Promise<Commit>;
@@ -227,40 +221,7 @@ export interface LogOptions {
 	readonly path?: string;
 }
 
-export const enum GitErrorCodes {
-	BadConfigFile = 'BadConfigFile',
-	AuthenticationFailed = 'AuthenticationFailed',
-	NoUserNameConfigured = 'NoUserNameConfigured',
-	NoUserEmailConfigured = 'NoUserEmailConfigured',
-	NoRemoteRepositorySpecified = 'NoRemoteRepositorySpecified',
-	NotAGitRepository = 'NotAGitRepository',
-	NotAtRepositoryRoot = 'NotAtRepositoryRoot',
-	Conflict = 'Conflict',
-	StashConflict = 'StashConflict',
-	UnmergedChanges = 'UnmergedChanges',
-	PushRejected = 'PushRejected',
-	RemoteConnectionError = 'RemoteConnectionError',
-	DirtyWorkTree = 'DirtyWorkTree',
-	CantOpenResource = 'CantOpenResource',
-	GitNotFound = 'GitNotFound',
-	CantCreatePipe = 'CantCreatePipe',
-	CantAccessRemote = 'CantAccessRemote',
-	RepositoryNotFound = 'RepositoryNotFound',
-	RepositoryIsLocked = 'RepositoryIsLocked',
-	BranchNotFullyMerged = 'BranchNotFullyMerged',
-	NoRemoteReference = 'NoRemoteReference',
-	InvalidBranchName = 'InvalidBranchName',
-	BranchAlreadyExists = 'BranchAlreadyExists',
-	NoLocalChanges = 'NoLocalChanges',
-	NoStashFound = 'NoStashFound',
-	LocalChangesOverwritten = 'LocalChangesOverwritten',
-	NoUpstreamBranch = 'NoUpstreamBranch',
-	IsInSubmodule = 'IsInSubmodule',
-	WrongCase = 'WrongCase',
-	CantLockRef = 'CantLockRef',
-	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
-	PatchDoesNotApply = 'PatchDoesNotApply'
-}
+export { GitErrorCodes } from './api1';
 
 export interface IGit {
 	readonly repositories: Repository[];

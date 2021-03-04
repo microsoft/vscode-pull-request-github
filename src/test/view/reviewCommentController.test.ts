@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
@@ -65,7 +65,12 @@ describe('ReviewCommentController', function () {
 
 		const pr = new PullRequestBuilder().build();
 		const repo = new GitHubRepository(remote, credentialStore, telemetry);
-		activePullRequest = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		activePullRequest = new PullRequestModel(
+			telemetry,
+			repo,
+			remote,
+			convertRESTPullRequestToRawPullRequest(pr, repo),
+		);
 
 		manager.activePullRequest = activePullRequest;
 	});
@@ -93,9 +98,9 @@ describe('ReviewCommentController', function () {
 					positionInHunk: 0,
 					diffLines: [
 						new DiffLine(3, -1, -1, 0, '@@ -22,5 +22,11 @@', true),
-						new DiffLine(0, 22, 22, 1, '     \'title\': \'Papayas\',', true),
-						new DiffLine(0, 23, 23, 2, '     \'title\': \'Papayas\',', true),
-						new DiffLine(0, 24, 24, 3, '     \'title\': \'Papayas\',', true),
+						new DiffLine(0, 22, 22, 1, "     'title': 'Papayas',", true),
+						new DiffLine(0, 23, 23, 2, "     'title': 'Papayas',", true),
+						new DiffLine(0, 24, 24, 3, "     'title': 'Papayas',", true),
 						new DiffLine(1, -1, 25, 4, '+  {', true),
 						new DiffLine(1, -1, 26, 5, '+  {', true),
 						new DiffLine(1, -1, 27, 6, '+  {', true),
@@ -103,11 +108,12 @@ describe('ReviewCommentController', function () {
 						new DiffLine(1, -1, 29, 8, '+  {', true),
 						new DiffLine(1, -1, 30, 9, '+  {', true),
 						new DiffLine(0, 25, 31, 10, '+  {', true),
-						new DiffLine(0, 26, 32, 11, '+  {', true)
+						new DiffLine(0, 26, 32, 11, '+  {', true),
 					],
-				}],
+				},
+			],
 			[],
-			'abcd'
+			'abcd',
 		);
 	}
 
@@ -121,7 +127,7 @@ describe('ReviewCommentController', function () {
 			label: 'Start discussion',
 			isResolved: false,
 			canReply: false,
-			dispose: () => { }
+			dispose: () => {},
 		};
 	}
 
@@ -130,30 +136,38 @@ describe('ReviewCommentController', function () {
 			const fileName = 'data/products.json';
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
-			const reviewCommentController = new TestReviewCommentController(manager, repository, localFileChanges, [], []);
+			const reviewCommentController = new TestReviewCommentController(
+				manager,
+				repository,
+				localFileChanges,
+				[],
+				[],
+			);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
 			sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 
 			sinon.stub(manager, 'getCurrentUser').returns({
 				login: 'rmacfarlane',
-				url: 'https://github.com/rmacfarlane'
+				url: 'https://github.com/rmacfarlane',
 			});
 
-			sinon.stub(reviewCommentController, 'createNewThread' as any).returns(Promise.resolve({
-				url: 'https://example.com',
-				id: 1,
-				diffHunk: '',
-				body: 'hello world',
-				createdAt: '',
-				htmlUrl: '',
-				graphNodeId: ''
-			}));
+			sinon.stub(reviewCommentController, 'createNewThread' as any).returns(
+				Promise.resolve({
+					url: 'https://example.com',
+					id: 1,
+					diffHunk: '',
+					body: 'hello world',
+					createdAt: '',
+					htmlUrl: '',
+					graphNodeId: '',
+				}),
+			);
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 				uri: repository.rootUri,
 				name: '',
-				index: 0
+				index: 0,
 			});
 
 			sinon.stub(vscode.workspace, 'asRelativePath').callsFake((pathOrUri: string | vscode.Uri): string => {
@@ -161,7 +175,7 @@ describe('ReviewCommentController', function () {
 				return path.substring('/root/'.length);
 			});
 
-			sinon.stub(repository, 'diffWith').returns(Promise.resolve(''));
+			sinon.stub(repository, 'diffWithHEAD').returns(Promise.resolve(''));
 
 			const replaceCommentSpy = sinon.spy(reviewCommentController, 'replaceTemporaryComment' as any);
 
