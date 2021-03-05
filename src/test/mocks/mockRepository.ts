@@ -12,6 +12,7 @@ import {
 	InputBox,
 	Ref,
 	BranchQuery,
+	FetchOptions,
 } from '../../api/api';
 
 type Mutable<T> = {
@@ -240,7 +241,16 @@ export class MockRepository implements Repository {
 		this._state.remotes.splice(index, 1);
 	}
 
-	async fetch(remoteName?: string | undefined, ref?: string | undefined, depth?: number | undefined): Promise<void> {
+	async fetch(arg0?: string | undefined | FetchOptions, ref?: string | undefined, depth?: number | undefined): Promise<void> {
+		let remoteName: string | undefined;
+		if (typeof arg0 === 'object') {
+			remoteName = arg0.remote;
+			ref = arg0.ref;
+			depth = arg0.depth;
+		} else {
+			remoteName = arg0;
+		}
+
 		const index = this._expectedFetches.findIndex(
 			f => f.remoteName === remoteName && f.ref === ref && f.depth === depth,
 		);
