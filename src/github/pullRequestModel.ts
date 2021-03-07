@@ -31,7 +31,7 @@ import {
 	StartReviewResponse,
 	SubmitReviewResponse,
 	TimelineEventsResponse,
-	UpdateMilestone,
+	UpdatePullRequestResponse,
 } from './graphql';
 import {
 	GithubItemStateEnum,
@@ -284,23 +284,22 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const finalId = id === 'null' ? null : id;
 
-		const { data } = await mutate<UpdateMilestone>({
-			mutation: schema.UpdatePullRequest,
-			variables: {
-				input: {
-					pullRequestId: this.item.graphNodeId,
-					milestoneId: finalId,
+		try{
+			const { data } = await mutate<UpdatePullRequestResponse>({
+				mutation: schema.UpdatePullRequest,
+				variables: {
+					input: {
+						pullRequestId: this.item.graphNodeId,
+						milestoneId: finalId,
+					}
 				}
-			}
-		});
-		if (data) {
-			return id;
+			});
 		}
-		else {
-			console.log('Error');
-			return id;
+		catch(err){
+			Logger.appendLine(err);
 		}
 
+		return id;
 	}
 
 

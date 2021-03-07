@@ -294,14 +294,6 @@ export interface SubmitReviewResponse {
 	};
 }
 
-export interface UpdateMilestone {
-	updateMilestone: {
-		pullRequest: {
-			milestone: IMilestone
-		}
-	}
-}
-
 export interface DeleteReviewResponse {
 	deletePullRequestReview: {
 		pullRequestReview: {

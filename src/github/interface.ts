@@ -32,11 +32,6 @@ export interface ReviewState {
 	state: string;
 }
 
-export interface AssigneeState {
-	assignee: IAccount;
-	state: string;
-}
-
 export interface IAccount {
 	login: string;
 	name?: string;
