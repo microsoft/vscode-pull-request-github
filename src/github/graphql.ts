@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ForkDetails } from './githubRepository';
-import { IMilestone } from './interface';
 
 export interface MergedEvent {
 	__typename: string;

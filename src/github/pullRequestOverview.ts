@@ -12,10 +12,11 @@ import Logger from '../common/logger';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
-import { FolderRepositoryManager} from './folderRepositoryManager';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
 	IAccount,
+	IMilestone,
 	ISuggestedReviewer,
 	MergeMethod,
 	MergeMethodsAvailability,
@@ -49,8 +50,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
-				? vscode.window.activeTextEditor.viewColumn
-				: vscode.ViewColumn.One;
+			? vscode.window.activeTextEditor.viewColumn
+			: vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
@@ -306,7 +307,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: login,
 				description: name,
 				detail: suggestionReason,
-				reviewer: user
+				reviewer: user,
 			});
 			// this user shouldn't be added later from assignable users list
 			skipList.add(login);
@@ -320,24 +321,26 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			reviewers.push({
 				label: user.login,
 				description: user.name,
-				reviewer: user
+				reviewer: user,
 			});
 		}
 
 		return reviewers;
 	}
-	private getAssigneesQuickPickItems(assignableUsers: IAccount[], suggestedReviewers: ISuggestedReviewer[] | undefined): vscode.QuickPickItem[] {
+	private getAssigneesQuickPickItems(
+		assignableUsers: IAccount[],
+		suggestedReviewers: ISuggestedReviewer[] | undefined,
+	): (vscode.QuickPickItem & { assignee: IAccount })[] {
 		if (!suggestedReviewers) {
 			return [];
 		}
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
-		const skipList: Set<string> = new Set([
-			...this._item.assignees.map(assignee => assignee.login)
-		]);
+		const skipList: Set<string> = new Set([...this._item.assignees.map(assignee => assignee.login)]);
 
-		const assignees: vscode.QuickPickItem[] = [];
-		for (const { login, name, isAuthor, isCommenter } of suggestedReviewers) {
+		const assignees: (vscode.QuickPickItem & { assignee: IAccount })[] = [];
+		for (const suggestedReviewer of suggestedReviewers) {
+			const { login, name, isAuthor, isCommenter } = suggestedReviewer;
 			if (skipList.has(login)) {
 				continue;
 			}
@@ -346,15 +349,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isAuthor && isCommenter
 					? 'Recently edited and reviewed changes to these files'
 					: isAuthor
-						? 'Recently edited these files'
-						: isCommenter
-							? 'Recently reviewed changes to these files'
-							: 'Suggested reviewer';
+					? 'Recently edited these files'
+					: isCommenter
+					? 'Recently reviewed changes to these files'
+					: 'Suggested reviewer';
 
 			assignees.push({
 				label: login,
 				description: name,
-				detail: suggestionReason
+				detail: suggestionReason,
+				assignee: suggestedReviewer,
 			});
 			// this user shouldn't be added later from assignable users list
 			skipList.add(login);
@@ -367,7 +371,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			assignees.push({
 				label: user.login,
-				description: user.name
+				description: user.name,
+				assignee: user,
 			});
 		}
 
@@ -405,34 +410,31 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async addMilestone(message: IRequestMessage<void>): Promise<void> {
 		try {
-
-			let milestoneLabels = [];
-			let milestones;
 			async function getMilestoneOptions(
 				folderRepoManager: FolderRepositoryManager,
-			): Promise<vscode.QuickPickItem[]> {
-				milestones = await folderRepoManager.getMilestones();
-				for (let i = 0; i < milestones.items.length; i++) {
-					milestoneLabels.push({ label: milestones.items[i].milestone.title, id: milestones.items[i].milestone.id });
-				}
-				return milestoneLabels;
-			}
-
-			const milestonesToAdd = await vscode.window.showQuickPick(
-				getMilestoneOptions(this._folderRepositoryManager),
-				{
-					canPickMany: false
-				}
-			);
-
-			if (milestonesToAdd) {
-				const updated = milestones.items.find(item => item.milestone.id == milestonesToAdd.id)?.milestone;
-				await this._item.updateMilestone(milestonesToAdd.id);
-				this._replyMessage(message, {
-					added: updated
+			): Promise<(vscode.QuickPickItem & { id: string; milestone: IMilestone })[]> {
+				return (await folderRepoManager.getMilestones()).items.map(result => {
+					return {
+						label: result.milestone.title,
+						id: result.milestone.id,
+						milestone: result.milestone,
+					};
 				});
 			}
 
+			const milestoneToAdd = await vscode.window.showQuickPick(
+				getMilestoneOptions(this._folderRepositoryManager),
+				{
+					canPickMany: false,
+				},
+			);
+
+			if (milestoneToAdd) {
+				await this._item.updateMilestone(milestoneToAdd.id);
+				this._replyMessage(message, {
+					added: milestoneToAdd.milestone,
+				});
+			}
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
@@ -446,7 +448,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
-
 
 	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
 		try {
@@ -462,21 +463,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			);
 
 			if (assigneesToAdd) {
-				const addedAsignees: IAccount[] = assigneesToAdd.map(assignee => {
-					return assignableUsers.find(r => r.login === assignee.label)!;
-				});
-
+				const addedAsignees: IAccount[] = assigneesToAdd.map(item => item.assignee);
 				this._item.assignees = this._item.assignees.concat(addedAsignees);
 
-				const ids = [];
-				for (let i = 0; i < this._item.assignees.length; i++) {
-					ids.push(this._item.assignees[i].login);
-				}
-
-				await this._item.updateAssignees(ids);
+				await this._item.updateAssignees(addedAsignees.map(assignee => assignee.login));
 
 				this._replyMessage(message, {
-					added: addedAsignees
+					added: addedAsignees,
 				});
 			}
 		} catch (e) {

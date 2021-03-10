@@ -279,29 +279,24 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async updateMilestone(id: string): Promise<string> {
+	async updateMilestone(id: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
-
 		const finalId = id === 'null' ? null : id;
 
-		try{
-			const { data } = await mutate<UpdatePullRequestResponse>({
+		try {
+			await mutate<UpdatePullRequestResponse>({
 				mutation: schema.UpdatePullRequest,
 				variables: {
 					input: {
 						pullRequestId: this.item.graphNodeId,
 						milestoneId: finalId,
-					}
-				}
+					},
+				},
 			});
-		}
-		catch(err){
+		} catch (err) {
 			Logger.appendLine(err);
 		}
-
-		return id;
 	}
-
 
 	async updateAssignees(assignees: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
@@ -309,7 +304,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			assignees
+			assignees,
 		});
 	}
 
@@ -603,7 +598,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			assignees: [assignee]
+			assignees: [assignee],
 		});
 	}
 
