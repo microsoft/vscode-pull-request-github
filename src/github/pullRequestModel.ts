@@ -31,6 +31,7 @@ import {
 	StartReviewResponse,
 	SubmitReviewResponse,
 	TimelineEventsResponse,
+	UpdatePullRequestResponse,
 } from './graphql';
 import {
 	GithubItemStateEnum,
@@ -276,6 +277,35 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${this.number}.`);
 		}
+	}
+
+	async updateMilestone(id: string): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const finalId = id === 'null' ? null : id;
+
+		try {
+			await mutate<UpdatePullRequestResponse>({
+				mutation: schema.UpdatePullRequest,
+				variables: {
+					input: {
+						pullRequestId: this.item.graphNodeId,
+						milestoneId: finalId,
+					},
+				},
+			});
+		} catch (err) {
+			Logger.appendLine(err);
+		}
+	}
+
+	async updateAssignees(assignees: string[]): Promise<void> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		await octokit.issues.addAssignees({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+			assignees,
+		});
 	}
 
 	/**
@@ -559,6 +589,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			repo: remote.repositoryName,
 			pull_number: this.number,
 			reviewers: [reviewer],
+		});
+	}
+
+	async deleteAssignees(assignee: string): Promise<void> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		await octokit.issues.removeAssignees({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+			assignees: [assignee],
 		});
 	}
 

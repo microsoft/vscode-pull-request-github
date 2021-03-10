@@ -13,7 +13,7 @@ import { Reviewer } from './reviewer';
 import { nbsp } from './space';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone, assignees }: PullRequest) {
-	const { addReviewers, addLabels, updatePR, pr } = useContext(PullRequestContext);
+	const { addReviewers, addAssignees, addMilestone, addLabels, updatePR, removeAssignee, removeMilestone, pr } = useContext(PullRequestContext);
 
 	return (
 		<div id="sidebar">
@@ -35,28 +35,36 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					</div>
 					{reviewers
 						? reviewers.map(state => (
-								<Reviewer key={state.reviewer.login} {...state} canDelete={hasWritePermission} />
-						  ))
+							<Reviewer key={state.reviewer.login} {...state} canDelete={hasWritePermission} />
+						))
 						: []}
 				</div>
 			) : (
 				''
 			)}
-			<div id="assignes" className="section">
-				<div className="section-header">
+			<div id='assignes' className="section">
+				<div className='section-header'>
 					<div>Assignees</div>
+					{hasWritePermission ? (
+						<button title='Add Assignees' onClick={async () => {
+							const newAssignees = await addAssignees();
+							updatePR({ assignees: pr.assignees.concat(newAssignees.added) });
+						}}>{plusIcon}</button>
+					) : null}
 				</div>
-				{assignees
-					? assignees.map((x, i) => {
-							return (
-								<div key={i} className="section-item reviewer">
-									<Avatar for={x} />
-									<AuthorLink for={x} />
-								</div>
-							);
-					  })
-					: null}
+				{assignees ? (assignees.map((x, i) => {
+					return <div key={i} className='section-item reviewer'>
+						<Avatar for={x} />
+						<AuthorLink for={x} />
+						{hasWritePermission ?
+							(<>{nbsp}<a className='push-right remove-item' onClick={async () => {
+								await removeAssignee(x.login);
+							}}>{deleteIcon}️</a>{nbsp}</>) : null
+						}
+					</div>;
+				})) : (null)}
 			</div>
+
 			<div id="labels" className="section">
 				<div className="section-header">
 					<div>Labels</div>
@@ -76,11 +84,28 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<Label key={label.name} {...label} canDelete={hasWritePermission} />
 				))}
 			</div>
-			<div id="milestone" className="section">
-				<div className="section-header">
+			<div id='milestone' className="section">
+				<div className='section-header'>
 					<div>Milestone</div>
+					{hasWritePermission ? (
+						<button title='Add Milestone' onClick={async () => {
+							const newMilestone = await addMilestone();
+							updatePR({ milestone: newMilestone.added });
+						}}>{plusIcon}</button>
+					) : null}
 				</div>
-				{milestone ? <div className="section-item label">{milestone.title}</div> : null}
+				{milestone ? (
+					<div className='section-item label'>
+						{milestone.title}
+						{hasWritePermission ?
+							(<>{nbsp}<a className='push-right remove-item' onClick={async () => {
+								await removeMilestone();
+								updatePR({ milestone: null });
+							}}>{deleteIcon}️</a>{nbsp}</>) : null
+						}
+					</div>
+				) : null
+				}
 			</div>
 		</div>
 	);
