@@ -183,7 +183,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return defaultSchema as any;
 	}
 
-	async getMetadata(): Promise<any> {
+	async getMetadata(): Promise<IMetadata> {
 		Logger.debug(`Fetch metadata - enter`, GitHubRepository.ID);
 		if (this._metadata) {
 			Logger.debug(
