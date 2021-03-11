@@ -170,20 +170,29 @@ export const Merge = (pr: PullRequest) => {
 };
 
 export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	const { hasWritePermission, canEdit, isDraft, mergeable } = pr;
-
-	return isDraft ? (
+	const { hasWritePermission, canEdit, isDraft, mergeable, showMergeOnGitHub } = pr;
+	if (showMergeOnGitHub) {
+		return canEdit ? <MergeOnGitHub /> : null;
+	}
+	if (isDraft) {
 		// Only PR author and users with push rights can mark draft as ready for review
-		canEdit ? (
-			<ReadyForReview isSimple={isSimple} />
-		) : null
-	) : mergeable === PullRequestMergeability.Mergeable && hasWritePermission ? (
-		isSimple ? (
-			<MergeSimple {...pr} />
-		) : (
-			<Merge {...pr} />
-		)
-	) : null;
+		return canEdit ? <ReadyForReview isSimple={isSimple} /> : null;
+	}
+
+	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission) {
+		return isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />;
+	}
+
+	return null;
+};
+
+export const MergeOnGitHub = () => {
+	const { openOnGitHub } = useContext(PullRequestContext);
+	return (
+		<button type="submit" onClick={() => openOnGitHub}>
+			Merge on github.com
+		</button>
+	);
 };
 
 export const MergeSimple = (pr: PullRequest) => {

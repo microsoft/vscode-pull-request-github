@@ -62,6 +62,7 @@ export interface PullRequest {
 	isIssue: boolean;
 
 	isAuthor?: boolean;
+	showMergeOnGitHub: boolean;
 }
 
 export function getState(): PullRequest {
