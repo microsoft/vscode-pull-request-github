@@ -1148,12 +1148,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			/* __GDPR__
 				"pr.create.failure" : {
 					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
 			this._telemetry.sendTelemetryErrorEvent('pr.create.failure', {
 				isDraft: (params.draft || '').toString(),
-				message: formatError(e),
 			});
 
 			throw new Error(formatError(e));
@@ -1186,13 +1184,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			Logger.appendLine(`GitHubRepository> Creating issue failed: ${e}`);
 
 			/* __GDPR__
-				"issue.create.failure" : {
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
-				}
+				"issue.create.failure" : {}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('issue.create.failure', {
-				message: formatError(e),
-			});
+			this._telemetry.sendTelemetryErrorEvent('issue.create.failure');
 			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
 		}
 
@@ -1230,12 +1224,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			/* __GDPR__
 				"issue.assign.failure" : {
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('issue.assign.failure', {
-				message: formatError(e),
-			});
+			this._telemetry.sendTelemetryErrorEvent('issue.assign.failure');
 			vscode.window.showWarningMessage(`Assigning issue failed: ${formatError(e)}`);
 		}
 	}
@@ -1319,11 +1310,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			})
 			.catch(e => {
 				/* __GDPR__
-					"pr.merge.failure" : {
-						"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
-					}
+					"pr.merge.failure" : {}
 				*/
-				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure', { message: formatError(e) });
+				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure');
 				throw e;
 			});
 	}

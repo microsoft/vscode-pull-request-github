@@ -1024,11 +1024,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return data!.markPullRequestReadyForReview.pullRequest.isDraft;
 		} catch (e) {
 			/* __GDPR__
-				"pr.readyForReview.failure" : {
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
-				}
+				"pr.readyForReview.failure" : {}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('pr.readyForReview.failure', { message: formatError(e) });
+			this._telemetry.sendTelemetryErrorEvent('pr.readyForReview.failure');
 			throw e;
 		}
 	}

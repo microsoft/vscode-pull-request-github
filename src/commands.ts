@@ -269,13 +269,9 @@ export function registerCommands(
 
 			if (error) {
 				/* __GDPR__
-				"pr.deleteLocalPullRequest.failure" : {
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
-				}
+				"pr.deleteLocalPullRequest.failure" : {}
 			*/
-				telemetry.sendTelemetryErrorEvent('pr.deleteLocalPullRequest.failure', {
-					message: error,
-				});
+				telemetry.sendTelemetryErrorEvent('pr.deleteLocalPullRequest.failure');
 				await vscode.window.showErrorMessage(`Deleting local pull request branch failed: ${error}`);
 			} else {
 				/* __GDPR__
