@@ -129,7 +129,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				const isCrossRepository =
 					pullRequest.base &&
 					pullRequest.head &&
-					pullRequest.base.repositoryCloneUrl! == pullRequest.head.repositoryCloneUrl;
+					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
 				const showMergeOnGitHub = isCrossRepository && isInCodespaces();
 

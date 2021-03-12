@@ -49,11 +49,16 @@ textarea {
 }
 
 .select-control,
+#merge-on-github,
 form {
 	display: flex;
 	margin: auto;
 	max-width: 260px;
 	width: 100%;
+}
+
+#merge-on-github {
+	justify-content: center;
 }
 
 #comment-textarea {

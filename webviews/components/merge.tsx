@@ -189,7 +189,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 export const MergeOnGitHub = () => {
 	const { openOnGitHub } = useContext(PullRequestContext);
 	return (
-		<button type="submit" onClick={() => openOnGitHub}>
+		<button id="merge-on-github" type="submit" onClick={() => openOnGitHub}>
 			Merge on github.com
 		</button>
 	);

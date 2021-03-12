@@ -21,6 +21,7 @@ import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { isInCodespaces } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { CommitNode } from './view/treeNodes/commitNode';
@@ -403,6 +404,17 @@ export function registerCommands(
 			}
 			const pullRequest = ensurePR(folderManager, pr);
 			// TODO check is codespaces
+
+			const isCrossRepository =
+				pullRequest.base &&
+				pullRequest.head &&
+				!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
+
+			const showMergeOnGitHub = isCrossRepository && isInCodespaces();
+			if (showMergeOnGitHub) {
+				return openPullRequestOnGitHub(pullRequest, telemetry);
+			}
+
 			return vscode.window
 				.showWarningMessage(
 					`Are you sure you want to merge this pull request on GitHub?`,

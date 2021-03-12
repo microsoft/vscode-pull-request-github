@@ -163,6 +163,10 @@ body .comment-container .review-comment-header {
 	margin-left: 15px;
 }
 
+#merge-on-github {
+	margin-top: 10px;
+}
+
 .status-item,
 .form-actions {
 	display: flex;
