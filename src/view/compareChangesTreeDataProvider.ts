@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { getGitChangeType } from '../common/diffHunk';
+import Logger from '../common/logger';
 import { fromGitHubURI } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
@@ -142,7 +143,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 				);
 			});
 		} catch (e) {
-			console.log(e);
+			Logger.appendLine(`Comparing changes failed: ${e}`);
 			return [];
 		}
 	}
