@@ -486,6 +486,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)),
 				);
 
+			if (this._githubRepositories.length && repositoriesChanged) {
+				this.checkIfMissingUpstream();
+			}
+
 			this.getMentionableUsers(repositoriesChanged);
 			this.getAssignableUsers(repositoriesChanged);
 			this._onDidLoadRepositories.fire(
@@ -498,6 +502,30 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 			return Promise.resolve();
 		});
+	}
+
+	private async checkIfMissingUpstream(): Promise<void> {
+		try {
+			const origin = await this.getOrigin();
+			const metadata = await origin.getMetadata();
+			if (metadata.fork) {
+				const parentUrl = new Protocol(metadata.parent.git_url);
+				const missingParentRemote = !this._githubRepositories.some(
+					repo =>
+						repo.remote.owner === parentUrl.owner &&
+						repo.remote.repositoryName === parentUrl.repositoryName,
+				);
+
+				if (missingParentRemote) {
+					const upstreamAvailable = !this.repository.state.remotes.some(remote => remote.name === 'upstream');
+					const remoteName = upstreamAvailable ? 'upstream' : metadata.parent.owner.login;
+					await this.repository.addRemote(remoteName, metadata.parent.git_url);
+				}
+			}
+		} catch (e) {
+			Logger.appendLine(`Missing upstream check failed: ${e}`);
+			// ignore
+		}
 	}
 
 	getAllAssignableUsers(): IAccount[] | undefined {
@@ -1120,12 +1148,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			/* __GDPR__
 				"pr.create.failure" : {
 					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
 			this._telemetry.sendTelemetryErrorEvent('pr.create.failure', {
 				isDraft: (params.draft || '').toString(),
-				message: formatError(e),
 			});
 
 			throw new Error(formatError(e));
@@ -1158,13 +1184,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			Logger.appendLine(`GitHubRepository> Creating issue failed: ${e}`);
 
 			/* __GDPR__
-				"issue.create.failure" : {
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
-				}
+				"issue.create.failure" : {}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('issue.create.failure', {
-				message: formatError(e),
-			});
+			this._telemetry.sendTelemetryErrorEvent('issue.create.failure');
 			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
 		}
 
@@ -1202,12 +1224,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			/* __GDPR__
 				"issue.assign.failure" : {
-					"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('issue.assign.failure', {
-				message: formatError(e),
-			});
+			this._telemetry.sendTelemetryErrorEvent('issue.assign.failure');
 			vscode.window.showWarningMessage(`Assigning issue failed: ${formatError(e)}`);
 		}
 	}
@@ -1291,11 +1310,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			})
 			.catch(e => {
 				/* __GDPR__
-					"pr.merge.failure" : {
-						"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
-					}
+					"pr.merge.failure" : {}
 				*/
-				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure', { message: formatError(e) });
+				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure');
 				throw e;
 			});
 	}

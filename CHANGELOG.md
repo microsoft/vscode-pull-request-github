@@ -3,9 +3,17 @@
 ## 0.24.0
 
 - The views of the extension have been split into two viewlets: one with the GitHub logo which contains the overview of pull requests, and issues, and one containing views for the active pull request.
+
+  ![Split activity bar views](documentation/changelog/0.24.0/activity_bar_viewlets.png)
+
 - The focused mode view has actions to refresh the view and open the description page.
-- Assignees and the milestone are displayed on the description page.
+  ![Focused mode acions](documentation/changelog/0.24.0/focused_mode_actions.png)
+
+- Thanks to @TanushN and @rohanshiva, assignees and the milestone are displayed on the description page.
+  ![View assignees and milestone](documentation/changelog/0.24.0/assignees_and_milestone.png)
+
 - Resolved conversations are rendered as collapsed on the description page.
+  ![Resolved conserversations](documentation/changelog/0.24.0/resolved_conversations.png)
 
 ## 0.23.1
 

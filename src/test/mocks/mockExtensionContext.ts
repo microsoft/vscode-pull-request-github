@@ -37,8 +37,7 @@ export class MockExtensionContext implements ExtensionContext {
 	globalStorageUri: Uri;
 
 	extensionRuntime: any;
-	extensionId: string;
-	extensionVersion: string;
+	extension: any;
 	isNewInstall: any;
 
 	constructor() {

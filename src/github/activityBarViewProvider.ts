@@ -311,7 +311,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			const promises = selectedActions.map(async action => {
 				switch (action.type) {
 					case 'upstream':
-						return this._folderRepositoryManager.deleteBranch(this._item);
+						await this._folderRepositoryManager.deleteBranch(this._item);
+						return this._folderRepositoryManager.repository.fetch({ prune: true });
 					case 'local':
 						if (isBranchActive) {
 							if (this._folderRepositoryManager.repository.state.workingTreeChanges.length) {
