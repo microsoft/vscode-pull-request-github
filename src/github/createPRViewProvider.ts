@@ -36,6 +36,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private _onDidChangeBaseBranch = new vscode.EventEmitter<string>();
 	readonly onDidChangeBaseBranch: vscode.Event<string> = this._onDidChangeBaseBranch.event;
 
+	private _onDidChangeCompareRemote = new vscode.EventEmitter<RemoteInfo>();
+	readonly onDidChangeCompareRemote: vscode.Event<RemoteInfo> = this._onDidChangeCompareRemote.event;
+
 	private _onDidChangeCompareBranch = new vscode.EventEmitter<string>();
 	readonly onDidChangeCompareBranch: vscode.Event<string> = this._onDidChangeCompareBranch.event;
 
@@ -157,9 +160,15 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
 		}
 
-		const defaultRemote: RemoteInfo = {
+		const defaultBaseRemote: RemoteInfo = {
 			owner: this._pullRequestDefaults.owner,
 			repositoryName: this._pullRequestDefaults.repo,
+		};
+
+		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
+		const defaultCompareRemote: RemoteInfo = {
+			owner: origin.remote.owner,
+			repositoryName: origin.remote.repositoryName
 		};
 
 		const [githubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
@@ -168,6 +177,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			this.getTitle(),
 			this.getDescription(),
 		]);
+
 		const remotes: RemoteInfo[] = githubRemotes.map(remote => {
 			return {
 				owner: remote.owner,
@@ -175,22 +185,33 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			};
 		});
 
+		let branchesForCompare = branchesForRemote;
+		if (defaultCompareRemote.owner !== defaultBaseRemote.owner) {
+			branchesForCompare = await this._folderRepositoryManager.listBranches(defaultCompareRemote.owner, defaultCompareRemote.repositoryName);
+			if (!branchesForCompare.includes(this.compareBranch.name!)) {
+				branchesForCompare.push(this.compareBranch.name!);
+			}
+		}
+
 		this._postMessage({
 			command: reset ? 'reset' : 'pr.initialize',
 			params: {
 				availableRemotes: remotes,
-				defaultRemote,
-				defaultBranch: this._pullRequestDefaults.base,
+				defaultBaseRemote,
+				defaultBaseBranch: this._pullRequestDefaults.base,
+				defaultCompareRemote,
+				defaultCompareBranch: this.compareBranch.name!,
 				branchesForRemote,
+				branchesForCompare,
 				defaultTitle,
 				defaultDescription,
 				compareBranch: this.compareBranch.name!,
 				isDraft: false,
-			},
+			}
 		});
 	}
 
-	private async changeBaseRemote(message: IRequestMessage<{ owner: string; repositoryName: string }>): Promise<void> {
+	private async changeRemote(message: IRequestMessage<{ owner: string; repositoryName: string }>, isBase: boolean): Promise<void> {
 		const { owner, repositoryName } = message.args;
 		const githubRepository = this._folderRepositoryManager.findRepo(
 			repo => owner === repo.remote.owner && repositoryName === repo.remote.repositoryName,
@@ -202,7 +223,15 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		const defaultBranch = await githubRepository.getDefaultBranch();
 		const newBranches = await this._folderRepositoryManager.listBranches(owner, repositoryName);
-		this._onDidChangeBaseRemote.fire({ owner, repositoryName });
+
+		if (isBase) {
+			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
+			this._onDidChangeBaseBranch.fire(defaultBranch);
+		} else {
+			this._onDidChangeCompareRemote.fire({ owner, repositoryName });
+			this._onDidChangeCompareBranch.fire(defaultBranch);
+		}
+
 		return this._replyMessage(message, { branches: newBranches, defaultBranch });
 	}
 
@@ -279,11 +308,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				return this.create(message);
 
 			case 'pr.changeBaseRemote':
-				return this.changeBaseRemote(message);
+				return this.changeRemote(message, true);
 
 			case 'pr.changeBaseBranch':
 				this._onDidChangeBaseBranch.fire(message.args);
 				return;
+
+			case 'pr.changeCompareRemote':
+				return this.changeRemote(message, false);
 
 			case 'pr.changeCompareBranch':
 				this._onDidChangeCompareBranch.fire(message.args);

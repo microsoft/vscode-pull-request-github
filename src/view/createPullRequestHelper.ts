@@ -46,6 +46,14 @@ export class CreatePullRequestHelper {
 		);
 
 		this._disposables.push(
+			this._createPRViewProvider!.onDidChangeCompareRemote(compareRemote => {
+				if (this._treeView) {
+					this._treeView.compareOwner = compareRemote.owner;
+				}
+			}),
+		);
+
+		this._disposables.push(
 			this._createPRViewProvider!.onDidChangeBaseBranch(baseBranch => {
 				this._treeView?.updateBaseBranch(baseBranch);
 			}),
@@ -117,11 +125,15 @@ export class CreatePullRequestHelper {
 				pullRequestDefaults,
 				branch!,
 			);
+
+			const compareOrigin  = await folderRepoManager.getOrigin(branch);
 			this._treeView = new CompareChangesTreeProvider(
 				this.repository,
 				pullRequestDefaults.owner,
 				pullRequestDefaults.base,
-				branch!,
+				compareOrigin.remote.owner,
+				branch.name!,
+				!!branch.upstream,
 				folderRepoManager,
 			);
 
