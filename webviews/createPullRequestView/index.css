@@ -81,3 +81,7 @@ body {
 .selector-group .wrapper:last-of-type {
 	margin-bottom: 5px;
 }
+
+.selector-group .wrapper {
+	padding-right: 5px;
+}
