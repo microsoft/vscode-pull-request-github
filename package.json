@@ -1342,6 +1342,26 @@
 					"group": "inline@2",
 					"when": "commentController =~ /^(browse|review)/"
 				}
+			],
+			"editor/context/copy": [
+				{
+					"command": "issue.copyGithubPermalink",
+					"when": "github:hasGitHubRemotes && github:authenticated"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalink",
+					"when": "github:hasGitHubRemotes && github:authenticated"
+				}
+			],
+			"menuBar/edit/copy": [
+				{
+					"command": "issue.copyGithubPermalink",
+					"when": "github:hasGitHubRemotes && github:authenticated"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalink",
+					"when": "github:hasGitHubRemotes && github:authenticated"
+				}
 			]
 		},
 		"colors": [
