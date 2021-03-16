@@ -21,6 +21,7 @@ import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { isInCodespaces } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { CommitNode } from './view/treeNodes/commitNode';
@@ -83,6 +84,19 @@ async function chooseItem<T>(
 	return (await vscode.window.showQuickPick(items, options))?.itemValue;
 }
 
+export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | PullRequestModel, telemetry: ITelemetry) {
+	if (e instanceof PRNode || e instanceof DescriptionNode) {
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
+	} else {
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
+	}
+
+	/** __GDPR__
+	 "pr.openInGitHub" : {}
+	*/
+	telemetry.sendTelemetryEvent('pr.openInGitHub');
+}
+
 export function registerCommands(
 	context: vscode.ExtensionContext,
 	reposManager: RepositoriesManager,
@@ -100,7 +114,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
-			async (e: PRNode | DescriptionNode | PullRequestModel) => {
+			async (e: PRNode | DescriptionNode | PullRequestModel | undefined) => {
 				if (!e) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 						.map(folderManager => folderManager.activePullRequest!)
@@ -112,19 +126,12 @@ export function registerCommands(
 							itemValue => itemValue.html_url,
 						);
 						if (result) {
-							vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(result.html_url));
+							openPullRequestOnGitHub(result, telemetry);
 						}
 					}
-				} else if (e instanceof PRNode || e instanceof DescriptionNode) {
-					vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
 				} else {
-					vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
+					openPullRequestOnGitHub(e, telemetry);
 				}
-
-				/* __GDPR__
-			"pr.openInGitHub" : {}
-		*/
-				telemetry.sendTelemetryEvent('pr.openInGitHub');
 			},
 		),
 	);
@@ -392,6 +399,18 @@ export function registerCommands(
 				return;
 			}
 			const pullRequest = ensurePR(folderManager, pr);
+			// TODO check is codespaces
+
+			const isCrossRepository =
+				pullRequest.base &&
+				pullRequest.head &&
+				!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
+
+			const showMergeOnGitHub = isCrossRepository && isInCodespaces();
+			if (showMergeOnGitHub) {
+				return openPullRequestOnGitHub(pullRequest, telemetry);
+			}
+
 			return vscode.window
 				.showWarningMessage(
 					`Are you sure you want to merge this pull request on GitHub?`,

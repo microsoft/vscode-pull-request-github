@@ -876,3 +876,7 @@ export function getPRFetchQuery(repo: string, user: string, query: string): stri
 	const filter = query.replace(/\$\{user\}/g, user);
 	return `is:pull-request ${filter} type:pr repo:${repo}`;
 }
+
+export function isInCodespaces(): boolean {
+	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
+}

@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { onDidUpdatePR } from '../commands';
+import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
@@ -25,7 +25,7 @@ import {
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
-import { parseReviewers } from './utils';
+import { isInCodespaces, parseReviewers } from './utils';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -160,6 +160,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 
+				const isCrossRepository =
+					pullRequest.base &&
+					pullRequest.head &&
+					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
+
+				const showMergeOnGitHub = isCrossRepository && isInCodespaces();
+
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 				this._postMessage({
 					command: 'pr.initialize',
@@ -194,6 +201,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						isIssue: false,
 						milestone: pullRequest.milestone,
 						assignees: pullRequest.assignees,
+						showMergeOnGitHub,
 					},
 				});
 			})
@@ -267,6 +275,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.removeAssignee(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink(message);
+			case 'pr.openOnGitHub':
+				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}
 	}
 

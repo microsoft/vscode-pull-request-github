@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
@@ -12,7 +13,7 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, MergeMethod, ReviewEvent, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { parseReviewers } from './utils';
+import { isInCodespaces, parseReviewers } from './utils';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';
@@ -74,6 +75,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.requestChanges(message);
 			case 'pr.submit':
 				return this.submitReview(message);
+			case 'pr.openOnGitHub':
+				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}
 	}
 
@@ -123,6 +126,13 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					pullRequest.author,
 				);
 
+				const isCrossRepository =
+					pullRequest.base &&
+					pullRequest.head &&
+					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
+
+				const showMergeOnGitHub = isCrossRepository && isInCodespaces();
+
 				this._postMessage({
 					command: 'pr.initialize',
 					pullrequest: {
@@ -154,6 +164,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						isIssue: false,
 						isAuthor: currentUser.login === pullRequest.author.login,
 						reviewers: this._existingReviewers,
+						showMergeOnGitHub,
 					},
 				});
 			})
