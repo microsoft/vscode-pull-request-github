@@ -12,7 +12,7 @@
 
 const execFile = require('child_process').execFile;
 const path = require('path');
-const { ESBuildPlugin, ESBuildMinifyPlugin } = require('esbuild-loader');
+const { ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
@@ -64,10 +64,6 @@ async function getWebviewConfig(mode, env, entry) {
 			},
 		}),
 	];
-
-	if (env.esbuild) {
-		plugins.push(new ESBuildPlugin());
-	}
 
 	return {
 		name: 'webviews',
@@ -178,10 +174,6 @@ async function getExtensionConfig(target, mode, env) {
 			},
 		}),
 	];
-
-	if (env.esbuild) {
-		plugins.push(new ESBuildPlugin());
-	}
 
 	return {
 		name: `extension:${target}`,
