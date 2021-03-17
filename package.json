@@ -22,7 +22,7 @@
 	],
 	"activationEvents": [
 		"*",
-		"onCommand:pr.preload",
+		"onCommand:github.api.preloadPullRequest",
 		"onFileSystem:newIssue"
 	],
 	"browser": "./dist/browser/extension",
@@ -431,7 +431,7 @@
 		},
 		"commands": [
 			{
-				"command": "pr.preload",
+				"command": "github.api.preloadPullRequest",
 				"title": "Preload Pull Request",
 				"category": "GitHub Pull Requests"
 			},
@@ -817,7 +817,7 @@
 		"menus": {
 			"commandPalette": [
 				{
-					"command": "pr.preload",
+					"command": "github.api.preloadPullRequest",
 					"when": "false"
 				},
 				{

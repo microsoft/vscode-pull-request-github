@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import * as path from 'path';
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { LiveShare } from 'vsls/vscode.js';
@@ -195,7 +194,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 		}
 	}
 
-	vscode.commands.registerCommand('pr.preload', async () => {
+	vscode.commands.registerCommand('github.api.preloadPullRequest', async () => {
 		await vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
 		await vscode.commands.executeCommand('github:activePullRequest:welcome.focus');
 	});
