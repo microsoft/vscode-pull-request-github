@@ -40,7 +40,7 @@ const defaultCreateParams: CreateParams = {
 
 export class CreatePRContext {
 	constructor(
-		public createParams: CreateParams = vscode.getState() || defaultCreateParams,
+		public createParams: CreateParams = { ...defaultCreateParams, ...vscode.getState() },
 		public onchange: ((ctx: CreateParams) => void) | null = null,
 		private _handler: MessageHandler = null,
 	) {
