@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DiffSide } from '../common/comment';
 import { ForkDetails } from './githubRepository';
 
 export interface MergedEvent {
@@ -161,6 +162,20 @@ export interface Review {
 	createdAt: string;
 }
 
+export interface ReviewThread {
+	id: string;
+	isResolved: boolean;
+	viewerCanResolve: boolean;
+	path: string;
+	diffSide: DiffSide;
+	line: number;
+	originalLine: number;
+	isOutdated: boolean;
+	comments: {
+		nodes: ReviewComment[];
+	};
+}
+
 export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
@@ -197,7 +212,14 @@ export interface PullRequestCommentsResponse {
 			reviewThreads: {
 				nodes: [
 					{
+						id: string;
 						isResolved: boolean;
+						viewerCanResolve: boolean;
+						path: string;
+						diffSide: DiffSide;
+						line: number;
+						originalLine: number;
+						isOutdated: boolean;
 						comments: {
 							nodes: ReviewComment[];
 						};
@@ -206,7 +228,6 @@ export interface PullRequestCommentsResponse {
 			};
 		};
 	};
-	rateLimit: RateLimit;
 }
 
 export interface MentionableUsersResponse {
@@ -245,6 +266,12 @@ export interface AssignableUsersResponse {
 		};
 	};
 	rateLimit: RateLimit;
+}
+
+export interface AddReviewThreadResponse {
+	addPullRequestReviewThread: {
+		thread: ReviewThread;
+	}
 }
 
 export interface AddCommentResponse {

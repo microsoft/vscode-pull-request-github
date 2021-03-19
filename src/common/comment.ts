@@ -7,11 +7,28 @@ import * as vscode from 'vscode';
 import { IAccount } from '../github/interface';
 import { DiffHunk } from './diffHunk';
 
+export enum DiffSide {
+	LEFT = 'LEFT',
+	RIGHT = 'RIGHT',
+}
+
 export interface Reaction {
 	label: string;
 	count: number;
 	icon?: vscode.Uri;
 	viewerHasReacted: boolean;
+}
+
+export interface IReviewThread {
+	id: string;
+	isResolved: boolean;
+	viewerCanResolve: boolean;
+	path: string;
+	diffSide: DiffSide;
+	line: number;
+	originalLine: number;
+	isOutdated: boolean;
+	comments: IComment[];
 }
 
 export interface IComment {
