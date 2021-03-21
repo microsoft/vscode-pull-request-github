@@ -54,7 +54,7 @@ export class PullRequestModel implements IPullRequestModel {
 
 		this._telemetry = telemetry;
 
-		this.isActive = isActive === undefined ? item.status === PullRequestStatus.Active: false;
+		this.isActive = isActive === undefined ? item.status === PullRequestStatus.Active : false;
 		this.update(item);
 	}
 
@@ -177,7 +177,7 @@ export class PullRequestModel implements IPullRequestModel {
 		const azdo = azdoRepo.azdo;
 		const git = await azdo?.connection.getGitApi();
 
-		return git!.updatePullRequest({ description, title}, repoId!, this.getPullRequestId());
+		return git!.updatePullRequest({ description, title }, repoId!, this.getPullRequestId());
 	}
 
 	async completePullRequest(options: PullRequestCompletion): Promise<GitPullRequest> {
@@ -193,7 +193,8 @@ export class PullRequestModel implements IPullRequestModel {
 				deleteSourceBranch: options.deleteSourceBranch,
 				mergeStrategy: options.mergeStrategy,
 				transitionWorkItems: options.transitionWorkItems
-			}}, repoId!, this.getPullRequestId());
+			}
+		}, repoId!, this.getPullRequestId());
 	}
 
 	public async getWorkItemRefs(): Promise<ResourceRef[] | undefined> {
@@ -208,7 +209,7 @@ export class PullRequestModel implements IPullRequestModel {
 
 	async createThread(
 		message?: string,
-		threadContext?: {filePath: string, line: number, startOffset: number, endOffset: number},
+		threadContext?: { filePath: string, line: number, startOffset: number, endOffset: number },
 		prCommentThreadContext?: GitPullRequestCommentThreadContext): Promise<GitPullRequestCommentThread | undefined> {
 
 		const azdoRepo = await this.azdoRepository.ensure();
@@ -302,6 +303,15 @@ export class PullRequestModel implements IPullRequestModel {
 		const git = await azdo?.connection.getGitApi();
 
 		return await git?.createPullRequestReviewer({ vote: vote }, repoId, this.getPullRequestId(), azdo?.authenticatedUser?.id || '');
+	}
+
+	async addReviewer(userid: string, isRequired: boolean) {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		return await git?.createPullRequestReviewer({ vote: 0, id: userid, isRequired: isRequired }, repoId, this.getPullRequestId(), userid);
 	}
 
 	async editThread(message: string, threadId: number, commentId: number): Promise<Comment> {
@@ -401,7 +411,7 @@ export class PullRequestModel implements IPullRequestModel {
 		return fileContent ?? '';
 	}
 
-	async getCommitDiffs(base:GitBaseVersionDescriptor, target: GitBaseVersionDescriptor, diffCommonCommit?: boolean): Promise<GitCommitDiffs | undefined> {
+	async getCommitDiffs(base: GitBaseVersionDescriptor, target: GitBaseVersionDescriptor, diffCommonCommit?: boolean): Promise<GitCommitDiffs | undefined> {
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = await azdoRepo.getRepositoryId() || '';
 		const azdo = azdoRepo.azdo;
@@ -418,9 +428,10 @@ export class PullRequestModel implements IPullRequestModel {
 		const git = await azdo?.connection.getGitApi();
 
 		return git!.getFileDiffs({
-				baseVersionCommit: baseVersionCommit,
-				targetVersionCommit: targetVersionCommit,
-				fileDiffParams: fileDiffParams},
+			baseVersionCommit: baseVersionCommit,
+			targetVersionCommit: targetVersionCommit,
+			fileDiffParams: fileDiffParams
+		},
 			this.azdoRepository.azdo!.projectName,
 			repoId);
 	}
@@ -449,7 +460,7 @@ export class PullRequestModel implements IPullRequestModel {
 		let pr_statuses = await git?.getPullRequestStatuses(repoId, this.getPullRequestId()) ?? [];
 		pr_statuses = pr_statuses
 			.filter(p => p.iterationId === Math.max(...pr_statuses.map(s => s.iterationId ?? 0)))
-			.filter(p => p.id === Math.max(...pr_statuses.filter(s => s.context?.name === p.context?.name && s.context?.genre===p.context?.genre).map(t => t.id!)));
+			.filter(p => p.id === Math.max(...pr_statuses.filter(s => s.context?.name === p.context?.name && s.context?.genre === p.context?.genre).map(t => t.id!)));
 
 		const statuses: PullRequestChecks = {
 			state: GitStatusState.Pending,
@@ -489,8 +500,8 @@ export class PullRequestModel implements IPullRequestModel {
 
 		// baseVersion does not work. So using version.
 		// target: feature branch, base: main branch
-		const target: GitBaseVersionDescriptor = { version: this.item.head?.sha, versionOptions: GitVersionOptions.None, versionType: GitVersionType.Commit};
-		const base: GitBaseVersionDescriptor = { version: this.item.base?.sha, versionOptions: GitVersionOptions.None, versionType: GitVersionType.Commit};
+		const target: GitBaseVersionDescriptor = { version: this.item.head?.sha, versionOptions: GitVersionOptions.None, versionType: GitVersionType.Commit };
+		const base: GitBaseVersionDescriptor = { version: this.item.base?.sha, versionOptions: GitVersionOptions.None, versionType: GitVersionType.Commit };
 
 		if (!this.item.head?.exists) {
 			target.version = this.item.lastMergeSourceCommit?.commitId;
@@ -516,10 +527,10 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 
 		const BATCH_SIZE = 10;
-		const batches = (changes!.length - 1)/BATCH_SIZE;
+		const batches = (changes!.length - 1) / BATCH_SIZE;
 		const diffsPromises: Promise<FileDiff[]>[] = [];
-		for (let i: number = 0; i <=batches; i++) {
-			const batchedChanges = changes!.slice(i*BATCH_SIZE, Math.min((i+1)*BATCH_SIZE, changes!.length));
+		for (let i: number = 0; i <= batches; i++) {
+			const batchedChanges = changes!.slice(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, changes!.length));
 			diffsPromises.push(this.getFileDiff(baseCommit!, target.version!, this.getFileDiffParamsFromChanges(batchedChanges)));
 		}
 
@@ -590,7 +601,7 @@ export class PullRequestModel implements IPullRequestModel {
 				params.originalPath = change.item?.path;
 			} else if (change.changeType! === VersionControlChangeType.Add) {
 				params.path = change.item!.path;
-			// tslint:disable-next-line: no-bitwise
+				// tslint:disable-next-line: no-bitwise
 			} else if (change.changeType! & VersionControlChangeType.Delete) {
 				params.originalPath = change.item!.path;
 			}
