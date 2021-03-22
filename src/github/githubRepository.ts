@@ -26,7 +26,7 @@ import {
 	PullRequestResponse,
 	ViewerPermissionResponse,
 } from './graphql';
-import { IAccount, IMilestone, Issue, RepoAccessAndMergeMethods } from './interface';
+import { IAccount, IMilestone, Issue, PullRequest, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
@@ -91,6 +91,7 @@ export class GitHubRepository implements vscode.Disposable {
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentController;
+	private _pullRequestModels = new Map<number, PullRequestModel>();
 	public readonly isGitHubDotCom: boolean;
 
 	public get hub(): GitHub {
@@ -306,10 +307,7 @@ export class GitHubRepository implements vscode.Disposable {
 						return null;
 					}
 
-					return new PullRequestModel(
-						this._telemetry,
-						this,
-						this.remote,
+					return this.createOrUpdatePullRequestModel(
 						convertRESTPullRequestToRawPullRequest(pullRequest, this),
 					);
 				})
@@ -346,11 +344,8 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const pullRequests = result.data
 				.map(pullRequest => {
-					return new PullRequestModel(
-						this._telemetry,
-						this,
-						this.remote,
-						convertRESTPullRequestToRawPullRequest(pullRequest as any, this),
+					return this.createOrUpdatePullRequestModel(
+						convertRESTPullRequestToRawPullRequest(pullRequest, this),
 					);
 				})
 				.filter(item => item !== null) as PullRequestModel[];
@@ -615,10 +610,7 @@ export class GitHubRepository implements vscode.Disposable {
 						return null;
 					}
 
-					return new PullRequestModel(
-						this._telemetry,
-						this,
-						this.remote,
+					return this.createOrUpdatePullRequestModel(
 						convertRESTPullRequestToRawPullRequest(response.data, this),
 					);
 				})
@@ -644,6 +636,24 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
+	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {
+		let model = this._pullRequestModels.get(pullRequest.number);
+		if (model) {
+			model.update(pullRequest);
+		} else {
+			model = new PullRequestModel(this._telemetry, this, this.remote, pullRequest);
+			this._pullRequestModels.set(pullRequest.number, model);
+		}
+
+		return model;
+	}
+
+	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel> {
+		const { octokit } = await this.ensure();
+		const { data } = await octokit.pulls.create(params);
+		return this.createOrUpdatePullRequestModel(convertRESTPullRequestToRawPullRequest(data, this));
+	}
+
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
@@ -659,7 +669,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 
-			return new PullRequestModel(this._telemetry, this, remote, parseGraphQLPullRequest(data, this));
+			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data, this));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;

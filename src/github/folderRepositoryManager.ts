@@ -1078,12 +1078,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		try {
-			await repo.ensure();
-
-			// Create PR
-			const { data } = await repo.octokit.pulls.create(params);
-			const item = convertRESTPullRequestToRawPullRequest(data, repo);
-			const pullRequestModel = new PullRequestModel(this._telemetry, repo, repo.remote, item, true);
+			const pullRequestModel = await repo.createPullRequest(params);
 
 			const branchNameSeparatorIndex = params.head.indexOf(':');
 			const branchName = params.head.slice(branchNameSeparatorIndex + 1);
