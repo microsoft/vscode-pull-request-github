@@ -458,6 +458,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async updateRepositories(silent: boolean = false): Promise<void> {
 		if (this._git.state === 'uninitialized') {
+			Logger.appendLine('Cannot updates repositories as git is uninitialized');
+
 			return;
 		}
 
