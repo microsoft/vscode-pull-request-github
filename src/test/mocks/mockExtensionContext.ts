@@ -28,6 +28,8 @@ export class MockExtensionContext implements ExtensionContext {
 	extensionRuntime: any;
 	secrets: SecretStorage;
 
+	extension: any;
+
 	constructor() {
 		this.storagePath = temp.mkdirSync('storage-path');
 		this.globalStoragePath = temp.mkdirSync('global-storage-path');
@@ -51,4 +53,4 @@ export const createFakeSecretStorage = (): SecretStorage => {
 	secretStorage.delete = sinon.stub();
 	secretStorage.onDidChange = sinon.stub();
 	return secretStorage;
-}
+};
