@@ -16,7 +16,7 @@ import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
-import { ExperimentationTelemetry } from './experimentationService';
+import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { RepositoriesManager } from './github/repositoriesManager';
@@ -242,6 +242,9 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 			await init(context, apiImpl, credentialStore, [r], prTree, liveshareApiPromise);
 		});
 	}
+
+	const experimentationService = await createExperimentationService(context, telemetry);
+	experimentationService.isCachedFlightEnabled('githubaa');
 }
 
 export async function deactivate() {
