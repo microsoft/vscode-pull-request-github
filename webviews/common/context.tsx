@@ -56,7 +56,7 @@ export class PRContext {
 		this.postMessage({ command: 'azdopr.readyForReview' })
 
 	public replyThread = async (body: string, thread: GitPullRequestCommentThread) => {
-		const result = await this.postMessage({ command: 'pr.reply-thread', args: { text: body, threadId: thread.id} });
+		const result = await this.postMessage({ command: 'pr.reply-thread', args: { text: body, threadId: thread.id } });
 		thread.comments.push(result.comment);
 		this.updatePR({
 			threads: [...this.pr.threads.filter(t => t.id !== thread.id), thread]
@@ -72,15 +72,20 @@ export class PRContext {
 	}
 
 	public changeThreadStatus = async (status: number, thread: GitPullRequestCommentThread) => {
-		const result = await this.postMessage({ command: 'pr.change-thread-status', args: { status: status, threadId: thread.id} });
+		const result = await this.postMessage({ command: 'pr.change-thread-status', args: { status: status, threadId: thread.id } });
 		const updatedThread = result.thread;
 		this.updatePR({
 			threads: [...this.pr.threads.filter(t => t.id !== updatedThread?.id), updatedThread]
 		});
 	}
 
-	public addReviewers = () =>
-		this.postMessage({ command: 'pr.add-reviewers' })
+	public addOptionalReviewers = async () => {
+		this.appendReview(await this.postMessage({ command: 'pr.add-reviewers', args: { isRequired: false } }));
+	}
+
+	public addRequiredReviewers = async () => {
+		this.appendReview(await this.postMessage({ command: 'pr.add-reviewers', args: { isRequired: true } }));
+	}
 
 	public deleteComment = async (args: { id: number, pullRequestReviewId?: number }) => {
 		await this.postMessage({ command: 'pr.delete-comment', args });
@@ -131,22 +136,21 @@ export class PRContext {
 
 	public close = async (body?: string) => {
 		try {
-			this.appendReview(await this.postMessage({ command: 'azdopr.close', args: body }))
+			this.appendReview(await this.postMessage({ command: 'azdopr.close', args: body }));
 		} catch (_) {
 			// Ignore
 		}
 	}
 
-	public complete = async (args: {deleteSourceBranch: boolean, completeWorkitem: boolean, mergeStrategy: string}) => {
+	public complete = async (args: { deleteSourceBranch: boolean, completeWorkitem: boolean, mergeStrategy: string }) => {
 		const options = { ...args, mergeStrategy: GitPullRequestMergeStrategy[args.mergeStrategy] }
-		const result = await this.postMessage({ command: 'pr.complete', args: options});
+		const result = await this.postMessage({ command: 'pr.complete', args: options });
 		this.updatePR(result);
 	}
 
-	public removeReviewer = async (login: string) => {
-		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
-		const reviewers = this.pr.reviewers.filter(r => r.reviewer.id !== login);
-		this.updatePR({ reviewers });
+	public removeReviewer = async (id: string) => {
+		const res = await this.postMessage({ command: 'pr.remove-reviewer', args: { id: id } });
+		this.appendReview(res);
 	}
 
 	public associateWorkItem = async () => {

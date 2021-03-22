@@ -19,6 +19,7 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../azdo/credentials';
 import { GitPullRequest, GitStatusState } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { AzdoWorkItem } from '../../azdo/workItem';
+import { AzdoUserManager } from '../../azdo/userManager';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
@@ -30,6 +31,7 @@ describe('PullRequestOverview', function () {
 	let repo: MockAzdoRepository;
 	let telemetry: MockTelemetry;
 	let workItem: AzdoWorkItem;
+	let userManager: AzdoUserManager;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -41,6 +43,7 @@ describe('PullRequestOverview', function () {
 		const credentialStore = new CredentialStore(telemetry, createFakeSecretStorage());
 		pullRequestManager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
 		workItem = new AzdoWorkItem(credentialStore, telemetry);
+		userManager = new AzdoUserManager(credentialStore, telemetry);
 
 		const url = 'https://dev.azure.com.com/aaa/bbb/_git/bbb';
 		remote = new Remote('origin', url, new Protocol(url));
@@ -68,7 +71,7 @@ describe('PullRequestOverview', function () {
 			);
 			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
 
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel, workItem);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel, workItem, userManager);
 
 			assert(createWebviewPanel.calledWith(
 				sinonMatch.string,
@@ -95,7 +98,7 @@ describe('PullRequestOverview', function () {
 			// sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			// sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: GitStatusState.Pending, statuses: [] });
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0, workItem);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0, workItem, userManager);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
 			assert.notStrictEqual(panel0, undefined);
@@ -110,7 +113,7 @@ describe('PullRequestOverview', function () {
 			// sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			// sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: GitStatusState.Pending, statuses: [] });
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1, workItem);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1, workItem, userManager);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
 			assert.strictEqual(createWebviewPanel.callCount, 1);

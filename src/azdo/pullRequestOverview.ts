@@ -19,6 +19,8 @@ import { SETTINGS_NAMESPACE } from '../constants';
 import { AzdoWorkItem } from './workItem';
 import { AccountRecentActivityWorkItemModel2, WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 import { Disposable } from 'vscode';
+import { AzdoUserManager } from './userManager';
+import { User } from './entitlementApi';
 
 export class PullRequestOverviewPanel extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -39,8 +41,15 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	private _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
 	private _workItem: AzdoWorkItem;
+	private _userManager: AzdoUserManager;
 
-	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, pr: PullRequestModel, workItem: AzdoWorkItem, toTheSide: Boolean = false) {
+	public static async createOrShow(
+		extensionPath: string,
+		folderRepositoryManager: FolderRepositoryManager,
+		pr: PullRequestModel,
+		workItem: AzdoWorkItem,
+		azdoUserManager: AzdoUserManager,
+		toTheSide: Boolean = false) {
 		const activeColumn = toTheSide ?
 			vscode.ViewColumn.Beside :
 			vscode.window.activeTextEditor ?
@@ -53,7 +62,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${pr.getPullRequestId().toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager, workItem);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager, workItem, azdoUserManager);
 		}
 
 		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, pr);
@@ -75,12 +84,19 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager, workItem: AzdoWorkItem) {
+	protected constructor(
+		extensionPath: string,
+		column: vscode.ViewColumn,
+		title: string,
+		folderRepositoryManager: FolderRepositoryManager,
+		workItem: AzdoWorkItem,
+		azdoUserManager: AzdoUserManager) {
 		super();
 
 		this._extensionPath = extensionPath;
 		this._folderRepositoryManager = folderRepositoryManager;
 		this._workItem = workItem;
+		this._userManager = azdoUserManager;
 
 		// Create and show a new webview panel
 		this._panel = vscode.window.createWebviewPanel(PullRequestOverviewPanel._viewType, title, column, {
@@ -153,7 +169,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				pullRequestModel.azdoRepository.getAuthenticatedUser(),
 				this.getWorkItemsWithPr(pullRequestModel)
 			]);
-			const [pullRequest, threads, commits , defaultBranch, status, repositoryAccess, currentUser, workItems] = result;
+			const [pullRequest, threads, commits, defaultBranch, status, repositoryAccess, currentUser, workItems] = result;
 			const canEditPr = pullRequest?.canEdit();
 			const requestedReviewers = pullRequestModel.item.reviewers;
 			if (!pullRequest) {
@@ -171,19 +187,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			const preferredMergeMethod = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 
-			this._existingReviewers = requestedReviewers?.map(r => {
-				return {
-					reviewer: {
-						email: r.uniqueName,
-						name: r.displayName,
-						avatarUrl: r?.['_links']?.['avatar']?.['href'],
-						url: r.reviewerUrl,
-						id: r.id
-					},
-					state: r.vote ?? 0,
-					isRequired: r.isRequired ?? false
-				};
-			}) ?? [];
+			this._existingReviewers = requestedReviewers?.map(this.convertIdentityRefWithVoteToReviewer) ?? [];
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			this._postMessage({
@@ -201,7 +205,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 						name: pullRequest.item.createdBy?.displayName,
 						avatarUrl: pullRequest.item.createdBy?.['_links']?.['avatar']?.['href'],
 						url: pullRequest.item.createdBy?.url,
-						email:  pullRequest.item.createdBy?.uniqueName
+						email: pullRequest.item.createdBy?.uniqueName
 					},
 					state: pullRequest.item.status,
 					threads: threads,
@@ -282,10 +286,10 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this.removeWorkItemFromPR(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this._item.getMergability());
-			// case 'pr.add-reviewers':
-			// 	return this.addReviewers(message);
-			// case 'pr.remove-reviewer':
-			// 	return this.removeReviewer(message);
+			case 'pr.add-reviewers':
+				return this.addReviewerToPr(message);
+			case 'pr.remove-reviewer':
+				return this.removeReviewer(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink(message);
 			case 'azdopr.close':
@@ -308,6 +312,54 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				vscode.window.showErrorMessage(message.args);
 			default:
 				return this.MESSAGE_UNHANDLED;
+		}
+	}
+
+	private async addReviewerToPr(message: IRequestMessage<any>) {
+		const disposables: Disposable[] = [];
+		try {
+			const quickpick = vscode.window.createQuickPick();
+			quickpick.placeholder = 'Search user by name or email address';
+			quickpick.items = [];
+			quickpick.matchOnDetail = true;
+			const userid = await new Promise<string | undefined>((resolve, _) => {
+				disposables.push(quickpick.onDidChangeValue(async value => {
+					quickpick.busy = true;
+					const users = await this._userManager.searchIdentities(value);
+					if (!!users) {
+						quickpick.items = users.map(u => new UserPick(u));
+					}
+					quickpick.busy = false;
+				}),
+					quickpick.onDidChangeSelection(value => {
+						resolve((value[0] as UserPick).id);
+						quickpick.hide();
+					}),
+					quickpick.onDidHide(() => {
+						resolve(undefined);
+						quickpick.dispose();
+					}));
+				quickpick.show();
+			});
+
+			if (!!userid) {
+				try {
+					const review = await this._item.addReviewer(userid, message.args.isRequired);
+					this.updateReviewers(review);
+					this._replyMessage(message, {
+						review: review,
+						reviewers: this._existingReviewers
+					});
+				} catch (e) {
+					this._throwError(message, e);
+					vscode.window.showWarningMessage(`Unable add User as reviewer. Error: ${formatError(e)}`);
+				}
+			}
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showWarningMessage(`Unable add User as reviewer. Error: ${formatError(e)}`);
+		} finally {
+			disposables.forEach(d => d.dispose());
 		}
 	}
 
@@ -393,18 +445,23 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	// 	}
 	// }
 
-	// private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
-	// 	try {
-	// 		await this._item.deleteReviewRequest(message.args);
+	private async removeReviewer(message: IRequestMessage<{ id: string }>): Promise<void> {
+		try {
+			const reviewerId = message.args.id;
+			await this._item.removeReviewer(reviewerId);
 
-	// 		const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
-	// 		this._existingReviewers.splice(index, 1);
+			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.id === reviewerId);
+			this._existingReviewers.splice(index, 1);
 
-	// 		this._replyMessage(message, {});
-	// 	} catch (e) {
-	// 		vscode.window.showErrorMessage(formatError(e));
-	// 	}
-	// }
+			this._replyMessage(message, {
+				review: {},
+				reviewers: this._existingReviewers
+			});
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(`Removing Reviewer Failed. reviewerid: ${message.args.id}. Error: ${formatError(e)}`);
+		}
+	}
 
 	private async getWorkItemsWithPr(pr: PullRequestModel): Promise<WorkItem[]> {
 		const refs = await pr.getWorkItemRefs();
@@ -437,14 +494,14 @@ export class PullRequestOverviewPanel extends WebviewBase {
 						}
 					}
 				}),
-				quickpick.onDidChangeSelection(value => {
-					resolve(Number.parseInt(value[0].label));
-					quickpick.hide();
-				}),
-				quickpick.onDidHide(() => {
-					resolve(undefined);
-					quickpick.dispose();
-				}));
+					quickpick.onDidChangeSelection(value => {
+						resolve(Number.parseInt(value[0].label));
+						quickpick.hide();
+					}),
+					quickpick.onDidHide(() => {
+						resolve(undefined);
+						quickpick.dispose();
+					}));
 				quickpick.show();
 			});
 
@@ -454,12 +511,12 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					this._replyMessage(message, wt);
 				} catch (e) {
 					this._throwError(message, e);
-					vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${e.message}`);
+					vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${formatError(e)}`);
 				}
 			}
 		} catch (e) {
 			this._throwError(message, e);
-			vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${e.message}`);
+			vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${formatError(e)}`);
 		} finally {
 			disposables.forEach(d => d.dispose());
 		}
@@ -478,7 +535,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			}
 		}).catch(e => {
 			this._throwError(message, e);
-			vscode.window.showWarningMessage(`Unable to removing PR link in workitem. Error: ${e.message}`);
+			vscode.window.showWarningMessage(`Unable to removing PR link in workitem. Error: ${formatError(e)}`);
 		});
 	}
 
@@ -641,14 +698,10 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		if (review) {
 			const existingReviewer = this._existingReviewers.find(reviewer => review.id === reviewer.reviewer.id);
 			if (existingReviewer) {
-				existingReviewer.state = review.vote?? 0;
+				existingReviewer.state = review.vote ?? 0;
 				existingReviewer.isRequired = review.isRequired ?? false;
 			} else {
-				this._existingReviewers.push({
-					reviewer: review,
-					state: review.vote?? 0,
-					isRequired: review.isRequired ?? false
-				});
+				this._existingReviewers.push(this.convertIdentityRefWithVoteToReviewer(review));
 			}
 		}
 	}
@@ -680,7 +733,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		});
 	}
 
-	private replyThread(message: IRequestMessage<{text: string, threadId: number}>): void {
+	private replyThread(message: IRequestMessage<{ text: string, threadId: number }>): void {
 		this._item.createCommentOnThread(message.args.threadId, message.args.text).then(result => {
 			this._replyMessage(message, {
 				comment: result
@@ -691,7 +744,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		});
 	}
 
-	private changeThreadStatus(message: IRequestMessage<{status: number, threadId: number}>): void {
+	private changeThreadStatus(message: IRequestMessage<{ status: number, threadId: number }>): void {
 		this._item.updateThreadStatus(message.args.threadId, message.args.status).then(result => {
 			this._replyMessage(message, {
 				thread: result
@@ -771,6 +824,20 @@ export class PullRequestOverviewPanel extends WebviewBase {
 		});
 	}
 
+	private convertIdentityRefWithVoteToReviewer(r: IdentityRefWithVote) {
+		return {
+			reviewer: {
+				email: r.uniqueName,
+				name: r.displayName,
+				avatarUrl: r?.['_links']?.['avatar']?.['href'],
+				url: r.reviewerUrl,
+				id: r.id
+			},
+			state: r.vote ?? 0,
+			isRequired: r.isRequired ?? false
+		};
+	}
+
 	dispose() {
 		this._currentPanel = undefined;
 
@@ -838,11 +905,24 @@ class WorkItemPick implements vscode.QuickPickItem {
 		if ('title' in workItem) {
 			this.description = workItem.workItemType!;
 			this.detail = workItem.title!;
-		} else  {
+		} else {
 			const wt: WorkItem = workItem;
 			this.description = wt.fields?.['System.WorkItemType'] ?? '';
 			this.detail = wt.fields?.['System.Title'] ?? '';
 		}
 
+	}
+}
+
+class UserPick implements vscode.QuickPickItem {
+
+	label: string;
+	detail: string;
+	id: string;
+
+	constructor(user: User) {
+		this.label = user.user.displayName;
+		this.detail = user.user.mailAddress;
+		this.id = user.id;
 	}
 }

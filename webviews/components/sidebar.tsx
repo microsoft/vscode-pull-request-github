@@ -13,16 +13,16 @@ import { Reviewer } from './reviewer';
 import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 
 export default function Sidebar({ reviewers, workItems, hasWritePermission }: PullRequest) {
-	const { addReviewers, associateWorkItem, updatePR, pr } = useContext(PullRequestContext);
+	const { addRequiredReviewers, addOptionalReviewers, associateWorkItem, updatePR, pr } = useContext(PullRequestContext);
 
 	return <div id='sidebar'>
 		<VotePanel vote={pr.reviewers.find(r => r.reviewer.id === pr.currentUser.id)?.state ?? 0} />
 		<ReviewerPanel labelText='Required Reviewers' reviewers={reviewers.filter(r => r.isRequired)}
-			addReviewers={addReviewers} hasWritePermission={hasWritePermission}
+			addReviewers={addRequiredReviewers} hasWritePermission={hasWritePermission}
 			updatePR={(newReviewers) => updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) })}
 		/>
 		<ReviewerPanel labelText='Optional Reviewers' reviewers={reviewers.filter(r => !r.isRequired)}
-			addReviewers={addReviewers} hasWritePermission={hasWritePermission}
+			addReviewers={addOptionalReviewers} hasWritePermission={hasWritePermission}
 			updatePR={(newReviewers) => updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) })}
 		/>
 		<div id='work-item' className='section'>
