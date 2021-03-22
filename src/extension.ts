@@ -180,6 +180,9 @@ async function init(
 		"startup" : {}
 	*/
 	telemetry.sendTelemetryEvent('startup');
+
+	const experimentationService = await createExperimentationService(context, telemetry);
+	experimentationService.isCachedFlightEnabled('githubaa');
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
@@ -242,9 +245,6 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 			await init(context, apiImpl, credentialStore, [r], prTree, liveshareApiPromise);
 		});
 	}
-
-	const experimentationService = await createExperimentationService(context, telemetry);
-	experimentationService.isCachedFlightEnabled('githubaa');
 }
 
 export async function deactivate() {
