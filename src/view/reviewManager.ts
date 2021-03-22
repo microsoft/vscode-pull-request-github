@@ -363,7 +363,7 @@ export class ReviewManager {
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
-		if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE)) {
+		if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE) && vscode.env.remoteName === 'codespaces') {
 			if (this.localFileChanges.length > 0) {
 				let fileChangeToShow: GitFileChangeNode | undefined;
 				for (const fileChange of this.localFileChanges) {
