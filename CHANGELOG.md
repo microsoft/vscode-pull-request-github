@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.17
+### Changes
+
+- Functionality to add and remove reviewers from PR.
+
 ## 0.0.16
 ### Changes
 
