@@ -288,8 +288,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 				return this._replyMessage(message, await this._item.getMergability());
 			case 'pr.add-reviewers':
 				return this.addReviewerToPr(message);
-			// case 'pr.remove-reviewer':
-			// 	return this.removeReviewer(message);
+			case 'pr.remove-reviewer':
+				return this.removeReviewer(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink(message);
 			case 'azdopr.close':
@@ -352,12 +352,12 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					});
 				} catch (e) {
 					this._throwError(message, e);
-					vscode.window.showWarningMessage(`Unable add User as reviewer. Error: ${e.message}`);
+					vscode.window.showWarningMessage(`Unable add User as reviewer. Error: ${formatError(e)}`);
 				}
 			}
 		} catch (e) {
 			this._throwError(message, e);
-			vscode.window.showWarningMessage(`Unable add User as reviewer. Error: ${e.message}`);
+			vscode.window.showWarningMessage(`Unable add User as reviewer. Error: ${formatError(e)}`);
 		} finally {
 			disposables.forEach(d => d.dispose());
 		}
@@ -445,18 +445,23 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	// 	}
 	// }
 
-	// private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
-	// 	try {
-	// 		await this._item.deleteReviewRequest(message.args);
+	private async removeReviewer(message: IRequestMessage<{ id: string }>): Promise<void> {
+		try {
+			const reviewerId = message.args.id;
+			await this._item.removeReviewer(reviewerId);
 
-	// 		const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
-	// 		this._existingReviewers.splice(index, 1);
+			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.id === reviewerId);
+			this._existingReviewers.splice(index, 1);
 
-	// 		this._replyMessage(message, {});
-	// 	} catch (e) {
-	// 		vscode.window.showErrorMessage(formatError(e));
-	// 	}
-	// }
+			this._replyMessage(message, {
+				review: {},
+				reviewers: this._existingReviewers
+			});
+		} catch (e) {
+			this._throwError(message, e);
+			vscode.window.showErrorMessage(`Removing Reviewer Failed. reviewerid: ${message.args.id}. Error: ${formatError(e)}`);
+		}
+	}
 
 	private async getWorkItemsWithPr(pr: PullRequestModel): Promise<WorkItem[]> {
 		const refs = await pr.getWorkItemRefs();
@@ -506,12 +511,12 @@ export class PullRequestOverviewPanel extends WebviewBase {
 					this._replyMessage(message, wt);
 				} catch (e) {
 					this._throwError(message, e);
-					vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${e.message}`);
+					vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${formatError(e)}`);
 				}
 			}
 		} catch (e) {
 			this._throwError(message, e);
-			vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${e.message}`);
+			vscode.window.showWarningMessage(`Unable to link PR to workitem. Error: ${formatError(e)}`);
 		} finally {
 			disposables.forEach(d => d.dispose());
 		}
@@ -530,7 +535,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			}
 		}).catch(e => {
 			this._throwError(message, e);
-			vscode.window.showWarningMessage(`Unable to removing PR link in workitem. Error: ${e.message}`);
+			vscode.window.showWarningMessage(`Unable to removing PR link in workitem. Error: ${formatError(e)}`);
 		});
 	}
 

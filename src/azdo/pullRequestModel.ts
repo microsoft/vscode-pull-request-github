@@ -314,6 +314,15 @@ export class PullRequestModel implements IPullRequestModel {
 		return await git?.createPullRequestReviewer({ vote: 0, id: userid, isRequired: isRequired }, repoId, this.getPullRequestId(), userid);
 	}
 
+	async removeReviewer(reviewerId: string) {
+		const azdoRepo = await this.azdoRepository.ensure();
+		const repoId = await azdoRepo.getRepositoryId() || '';
+		const azdo = azdoRepo.azdo;
+		const git = await azdo?.connection.getGitApi();
+
+		await git?.deletePullRequestReviewer(repoId, this.getPullRequestId(), reviewerId);
+	}
+
 	async editThread(message: string, threadId: number, commentId: number): Promise<Comment> {
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = await azdoRepo.getRepositoryId() || '';

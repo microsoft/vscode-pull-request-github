@@ -148,10 +148,9 @@ export class PRContext {
 		this.updatePR(result);
 	}
 
-	public removeReviewer = async (login: string) => {
-		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
-		const reviewers = this.pr.reviewers.filter(r => r.reviewer.id !== login);
-		this.updatePR({ reviewers });
+	public removeReviewer = async (id: string) => {
+		const res = await this.postMessage({ command: 'pr.remove-reviewer', args: { id: id } });
+		this.appendReview(res);
 	}
 
 	public associateWorkItem = async () => {
