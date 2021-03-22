@@ -88,6 +88,7 @@ async function init(
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 	context.subscriptions.push(new FileTypeDecorationProvider());
+
 	// Sort the repositories to match folders in a multiroot workspace (if possible).
 	const workspaceFolders = vscode.workspace.workspaceFolders;
 	if (workspaceFolders) {
@@ -111,6 +112,7 @@ async function init(
 		repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore),
 	);
 	context.subscriptions.push(...folderManagers);
+
 	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
 
@@ -120,19 +122,18 @@ async function init(
 			api.registerContactServiceProvider('github-pr', new GitHubContactServiceProvider(reposManager));
 		}
 	});
+
 	const changesTree = new PullRequestChangesTreeDataProvider(context);
 	context.subscriptions.push(changesTree);
+
 	const reviewManagers = folderManagers.map(
 		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree),
 	);
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, git);
 	context.subscriptions.push(reviewsManager);
-	tree.initialize(reposManager);
-	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
-	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
-	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
 	git.onDidChangeState(() => {
+		Logger.appendLine(`Git initialization state changed: state=${git.state}}`);
 		reviewManagers.forEach(reviewManager => reviewManager.updateState());
 	});
 
@@ -167,6 +168,13 @@ async function init(
 
 		tree.refresh();
 	});
+
+	tree.initialize(reposManager);
+
+	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
+
+	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
 	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
 	context.subscriptions.push(issuesFeatures);
