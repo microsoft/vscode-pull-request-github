@@ -188,9 +188,11 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		let branchesForCompare = branchesForRemote;
 		if (defaultCompareRemote.owner !== defaultBaseRemote.owner) {
 			branchesForCompare = await this._folderRepositoryManager.listBranches(defaultCompareRemote.owner, defaultCompareRemote.repositoryName);
-			if (!branchesForCompare.includes(this.compareBranch.name!)) {
-				branchesForCompare.push(this.compareBranch.name!);
-			}
+		}
+
+		if (!branchesForCompare.includes(this.compareBranch.name!)) {
+			branchesForCompare.push(this.compareBranch.name!);
+			branchesForCompare.sort();
 		}
 
 		this._postMessage({
@@ -223,6 +225,11 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		const defaultBranch = await githubRepository.getDefaultBranch();
 		const newBranches = await this._folderRepositoryManager.listBranches(owner, repositoryName);
+
+		if (!isBase && !newBranches.includes(this.compareBranch.name!)) {
+			newBranches.push(this.compareBranch.name!);
+			newBranches.sort();
+		}
 
 		if (isBase) {
 			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
