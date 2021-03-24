@@ -77,14 +77,14 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 								{hasWritePermission ? (
 									<>
 										{nbsp}
-										<a
+										<button
 											className="push-right remove-item"
 											onClick={async () => {
 												await removeAssignee(x.login);
 											}}
 										>
 											{deleteIcon}️
-										</a>
+										</button>
 										{nbsp}
 									</>
 								) : null}
@@ -138,7 +138,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						{hasWritePermission ? (
 							<>
 								{nbsp}
-								<a
+								<button
 									className="push-right remove-item"
 									onClick={async () => {
 										await removeMilestone();
@@ -146,7 +146,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 									}}
 								>
 									{deleteIcon}️
-								</a>
+								</button>
 								{nbsp}
 							</>
 						) : null}
@@ -161,21 +161,18 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 
 function Label(label: ILabel & { canDelete: boolean }) {
 	const { name, canDelete } = label;
-	const [showDelete, setShowDelete] = useState(false);
 	const { removeLabel } = useContext(PullRequestContext);
 	return (
 		<div
 			className="section-item label"
-			onMouseEnter={() => setShowDelete(true)}
-			onMouseLeave={() => setShowDelete(false)}
 		>
 			{name}
-			{canDelete && showDelete ? (
+			{canDelete ? (
 				<>
 					{nbsp}
-					<a className="push-right remove-item" onClick={() => removeLabel(name)}>
+					<button className="push-right remove-item" onClick={() => removeLabel(name)}>
 						{deleteIcon}️
-					</a>
+					</button>
 					{nbsp}
 				</>
 			) : null}
