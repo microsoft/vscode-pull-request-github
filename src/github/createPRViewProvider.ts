@@ -123,10 +123,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 
 		if (hasMultipleCommits) {
-			return this.compareBranch.name!;
+			return this.compareBranch.name ?? '';
 		} else {
-			return titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!))
-				.title;
+			return this.compareBranch.name
+				? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name))
+						.title
+				: '';
 		}
 	}
 
@@ -147,12 +149,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 	private async getDescription(): Promise<string> {
 		// Try to match github's default, first look for template, then use commit body if available.
-		const pullRequestTemplate = this.getPullRequestTemplate();
-		return (
-			(await pullRequestTemplate) ??
-			titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name!)).body ??
-			''
-		);
+		const pullRequestTemplate = await this.getPullRequestTemplate();
+		if (pullRequestTemplate) {
+			return pullRequestTemplate;
+		}
+
+		return this.compareBranch.name
+			? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name)).body
+			: '';
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
@@ -168,7 +172,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
 		const defaultCompareRemote: RemoteInfo = {
 			owner: origin.remote.owner,
-			repositoryName: origin.remote.repositoryName
+			repositoryName: origin.remote.repositoryName,
 		};
 
 		const [githubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
@@ -187,10 +191,15 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		let branchesForCompare = branchesForRemote;
 		if (defaultCompareRemote.owner !== defaultBaseRemote.owner) {
-			branchesForCompare = await this._folderRepositoryManager.listBranches(defaultCompareRemote.owner, defaultCompareRemote.repositoryName);
-			if (!branchesForCompare.includes(this.compareBranch.name!)) {
-				branchesForCompare.push(this.compareBranch.name!);
-			}
+			branchesForCompare = await this._folderRepositoryManager.listBranches(
+				defaultCompareRemote.owner,
+				defaultCompareRemote.repositoryName,
+			);
+		}
+
+		if (this.compareBranch.name && !branchesForCompare.includes(this.compareBranch.name)) {
+			branchesForCompare.push(this.compareBranch.name);
+			branchesForCompare.sort();
 		}
 
 		this._postMessage({
@@ -200,18 +209,21 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				defaultBaseRemote,
 				defaultBaseBranch: this._pullRequestDefaults.base,
 				defaultCompareRemote,
-				defaultCompareBranch: this.compareBranch.name!,
+				defaultCompareBranch: this.compareBranch.name ?? '',
 				branchesForRemote,
 				branchesForCompare,
 				defaultTitle,
 				defaultDescription,
-				compareBranch: this.compareBranch.name!,
+				compareBranch: this.compareBranch.name ?? '',
 				isDraft: false,
-			}
+			},
 		});
 	}
 
-	private async changeRemote(message: IRequestMessage<{ owner: string; repositoryName: string }>, isBase: boolean): Promise<void> {
+	private async changeRemote(
+		message: IRequestMessage<{ owner: string; repositoryName: string }>,
+		isBase: boolean,
+	): Promise<void> {
 		const { owner, repositoryName } = message.args;
 		const githubRepository = this._folderRepositoryManager.findRepo(
 			repo => owner === repo.remote.owner && repositoryName === repo.remote.repositoryName,
@@ -223,6 +235,11 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		const defaultBranch = await githubRepository.getDefaultBranch();
 		const newBranches = await this._folderRepositoryManager.listBranches(owner, repositoryName);
+
+		if (!isBase && this.compareBranch.name && !newBranches.includes(this.compareBranch.name)) {
+			newBranches.push(this.compareBranch.name);
+			newBranches.sort();
+		}
 
 		if (isBase) {
 			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
@@ -239,12 +256,17 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		try {
 			let branchName;
 			let remote;
+			if (!this.compareBranch.name) {
+				this._throwError(message, 'Please create a branch.');
+				return;
+			}
+
 			if (this.compareBranch.type === RefType.RemoteHead) {
-				const index = this.compareBranch.name!.indexOf('/');
-				branchName = this.compareBranch.name!.substring(index + 1);
-				remote = this.compareBranch.name!.substring(0, index);
+				const index = this.compareBranch.name.indexOf('/');
+				branchName = this.compareBranch.name.substring(index + 1);
+				remote = this.compareBranch.name.substring(0, index);
 			} else {
-				branchName = this.compareBranch.name!;
+				branchName = this.compareBranch.name;
 				remote = this.compareBranch.upstream?.remote;
 			}
 
