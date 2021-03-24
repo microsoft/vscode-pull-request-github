@@ -113,6 +113,8 @@ export class IssueModel<TItem extends Issue = Issue> {
 		if (issue.assignees) {
 			this.assignees = issue.assignees;
 		}
+
+		this.item = issue;
 	}
 
 	equals(other: IssueModel<TItem> | undefined): boolean {
