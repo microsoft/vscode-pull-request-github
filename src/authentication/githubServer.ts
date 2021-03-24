@@ -21,7 +21,7 @@ export class GitHubManager {
 		let isGitHub = false;
 		try {
 			const response = await fetch(uri.toString(), options);
-			isGitHub = response.headers['x-github-request-id'] !== undefined;
+			isGitHub = response.headers.get('x-github-request-id') !== undefined;
 			return isGitHub;
 		} catch (ex) {
 			Logger.appendLine(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
