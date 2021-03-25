@@ -24,9 +24,9 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 			{canDelete && showDelete ? (
 				<>
 					{nbsp}
-					<a className="remove-item" onClick={() => removeReviewer(reviewState.reviewer.login)}>
+					<button className="remove-item" onClick={() => removeReviewer(reviewState.reviewer.login)}>
 						{deleteIcon}️
-					</a>
+					</button>
 				</>
 			) : null}
 			{REVIEW_STATE[state]}
