@@ -53,6 +53,12 @@ fragment Comment on IssueComment {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
 	url
 	body
@@ -72,6 +78,7 @@ fragment Commit on PullRequestCommit {
 				login
 				avatarUrl
 				url
+				email
 			}
 		}
 		committer {
@@ -107,6 +114,12 @@ fragment Review on PullRequestReview {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
 	state
 	body
@@ -189,6 +202,12 @@ fragment ReviewComment on PullRequestReviewComment {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
 	path
 	originalPosition
@@ -277,6 +296,12 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 				login
 				url
 				avatarUrl
+				... on User {
+					email
+				}
+				... on Organization {
+					email
+				}
 			}
 			createdAt
 			updatedAt
@@ -361,6 +386,12 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 				login
 				url
 				avatarUrl
+				... on User {
+					email
+				}
+				... on Organization {
+					email
+				}
 			}
 			createdAt
 			updatedAt
@@ -389,6 +420,12 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 				login
 				url
 				avatarUrl
+				... on User {
+					email
+				}
+				... on Organization {
+					email
+				}
 			}
 			createdAt
 			updatedAt
@@ -406,6 +443,12 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 						login
 						url
 						avatarUrl
+						... on User {
+							email
+						}
+						... on Organization {
+							email
+						}
 					}
 					body
 					databaseId
@@ -648,12 +691,19 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 							nodes {
 								login
 								url
+								email
 							}
 						}
 						author {
 							login
 							url
 							avatarUrl(size: 50)
+							... on User {
+								email
+							}
+							... on Organization {
+								email
+							}
 						}
 						createdAt
 						updatedAt
@@ -719,6 +769,8 @@ query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
 								title
 								assignees(first: 10) {
 									nodes {
+										avatarUrl
+										email
 										login
 										url
 									}
@@ -727,6 +779,12 @@ query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
 									login
 									url
 									avatarUrl(size: 50)
+									... on User {
+										email
+									}
+									... on Organization {
+										email
+									}
 								}
 								createdAt
 								updatedAt
@@ -773,6 +831,8 @@ query Issues($query: String!) {
 					title
 					assignees(first: 10) {
 						nodes {
+							avatarUrl
+							email
 							login
 							url
 						}
@@ -781,6 +841,12 @@ query Issues($query: String!) {
 						login
 						url
 						avatarUrl(size: 50)
+						... on User {
+							email
+						}
+						... on Organization {
+							email
+						}
 					}
 					createdAt
 					updatedAt
