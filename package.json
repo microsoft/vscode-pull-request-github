@@ -37,15 +37,6 @@
 			"type": "object",
 			"title": "GitHub Pull Requests",
 			"properties": {
-				"githubPullRequests.authenticationProvider": {
-					"enum": ["github", "github-enterprise"],
-					"enumDescriptions": [
-						"github.com",
-						"GitHub Enterprise Instance"
-					],
-					"default": "github",
-					"description": "The authentication provider and service to query"
-				},
 				"githubPullRequests.pullRequestTitle": {
 					"deprecationMessage": "The pull request title now uses the same defaults as GitHub, and can be edited before create.",
 					"type": "string",

@@ -10,10 +10,11 @@ import { Protocol } from '../common/protocol';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { CredentialStore } from './credentials';
+import { AuthProvider, CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { IssueModel } from './issueModel';
+import { hasEnterpriseUri } from './utils';
 
 export interface ItemsResponseResult<T> {
 	items: T[];
@@ -182,7 +183,12 @@ export class RepositoriesManager implements vscode.Disposable {
 	}
 
 	async authenticate(): Promise<boolean> {
-		return !!(await this._credentialStore.login());
+		const github = await this._credentialStore.login(AuthProvider.github);
+		let githubEnterprise;
+		if (hasEnterpriseUri()) {
+			githubEnterprise = await this._credentialStore.login(AuthProvider['github-enterprise']);
+		}
+		return !!github || !!githubEnterprise;
 	}
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {

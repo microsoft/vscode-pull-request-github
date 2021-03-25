@@ -13,6 +13,7 @@ import { Resource } from '../common/resources';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
+import { AuthProvider } from './credentials';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
@@ -924,3 +925,16 @@ export function getPRFetchQuery(repo: string, user: string, query: string): stri
 export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
 }
+
+export function getEnterpriseUri(): vscode.Uri | undefined {
+	try {
+		return vscode.Uri.parse(vscode.workspace.getConfiguration('github-enterprise').get<string>('uri') || '', true);
+	} catch {
+		// ignore
+	}
+}
+
+export function hasEnterpriseUri(): boolean {
+	return !!getEnterpriseUri();
+}
+

@@ -5,7 +5,7 @@
 
 import { RemoteSource, RemoteSourceProvider } from './@types/git';
 import { OctokitCommon } from './github/common';
-import { CredentialStore, GitHub } from './github/credentials';
+import { AuthProvider, CredentialStore, GitHub } from './github/credentials';
 
 interface Repository {
 	readonly full_name: string;
@@ -31,16 +31,20 @@ function asRemoteSource(raw: Repository): RemoteSource {
 }
 
 export class GithubRemoteSourceProvider implements RemoteSourceProvider {
-	readonly name = 'GitHub';
+	readonly name: string = 'GitHub';
 	readonly icon = 'github';
 	readonly supportsQuery = true;
 
 	private userReposCache: RemoteSource[] = [];
 
-	constructor(private readonly credentialStore: CredentialStore) {}
+	constructor(private readonly credentialStore: CredentialStore, private readonly authProviderId: AuthProvider = AuthProvider.github) {
+		if (authProviderId === AuthProvider['github-enterprise']) {
+			this.name = 'GitHub Enterprise';
+		}
+	}
 
 	async getRemoteSources(query?: string): Promise<RemoteSource[]> {
-		const hub = await this.credentialStore.getHubOrLogin();
+		const hub = await this.credentialStore.getHubOrLogin(this.authProviderId);
 
 		if (!hub) {
 			throw new Error('Could not fetch repositories from GitHub.');

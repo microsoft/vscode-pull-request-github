@@ -6,6 +6,8 @@
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
+import { parseRepositoryRemotes } from '../common/remote';
+import { AuthProvider } from '../github/credentials';
 import {
 	FolderRepositoryManager,
 	NO_MILESTONE,
@@ -261,8 +263,8 @@ export class StateManager {
 		return state.userMap;
 	}
 
-	private async getCurrentUser(): Promise<string | undefined> {
-		return this.manager.credentialStore.getCurrentUser()?.login;
+	private async getCurrentUser(authProviderId: AuthProvider): Promise<string | undefined> {
+		return this.manager.credentialStore.getCurrentUser(authProviderId)?.login;
 	}
 
 	private async setAllIssueData() {
@@ -287,7 +289,10 @@ export class StateManager {
 					}
 				}
 				if (!user) {
-					user = await this.getCurrentUser();
+					const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
+						remote => remote.authProviderId === AuthProvider['github-enterprise']
+					);
+					user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider['github-enterprise'] : AuthProvider.github);
 				}
 				items = this.setIssues(
 					folderManager,

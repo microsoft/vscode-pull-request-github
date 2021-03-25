@@ -17,9 +17,10 @@ import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
-import { CredentialStore } from './github/credentials';
+import { AuthProvider, CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { RepositoriesManager } from './github/repositoriesManager';
+import { hasEnterpriseUri } from './github/utils';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
@@ -228,7 +229,10 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	PersistentState.init(context);
 	const credentialStore = new CredentialStore(telemetry);
 	context.subscriptions.push(credentialStore);
-	await credentialStore.initialize();
+	await credentialStore.initialize(AuthProvider.github);
+	if (hasEnterpriseUri()) {
+		await credentialStore.initialize(AuthProvider['github-enterprise']);
+	}
 
 	const builtInGitProvider = registerBuiltinGitProvider(credentialStore, apiImpl);
 	if (builtInGitProvider) {
