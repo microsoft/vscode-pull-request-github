@@ -265,44 +265,5 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
-	async addCommentReaction(graphNodeId: string, reaction: vscode.CommentReaction): Promise<AddReactionResponse> {
-		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
-			prev[curr.label] = curr.title;
-			return prev;
-		}, {} as { [key: string]: string });
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const { data } = await mutate<AddReactionResponse>({
-			mutation: schema.AddReaction,
-			variables: {
-				input: {
-					subjectId: graphNodeId,
-					content: reactionEmojiToContent[reaction.label!],
-				},
-			},
-		});
 
-		return data!;
-	}
-
-	async deleteCommentReaction(
-		graphNodeId: string,
-		reaction: vscode.CommentReaction,
-	): Promise<DeleteReactionResponse> {
-		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
-			prev[curr.label] = curr.title;
-			return prev;
-		}, {} as { [key: string]: string });
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const { data } = await mutate<DeleteReactionResponse>({
-			mutation: schema.DeleteReaction,
-			variables: {
-				input: {
-					subjectId: graphNodeId,
-					content: reactionEmojiToContent[reaction.label!],
-				},
-			},
-		});
-
-		return data!;
-	}
 }

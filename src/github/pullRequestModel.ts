@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
-import { IComment } from '../common/comment';
+import { IComment, IReviewThread } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -20,6 +21,9 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import {
 	AddCommentResponse,
+	AddReactionResponse,
+	AddReviewThreadResponse,
+	DeleteReactionResponse,
 	DeleteReviewResponse,
 	EditCommentResponse,
 	GetChecksResponse,
@@ -28,6 +32,7 @@ import {
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
 	PullRequestResponse,
+	ReactionGroup,
 	StartReviewResponse,
 	SubmitReviewResponse,
 	TimelineEventsResponse,
@@ -49,7 +54,9 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
 	convertRESTUserToAccount,
+	getReactionGroup,
 	parseGraphQLComment,
+	parseGraphQLReaction,
 	parseGraphQLReviewEvent,
 	parseGraphQLTimelineEvents,
 	parseMergeability,
@@ -72,6 +79,12 @@ interface ReplyCommentPosition {
 	inReplyTo: string;
 }
 
+export interface ReviewThreadChangeEvent {
+	added: IReviewThread[];
+	changed: IReviewThread[];
+	removed: IReviewThread[];
+}
+
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static ID = 'PullRequestModel';
 
@@ -82,6 +95,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
+
+	public reviewThreadsCache: IReviewThread[] = [];
+	private _onDidChangeReviewThreads = new vscode.EventEmitter<ReviewThreadChangeEvent>();
+	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
 
 	// Whether the pull request is currently checked out locally
 	public isActive: boolean;
@@ -346,6 +363,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.hasPendingReview = false;
 		await this.updateDraftModeContext();
 
+		this.getReviewThreads();
+
 		return {
 			deletedReviewId: databaseId,
 			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false)),
@@ -382,6 +401,87 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		await this.updateDraftModeContext();
 
 		return parseGraphQLComment(data.addPullRequestReview.pullRequestReview.comments.nodes[0], false);
+	}
+
+	/**
+	 * Creates a new review thread, either adding it to an existing pending review, or creating
+	 * a new review.
+	 * @param body The body of the thread's first comment.
+	 * @param commentPath The path to the file being commented on.
+	 * @param line The line on which to add the comment.
+	 * @returns The new review thread object.
+	 */
+	async createReviewThread(body: string, commentPath: string, line: number): Promise<IReviewThread> {
+		if (!this.validatePullRequestModel('Creating comment failed')) {
+			return;
+		}
+		const pendingReviewId = await this.getPendingReviewId();
+
+		const { mutate, schema, remote } = await this.githubRepository.ensure();
+		const { data } = await mutate<AddReviewThreadResponse>({
+			mutation: schema.AddReviewThread,
+			variables: {
+				input: {
+					path: commentPath,
+					body,
+					pullRequestId: this.graphNodeId,
+					pullRequestReviewId: pendingReviewId,
+					line,
+				},
+			},
+		});
+
+		this.hasPendingReview = true;
+		await this.updateDraftModeContext();
+
+		const thread = data.addPullRequestReviewThread.thread;
+		const newThread = {
+			id: thread.id,
+			isResolved: thread.isResolved,
+			viewerCanResolve: thread.viewerCanResolve,
+			path: thread.path,
+			line: thread.line,
+			originalLine: thread.originalLine,
+			diffSide: thread.diffSide,
+			isOutdated: thread.isOutdated,
+			comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved), remote),
+		};
+		this.reviewThreadsCache.push(newThread);
+		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
+		return newThread;
+	}
+
+	async createCommentReply(body: string, inReplyTo: string, commitId?: string): Promise<IComment> {
+		if (!this.validatePullRequestModel('Creating comment failed')) {
+			return;
+		}
+
+		const pendingReviewId = await this.getPendingReviewId();
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const { data } = await mutate<AddCommentResponse>({
+			mutation: schema.AddComment,
+			variables: {
+				input: {
+					pullRequestReviewId: pendingReviewId,
+					body,
+					inReplyTo,
+					commitOID: commitId || this.head?.sha,
+				},
+			},
+		});
+
+		const { comment } = data.addPullRequestReviewComment;
+		const newComment = parseGraphQLComment(comment, false);
+
+		const threadWithComment = this.reviewThreadsCache.find(thread =>
+			thread.comments.some(comment => comment.graphNodeId === inReplyTo),
+		);
+		if (threadWithComment) {
+			threadWithComment.comments.push(newComment);
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
+		}
+
+		return newComment;
 	}
 
 	/**
@@ -528,7 +628,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		return parseGraphQLComment(data!.updatePullRequestReviewComment.pullRequestReviewComment, !!comment.isResolved);
+		const newComment = parseGraphQLComment(
+			data.updatePullRequestReviewComment.pullRequestReviewComment,
+			!!comment.isResolved,
+		);
+		const threadWithComment = this.reviewThreadsCache.find(thread =>
+			thread.comments.some(c => c.graphNodeId === comment.graphNodeId),
+		);
+		if (threadWithComment) {
+			const index = threadWithComment.comments.findIndex(c => c.graphNodeId === comment.graphNodeId);
+			threadWithComment.comments.splice(index, 1, newComment);
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
+		}
+
+		return newComment;
 	}
 
 	/**
@@ -538,12 +651,26 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async deleteReviewComment(commentId: string): Promise<void> {
 		try {
 			const { octokit, remote } = await this.githubRepository.ensure();
+			const id = Number(commentId);
 
 			await octokit.pulls.deleteReviewComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				comment_id: Number(commentId),
+				comment_id: id,
 			});
+
+			const threadIndex = this.reviewThreadsCache.findIndex(thread => thread.comments.some(c => c.id === id));
+			if (threadIndex > -1) {
+				const threadWithComment = this.reviewThreadsCache[threadIndex];
+				const index = threadWithComment.comments.findIndex(c => c.id === id);
+				threadWithComment.comments.splice(index, 1);
+				if (threadWithComment.comments.length === 0) {
+					this.reviewThreadsCache.splice(threadIndex, 1);
+					this._onDidChangeReviewThreads.fire({ added: [], changed: [], removed: [threadWithComment] });
+				} else {
+					this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
+				}
+			}
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -602,6 +729,71 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 	}
 
+	private diffThreads(newReviewThreads: IReviewThread[]): void {
+		const added: IReviewThread[] = [];
+		const changed: IReviewThread[] = [];
+		const removed: IReviewThread[] = [];
+
+		newReviewThreads.forEach(thread => {
+			const existingThread = this.reviewThreadsCache.find(t => t.id === thread.id);
+			if (existingThread) {
+				if (!equals(thread, existingThread)) {
+					changed.push(thread);
+				}
+			} else {
+				added.push(thread);
+			}
+		});
+
+		this.reviewThreadsCache.forEach(thread => {
+			if (!newReviewThreads.find(t => t.id === thread.id)) {
+				removed.push(thread);
+			}
+		});
+
+		this._onDidChangeReviewThreads.fire({
+			added,
+			changed,
+			removed,
+		});
+	}
+
+	async getReviewThreads(): Promise<IReviewThread[]> {
+		const { remote, query, schema } = await this.githubRepository.ensure();
+		try {
+			const { data } = await query<PullRequestCommentsResponse>({
+				query: schema.PullRequestComments,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+				},
+			});
+
+			const reviewThreads = data.repository.pullRequest.reviewThreads.nodes.map(node => {
+				return {
+					id: node.id,
+					isResolved: node.isResolved,
+					viewerCanResolve: node.viewerCanResolve,
+					path: node.path,
+					line: node.line,
+					originalLine: node.originalLine,
+					diffSide: node.diffSide,
+					isOutdated: node.isOutdated,
+					comments: node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved), remote),
+				};
+			});
+
+			this.diffThreads(reviewThreads);
+			this.reviewThreadsCache = reviewThreads;
+
+			return reviewThreads;
+		} catch (e) {
+			Logger.appendLine(`Failed to get pull request review comments: ${e}`);
+			return [];
+		}
+	}
+
 	/**
 	 * Get all review comments.
 	 */
@@ -618,10 +810,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			const comments = data.repository.pullRequest.reviewThreads.nodes
-				.map((node: any) =>
-					node.comments.nodes.map((comment: any) => parseGraphQLComment(comment, node.isResolved), remote),
-				)
-				.reduce((prev: any, curr: any) => prev.concat(curr), [])
+				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved), remote))
+				.reduce((prev, curr) => prev.concat(curr), [])
 				.sort((a: IComment, b: IComment) => {
 					return a.createdAt > b.createdAt ? 1 : -1;
 				});
@@ -1029,5 +1219,64 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._telemetry.sendTelemetryErrorEvent('pr.readyForReview.failure');
 			throw e;
 		}
+	}
+
+	private updateCommentReactions(graphNodeId: string, reactionGroups: ReactionGroup[]) {
+		const reviewThread = this.reviewThreadsCache.find(thread =>
+			thread.comments.some(c => c.graphNodeId === graphNodeId),
+		);
+		if (reviewThread) {
+			const updatedComment = reviewThread.comments.find(c => c.graphNodeId === graphNodeId);
+			updatedComment.reactions = parseGraphQLReaction(reactionGroups);
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [reviewThread], removed: [] });
+		}
+	}
+
+	async addCommentReaction(graphNodeId: string, reaction: vscode.CommentReaction): Promise<AddReactionResponse> {
+		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
+			prev[curr.label] = curr.title;
+			return prev;
+		}, {} as { [key: string]: string });
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const { data } = await mutate<AddReactionResponse>({
+			mutation: schema.AddReaction,
+			variables: {
+				input: {
+					subjectId: graphNodeId,
+					content: reactionEmojiToContent[reaction.label!],
+				},
+			},
+		});
+
+		const reactionGroups = data.addReaction.subject.reactionGroups;
+		this.updateCommentReactions(graphNodeId, reactionGroups);
+
+
+		return data;
+	}
+
+	async deleteCommentReaction(
+		graphNodeId: string,
+		reaction: vscode.CommentReaction,
+	): Promise<DeleteReactionResponse> {
+		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
+			prev[curr.label] = curr.title;
+			return prev;
+		}, {} as { [key: string]: string });
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const { data } = await mutate<DeleteReactionResponse>({
+			mutation: schema.DeleteReaction,
+			variables: {
+				input: {
+					subjectId: graphNodeId,
+					content: reactionEmojiToContent[reaction.label!],
+				},
+			},
+		});
+
+		const reactionGroups = data.removeReaction.subject.reactionGroups;
+		this.updateCommentReactions(graphNodeId, reactionGroups);
+
+		return data;
 	}
 }
