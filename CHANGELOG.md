@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.25.0
+
+### Changes
+- For forked repositories, an upstream remote is automatically added if it doesn't exist.
+- The `githubPullRequests.focusedMode` setting is enabled by default, causing the "Focused Mode" view for a checked out pull request to be visible in the Pull Request view container.
+
+- Thanks to @TanushN and @rohanshiva, the pull request description page now supports adding and removing assignees and milestones.
+![A button next to the milestone marker is pressed and a list of milestone options is shown. Choosing a milestone updates the page.](documentation/changelog/0.25.0/update_milestone.gif)
+
+- The pull request create view now allows selecting both the source and target branch instead of always using the current branch as the source.
+
+![The create pull request view, with two sections at the top labeled "Merge changes from" and "Into".](documentation/changelog/0.25.0/create_pull_request.png)
+
+### Fixes
+
+- Using ${user} twice in the `githubPullRequests.queries` no longer results in an error.
+- Local branches are pruned when deleting the remote branch after merging a pull request.
+
 ## 0.24.0
 
 - The views of the extension have been split into two viewlets: one with the GitHub logo which contains the overview of pull requests, and issues, and one containing views for the active pull request.
