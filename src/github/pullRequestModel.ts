@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
 import { IComment, IReviewThread } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
@@ -14,7 +15,7 @@ import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent, isReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { toPRUri, toReviewUri } from '../common/uri';
-import { equals, formatError } from '../common/utils';
+import { formatError } from '../common/utils';
 import { OctokitCommon } from './common';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
