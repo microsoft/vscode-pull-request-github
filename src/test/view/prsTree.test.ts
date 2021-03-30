@@ -70,7 +70,7 @@ describe('GitHub Pull Requests view', function () {
 		assert.strictEqual(rootNodes.length, 1);
 
 		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
+		const onlyItem = await onlyNode.getTreeItem();
 		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
 		assert.strictEqual(onlyItem.label, 'You have not yet opened a folder.');
 		assert.strictEqual(onlyItem.command, undefined);
@@ -85,7 +85,7 @@ describe('GitHub Pull Requests view', function () {
 		assert.strictEqual(rootNodes.length, 1);
 
 		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
+		const onlyItem = await onlyNode.getTreeItem();
 		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
 		assert.strictEqual(onlyItem.label, 'No git repositories found.');
 		assert.strictEqual(onlyItem.command, undefined);
@@ -106,7 +106,7 @@ describe('GitHub Pull Requests view', function () {
 		assert.strictEqual(rootNodes.length, 1);
 
 		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
+		const onlyItem = await onlyNode.getTreeItem();
 		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
 		assert.strictEqual(onlyItem.label, 'Loading...');
 		assert.strictEqual(onlyItem.command, undefined);
@@ -130,9 +130,11 @@ describe('GitHub Pull Requests view', function () {
 
 		const rootNodes = await provider.getChildren();
 
-		assert(rootNodes.every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
+		const rootTreeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+
+		assert(rootTreeItems.every(n => n.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
 		assert.deepStrictEqual(
-			rootNodes.map(n => n.getTreeItem().label),
+			rootTreeItems.map(n => n.label),
 			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All Open'],
 		);
 	});
@@ -199,12 +201,14 @@ describe('GitHub Pull Requests view', function () {
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();
-			const localNode = rootNodes.find(node => node.getTreeItem().label === 'Local Pull Request Branches');
-			assert(localNode);
+			const rootTreeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+			const localNodeIndex = rootTreeItems.findIndex(node => node.label === 'Local Pull Request Branches');
+			assert(localNodeIndex >= 0);
+			const localNode = rootNodes[localNodeIndex];
 
 			const localChildren = await localNode!.getChildren();
 			assert.strictEqual(localChildren.length, 2);
-			const [localItem0, localItem1] = localChildren.map(node => node.getTreeItem());
+			const [localItem0, localItem1] = await Promise.all(localChildren.map(node => node.getTreeItem()));
 
 			assert.strictEqual(localItem0.label, '#1111: zero');
 			assert.strictEqual(localItem0.tooltip, 'zero by @me');

@@ -280,6 +280,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
 			if (change instanceof SlimFileChange) {
 				return new RemoteFileChangeNode(
+					this._folderReposManager,
 					this,
 					this.pullRequestModel,
 					change.status,
@@ -307,11 +308,12 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 						change.fileName,
 						true,
 						change.status,
-					),
+					)
 				);
 			}
 
 			const changedItem = new InMemFileChangeNode(
+				this._folderReposManager,
 				this,
 				this.pullRequestModel,
 				change.status,

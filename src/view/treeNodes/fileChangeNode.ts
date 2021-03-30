@@ -34,6 +34,27 @@ export function openFileCommand(uri: vscode.Uri): vscode.Command {
 	};
 }
 
+async function openDiffCommand(folderManager: FolderRepositoryManager, parentFilePath: vscode.Uri, filePath: vscode.Uri,
+	opts: vscode.TextDocumentShowOptions | undefined, status: GitChangeType): Promise<vscode.Command> {
+	let parentURI = (await asImageDataURI(parentFilePath, folderManager.repository)) || parentFilePath;
+	let headURI = (await asImageDataURI(filePath, folderManager.repository)) || filePath;
+	if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
+		if (status === GitChangeType.ADD) {
+			parentURI = EMPTY_IMAGE_URI;
+		}
+		if (status === GitChangeType.DELETE) {
+			headURI = EMPTY_IMAGE_URI;
+		}
+	}
+
+	const pathSegments = filePath.path.split('/');
+	return {
+		command: 'vscode.diff',
+		arguments: [parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts],
+		title: 'Open Changed File in PR',
+	};
+}
+
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
  */
@@ -49,6 +70,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public contextValue: string;
 
 	constructor(
+		private readonly folderRepositoryManager: FolderRepositoryManager,
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
@@ -64,16 +86,18 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
 		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.number, fileName, status);
-
-		this.command = {
-			title: 'show remote file',
-			command: 'pr.openDiffView',
-			arguments: [this],
-		};
 	}
 
-	getTreeItem(): vscode.TreeItem {
+	async getTreeItem(): Promise<vscode.TreeItem> {
+		if (!this.command) {
+			this.command = await openDiffCommand(this.folderRepositoryManager, this.parentFilePath, this.filePath, undefined, this.status);
+		}
 		return this;
+	}
+
+	async openDiff(folderManager: FolderRepositoryManager) {
+		const command = await openDiffCommand(folderManager, this.parentFilePath, this.filePath, undefined, this.status);
+		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}
 }
 
@@ -188,7 +212,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		return 0;
 	}
 
-	getTreeItem(): vscode.TreeItem {
+	getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem> {
 		return this;
 	}
 
@@ -196,32 +220,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		return openFileCommand(this.filePath);
 	}
 
-	async openDiffCommand(folderManager: FolderRepositoryManager): Promise<vscode.Command> {
-		const parentFilePath = this.parentFilePath;
-		const filePath = this.filePath;
-		const opts = this.opts;
-
-		let parentURI = (await asImageDataURI(parentFilePath, folderManager.repository)) || parentFilePath;
-		let headURI = (await asImageDataURI(filePath, folderManager.repository)) || filePath;
-		if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
-			if (this.status === GitChangeType.ADD) {
-				parentURI = EMPTY_IMAGE_URI;
-			}
-			if (this.status === GitChangeType.DELETE) {
-				headURI = EMPTY_IMAGE_URI;
-			}
-		}
-
-		const pathSegments = filePath.path.split('/');
-		return {
-			command: 'vscode.diff',
-			arguments: [parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts],
-			title: 'Open Changed File in PR',
-		};
-	}
-
 	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
-		const command = await this.openDiffCommand(folderManager);
+		const command = await openDiffCommand(folderManager, this.parentFilePath, this.filePath, this.opts, this.status);
 		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}
 }
@@ -231,6 +231,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
  */
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
+		private readonly folderRepositoryManager: FolderRepositoryManager,
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
@@ -246,11 +247,13 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		public readonly sha?: string,
 	) {
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
-		this.command = {
-			title: 'show diff',
-			command: 'pr.openDiffView',
-			arguments: [this],
-		};
+	}
+
+	async getTreeItem(): Promise<vscode.TreeItem> {
+		if (!this.command) {
+			this.command = await openDiffCommand(this.folderRepositoryManager, this.parentFilePath, this.filePath, undefined, this.status);
+		}
+		return this;
 	}
 }
 
@@ -356,7 +359,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		} else {
 			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
 			if (openDiff) {
-				this.command = await this.openDiffCommand(this.pullRequestManager);
+				this.command = await openDiffCommand(this.pullRequestManager, this.parentFilePath, this.filePath, this.opts, this.status);
 			} else {
 				this.command = this.openFileCommand();
 			}

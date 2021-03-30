@@ -23,7 +23,6 @@
 	"reportUnusedDisableDirectives": true,
 	"root": true,
 	"rules": {
-		"linebreak-style": ["error", "unix"],
 		"new-parens": "error",
 		"no-async-promise-executor": "off",
 		"no-console": "off",

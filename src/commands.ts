@@ -26,7 +26,7 @@ import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
-import { GitFileChangeNode, InMemFileChangeNode, openFileCommand } from './view/treeNodes/fileChangeNode';
+import { GitFileChangeNode, InMemFileChangeNode, openFileCommand, RemoteFileChangeNode } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
@@ -231,7 +231,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDiffView',
-			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | RemoteFileChangeNode) => {
 				const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
 				if (!folderManager) {
 					return;
