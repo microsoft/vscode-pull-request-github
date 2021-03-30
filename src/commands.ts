@@ -681,6 +681,20 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.createSingleComment', async (reply: CommentReply) => {
+			/* __GDPR__
+			"pr.createSingleComment" : {}
+		*/
+			telemetry.sendTelemetryEvent('pr.createSingleComment');
+			const handler = resolveCommentHandler(reply.thread);
+
+			if (handler) {
+				handler.createSingleComment(reply.thread, reply.text);
+			}
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
 			/* __GDPR__
 			"pr.editComment" : {}

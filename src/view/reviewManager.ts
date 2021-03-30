@@ -413,7 +413,7 @@ export class ReviewManager {
 		await this.checkBranchUpToDate(pr);
 
 		await this.getPullRequestData(pr);
-		await this._reviewCommentController.update(this._localFileChanges, this._obsoleteFileChanges);
+		await this._reviewCommentController.update(this._localFileChanges);
 
 		return Promise.resolve(void 0);
 	}
@@ -482,6 +482,7 @@ export class ReviewManager {
 	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
 			this._comments = await pr.getReviewComments();
+			await pr.getReviewThreads();
 			const activeComments = this._comments.filter(comment => comment.position);
 			const outdatedComments = this._comments.filter(comment => !comment.position);
 
@@ -553,8 +554,6 @@ export class ReviewManager {
 			this._folderRepoManager,
 			this._repository,
 			this._localFileChanges,
-			this._obsoleteFileChanges,
-			this._comments,
 		);
 
 		await this._reviewCommentController.initialize();

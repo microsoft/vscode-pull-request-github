@@ -6,7 +6,7 @@
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
-import { IComment, IReviewThread } from '../common/comment';
+import { DiffSide, IComment, IReviewThread } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -409,9 +409,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param body The body of the thread's first comment.
 	 * @param commentPath The path to the file being commented on.
 	 * @param line The line on which to add the comment.
+	 * @param side The side the comment should be deleted on, i.e. the original or modified file.
+	 * @param surpressDraftModeUpdate If a draft mode change should event should be surpressed. In the
+	 * case of a single comment add, the review is created and then immediately submitted, so this prevents
+	 * a "Pending" label from flashing on the comment.
 	 * @returns The new review thread object.
 	 */
-	async createReviewThread(body: string, commentPath: string, line: number): Promise<IReviewThread> {
+	async createReviewThread(
+		body: string,
+		commentPath: string,
+		line: number,
+		side: DiffSide,
+		surpressDraftModeUpdate?: boolean,
+	): Promise<IReviewThread> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
@@ -427,12 +437,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					pullRequestId: this.graphNodeId,
 					pullRequestReviewId: pendingReviewId,
 					line,
+					side,
 				},
 			},
 		});
 
-		this.hasPendingReview = true;
-		await this.updateDraftModeContext();
+		if (!surpressDraftModeUpdate) {
+			this.hasPendingReview = true;
+			await this.updateDraftModeContext();
+		}
 
 		const thread = data.addPullRequestReviewThread.thread;
 		const newThread = {
@@ -485,103 +498,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	/**
-	 * Create a new review comment. Adds to an existing review if there is one or creates a single review comment.
-	 * @param body The text of the new comment
-	 * @param commentPath The file path where the comment should be made
-	 * @param position The line number within the file to add the comment
-	 * @param commitId The optional commit id to comment on. Defaults to using the current head commit.
-	 */
-	async createReviewComment(
-		body: string,
-		commentPath: string,
-		position: number,
-		commitId?: string,
-	): Promise<IComment | undefined> {
-		if (!this.validatePullRequestModel('Creating comment failed')) {
-			return;
-		}
-
-		const pendingReviewId = await this.getPendingReviewId();
-		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pendingReviewId, body, { path: commentPath, position }, commitId);
-		}
-
-		const githubRepository = this.githubRepository;
-		const { octokit, remote } = await githubRepository.ensure();
-
-		try {
-			const ret = await octokit.pulls.createReviewComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: this.number,
-				body: body,
-				commit_id: commitId || this.head.sha,
-				path: commentPath,
-				position: position,
-			});
-
-			return this.addCommentPermissions(
-				convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository),
-			);
-		} catch (e) {
-			throw formatError(e);
-		}
-	}
-
-	/**
-	 * Creates a review comment in reply to an existing review comment.
-	 * @param body The text of the new comment
-	 * @param reply_to The comment to reply to
-	 */
-	async createReviewCommentReply(body: string, reply_to: IComment): Promise<IComment | undefined> {
-		const pendingReviewId = await this.getPendingReviewId();
-		if (pendingReviewId) {
-			return this.addCommentToPendingReview(pendingReviewId, body, { inReplyTo: reply_to.graphNodeId });
-		}
-
-		const { octokit, remote } = await this.githubRepository.ensure();
-
-		try {
-			const ret = await octokit.pulls.createReplyForReviewComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: this.number,
-				body: body,
-				comment_id: Number(reply_to.id),
-			});
-
-			return this.addCommentPermissions(
-				convertPullRequestsGetCommentsResponseItemToComment(ret.data, this.githubRepository),
-			);
-		} catch (e) {
-			throw formatError(e);
-		}
-	}
-
-	private async addCommentToPendingReview(
-		reviewId: string,
-		body: string,
-		position: NewCommentPosition | ReplyCommentPosition,
-		commitId?: string,
-	): Promise<IComment> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const { data } = await mutate<AddCommentResponse>({
-			mutation: schema.AddComment,
-			variables: {
-				input: {
-					pullRequestReviewId: reviewId,
-					body,
-					...position,
-					commitOID: commitId || this.head?.sha,
-				},
-			},
-		});
-
-		const { comment } = data!.addPullRequestReviewComment;
-		return parseGraphQLComment(comment, false);
-	}
-
-	/**
 	 * Check whether there is an existing pending review and update the context key to control what comment actions are shown.
 	 */
 	async validateDraftMode(): Promise<boolean> {
@@ -599,15 +515,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (this.isActive) {
 			await vscode.commands.executeCommand('setContext', 'reviewInDraftMode', this.hasPendingReview);
 		}
-	}
-
-	private addCommentPermissions(rawComment: IComment): IComment {
-		const isCurrentUser = this.githubRepository.isCurrentUser(rawComment.user!.login);
-		const notOutdated = rawComment.position !== null;
-		rawComment.canEdit = isCurrentUser && notOutdated;
-		rawComment.canDelete = isCurrentUser && notOutdated;
-
-		return rawComment;
 	}
 
 	/**
@@ -1250,7 +1157,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const reactionGroups = data.addReaction.subject.reactionGroups;
 		this.updateCommentReactions(graphNodeId, reactionGroups);
-
 
 		return data;
 	}

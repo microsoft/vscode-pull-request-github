@@ -3,8 +3,6 @@ import { parseDiffHunk, DiffHunk, getModifiedContentFromDiffHunk } from '../../c
 import { DiffLine, DiffChangeType } from '../../common/diffHunk';
 import {
 	getDiffLineByPosition,
-	mapHeadLineToDiffHunkPosition,
-	mapCommentsToHead,
 } from '../../common/diffPositionMapping';
 
 const diff_hunk_0 = [
@@ -142,43 +140,6 @@ describe('diff hunk parsing', () => {
 		}
 	});
 
-	it('mapHeadLineToDiffHunkPosition', () => {
-		const diffHunkReader = parseDiffHunk(diff_hunk_0);
-		const diffHunkIter = diffHunkReader.next();
-		const diffHunk = diffHunkIter.value;
-
-		for (let i = 0; i < diffHunk.diffLines.length; i++) {
-			const diffLine = diffHunk.diffLines[i];
-			switch (diffLine.type) {
-				case DiffChangeType.Delete:
-					assert.strictEqual(
-						mapHeadLineToDiffHunkPosition([diffHunk], '', diffLine.oldLineNumber, true),
-						diffLine.positionInHunk,
-					);
-					break;
-				case DiffChangeType.Add:
-					assert.strictEqual(
-						mapHeadLineToDiffHunkPosition([diffHunk], '', diffLine.newLineNumber, false),
-						diffLine.positionInHunk,
-					);
-					break;
-				case DiffChangeType.Context:
-					assert.strictEqual(
-						mapHeadLineToDiffHunkPosition([diffHunk], '', diffLine.oldLineNumber, true),
-						diffLine.positionInHunk,
-					);
-					assert.strictEqual(
-						mapHeadLineToDiffHunkPosition([diffHunk], '', diffLine.newLineNumber, false),
-						diffLine.positionInHunk,
-					);
-					break;
-
-				default:
-					break;
-			}
-		}
-	});
-
 	it('#239. Diff hunk parsing fails when line count for added content is omitted', () => {
 		const diffHunkReader = parseDiffHunk('@@ -0,0 +1 @@');
 		const diffHunkIter = diffHunkReader.next();
@@ -196,42 +157,6 @@ describe('diff hunk parsing', () => {
 		const diffHunkIter = diffHunkReader.next();
 		const diffHunk = diffHunkIter.value;
 		assert.strictEqual(diffHunk.diffLines.length, 5);
-	});
-
-	describe('mapCommentsToHead', () => {
-		it('should ignore comments that are on a deleted diff line', () => {
-			const comments = [
-				{
-					position: 66,
-				},
-			];
-
-			const diffHunk = new DiffHunk(481, 16, 489, 10, 54);
-			diffHunk.diffLines.push(
-				new DiffLine(DiffChangeType.Delete, 489, -1, 66, '-		this.editorBlurTimeout.cancelAndSet(() => {'),
-			);
-
-			const mappedComments = mapCommentsToHead([diffHunk], '', comments as any);
-			assert(mappedComments.length === 1);
-			assert.strictEqual(mappedComments[0].absolutePosition, undefined);
-		});
-
-		it('should handle comments that are on an added diff line', () => {
-			const comments = [
-				{
-					position: 55,
-				},
-			];
-
-			const diffHunk = new DiffHunk(481, 16, 481, 17, 54);
-			diffHunk.diffLines.push(
-				new DiffLine(DiffChangeType.Add, 481, 482, 55, '+	()	this.editorBlurTimeout.cancelAndSet(() => {'),
-			);
-
-			const mappedComments = mapCommentsToHead([diffHunk], '', comments as any);
-			assert(mappedComments.length === 1);
-			assert.strictEqual(mappedComments[0].absolutePosition, 482);
-		});
 	});
 
 	describe('getModifiedContentFromDiffHunk', () => {
