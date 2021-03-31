@@ -307,11 +307,12 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 						change.fileName,
 						true,
 						change.status,
-					),
+					)
 				);
 			}
 
 			const changedItem = new InMemFileChangeNode(
+				this._folderReposManager,
 				this,
 				this.pullRequestModel,
 				change.status,
