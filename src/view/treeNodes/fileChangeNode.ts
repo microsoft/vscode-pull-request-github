@@ -208,7 +208,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		return 0;
 	}
 
-	getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem> {
+	getTreeItem(): vscode.TreeItem {
 		return this;
 	}
 
@@ -245,7 +245,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 	}
 
-	async getTreeItem(): Promise<vscode.TreeItem> {
+	getTreeItem(): vscode.TreeItem {
 		return this;
 	}
 
