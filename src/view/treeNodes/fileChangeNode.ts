@@ -70,7 +70,6 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public contextValue: string;
 
 	constructor(
-		private readonly folderRepositoryManager: FolderRepositoryManager,
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
@@ -86,18 +85,15 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
 		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.number, fileName, status);
+		this.command = {
+			command: 'pr.openFileOnGitHub',
+			title: 'Open File on GitHub',
+			arguments: [this]
+		};
 	}
 
-	async getTreeItem(): Promise<vscode.TreeItem> {
-		if (!this.command) {
-			this.command = await openDiffCommand(this.folderRepositoryManager, this.parentFilePath, this.filePath, undefined, this.status);
-		}
+	getTreeItem(): vscode.TreeItem {
 		return this;
-	}
-
-	async openDiff(folderManager: FolderRepositoryManager) {
-		const command = await openDiffCommand(folderManager, this.parentFilePath, this.filePath, undefined, this.status);
-		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}
 }
 
