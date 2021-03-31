@@ -246,10 +246,11 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 	}
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
-		if (!this.command) {
-			this.command = await openDiffCommand(this.folderRepositoryManager, this.parentFilePath, this.filePath, undefined, this.status);
-		}
 		return this;
+	}
+
+	async resolve(): Promise<void> {
+		this.command = await openDiffCommand(this.folderRepositoryManager, this.parentFilePath, this.filePath, undefined, this.status);
 	}
 }
 

@@ -11,6 +11,7 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
+import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
 import { QUERIES_SETTING, WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
@@ -133,6 +134,13 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	getTreeItem(element: TreeNode): vscode.TreeItem | Promise<vscode.TreeItem> {
 		return element.getTreeItem();
+	}
+
+	async resolveTreeItem(item: vscode.TreeItem, element: TreeNode): Promise<vscode.TreeItem> {
+		if (element instanceof InMemFileChangeNode) {
+			await element.resolve();
+		}
+		return element;
 	}
 
 	private needsRemotes() {
