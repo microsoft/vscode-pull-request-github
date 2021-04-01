@@ -6,10 +6,10 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../../common/comment';
-import { DiffChangeType, DiffHunk } from '../../common/diffHunk';
-import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
+import { DiffHunk } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
+import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { DecorationProvider } from '../treeDecorationProvider';
@@ -34,8 +34,13 @@ export function openFileCommand(uri: vscode.Uri): vscode.Command {
 	};
 }
 
-async function openDiffCommand(folderManager: FolderRepositoryManager, parentFilePath: vscode.Uri, filePath: vscode.Uri,
-	opts: vscode.TextDocumentShowOptions | undefined, status: GitChangeType): Promise<vscode.Command> {
+async function openDiffCommand(
+	folderManager: FolderRepositoryManager,
+	parentFilePath: vscode.Uri,
+	filePath: vscode.Uri,
+	opts: vscode.TextDocumentShowOptions | undefined,
+	status: GitChangeType,
+): Promise<vscode.Command> {
 	let parentURI = (await asImageDataURI(parentFilePath, folderManager.repository)) || parentFilePath;
 	let headURI = (await asImageDataURI(filePath, folderManager.repository)) || filePath;
 	if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
@@ -88,7 +93,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.command = {
 			command: 'pr.openFileOnGitHub',
 			title: 'Open File on GitHub',
-			arguments: [this]
+			arguments: [this],
 		};
 	}
 
@@ -133,79 +138,39 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.opts = {
 			preserveFocus: true,
 		};
-		this.update(this.comments);
+		this.updateShowOptions();
 		this.resourceUri = toResourceUri(
 			vscode.Uri.file(this.fileName),
 			this.pullRequest.number,
 			this.fileName,
 			this.status,
 		);
-	}
 
-	private findFirstActiveComment() {
-		let activeComment: IComment | undefined;
-		this.comments.forEach(comment => {
-			if (!activeComment && comment.position) {
-				activeComment = comment;
-				return;
-			}
-
-			if (activeComment && comment.position && comment.position < activeComment.position!) {
-				activeComment = comment;
+		this.pullRequest.onDidChangeReviewThreads(e => {
+			if ([...e.added, ...e.removed].some(thread => thread.path === this.fileName)) {
+				this.updateShowOptions();
 			}
 		});
-
-		return activeComment;
 	}
 
-	update(comments: IComment[]) {
-		this.comments = comments;
+	updateShowOptions() {
+		const reviewThreads = this.pullRequest.reviewThreadsCache;
+		const reviewThreadsByFile = groupBy(reviewThreads, thread => thread.path);
+		const reviewThreadsForNode = (reviewThreadsByFile[this.fileName] || []).filter(thread => !thread.isOutdated);
+
 		DecorationProvider.updateFileComments(
 			this.resourceUri,
 			this.pullRequest.number,
 			this.fileName,
-			comments.length > 0,
+			reviewThreadsForNode.length > 0,
 		);
 
-		if (comments && comments.length) {
-			const comment = this.findFirstActiveComment();
-			if (comment) {
-				const diffLine = getDiffLineByPosition(
-					this.diffHunks,
-					comment.position === undefined ? comment.originalPosition! : comment.position,
-				);
-				if (diffLine) {
-					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
-					const lineNumber = Math.max(
-						getZeroBased(
-							diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber,
-						),
-						0,
-					);
-					this.opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				}
-			}
+		if (reviewThreadsForNode.length) {
+			reviewThreadsForNode.sort((a, b) => a.line - b.line);
+			this.opts.selection = new vscode.Range(reviewThreadsForNode[0].line, 0, reviewThreadsForNode[0].line, 0);
 		} else {
 			delete this.opts.selection;
 		}
-	}
-
-	getCommentPosition(comment: IComment) {
-		const diffLine = getDiffLineByPosition(
-			this.diffHunks,
-			comment.position === undefined ? comment.originalPosition! : comment.position,
-		);
-
-		if (diffLine) {
-			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
-			const lineNumber = Math.max(
-				getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber),
-				0,
-			);
-			return lineNumber;
-		}
-
-		return 0;
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -217,7 +182,13 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
-		const command = await openDiffCommand(folderManager, this.parentFilePath, this.filePath, this.opts, this.status);
+		const command = await openDiffCommand(
+			folderManager,
+			this.parentFilePath,
+			this.filePath,
+			this.opts,
+			this.status,
+		);
 		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}
 }
@@ -250,7 +221,13 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 	}
 
 	async resolve(): Promise<void> {
-		this.command = await openDiffCommand(this.folderRepositoryManager, this.parentFilePath, this.filePath, undefined, this.status);
+		this.command = await openDiffCommand(
+			this.folderRepositoryManager,
+			this.parentFilePath,
+			this.filePath,
+			undefined,
+			this.status,
+		);
 	}
 }
 
@@ -316,26 +293,14 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			preserveFocus: true,
 		};
 
-		if (this.comments && this.comments.length) {
-			const sortedOutdatedComments = this.comments
-				.filter(comment => comment.position === undefined)
-				.sort((a, b) => {
-					return a.originalPosition! - b.originalPosition!;
-				});
+		const reviewThreads = this.pullRequest.reviewThreadsCache;
+		const reviewThreadsByFile = groupBy(reviewThreads, t => t.path);
+		const reviewThreadsForNode = (reviewThreadsByFile[this.fileName] || [])
+			.filter(thread => thread.isOutdated)
+			.sort((a, b) => a.line - b.line);
 
-			if (sortedOutdatedComments.length) {
-				const diffLine = getDiffLineByPosition(this.diffHunks, sortedOutdatedComments[0].originalPosition!);
-
-				if (diffLine) {
-					const lineNumber = Math.max(
-						getZeroBased(
-							diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber,
-						),
-						0,
-					);
-					options.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-				}
-			}
+		if (reviewThreadsForNode.length) {
+			options.selection = new vscode.Range(reviewThreadsForNode[0].line, 0, reviewThreadsForNode[0].line, 0);
 		}
 
 		return {
@@ -356,7 +321,13 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		} else {
 			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
 			if (openDiff) {
-				this.command = await openDiffCommand(this.pullRequestManager, this.parentFilePath, this.filePath, this.opts, this.status);
+				this.command = await openDiffCommand(
+					this.pullRequestManager,
+					this.parentFilePath,
+					this.filePath,
+					this.opts,
+					this.status,
+				);
 			} else {
 				this.command = this.openFileCommand();
 			}

@@ -91,8 +91,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				return [descriptionNode];
 			}
 
-			this._fileChanges = await this.resolveFileChanges();
 			await this.pullRequestModel.initializeReviewThreadCache();
+			this._fileChanges = await this.resolveFileChanges();
 
 			if (!this._inMemPRContentProvider) {
 				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(
