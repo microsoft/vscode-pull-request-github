@@ -120,7 +120,11 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		super();
 
 		this.prs = [];
-		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+		this.collapsibleState =
+			this._type === PRType.All
+				? vscode.TreeItemCollapsibleState.Expanded
+				: vscode.TreeItemCollapsibleState.Collapsed;
+
 		switch (_type) {
 			case PRType.All:
 				this.label = 'All Open';
