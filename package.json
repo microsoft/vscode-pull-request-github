@@ -587,6 +587,12 @@
 				"enablement": "!commentIsEmpty"
 			},
 			{
+				"command": "pr.createSingleComment",
+				"title": "Add Comment",
+				"category": "GitHub Pull Requests",
+				"enablement": "!commentIsEmpty"
+			},
+			{
 				"command": "pr.startReview",
 				"title": "Start Review",
 				"category": "GitHub Pull Requests",
@@ -930,6 +936,10 @@
 				},
 				{
 					"command": "pr.createComment",
+					"when": "false"
+				},
+				{
+					"command": "pr.createSingleComment",
 					"when": "false"
 				},
 				{
@@ -1286,7 +1296,22 @@
 				{
 					"command": "pr.createComment",
 					"group": "inline",
-					"when": "commentController =~ /^(browse|review)/"
+					"when": "commentController =~ /browse/ && prInDraft"
+				},
+				{
+					"command": "pr.createComment",
+					"group": "inline",
+					"when": "commentController =~ /review/ && reviewInDraftMode"
+				},
+				{
+					"command": "pr.createSingleComment",
+					"group": "inline",
+					"when": "commentController =~ /browse/ && !prInDraft"
+				},
+				{
+					"command": "pr.createSingleComment",
+					"group": "inline",
+					"when": "commentController =~ /review/ && !reviewInDraftMode"
 				},
 				{
 					"command": "pr.startReview",

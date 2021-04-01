@@ -7,12 +7,11 @@
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
-import { IComment, Reaction } from '../common/comment';
+import { IComment, IReviewThread, Reaction } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { Resource } from '../common/resources';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
-import { ThreadData } from '../view/treeNodes/pullRequestNode';
 import { OctokitCommon } from './common';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
@@ -33,24 +32,27 @@ import { GHPRComment, GHPRCommentThread } from './prComment';
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
 }
-export function createVSCodeCommentThread(
-	thread: ThreadData,
+
+export function createVSCodeCommentThreadForReviewThread(
+	uri: vscode.Uri,
+	range: vscode.Range,
+	thread: IReviewThread,
 	commentController: vscode.CommentController,
 ): GHPRCommentThread {
-	const vscodeThread = commentController.createCommentThread(thread.uri, thread.range!, []);
+	const vscodeThread = commentController.createCommentThread(uri, range, []);
 
-	(vscodeThread as GHPRCommentThread).threadId = thread.threadId;
+	(vscodeThread as GHPRCommentThread).threadId = thread.id;
 
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
-	const isResolved = !!thread.comments[0]?.isResolved;
-	(vscodeThread as GHPRCommentThread).isResolved = isResolved;
+	(vscodeThread as GHPRCommentThread).isResolved = thread.isResolved;
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
-	const isOnLocalFile = thread.uri.scheme !== 'pr' && thread.uri.scheme !== 'review';
+	const isOnLocalFile = uri.scheme !== 'pr' && uri.scheme !== 'review';
 	vscodeThread.collapsibleState =
-		isOnLocalFile || isResolved
+		isOnLocalFile || thread.isResolved
 			? vscode.CommentThreadCollapsibleState.Collapsed
 			: vscode.CommentThreadCollapsibleState.Expanded;
+
 	return vscodeThread as GHPRCommentThread;
 }
 

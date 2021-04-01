@@ -32,7 +32,6 @@ export interface IReviewThread {
 }
 
 export interface IComment {
-	absolutePosition?: number;
 	bodyHTML?: string;
 	diffHunks?: DiffHunk[];
 	canEdit?: boolean;
