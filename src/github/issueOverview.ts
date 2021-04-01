@@ -322,7 +322,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			.then(value => {
 				if (value === 'Delete') {
 					this.deleteCommentPromise(message.args)
-						.then(result => {
+						.then(_ => {
 							this._replyMessage(message, {});
 						})
 						.catch(e => {

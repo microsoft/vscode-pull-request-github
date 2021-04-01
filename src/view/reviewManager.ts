@@ -97,7 +97,7 @@ export class ReviewManager {
 
 	private registerListeners(): void {
 		this._disposables.push(
-			this._repository.state.onDidChange(e => {
+			this._repository.state.onDidChange(_ => {
 				const oldHead = this._previousRepositoryState.HEAD;
 				const newHead = this._repository.state.HEAD;
 

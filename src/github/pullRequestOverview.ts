@@ -274,7 +274,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.remove-assignee':
 				return this.removeAssignee(message);
 			case 'pr.copy-prlink':
-				return this.copyPrLink(message);
+				return this.copyPrLink();
 			case 'pr.openOnGitHub':
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}
@@ -774,7 +774,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		);
 	}
 
-	private async copyPrLink(message: IRequestMessage<string>): Promise<void> {
+	private async copyPrLink(): Promise<void> {
 		await vscode.env.clipboard.writeText(this._item.html_url);
 		vscode.window.showInformationMessage(`Copied link to PR ${this._item.title}!`);
 	}

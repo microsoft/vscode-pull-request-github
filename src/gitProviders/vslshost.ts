@@ -46,7 +46,7 @@ export class VSLSHost implements vscode.Disposable {
 			const commandArgs = args.slice(2);
 			if (type === VSLS_REPOSITORY_INITIALIZATION_NAME) {
 				this._disposables.push(
-					localRepository.state.onDidChange((e: any) => {
+					localRepository.state.onDidChange(_ => {
 						this._sharedService!.notify(VSLS_STATE_CHANGE_NOFITY_NAME, {
 							HEAD: localRepository.state.HEAD,
 							remotes: localRepository.state.remotes,

@@ -58,7 +58,7 @@ export class ExperimentationTelemetry implements IExperimentationTelemetry {
 	sendTelemetryErrorEvent(
 		eventName: string,
 		properties?: Record<string, string>,
-		measurements?: Record<string, number>,
+		_measurements?: Record<string, number>,
 	) {
 		this.baseReporter.sendTelemetryErrorEvent(eventName, {
 			...this.sharedProperties,
@@ -101,25 +101,25 @@ function getTargetPopulation(product: ProductConfiguration): TargetPopulation {
 class NullExperimentationService implements IExperimentationService {
 	readonly initializePromise: Promise<void> = Promise.resolve();
 
-	isFlightEnabled(flight: string): boolean {
+	isFlightEnabled(_flight: string): boolean {
 		return false;
 	}
 
-	isCachedFlightEnabled(flight: string): Promise<boolean> {
+	isCachedFlightEnabled(_flight: string): Promise<boolean> {
 		return Promise.resolve(false);
 	}
 
-	isFlightEnabledAsync(flight: string): Promise<boolean> {
+	isFlightEnabledAsync(_flight: string): Promise<boolean> {
 		return Promise.resolve(false);
 	}
 
-	getTreatmentVariable<T extends boolean | number | string>(configId: string, name: string): T | undefined {
+	getTreatmentVariable<T extends boolean | number | string>(_configId: string, _name: string): T | undefined {
 		return undefined;
 	}
 
 	getTreatmentVariableAsync<T extends boolean | number | string>(
-		configId: string,
-		name: string,
+		_configId: string,
+		_name: string,
 	): Promise<T | undefined> {
 		return Promise.resolve(undefined);
 	}

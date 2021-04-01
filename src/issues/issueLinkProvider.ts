@@ -32,7 +32,7 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 
 	async provideDocumentLinks(
 		document: vscode.TextDocument,
-		token: vscode.CancellationToken,
+		_token: vscode.CancellationToken,
 	): Promise<vscode.DocumentLink[]> {
 		const links: vscode.DocumentLink[] = [];
 		const wraps: boolean = vscode.workspace.getConfiguration('editor', document).get('wordWrap', 'off') !== 'off';

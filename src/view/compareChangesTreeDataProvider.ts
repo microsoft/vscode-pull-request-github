@@ -160,7 +160,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 class GitHubContentProvider {
 	constructor(public gitHubRepository: GitHubRepository) {}
 
-	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
+	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
 		const params = fromGitHubURI(uri);
 		if (!params || params.isEmpty) {
 			return '';

@@ -273,7 +273,7 @@ export async function issueMarkdown(
 		})
 		.trim();
 	markdown.appendMarkdown(
-		`${getIconMarkdown(issue, context)} **${title}** [#${issue.number}](${issue.html_url})  \n`,
+		`${getIconMarkdown(issue)} **${title}** [#${issue.number}](${issue.html_url})  \n`,
 	);
 	let body = marked.parse(issue.body, {
 		renderer: new PlainTextRenderer(),
@@ -332,7 +332,7 @@ function getIconString(issue: IssueModel) {
 	}
 }
 
-function getIconMarkdown(issue: IssueModel, context: vscode.ExtensionContext) {
+function getIconMarkdown(issue: IssueModel) {
 	if (issue instanceof PullRequestModel) {
 		return getIconString(issue);
 	}

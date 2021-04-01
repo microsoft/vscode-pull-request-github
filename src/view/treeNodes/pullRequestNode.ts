@@ -15,14 +15,11 @@ import Logger from '../../common/logger';
 import { fromPRUri, toPRUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { ReactionGroup } from '../../github/graphql';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../../github/prComment';
 import { PullRequestModel, ReviewThreadChangeEvent } from '../../github/pullRequestModel';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
-	parseGraphQLReaction,
-	updateCommentReactions,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 } from '../../github/utils';
@@ -529,7 +526,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	async provideCommentingRanges(
 		document: vscode.TextDocument,
-		token: vscode.CancellationToken,
+		_token: vscode.CancellationToken,
 	): Promise<vscode.Range[] | undefined> {
 		if (document.uri.scheme === 'pr') {
 			const params = fromPRUri(document.uri);

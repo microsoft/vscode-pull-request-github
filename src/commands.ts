@@ -354,7 +354,7 @@ export function registerCommands(
 					location: vscode.ProgressLocation.SourceControl,
 					title: `Switching to Pull Request #${pullRequestModel.number}`,
 				},
-				async (progress, token) => {
+				async () => {
 					await ReviewManager.getReviewManagerForRepository(
 						reviewManagers,
 						pullRequestModel.githubRepository,
@@ -387,7 +387,7 @@ export function registerCommands(
 					location: vscode.ProgressLocation.SourceControl,
 					title: `Exiting Pull Request`,
 				},
-				async (progress, token) => {
+				async () => {
 					const branch = await pullRequestModel.githubRepository.getDefaultBranch();
 					const manager = reposManager.getManagerForIssueModel(pullRequestModel);
 					if (manager) {

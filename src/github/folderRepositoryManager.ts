@@ -205,7 +205,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		vscode.languages.registerCompletionItemProvider(
 			{ scheme: 'comment' },
 			{
-				provideCompletionItems: async (document, position, token) => {
+				provideCompletionItems: async (document, position, _token) => {
 					try {
 						const query = JSON.parse(document.uri.query);
 						if (query.extensionId !== EXTENSION_ID) {
@@ -386,7 +386,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						return [];
 					}
 				},
-				resolveCompletionItem: async (item: vscode.CompletionItem, token: vscode.CancellationToken) => {
+				resolveCompletionItem: async (item: vscode.CompletionItem, _token: vscode.CancellationToken) => {
 					try {
 						const repo = await this.getPullRequestDefaults();
 						const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, item.label);
