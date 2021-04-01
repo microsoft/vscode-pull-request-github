@@ -14,7 +14,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	constructor(
 		private stateManager: StateManager,
 		private manager: RepositoriesManager,
-		context: vscode.ExtensionContext,
+		_context: vscode.ExtensionContext,
 	) {}
 
 	async provideCompletionItems(
@@ -82,7 +82,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		return completionItems;
 	}
 
-	async resolveCompletionItem(item: UserCompletion, token: vscode.CancellationToken): Promise<vscode.CompletionItem> {
+	async resolveCompletionItem(item: UserCompletion, _token: vscode.CancellationToken): Promise<vscode.CompletionItem> {
 		const folderManager = this.manager.getManagerForFile(item.uri);
 		if (!folderManager) {
 			return item;

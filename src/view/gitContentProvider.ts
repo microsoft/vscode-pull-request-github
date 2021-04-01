@@ -20,7 +20,7 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 
 	constructor(private gitAPI: GitApiImpl) {}
 
-	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
+	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
 		if (!this._fallback) {
 			return '';
 		}

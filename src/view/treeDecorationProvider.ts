@@ -24,7 +24,7 @@ class TreeDecorationProvider implements vscode.FileDecorationProvider {
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 	provideFileDecoration(
 		uri: vscode.Uri,
-		token: vscode.CancellationToken,
+		_token: vscode.CancellationToken,
 	): vscode.ProviderResult<vscode.FileDecoration> {
 		const query = fromFileChangeNodeUri(uri);
 		if (query) {

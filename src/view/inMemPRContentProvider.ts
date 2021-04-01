@@ -21,7 +21,7 @@ export class InMemPRContentProvider implements vscode.TextDocumentContentProvide
 
 	constructor() {}
 
-	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
+	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
 		const prUriParams = fromPRUri(uri);
 		if (prUriParams && prUriParams.prNumber) {
 			const provider = this._prFileChangeContentProviders[prUriParams.prNumber];

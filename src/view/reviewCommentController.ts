@@ -366,7 +366,7 @@ export class ReviewCommentController
 
 	async provideCommentingRanges(
 		document: vscode.TextDocument,
-		token: vscode.CancellationToken,
+		_token: vscode.CancellationToken,
 	): Promise<vscode.Range[] | undefined> {
 		let query: ReviewUriParams | undefined;
 

@@ -13,14 +13,12 @@ import { OctokitCommon } from './common';
 import { GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
-	AddReactionResponse,
-	DeleteReactionResponse,
 	EditIssueCommentResponse,
 	TimelineEventsResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IMilestone, IPullRequestEditData, Issue } from './interface';
-import { getReactionGroup, parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
+import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
@@ -70,7 +68,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 				// hack, to ensure queries are not wrongly encoded.
 				const originalToStringFn = uri.toString;
-				uri.toString = function (skipEncoding?: boolean | undefined) {
+				uri.toString = function (_skipEncoding?: boolean | undefined) {
 					return originalToStringFn.call(uri, true);
 				};
 

@@ -229,7 +229,7 @@
 		"@typescript-eslint/no-unsafe-member-access": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unsafe-return": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],
-		"@typescript-eslint/no-unused-vars": "off", // TODO@eamodio revisit
+		"@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
 		// "@typescript-eslint/no-unused-vars": [
 		// 	"warn",
 		// 	{

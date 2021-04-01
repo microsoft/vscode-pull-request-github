@@ -27,7 +27,7 @@ interface CodeLink {
 export async function findCodeLinkLocally(
 	codeLink: RegExpMatchArray,
 	repositoriesManager: RepositoriesManager,
-	silent: boolean = true,
+	_silent: boolean = true,
 ): Promise<CodeLink | undefined> {
 	const owner = codeLink[2];
 	const repo = codeLink[3];

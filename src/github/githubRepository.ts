@@ -384,7 +384,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return githubRepository;
 	}
 
-	async getIssuesForUserByMilestone(page?: number): Promise<MilestoneData | undefined> {
+	async getIssuesForUserByMilestone(_page?: number): Promise<MilestoneData | undefined> {
 		try {
 			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
@@ -424,7 +424,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getIssuesWithoutMilestone(page?: number): Promise<IssueData | undefined> {
+	async getIssuesWithoutMilestone(_page?: number): Promise<IssueData | undefined> {
 		try {
 			Logger.debug(`Fetch issues without milestone- enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
@@ -589,7 +589,7 @@ export class GitHubRepository implements vscode.Disposable {
 			const promises: Promise<OctokitTypes.OctokitResponse<OctokitCommon.PullsGetResponseData>>[] = [];
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(
-					new Promise(async (resolve, reject) => {
+					new Promise(async (resolve, _reject) => {
 						const prData = await octokit.pulls.get({
 							owner: remote.owner,
 							repo: remote.repositoryName,

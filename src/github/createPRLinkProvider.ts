@@ -19,7 +19,7 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 
 	provideTerminalLinks(
 		context: vscode.TerminalLinkContext,
-		token: vscode.CancellationToken,
+		_token: vscode.CancellationToken,
 	): vscode.ProviderResult<GitHubCreateTerminalLink[]> {
 		const startIndex = context.line.indexOf('https://github.com');
 		if (startIndex === -1) {
