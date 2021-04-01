@@ -336,7 +336,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 		const prEditors = this.getPREditors(editors);
 		this._openPREditors = prEditors;
-		this.addThreadsForEditors(editors, commentThreadCache);
+		this.addThreadsForEditors(prEditors, commentThreadCache);
 
 		this._hasInitializedThreads = true;
 	}
