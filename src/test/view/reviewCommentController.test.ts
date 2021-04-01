@@ -19,7 +19,6 @@ import * as vscode from 'vscode';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { GitHubRepository } from '../../github/githubRepository';
 import { Protocol } from '../../common/protocol';
 import { Remote } from '../../common/remote';
 import { GHPRCommentThread } from '../../github/prComment';
@@ -27,6 +26,7 @@ import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
 import { DiffSide } from '../../common/comment';
+const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new Remote('test', 'github/test', protocol);
@@ -45,6 +45,7 @@ describe('ReviewCommentController', function () {
 	let provider: PullRequestsTreeDataProvider;
 	let manager: FolderRepositoryManager;
 	let activePullRequest: PullRequestModel;
+	let githubRepo: MockGitHubRepository;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -65,12 +66,12 @@ describe('ReviewCommentController', function () {
 		await manager.updateRepositories();
 
 		const pr = new PullRequestBuilder().build();
-		const repo = new GitHubRepository(remote, credentialStore, telemetry);
+		githubRepo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 		activePullRequest = new PullRequestModel(
 			telemetry,
-			repo,
+			githubRepo,
 			remote,
-			convertRESTPullRequestToRawPullRequest(pr, repo),
+			convertRESTPullRequestToRawPullRequest(pr, githubRepo),
 		);
 
 		manager.activePullRequest = activePullRequest;
@@ -197,6 +198,7 @@ describe('ReviewCommentController', function () {
 
 			sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 			sinon.stub(activePullRequest, 'getReviewThreads').returns(Promise.resolve([]));
+			sinon.stub(activePullRequest, 'getPendingReviewId').returns(Promise.resolve(undefined));
 
 			sinon.stub(manager, 'getCurrentUser').returns({
 				login: 'rmacfarlane',
@@ -216,9 +218,55 @@ describe('ReviewCommentController', function () {
 
 			sinon.stub(repository, 'diffWith').returns(Promise.resolve(''));
 
+			await activePullRequest.initializeReviewThreadCache();
 			await reviewCommentController.initialize();
 			const workspaceFileChangeCommentThreads = reviewCommentController.workspaceFileChangeCommentThreads();
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 0);
+
+			githubRepo.queryProvider.expectGraphQLMutation(
+				{
+					mutation: schema.AddReviewThread,
+					variables: {
+						input: {
+							path: fileName,
+							body: 'hello world',
+							pullRequestId: activePullRequest.graphNodeId,
+							pullRequestReviewId: undefined,
+							line: 22,
+							side: 'RIGHT'
+						}
+					}
+				},
+				{
+					data: {
+						addPullRequestReviewThread: {
+							thread: {
+								id: 1,
+								isResolved: false,
+								viewCanResolve: true,
+								path: fileName,
+								line: 22,
+								originalLine: 22,
+								diffSide: 'RIGHT',
+								isOutdated: false,
+								comments: {
+									nodes: [
+										{
+											databaseId: 1,
+											id: 1,
+											body: 'hello world',
+											commit: {},
+											diffHunk: '',
+											reactionGroups: [],
+											author: {}
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			)
 
 			await reviewCommentController.createOrReplyComment(thread, 'hello world');
 

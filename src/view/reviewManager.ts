@@ -482,7 +482,7 @@ export class ReviewManager {
 	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
 			this._comments = await pr.getReviewComments();
-			await pr.getReviewThreads();
+			await pr.initializeReviewThreadCache();
 			const activeComments = this._comments.filter(comment => comment.position);
 			const outdatedComments = this._comments.filter(comment => !comment.position);
 

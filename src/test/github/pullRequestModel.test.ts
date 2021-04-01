@@ -89,7 +89,7 @@ describe('PullRequestModel', function () {
 	});
 
 	describe('reviewThreadCache', function () {
-		it('should update the cache when review threads are fetched', async function () {
+		it('should update the cache when then cache is initialized', async function () {
 			const pr = new PullRequestBuilder().build();
 			const model = new PullRequestModel(
 				telemetry,
@@ -128,8 +128,7 @@ describe('PullRequestModel', function () {
 			const onDidChangeReviewThreads = sinon.spy();
 			model.onDidChangeReviewThreads(onDidChangeReviewThreads);
 
-			assert.strictEqual(Object.keys(model.reviewThreadsCache).length, 0);
-			await model.getReviewThreads();
+			await model.initializeReviewThreadCache();
 
 			assert.strictEqual(Object.keys(model.reviewThreadsCache).length, 1);
 			assert(onDidChangeReviewThreads.calledOnce);

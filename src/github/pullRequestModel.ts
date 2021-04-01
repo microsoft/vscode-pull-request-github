@@ -50,7 +50,6 @@ import {
 } from './interface';
 import { IssueModel } from './issueModel';
 import {
-	convertPullRequestsGetCommentsResponseItemToComment,
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
 	convertRESTUserToAccount,
@@ -70,15 +69,6 @@ export interface IResolvedPullRequestModel extends IPullRequestModel {
 	head: GitHubRef;
 }
 
-interface NewCommentPosition {
-	path: string;
-	position: number;
-}
-
-interface ReplyCommentPosition {
-	inReplyTo: string;
-}
-
 export interface ReviewThreadChangeEvent {
 	added: IReviewThread[];
 	changed: IReviewThread[];
@@ -96,7 +86,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
 
-	public reviewThreadsCache: IReviewThread[] = [];
+	private _reviewThreadsCache: IReviewThread[] = [];
+	private _reviewThreadsCacheInitialized = false;
 	private _onDidChangeReviewThreads = new vscode.EventEmitter<ReviewThreadChangeEvent>();
 	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
 
@@ -117,6 +108,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.isActive = !!isActive;
 
 		this.update(item);
+	}
+
+	public async initializeReviewThreadCache(): Promise<void> {
+		await this.getReviewThreads();
+		this._reviewThreadsCacheInitialized = true;
+	}
+
+	public get reviewThreadsCache(): IReviewThread[] {
+		if (!this._reviewThreadsCacheInitialized) {
+			throw new Error('Cache has not been initialized yet');
+		} else {
+			return this._reviewThreadsCache;
+		}
 	}
 
 	public get isMerged(): boolean {
@@ -459,7 +463,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			isOutdated: thread.isOutdated,
 			comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved), remote),
 		};
-		this.reviewThreadsCache.push(newThread);
+		this._reviewThreadsCache.push(newThread);
 		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
 		return newThread;
 	}
@@ -486,7 +490,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { comment } = data.addPullRequestReviewComment;
 		const newComment = parseGraphQLComment(comment, false);
 
-		const threadWithComment = this.reviewThreadsCache.find(thread =>
+		const threadWithComment = this._reviewThreadsCache.find(thread =>
 			thread.comments.some(comment => comment.graphNodeId === inReplyTo),
 		);
 		if (threadWithComment) {
@@ -539,7 +543,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			data.updatePullRequestReviewComment.pullRequestReviewComment,
 			!!comment.isResolved,
 		);
-		const threadWithComment = this.reviewThreadsCache.find(thread =>
+		const threadWithComment = this._reviewThreadsCache.find(thread =>
 			thread.comments.some(c => c.graphNodeId === comment.graphNodeId),
 		);
 		if (threadWithComment) {
@@ -566,13 +570,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				comment_id: id,
 			});
 
-			const threadIndex = this.reviewThreadsCache.findIndex(thread => thread.comments.some(c => c.id === id));
+			const threadIndex = this._reviewThreadsCache.findIndex(thread => thread.comments.some(c => c.id === id));
 			if (threadIndex > -1) {
-				const threadWithComment = this.reviewThreadsCache[threadIndex];
+				const threadWithComment = this._reviewThreadsCache[threadIndex];
 				const index = threadWithComment.comments.findIndex(c => c.id === id);
 				threadWithComment.comments.splice(index, 1);
 				if (threadWithComment.comments.length === 0) {
-					this.reviewThreadsCache.splice(threadIndex, 1);
+					this._reviewThreadsCache.splice(threadIndex, 1);
 					this._onDidChangeReviewThreads.fire({ added: [], changed: [], removed: [threadWithComment] });
 				} else {
 					this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
@@ -642,7 +646,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const removed: IReviewThread[] = [];
 
 		newReviewThreads.forEach(thread => {
-			const existingThread = this.reviewThreadsCache.find(t => t.id === thread.id);
+			const existingThread = this._reviewThreadsCache.find(t => t.id === thread.id);
 			if (existingThread) {
 				if (!equals(thread, existingThread)) {
 					changed.push(thread);
@@ -652,7 +656,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 		});
 
-		this.reviewThreadsCache.forEach(thread => {
+		this._reviewThreadsCache.forEach(thread => {
 			if (!newReviewThreads.find(t => t.id === thread.id)) {
 				removed.push(thread);
 			}
@@ -692,7 +696,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			this.diffThreads(reviewThreads);
-			this.reviewThreadsCache = reviewThreads;
+			this._reviewThreadsCache = reviewThreads;
 
 			return reviewThreads;
 		} catch (e) {
@@ -1129,7 +1133,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private updateCommentReactions(graphNodeId: string, reactionGroups: ReactionGroup[]) {
-		const reviewThread = this.reviewThreadsCache.find(thread =>
+		const reviewThread = this._reviewThreadsCache.find(thread =>
 			thread.comments.some(c => c.graphNodeId === graphNodeId),
 		);
 		if (reviewThread) {

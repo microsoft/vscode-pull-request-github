@@ -9,6 +9,7 @@ import {
 	FetchResult,
 } from 'apollo-boost';
 import { SinonSandbox, SinonStubbedInstance } from 'sinon';
+import equals from 'fast-deep-equal';
 
 interface RecordedQueryResult<T> {
 	variables?: OperationVariables;
@@ -115,13 +116,12 @@ export class QueryProvider {
 		const cannedResponse = cannedResponses.find(
 			each =>
 				!!each.variables &&
-				Object.keys(each.variables).every(key => each.variables![key] === m.variables![key]),
+				Object.keys(each.variables).every(key => equals(each.variables![key], m.variables![key])),
 		);
 		if (cannedResponse) {
 			return cannedResponse.result;
 		} else {
-			if (cannedResponses.length > 0) {
-			}
+			if (cannedResponses.length > 0)
 			{
 				let message = 'Variables did not match any expected queries:\n';
 				for (const { variables } of cannedResponses) {

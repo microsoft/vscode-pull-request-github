@@ -92,7 +92,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 
 			this._fileChanges = await this.resolveFileChanges();
-			await this.pullRequestModel.getReviewThreads();
+			await this.pullRequestModel.initializeReviewThreadCache();
 
 			if (!this._inMemPRContentProvider) {
 				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(
@@ -300,19 +300,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		});
 	}
 
-	private async initializeThreadsInOpenEditors(editors: vscode.TextEditor[]): Promise<void> {
-		if (this._hasInitializedThreads) {
-			return;
-		}
-
+	private addThreadsForEditors(editors: vscode.TextEditor[], commentThreadCache: {[key: string]: GHPRCommentThread[]}): void {
 		const reviewThreads = this.pullRequestModel.reviewThreadsCache;
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
-
-		const commentThreadCache = (await this.resolvePRCommentController()).commentThreadCache;
-
-		const prEditors = this.getPREditors(editors);
-		this._openPREditors = prEditors;
-		prEditors.forEach(editor => {
+		editors.forEach(editor => {
 			const { fileName, isBase } = fromPRUri(editor.document.uri);
 			if (threadsByPath[fileName]) {
 				commentThreadCache[fileName] = threadsByPath[fileName]
@@ -336,6 +327,18 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 					});
 			}
 		});
+	}
+
+	private async initializeThreadsInOpenEditors(editors: vscode.TextEditor[]): Promise<void> {
+		if (this._hasInitializedThreads) {
+			return;
+		}
+
+		const commentThreadCache = (await this.resolvePRCommentController()).commentThreadCache;
+
+		const prEditors = this.getPREditors(editors);
+		this._openPREditors = prEditors;
+		this.addThreadsForEditors(editors, commentThreadCache);
 
 		this._hasInitializedThreads = true;
 	}
@@ -355,32 +358,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		});
 
 		if (added.length) {
-			const reviewThreads = this.pullRequestModel.reviewThreadsCache;
-			const threadsByPath = groupBy(reviewThreads, thread => thread.path);
-			added.forEach(editor => {
-				const { isBase, fileName } = fromPRUri(editor.document.uri);
-				if (threadsByPath[fileName]) {
-					commentThreadCache[fileName] = threadsByPath[fileName]
-						.filter(
-							thread =>
-								(thread.diffSide === DiffSide.LEFT && isBase) ||
-								(thread.diffSide === DiffSide.RIGHT && !isBase),
-						)
-						.map(thread => {
-							const range = new vscode.Range(
-								new vscode.Position(thread.line - 1, 0),
-								new vscode.Position(thread.line - 1, 0),
-							);
-
-							return createVSCodeCommentThreadForReviewThread(
-								editor.document.uri,
-								range,
-								thread,
-								this._commentController,
-							);
-						});
-				}
-			});
+			this.addThreadsForEditors(added, commentThreadCache);
 		}
 	}
 
