@@ -1144,7 +1144,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			/* __GDPR__
 				"pr.create.failure" : {
-					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
 			this._telemetry.sendTelemetryErrorEvent('pr.create.failure', {
