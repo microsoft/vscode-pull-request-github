@@ -170,19 +170,24 @@ function CommentThread({ key, thread, eventId }: { key: string; thread: IComment
 }
 
 function AddReviewSummaryComment() {
-	const { requestChanges, approve, submit } = useContext(PullRequestContext);
+	const { requestChanges, approve, submit, pr } = useContext(PullRequestContext);
+	const { isAuthor } = pr;
 	const comment = useRef<HTMLTextAreaElement>();
 	return (
 		<div className="comment-form">
 			<textarea ref={comment} placeholder="Leave a review summary comment"></textarea>
 			<div className="form-actions">
-				<button id="request-changes" onClick={() => requestChanges(comment.current.value)}>
-					Request Changes
-				</button>
-				<button id="approve" onClick={() => approve(comment.current.value)}>
-					Approve
-				</button>
-				<button id="submit" onClick={() => submit(comment.current.value)}>
+				{isAuthor ? null : (
+					<button id="request-changes" className="push-right" onClick={() => requestChanges(comment.current.value)}>
+						Request Changes
+					</button>
+				)}
+				{isAuthor ? null : (
+					<button id="approve" onClick={() => approve(comment.current.value)}>
+						Approve
+					</button>
+				)}
+				<button id="submit" className={isAuthor ? 'push-right' : ''} onClick={() => submit(comment.current.value)}>
 					Comment
 				</button>
 			</div>
