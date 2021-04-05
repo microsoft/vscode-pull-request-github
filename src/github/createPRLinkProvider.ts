@@ -62,7 +62,7 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 	handleTerminalLink(link: GitHubCreateTerminalLink): vscode.ProviderResult<void> {
 		const defaultHandler = vscode.workspace
 			.getConfiguration('githubPullRequests')
-			.get<'vscode' | 'github' | undefined>('terminalLinks.default');
+			.get<'vscode' | 'github' | undefined>('terminalLinksHandler');
 
 		if (defaultHandler === 'github') {
 			vscode.env.openExternal(vscode.Uri.parse(link.url));

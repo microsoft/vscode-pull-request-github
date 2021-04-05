@@ -193,7 +193,7 @@
 					"default": true,
 					"description": "When true, the option to delete the remote will be selected by default when deleting a branch from a pull request."
 				},
-				"githubPullRequests.terminalLinks.default": {
+				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
 					"enum": [
 						"github",
@@ -201,9 +201,9 @@
 						"ask"
 					],
 					"enumDescriptions": [
-						"Create the PR in github",
-						"Create the PR in VSCode",
-						"Prompt the user for each PR"
+						"Create the pull request on GitHub",
+						"Create the pull request in VS Code",
+						"Ask which method to use"
 					],
 					"default": "ask",
 					"description": "Default handler for terminal links."
