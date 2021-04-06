@@ -841,7 +841,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const reviewEvents = events.filter(isReviewEvent);
-		const reviewComments = (await this.getReviewComments()) as CommentNode[];
+		const reviewThreads = await this.getReviewThreads();
+		const reviewComments = reviewThreads.reduce((previous, current) => previous.concat(current.comments), []);
 
 		const reviewEventsById = reviewEvents.reduce((index, evt) => {
 			index[evt.id] = evt;
