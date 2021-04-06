@@ -163,8 +163,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 
 				const commentThreadCache = (await this.resolvePRCommentController()).commentThreadCache;
-				for (const fileName in commentThreadCache) {
-					commentThreadCache[fileName].forEach(thread => {
+				for (const key in commentThreadCache) {
+					commentThreadCache[key].forEach(thread => {
 						updateCommentReviewState(thread, newDraftMode);
 					});
 				}
@@ -298,13 +298,17 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		});
 	}
 
+	private getCommentThreadCacheKey(fileName: string, isBase: boolean): string {
+		return `${fileName}-${isBase ? 'original' : 'modified'}`;
+	}
+
 	private addThreadsForEditors(editors: vscode.TextEditor[], commentThreadCache: {[key: string]: GHPRCommentThread[]}): void {
 		const reviewThreads = this.pullRequestModel.reviewThreadsCache;
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 		editors.forEach(editor => {
 			const { fileName, isBase } = fromPRUri(editor.document.uri);
 			if (threadsByPath[fileName]) {
-				commentThreadCache[fileName] = threadsByPath[fileName]
+				commentThreadCache[this.getCommentThreadCacheKey(fileName, isBase)] = threadsByPath[fileName]
 					.filter(
 						thread =>
 							(thread.diffSide === DiffSide.LEFT && isBase) ||
@@ -349,10 +353,11 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		this._openPREditors = prEditors;
 
 		removed.forEach(editor => {
-			const fileName = fromPRUri(editor.document.uri)!.fileName;
-			const threads = commentThreadCache[fileName] || [];
+			const { fileName, isBase } = fromPRUri(editor.document.uri);
+			const key = this.getCommentThreadCacheKey(fileName, isBase);
+			const threads = commentThreadCache[key] || [];
 			threads.forEach(t => t.dispose());
-			delete commentThreadCache[fileName];
+			delete commentThreadCache[key];
 		});
 
 		if (added.length) {
@@ -404,28 +409,30 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				}
 			}
 
-			if (commentThreadCache[thread.path]) {
-				commentThreadCache[thread.path].push(newThread);
+			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
+			if (commentThreadCache[key]) {
+				commentThreadCache[key].push(newThread);
 			} else {
-				commentThreadCache[thread.path] = [newThread];
+				commentThreadCache[key] = [newThread];
 			}
 		});
 
 		e.changed.forEach(thread => {
-			// Find thread in comment thread cache - should be
-			const index = commentThreadCache[thread.path].findIndex(t => t.threadId === thread.id);
+			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
+			const index = commentThreadCache[key].findIndex(t => t.threadId === thread.id);
 			if (index > -1) {
-				const matchingThread = commentThreadCache[thread.path][index];
+				const matchingThread = commentThreadCache[key][index];
 				matchingThread.isResolved = thread.isResolved;
 				matchingThread.comments = thread.comments.map(c => new GHPRComment(c, matchingThread));
 			}
 		});
 
 		e.removed.forEach(async thread => {
-			const index = commentThreadCache[thread.path].findIndex(t => t.threadId === thread.id);
+			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
+			const index = commentThreadCache[key].findIndex(t => t.threadId === thread.id);
 			if (index > -1) {
-				const matchingThread = commentThreadCache[thread.path][index];
-				commentThreadCache[thread.path].splice(index, 1);
+				const matchingThread = commentThreadCache[key][index];
+				commentThreadCache[key].splice(index, 1);
 				matchingThread.dispose();
 			}
 		});
@@ -502,25 +509,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		updateCommentThreadLabel(thread);
 	}
 
-	private async findMatchingFileNode(uri: vscode.Uri): Promise<InMemFileChangeNode> {
-		const params = fromPRUri(uri);
-
-		if (!params) {
-			throw new Error(`${uri.toString()} is not valid PR document`);
-		}
-
-		const fileChange = (await this.getFileChanges()).find(change => change.fileName === params.fileName);
-
-		if (!fileChange) {
-			throw new Error('No matching file found');
-		}
-
-		if (fileChange instanceof RemoteFileChangeNode) {
-			throw new Error('Comments not supported on remote file changes');
-		}
-
-		return fileChange;
-	}
 
 	// #endregion
 
