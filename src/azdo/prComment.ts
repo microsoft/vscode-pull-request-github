@@ -2,9 +2,9 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
-import { GitPullRequestCommentThread, Comment } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { IAccount, CommentPermissions } from './interface';
+import { CommentPermissions, IAccount } from './interface';
 
 export interface GHPRCommentThread extends vscode.CommentThread {
 	threadId: number;
@@ -95,13 +95,19 @@ export class TemporaryComment implements vscode.Comment {
 
 	public parentCommentId?: number;
 
-	constructor(parent: GHPRCommentThread, input: string, isDraft: boolean, currentUser: IAccount, originalComment?: GHPRComment) {
+	constructor(
+		parent: GHPRCommentThread,
+		input: string,
+		isDraft: boolean,
+		currentUser: IAccount,
+		originalComment?: GHPRComment,
+	) {
 		this.parent = parent;
 		this.body = new vscode.MarkdownString(input);
 		this.mode = vscode.CommentMode.Preview;
 		this.author = {
 			name: currentUser.name!,
-			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined
+			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
 		this.label = isDraft ? 'Pending' : undefined;
 		this.contextValue = 'canEdit,canDelete';
@@ -188,7 +194,7 @@ export class GHPRComment implements vscode.Comment {
 		this.body.isTrusted = true;
 		this.author = {
 			name: comment.author!.displayName!,
-			iconPath: comment.author && comment.author.imageUrl ? vscode.Uri.parse(comment.author.imageUrl) : undefined
+			iconPath: comment.author && comment.author.imageUrl ? vscode.Uri.parse(comment.author.imageUrl) : undefined,
 		};
 
 		this.parentCommentId = comment.parentCommentId;

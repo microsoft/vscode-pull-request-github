@@ -3,17 +3,25 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { vscode } from './message';
-import { IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks } from '../../src/azdo/interface';
-import { TimelineEvent } from '../../src/common/timelineEvent';
 import { GitCommitRef, GitPullRequestCommentThread, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
+import {
+	IAccount,
+	ILabel,
+	MergeMethod,
+	MergeMethodsAvailability,
+	PullRequestChecks,
+	PullRequestMergeability,
+	ReviewState,
+} from '../../src/azdo/interface';
+import { TimelineEvent } from '../../src/common/timelineEvent';
+import { vscode } from './message';
 
 export enum ReviewType {
 	Comment = 'comment',
 	Approve = 'approve',
-	RequestChanges = 'requestChanges'
+	RequestChanges = 'requestChanges',
 }
 
 export interface PullRequest {
@@ -42,7 +50,7 @@ export interface PullRequest {
 	 */
 	hasWritePermission: boolean;
 	pendingCommentText?: string;
-	pendingCommentDrafts?: { [key: string]: string; };
+	pendingCommentDrafts?: { [key: string]: string };
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks;
 	mergeable: PullRequestMergeability;
@@ -66,12 +74,13 @@ export function getState(): PullRequest {
 export function setState(pullRequest: PullRequest): void {
 	const oldPullRequest = getState();
 
-	if (oldPullRequest &&
-		oldPullRequest.number && oldPullRequest.number === pullRequest.number) {
+	if (oldPullRequest && oldPullRequest.number && oldPullRequest.number === pullRequest.number) {
 		pullRequest.pendingCommentText = oldPullRequest.pendingCommentText;
 	}
 
-	if (pullRequest) { vscode.setState(pullRequest); }
+	if (pullRequest) {
+		vscode.setState(pullRequest);
+	}
 }
 
 export function updateState(data: Partial<PullRequest>): void {

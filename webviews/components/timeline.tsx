@@ -3,19 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { useContext, useRef, useState } from 'react';
-
-import {  ReviewEvent, CommitEvent, MergedEvent, AssignEvent, HeadRefDeleteEvent, isUserCommentThread, isSystemThread } from '../../src/common/timelineEvent';
-import { commitIcon, mergeIcon } from './icon';
-import { Avatar, AuthorLink } from './user';
-import { groupBy } from '../../src/common/utils';
-import { Spaced, nbsp } from './space';
-import Timestamp from './timestamp';
-import { CommentView, CommentBody, ReplyToThread } from './comment';
-import PullRequestContext from '../common/context';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
+import * as React from 'react';
+// eslint-disable-next-line no-duplicate-imports
+import { useContext, useRef, useState } from 'react';
+
+import {  CommitEvent, HeadRefDeleteEvent, isSystemThread, isUserCommentThread, MergedEvent, ReviewEvent } from '../../src/common/timelineEvent';
+import { groupBy } from '../../src/common/utils';
+import PullRequestContext from '../common/context';
+import { CommentBody, CommentView, ReplyToThread } from './comment';
+import { commitIcon, mergeIcon } from './icon';
+import { nbsp, Spaced } from './space';
+// eslint-disable-next-line import/no-named-as-default
+import Timestamp from './timestamp';
+import { AuthorLink, Avatar } from './user';
 // import { isUserThread } from '../../src/azdo/utils';
 
 export const Timeline = ({ threads, currentUser }: { threads: GitPullRequestCommentThread[], currentUser: Identity }) =>
@@ -72,7 +74,7 @@ export const SystemThreadView = ({thread}: {thread: GitPullRequestCommentThread}
 			<Timestamp date={thread.publishedDate} />
 		</div>
 	</div>;
-}
+};
 
 export const CommitEventView = (event: CommitEvent) =>
 	<div className='comment-container commit'>
@@ -103,11 +105,11 @@ const positionKey = (comment: GitPullRequestCommentThread) =>
 	// comment.position !== null
 	// 		? `pos:${comment.position}`
 	// 		: `ori:${comment.originalPosition}`;
-	comment.threadContext?.rightFileStart?.line ?? comment.threadContext?.leftFileStart?.line!;
+	comment.threadContext?.rightFileStart?.line ?? comment.threadContext?.leftFileStart?.line;
 
 const groupCommentsByPath = (comments: GitPullRequestCommentThread[]) =>
 	groupBy(comments,
-		comment => comment.threadContext.filePath + ':' + positionKey(comment));
+		comment => `${comment.threadContext.filePath}:${positionKey(comment)}`);
 
 const DESCRIPTORS = {
 	PENDING: 'will review',
@@ -186,7 +188,7 @@ const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommen
 
 	const onCancel = () => {
 		setEditMode(false);
-	}
+	};
 
 	const onSave = async (text) => {
 		try {
@@ -194,11 +196,11 @@ const CommentEventView = ({ thread, currentUser }: {thread: GitPullRequestCommen
 		} finally {
 			setEditMode(false);
 		}
-	}
+	};
 
 	const onThreadStatusChange = async (status) => {
 		await changeThreadStatus(parseInt(status), thread);
-	}
+	};
 
 	return (
 		<div className='thread-container'>
@@ -255,4 +257,4 @@ export const HeadDeleteEventView = (event: HeadRefDeleteEvent) =>
 
 // TODO: We should show these, but the pre-React overview page didn't. Add
 // support in a separate PR.
-export const AssignEventView = (event: AssignEvent) => null;
+// export const AssignEventView = (event: AssignEvent) => null;

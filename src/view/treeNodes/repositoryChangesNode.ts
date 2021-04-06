@@ -3,42 +3,46 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
-import { DescriptionNode } from './descriptionNode';
-import { FilesCategoryNode } from './filesCategoryNode';
-import { CommitsNode } from './commitsCategoryNode';
-import { TreeNode } from './treeNode';
-import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
-import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import * as vscode from 'vscode';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { CommitsNode } from './commitsCategoryNode';
+import { DescriptionNode } from './descriptionNode';
+import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
+import { FilesCategoryNode } from './filesCategoryNode';
+import { TreeNode } from './treeNode';
 
 export class RepositoryChangesNode extends DescriptionNode implements vscode.TreeItem {
 	private _filesCategoryNode?: FilesCategoryNode;
 	private _commitsCategoryNode?: CommitsNode;
-	public label: string;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-	public contextValue?: string;
 
 	private _disposables: vscode.Disposable[] = [];
 
-	constructor(public parent: vscode.TreeView<TreeNode>,
+	constructor(
+		public parent: vscode.TreeView<TreeNode>,
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
 		private _comments: GitPullRequestCommentThread[],
-		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
-		super(parent, _pullRequest.item.title ?? '', _pullRequest.item.createdBy?.imageUrl!, _pullRequest);
+		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+	) {
+		super(parent, _pullRequest.item.title ?? '', _pullRequest.item.createdBy!.imageUrl!, _pullRequest);
 		this.label = this._pullRequest.item.title ?? '';
 
-		this._disposables.push(vscode.window.onDidChangeActiveTextEditor(e => {
-			const activeEditorUri = e?.document.uri.toString();
-			this.revealActiveEditorInTree(activeEditorUri);
-		}));
+		this._disposables.push(
+			vscode.window.onDidChangeActiveTextEditor(e => {
+				const activeEditorUri = e?.document.uri.toString();
+				this.revealActiveEditorInTree(activeEditorUri);
+			}),
+		);
 
-		this._disposables.push(this.parent.onDidChangeVisibility(_ => {
-			const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
-			this.revealActiveEditorInTree(activeEditorUri);
-		}));
+		this._disposables.push(
+			this.parent.onDidChangeVisibility(_ => {
+				const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
+				this.revealActiveEditorInTree(activeEditorUri);
+			}),
+		);
 	}
 
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
@@ -53,7 +57,12 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	async getChildren(): Promise<TreeNode[]> {
 		if (!this._filesCategoryNode || !this._commitsCategoryNode) {
 			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._localFileChanges);
-			this._commitsCategoryNode = new CommitsNode(this.parent, this._pullRequestManager, this._pullRequest, this._comments);
+			this._commitsCategoryNode = new CommitsNode(
+				this.parent,
+				this._pullRequestManager,
+				this._pullRequest,
+				this._comments,
+			);
 		}
 		return [this._filesCategoryNode, this._commitsCategoryNode];
 	}

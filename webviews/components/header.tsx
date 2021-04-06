@@ -3,17 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CommentThreadStatus, GitPullRequestCommentThread, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as React from 'react';
+// eslint-disable-next-line no-duplicate-imports
 import { useContext, useState } from 'react';
 
 import { PullRequest } from '../common/cache';
-import { Avatar, AuthorLink } from './user';
-import { Spaced } from './space';
 import PullRequestContext from '../common/context';
-import { checkIcon, editIcon,copyIcon } from './icon';
-import Timestamp from './timestamp';
 import { useStateProp } from '../common/hooks';
-import { CommentThreadStatus, GitPullRequestCommentThread, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { checkIcon, copyIcon,editIcon } from './icon';
+import { Spaced } from './space';
+// eslint-disable-next-line import/no-named-as-default
+import Timestamp from './timestamp';
+import { AuthorLink, Avatar } from './user';
 
 export function Header({ canEdit, state, head, base, title, number, url, createdAt, author, isCurrentlyCheckedOut, isDraft, isIssue, threads }: PullRequest) {
 	return <>

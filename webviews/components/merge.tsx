@@ -3,18 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { GitStatusState, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as React from 'react';
+// eslint-disable-next-line no-duplicate-imports
+import { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import { MergeMethod, PullRequestChecks, PullRequestMergeability } from '../../src/azdo/interface';
+import { groupBy } from '../../src/common/utils';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
-import { useContext, useReducer, useRef, useState, useEffect, useCallback } from 'react';
-import { MergeMethod, PullRequestChecks, PullRequestMergeability } from '../../src/azdo/interface';
-import { checkIcon, deleteIcon, pendingIcon, alertIcon } from './icon';
-import { Avatar, } from './user';
-import { nbsp } from './space';
-import { groupBy } from '../../src/common/utils';
 import { Reviewer } from '../components/reviewer';
 import { Dropdown } from './dropdown';
-import { GitStatusState, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { alertIcon, checkIcon, deleteIcon, pendingIcon } from './icon';
+import { nbsp } from './space';
+import { Avatar, } from './user';
 
 export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
 	if (pr.isIssue) {
@@ -98,8 +99,8 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest, isSim
 	return <span>
 		<MergeStatus mergeable={mergeable} isSimple={isSimple} />
 		<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
-	</span>
-}
+	</span>;
+};
 
 export default StatusChecks;
 
@@ -194,11 +195,11 @@ export const MergeSimple = (pr: PullRequest) => {
 	const availableOptions = Object.keys(MERGE_METHODS)
 		.filter(method => pr.mergeMethodsAvailability[method])
 		.reduce((methods, key) => {
-			methods[key] = MERGE_METHODS[key]
+			methods[key] = MERGE_METHODS[key];
 			return methods;
-		}, {})
+		}, {});
 
-	return <Dropdown options={availableOptions} defaultOption={pr.defaultMergeMethod} submitAction={submitAction} />
+	return <Dropdown options={availableOptions} defaultOption={pr.defaultMergeMethod} submitAction={submitAction} />;
 };
 
 export const DeleteBranch = (pr: PullRequest) => {
@@ -336,7 +337,7 @@ function getSummaryLabel(statuses: PullRequestChecks['statuses']) {
 	const statusPhrases = [];
 	for (const statusType of Object.keys(statusTypes)) {
 		const numOfType = statusTypes[statusType].length;
-		const statusAdjective = GitStatusState[statusType].toString()
+		const statusAdjective = GitStatusState[statusType].toString();
 
 		const status = numOfType > 1
 			? `${numOfType} ${statusAdjective} checks`

@@ -18,6 +18,6 @@ export const Timestamp = ({
 	return href
 		? <a href={href} className='timestamp' title={title}>{dateFromNow(date)}</a>
 		: <div className='timestamp' title={title} >{dateFromNow(date)}</div>;
-}
+};
 
 export default Timestamp;

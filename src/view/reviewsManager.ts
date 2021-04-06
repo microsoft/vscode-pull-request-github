@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { GitApiImpl } from '../api/api1';
+import { RepositoriesManager } from '../azdo/repositoriesManager';
+import { ITelemetry } from '../common/telemetry';
+import { URI_SCHEME_REVIEW } from '../constants';
+import { GitContentProvider } from './gitContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { ITelemetry } from '../common/telemetry';
-import { RepositoriesManager } from '../azdo/repositoriesManager';
 import { ReviewManager } from './reviewManager';
-import { GitContentProvider } from './gitContentProvider';
-import { GitApiImpl } from '../api/api1';
-import { URI_SCHEME_REVIEW } from '../constants';
 
 export class ReviewsManager {
 	public static ID = 'Reviews';
@@ -24,7 +24,7 @@ export class ReviewsManager {
 		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
 		private _prFileChangesProvider: PullRequestChangesTreeDataProvider,
 		private _telemetry: ITelemetry,
-		gitApi: GitApiImpl
+		gitApi: GitApiImpl,
 	) {
 		this._disposables = [];
 		const gitContentProvider = new GitContentProvider(gitApi);
@@ -35,23 +35,25 @@ export class ReviewsManager {
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
-				if (this._prFileChangesProvider) {
-					this._prFileChangesProvider.dispose();
-					this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._context);
+		this._disposables.push(
+			vscode.workspace.onDidChangeConfiguration(async e => {
+				if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
+					if (this._prFileChangesProvider) {
+						this._prFileChangesProvider.dispose();
+						this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._context);
 
-					for (const reviewManager of this._reviewManagers) {
-						reviewManager.updateState();
+						for (const reviewManager of this._reviewManagers) {
+							reviewManager.updateState();
+						}
 					}
-				}
 
-				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-				await this._prsTreeDataProvider.initialize(this._reposManager);
-				this._disposables.push(this._prsTreeDataProvider);
-			}
-		}));
+					this._prsTreeDataProvider.dispose();
+					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
+					this._prsTreeDataProvider.initialize(this._reposManager);
+					this._disposables.push(this._prsTreeDataProvider);
+				}
+			}),
+		);
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
@@ -68,5 +70,4 @@ export class ReviewsManager {
 			d.dispose();
 		});
 	}
-
 }

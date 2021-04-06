@@ -3,24 +3,25 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Comment, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as React from 'react';
-import { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import * as ReactMarkdown from 'react-markdown';
-import * as gfm from 'remark-gfm';
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
-import {dracula as dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
+import * as gfm from 'remark-gfm';
 
-import { Spaced, nbsp } from './space';
-import { Avatar, AuthorLink } from './user';
-import Timestamp from './timestamp';
 import { PullRequest, ReviewType } from '../common/cache';
 import PullRequestContext from '../common/context';
-import { editIcon, commentIcon } from './icon';
-import { useStateProp } from '../common/hooks';
 import emitter from '../common/events';
+import { useStateProp } from '../common/hooks';
 import { Dropdown } from './dropdown';
-import { Comment, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { commentIcon, editIcon } from './icon';
+import { nbsp, Spaced } from './space';
+// eslint-disable-next-line import/no-named-as-default
+import Timestamp from './timestamp';
+import { AuthorLink, Avatar } from './user';
 
+const { useCallback, useContext, useEffect, useRef, useState } = React;
 export type Props = Partial<Comment> & {
 	headerInEditMode?: boolean
 	isPRDescription?: boolean,
@@ -98,9 +99,9 @@ export const ThreadStatus = {
 	'4': 'Closed',
 	// '5': 'ByDesign',
 	'6': 'Pending'
-}
+};
 
-const ThreadStatusOrder = ['1', '6', '2', '3', '4']
+const ThreadStatusOrder = ['1', '6', '2', '3', '4'];
 
 type CommentBoxProps = {
 	for: Partial<Comment>
@@ -245,9 +246,9 @@ export interface Embodied {
 
 const renderers = {
 	code: ({language, value}) => {
-	  return <SyntaxHighlighter style={dracula} language={language} showLineNumbers={true} wrapLongLines={true} children={value} />
+	  return <SyntaxHighlighter style={dracula} language={language} showLineNumbers={true} wrapLongLines={true} children={value} />;
 	}
-  }
+  };
 
 export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	if (!body && !bodyHTML) {
@@ -256,7 +257,7 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 
 	const { applyPatch } = useContext(PullRequestContext);
 	// const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
-	const renderedBody = <ReactMarkdown renderers={renderers} plugins={[gfm]} children={body} />
+	const renderedBody = <ReactMarkdown renderers={renderers} plugins={[gfm]} children={body} />;
 	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
 	const applyPatchButton = containsSuggestion
 		? <button onClick={() => applyPatch(comment)}>Apply Patch</button>
@@ -402,7 +403,7 @@ const COMMENT_METHODS = {
 	comment: 'Comment',
 	approve: 'Approve',
 	requestChanges: 'Request Changes'
-}
+};
 
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, comment } = useContext(PullRequestContext);
@@ -425,7 +426,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 
 	const onChangeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
 		updatePR({ pendingCommentText: e.target.value });
-	}
+	};
 
 	const availableActions = pr.isAuthor
 		? { comment: 'Comment' }
@@ -439,4 +440,4 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			value={pr.pendingCommentText}
 			onChange={onChangeTextarea} />
 		<Dropdown options={availableActions} defaultOption='comment' submitAction={submitAction} /></span>;
-}
+};

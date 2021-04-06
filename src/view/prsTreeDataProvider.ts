@@ -4,21 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode } from './treeNodes/treeNode';
-import { PRCategoryActionNode, CategoryTreeNode, PRCategoryActionType } from './treeNodes/categoryNode';
-import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { REMOTES_SETTING, ReposManagerState } from '../azdo/folderRepositoryManager';
-import { ITelemetry } from '../common/telemetry';
-import { DecorationProvider } from './treeDecorationProvider';
-import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 import { RepositoriesManager } from '../azdo/repositoriesManager';
+import { ITelemetry } from '../common/telemetry';
 import { SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../constants';
+import { getInMemPRContentProvider } from './inMemPRContentProvider';
+import { DecorationProvider } from './treeDecorationProvider';
+import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
+import { TreeNode } from './treeNodes/treeNode';
+import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
-	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
+	get onDidChange(): vscode.Event<vscode.Uri> {
+		return this._onDidChange.event;
+	}
 	private _disposables: vscode.Disposable[];
 	private _childrenDisposables: vscode.Disposable[];
 	private _view: vscode.TreeView<TreeNode>;
@@ -29,54 +31,69 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return this._view;
 	}
 
-	constructor(
-		private _telemetry: ITelemetry
-	) {
+	constructor(private _telemetry: ITelemetry) {
 		this._disposables = [];
-		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider(URI_SCHEME_PR, getInMemPRContentProvider()));
+		this._disposables.push(
+			vscode.workspace.registerTextDocumentContentProvider(URI_SCHEME_PR, getInMemPRContentProvider()),
+		);
 		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
-		this._disposables.push(vscode.commands.registerCommand('azdopr.refreshList', _ => {
-			this._onDidChangeTreeData.fire();
-		}));
+		this._disposables.push(
+			vscode.commands.registerCommand('azdopr.refreshList', _ => {
+				this._onDidChangeTreeData.fire();
+			}),
+		);
 
-		this._disposables.push(vscode.commands.registerCommand('azdopr.loadMore', (node: CategoryTreeNode) => {
-			node.fetchNextPage = true;
-			this._onDidChangeTreeData.fire(node);
-		}));
+		this._disposables.push(
+			vscode.commands.registerCommand('azdopr.loadMore', (node: CategoryTreeNode) => {
+				node.fetchNextPage = true;
+				this._onDidChangeTreeData.fire(node);
+			}),
+		);
 
 		this._view = vscode.window.createTreeView('azdopr:azdo', {
 			treeDataProvider: this,
-			showCollapseAll: true
+			showCollapseAll: true,
 		});
 
 		this._disposables.push(this._view);
 		this._childrenDisposables = [];
 
-		this._disposables.push(vscode.commands.registerCommand('azdopr.configurePRViewlet', async () => {
-			const isLoggedIn = this._reposManager.state === ReposManagerState.RepositoriesLoaded;
-			const configuration = await vscode.window.showQuickPick(['Configure Project Name...', 'Configure Organization URL...', ...isLoggedIn ? ['Sign out of Azure Devops...'] : []]);
+		this._disposables.push(
+			vscode.commands.registerCommand('azdopr.configurePRViewlet', async () => {
+				const isLoggedIn = this._reposManager.state === ReposManagerState.RepositoriesLoaded;
+				const configuration = await vscode.window.showQuickPick([
+					'Configure Project Name...',
+					'Configure Organization URL...',
+					...(isLoggedIn ? ['Sign out of Azure Devops...'] : []),
+				]);
 
-			const { name, publisher } = require('../../package.json') as { name: string, publisher: string };
-			const extensionId = `${publisher}.${name}`;
+				// eslint-disable-next-line @typescript-eslint/no-var-requires
+				const { name, publisher } = require('../../package.json') as { name: string; publisher: string };
+				const extensionId = `${publisher}.${name}`;
 
-			switch (configuration) {
-				case 'Configure Project Name...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} projectName`);
-				case 'Configure Organization URL...':
-					return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} orgUrl`);
-				case 'Sign out of Azure Devops...':
-					return vscode.commands.executeCommand('azdopr.signout');
-				default:
-					return;
-			}
-		}));
+				switch (configuration) {
+					case 'Configure Project Name...':
+						return vscode.commands.executeCommand(
+							'workbench.action.openSettings',
+							`@ext:${extensionId} projectName`,
+						);
+					case 'Configure Organization URL...':
+						return vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${extensionId} orgUrl`);
+					case 'Sign out of Azure Devops...':
+						return vscode.commands.executeCommand('azdopr.signout');
+					default:
+						return;
+				}
+			}),
+		);
 
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
-				this._onDidChangeTreeData.fire();
-			}
-		}));
-
+		this._disposables.push(
+			vscode.workspace.onDidChangeConfiguration(e => {
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
+					this._onDidChangeTreeData.fire();
+				}
+			}),
+		);
 	}
 
 	initialize(reposManager: RepositoriesManager) {
@@ -86,14 +103,18 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._initialized = true;
 		this._reposManager = reposManager;
-		this._disposables.push(this._reposManager.onDidChangeState(() => {
-			this._onDidChangeTreeData.fire();
-		}));
-		this._disposables.push(...this._reposManager.folderManagers.map(manager => {
-			return manager.onDidChangeRepositories(() => {
+		this._disposables.push(
+			this._reposManager.onDidChangeState(() => {
 				this._onDidChangeTreeData.fire();
-			});
-		}));
+			}),
+		);
+		this._disposables.push(
+			...this._reposManager.folderManagers.map(manager => {
+				return manager.onDidChangeRepositories(() => {
+					this._onDidChangeTreeData.fire();
+				});
+			}),
+		);
 
 		this.refresh();
 	}
@@ -115,7 +136,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		if (remotesSetting) {
 			return Promise.resolve([
 				new PRCategoryActionNode(this._view, PRCategoryActionType.NoMatchingRemotes),
-				new PRCategoryActionNode(this._view, PRCategoryActionType.ConfigureRemotes)
+				new PRCategoryActionNode(this._view, PRCategoryActionType.ConfigureRemotes),
 			]);
 		}
 
@@ -146,9 +167,16 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 			let result: TreeNode[];
 			if (this._reposManager.folderManagers.length === 1) {
-				return WorkspaceFolderNode.getCategoryTreeNodes(this._reposManager.folderManagers[0], this._telemetry, this._view);
+				return WorkspaceFolderNode.getCategoryTreeNodes(
+					this._reposManager.folderManagers[0],
+					this._telemetry,
+					this._view,
+				);
 			} else {
-				result = this._reposManager.folderManagers.map(folderManager => new WorkspaceFolderNode(this._view, folderManager.repository.rootUri, folderManager, this._telemetry));
+				result = this._reposManager.folderManagers.map(
+					folderManager =>
+						new WorkspaceFolderNode(this._view, folderManager.repository.rootUri, folderManager, this._telemetry),
+				);
 			}
 
 			this._childrenDisposables = result;
@@ -169,5 +197,4 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	dispose() {
 		this._disposables.forEach(dispose => dispose.dispose());
 	}
-
 }

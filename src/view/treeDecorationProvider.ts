@@ -18,9 +18,11 @@ class TreeDecorationProvider implements vscode.FileDecorationProvider {
 		}
 	}
 
-	_onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
+	_onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<
+		vscode.Uri | vscode.Uri[]
+	>();
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
-	provideFileDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.FileDecoration> {
+	provideFileDecoration(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.FileDecoration> {
 		const query = fromFileChangeNodeUri(uri);
 		if (query) {
 			const key = `${query.prNumber}:${query.fileName}`;
@@ -28,7 +30,7 @@ class TreeDecorationProvider implements vscode.FileDecorationProvider {
 				return {
 					propagate: false,
 					tooltip: 'Commented',
-					badge: '◆'
+					badge: '◆',
 				};
 			}
 		}

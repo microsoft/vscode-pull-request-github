@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffLine, DiffHunk, parseDiffHunk, DiffChangeType } from './diffHunk';
 import { IComment } from './comment';
+import { DiffChangeType, DiffHunk, DiffLine, parseDiffHunk } from './diffHunk';
 
 /**
  * Line position in a git diff is 1 based, except for the case when the original or changed file have
@@ -76,7 +76,12 @@ export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: num
 	return undefined;
 }
 
-export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: string, line: number, isBase: boolean = false): number {
+export function mapHeadLineToDiffHunkPosition(
+	diffHunks: DiffHunk[],
+	localDiff: string,
+	line: number,
+	isBase: boolean = false,
+): number {
 	const localDiffReader = parseDiffHunk(localDiff);
 	let localDiffIter = localDiffReader.next();
 	let lineInPRDiff = line;
@@ -123,6 +128,7 @@ export function mapOldPositionToNew(patch: string, line: number): number {
 
 		if (diffHunk.oldLineNumber > line) {
 			// No-op
+			// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
 		} else if (diffHunk.oldLineNumber + diffHunk.oldLength - 1 < line) {
 			delta += diffHunk.newLength - diffHunk.oldLength;
 		} else {

@@ -3,14 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
-import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { TreeNode } from './treeNodes/treeNode';
 import { FolderRepositoryManager } from '../azdo/folderRepositoryManager';
 import { PullRequestModel } from '../azdo/pullRequestModel';
-import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
-import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { SETTINGS_NAMESPACE } from '../constants';
+import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
+import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
+import { TreeNode } from './treeNodes/treeNode';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
@@ -28,31 +28,40 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		super(() => this.dispose());
 		this._view = vscode.window.createTreeView('azdoprStatus:azdo', {
 			treeDataProvider: this,
-			showCollapseAll: true
+			showCollapseAll: true,
 		});
 		this._context.subscriptions.push(this._view);
 
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
-				this._onDidChangeTreeData.fire();
-				const layout = vscode.workspace.getConfiguration(`${SETTINGS_NAMESPACE}`).get<string>('fileListLayout');
-				await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
-			}
-		}));
+		this._disposables.push(
+			vscode.workspace.onDidChangeConfiguration(async e => {
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
+					this._onDidChangeTreeData.fire();
+					const layout = vscode.workspace.getConfiguration(`${SETTINGS_NAMESPACE}`).get<string>('fileListLayout');
+					await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
+				}
+			}),
+		);
 	}
 
 	refresh() {
 		this._onDidChangeTreeData.fire();
 	}
 
-	async addPrToView(pullRequestManager: FolderRepositoryManager, pullRequest: PullRequestModel, localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], comments: GitPullRequestCommentThread[]) {
-		const node: RepositoryChangesNode = new RepositoryChangesNode(this._view, pullRequest, pullRequestManager, comments, localFileChanges);
-		this._pullRequestManagerMap.set(pullRequestManager, node);
-		await vscode.commands.executeCommand(
-			'setContext',
-			'azdo:inReviewMode',
-			true
+	async addPrToView(
+		pullRequestManager: FolderRepositoryManager,
+		pullRequest: PullRequestModel,
+		localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+		comments: GitPullRequestCommentThread[],
+	) {
+		const node: RepositoryChangesNode = new RepositoryChangesNode(
+			this._view,
+			pullRequest,
+			pullRequestManager,
+			comments,
+			localFileChanges,
 		);
+		this._pullRequestManagerMap.set(pullRequestManager, node);
+		await vscode.commands.executeCommand('setContext', 'azdo:inReviewMode', true);
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -65,11 +74,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	}
 
 	async hide() {
-		await vscode.commands.executeCommand(
-			'setContext',
-			'azdo:inReviewMode',
-			false
-		);
+		await vscode.commands.executeCommand('setContext', 'azdo:inReviewMode', false);
 	}
 
 	getTreeItem(element: TreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -80,7 +85,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		return element.getParent();
 	}
 
-	async reveal(element: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Promise<void> {
+	async reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Promise<void> {
 		this._view.reveal(element, options);
 	}
 

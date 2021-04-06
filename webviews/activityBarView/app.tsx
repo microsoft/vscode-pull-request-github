@@ -3,12 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
-import { Overview } from './overview';
-import PullRequestContext from '../common/context';
 import { PullRequest } from '../common/cache';
+import PullRequestContext from '../common/context';
+import { Overview } from './overview';
 
 export function main() {
 	render(

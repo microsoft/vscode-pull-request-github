@@ -5,9 +5,9 @@
 
 import * as vscode from 'vscode';
 import { API } from '../api/api';
-import { LiveShareManager } from './vsls';
 import { CredentialStore } from '../azdo/credentials';
 import { BuiltinGitProvider } from './builtinGit';
+import { LiveShareManager } from './vsls';
 
 export function registerLiveShareGitProvider(apiImpl: API): LiveShareManager {
 	const liveShareManager = new LiveShareManager(apiImpl);

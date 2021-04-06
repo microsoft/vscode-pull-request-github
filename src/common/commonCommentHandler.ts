@@ -3,32 +3,33 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
-import { GitPullRequestCommentThread, Comment, CommentThreadStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Comment, CommentThreadStatus, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from '../azdo/folderRepositoryManager';
-import { GHPRCommentThread, GHPRComment, TemporaryComment } from '../azdo/prComment';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../azdo/prComment';
 import { PullRequestModel } from '../azdo/pullRequestModel';
 import { getCommentThreadStatusKeys, updateCommentThreadLabel } from '../azdo/utils';
 import { URI_SCHEME_PR, URI_SCHEME_REVIEW } from '../constants';
-import { GitFileChangeNode, gitFileChangeNodeFilter, InMemFileChangeNode, RemoteFileChangeNode } from '../view/treeNodes/fileChangeNode';
+import {
+	GitFileChangeNode,
+	gitFileChangeNodeFilter,
+	InMemFileChangeNode,
+	RemoteFileChangeNode,
+} from '../view/treeNodes/fileChangeNode';
 import { getCommentingRanges } from './commentingRanges';
 import Logger from './logger';
 import { fromPRUri, fromReviewUri } from './uri';
 
 export class CommonCommentHandler {
-	constructor(
-		public pullRequestModel: PullRequestModel,
-		private _folderReposManager: FolderRepositoryManager
-	) {
-	}
+	constructor(public pullRequestModel: PullRequestModel, private _folderReposManager: FolderRepositoryManager) {}
 
 	public async createOrReplyComment(
 		thread: GHPRCommentThread,
 		input: string,
 		inDraft: boolean,
 		getFileChanges: (isOutdated: boolean) => Promise<(InMemFileChangeNode | RemoteFileChangeNode | GitFileChangeNode)[]>,
-		addCommentToCache: (thread: GHPRCommentThread, fileName: string) => Promise<void>): Promise<GitPullRequestCommentThread | undefined> {
-
+		addCommentToCache: (thread: GHPRCommentThread, fileName: string) => Promise<void>,
+	): Promise<GitPullRequestCommentThread | undefined> {
 		const hasExistingComments = thread.comments.length;
 		const isDraft = inDraft !== undefined ? inDraft : this.pullRequestModel.hasPendingReview;
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
@@ -40,7 +41,7 @@ export class CommonCommentHandler {
 			let rawComment: Comment | undefined;
 			if (!hasExistingComments) {
 				rawThread = (await this.createNewThread(thread, input, fileChange))!;
-				thread.threadId = rawThread?.id!;
+				thread.threadId = rawThread?.id;
 				thread.rawThread = rawThread!;
 				addCommentToCache(thread, fileChange.fileName);
 				updateCommentThreadLabel(thread);
@@ -71,12 +72,16 @@ export class CommonCommentHandler {
 	public async editComment(
 		thread: GHPRCommentThread,
 		comment: GHPRComment,
-		getFileChanges: (isOutdated: boolean) => Promise<(InMemFileChangeNode | RemoteFileChangeNode | GitFileChangeNode)[]>): Promise<Comment | undefined> {
-
+		getFileChanges: (isOutdated: boolean) => Promise<(InMemFileChangeNode | RemoteFileChangeNode | GitFileChangeNode)[]>,
+	): Promise<Comment | undefined> {
 		const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
 		try {
 			const fileChange = await this.findMatchingFileNode(thread.uri, getFileChanges);
-			const rawComment = await this.pullRequestModel.editThread(comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, thread.threadId, parseInt(comment.commentId));
+			const rawComment = await this.pullRequestModel.editThread(
+				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+				thread.threadId,
+				parseInt(comment.commentId),
+			);
 
 			const index = fileChange.comments.findIndex(c => c.id?.toString() === comment.commentId);
 			if (index > -1) {
@@ -90,7 +95,11 @@ export class CommonCommentHandler {
 
 			thread.comments = thread.comments.map(c => {
 				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-					return new GHPRComment(comment._rawComment, this.pullRequestModel.getCommentPermission(comment._rawComment), thread);
+					return new GHPRComment(
+						comment._rawComment,
+						this.pullRequestModel.getCommentPermission(comment._rawComment),
+						thread,
+					);
 				}
 
 				return c;
@@ -102,22 +111,35 @@ export class CommonCommentHandler {
 		try {
 			const allKeys = getCommentThreadStatusKeys();
 
-			const selectedStatus = await vscode.window.showQuickPick(allKeys.filter(f => f !== CommentThreadStatus[thread?.rawThread?.status ?? 0]), {
-				canPickMany: false,
-				ignoreFocusOut: true
-			});
+			const selectedStatus = await vscode.window.showQuickPick(
+				allKeys.filter(f => f !== CommentThreadStatus[thread?.rawThread?.status ?? 0]),
+				{
+					canPickMany: false,
+					ignoreFocusOut: true,
+				},
+			);
 
 			if (!selectedStatus) {
 				return;
 			}
 
-			const newThread = await vscode.window.withProgress({
-				location: vscode.ProgressLocation.Notification,
-				cancellable: false
-			}, async (progress, token) => {
-				progress.report({ message: `Updating thread status from "${CommentThreadStatus[thread.rawThread.status ?? 0]}" to "${selectedStatus}"` });
-				return await this.pullRequestModel.updateThreadStatus(thread.rawThread.id!, CommentThreadStatus[selectedStatus as keyof typeof CommentThreadStatus]);
-			});
+			const newThread = await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					cancellable: false,
+				},
+				async (progress, _token) => {
+					progress.report({
+						message: `Updating thread status from "${
+							CommentThreadStatus[thread.rawThread.status ?? 0]
+						}" to "${selectedStatus}"`,
+					});
+					return await this.pullRequestModel.updateThreadStatus(
+						thread.rawThread.id!,
+						CommentThreadStatus[selectedStatus as keyof typeof CommentThreadStatus],
+					);
+				},
+			);
 
 			// const newThread = await this.pullRequestModel.updateThreadStatus(thread.rawThread.id!, CommentThreadStatus[selectedStatus as keyof typeof CommentThreadStatus]);
 			thread.rawThread = newThread!;
@@ -137,7 +159,13 @@ export class CommonCommentHandler {
 
 	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
 		const currentUser = this._folderReposManager.getCurrentUser();
-		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment);
+		const temporaryComment = new TemporaryComment(
+			thread,
+			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+			!!comment.label,
+			currentUser,
+			comment,
+		);
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof GHPRComment && c.commentId === comment.commentId) {
 				return temporaryComment;
@@ -154,8 +182,10 @@ export class CommonCommentHandler {
 		updateCommentThreadLabel(thread);
 	}
 
-	private async findMatchingFileNode(uri: vscode.Uri, getFileChanges: (isOutdated: boolean) => Promise<(InMemFileChangeNode | RemoteFileChangeNode | GitFileChangeNode)[]>)
-		: Promise<GitFileChangeNode | InMemFileChangeNode> {
+	private async findMatchingFileNode(
+		uri: vscode.Uri,
+		getFileChanges: (isOutdated: boolean) => Promise<(InMemFileChangeNode | RemoteFileChangeNode | GitFileChangeNode)[]>,
+	): Promise<GitFileChangeNode | InMemFileChangeNode> {
 		let fileName: string;
 		let isOutdated = false;
 		if (uri.scheme === URI_SCHEME_REVIEW) {
@@ -170,13 +200,15 @@ export class CommonCommentHandler {
 
 		const fileChangesToSearch = await getFileChanges(isOutdated);
 
-		const matchedFile = (uri.scheme === URI_SCHEME_REVIEW ? gitFileChangeNodeFilter(fileChangesToSearch) : fileChangesToSearch)
-			.find(fileChange => {
-				if (uri.scheme === URI_SCHEME_REVIEW || uri.scheme === URI_SCHEME_PR) {
-					return fileChange.fileName === fileName;
-				} else {
-					return fileChange.filePath.path === uri.path;
-				}
+		const matchedFile = (uri.scheme === URI_SCHEME_REVIEW
+			? gitFileChangeNodeFilter(fileChangesToSearch)
+			: fileChangesToSearch
+		).find(fileChange => {
+			if (uri.scheme === URI_SCHEME_REVIEW || uri.scheme === URI_SCHEME_PR) {
+				return fileChange.fileName === fileName;
+			} else {
+				return fileChange.filePath.path === uri.path;
+			}
 		});
 
 		if (!matchedFile) {
@@ -190,12 +222,16 @@ export class CommonCommentHandler {
 		return matchedFile;
 	}
 
-	private async createNewThread(thread: GHPRCommentThread, input: string, fileChange: InMemFileChangeNode | GitFileChangeNode): Promise<GitPullRequestCommentThread | undefined> {
+	private async createNewThread(
+		thread: GHPRCommentThread,
+		input: string,
+		fileChange: InMemFileChangeNode | GitFileChangeNode,
+	): Promise<GitPullRequestCommentThread | undefined> {
 		const rawComment = await this.pullRequestModel.createThread(input, {
 			filePath: fileChange.fileName,
 			line: thread.range.start.line + 1,
 			endOffset: 0,
-			startOffset: 0
+			startOffset: 0,
 		});
 
 		return rawComment;
@@ -214,14 +250,18 @@ export class CommonCommentHandler {
 	public replaceTemporaryComment(thread: GHPRCommentThread, realComment: Comment, temporaryCommentId: number): void {
 		thread.comments = thread.comments.map(c => {
 			if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-				return new GHPRComment(realComment, this.pullRequestModel.getCommentPermission(realComment),thread);
+				return new GHPRComment(realComment, this.pullRequestModel.getCommentPermission(realComment), thread);
 			}
 
 			return c;
 		});
 	}
 
-	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken, getFileChanges: () => Promise<(RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[]>): Promise<vscode.Range[] | undefined>  {
+	async provideCommentingRanges(
+		document: vscode.TextDocument,
+		token: vscode.CancellationToken,
+		getFileChanges: () => Promise<(RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode)[]>,
+	): Promise<vscode.Range[] | undefined> {
 		if (document.uri.scheme === URI_SCHEME_PR) {
 			const params = fromPRUri(document.uri);
 
@@ -239,5 +279,4 @@ export class CommonCommentHandler {
 			return range;
 		}
 	}
-
 }

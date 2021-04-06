@@ -9,7 +9,9 @@ import { fromPRUri } from '../common/uri';
 
 export class InMemPRContentProvider implements vscode.TextDocumentContentProvider {
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
-	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
+	get onDidChange(): vscode.Event<vscode.Uri> {
+		return this._onDidChange.event;
+	}
 
 	fireDidChange(uri: vscode.Uri) {
 		this._onDidChange.fire(uri);
@@ -17,9 +19,9 @@ export class InMemPRContentProvider implements vscode.TextDocumentContentProvide
 
 	private _prFileChangeContentProviders: { [key: number]: (uri: vscode.Uri) => Promise<string> } = {};
 
-	constructor() { }
+	constructor() {}
 
-	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
+	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
 		const prUriParams = fromPRUri(uri);
 		if (prUriParams && prUriParams.prNumber) {
 			const provider = this._prFileChangeContentProviders[prUriParams.prNumber];
@@ -38,7 +40,7 @@ export class InMemPRContentProvider implements vscode.TextDocumentContentProvide
 		return {
 			dispose: () => {
 				delete this._prFileChangeContentProviders[prNumber];
-			}
+			},
 		};
 	}
 }

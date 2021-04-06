@@ -3,18 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { TreeNode } from './treeNode';
-import { GitFileChangeNode } from './fileChangeNode';
-import { toReviewUri } from '../../common/uri';
-import { getGitChangeTypeFromVersionControlChangeType } from '../../common/diffHunk';
+import { GitCommitRef, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import * as vscode from 'vscode';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { GitCommitRef, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { getGitChangeTypeFromVersionControlChangeType } from '../../common/diffHunk';
+import { toReviewUri } from '../../common/uri';
+import { GitFileChangeNode } from './fileChangeNode';
+import { TreeNode } from './treeNode';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public sha: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath: vscode.Uri | undefined;
@@ -25,7 +24,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: GitCommitRef,
-		private readonly comments: GitPullRequestCommentThread[]
+		private readonly comments: GitPullRequestCommentThread[],
 	) {
 		super();
 		this.label = commit.comment ?? '';
@@ -42,7 +41,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 		this.iconPath = userIconUri;
 		this.contextValue = 'commit';
-		// tslint:disable-next-line: no-unused-expression
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		this.comments;
 	}
 
@@ -65,19 +64,33 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				getGitChangeTypeFromVersionControlChangeType(change.changeType!),
 				fileName,
 				undefined,
-				toReviewUri(uri, fileName, undefined, this.commit.commitId!, true, { base: false }, this.pullRequestManager.repository.rootUri),
-				toReviewUri(uri, parentFileName, undefined, this.commit.commitId!, true, { base: true }, this.pullRequestManager.repository.rootUri),
+				toReviewUri(
+					uri,
+					fileName,
+					undefined,
+					this.commit.commitId!,
+					true,
+					{ base: false },
+					this.pullRequestManager.repository.rootUri,
+				),
+				toReviewUri(
+					uri,
+					parentFileName,
+					undefined,
+					this.commit.commitId!,
+					true,
+					{ base: true },
+					this.pullRequestManager.repository.rootUri,
+				),
 				[],
 				[], //matchingComments,
-				this.commit.commitId
+				this.commit.commitId,
 			);
 
 			fileChangeNode.command = {
 				title: 'View Changes',
 				command: 'azdopr.viewChanges',
-				arguments: [
-					fileChangeNode
-				]
+				arguments: [fileChangeNode],
 			};
 
 			return fileChangeNode;
@@ -85,5 +98,4 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 		return Promise.resolve(fileChangeNodes);
 	}
-
 }

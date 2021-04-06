@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { API, IGit, Repository } from './api';
-import { TernarySearchTree } from '../common/utils';
 import { APIState } from '../@types/git';
+import { TernarySearchTree } from '../common/utils';
+import { API, IGit, Repository } from './api';
 
 export class GitApiImpl implements API, IGit, vscode.Disposable {
 	private static _handlePool: number = 0;
@@ -70,7 +70,7 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 					});
 				}
 				this._providers.delete(handler);
-			}
+			},
 		};
 	}
 

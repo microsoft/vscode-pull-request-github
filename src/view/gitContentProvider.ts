@@ -4,21 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as vscode from 'vscode';
 import * as pathLib from 'path';
-import { fromReviewUri } from '../common/uri';
-import { getRepositoryForFile } from '../azdo/utils';
+import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
+import { getRepositoryForFile } from '../azdo/utils';
+import { fromReviewUri } from '../common/uri';
 
 export class GitContentProvider implements vscode.TextDocumentContentProvider {
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
-	get onDidChange(): vscode.Event<vscode.Uri> { return this._onDidChange.event; }
+	get onDidChange(): vscode.Event<vscode.Uri> {
+		return this._onDidChange.event;
+	}
 
-	private _fallback?: ((uri: vscode.Uri) => Promise<string>);
+	private _fallback?: (uri: vscode.Uri) => Promise<string>;
 
-	constructor(private gitAPI: GitApiImpl) { }
+	constructor(private gitAPI: GitApiImpl) {}
 
-	async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
+	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
 		if (!this._fallback) {
 			return '';
 		}
@@ -51,7 +53,9 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 				try {
 					await repository.getCommit(commit);
 				} catch (err) {
-					vscode.window.showErrorMessage(`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`);
+					vscode.window.showErrorMessage(
+						`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`,
+					);
 				}
 			}
 		}

@@ -4,17 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { SETTINGS_NAMESPACE } from '../../constants';
+import { DirectoryTreeNode } from './directoryTreeNode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode } from './treeNode';
-import { DirectoryTreeNode } from './directoryTreeNode';
-import { SETTINGS_NAMESPACE } from '../../constants';
 
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Files';
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private directories: TreeNode[] = [];
 
-	constructor(public parent: TreeNode | vscode.TreeView<TreeNode>, private _fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
+	constructor(
+		public parent: TreeNode | vscode.TreeView<TreeNode>,
+		private _fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+	) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 

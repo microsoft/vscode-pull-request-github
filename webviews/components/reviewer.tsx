@@ -5,13 +5,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React = require('react');
+import { cloneElement, useContext, useState } from 'react';
 import { PullRequestVote, ReviewState } from '../../src/azdo/interface';
 import PullRequestContext from '../common/context';
-import { nbsp } from './space';
-import { cloneElement, useContext, useState } from 'react';
-import { Avatar, AuthorLink } from './user';
-import { pendingIcon, checkIcon, deleteIcon } from './icon';
+import { checkIcon, deleteIcon, pendingIcon } from './icon';
 import { VoteText } from './sidebar';
+import { nbsp } from './space';
+import { AuthorLink, Avatar } from './user';
 
 export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 	const { reviewer, state, canDelete } = reviewState;
