@@ -90,8 +90,11 @@ export class UserEntitlementApi extends basem.ClientApiBase implements IUserEnti
 	}
 }
 
-export const getEntitlementApi = async (webApi: WebApi, serverUrl?: string, handlers?: VsoBaseInterfaces.IRequestHandler[]): Promise<IUserEntitlementApi> => {
+export const getEntitlementApi = async (webApi: WebApi, serverUrl?: string, handlers?: VsoBaseInterfaces.IRequestHandler[]): Promise<IUserEntitlementApi | undefined> => {
 	// TODO: Load RESOURCE_AREA_ID correctly.
+	if (!webApi) {
+		return undefined;
+	}
 	serverUrl = await (webApi as any)._getResourceAreaUrl(serverUrl || webApi.serverUrl, '68ddce18-2501-45f1-a17b-7931a9922690');
 	handlers = handlers || [webApi.authHandler];
 	return new UserEntitlementApi(serverUrl!, handlers, webApi.options);
