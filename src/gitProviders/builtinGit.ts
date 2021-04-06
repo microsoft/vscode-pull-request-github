@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { IGit, Repository } from '../api/api';
-import { GitAPI, GitExtension, APIState } from '../typings/git';
+import { GitAPI, GitExtension, APIState } from '../@types/git';
 
 export class BuiltinGitProvider implements IGit, vscode.Disposable {
 	get repositories(): Repository[] {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Event, Disposable } from 'vscode';
-import { APIState } from '../typings/git';
+import { APIState } from '../@types/git';
 
 export interface InputBox {
 	value: string;

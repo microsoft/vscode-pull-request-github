@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { API, IGit, Repository } from './api';
 import { TernarySearchTree } from '../common/utils';
-import { APIState } from '../typings/git';
+import { APIState } from '../@types/git';
 
 export class GitApiImpl implements API, IGit, vscode.Disposable {
 	private static _handlePool: number = 0;
