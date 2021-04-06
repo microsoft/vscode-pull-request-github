@@ -8,8 +8,8 @@
 			"script": "build",
 			"group": "build",
 			"problemMatcher": [
-				"$ts-checker5-webpack",
-				"$ts-checker5-eslint-webpack"
+				"$ts-checker-webpack",
+				"$ts-checker-eslint-webpack"
 			]
 		},
 		{
@@ -29,8 +29,8 @@
 			},
 			"isBackground": true,
 			"problemMatcher": [
-				"$ts-checker5-webpack-watch",
-				"$ts-checker5-eslint-webpack-watch"
+				"$ts-checker-webpack-watch",
+				"$ts-checker-eslint-webpack-watch"
 			]
 		}
 	]

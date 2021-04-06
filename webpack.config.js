@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------
-*  Copyright (c) Microsoft Corporation. All rights reserved.
-*  Licensed under the MIT License. See License.txt in the project root for license information.
-*--------------------------------------------------------------------------------------------*/
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-var-requires */
@@ -12,20 +12,25 @@
 
 const execFile = require('child_process').execFile;
 const path = require('path');
-const { ESBuildPlugin, ESBuildMinifyPlugin } = require('esbuild-loader');
+const { ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
-		execFile('yarn', ['tsc', `-p ${configFile}`, '--showConfig'], { cwd: __dirname, encoding: 'utf8', shell: true }, function (error, stdout, stderr) {
-			if (error != null) {
-				reject(error);
-			}
+		execFile(
+			'yarn',
+			['tsc', `-p ${configFile}`, '--showConfig'],
+			{ cwd: __dirname, encoding: 'utf8', shell: true },
+			function (error, stdout, stderr) {
+				if (error != null) {
+					reject(error);
+				}
 
-			resolve(stdout);
-		});
+				resolve(stdout);
+			},
+		);
 	});
 
 	const index = data.indexOf('\n');
@@ -60,10 +65,6 @@ async function getWebviewConfig(mode, env, entry) {
 		}),
 	];
 
-	if (env.esbuild) {
-		plugins.push(new ESBuildPlugin());
-	}
-
 	return {
 		name: 'webviews',
 		entry: entry,
@@ -72,7 +73,7 @@ async function getWebviewConfig(mode, env, entry) {
 		devtool: mode !== 'production' ? 'source-map' : undefined,
 		output: {
 			filename: '[name].js',
-			path: path.resolve(__dirname, 'dist')
+			path: path.resolve(__dirname, 'dist'),
 		},
 		optimization: {
 			minimizer: [
@@ -94,7 +95,7 @@ async function getWebviewConfig(mode, env, entry) {
 							keep_classnames: /^AbortSignal$/,
 							module: true,
 						},
-					})
+					}),
 			],
 		},
 		module: {
@@ -123,13 +124,13 @@ async function getWebviewConfig(mode, env, entry) {
 				},
 				{
 					test: /\.css/,
-					use: ['style-loader', 'css-loader']
+					use: ['style-loader', 'css-loader'],
 				},
 				{
 					test: /\.svg/,
-					use: ['svg-inline-loader']
-				}
-			]
+					use: ['svg-inline-loader'],
+				},
+			],
 		},
 		resolve: {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json', '.svg'],
@@ -159,7 +160,13 @@ async function getExtensionConfig(target, mode, env) {
 			eslint: {
 				enabled: true,
 				files: path.join(basePath, '**', '*.ts'),
-				options: { cache: true, configFile: path.join(__dirname, target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.node.json') }
+				options: {
+					cache: true,
+					configFile: path.join(
+						__dirname,
+						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.node.json',
+					),
+				},
 			},
 			formatter: 'basic',
 			typescript: {
@@ -167,10 +174,6 @@ async function getExtensionConfig(target, mode, env) {
 			},
 		}),
 	];
-
-	if (env.esbuild) {
-		plugins.push(new ESBuildPlugin());
-	}
 
 	return {
 		name: `extension:${target}`,
@@ -207,7 +210,7 @@ async function getExtensionConfig(target, mode, env) {
 							// keep_classnames: true,
 							module: true,
 						},
-					})
+					}),
 			],
 		},
 		module: {
@@ -222,13 +225,21 @@ async function getExtensionConfig(target, mode, env) {
 							options: {
 								loader: 'ts',
 								target: 'es2019',
-								tsconfigRaw: await resolveTSConfig(path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json')),
+								tsconfigRaw: await resolveTSConfig(
+									path.join(
+										__dirname,
+										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
+									),
+								),
 							},
 						}
 						: {
 							loader: 'ts-loader',
 							options: {
-								configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
+								configFile: path.join(
+									__dirname,
+									target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
+								),
 								experimentalWatchApi: true,
 								transpileOnly: true,
 							},
@@ -255,28 +266,49 @@ async function getExtensionConfig(target, mode, env) {
 				// 	test: /webview-*\.js/,
 				// 	use: 'raw-loader'
 				// },
-			]
+			],
 		},
 		resolve: {
-			alias: target === 'webworker'
-				? {
-					'universal-user-agent': path.join(__dirname, 'node_modules', 'universal-user-agent', 'dist-web', 'index.js'),
-					'node-fetch': 'cross-fetch',
-					'vscode-extension-telemetry': path.resolve(__dirname, 'src', 'env', 'browser', 'vscode-extension-telemetry.js'),
-					'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
-					'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
-					'./env/node/gitProviders/api': path.resolve(__dirname, 'src', 'env', 'browser', 'gitProviders', 'api')
-				}
-				: undefined,
+			alias:
+				target === 'webworker'
+					? {
+						'universal-user-agent': path.join(
+							__dirname,
+							'node_modules',
+							'universal-user-agent',
+							'dist-web',
+							'index.js',
+						),
+						'node-fetch': 'cross-fetch',
+						'vscode-extension-telemetry': path.resolve(
+							__dirname,
+							'src',
+							'env',
+							'browser',
+							'vscode-extension-telemetry.js',
+						),
+						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
+						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
+						'./env/node/gitProviders/api': path.resolve(
+							__dirname,
+							'src',
+							'env',
+							'browser',
+							'gitProviders',
+							'api',
+						),
+					}
+					: undefined,
 			// : {
 			// 	'universal-user-agent': path.join(__dirname, 'node_modules', 'universal-user-agent', 'dist-node', 'index.js'),
 			// },
-			fallback: target === 'webworker'
-				? {
-					path: require.resolve('path-browserify'),
-					url: false,
-				}
-				: undefined,
+			fallback:
+				target === 'webworker'
+					? {
+						path: require.resolve('path-browserify'),
+						url: false,
+					}
+					: undefined,
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false,
 		},
@@ -321,7 +353,6 @@ module.exports =
 			getWebviewConfig(mode, env, {
 				'webview-pr-description': './webviews/editorWebview/index.ts',
 				'webview-open-pr-view': './webviews/activityBarView/index.ts',
-				'webview-create-pr-view': './webviews/createPullRequestView/index.ts'
 			}),
 		]);
 	};
