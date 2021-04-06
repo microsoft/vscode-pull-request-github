@@ -1,33 +1,11 @@
 {
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"module": "commonjs",
-		"target": "es6",
-		"outDir": "out",
-		"noUnusedLocals": true,
-		"lib": [
-			"dom",
-			"esnext.asynciterable",
-			"es6"
-		],
-		"sourceMap": true,
-		"rootDir": "./src",
-		"jsx": "react",
-		"typeRoots": [
-			"./node_modules/@types",
-			"./src/typings/"
-		],
-		"noImplicitAny": true,
-		"strictNullChecks": true,
-		"skipLibCheck": true,
-		"plugins": [
-			{ "transform": "ts-auto-mock/transformer" }
-		]
+		"tsBuildInfoFile": "tsconfig.tsbuildinfo"
 	},
-	"include": [
-		"src/**/*"
-	],
 	"exclude": [
 		"node_modules",
-		".vscode-test"
+		"src/test",
+		"webviews"
 	]
 }

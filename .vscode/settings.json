@@ -7,5 +7,9 @@
 		"**/node_modules/*/**": true,
 		"**/.vscode-test/**": true,
 		"**/.temp/**": true
-	  }
+	},
+	"files.associations": {
+		".eslintrc.json": "jsonc",
+		".eslintrc.*.json": "jsonc"
+	}
 }
