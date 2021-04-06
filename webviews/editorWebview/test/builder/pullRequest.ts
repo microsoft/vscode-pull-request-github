@@ -33,7 +33,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	reviewers: { default: [] },
 	isDraft: { default: false },
 	isIssue: { default: false },
-	commits: {default: []},
-	currentUser: {default: {}},
-	workItems: { default: []}
+	commits: { default: [] },
+	currentUser: { default: {} },
+	workItems: { default: [] },
 });

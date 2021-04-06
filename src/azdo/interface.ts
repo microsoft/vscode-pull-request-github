@@ -3,7 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Comment, GitPullRequest, GitPullRequestMergeStrategy, GitStatusState, VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import {
+	Comment,
+	GitPullRequest,
+	GitPullRequestMergeStrategy,
+	GitStatusState,
+	VersionControlChangeType,
+} from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { DiffHunk } from '../common/diffHunk';
 
 export enum PRType {
@@ -11,13 +17,13 @@ export enum PRType {
 	AllActive,
 	LocalPullRequest,
 	CreatedByMe,
-	AssignedToMe
+	AssignedToMe,
 }
 
 export enum ReviewEvent {
 	Approve = 'APPROVE',
 	RequestChanges = 'REQUEST_CHANGES',
-	Comment = 'COMMENT'
+	Comment = 'COMMENT',
 }
 
 export enum GithubItemStateEnum {
@@ -29,25 +35,25 @@ export enum GithubItemStateEnum {
 export enum PullRequestMergeability {
 	NotSet = 0,
 	/**
-     * Pull request merge is queued.
-     */
+	 * Pull request merge is queued.
+	 */
 	Queued = 1,
 	/**
-     * Pull request merge failed due to conflicts.
-     */
+	 * Pull request merge failed due to conflicts.
+	 */
 	Conflicts = 2,
 	/**
-     * Pull request merge succeeded.
-     */
+	 * Pull request merge succeeded.
+	 */
 	Succeeded = 3,
 	/**
-     * Pull request merge rejected by policy.
-     */
+	 * Pull request merge rejected by policy.
+	 */
 	RejectedByPolicy = 4,
 	/**
-     * Pull request merge failed.
-     */
-	Failure = 5
+	 * Pull request merge failed.
+	 */
+	Failure = 5,
 }
 
 export interface ReviewState {
@@ -127,7 +133,7 @@ export enum PullRequestVote {
 	WAITING_FOR_AUTHOR = -5,
 	REJECTED = -10,
 	APPROVED_WITH_SUGGESTION = 5,
-	APPROVED = 10
+	APPROVED = 10,
 }
 
 export interface PullRequest extends GitPullRequest {
@@ -165,7 +171,7 @@ export type MergeMethodsAvailability = {
 
 export type RepoAccessAndMergeMethods = {
 	hasWritePermission: boolean;
-	mergeMethodsAvailability: MergeMethodsAvailability
+	mergeMethodsAvailability: MergeMethodsAvailability;
 };
 
 export interface User extends IAccount {
@@ -209,6 +215,6 @@ export interface PullRequestCompletion {
 }
 
 export enum DiffBaseConfig {
-	head='head',
-	mergeBase='mergebase'
+	head = 'head',
+	mergeBase = 'mergebase',
 }

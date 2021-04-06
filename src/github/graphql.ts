@@ -113,7 +113,7 @@ export interface Commit {
 				login: string;
 				avatarUrl: string;
 				url: string;
-			}
+			};
 		};
 		committer: {
 			avatarUrl: string;
@@ -121,7 +121,7 @@ export interface Commit {
 		};
 		oid: string;
 		message: string;
-		authoredDate: Date
+		authoredDate: Date;
 	};
 
 	url: string;
@@ -166,8 +166,8 @@ export interface TimelineEventsResponse {
 		pullRequest: {
 			timelineItems: {
 				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
-			}
-		}
+			};
+		};
 	};
 	rateLimit: RateLimit;
 }
@@ -176,7 +176,7 @@ export interface PendingReviewIdResponse {
 	node: {
 		reviews: {
 			nodes: Review[];
-		}
+		};
 	};
 	rateLimit: RateLimit;
 }
@@ -187,7 +187,7 @@ export interface PullRequestState {
 			title: string;
 			number: number;
 			state: 'OPEN' | 'CLOSED' | 'MERGED';
-		}
+		};
 	};
 }
 
@@ -199,11 +199,11 @@ export interface PullRequestCommentsResponse {
 					{
 						comments: {
 							nodes: ReviewComment[];
-						}
-					}
-				]
-			}
-		}
+						};
+					},
+				];
+			};
+		};
 	};
 	rateLimit: RateLimit;
 }
@@ -222,7 +222,7 @@ export interface MentionableUsersResponse {
 				hasNextPage: boolean;
 				endCursor: string;
 			};
-		}
+		};
 	};
 	rateLimit: RateLimit;
 }
@@ -241,7 +241,7 @@ export interface AssignableUsersResponse {
 				hasNextPage: boolean;
 				endCursor: string;
 			};
-		}
+		};
 	};
 	rateLimit: RateLimit;
 }
@@ -255,8 +255,8 @@ export interface AddCommentResponse {
 export interface AddIssueCommentResponse {
 	addComment: {
 		commentEdge: {
-			node: IssueComment
-		}
+			node: IssueComment;
+		};
 	};
 }
 
@@ -275,7 +275,7 @@ export interface EditIssueCommentResponse {
 export interface MarkPullRequestReadyForReviewResponse {
 	markPullRequestReadyForReview: {
 		pullRequest: {
-			isDraft: boolean
+			isDraft: boolean;
 		};
 	};
 }
@@ -298,8 +298,8 @@ export interface DeleteReviewResponse {
 			databaseId: number;
 			comments: {
 				nodes: ReviewComment[];
-			}
-		}
+			};
+		};
 	};
 }
 
@@ -307,10 +307,10 @@ export interface AddReactionResponse {
 	addReaction: {
 		reaction: {
 			content: string;
-		}
+		};
 		subject: {
 			reactionGroups: ReactionGroup[];
-		}
+		};
 	};
 }
 
@@ -318,10 +318,10 @@ export interface DeleteReactionResponse {
 	removeReaction: {
 		reaction: {
 			content: string;
-		}
+		};
 		subject: {
 			reactionGroups: ReactionGroup[];
-		}
+		};
 	};
 }
 
@@ -340,7 +340,7 @@ export interface Ref {
 	repository: {
 		owner: {
 			login: string;
-		}
+		};
 		url: string;
 	};
 	target: {
@@ -397,17 +397,17 @@ export interface PullRequest {
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
 	milestone?: {
-		title: string,
-		dueOn?: string,
-		id: string,
-		createdAt: string
+		title: string;
+		dueOn?: string;
+		id: string;
+		createdAt: string;
 	};
 	repository?: {
-		name: string,
+		name: string;
 		owner: {
-			login: string
-		},
-		url: string
+			login: string;
+		};
+		url: string;
 	};
 }
 
@@ -420,14 +420,14 @@ export interface PullRequestResponse {
 
 export interface IssuesSearchResponse {
 	search: {
-		issueCount: number,
+		issueCount: number;
 		pageInfo: {
-			hasNextPage: boolean
-			endCursor: string
-		},
+			hasNextPage: boolean;
+			endCursor: string;
+		};
 		edges: {
-			node: PullRequest
-		}[]
+			node: PullRequest;
+		}[];
 	};
 	rateLimit: RateLimit;
 }
@@ -436,21 +436,21 @@ export interface MilestoneIssuesResponse {
 	repository: {
 		milestones: {
 			nodes: {
-				dueOn: string,
-				createdAt: string,
-				title: string,
-				id: string,
+				dueOn: string;
+				createdAt: string;
+				title: string;
+				id: string;
 				issues: {
 					edges: {
-						node: PullRequest
-					}[]
-				}
-			}[],
+						node: PullRequest;
+					}[];
+				};
+			}[];
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
-			}
-		}
+			};
+		};
 	};
 }
 
@@ -458,13 +458,13 @@ export interface IssuesResponse {
 	repository: {
 		issues: {
 			edges: {
-				node: PullRequest
-			}[],
+				node: PullRequest;
+			}[];
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
-			}
-		}
+			};
+		};
 	};
 }
 
@@ -473,16 +473,16 @@ export interface MaxIssueResponse {
 		issues: {
 			edges: {
 				node: {
-					number: number
-				}
-			}[]
-		}
+					number: number;
+				};
+			}[];
+		};
 	};
 }
 
 export interface ViewerPermissionResponse {
 	repository: {
-		viewerPermission: string
+		viewerPermission: string;
 	};
 }
 
@@ -530,8 +530,8 @@ export interface StartReviewResponse {
 	addPullRequestReview: {
 		pullRequestReview: {
 			comments: {
-				nodes: ReviewComment[]
-			}
+				nodes: ReviewComment[];
+			};
 		};
 	};
 }
@@ -572,12 +572,12 @@ export interface GetChecksResponse {
 						statusCheckRollup?: {
 							state: string;
 							contexts: {
-								nodes: (StatusContext | CheckRun)[]
-							}
-						}
-					}
-				}[]
-			}
-		}
+								nodes: (StatusContext | CheckRun)[];
+							};
+						};
+					};
+				}[];
+			};
+		};
 	};
 }

@@ -1,4 +1,4 @@
-import * as  OctokitTypes from '@octokit/types';
+import * as OctokitTypes from '@octokit/types';
 
 import { UserBuilder } from './userBuilder';
 import { createBuilderClass } from '../base';
@@ -10,7 +10,9 @@ export const TimelineEventItemBuilder = createBuilderClass<OctokitTypes.IssuesLi
 	actor: { linked: UserBuilder },
 	event: { default: 'closed' },
 	commit_id: { default: '0000000000000000000000000000000000000000' },
-	commit_url: { default: 'https://api.github.com/repos/octocat/Hello-World/commits/0000000000000000000000000000000000000000' },
+	commit_url: {
+		default: 'https://api.github.com/repos/octocat/Hello-World/commits/0000000000000000000000000000000000000000',
+	},
 	created_at: { default: '2019-01-01T10:00:00Z' },
 });
 

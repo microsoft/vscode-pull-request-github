@@ -352,4 +352,5 @@ preview-src
 .temp
 
 .eslintcache
+.eslintcache.browser
 *.tsbuildinfo

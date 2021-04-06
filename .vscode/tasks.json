@@ -7,18 +7,13 @@
 			"type": "npm",
 			"script": "build",
 			"group": "build",
-			"problemMatcher": [
-				"$ts-checker-webpack",
-				"$ts-checker-eslint-webpack"
-			]
+			"problemMatcher": ["$ts-checker-webpack", "$ts-checker-eslint-webpack"]
 		},
 		{
 			"type": "npm",
 			"script": "lint",
 			"group": "build",
-			"problemMatcher": [
-				"$eslint-stylish"
-			]
+			"problemMatcher": ["$eslint-stylish"]
 		},
 		{
 			"type": "npm",
@@ -28,10 +23,7 @@
 				"isDefault": true
 			},
 			"isBackground": true,
-			"problemMatcher": [
-				"$ts-checker-webpack-watch",
-				"$ts-checker-eslint-webpack-watch"
-			]
+			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		}
 	]
 }

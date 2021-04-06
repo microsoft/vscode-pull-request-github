@@ -10,7 +10,7 @@ export class MockExtensionContext implements ExtensionContext {
 
 	workspaceState = new InMemoryMemento();
 	globalState = new InMemoryMemento();
-	subscriptions: { dispose(): any; }[] = [];
+	subscriptions: { dispose(): any }[] = [];
 
 	storagePath: string;
 	globalStoragePath: string;

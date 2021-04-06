@@ -6,7 +6,15 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, ISuggestedReviewer } from './interface';
+import {
+	GithubItemStateEnum,
+	ReviewEvent,
+	ReviewState,
+	IAccount,
+	MergeMethodsAvailability,
+	MergeMethod,
+	ISuggestedReviewer,
+} from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -33,12 +41,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 	private _changeActivePullRequestListener: vscode.Disposable | undefined;
 
-	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: PullRequestModel, toTheSide: Boolean = false) {
-		const activeColumn = toTheSide ?
-			vscode.ViewColumn.Beside :
-			vscode.window.activeTextEditor ?
-				vscode.window.activeTextEditor.viewColumn :
-				vscode.ViewColumn.One;
+	public static async createOrShow(
+		extensionPath: string,
+		folderRepositoryManager: FolderRepositoryManager,
+		issue: PullRequestModel,
+		toTheSide: Boolean = false,
+	) {
+		const activeColumn = toTheSide
+			? vscode.ViewColumn.Beside
+			: vscode.window.activeTextEditor
+			? vscode.window.activeTextEditor.viewColumn
+			: vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
@@ -46,7 +59,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
 		} else {
 			const title = `Pull Request #${issue.number.toString()}`;
-			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(extensionPath, activeColumn || vscode.ViewColumn.Active, title, folderRepositoryManager);
+			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(
+				extensionPath,
+				activeColumn || vscode.ViewColumn.Active,
+				title,
+				folderRepositoryManager,
+			);
 		}
 
 		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
@@ -62,21 +80,30 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	protected constructor(extensionPath: string, column: vscode.ViewColumn, title: string, folderRepositoryManager: FolderRepositoryManager) {
+	protected constructor(
+		extensionPath: string,
+		column: vscode.ViewColumn,
+		title: string,
+		folderRepositoryManager: FolderRepositoryManager,
+	) {
 		super(extensionPath, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
 
 		this.registerFolderRepositoryListener();
 
-		onDidUpdatePR(pr => {
-			if (pr) {
-				// this._item.update(pr);
-			}
+		onDidUpdatePR(
+			pr => {
+				if (pr) {
+					// this._item.update(pr);
+				}
 
-			this._postMessage({
-				command: 'update-state',
-				state: this._item.state,
-			});
-		}, null, this._disposables);
+				this._postMessage({
+					command: 'update-state',
+					state: this._item.state,
+				});
+			},
+			null,
+			this._disposables,
+		);
 	}
 
 	registerFolderRepositoryListener() {
@@ -85,7 +112,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 				this._postMessage({
 					command: 'pr.update-checkout-status',
-					isCurrentlyCheckedOut
+					isCurrentlyCheckedOut,
 				});
 			}
 		});
@@ -96,68 +123,74 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			this._folderRepositoryManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
 				pullRequestModel.remote.repositoryName,
-				pullRequestModel.number
+				pullRequestModel.number,
 			),
 			pullRequestModel.getTimelineEvents(),
 			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			pullRequestModel.getStatusChecks(),
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-		]).then(result => {
-			const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, repositoryAccess] = result;
-			if (!pullRequest) {
-				throw new Error(`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`);
-			}
-
-			this._item = pullRequest;
-			this._repositoryDefaultBranch = defaultBranch!;
-			this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
-
-			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
-			const hasWritePermission = repositoryAccess!.hasWritePermission;
-			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
-			const canEdit = hasWritePermission || this._item.canEdit();
-			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
-			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
-			this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
-
-			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			this._postMessage({
-				command: 'pr.initialize',
-				pullrequest: {
-					number: pullRequest.number,
-					title: pullRequest.title,
-					url: pullRequest.html_url,
-					createdAt: pullRequest.createdAt,
-					body: pullRequest.body,
-					bodyHTML: pullRequest.bodyHTML,
-					labels: pullRequest.item.labels,
-					author: {
-						login: pullRequest.author.login,
-						name: pullRequest.author.name,
-						avatarUrl: pullRequest.userAvatar,
-						url: pullRequest.author.url
-					},
-					state: pullRequest.state,
-					events: timelineEvents,
-					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					base: pullRequest.base && pullRequest.base.label || 'UNKNOWN',
-					head: pullRequest.head && pullRequest.head.label || 'UNKNOWN',
-					repositoryDefaultBranch: defaultBranch,
-					canEdit: canEdit,
-					hasWritePermission,
-					status: status ? status : { statuses: [] },
-					mergeable: pullRequest.item.mergeable,
-					reviewers: this._existingReviewers,
-					isDraft: pullRequest.isDraft,
-					mergeMethodsAvailability,
-					defaultMergeMethod,
-					isIssue: false
+		])
+			.then(result => {
+				const [pullRequest, timelineEvents, defaultBranch, status, requestedReviewers, repositoryAccess] = result;
+				if (!pullRequest) {
+					throw new Error(
+						`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
+					);
 				}
+
+				this._item = pullRequest;
+				this._repositoryDefaultBranch = defaultBranch!;
+				this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
+
+				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
+				const hasWritePermission = repositoryAccess!.hasWritePermission;
+				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
+				const canEdit = hasWritePermission || this._item.canEdit();
+				const preferredMergeMethod = vscode.workspace
+					.getConfiguration('githubPullRequests')
+					.get<MergeMethod>('defaultMergeMethod');
+				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
+
+				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
+				this._postMessage({
+					command: 'pr.initialize',
+					pullrequest: {
+						number: pullRequest.number,
+						title: pullRequest.title,
+						url: pullRequest.html_url,
+						createdAt: pullRequest.createdAt,
+						body: pullRequest.body,
+						bodyHTML: pullRequest.bodyHTML,
+						labels: pullRequest.item.labels,
+						author: {
+							login: pullRequest.author.login,
+							name: pullRequest.author.name,
+							avatarUrl: pullRequest.userAvatar,
+							url: pullRequest.author.url,
+						},
+						state: pullRequest.state,
+						events: timelineEvents,
+						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+						base: (pullRequest.base && pullRequest.base.label) || 'UNKNOWN',
+						head: (pullRequest.head && pullRequest.head.label) || 'UNKNOWN',
+						repositoryDefaultBranch: defaultBranch,
+						canEdit: canEdit,
+						hasWritePermission,
+						status: status ? status : { statuses: [] },
+						mergeable: pullRequest.item.mergeable,
+						reviewers: this._existingReviewers,
+						isDraft: pullRequest.isDraft,
+						mergeMethodsAvailability,
+						defaultMergeMethod,
+						isIssue: false,
+					},
+				});
+			})
+			.catch(e => {
+				vscode.window.showErrorMessage(formatError(e));
 			});
-		}).catch(e => {
-			vscode.window.showErrorMessage(formatError(e));
-		});
 	}
 
 	public async update(folderRepositoryManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {
@@ -217,7 +250,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
-	private getReviewersQuickPickItems(assignableUsers: IAccount[], suggestedReviewers: ISuggestedReviewer[] | undefined): vscode.QuickPickItem[] {
+	private getReviewersQuickPickItems(
+		assignableUsers: IAccount[],
+		suggestedReviewers: ISuggestedReviewer[] | undefined,
+	): vscode.QuickPickItem[] {
 		if (!suggestedReviewers) {
 			return [];
 		}
@@ -225,7 +261,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([
 			this._item.author.login,
-			...this._existingReviewers.map(reviewer => reviewer.reviewer.login)
+			...this._existingReviewers.map(reviewer => reviewer.reviewer.login),
 		]);
 
 		const reviewers: vscode.QuickPickItem[] = [];
@@ -238,15 +274,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				isAuthor && isCommenter
 					? 'Recently edited and reviewed changes to these files'
 					: isAuthor
-						? 'Recently edited these files'
-						: isCommenter
-							? 'Recently reviewed changes to these files'
-							: 'Suggested reviewer';
+					? 'Recently edited these files'
+					: isCommenter
+					? 'Recently reviewed changes to these files'
+					: 'Suggested reviewer';
 
 			reviewers.push({
 				label: login,
 				description: name,
-				detail: suggestionReason
+				detail: suggestionReason,
 			});
 			// this user shouldn't be added later from assignable users list
 			skipList.add(login);
@@ -259,7 +295,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 			reviewers.push({
 				label: login,
-				description: name
+				description: name,
 			});
 		}
 
@@ -275,8 +311,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 				this.getReviewersQuickPickItems(assignableUsers, this._item.suggestedReviewers),
 				{
 					canPickMany: true,
-					matchOnDescription: true
-				}
+					matchOnDescription: true,
+				},
 			);
 
 			if (reviewersToAdd) {
@@ -285,13 +321,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					return {
 						// assumes that suggested reviewers will be a subset of assignable users
 						reviewer: assignableUsers.find(r => r.login === reviewer.label)!,
-						state: 'REQUESTED'
+						state: 'REQUESTED',
 					};
 				});
 
 				this._existingReviewers = this._existingReviewers.concat(addedReviewers);
 				this._replyMessage(message, {
-					added: addedReviewers
+					added: addedReviewers,
 				});
 			}
 		} catch (e) {
@@ -342,31 +378,39 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 
 	private checkoutPullRequest(message: IRequestMessage<any>): void {
-		vscode.commands.executeCommand('pr.pick', this._item).then(() => {
-			const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
-			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
-		}, () => {
-			const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
-			this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
-		});
+		vscode.commands.executeCommand('pr.pick', this._item).then(
+			() => {
+				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
+				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
+			},
+			() => {
+				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
+				this._replyMessage(message, { isCurrentlyCheckedOut: isCurrentlyCheckedOut });
+			},
+		);
 	}
 
-	private mergePullRequest(message: IRequestMessage<{ title: string, description: string, method: 'merge' | 'squash' | 'rebase' }>): void {
+	private mergePullRequest(
+		message: IRequestMessage<{ title: string; description: string; method: 'merge' | 'squash' | 'rebase' }>,
+	): void {
 		const { title, description, method } = message.args;
-		this._folderRepositoryManager.mergePullRequest(this._item, title, description, method).then(result => {
-			vscode.commands.executeCommand('pr.refreshList');
+		this._folderRepositoryManager
+			.mergePullRequest(this._item, title, description, method)
+			.then(result => {
+				vscode.commands.executeCommand('pr.refreshList');
 
-			if (!result.merged) {
-				vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
-			}
+				if (!result.merged) {
+					vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
+				}
 
-			this._replyMessage(message, {
-				state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open
+				this._replyMessage(message, {
+					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
+				});
+			})
+			.catch(e => {
+				vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+				this._throwError(message, {});
 			});
-		}).catch(e => {
-			vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
-			this._throwError(message, {});
-		});
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {
@@ -382,34 +426,40 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					label: `Delete remote branch ${this._item.remote.remoteName}/${branchHeadRef}`,
 					description: `${this._item.remote.normalizedHost}/${this._item.remote.owner}/${this._item.remote.repositoryName}`,
 					type: 'upstream',
-					picked: true
+					picked: true,
 				});
 			}
 		}
 
 		if (branchInfo) {
-			const preferredLocalBranchDeletionMethod = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('defaultDeletionMethod.selectLocalBranch');
+			const preferredLocalBranchDeletionMethod = vscode.workspace
+				.getConfiguration('githubPullRequests')
+				.get<boolean>('defaultDeletionMethod.selectLocalBranch');
 			actions.push({
 				label: `Delete local branch ${branchInfo.branch}`,
 				type: 'local',
-				picked: !!preferredLocalBranchDeletionMethod
+				picked: !!preferredLocalBranchDeletionMethod,
 			});
 
-			const preferredRemoteDeletionMethod = vscode.workspace.getConfiguration('githubPullRequests').get<boolean>('defaultDeletionMethod.selectRemote');
+			const preferredRemoteDeletionMethod = vscode.workspace
+				.getConfiguration('githubPullRequests')
+				.get<boolean>('defaultDeletionMethod.selectRemote');
 
 			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({
 					label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
 					type: 'remote',
-					picked: !!preferredRemoteDeletionMethod
+					picked: !!preferredRemoteDeletionMethod,
 				});
 			}
 		}
 
 		if (!actions.length) {
-			vscode.window.showWarningMessage(`There is no longer an upstream or local branch for Pull Request #${this._item.number}`);
+			vscode.window.showWarningMessage(
+				`There is no longer an upstream or local branch for Pull Request #${this._item.number}`,
+			);
 			this._replyMessage(message, {
-				cancelled: true
+				cancelled: true,
 			});
 
 			return;
@@ -417,20 +467,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 
 		const selectedActions = await vscode.window.showQuickPick(actions, {
 			canPickMany: true,
-			ignoreFocusOut: true
+			ignoreFocusOut: true,
 		});
 
 		if (selectedActions) {
 			const isBranchActive = this._item.equals(this._folderRepositoryManager.activePullRequest);
 
-			const promises = selectedActions.map(async (action) => {
+			const promises = selectedActions.map(async action => {
 				switch (action.type) {
 					case 'upstream':
 						return this._folderRepositoryManager.deleteBranch(this._item);
 					case 'local':
 						if (isBranchActive) {
 							if (this._folderRepositoryManager.repository.state.workingTreeChanges.length) {
-								const response = await vscode.window.showWarningMessage(`Your local changes will be lost, do you want to continue?`, { modal: true }, 'Yes');
+								const response = await vscode.window.showWarningMessage(
+									`Your local changes will be lost, do you want to continue?`,
+									{ modal: true },
+									'Yes',
+								);
 								if (response === 'Yes') {
 									await vscode.commands.executeCommand('git.cleanAll');
 								} else {
@@ -451,24 +505,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			vscode.commands.executeCommand('pr.refreshList');
 
 			this._postMessage({
-				command: 'pr.deleteBranch'
+				command: 'pr.deleteBranch',
 			});
 		} else {
 			this._replyMessage(message, {
-				cancelled: true
+				cancelled: true,
 			});
 		}
 	}
 
 	private setReadyForReview(message: IRequestMessage<{}>): void {
-		this._item.setReadyForReview().then(isDraft => {
-			vscode.commands.executeCommand('pr.refreshList');
+		this._item
+			.setReadyForReview()
+			.then(isDraft => {
+				vscode.commands.executeCommand('pr.refreshList');
 
-			this._replyMessage(message, { isDraft });
-		}).catch(e => {
-			vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
-			this._throwError(message, {});
-		});
+				this._replyMessage(message, { isDraft });
+			})
+			.catch(e => {
+				vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
+				this._throwError(message, {});
+			});
 	}
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
@@ -488,52 +545,61 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			} else {
 				this._existingReviewers.push({
 					reviewer: review.user,
-					state: review.state
+					state: review.state,
 				});
 			}
 		}
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.approve(message.args).then(review => {
-			this.updateReviewers(review);
-			this._replyMessage(message, {
-				review: review,
-				reviewers: this._existingReviewers
-			});
-			//refresh the pr list as this one is approved
-			vscode.commands.executeCommand('pr.refreshList');
-		}, (e) => {
-			vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
+		this._item.approve(message.args).then(
+			review => {
+				this.updateReviewers(review);
+				this._replyMessage(message, {
+					review: review,
+					reviewers: this._existingReviewers,
+				});
+				//refresh the pr list as this one is approved
+				vscode.commands.executeCommand('pr.refreshList');
+			},
+			e => {
+				vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
 
-			this._throwError(message, `${formatError(e)}`);
-		});
+				this._throwError(message, `${formatError(e)}`);
+			},
+		);
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
-		this._item.requestChanges(message.args).then(review => {
-			this.updateReviewers(review);
-			this._replyMessage(message, {
-				review: review,
-				reviewers: this._existingReviewers
-			});
-		}, (e) => {
-			vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
-			this._throwError(message, `${formatError(e)}`);
-		});
+		this._item.requestChanges(message.args).then(
+			review => {
+				this.updateReviewers(review);
+				this._replyMessage(message, {
+					review: review,
+					reviewers: this._existingReviewers,
+				});
+			},
+			e => {
+				vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
+				this._throwError(message, `${formatError(e)}`);
+			},
+		);
 	}
 
 	private submitReview(message: IRequestMessage<string>): void {
-		this._item.submitReview(ReviewEvent.Comment, message.args).then(review => {
-			this.updateReviewers(review);
-			this._replyMessage(message, {
-				review: review,
-				reviewers: this._existingReviewers
-			});
-		}, (e) => {
-			vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
-			this._throwError(message, `${formatError(e)}`);
-		});
+		this._item.submitReview(ReviewEvent.Comment, message.args).then(
+			review => {
+				this.updateReviewers(review);
+				this._replyMessage(message, {
+					review: review,
+					reviewers: this._existingReviewers,
+				});
+			},
+			e => {
+				vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
+				this._throwError(message, `${formatError(e)}`);
+			},
+		);
 	}
 
 	private async copyPrLink(message: IRequestMessage<string>): Promise<void> {
@@ -558,7 +624,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	}
 }
 
-export function getDefaultMergeMethod(methodsAvailability: MergeMethodsAvailability, userPreferred: MergeMethod | undefined): MergeMethod {
+export function getDefaultMergeMethod(
+	methodsAvailability: MergeMethodsAvailability,
+	userPreferred: MergeMethod | undefined,
+): MergeMethod {
 	// Use default merge method specified by user if it is available
 	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
 		return userPreferred;

@@ -8,7 +8,14 @@ import * as OctokitTypes from '@octokit/types';
 import { IComment } from '../common/comment';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { AddIssueCommentResponse, AddReactionResponse, DeleteReactionResponse, EditIssueCommentResponse, TimelineEventsResponse, UpdatePullRequestResponse } from './graphql';
+import {
+	AddIssueCommentResponse,
+	AddReactionResponse,
+	DeleteReactionResponse,
+	EditIssueCommentResponse,
+	TimelineEventsResponse,
+	UpdatePullRequestResponse,
+} from './graphql';
 import { IAccount, Issue, GithubItemStateEnum, IMilestone, IPullRequestEditData } from './interface';
 import { getReactionGroup, parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 import { formatError } from '../common/utils';
@@ -121,7 +128,7 @@ export class IssueModel {
 		return true;
 	}
 
-	async edit(toEdit: IPullRequestEditData): Promise<{ body: string, bodyHTML: string, title: string }> {
+	async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string }> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -131,9 +138,9 @@ export class IssueModel {
 					input: {
 						pullRequestId: this.graphNodeId,
 						body: toEdit.body,
-						title: toEdit.title
-					}
-				}
+						title: toEdit.title,
+					},
+				},
 			});
 
 			return data!.updatePullRequest.pullRequest;
@@ -155,7 +162,7 @@ export class IssueModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			per_page: 100
+			per_page: 100,
 		});
 		Logger.debug(`Fetch issue comments of PR #${this.number} - done`, IssueModel.ID);
 
@@ -169,9 +176,9 @@ export class IssueModel {
 			variables: {
 				input: {
 					subjectId: this.graphNodeId,
-					body: text
-				}
-			}
+					body: text,
+				},
+			},
 		});
 
 		return parseGraphQlIssueComment(data!.addComment.commentEdge.node);
@@ -186,9 +193,9 @@ export class IssueModel {
 				variables: {
 					input: {
 						id: comment.graphNodeId,
-						body: text
-					}
-				}
+						body: text,
+					},
+				},
 			});
 
 			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
@@ -204,7 +211,7 @@ export class IssueModel {
 			await octokit.issues.deleteComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				comment_id: Number(commentId)
+				comment_id: Number(commentId),
 			});
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -217,7 +224,7 @@ export class IssueModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			labels
+			labels,
 		});
 	}
 
@@ -227,7 +234,7 @@ export class IssueModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			name: label
+			name: label,
 		});
 	}
 
@@ -242,8 +249,8 @@ export class IssueModel {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					number: this.number
-				}
+					number: this.number,
+				},
 			});
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = parseGraphQLTimelineEvents(ret, githubRepository);
@@ -266,9 +273,9 @@ export class IssueModel {
 			variables: {
 				input: {
 					subjectId: graphNodeId,
-					content: reactionEmojiToContent[reaction.label!]
-				}
-			}
+					content: reactionEmojiToContent[reaction.label!],
+				},
+			},
 		});
 
 		return data!;
@@ -285,9 +292,9 @@ export class IssueModel {
 			variables: {
 				input: {
 					subjectId: graphNodeId,
-					content: reactionEmojiToContent[reaction.label!]
-				}
-			}
+					content: reactionEmojiToContent[reaction.label!],
+				},
+			},
 		});
 
 		return data!;

@@ -6,7 +6,7 @@ const json = JSON.parse(fs.readFileSync('./package.json').toString());
 // update name, publisher and description
 // calculate version
 let version = argv['v'];
-if (typeof(version) !== 'string') {
+if (typeof version !== 'string') {
 	const date = new Date();
 	const monthMinutes = (date.getDate() - 1) * 24 * 60 + date.getHours() * 60 + date.getMinutes();
 	version = `${date.getFullYear()}.${date.getMonth() + 1}.${monthMinutes}`;
@@ -25,7 +25,7 @@ const insiderPackageJson = Object.assign(json, {
 	version: version,
 	displayName: displayName,
 	description: description,
-	publisher: publisher
+	publisher: publisher,
 });
 
 fs.writeFileSync('./package.insiders.json', JSON.stringify(insiderPackageJson));
@@ -44,5 +44,8 @@ ${readme}
 fs.writeFileSync('./README.insiders.md', previewReadme);
 
 const constants = fs.readFileSync('./src/constants.ts').toString();
-const insiderConstants = constants.replace(`export const EXTENSION_ID = 'ankitbko.vscode-pull-request-azdo';`, `export const EXTENSION_ID = 'ankitbko.vscode-pull-request-azdo-insiders';`);
+const insiderConstants = constants.replace(
+	`export const EXTENSION_ID = 'ankitbko.vscode-pull-request-azdo';`,
+	`export const EXTENSION_ID = 'ankitbko.vscode-pull-request-azdo-insiders';`,
+);
 fs.writeFileSync('./src/constants.insiders.ts', insiderConstants);

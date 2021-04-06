@@ -6,10 +6,10 @@ name: Build and Test
 on:
   # Triggers the workflow pull request events but only for the master branch
   pull_request:
-    branches: [ master ]
-  
+    branches: [master]
+
   push:
-    branches: [ master ]
+    branches: [master]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -61,7 +61,7 @@ jobs:
           path: ${{github.workspace}}/test-results.xml
 
   publish-test-results:
-    name: "Publish Unit Tests Results"
+    name: 'Publish Unit Tests Results'
     needs: build-and-test
     runs-on: ubuntu-latest
     # the build-and-test job might be skipped, we don't need to run this job then
@@ -78,5 +78,4 @@ jobs:
         with:
           check_name: Unit Test Results
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          files:  ./**/test-results.xml
-
+          files: ./**/test-results.xml

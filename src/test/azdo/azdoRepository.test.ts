@@ -7,7 +7,7 @@ import { Protocol } from '../../common/protocol';
 import { AzdoRepository } from '../../azdo/azdoRepository';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import {expect} from 'chai';
+import { expect } from 'chai';
 import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
 
 describe('AzdoRepository', function () {
@@ -18,7 +18,7 @@ describe('AzdoRepository', function () {
 	this.timeout(1000000);
 
 	before(function () {
-		dotenv.config({ path: path.resolve(__dirname, '../../../.env')});
+		dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 	});
 
 	beforeEach(function () {

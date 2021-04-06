@@ -1,19 +1,22 @@
+import { GitPullRequestSearchCriteria, GitRepository, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
-import { Remote, parseRemote } from '../common/remote';
-import { PullRequestModel } from './pullRequestModel';
-import { Azdo, CredentialStore } from './credentials';
-import { PRCommentController } from '../view/prCommentController';
-import { convertAzdoBranchRefToIGitHubRef, convertAzdoPullRequestToRawPullRequest, convertBranchRefToBranchName } from './utils';
+import { parseRemote, Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import { GitRepository, GitPullRequestSearchCriteria, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { PRCommentController } from '../view/prCommentController';
+import { Azdo, CredentialStore } from './credentials';
 import { IAccount, IGitHubRef } from './interface';
-import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
+import { PullRequestModel } from './pullRequestModel';
+import {
+	convertAzdoBranchRefToIGitHubRef,
+	convertAzdoPullRequestToRawPullRequest,
+	convertBranchRefToBranchName,
+} from './utils';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
 
-export interface IMetadata extends GitRepository {
-}
+export type IMetadata = GitRepository;
 
 export class AzdoRepository implements vscode.Disposable {
 	static ID = 'AzdoRepository';
@@ -25,7 +28,11 @@ export class AzdoRepository implements vscode.Disposable {
 	public commentsHandler?: PRCommentController;
 	public readonly isGitHubDotCom: boolean; // TODO: WTF is this for? Enterprise?
 
-	constructor(public remote: Remote,  private readonly _credentialStore: CredentialStore, private readonly _telemetry: ITelemetry) {
+	constructor(
+		public remote: Remote,
+		private readonly _credentialStore: CredentialStore,
+		private readonly _telemetry: ITelemetry,
+	) {
 		// this.isGitHubDotCom = remote.host.toLowerCase() === 'github.com';
 	}
 
@@ -55,14 +62,16 @@ export class AzdoRepository implements vscode.Disposable {
 			}
 
 			await this.ensure();
-			this.commentsController = vscode.comments.createCommentController(`azdopr-browse-${this.remote.normalizedHost}`, `Azdo Pull Request for ${this.remote.normalizedHost}`);
+			this.commentsController = vscode.comments.createCommentController(
+				`azdopr-browse-${this.remote.normalizedHost}`,
+				`Azdo Pull Request for ${this.remote.normalizedHost}`,
+			);
 			this.commentsHandler = new PRCommentController(this.commentsController);
 			this._toDispose.push(this.commentsController);
 			this._toDispose.push(this.commentsController);
 		} catch (e) {
 			console.log(e);
 		}
-
 	}
 
 	dispose() {
@@ -81,8 +90,11 @@ export class AzdoRepository implements vscode.Disposable {
 		Logger.debug(`Searching for repos in ${this._hub?.projectName} project`, AzdoRepository.ID);
 		const repos = await gitApi?.getRepositories(this._hub?.projectName);
 
-		Logger.debug(`Found ${repos?.length} repos. Searching for repo with name ${this.remote.repositoryName}`, AzdoRepository.ID);
-		this._metadata = await repos?.find(v => v.name === this.remote.repositoryName);
+		Logger.debug(
+			`Found ${repos?.length} repos. Searching for repo with name ${this.remote.repositoryName}`,
+			AzdoRepository.ID,
+		);
+		this._metadata = repos?.find(v => v.name === this.remote.repositoryName);
 		if (!this._metadata) {
 			Logger.debug(`Fetch metadata ${this.remote.repositoryName} failed. No repo by that name.`, AzdoRepository.ID);
 			return this._metadata;
@@ -97,7 +109,10 @@ export class AzdoRepository implements vscode.Disposable {
 
 	async resolveRemote(): Promise<void> {
 		try {
-			Logger.debug(`Resolving Remote for remoteName: ${this.remote.remoteName} and gitProtocol: ${this.remote.gitProtocol}`, AzdoRepository.ID);
+			Logger.debug(
+				`Resolving Remote for remoteName: ${this.remote.remoteName} and gitProtocol: ${this.remote.gitProtocol}`,
+				AzdoRepository.ID,
+			);
 			const metadata = await this.getMetadata();
 			Logger.debug(`Resolving Remote for remoteUrl: ${metadata?.remoteUrl}`, AzdoRepository.ID);
 			const remote = parseRemote(this.remote.remoteName, metadata?.remoteUrl, this.remote.gitProtocol)!;
@@ -125,7 +140,7 @@ export class AzdoRepository implements vscode.Disposable {
 	}
 
 	async getAllActivePullRequests(): Promise<PullRequestModel[]> {
-		return await this.getPullRequests({status: PullRequestStatus.Active});
+		return await this.getPullRequests({ status: PullRequestStatus.Active });
 	}
 
 	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[]> {
@@ -141,16 +156,20 @@ export class AzdoRepository implements vscode.Disposable {
 			const result = await gitApi?.getPullRequests(metadata?.id || '', search);
 
 			if (!result || result.length === 0) {
-				Logger.appendLine(`Warning: no result data for ${this.remote.owner}/${this.remote.repositoryName} for search: ${JSON.stringify(search)}`);
+				Logger.appendLine(
+					`Warning: no result data for ${this.remote.owner}/${
+						this.remote.repositoryName
+					} for search: ${JSON.stringify(search)}`,
+				);
 				return [];
 			}
 
-			const pullRequests = await Promise.all(result
-				.map(async pullRequest => {
-						const pr =  await convertAzdoPullRequestToRawPullRequest(pullRequest, this);
-						return new PullRequestModel(this._telemetry, this, this.remote, pr);
-					}
-				));
+			const pullRequests = await Promise.all(
+				result.map(async pullRequest => {
+					const pr = await convertAzdoPullRequestToRawPullRequest(pullRequest, this);
+					return new PullRequestModel(this._telemetry, this, this.remote, pr);
+				}),
+			);
 
 			Logger.debug(`Fetch pull requests for branch - done`, AzdoRepository.ID);
 			return pullRequests;
@@ -158,7 +177,9 @@ export class AzdoRepository implements vscode.Disposable {
 			Logger.appendLine(`Fetching pull requests for search: ${JSON.stringify(search)} failed: ${e}`, AzdoRepository.ID);
 			if (e.code === 404) {
 				// TODO: not found
-				vscode.window.showWarningMessage(`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`);
+				vscode.window.showWarningMessage(
+					`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`,
+				);
 				return [];
 			} else {
 				throw e;
@@ -209,7 +230,12 @@ export class AzdoRepository implements vscode.Disposable {
 
 			Logger.debug(`Fetch pull request ${id} - done`, AzdoRepository.ID);
 
-			return new PullRequestModel(this._telemetry, this, this.remote, await convertAzdoPullRequestToRawPullRequest(pullRequest, this));
+			return new PullRequestModel(
+				this._telemetry,
+				this,
+				this.remote,
+				await convertAzdoPullRequestToRawPullRequest(pullRequest, this),
+			);
 		} catch (e) {
 			Logger.appendLine(`Azdo> Unable to fetch PR: ${e}`);
 			return;
@@ -235,9 +261,9 @@ export class AzdoRepository implements vscode.Disposable {
 			Logger.appendLine(`Azdo> Unable to fetch PR: ${e}`);
 			return {
 				ref: branchName,
-				repo: {cloneUrl: this.remote.url},
+				repo: { cloneUrl: this.remote.url },
 				sha: '',
-				exists: false
+				exists: false,
 			};
 		}
 	}
@@ -248,7 +274,7 @@ export class AzdoRepository implements vscode.Disposable {
 			const azdo = await this.ensure();
 			const metadata = await this.getMetadata();
 			const gitApi = await azdo._hub?.connection.getGitApi();
-			const branches = await gitApi?.getBranches(metadata!.id!)!;
+			const branches = await gitApi?.getBranches(metadata!.id!);
 			Logger.debug(`List branches for ${this.remote.owner}/${this.remote.repositoryName} - done`, AzdoRepository.ID);
 			return branches?.map(branch => branch.name!) ?? [];
 		} catch (e) {

@@ -18,7 +18,14 @@ import { Repository, RefType, UpstreamRef, GitErrorCodes } from '../api/api';
 import Logger from '../common/logger';
 import { EXTENSION_ID } from '../constants';
 import { fromPRUri } from '../common/uri';
-import { convertRESTPullRequestToRawPullRequest, getRelatedUsersFromTimelineEvents, convertRESTUserToAccount, loginComparator, convertRESTIssueToRawPullRequest, parseGraphQLUser } from './utils';
+import {
+	convertRESTPullRequestToRawPullRequest,
+	getRelatedUsersFromTimelineEvents,
+	convertRESTUserToAccount,
+	loginComparator,
+	convertRESTIssueToRawPullRequest,
+	parseGraphQLUser,
+} from './utils';
 import { PullRequestState, UserResponse } from './graphql';
 import { ITelemetry } from '../common/telemetry';
 import { GitApiImpl } from '../api/api1';
@@ -60,15 +67,16 @@ export class DetachedHeadError extends Error {
 }
 
 export class BadUpstreamError extends Error {
-	constructor(
-		public branchName: string,
-		public upstreamRef: UpstreamRef,
-		public problem: string) {
+	constructor(public branchName: string, public upstreamRef: UpstreamRef, public problem: string) {
 		super();
 	}
 
 	get message() {
-		const { upstreamRef: { remote, name }, branchName, problem } = this;
+		const {
+			upstreamRef: { remote, name },
+			branchName,
+			problem,
+		} = this;
 		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
 	}
 }
@@ -81,7 +89,7 @@ export const ReposManagerStateContext: string = 'ReposManagerStateContext';
 export enum ReposManagerState {
 	Initializing = 'Initializing',
 	NeedsAuthentication = 'NeedsAuthentication',
-	RepositoriesLoaded = 'RepositoriesLoaded'
+	RepositoriesLoaded = 'RepositoriesLoaded',
 }
 
 export interface PullRequestDefaults {
@@ -96,7 +104,7 @@ enum PagedDataType {
 	PullRequest,
 	Milestones,
 	IssuesWithoutMilestone,
-	IssueSearch
+	IssueSearch,
 }
 
 export class FolderRepositoryManager implements vscode.Disposable {
@@ -139,11 +147,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		this._githubRepositories = [];
 		this._githubManager = new AzdoManager();
 
-		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
-				await this.updateRepositories();
-			}
-		}));
+		this._subs.push(
+			vscode.workspace.onDidChangeConfiguration(async e => {
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
+					await this.updateRepositories();
+				}
+			}),
+		);
 
 		this.setUpCompletionItemProvider();
 	}
@@ -190,179 +200,194 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		let lastPullRequestTimelineEvents: TimelineEvent[] = [];
 		let cachedUsers: UserCompletion[] = [];
 
-		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
-			provideCompletionItems: async (document, position, token) => {
-				try {
-					const query = JSON.parse(document.uri.query);
-					if (query.extensionId !== EXTENSION_ID) {
-						return;
-					}
-
-					const wordRange = document.getWordRangeAtPosition(position, /@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})?/i);
-					if (!wordRange || wordRange.isEmpty) {
-						return;
-					}
-
-					let prRelatedusers: { login: string; name?: string; }[] = [];
-					const fileRelatedUsersNames: { [key: string]: boolean } = {};
-					let mentionableUsers: { [key: string]: { login: string; name?: string; }[]; } = {};
-					let prNumber: number | undefined;
-					let remoteName: string | undefined;
-
-					const activeTextEditors = vscode.window.visibleTextEditors;
-					if (activeTextEditors.length) {
-						const visiblePREditor = activeTextEditors.find(editor => editor.document.uri.scheme === 'pr');
-
-						if (visiblePREditor) {
-							const params = fromPRUri(visiblePREditor.document.uri);
-							prNumber = params!.prNumber;
-							remoteName = params!.remoteName;
-						} else if (this._activePullRequest) {
-							prNumber = this._activePullRequest.number;
-							remoteName = this._activePullRequest.remote.remoteName;
+		vscode.languages.registerCompletionItemProvider(
+			{ scheme: 'comment' },
+			{
+				provideCompletionItems: async (document, position, token) => {
+					try {
+						const query = JSON.parse(document.uri.query);
+						if (query.extensionId !== EXTENSION_ID) {
+							return;
 						}
 
-						if (lastPullRequest && prNumber && prNumber === lastPullRequest.number) {
-							return cachedUsers;
-						}
-					}
-
-					const prRelatedUsersPromise = new Promise(async resolve => {
-						if (prNumber && remoteName) {
-							Logger.debug('get Timeline Events and parse users', FolderRepositoryManager.ID);
-							if (lastPullRequest && lastPullRequest.number === prNumber) {
-								return lastPullRequestTimelineEvents;
-							}
-
-							const githubRepo = this._githubRepositories.find(repo => repo.remote.remoteName === remoteName);
-
-							if (githubRepo) {
-								lastPullRequest = await githubRepo.getPullRequest(prNumber);
-								lastPullRequestTimelineEvents = await lastPullRequest!.getTimelineEvents();
-							}
-
-							prRelatedusers = getRelatedUsersFromTimelineEvents(lastPullRequestTimelineEvents);
-							resolve();
+						const wordRange = document.getWordRangeAtPosition(
+							position,
+							/@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})?/i,
+						);
+						if (!wordRange || wordRange.isEmpty) {
+							return;
 						}
 
-						resolve();
-					});
+						let prRelatedusers: { login: string; name?: string }[] = [];
+						const fileRelatedUsersNames: { [key: string]: boolean } = {};
+						let mentionableUsers: { [key: string]: { login: string; name?: string }[] } = {};
+						let prNumber: number | undefined;
+						let remoteName: string | undefined;
 
-					const fileRelatedUsersNamesPromise = new Promise(async resolve => {
+						const activeTextEditors = vscode.window.visibleTextEditors;
 						if (activeTextEditors.length) {
-							try {
-								Logger.debug('git blame and parse users', FolderRepositoryManager.ID);
-								const fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
-								let blames: string | undefined;
-								if (this._gitBlameCache[fsPath]) {
-									blames = this._gitBlameCache[fsPath];
-								} else {
-									blames = await this.repository.blame(fsPath);
-									this._gitBlameCache[fsPath] = blames;
-								}
+							const visiblePREditor = activeTextEditors.find(editor => editor.document.uri.scheme === 'pr');
 
-								const blameLines = blames.split('\n');
+							if (visiblePREditor) {
+								const params = fromPRUri(visiblePREditor.document.uri);
+								prNumber = params!.prNumber;
+								remoteName = params!.remoteName;
+							} else if (this._activePullRequest) {
+								prNumber = this._activePullRequest.number;
+								remoteName = this._activePullRequest.remote.remoteName;
+							}
 
-								for (const line in blameLines) {
-									const matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(blameLines[line]);
-
-									if (matches && matches.length === 2) {
-										const name = matches[1].trim();
-										fileRelatedUsersNames[name] = true;
-									}
-								}
-							} catch (err) {
-								Logger.debug(err, FolderRepositoryManager.ID);
+							if (lastPullRequest && prNumber && prNumber === lastPullRequest.number) {
+								return cachedUsers;
 							}
 						}
 
-						resolve();
-					});
-
-					const getMentionableUsersPromise = new Promise(async resolve => {
-						Logger.debug('get mentionable users', FolderRepositoryManager.ID);
-						mentionableUsers = await this.getMentionableUsers();
-						resolve();
-					});
-
-					await Promise.all([prRelatedUsersPromise, fileRelatedUsersNamesPromise, getMentionableUsersPromise]);
-
-					cachedUsers = [];
-					const prRelatedUsersMap: { [key: string]: { login: string; name?: string; } } = {};
-					Logger.debug('prepare user suggestions', FolderRepositoryManager.ID);
-
-					prRelatedusers.forEach(user => {
-						if (!prRelatedUsersMap[user.login]) {
-							prRelatedUsersMap[user.login] = user;
-						}
-					});
-
-					const secondMap: { [key: string]: boolean } = {};
-
-					for (const mentionableUserGroup in mentionableUsers) {
-						mentionableUsers[mentionableUserGroup].forEach(user => {
-							if (!prRelatedUsersMap[user.login] && !secondMap[user.login]) {
-								secondMap[user.login] = true;
-
-								let priority = 2;
-								if (fileRelatedUsersNames[user.login] || (user.name && fileRelatedUsersNames[user.name])) {
-									priority = 1;
+						const prRelatedUsersPromise = new Promise(async resolve => {
+							if (prNumber && remoteName) {
+								Logger.debug('get Timeline Events and parse users', FolderRepositoryManager.ID);
+								if (lastPullRequest && lastPullRequest.number === prNumber) {
+									return lastPullRequestTimelineEvents;
 								}
 
-								if (prRelatedUsersMap[user.login]) {
-									priority = 0;
+								const githubRepo = this._githubRepositories.find(repo => repo.remote.remoteName === remoteName);
+
+								if (githubRepo) {
+									lastPullRequest = await githubRepo.getPullRequest(prNumber);
+									lastPullRequestTimelineEvents = await lastPullRequest!.getTimelineEvents();
 								}
 
-								cachedUsers.push({
-									label: user.login,
-									insertText: user.login,
-									filterText: `${user.login}` + (user.name && user.name !== user.login ? `_${user.name.toLowerCase().replace(' ', '_')}` : ''),
-									sortText: `${priority}_${user.login}`,
-									detail: user.name,
-									kind: vscode.CompletionItemKind.User,
-									login: user.login,
-									uri: this.repository.rootUri
-								});
+								prRelatedusers = getRelatedUsersFromTimelineEvents(lastPullRequestTimelineEvents);
+								resolve();
+							}
+
+							resolve();
+						});
+
+						const fileRelatedUsersNamesPromise = new Promise(async resolve => {
+							if (activeTextEditors.length) {
+								try {
+									Logger.debug('git blame and parse users', FolderRepositoryManager.ID);
+									const fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
+									let blames: string | undefined;
+									if (this._gitBlameCache[fsPath]) {
+										blames = this._gitBlameCache[fsPath];
+									} else {
+										blames = await this.repository.blame(fsPath);
+										this._gitBlameCache[fsPath] = blames;
+									}
+
+									const blameLines = blames.split('\n');
+
+									for (const line in blameLines) {
+										const matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(blameLines[line]);
+
+										if (matches && matches.length === 2) {
+											const name = matches[1].trim();
+											fileRelatedUsersNames[name] = true;
+										}
+									}
+								} catch (err) {
+									Logger.debug(err, FolderRepositoryManager.ID);
+								}
+							}
+
+							resolve();
+						});
+
+						const getMentionableUsersPromise = new Promise(async resolve => {
+							Logger.debug('get mentionable users', FolderRepositoryManager.ID);
+							mentionableUsers = await this.getMentionableUsers();
+							resolve();
+						});
+
+						await Promise.all([prRelatedUsersPromise, fileRelatedUsersNamesPromise, getMentionableUsersPromise]);
+
+						cachedUsers = [];
+						const prRelatedUsersMap: { [key: string]: { login: string; name?: string } } = {};
+						Logger.debug('prepare user suggestions', FolderRepositoryManager.ID);
+
+						prRelatedusers.forEach(user => {
+							if (!prRelatedUsersMap[user.login]) {
+								prRelatedUsersMap[user.login] = user;
 							}
 						});
-					}
 
-					for (const user in prRelatedUsersMap) {
-						if (!secondMap[user]) {
-							// if the mentionable api call fails partially, we should still populate related users from timeline events into the completion list
-							cachedUsers.push({
-								label: prRelatedUsersMap[user].login,
-								insertText: `${prRelatedUsersMap[user].login}`,
-								filterText: `${prRelatedUsersMap[user].login}` + (prRelatedUsersMap[user].name && prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login ? `_${prRelatedUsersMap[user].name!.toLowerCase().replace(' ', '_')}` : ''),
-								sortText: `0_${prRelatedUsersMap[user].login}`,
-								detail: prRelatedUsersMap[user].name,
-								kind: vscode.CompletionItemKind.User,
-								login: prRelatedUsersMap[user].login,
-								uri: this.repository.rootUri
+						const secondMap: { [key: string]: boolean } = {};
+
+						for (const mentionableUserGroup in mentionableUsers) {
+							mentionableUsers[mentionableUserGroup].forEach(user => {
+								if (!prRelatedUsersMap[user.login] && !secondMap[user.login]) {
+									secondMap[user.login] = true;
+
+									let priority = 2;
+									if (fileRelatedUsersNames[user.login] || (user.name && fileRelatedUsersNames[user.name])) {
+										priority = 1;
+									}
+
+									if (prRelatedUsersMap[user.login]) {
+										priority = 0;
+									}
+
+									cachedUsers.push({
+										label: user.login,
+										insertText: user.login,
+										filterText:
+											`${user.login}` +
+											(user.name && user.name !== user.login
+												? `_${user.name.toLowerCase().replace(' ', '_')}`
+												: ''),
+										sortText: `${priority}_${user.login}`,
+										detail: user.name,
+										kind: vscode.CompletionItemKind.User,
+										login: user.login,
+										uri: this.repository.rootUri,
+									});
+								}
 							});
 						}
-					}
 
-					Logger.debug('done', FolderRepositoryManager.ID);
-					return cachedUsers;
-				} catch (e) {
-					return [];
-				}
+						for (const user in prRelatedUsersMap) {
+							if (!secondMap[user]) {
+								// if the mentionable api call fails partially, we should still populate related users from timeline events into the completion list
+								cachedUsers.push({
+									label: prRelatedUsersMap[user].login,
+									insertText: `${prRelatedUsersMap[user].login}`,
+									filterText:
+										`${prRelatedUsersMap[user].login}` +
+										(prRelatedUsersMap[user].name &&
+										prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login
+											? `_${prRelatedUsersMap[user].name!.toLowerCase().replace(' ', '_')}`
+											: ''),
+									sortText: `0_${prRelatedUsersMap[user].login}`,
+									detail: prRelatedUsersMap[user].name,
+									kind: vscode.CompletionItemKind.User,
+									login: prRelatedUsersMap[user].login,
+									uri: this.repository.rootUri,
+								});
+							}
+						}
+
+						Logger.debug('done', FolderRepositoryManager.ID);
+						return cachedUsers;
+					} catch (e) {
+						return [];
+					}
+				},
+				resolveCompletionItem: async (item: vscode.CompletionItem, token: vscode.CancellationToken) => {
+					try {
+						const repo = await this.getPullRequestDefaults();
+						const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, item.label);
+						if (user) {
+							item.documentation = userMarkdown(repo, user);
+						}
+					} catch (e) {
+						// The user might not be resolvable in the repo, since users from outside the repo are included in the list.
+					}
+					return item;
+				},
 			},
-			resolveCompletionItem: async (item: vscode.CompletionItem, token: vscode.CancellationToken) => {
-				try {
-					const repo = await this.getPullRequestDefaults();
-					const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, item.label);
-					if (user) {
-						item.documentation = userMarkdown(repo, user);
-					}
-				} catch (e) {
-					// The user might not be resolvable in the repo, since users from outside the repo are included in the list.
-				}
-				return item;
-			}
-		}, '@');
-
+			'@',
+		);
 	}
 
 	get activeIssue(): IssueModel | undefined {
@@ -442,12 +467,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			this._githubRepositories = repositories;
 			oldRepositories.forEach(repo => repo.dispose());
 
-			const repositoriesChanged = oldRepositories.length !== this._githubRepositories.length
-				|| !oldRepositories.every(oldRepo => this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)));
+			const repositoriesChanged =
+				oldRepositories.length !== this._githubRepositories.length ||
+				!oldRepositories.every(oldRepo =>
+					this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)),
+				);
 
 			this.getMentionableUsers(repositoriesChanged);
 			this.getAssignableUsers(repositoriesChanged);
-			this._onDidLoadRepositories.fire(isAuthenticated || !activeRemotes.length ? ReposManagerState.RepositoriesLoaded : ReposManagerState.NeedsAuthentication);
+			this._onDidLoadRepositories.fire(
+				isAuthenticated || !activeRemotes.length
+					? ReposManagerState.RepositoriesLoaded
+					: ReposManagerState.NeedsAuthentication,
+			);
 			if (!silent) {
 				this._onDidChangeRepositories.fire();
 			}
@@ -477,7 +509,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		if (!this._fetchMentionableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
-			return this._fetchMentionableUsersPromise = new Promise((resolve) => {
+			return (this._fetchMentionableUsersPromise = new Promise(resolve => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getMentionableUsers();
 					cache[githubRepository.remote.remoteName] = data;
@@ -489,7 +521,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					this._fetchMentionableUsersPromise = undefined;
 					resolve(cache);
 				});
-			});
+			}));
 		}
 
 		return this._fetchMentionableUsersPromise;
@@ -507,7 +539,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
 			const allAssignableUsers: IAccount[] = [];
-			return this._fetchAssignableUsersPromise = new Promise((resolve) => {
+			return (this._fetchAssignableUsersPromise = new Promise(resolve => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getAssignableUsers();
 					cache[githubRepository.remote.remoteName] = data.sort(loginComparator);
@@ -521,7 +553,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					resolve(cache);
 					this._onDidChangeAssignableUsers.fire(allAssignableUsers);
 				});
-			});
+			}));
 		}
 
 		return this._fetchAssignableUsersPromise;
@@ -560,11 +592,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			.map(r => r.name!);
 
 		const promises = localBranches.map(async localBranchName => {
-			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, localBranchName);
+			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
+				this.repository,
+				localBranchName,
+			);
 
 			if (matchingPRMetadata) {
 				const { owner, prNumber } = matchingPRMetadata;
-				const githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+				const githubRepo = githubRepositories.find(
+					repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase(),
+				);
 
 				if (githubRepo) {
 					const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber);
@@ -584,8 +621,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		});
 	}
 
-	async getLabels(issue?: IssueModel, repoInfo?: { owner: string, repo: string }): Promise<ILabel[]> {
-		const repo = issue ? issue.githubRepository : this._githubRepositories.find(r => r.remote.owner === repoInfo?.owner && r.remote.repositoryName === repoInfo?.repo);
+	async getLabels(issue?: IssueModel, repoInfo?: { owner: string; repo: string }): Promise<ILabel[]> {
+		const repo = issue
+			? issue.githubRepository
+			: this._githubRepositories.find(
+					r => r.remote.owner === repoInfo?.owner && r.remote.repositoryName === repoInfo?.repo,
+			  );
 		if (!repo) {
 			throw new Error(`No matching repository found for getting labels.`);
 		}
@@ -599,15 +640,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const result = await octokit.issues.listLabelsForRepo({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				page
+				page,
 			});
 
-			results = results.concat(result.data.map(label => {
-				return {
-					name: label.name,
-					color: label.color
-				};
-			}));
+			results = results.concat(
+				result.data.map(label => {
+					return {
+						name: label.name,
+						color: label.color,
+					};
+				}),
+			);
 
 			results = results.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -636,7 +679,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		let remoteName: string | undefined = undefined;
 		try {
 			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
-		} catch (e) { }
+		} catch (e) {}
 
 		if (!remoteName) {
 			return;
@@ -646,8 +689,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remoteName);
 		if (isPRRemote) {
 			const configs = await this.repository.getConfigs();
-			const hasOtherAssociatedBranches = configs
-				.some(({ key, value }) => /^branch.*\.remote$/.test(key) && value === remoteName);
+			const hasOtherAssociatedBranches = configs.some(
+				({ key, value }) => /^branch.*\.remote$/.test(key) && value === remoteName,
+			);
 
 			if (!hasOtherAssociatedBranches) {
 				await this.repository.removeRemote(remoteName);
@@ -674,12 +718,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
 	 *   Otherwise, we're in case 3.
 	 */
-	private async fetchPagedData<T>(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, pagedDataType: PagedDataType = PagedDataType.PullRequest, type: PRType = PRType.All, query?: string): Promise<ItemsResponseResult<T>> {
+	private async fetchPagedData<T>(
+		options: IPullRequestsPagingOptions = { fetchNextPage: false },
+		queryId: string,
+		pagedDataType: PagedDataType = PagedDataType.PullRequest,
+		type: PRType = PRType.All,
+		query?: string,
+	): Promise<ItemsResponseResult<T>> {
 		if (!this._githubRepositories || !this._githubRepositories.length) {
 			return {
 				items: [],
 				hasMorePages: false,
-				hasUnsearchedRepositories: false
+				hasUnsearchedRepositories: false,
 			};
 		}
 
@@ -691,7 +741,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!this._repositoryPageInformation.get(remoteId)) {
 				this._repositoryPageInformation.set(remoteId, {
 					pullRequestPage: 0,
-					hasMorePages: null
+					hasMorePages: null,
 				});
 			}
 		}
@@ -717,7 +767,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const remoteId = githubRepository.remote.url.toString() + queryId;
 			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
 
-			const fetchPage = async (pageNumber: number): Promise<{ items: any[], hasMorePages: boolean } | undefined> => {
+			const fetchPage = async (pageNumber: number): Promise<{ items: any[]; hasMorePages: boolean } | undefined> => {
 				switch (pagedDataType) {
 					case PagedDataType.PullRequest: {
 						if (type === PRType.All) {
@@ -752,7 +802,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 
 				const pages = await Promise.all(
-					Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => fetchPage(j + 1)));
+					Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => fetchPage(j + 1)),
+				);
 				pages.forEach(page => addPage(page));
 			}
 
@@ -764,8 +815,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
 			if (
 				itemData.items.length &&
-				(options.fetchNextPage === true ||
-					(options.fetchNextPage === false && pagesFetched >= getTotalFetchedPages()))
+				(options.fetchNextPage === true || (options.fetchNextPage === false && pagesFetched >= getTotalFetchedPages()))
 			) {
 				if (getTotalFetchedPages() === 0) {
 					// We're in case 1, manually set number of pages we looked through until we found first results.
@@ -775,7 +825,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				return {
 					items: itemData.items,
 					hasMorePages: pageInformation.hasMorePages,
-					hasUnsearchedRepositories: i < githubRepositories.length - 1
+					hasUnsearchedRepositories: i < githubRepositories.length - 1,
 				};
 			}
 		}
@@ -783,39 +833,64 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return {
 			items: [],
 			hasMorePages: false,
-			hasUnsearchedRepositories: false
+			hasUnsearchedRepositories: false,
 		};
 	}
 
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<ItemsResponseResult<PullRequestModel>> {
+	async getPullRequests(
+		type: PRType,
+		options: IPullRequestsPagingOptions = { fetchNextPage: false },
+		query?: string,
+	): Promise<ItemsResponseResult<PullRequestModel>> {
 		const queryId = type.toString() + (query || '');
 		return this.fetchPagedData<PullRequestModel>(options, queryId, PagedDataType.PullRequest, type, query);
 	}
 
-	async getMilestones(options: IPullRequestsPagingOptions = { fetchNextPage: false }, includeIssuesWithoutMilstone: boolean = false, query?: string): Promise<ItemsResponseResult<MilestoneModel>> {
-		const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(options, 'issuesKey', PagedDataType.Milestones, PRType.All, query);
+	async getMilestones(
+		options: IPullRequestsPagingOptions = { fetchNextPage: false },
+		includeIssuesWithoutMilstone: boolean = false,
+		query?: string,
+	): Promise<ItemsResponseResult<MilestoneModel>> {
+		const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(
+			options,
+			'issuesKey',
+			PagedDataType.Milestones,
+			PRType.All,
+			query,
+		);
 		if (includeIssuesWithoutMilstone) {
-			const additionalIssues: ItemsResponseResult<IssueModel> = await this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssuesWithoutMilestone, PRType.All, query);
+			const additionalIssues: ItemsResponseResult<IssueModel> = await this.fetchPagedData<IssueModel>(
+				options,
+				'issuesKey',
+				PagedDataType.IssuesWithoutMilestone,
+				PRType.All,
+				query,
+			);
 			milestones.items.push({
 				milestone: {
 					createdAt: new Date(0).toDateString(),
 					id: '',
-					title: NO_MILESTONE
+					title: NO_MILESTONE,
 				},
-				issues: additionalIssues.items
+				issues: additionalIssues.items,
 			});
 		}
 		return milestones;
 	}
 
-	async getIssues(options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<ItemsResponseResult<IssueModel>> {
+	async getIssues(
+		options: IPullRequestsPagingOptions = { fetchNextPage: false },
+		query?: string,
+	): Promise<ItemsResponseResult<IssueModel>> {
 		return this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
 	}
 
 	async getMaxIssue(): Promise<number> {
-		const maxIssues = await Promise.all(this._githubRepositories.map(repository => {
-			return repository.getMaxIssue();
-		}));
+		const maxIssues = await Promise.all(
+			this._githubRepositories.map(repository => {
+				return repository.getMaxIssue();
+			}),
+		);
 		let max: number = 0;
 		for (const issueNumber of maxIssues) {
 			if (issueNumber !== undefined) {
@@ -831,11 +906,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		 * - At the root, the docs folder, or the.github folder, named pull_request_template.md or PULL_REQUEST_TEMPLATE.md
 		 * - At the same folder locations under a PULL_REQUEST_TEMPLATE folder with any name
 		 */
-		const templatesPattern1 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{pull_request_template,PULL_REQUEST_TEMPLATE}.md'));
-		const templatesPattern2 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md'));
+		const templatesPattern1 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri.path, '{pull_request_template,PULL_REQUEST_TEMPLATE}.md'),
+		);
+		const templatesPattern2 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(
+				this._repository.rootUri.path,
+				'{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md',
+			),
+		);
 
-		const templatesPattern3 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, 'PULL_REQUEST_TEMPLATE/*.md'));
-		const templatesPattern4 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md'));
+		const templatesPattern3 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri.path, 'PULL_REQUEST_TEMPLATE/*.md'),
+		);
+		const templatesPattern4 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md'),
+		);
 
 		return [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
 	}
@@ -846,14 +932,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 		const origin = await this.getOrigin();
 		const meta = await origin.getMetadata();
-		const parent = meta.fork
-			? meta.parent
-			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
+		const parent = meta.fork ? meta.parent : await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
 
 		return {
 			owner: parent.owner.login,
 			repo: parent.name,
-			base: parent.default_branch
+			base: parent.default_branch,
 		};
 	}
 
@@ -894,10 +978,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				// No GitHubRepository? We currently won't try pushing elsewhere,
 				// so fail.
-				throw new BadUpstreamError(
-					this.repository.state.HEAD!.name!,
-					upstreamRef,
-					'is not a GitHub repo');
+				throw new BadUpstreamError(this.repository.state.HEAD!.name!, upstreamRef, 'is not a GitHub repo');
 			}
 
 			// Otherwise, we'll push upstream.
@@ -906,12 +987,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		// If no upstream is set, let's go digging.
 		const [first, ...rest] = this._githubRepositories;
-		return !rest.length  // Is there only one GitHub remote?
+		return !rest.length // Is there only one GitHub remote?
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
-			:  // Otherwise, let's try...
-			this.findRepo(byRemoteName('origin')) || // by convention
-			this.findRepo(ownedByMe) ||              // bc maybe we can push there
-			first; // out of raw desperation
+			: // Otherwise, let's try...
+			  this.findRepo(byRemoteName('origin')) || // by convention
+					this.findRepo(ownedByMe) || // bc maybe we can push there
+					first; // out of raw desperation
 	}
 
 	findRepo(where: Predicate<GitHubRepository>): GitHubRepository | undefined {
@@ -925,7 +1006,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel | undefined> {
 		try {
-			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
+			const repo = this._githubRepositories.find(
+				r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo,
+			);
 			if (!repo) {
 				throw new Error(`No matching repository ${params.repo} found for ${params.owner}`);
 			}
@@ -962,7 +1045,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				// There are unpushed commits
 				if (this._repository.state.HEAD?.ahead) {
 					// Offer to push changes
-					const shouldPush = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to push your local commits and try again?`, 'Yes', 'Cancel');
+					const shouldPush = await vscode.window.showInformationMessage(
+						`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to push your local commits and try again?`,
+						'Yes',
+						'Cancel',
+					);
 					if (shouldPush === 'Yes') {
 						await this._repository.push();
 						return this.createPullRequest(params);
@@ -975,7 +1062,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				// There are uncommited changes
 				if (this._repository.state.workingTreeChanges.length || this._repository.state.indexChanges.length) {
-					const shouldCommit = await vscode.window.showInformationMessage(`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to commit your changes and try again?`, 'Yes', 'Cancel');
+					const shouldCommit = await vscode.window.showInformationMessage(
+						`There are currently no commits between '${params.base}' and '${params.head}'. Do you want to commit your changes and try again?`,
+						'Yes',
+						'Cancel',
+					);
 					if (shouldCommit === 'Yes') {
 						await vscode.commands.executeCommand('git.commit');
 						await this._repository.push();
@@ -998,7 +1089,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			*/
 			this._telemetry.sendTelemetryErrorEvent('pr.create.failure', {
 				isDraft: (params.draft || '').toString(),
-				message: formatError(e)
+				message: formatError(e),
 			});
 			vscode.window.showWarningMessage(`Creating pull requests for '${params.head}' failed: ${formatError(e)}`);
 		}
@@ -1006,7 +1097,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async createIssue(params: OctokitCommon.IssuesCreateParams): Promise<IssueModel | undefined> {
 		try {
-			const repo = this._githubRepositories.find(r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo);
+			const repo = this._githubRepositories.find(
+				r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo,
+			);
 			if (!repo) {
 				throw new Error(`No matching repository ${params.repo} found for ${params.owner}`);
 			}
@@ -1033,7 +1126,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			*/
 			this._telemetry.sendTelemetryErrorEvent('issue.create.failure', {
-				message: formatError(e)
+				message: formatError(e),
 			});
 			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
 		}
@@ -1041,7 +1134,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async assignIssue(issue: IssueModel, login: string): Promise<void> {
 		try {
-			const repo = this._githubRepositories.find(r => r.remote.owner === issue.remote.owner && r.remote.repositoryName === issue.remote.repositoryName);
+			const repo = this._githubRepositories.find(
+				r => r.remote.owner === issue.remote.owner && r.remote.repositoryName === issue.remote.repositoryName,
+			);
 			if (!repo) {
 				throw new Error(`No matching repository ${issue.remote.repositoryName} found for ${issue.remote.owner}`);
 			}
@@ -1052,7 +1147,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				assignees: [login],
 				owner: issue.remote.owner,
 				repo: issue.remote.repositoryName,
-				issue_number: issue.number
+				issue_number: issue.number,
 			};
 			await repo.octokit.issues.addAssignees(param);
 
@@ -1070,7 +1165,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			*/
 			this._telemetry.sendTelemetryErrorEvent('issue.assign.failure', {
-				message: formatError(e)
+				message: formatError(e),
 			});
 			vscode.window.showWarningMessage(`Assigning issue failed: ${formatError(e)}`);
 		}
@@ -1080,7 +1175,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(), issueModel.githubRepository);
 	}
 
-	async mergePullRequest(pullRequest: PullRequestModel, title?: string, description?: string, method?: 'merge' | 'squash' | 'rebase'): Promise<any> {
+	async mergePullRequest(
+		pullRequest: PullRequestModel,
+		title?: string,
+		description?: string,
+		method?: 'merge' | 'squash' | 'rebase',
+	): Promise<any> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
@@ -1094,46 +1194,61 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (workingDirectorySHA !== mergingPRSHA) {
 				// We are looking at different commit than what will be merged
 				const { ahead } = this.repository.state.HEAD!;
-				if (ahead &&
-					await vscode.window.showWarningMessage(
-						`You have ${ahead} unpushed ${ahead > 1 ? 'commits' : 'commit'} on this PR branch.\n\nWould you like to proceed anyway?`,
+				if (
+					ahead &&
+					(await vscode.window.showWarningMessage(
+						`You have ${ahead} unpushed ${
+							ahead > 1 ? 'commits' : 'commit'
+						} on this PR branch.\n\nWould you like to proceed anyway?`,
 						{ modal: true },
-						'Yes') === undefined
+						'Yes',
+					)) === undefined
 				) {
 					return {
 						merged: false,
-						message: 'unpushed changes'
+						message: 'unpushed changes',
 					};
 				}
 			}
 
 			if (workingDirectoryIsDirty) {
 				// We have made changes to the PR that are not committed
-				if (await vscode.window.showWarningMessage(
-					'You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?', { modal: true }, 'Yes') === undefined) {
+				if (
+					(await vscode.window.showWarningMessage(
+						'You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?',
+						{ modal: true },
+						'Yes',
+					)) === undefined
+				) {
 					return {
 						merged: false,
-						message: 'uncommitted changes'
+						message: 'uncommitted changes',
 					};
 				}
 			}
 		}
 
-		return await octokit.pulls.merge({
-			commit_message: description,
-			commit_title: title,
-			merge_method: method || vscode.workspace.getConfiguration('githubPullRequests').get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.number,
-		})
+		return await octokit.pulls
+			.merge({
+				commit_message: description,
+				commit_title: title,
+				merge_method:
+					method ||
+					vscode.workspace
+						.getConfiguration('githubPullRequests')
+						.get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				pull_number: pullRequest.number,
+			})
 			.then(x => {
 				/* __GDPR__
 					"pr.merge.success" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('pr.merge.success');
 				return x.data;
-			}).catch(e => {
+			})
+			.catch(e => {
 				/* __GDPR__
 					"pr.merge.failure" : {
 						"message" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" }
@@ -1177,12 +1292,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		});
 
-		const actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata, legacy?: boolean })[] = [];
+		const actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata; legacy?: boolean })[] = [];
 		branchInfos.forEach((value, key) => {
 			if (value.metadata) {
 				const activePRUrl = this.activePullRequest && this.activePullRequest.base.repositoryCloneUrl;
 				const matchesActiveBranch = activePRUrl
-					? activePRUrl.owner === value.metadata.owner && activePRUrl.repositoryName === value.metadata.repositoryName && this.activePullRequest && this.activePullRequest.number === value.metadata.prNumber
+					? activePRUrl.owner === value.metadata.owner &&
+					  activePRUrl.repositoryName === value.metadata.repositoryName &&
+					  this.activePullRequest &&
+					  this.activePullRequest.number === value.metadata.prNumber
 					: false;
 
 				if (!matchesActiveBranch) {
@@ -1190,38 +1308,42 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						label: `${key}`,
 						description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata.prNumber}`,
 						picked: false,
-						metadata: value.metadata!
+						metadata: value.metadata!,
 					});
 				}
 			}
 		});
 
-		const results = await Promise.all(actions.map(async action => {
-			const metadata = action.metadata;
-			const githubRepo = this._githubRepositories.find(repo =>
-				repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase()
-			);
+		const results = await Promise.all(
+			actions.map(async action => {
+				const metadata = action.metadata;
+				const githubRepo = this._githubRepositories.find(
+					repo =>
+						repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() &&
+						repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase(),
+				);
 
-			if (!githubRepo) {
+				if (!githubRepo) {
+					return action;
+				}
+
+				const { remote, query, schema } = await githubRepo.ensure();
+				try {
+					const { data } = await query<PullRequestState>({
+						query: schema.PullRequestState,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							number: metadata!.prNumber,
+						},
+					});
+
+					action.legacy = data.repository.pullRequest.state !== 'OPEN';
+				} catch {}
+
 				return action;
-			}
-
-			const { remote, query, schema } = await githubRepo.ensure();
-			try {
-				const { data } = await query<PullRequestState>({
-					query: schema.PullRequestState,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						number: metadata!.prNumber,
-					}
-				});
-
-				action.legacy = data.repository.pullRequest.state !== 'OPEN';
-			} catch { }
-
-			return action;
-		}));
+			}),
+		);
 
 		results.forEach(result => {
 			if (result.legacy) {
@@ -1276,7 +1398,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				if (matches[2] === 'url') {
 					value!.url = config.value;
 				}
-
 			}
 		});
 
@@ -1286,14 +1407,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (value.branches.size === 0) {
 				let description = value.createdForPullRequest ? '' : 'Not created by GitHub Pull Request extension';
 				if (value.url) {
-					description = description ? (description + ' ' + value.url) : value.url;
+					description = description ? description + ' ' + value.url : value.url;
 				}
 
 				remoteItems.push({
 					label: key,
 					description: description,
 					picked: value.createdForPullRequest,
-					remote: key
+					remote: key,
 				});
 			}
 		});
@@ -1323,9 +1444,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					if (picks.length) {
 						quickPick.busy = true;
 						try {
-							await Promise.all(picks.map(async pick => {
-								await this.repository.deleteBranch(pick.label, true);
-							}));
+							await Promise.all(
+								picks.map(async pick => {
+									await this.repository.deleteBranch(pick.label, true);
+								}),
+							);
 							quickPick.busy = false;
 						} catch (e) {
 							quickPick.hide();
@@ -1351,9 +1474,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
 						quickPick.busy = true;
-						await Promise.all(picks.map(async pick => {
-							await this.repository.removeRemote(pick.label);
-						}));
+						await Promise.all(
+							picks.map(async pick => {
+								await this.repository.removeRemote(pick.label);
+							}),
+						);
 						quickPick.busy = false;
 					}
 					quickPick.hide();
@@ -1390,7 +1515,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const { data } = await octokit.pulls.get({
 					owner: remote.owner,
 					repo: remote.repositoryName,
-					pull_number: pullRequest.number
+					pull_number: pullRequest.number,
 				});
 				pullRequest.update(convertRESTPullRequestToRawPullRequest(data, githubRepository));
 			}
@@ -1400,7 +1525,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					repo: remote.repositoryName,
 					owner: remote.owner,
 					base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
-					head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`
+					head: `${pullRequest.head.repositoryCloneUrl.owner}:${pullRequest.head.ref}`,
 				});
 
 				pullRequest.mergeBase = data.merge_base_commit.sha;
@@ -1415,7 +1540,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	private async resolveItem(owner: string, repositoryName: string): Promise<GitHubRepository | undefined> {
 		let githubRepo = this._githubRepositories.find(repo => {
-			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
+			const ret =
+				repo.remote.owner.toLowerCase() === owner.toLowerCase() &&
+				repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
 			return ret;
 		});
 
@@ -1426,14 +1553,23 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return githubRepo;
 	}
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
+	async resolvePullRequest(
+		owner: string,
+		repositoryName: string,
+		pullRequestNumber: number,
+	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		if (githubRepo) {
 			return githubRepo.getPullRequest(pullRequestNumber);
 		}
 	}
 
-	async resolveIssue(owner: string, repositoryName: string, pullRequestNumber: number, withComments: boolean = false): Promise<IssueModel | undefined> {
+	async resolveIssue(
+		owner: string,
+		repositoryName: string,
+		pullRequestNumber: number,
+		withComments: boolean = false,
+	): Promise<IssueModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		if (githubRepo) {
 			return githubRepo.getIssue(pullRequestNumber, withComments);
@@ -1449,8 +1585,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const { data } = await query<UserResponse>({
 				query: schema.GetUser,
 				variables: {
-					login
-				}
+					login,
+				},
 			});
 			return parseGraphQLUser(data);
 		} catch (e) {
@@ -1463,12 +1599,20 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return null;
 		}
 
-		const matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, this.repository.state.HEAD.name);
+		const matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
+			this.repository,
+			this.repository.state.HEAD.name,
+		);
 		return matchingPullRequestMetadata;
 	}
 
 	async getMatchingPullRequestMetadataFromGitHub(): Promise<(PullRequestMetadata & { model: PullRequestModel }) | null> {
-		if (!this.repository || !this.repository.state.HEAD || !this.repository.state.HEAD.name || !this.repository.state.HEAD.upstream) {
+		if (
+			!this.repository ||
+			!this.repository.state.HEAD ||
+			!this.repository.state.HEAD.name ||
+			!this.repository.state.HEAD.upstream
+		) {
 			return null;
 		}
 
@@ -1481,7 +1625,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						owner: repo.remote.owner,
 						repositoryName: repo.remote.repositoryName,
 						prNumber: matchingPullRequest[0].number,
-						model: matchingPullRequest[0]
+						model: matchingPullRequest[0],
 					};
 				}
 				break;
@@ -1519,7 +1663,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
 				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
-					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
+					vscode.window.showErrorMessage(
+						'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
+					);
 					return;
 				}
 			}
@@ -1537,21 +1683,34 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry);
 	}
 
-	async findUpstreamForItem(item: { remote: Remote, githubRepository: GitHubRepository }): Promise<{ needsFork: boolean, upstream?: GitHubRepository, remote?: Remote }> {
+	async findUpstreamForItem(item: {
+		remote: Remote;
+		githubRepository: GitHubRepository;
+	}): Promise<{ needsFork: boolean; upstream?: GitHubRepository; remote?: Remote }> {
 		let upstream: GitHubRepository | undefined;
 		let existingForkRemote: Remote | undefined;
 		for (const githubRepo of this.gitHubRepositories) {
-			if (!upstream && (githubRepo.remote.owner === item.remote.owner) &&
-				(githubRepo.remote.repositoryName === item.remote.repositoryName)) {
+			if (
+				!upstream &&
+				githubRepo.remote.owner === item.remote.owner &&
+				githubRepo.remote.repositoryName === item.remote.repositoryName
+			) {
 				upstream = githubRepo;
 				continue;
 			}
 			const forkDetails = await githubRepo.getRepositoryForkDetails();
-			if (forkDetails && forkDetails.isFork && (forkDetails.parent.owner === item.remote.owner) &&
-				(forkDetails.parent.name === item.remote.repositoryName)) {
+			if (
+				forkDetails &&
+				forkDetails.isFork &&
+				forkDetails.parent.owner === item.remote.owner &&
+				forkDetails.parent.name === item.remote.repositoryName
+			) {
 				const foundforkPermission = await githubRepo.getViewerPermission();
-				if ((foundforkPermission === ViewerPermission.Admin) || (foundforkPermission === ViewerPermission.Maintain) ||
-					(foundforkPermission === ViewerPermission.Write)) {
+				if (
+					foundforkPermission === ViewerPermission.Admin ||
+					foundforkPermission === ViewerPermission.Maintain ||
+					foundforkPermission === ViewerPermission.Write
+				) {
 					existingForkRemote = githubRepo.remote;
 					break;
 				}
@@ -1560,19 +1719,30 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		let needsFork = false;
 		if (upstream && !existingForkRemote) {
 			const permission = await item.githubRepository.getViewerPermission();
-			if ((permission === ViewerPermission.Read) || (permission === ViewerPermission.Triage) || (permission === ViewerPermission.Unknown)) {
+			if (
+				permission === ViewerPermission.Read ||
+				permission === ViewerPermission.Triage ||
+				permission === ViewerPermission.Unknown
+			) {
 				needsFork = true;
 			}
 		}
 		return { needsFork, upstream, remote: existingForkRemote };
 	}
 
-	async forkWithProgress(progress: vscode.Progress<{ message?: string; increment?: number }>, githubRepository: GitHubRepository, repoString: string, matchingRepo: Repository): Promise<string | undefined> {
+	async forkWithProgress(
+		progress: vscode.Progress<{ message?: string; increment?: number }>,
+		githubRepository: GitHubRepository,
+		repoString: string,
+		matchingRepo: Repository,
+	): Promise<string | undefined> {
 		progress.report({ message: `Forking ${repoString}...` });
 		const result = await githubRepository.fork();
 		progress.report({ increment: 50 });
 		if (!result) {
-			vscode.window.showErrorMessage(`Unable to create a fork of ${repoString}. Check that your GitHub credentials are correct.`);
+			vscode.window.showErrorMessage(
+				`Unable to create a fork of ${repoString}. Check that your GitHub credentials are correct.`,
+			);
 			return;
 		}
 
@@ -1581,7 +1751,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		await matchingRepo.renameRemote(workingRemoteName, 'upstream');
 		await matchingRepo.addRemote(workingRemoteName, result);
 		// Now the extension is responding to all the git changes.
-		await new Promise((resolve) => {
+		await new Promise(resolve => {
 			if (this.gitHubRepositories.length === 0) {
 				const disposable = this.onDidChangeRepositories(() => {
 					if (this.gitHubRepositories.length > 0) {
@@ -1597,28 +1767,42 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return workingRemoteName;
 	}
 
-	async doFork(githubRepository: GitHubRepository, repoString: string, matchingRepo: Repository): Promise<string | undefined> {
-		return vscode.window.withProgress<string | undefined>({ location: vscode.ProgressLocation.Notification, title: 'Creating Fork' }, async (progress) => {
-			try {
-				return this.forkWithProgress(progress, githubRepository, repoString, matchingRepo);
-			} catch (e) {
-				vscode.window.showErrorMessage('Creating fork failed: ' + e);
-			}
-		});
+	async doFork(
+		githubRepository: GitHubRepository,
+		repoString: string,
+		matchingRepo: Repository,
+	): Promise<string | undefined> {
+		return vscode.window.withProgress<string | undefined>(
+			{ location: vscode.ProgressLocation.Notification, title: 'Creating Fork' },
+			async progress => {
+				try {
+					return this.forkWithProgress(progress, githubRepository, repoString, matchingRepo);
+				} catch (e) {
+					vscode.window.showErrorMessage('Creating fork failed: ' + e);
+				}
+			},
+		);
 	}
 
 	async tryOfferToFork(githubRepository: GitHubRepository): Promise<string | false | undefined> {
 		const repoString = `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`;
 
 		const fork = 'Fork';
-		const dontFork = 'Don\'t Fork';
-		const response = await vscode.window.showInformationMessage(`You don't have permission to push to ${repoString}. Do you want to fork ${repoString}? This will modify your git remotes to set \`origin\` to the fork, and \`upstream\` to ${repoString}.`, { modal: true }, fork, dontFork);
+		const dontFork = "Don't Fork";
+		const response = await vscode.window.showInformationMessage(
+			`You don't have permission to push to ${repoString}. Do you want to fork ${repoString}? This will modify your git remotes to set \`origin\` to the fork, and \`upstream\` to ${repoString}.`,
+			{ modal: true },
+			fork,
+			dontFork,
+		);
 		switch (response) {
 			case fork: {
 				return this.doFork(githubRepository, repoString, this.repository);
 			}
-			case dontFork: return false;
-			default: return undefined;
+			case dontFork:
+				return false;
+			default:
+				return undefined;
 		}
 	}
 
@@ -1649,20 +1833,13 @@ const ownedByMe: Predicate<GitHubRepository> = repo => {
 	return currentUser && repo.remote.owner === currentUser.login;
 };
 
-const byRemoteName = (name: string): Predicate<GitHubRepository> =>
-	({ remote: { remoteName } }) => remoteName === name;
+const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) => remoteName === name;
 
-export const titleAndBodyFrom = (message: string): { title: string, body: string } => {
+export const titleAndBodyFrom = (message: string): { title: string; body: string } => {
 	const idxLineBreak = message.indexOf('\n');
 	return {
-		title: idxLineBreak === -1
-			? message
-			: message.substr(0, idxLineBreak),
+		title: idxLineBreak === -1 ? message : message.substr(0, idxLineBreak),
 
-		body: idxLineBreak === -1
-			? ''
-			: message
-				.slice(idxLineBreak + 1)
-				.trim(),
+		body: idxLineBreak === -1 ? '' : message.slice(idxLineBreak + 1).trim(),
 	};
 };

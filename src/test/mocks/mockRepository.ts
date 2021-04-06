@@ -1,6 +1,18 @@
 import { Uri } from 'vscode';
 
-import { Repository, RepositoryState, RepositoryUIState, Commit, Change, Branch, RefType, CommitOptions, InputBox, Ref, BranchQuery } from '../../api/api';
+import {
+	Repository,
+	RepositoryState,
+	RepositoryUIState,
+	Commit,
+	Change,
+	Branch,
+	RefType,
+	CommitOptions,
+	InputBox,
+	Ref,
+	BranchQuery,
+} from '../../api/api';
 
 type Mutable<T> = {
 	-readonly [P in keyof T]: T[P];
@@ -16,7 +28,7 @@ export class MockRepository implements Repository {
 	getGlobalConfig(key: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected getGlobalConfig(${key})`));
 	}
-	detectObjectType(object: string): Promise<{ mimetype: string; encoding?: string | undefined; }> {
+	detectObjectType(object: string): Promise<{ mimetype: string; encoding?: string | undefined }> {
 		return Promise.reject(new Error(`Unexpected detectObjectType(${object})`));
 	}
 	buffer(ref: string, path: string): Promise<Buffer> {
@@ -50,13 +62,13 @@ export class MockRepository implements Repository {
 		mergeChanges: [],
 		indexChanges: [],
 		workingTreeChanges: [],
-		onDidChange: () => ({ dispose() { } }),
+		onDidChange: () => ({ dispose() {} }),
 	};
 	private _config: Map<string, string> = new Map();
 	private _branches: Branch[] = [];
-	private _expectedFetches: { remoteName?: string, ref?: string, depth?: number }[] = [];
+	private _expectedFetches: { remoteName?: string; ref?: string; depth?: number }[] = [];
 	private _expectedPulls: { unshallow?: boolean }[] = [];
-	private _expectedPushes: { remoteName?: string, branchName?: string, setUpstream?: boolean }[] = [];
+	private _expectedPushes: { remoteName?: string; branchName?: string; setUpstream?: boolean }[] = [];
 
 	inputBox: InputBox = { value: '' };
 
@@ -66,10 +78,10 @@ export class MockRepository implements Repository {
 
 	ui: RepositoryUIState = {
 		selected: true,
-		onDidChange: () => ({ dispose() { } }),
+		onDidChange: () => ({ dispose() {} }),
 	};
 
-	async getConfigs(): Promise<{ key: string, value: string }[]> {
+	async getConfigs(): Promise<{ key: string; value: string }[]> {
 		return Array.from(this._config, ([k, v]) => ({ key: k, value: v }));
 	}
 
@@ -83,7 +95,7 @@ export class MockRepository implements Repository {
 		return oldValue;
 	}
 
-	getObjectDetails(treeish: string, treePath: string): Promise<{ mode: string; object: string; size: number; }> {
+	getObjectDetails(treeish: string, treePath: string): Promise<{ mode: string; object: string; size: number }> {
 		return Promise.reject(new Error(`Unexpected getObjectDetails(${treeish}, ${treePath})`));
 	}
 
@@ -170,7 +182,9 @@ export class MockRepository implements Repository {
 
 		const match = /^refs\/remotes\/([^\/]+)\/(.+)$/.exec(upstream);
 		if (!match) {
-			throw new Error(`upstream ${upstream} provided to setBranchUpstream did match pattern refs/remotes/<name>/<remote-branch>`);
+			throw new Error(
+				`upstream ${upstream} provided to setBranchUpstream did match pattern refs/remotes/<name>/<remote-branch>`,
+			);
 		}
 		const [, remoteName, remoteRef] = match;
 
@@ -251,8 +265,14 @@ export class MockRepository implements Repository {
 		this._expectedPulls.splice(index, 1);
 	}
 
-	async push(remoteName?: string | undefined, branchName?: string | undefined, setUpstream?: boolean | undefined): Promise<void> {
-		const index = this._expectedPushes.findIndex(f => f.remoteName === remoteName && f.branchName === branchName && f.setUpstream === setUpstream);
+	async push(
+		remoteName?: string | undefined,
+		branchName?: string | undefined,
+		setUpstream?: boolean | undefined,
+	): Promise<void> {
+		const index = this._expectedPushes.findIndex(
+			f => f.remoteName === remoteName && f.branchName === branchName && f.setUpstream === setUpstream,
+		);
 		if (index === -1) {
 			throw new Error(`Unexpected push(${remoteName}, ${branchName}, ${setUpstream})`);
 		}

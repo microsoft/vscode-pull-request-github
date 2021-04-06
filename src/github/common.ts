@@ -26,5 +26,4 @@ export namespace OctokitCommon {
 	export type ReposGetResponseCodeOfConduct = OctokitTypes.ReposGetResponseData['code_of_conduct'];
 	export type PullsListCommitsResponseItem = OctokitTypes.PullsListCommitsResponseData[0];
 	export type SearchReposResponseItem = OctokitTypes.SearchReposResponseData['items'][0];
-
 }

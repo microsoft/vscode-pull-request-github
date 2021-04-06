@@ -28,7 +28,7 @@ const argv = minimist(process.argv.slice(2), {
 	unknown: param => {
 		console.error(`Unrecognized command-line argument: ${param}\n`);
 		printUsage(console.error, 1);
-	}
+	},
 });
 
 if (argv.help) {

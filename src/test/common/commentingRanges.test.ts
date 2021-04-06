@@ -17,37 +17,37 @@ const edit_filediff: FileDiff = {
 			originalLineNumberStart: 1,
 			originalLinesCount: 40,
 			modifiedLineNumberStart: 1,
-			modifiedLinesCount: 40
+			modifiedLinesCount: 40,
 		},
 		{
 			changeType: LineDiffBlockChangeType.Edit,
 			originalLineNumberStart: 41,
 			originalLinesCount: 1,
 			modifiedLineNumberStart: 41,
-			modifiedLinesCount: 2
+			modifiedLinesCount: 2,
 		},
 		{
 			changeType: LineDiffBlockChangeType.None,
 			originalLineNumberStart: 42,
 			originalLinesCount: 61,
 			modifiedLineNumberStart: 43,
-			modifiedLinesCount: 61
+			modifiedLinesCount: 61,
 		},
 		{
 			changeType: LineDiffBlockChangeType.Edit,
 			originalLineNumberStart: 103,
 			originalLinesCount: 1,
 			modifiedLineNumberStart: 104,
-			modifiedLinesCount: 1
+			modifiedLinesCount: 1,
 		},
 		{
 			changeType: LineDiffBlockChangeType.None,
 			originalLineNumberStart: 104,
 			originalLinesCount: 228,
 			modifiedLineNumberStart: 105,
-			modifiedLinesCount: 228
-		}
-	]
+			modifiedLinesCount: 228,
+		},
+	],
 };
 
 const delete_filediff: FileDiff = {
@@ -59,9 +59,9 @@ const delete_filediff: FileDiff = {
 			originalLineNumberStart: 1,
 			originalLinesCount: 22,
 			modifiedLineNumberStart: 0,
-			modifiedLinesCount: 0
-		}
-	]
+			modifiedLinesCount: 0,
+		},
+	],
 };
 
 const edit_hunks = getDiffHunkFromFileDiff(edit_filediff);

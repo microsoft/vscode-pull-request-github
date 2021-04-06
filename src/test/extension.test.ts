@@ -2,7 +2,6 @@ import assert = require('assert');
 import { parseDiffHunk } from '../common/diffHunk';
 
 describe('Extension Tests', function () {
-
 	describe('parseDiffHunk', () => {
 		it('should handle empty string', () => {
 			const diffHunk = parseDiffHunk('');

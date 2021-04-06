@@ -9,12 +9,42 @@ import * as path from 'path';
 import { GitHubRef } from '../common/githubRef';
 import { Remote } from '../common/remote';
 import { GitHubRepository } from './githubRepository';
-import { PullRequest, GithubItemStateEnum, ISuggestedReviewer, PullRequestChecks, IAccount, IRawFileChange, PullRequestMergeability } from './interface';
+import {
+	PullRequest,
+	GithubItemStateEnum,
+	ISuggestedReviewer,
+	PullRequestChecks,
+	IAccount,
+	IRawFileChange,
+	PullRequestMergeability,
+} from './interface';
 import { IssueModel } from './issueModel';
 import { isReviewEvent, ReviewEvent as CommonReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { ReviewEvent } from './interface';
-import { convertPullRequestsGetCommentsResponseItemToComment, convertRESTPullRequestToRawPullRequest, convertRESTReviewEvent, convertRESTUserToAccount, parseGraphQLComment, parseGraphQLReviewEvent, parseGraphQLTimelineEvents, parseMergeability } from './utils';
-import { AddCommentResponse, DeleteReviewResponse, EditCommentResponse, GetChecksResponse, isCheckRun, MarkPullRequestReadyForReviewResponse, PendingReviewIdResponse, PullRequestCommentsResponse, PullRequestResponse, StartReviewResponse, SubmitReviewResponse, TimelineEventsResponse } from './graphql';
+import {
+	convertPullRequestsGetCommentsResponseItemToComment,
+	convertRESTPullRequestToRawPullRequest,
+	convertRESTReviewEvent,
+	convertRESTUserToAccount,
+	parseGraphQLComment,
+	parseGraphQLReviewEvent,
+	parseGraphQLTimelineEvents,
+	parseMergeability,
+} from './utils';
+import {
+	AddCommentResponse,
+	DeleteReviewResponse,
+	EditCommentResponse,
+	GetChecksResponse,
+	isCheckRun,
+	MarkPullRequestReadyForReviewResponse,
+	PendingReviewIdResponse,
+	PullRequestCommentsResponse,
+	PullRequestResponse,
+	StartReviewResponse,
+	SubmitReviewResponse,
+	TimelineEventsResponse,
+} from './graphql';
 import Logger from '../common/logger';
 import { IComment } from '../common/comment';
 import { formatError } from '../common/utils';
@@ -57,7 +87,13 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	public isActive: boolean;
 	_telemetry: ITelemetry;
 
-	constructor(telemetry: ITelemetry, githubRepository: GitHubRepository, remote: Remote, item: PullRequest, isActive?: boolean) {
+	constructor(
+		telemetry: ITelemetry,
+		githubRepository: GitHubRepository,
+		remote: Remote,
+		item: PullRequest,
+		isActive?: boolean,
+	) {
 		super(githubRepository, remote, item);
 
 		this._telemetry = telemetry;
@@ -143,7 +179,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 * @param message Optional approval comment text.
 	 */
 	async approve(message?: string): Promise<CommonReviewEvent> {
-		const action: Promise<CommonReviewEvent> = await this.getPendingReviewId()
+		const action: Promise<CommonReviewEvent> = (await this.getPendingReviewId())
 			? this.submitReview(ReviewEvent.Approve, message)
 			: this.createReview(ReviewEvent.Approve, message);
 
@@ -161,18 +197,17 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 * @param message Optional comment text to leave with the review.
 	 */
 	async requestChanges(message?: string): Promise<CommonReviewEvent> {
-		const action: Promise<CommonReviewEvent> = await this.getPendingReviewId()
+		const action: Promise<CommonReviewEvent> = (await this.getPendingReviewId())
 			? this.submitReview(ReviewEvent.RequestChanges, message)
 			: this.createReview(ReviewEvent.RequestChanges, message);
 
-		return action
-			.then(x => {
-				/* __GDPR__
+		return action.then(x => {
+			/* __GDPR__
 					"pr.requestChanges" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('pr.requestChanges');
-				return x;
-			});
+			this._telemetry.sendTelemetryEvent('pr.requestChanges');
+			return x;
+		});
 	}
 
 	/**
@@ -184,7 +219,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
-			state: 'closed'
+			state: 'closed',
 		});
 
 		/* __GDPR__
@@ -229,8 +264,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				variables: {
 					id: pendingReviewId,
 					event: event || ReviewEvent.Comment,
-					body
-				}
+					body,
+				},
 			});
 
 			this.hasPendingReview = false;
@@ -253,8 +288,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				query: schema.GetPendingReviewId,
 				variables: {
 					pullRequestId: this.item.graphNodeId,
-					author: currentUser
-				}
+					author: currentUser,
+				},
 			});
 			return data.node.reviews.nodes[0].id;
 		} catch (error) {
@@ -265,14 +300,14 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	/**
 	 * Delete an existing in progress review.
 	 */
-	async deleteReview(): Promise<{ deletedReviewId: number, deletedReviewComments: IComment[] }> {
+	async deleteReview(): Promise<{ deletedReviewId: number; deletedReviewComments: IComment[] }> {
 		const pendingReviewId = await this.getPendingReviewId();
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
 			mutation: schema.DeleteReview,
 			variables: {
-				input: { pullRequestReviewId: pendingReviewId }
-			}
+				input: { pullRequestReviewId: pendingReviewId },
+			},
 		});
 
 		const { comments, databaseId } = data!.deletePullRequestReview.pullRequestReview;
@@ -282,7 +317,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 
 		return {
 			deletedReviewId: databaseId,
-			deletedReviewComments: comments.nodes.map(parseGraphQLComment)
+			deletedReviewComments: comments.nodes.map(parseGraphQLComment),
 		};
 	}
 
@@ -291,7 +326,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 * @param initialComment The comment text and position information to begin the review with
 	 * @param commitId The optional commit id to start the review on. Defaults to using the current head commit.
 	 */
-	async startReview(initialComment: { body: string, path: string, position: number }, commitId?: string): Promise<IComment> {
+	async startReview(initialComment: { body: string; path: string; position: number }, commitId?: string): Promise<IComment> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<StartReviewResponse>({
 			mutation: schema.StartReview,
@@ -300,9 +335,9 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 					body: '',
 					pullRequestId: this.item.graphNodeId,
 					comments: initialComment,
-					commitOID: commitId || this.head?.sha
-				}
-			}
+					commitOID: commitId || this.head?.sha,
+				},
+			},
 		});
 
 		if (!data) {
@@ -322,7 +357,12 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 * @param position The line number within the file to add the comment
 	 * @param commitId The optional commit id to comment on. Defaults to using the current head commit.
 	 */
-	async createReviewComment(body: string, commentPath: string, position: number, commitId?: string): Promise<IComment | undefined> {
+	async createReviewComment(
+		body: string,
+		commentPath: string,
+		position: number,
+		commitId?: string,
+	): Promise<IComment | undefined> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
@@ -343,7 +383,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				body: body,
 				commit_id: commitId || this.head.sha,
 				path: commentPath,
-				position: position
+				position: position,
 			});
 
 			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, githubRepository));
@@ -371,16 +411,23 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				repo: remote.repositoryName,
 				pull_number: this.number,
 				body: body,
-				comment_id: Number(reply_to.id)
+				comment_id: Number(reply_to.id),
 			});
 
-			return this.addCommentPermissions(convertPullRequestsGetCommentsResponseItemToComment(ret.data, this.githubRepository));
+			return this.addCommentPermissions(
+				convertPullRequestsGetCommentsResponseItemToComment(ret.data, this.githubRepository),
+			);
 		} catch (e) {
 			throw formatError(e);
 		}
 	}
 
-	private async addCommentToPendingReview(reviewId: string, body: string, position: NewCommentPosition | ReplyCommentPosition, commitId?: string): Promise<IComment> {
+	private async addCommentToPendingReview(
+		reviewId: string,
+		body: string,
+		position: NewCommentPosition | ReplyCommentPosition,
+		commitId?: string,
+	): Promise<IComment> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddCommentResponse>({
 			mutation: schema.AddComment,
@@ -389,9 +436,9 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 					pullRequestReviewId: reviewId,
 					body,
 					...position,
-					commitOID: commitId || this.head?.sha
-				}
-			}
+					commitOID: commitId || this.head?.sha,
+				},
+			},
 		});
 
 		const { comment } = data!.addPullRequestReviewComment;
@@ -402,7 +449,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 * Check whether there is an existing pending review and update the context key to control what comment actions are shown.
 	 */
 	async validateDraftMode(): Promise<boolean> {
-		const inDraftMode = !!await this.getPendingReviewId();
+		const inDraftMode = !!(await this.getPendingReviewId());
 		if (inDraftMode !== this.hasPendingReview) {
 			this.hasPendingReview = inDraftMode;
 		}
@@ -440,9 +487,9 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			variables: {
 				input: {
 					pullRequestReviewCommentId: comment.graphNodeId,
-					body: text
-				}
-			}
+					body: text,
+				},
+			},
 		});
 
 		return parseGraphQLComment(data!.updatePullRequestReviewComment.pullRequestReviewComment);
@@ -459,7 +506,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			await octokit.pulls.deleteReviewComment({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				comment_id: Number(commentId)
+				comment_id: Number(commentId),
 			});
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -475,7 +522,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		const result = await octokit.pulls.listRequestedReviewers({
 			owner: remote.owner,
 			repo: remote.repositoryName,
-			pull_number: this.number
+			pull_number: this.number,
 		});
 
 		return result.data.users.map((user: any) => convertRESTUserToAccount(user, githubRepository));
@@ -491,7 +538,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
-			reviewers
+			reviewers,
 		});
 	}
 
@@ -505,7 +552,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
-			reviewers: [reviewer]
+			reviewers: [reviewer],
 		});
 	}
 
@@ -521,13 +568,15 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 					owner: remote.owner,
 					name: remote.repositoryName,
 					number: this.number,
-				}
+				},
 			});
 
 			const comments = data.repository.pullRequest.reviews.nodes
 				.map((node: any) => node.comments.nodes.map((comment: any) => parseGraphQLComment(comment), remote))
 				.reduce((prev: any, curr: any) => prev.concat(curr), [])
-				.sort((a: IComment, b: IComment) => { return a.createdAt > b.createdAt ? 1 : -1; });
+				.sort((a: IComment, b: IComment) => {
+					return a.createdAt > b.createdAt ? 1 : -1;
+				});
 
 			return comments;
 		} catch (e) {
@@ -546,7 +595,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			const commitData = await octokit.pulls.listCommits({
 				pull_number: this.number,
 				owner: remote.owner,
-				repo: remote.repositoryName
+				repo: remote.repositoryName,
 			});
 			Logger.debug(`Fetch commits of PR #${this.number} - done`, PullRequestModel.ID);
 
@@ -561,14 +610,16 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 	 * Get all changed files within a commit
 	 * @param commit The commit
 	 */
-	async getCommitChangedFiles(commit: OctokitTypes.PullsListCommitsResponseData[0]): Promise<OctokitTypes.ReposGetCommitResponseData['files']> {
+	async getCommitChangedFiles(
+		commit: OctokitTypes.PullsListCommitsResponseData[0],
+	): Promise<OctokitTypes.ReposGetCommitResponseData['files']> {
 		try {
 			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${this.number} - enter`, PullRequestModel.ID);
 			const { octokit, remote } = await this.githubRepository.ensure();
 			const fullCommit = await octokit.repos.getCommit({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				ref: commit.sha
+				ref: commit.sha,
 			});
 			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${this.number} - done`, PullRequestModel.ID);
 
@@ -590,7 +641,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			path: filePath,
-			ref: commit
+			ref: commit,
 		});
 
 		if (Array.isArray(fileContent.data)) {
@@ -615,8 +666,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					number: this.number
-				}
+					number: this.number,
+				},
 			});
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = parseGraphQLTimelineEvents(ret, this.githubRepository);
@@ -635,7 +686,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		}
 
 		const reviewEvents = events.filter(isReviewEvent);
-		const reviewComments = await this.getReviewComments() as CommentNode[];
+		const reviewComments = (await this.getReviewComments()) as CommentNode[];
 
 		const reviewEventsById = reviewEvents.reduce((index, evt) => {
 			index[evt.id] = evt;
@@ -649,7 +700,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		}, {} as { [key: number]: CommentNode });
 
 		const roots: CommentNode[] = [];
-		let i = reviewComments.length; while (i-- > 0) {
+		let i = reviewComments.length;
+		while (i-- > 0) {
 			const c: CommentNode = reviewComments[i];
 			if (!c.inReplyToId) {
 				roots.unshift(c);
@@ -684,8 +736,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			variables: {
 				owner: remote.owner,
 				name: remote.repositoryName,
-				number: this.number
-			}
+				number: this.number,
+			},
 		});
 
 		// We always fetch the status checks for only the last commit, so there should only be one node present
@@ -694,7 +746,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		if (!statusCheckRollup) {
 			return {
 				state: 'pending',
-				statuses: []
+				statuses: [],
 			};
 		}
 
@@ -709,7 +761,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 						state: context.conclusion?.toLowerCase() || 'pending',
 						description: context.title,
 						context: context.name,
-						target_url: context.detailsUrl
+						target_url: context.detailsUrl,
 					};
 				} else {
 					return {
@@ -719,18 +771,24 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 						state: context.state?.toLowerCase(),
 						description: context.description,
 						context: context.context,
-						target_url: context.targetUrl
+						target_url: context.targetUrl,
 					};
 				}
-			})
+			}),
 		};
 	}
 
-	static async openDiffFromComment(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, comment: IComment): Promise<void> {
+	static async openDiffFromComment(
+		folderManager: FolderRepositoryManager,
+		pullRequestModel: PullRequestModel,
+		comment: IComment,
+	): Promise<void> {
 		const fileChanges = await pullRequestModel.getFileChangesInfo();
 		const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
 		const contentChanges = await parseDiff(fileChanges, folderManager.repository, mergeBase);
-		const change = contentChanges.find(fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path);
+		const change = contentChanges.find(
+			fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path,
+		);
 		if (!change) {
 			throw new Error(`Can't find matching file`);
 		}
@@ -739,14 +797,31 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
 			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
-			headUri = toPRUri(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, false, change.status);
-			baseUri = toPRUri(vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)), pullRequestModel, change.baseCommit, headCommit, change.fileName, true, change.status);
+			headUri = toPRUri(
+				vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName)),
+				pullRequestModel,
+				change.baseCommit,
+				headCommit,
+				change.fileName,
+				false,
+				change.status,
+			);
+			baseUri = toPRUri(
+				vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)),
+				pullRequestModel,
+				change.baseCommit,
+				headCommit,
+				change.fileName,
+				true,
+				change.status,
+			);
 		} else {
 			const uri = vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName));
 
-			headUri = change.status === GitChangeType.DELETE
-				? toReviewUri(uri, undefined, undefined, '', false, { base: false }, folderManager.repository.rootUri)
-				: uri;
+			headUri =
+				change.status === GitChangeType.DELETE
+					? toReviewUri(uri, undefined, undefined, '', false, { base: false }, folderManager.repository.rootUri)
+					: uri;
 
 			baseUri = toReviewUri(
 				uri,
@@ -755,12 +830,18 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				change.status === GitChangeType.ADD ? '' : mergeBase,
 				false,
 				{ base: true },
-				folderManager.repository.rootUri
+				folderManager.repository.rootUri,
 			);
 		}
 
 		const pathSegments = comment.path!.split('/');
-		vscode.commands.executeCommand('vscode.diff', baseUri, headUri, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, {});
+		vscode.commands.executeCommand(
+			'vscode.diff',
+			baseUri,
+			headUri,
+			`${pathSegments[pathSegments.length - 1]} (Pull Request)`,
+			{},
+		);
 	}
 
 	/**
@@ -775,7 +856,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			const info = await octokit.pulls.get({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				pull_number: this.number
+				pull_number: this.number,
 			});
 			this.update(convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
 		}
@@ -784,7 +865,7 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			const repsonse = await octokit.pulls.listFiles({
 				repo: remote.repositoryName,
 				owner: remote.owner,
-				pull_number: this.number
+				pull_number: this.number,
 			});
 
 			// Use the original base to compare against for merged PRs
@@ -798,7 +879,6 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 			owner: remote.owner,
 			base: `${this.base.repositoryCloneUrl.owner}:${this.base.ref}`,
 			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.ref}`,
-
 		});
 
 		this.mergeBase = data.merge_base_commit.sha;
@@ -809,19 +889,25 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 		if (data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
 			// compareCommits will return a maximum of 300 changed files
 			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
-			Logger.debug(`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`, PullRequestModel.ID);
+			Logger.debug(
+				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`,
+				PullRequestModel.ID,
+			);
 			files = await octokit.paginate(`GET /repos/:owner/:repo/pulls/:pull_number/files`, {
 				owner: this.base.repositoryCloneUrl.owner,
 				pull_number: this.number,
 				repo: remote.repositoryName,
-				per_page: 100
+				per_page: 100,
 			});
 		} else {
 			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
 			files = data.files;
 		}
 
-		Logger.debug(`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `, PullRequestModel.ID);
+		Logger.debug(
+			`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `,
+			PullRequestModel.ID,
+		);
 		return files;
 	}
 
@@ -838,8 +924,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					number: this.number
-				}
+					number: this.number,
+				},
 			});
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			return parseMergeability(data.repository.pullRequest.mergeable);
@@ -861,8 +947,8 @@ export class PullRequestModel extends IssueModel implements IPullRequestModel {
 				variables: {
 					input: {
 						pullRequestId: this.graphNodeId,
-					}
-				}
+					},
+				},
 			});
 
 			/* __GDPR__

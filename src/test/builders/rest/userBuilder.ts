@@ -4,15 +4,15 @@ import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces'
 import { IdentityRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 
 type UserUnion =
-	OctokitCommon.PullsListResponseItemUser |
-	OctokitCommon.PullsListResponseItemAssignee |
-	OctokitCommon.PullsListResponseItemAssigneesItem |
-	OctokitCommon.PullsListResponseItemRequestedReviewersItem |
-	OctokitCommon.PullsListResponseItemBaseUser |
-	OctokitCommon.PullsListResponseItemBaseRepoOwner |
-	OctokitCommon.PullsListResponseItemHeadUser |
-	OctokitCommon.PullsListResponseItemHeadRepoOwner |
-	OctokitCommon.IssuesListEventsForTimelineResponseItemActor;
+	| OctokitCommon.PullsListResponseItemUser
+	| OctokitCommon.PullsListResponseItemAssignee
+	| OctokitCommon.PullsListResponseItemAssigneesItem
+	| OctokitCommon.PullsListResponseItemRequestedReviewersItem
+	| OctokitCommon.PullsListResponseItemBaseUser
+	| OctokitCommon.PullsListResponseItemBaseRepoOwner
+	| OctokitCommon.PullsListResponseItemHeadUser
+	| OctokitCommon.PullsListResponseItemHeadRepoOwner
+	| OctokitCommon.IssuesListEventsForTimelineResponseItemActor;
 
 export const UserBuilder = createBuilderClass<UserUnion>()({
 	id: { default: 0 },
@@ -32,22 +32,20 @@ export const UserBuilder = createBuilderClass<UserUnion>()({
 	events_url: { default: 'https://api.github.com/users/octocat/events{/privacy}' },
 	received_events_url: { default: 'https://api.github.com/users/octocat/received_events' },
 	type: { default: 'User' },
-	site_admin: { default: false }
+	site_admin: { default: false },
 });
 
 export type UserBuilder = InstanceType<typeof UserBuilder>;
 
-type AzdoUserUnion =
-	Identity |
-	IdentityRef;
+type AzdoUserUnion = Identity | IdentityRef;
 
 export const AzdoUserBuilder = createBuilderClass<AzdoUserUnion>()({
 	id: { default: '0' },
-	url: { default: 'https://dev.azure.com/user/profile'},
-	displayName: { default: 'User Display Name'},
-	imageUrl: { default: 'https://dev.azure.com/user/profile/image'},
+	url: { default: 'https://dev.azure.com/user/profile' },
+	displayName: { default: 'User Display Name' },
+	imageUrl: { default: 'https://dev.azure.com/user/profile/image' },
 	profileUrl: { default: 'https://dev.azure.com/user/profile' },
-	uniqueName: { default: 'UserUniqueName@email.com' }
+	uniqueName: { default: 'UserUniqueName@email.com' },
 });
 
 export type AzdoUserBuilder = InstanceType<typeof AzdoUserBuilder>;

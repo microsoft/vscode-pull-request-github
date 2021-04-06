@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 
 export class AzdoManager {
-
 	// TODO WTF Does this do?
 	private _servers: Map<string, boolean> = new Map()
 		.set('dev.azure.com', true)

@@ -10,15 +10,10 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
-			"skipFiles": [
-				"<node_internals>/**/*.js",
-				"**/node_modules/**/*.js"
-			],
+			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
 			"smartStep": true,
 			"sourceMaps": true,
-			"outFiles": [
-				"${workspaceFolder}/dist/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/dist/*.js"]
 		},
 		{
 			"name": "Launch Extension in Webworker",
@@ -30,15 +25,10 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
-			"skipFiles": [
-				"<node_internals>/**/*.js",
-				"**/node_modules/**/*.js"
-			],
+			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
 			"smartStep": true,
 			"sourceMaps": true,
-			"outFiles": [
-				"${workspaceFolder}/dist/browser/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/dist/browser/*.js"]
 		},
 		{
 			"name": "Watch & Launch Extension",
@@ -49,16 +39,11 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
-			"skipFiles": [
-				"<node_internals>/**/*.js",
-				"**/node_modules/**/*.js"
-			],
+			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
 			"preLaunchTask": "npm: watch",
 			"smartStep": true,
 			"sourceMaps": true,
-			"outFiles": [
-				"${workspaceFolder}/dist/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/dist/*.js"]
 		},
 		{
 			"name": "Watch & Launch Extension in Webworker",
@@ -70,16 +55,11 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
-			"skipFiles": [
-				"<node_internals>/**/*.js",
-				"**/node_modules/**/*.js"
-			],
+			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
 			"preLaunchTask": "npm: watch",
 			"smartStep": true,
 			"sourceMaps": true,
-			"outFiles": [
-				"${workspaceFolder}/dist/browser/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/dist/browser/*.js"]
 		},
 		{
 			"name": "Extension Tests",
@@ -95,9 +75,7 @@
 			"preLaunchTask": "npm: compile:test",
 			"smartStep": true,
 			"sourceMaps": true,
-			"outFiles": [
-				"${workspaceFolder}/out/src/test/**/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/out/src/test/**/*.js"]
 		}
 	]
 }

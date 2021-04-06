@@ -4,7 +4,7 @@ import { SETTINGS_NAMESPACE } from '../constants';
 const enum LogLevel {
 	Info,
 	Debug,
-	Off
+	Off,
 }
 
 const LOG_LEVEL_SETTING = 'logLevel';
@@ -27,7 +27,7 @@ class Log {
 			case LogLevel.Off:
 				return;
 			case LogLevel.Debug:
-				const hrtime = new Date().getTime()/1000;
+				const hrtime = new Date().getTime() / 1000;
 				const timeStamp = `${hrtime}s`;
 				const info = component ? `${component}> ${message}` : `${message}`;
 				this._outputChannel.appendLine(`[Debug ${timeStamp}] ${info}`);

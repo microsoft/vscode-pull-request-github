@@ -8,7 +8,7 @@ interface WebviewEnvironmentSetters {
 }
 
 class WebviewVsCodeApi {
-	constructor(private readonly _callbacks: WebviewEnvironmentSetters) { }
+	constructor(private readonly _callbacks: WebviewEnvironmentSetters) {}
 
 	postMessage(message: any) {
 		this._callbacks.messageAdder(message);
@@ -31,16 +31,16 @@ class MockWebviewEnvironment {
 
 	constructor() {
 		this._api = new WebviewVsCodeApi({
-			stateSetter: (nState) => {
+			stateSetter: nState => {
 				this._persistedState = nState;
 			},
 			stateGetter: () => this._persistedState,
-			messageAdder: (newMessage) => {
+			messageAdder: newMessage => {
 				this._messages.push(newMessage);
-			}
+			},
 		});
 
-		this._uninstall = () => { };
+		this._uninstall = () => {};
 	}
 
 	install(host: any) {

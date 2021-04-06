@@ -6,13 +6,13 @@
 export enum PRType {
 	Query,
 	All,
-	LocalPullRequest
+	LocalPullRequest,
 }
 
 export enum ReviewEvent {
 	Approve = 'APPROVE',
 	RequestChanges = 'REQUEST_CHANGES',
-	Comment = 'COMMENT'
+	Comment = 'COMMENT',
 }
 
 export enum GithubItemStateEnum {
@@ -24,7 +24,7 @@ export enum GithubItemStateEnum {
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,
-	Unknown
+	Unknown,
 }
 
 export interface ReviewState {
@@ -138,7 +138,7 @@ export type MergeMethodsAvailability = {
 
 export type RepoAccessAndMergeMethods = {
 	hasWritePermission: boolean;
-	mergeMethodsAvailability: MergeMethodsAvailability
+	mergeMethodsAvailability: MergeMethodsAvailability;
 };
 
 export interface User extends IAccount {

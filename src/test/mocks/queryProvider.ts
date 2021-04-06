@@ -31,7 +31,7 @@ export class QueryProvider {
 	get octokit(): Octokit {
 		// Cast through "any" because SinonStubbedInstance<Octokit> does not propertly map the type of the
 		// overloaded "authenticate" method.
-		return this._octokit as any as Octokit;
+		return (this._octokit as any) as Octokit;
 	}
 
 	expectGraphQLQuery<T>(q: QueryOptions, result: ApolloQueryResult<T>) {
@@ -65,9 +65,16 @@ export class QueryProvider {
 		accessorPath.forEach((accessor, i) => {
 			let nextStub = currentStub[accessor];
 			if (nextStub === undefined) {
-				nextStub = i < accessorPath.length - 1 ? {} : this._sinon.stub().callsFake((...variables) => {
-					throw new Error(`Unexpected octokit query: ${accessorPath.join('.')}(${variables.map(v => inspect(v)).join(', ')})`);
-				});
+				nextStub =
+					i < accessorPath.length - 1
+						? {}
+						: this._sinon.stub().callsFake((...variables) => {
+								throw new Error(
+									`Unexpected octokit query: ${accessorPath.join('.')}(${variables
+										.map(v => inspect(v))
+										.join(', ')})`,
+								);
+						  });
 				currentStub[accessor] = nextStub;
 			}
 			currentStub = nextStub;
@@ -77,7 +84,9 @@ export class QueryProvider {
 
 	emulateGraphQLQuery<T>(q: QueryOptions): ApolloQueryResult<T> {
 		const cannedResponses = this._graphqlQueryResponses.get(q.query) || [];
-		const cannedResponse = cannedResponses.find(each => !!each.variables && Object.keys(each.variables).every(key => each.variables![key] === q.variables![key]));
+		const cannedResponse = cannedResponses.find(
+			each => !!each.variables && Object.keys(each.variables).every(key => each.variables![key] === q.variables![key]),
+		);
 		if (cannedResponse) {
 			return cannedResponse.result;
 		} else {
@@ -94,11 +103,15 @@ export class QueryProvider {
 
 	emulateGraphQLMutation<T>(m: MutationOptions): FetchResult<T> {
 		const cannedResponses = this._graphqlMutationResponses.get(m.mutation) || [];
-		const cannedResponse = cannedResponses.find(each => !!each.variables && Object.keys(each.variables).every(key => each.variables![key] === m.variables![key]));
+		const cannedResponse = cannedResponses.find(
+			each => !!each.variables && Object.keys(each.variables).every(key => each.variables![key] === m.variables![key]),
+		);
 		if (cannedResponse) {
 			return cannedResponse.result;
 		} else {
-			if (cannedResponses.length > 0) { } {
+			if (cannedResponses.length > 0) {
+			}
+			{
 				let message = 'Variables did not match any expected queries:\n';
 				for (const { variables } of cannedResponses) {
 					message += `  ${inspect(variables, { depth: 3 })}\n`;

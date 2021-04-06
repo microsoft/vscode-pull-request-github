@@ -20,7 +20,7 @@ export class RemoteQuickPickItem implements vscode.QuickPickItem {
 		public description: string,
 		public remote?: Remote,
 		public label = `${owner}:${name}`,
-	) { }
+	) {}
 }
 
 export type PullRequestTitleSource = 'commit' | 'branch' | 'custom' | 'ask';
@@ -29,7 +29,7 @@ export enum PullRequestTitleSourceEnum {
 	Commit = 'commit',
 	Branch = 'branch',
 	Custom = 'custom',
-	Ask = 'ask'
+	Ask = 'ask',
 }
 
 export class PullRequestTitleSourceQuickPick implements vscode.QuickPickItem {
@@ -37,7 +37,7 @@ export class PullRequestTitleSourceQuickPick implements vscode.QuickPickItem {
 		const values: PullRequestTitleSource[] = [
 			PullRequestTitleSourceEnum.Commit,
 			PullRequestTitleSourceEnum.Branch,
-			PullRequestTitleSourceEnum.Custom
+			PullRequestTitleSourceEnum.Custom,
 		];
 		return values.map(x => this.fromPullRequestTitleSource(x));
 	}
@@ -55,7 +55,7 @@ export class PullRequestTitleSourceQuickPick implements vscode.QuickPickItem {
 	static fromPullRequestTitleSource(pullRequestTitleSource: PullRequestTitleSource) {
 		return new this(this.getDescription(pullRequestTitleSource), pullRequestTitleSource, pullRequestTitleSource);
 	}
-	constructor(public description: string, public pullRequestTitleSource: PullRequestTitleSource, public label: string) { }
+	constructor(public description: string, public pullRequestTitleSource: PullRequestTitleSource, public label: string) {}
 }
 
 export type PullRequestDescriptionSource = 'template' | 'commit' | 'custom' | 'ask';
@@ -64,7 +64,7 @@ export enum PullRequestDescriptionSourceEnum {
 	Template = 'template',
 	Commit = 'commit',
 	Custom = 'custom',
-	Ask = 'ask'
+	Ask = 'ask',
 }
 
 export class PullRequestDescriptionSourceQuickPick implements vscode.QuickPickItem {
@@ -72,7 +72,7 @@ export class PullRequestDescriptionSourceQuickPick implements vscode.QuickPickIt
 		const values: PullRequestDescriptionSource[] = [
 			PullRequestDescriptionSourceEnum.Template,
 			PullRequestDescriptionSourceEnum.Commit,
-			PullRequestDescriptionSourceEnum.Custom
+			PullRequestDescriptionSourceEnum.Custom,
 		];
 		return values.map(x => this.fromPullRequestDescriptionSource(x));
 	}
@@ -88,7 +88,15 @@ export class PullRequestDescriptionSourceQuickPick implements vscode.QuickPickIt
 		return '';
 	}
 	static fromPullRequestDescriptionSource(pullRequestDescriptionSource: PullRequestDescriptionSource) {
-		return new this(this.getDescription(pullRequestDescriptionSource), pullRequestDescriptionSource, pullRequestDescriptionSource);
+		return new this(
+			this.getDescription(pullRequestDescriptionSource),
+			pullRequestDescriptionSource,
+			pullRequestDescriptionSource,
+		);
 	}
-	constructor(public description: string, public pullRequestDescriptionSource: PullRequestDescriptionSource, public label: string) { }
+	constructor(
+		public description: string,
+		public pullRequestDescriptionSource: PullRequestDescriptionSource,
+		public label: string,
+	) {}
 }

@@ -3,9 +3,5 @@
 	"compilerOptions": {
 		"tsBuildInfoFile": "tsconfig.tsbuildinfo"
 	},
-	"exclude": [
-		"node_modules",
-		"src/test",
-		"webviews"
-	]
+	"exclude": ["node_modules", "src/test", "webviews"]
 }

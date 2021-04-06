@@ -12,8 +12,5 @@
 		".eslintrc.json": "jsonc",
 		".eslintrc.*.json": "jsonc"
 	},
-	"gitlens.advanced.blame.customArguments": [
-		"--ignore-revs-file",
-		".gitignore-revs"
-	]
+	"gitlens.advanced.blame.customArguments": ["--ignore-revs-file", ".gitignore-revs"]
 }

@@ -5,8 +5,7 @@ import { createBuilderClass, createLink } from '../base';
 import { OctokitCommon } from '../../../github/common';
 import { GitRepository } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
-export type RepoUnion =
-	OctokitTypes.ReposGetResponseData &
+export type RepoUnion = OctokitTypes.ReposGetResponseData &
 	OctokitCommon.PullsListResponseItemHeadRepo &
 	OctokitCommon.PullsListResponseItemBaseRepo;
 
@@ -100,7 +99,7 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 		push: { default: false },
 		pull: { default: true },
 		maintain: { default: false },
-		triage: { default: false }
+		triage: { default: false },
 	}),
 	allow_rebase_merge: { default: true },
 	allow_squash_merge: { default: true },
@@ -116,12 +115,10 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 		html_url: { default: 'https://github.com/octocat/reponame' },
 		key: { default: 'key' },
 		name: { default: 'name' },
-		url: { default: 'https://github.com/octocat/reponame' }
-	})
+		url: { default: 'https://github.com/octocat/reponame' },
+	}),
 });
 
 export type RepositoryBuilder = InstanceType<typeof RepositoryBuilder>;
 
 export type AzdoRepoUnion = GitRepository;
-
-

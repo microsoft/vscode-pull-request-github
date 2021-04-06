@@ -17,10 +17,10 @@ async function go() {
 			extensionDevelopmentPath,
 			extensionTestsPath,
 			launchArgs: [
-				path.resolve(__dirname,'../../test_workspace/'),
+				path.resolve(__dirname, '../../test_workspace/'),
 				'--disable-extensions',
 				// '--user-data-dir=' + path.resolve(__dirname,'../../.temp'),
-			]
+			],
 		});
 	} catch (e) {
 		console.log(e);

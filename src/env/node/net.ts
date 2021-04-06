@@ -18,7 +18,9 @@ export const agent = getAgent();
  * @returns {https.Agent}
  */
 function getAgent(url: string | undefined = process.env.HTTPS_PROXY): Agent {
-	if (!url) { return globalAgent; }
+	if (!url) {
+		return globalAgent;
+	}
 	try {
 		const { hostname, port, username, password } = new URL(url);
 		const auth = username && password && `${username}:${password}`;

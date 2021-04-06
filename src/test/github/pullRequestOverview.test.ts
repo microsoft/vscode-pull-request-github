@@ -66,23 +66,20 @@ describe('PullRequestOverview', function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
 			const prItem = await convertAzdoPullRequestToRawPullRequest(
-				createMock<GitPullRequest>({pullRequestId: 1000}),
+				createMock<GitPullRequest>({ pullRequestId: 1000 }),
 				repo,
 			);
 			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
 
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel, workItem, userManager);
 
-			assert(createWebviewPanel.calledWith(
-				sinonMatch.string,
-				'Pull Request #1000',
-				vscode.ViewColumn.One,
-				{
+			assert(
+				createWebviewPanel.calledWith(sinonMatch.string, 'Pull Request #1000', vscode.ViewColumn.One, {
 					enableScripts: true,
 					retainContextWhenHidden: true,
-					localResourceRoots: [vscode.Uri.file(path.resolve(EXTENSION_PATH, 'media'))]
-				}
-			));
+					localResourceRoots: [vscode.Uri.file(path.resolve(EXTENSION_PATH, 'media'))],
+				}),
+			);
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 		});
 
@@ -90,7 +87,7 @@ describe('PullRequestOverview', function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
 			const prItem0 = await convertAzdoPullRequestToRawPullRequest(
-				createMock<GitPullRequest>({pullRequestId: 1000}),
+				createMock<GitPullRequest>({ pullRequestId: 1000 }),
 				repo,
 			);
 			const prModel0 = new PullRequestModel(telemetry, repo, remote, prItem0);
@@ -105,7 +102,7 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(createWebviewPanel.callCount, 1);
 
 			const prItem1 = await convertAzdoPullRequestToRawPullRequest(
-				createMock<GitPullRequest>({pullRequestId: 2000}),
+				createMock<GitPullRequest>({ pullRequestId: 2000 }),
 				repo,
 			);
 			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);

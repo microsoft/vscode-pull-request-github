@@ -11,14 +11,17 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 const MAX_LINE_COUNT = 2000;
 
 class IssueDocumentLink extends vscode.DocumentLink {
-	constructor(range: vscode.Range, public readonly mappedLink: { readonly value: string, readonly parsed: ParsedIssue }, public readonly uri: vscode.Uri) {
+	constructor(
+		range: vscode.Range,
+		public readonly mappedLink: { readonly value: string; readonly parsed: ParsedIssue },
+		public readonly uri: vscode.Uri,
+	) {
 		super(range);
 	}
 }
 
 export class IssueLinkProvider implements vscode.DocumentLinkProvider {
-	constructor(private manager: RepositoriesManager, private stateManager: StateManager) {
-	}
+	constructor(private manager: RepositoriesManager, private stateManager: StateManager) {}
 
 	async provideDocumentLinks(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.DocumentLink[]> {
 		const links: vscode.DocumentLink[] = [];
@@ -35,8 +38,14 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 				if (match && parsed) {
 					const startPosition = new vscode.Position(i, searchResult + lineOffset);
 					if (await isComment(document, startPosition)) {
-						const link = new IssueDocumentLink(new vscode.Range(startPosition, new vscode.Position(i, searchResult + lineOffset + match[0].length - 1)),
-							{ value: match[0], parsed }, document.uri);
+						const link = new IssueDocumentLink(
+							new vscode.Range(
+								startPosition,
+								new vscode.Position(i, searchResult + lineOffset + match[0].length - 1),
+							),
+							{ value: match[0], parsed },
+							document.uri,
+						);
 						links.push(link);
 					}
 				}
@@ -47,7 +56,10 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 		return links;
 	}
 
-	async resolveDocumentLink(link: IssueDocumentLink, _token: vscode.CancellationToken): Promise<vscode.DocumentLink | undefined> {
+	async resolveDocumentLink(
+		link: IssueDocumentLink,
+		_token: vscode.CancellationToken,
+	): Promise<vscode.DocumentLink | undefined> {
 		if (this.manager.state === ReposManagerState.RepositoriesLoaded) {
 			const folderManager = this.manager.getManagerForFile(link.uri);
 			if (!folderManager) {

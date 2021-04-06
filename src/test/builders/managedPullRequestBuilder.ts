@@ -1,6 +1,6 @@
 import {
 	PullRequestResponse as PullRequestGraphQL,
-	TimelineEventsResponse as TimelineEventsGraphQL
+	TimelineEventsResponse as TimelineEventsGraphQL,
 } from '../../github/graphql';
 import {
 	PullsListRequestedReviewersResponseData as ReviewRequestsREST,

@@ -1,4 +1,3 @@
-
 import { createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
 import { PullRequestChecks } from '../../../azdo/interface';
@@ -14,14 +13,14 @@ export const StatusItemBuilder = createBuilderClass<OctokitCommon.ReposGetCombin
 	target_url: { default: 'https://ci.example.com/1000/output' },
 	context: { default: 'continuous-integration/jenkins' },
 	created_at: { default: '2012-07-20T01:19:13Z' },
-	updated_at: { default: '2012-07-20T01:19:13Z' }
+	updated_at: { default: '2012-07-20T01:19:13Z' },
 });
 
 export type StatusItemBuilder = InstanceType<typeof StatusItemBuilder>;
 
 export const CombinedStatusBuilder = createBuilderClass<PullRequestChecks>()({
 	state: { default: GitStatusState.Succeeded },
-	statuses: { default: [] }
+	statuses: { default: [] },
 });
 
 export type CombinedStatusBuilder = InstanceType<typeof CombinedStatusBuilder>;

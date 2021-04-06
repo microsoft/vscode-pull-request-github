@@ -6,13 +6,7 @@ import { MockTelemetry } from './mockTelemetry';
 import { createMock } from 'ts-auto-mock';
 
 export class MockAzdoRepository extends AzdoRepository {
-
-	constructor(
-		remote: Remote,
-		credentialStore: CredentialStore,
-		telemetry: MockTelemetry,
-		sinon: SinonSandbox
-	) {
+	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
 		super(remote, credentialStore, telemetry);
 
 		this._metadata = createMock<IMetadata>();

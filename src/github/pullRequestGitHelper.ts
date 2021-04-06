@@ -26,14 +26,22 @@ export interface PullRequestMetadata {
 
 export class PullRequestGitHelper {
 	static ID = 'PullRequestGitHelper';
-	static async checkoutFromFork(repository: Repository, pullRequest: PullRequestModel & IResolvedPullRequestModel, remoteName: string | undefined) {
+	static async checkoutFromFork(
+		repository: Repository,
+		pullRequest: PullRequestModel & IResolvedPullRequestModel,
+		remoteName: string | undefined,
+	) {
 		// the branch is from a fork
 		const localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
 
 		// create remote for this fork
 		if (!remoteName) {
 			Logger.appendLine(`Branch ${localBranchName} is from a fork. Create a remote first.`, PullRequestGitHelper.ID);
-			remoteName = await PullRequestGitHelper.createRemote(repository, pullRequest.remote, pullRequest.head.repositoryCloneUrl);
+			remoteName = await PullRequestGitHelper.createRemote(
+				repository,
+				pullRequest.remote,
+				pullRequest.head.repositoryCloneUrl,
+			);
 		}
 
 		// fetch the branch
@@ -114,13 +122,15 @@ export class PullRequestGitHelper {
 		const readConfig = (searchKey: string): string | undefined =>
 			configs.filter(({ key: k }) => searchKey === k).map(({ value }) => value)[0];
 
-		const branchInfos = configs.map(config => {
-			const matches = PullRequestBranchRegex.exec(config.key);
-			return {
-				branch: matches && matches.length ? matches[1] : null,
-				value: config.value
-			};
-		}).filter(c => c.branch && c.value === key);
+		const branchInfos = configs
+			.map(config => {
+				const matches = PullRequestBranchRegex.exec(config.key);
+				return {
+					branch: matches && matches.length ? matches[1] : null,
+					value: config.value,
+				};
+			})
+			.filter(c => c.branch && c.value === key);
 
 		if (branchInfos && branchInfos.length) {
 			// let's immediately checkout to branchInfos[0].branch
@@ -141,22 +151,27 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static async getBranchNRemoteForPullRequest(repository: Repository, pullRequest: PullRequestModel): Promise<{
-		branch: string,
-		remote?: string,
-		createdForPullRequest?: boolean,
-		remoteInUse?: boolean
+	static async getBranchNRemoteForPullRequest(
+		repository: Repository,
+		pullRequest: PullRequestModel,
+	): Promise<{
+		branch: string;
+		remote?: string;
+		createdForPullRequest?: boolean;
+		remoteInUse?: boolean;
 	} | null> {
 		const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
 		const configs = await repository.getConfigs();
 
-		const branchInfo = configs.map(config => {
-			const matches = PullRequestBranchRegex.exec(config.key);
-			return {
-				branch: matches && matches.length ? matches[1] : null,
-				value: config.value
-			};
-		}).find(c => !!c.branch && c.value === key);
+		const branchInfo = configs
+			.map(config => {
+				const matches = PullRequestBranchRegex.exec(config.key);
+				return {
+					branch: matches && matches.length ? matches[1] : null,
+					value: config.value,
+				};
+			})
+			.find(c => !!c.branch && c.value === key);
 
 		if (branchInfo) {
 			// we find the branch
@@ -173,7 +188,9 @@ export class PullRequestGitHelper {
 				let createdForPullRequest = false;
 				if (remoteName) {
 					const remoteCreatedForPullRequestKey = `remote.${remoteName}.github-pr-remote`;
-					const remoteCreatedForPullRequest = configs.filter(config => config.key === remoteCreatedForPullRequestKey && config.value);
+					const remoteCreatedForPullRequest = configs.filter(
+						config => config.key === remoteCreatedForPullRequestKey && config.value,
+					);
 
 					if (remoteCreatedForPullRequest.length) {
 						// it's created for pull request
@@ -199,21 +216,26 @@ export class PullRequestGitHelper {
 					branch: branchName!,
 					remote: remoteName,
 					createdForPullRequest,
-					remoteInUse
+					remoteInUse,
 				};
 			} catch (_) {
 				return {
-					branch: branchName!
+					branch: branchName!,
 				};
 			}
-
 		}
 
 		return null;
 	}
 
 	static buildPullRequestMetadata(pullRequest: PullRequestModel) {
-		return pullRequest.base.repositoryCloneUrl.owner + '#' + pullRequest.base.repositoryCloneUrl.repositoryName + '#' + pullRequest.number;
+		return (
+			pullRequest.base.repositoryCloneUrl.owner +
+			'#' +
+			pullRequest.base.repositoryCloneUrl.repositoryName +
+			'#' +
+			pullRequest.number
+		);
 	}
 
 	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
@@ -224,7 +246,7 @@ export class PullRequestGitHelper {
 				return {
 					owner: owner,
 					repositoryName: repo,
-					prNumber: Number(prNumber)
+					prNumber: Number(prNumber),
 				};
 			}
 		}
@@ -234,7 +256,10 @@ export class PullRequestGitHelper {
 		return `branch.${branchName}.${PullRequestMetadataKey}`;
 	}
 
-	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata | undefined> {
+	static async getMatchingPullRequestMetadataForBranch(
+		repository: Repository,
+		branchName: string,
+	): Promise<PullRequestMetadata | undefined> {
 		try {
 			const configKey = this.getMetadataKeyForBranch(branchName);
 			const configValue = await repository.getConfig(configKey);
@@ -256,7 +281,7 @@ export class PullRequestGitHelper {
 
 		const remoteName = PullRequestGitHelper.getUniqueRemoteName(repository, cloneUrl.owner);
 		cloneUrl.update({
-			type: baseRemote.gitProtocol.type
+			type: baseRemote.gitProtocol.type,
 		});
 		await repository.addRemote(remoteName, cloneUrl.toString()!);
 		await repository.setConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`, 'true');
@@ -303,7 +328,10 @@ export class PullRequestGitHelper {
 		return uniqueName;
 	}
 
-	static getHeadRemoteForPullRequest(remotes: Remote[], pullRequest: PullRequestModel & IResolvedPullRequestModel): Remote | undefined {
+	static getHeadRemoteForPullRequest(
+		remotes: Remote[],
+		pullRequest: PullRequestModel & IResolvedPullRequestModel,
+	): Remote | undefined {
 		return remotes.find(remote => remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl));
 	}
 
