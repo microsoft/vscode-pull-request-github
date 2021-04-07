@@ -21,8 +21,12 @@
 		"strictNullChecks": false,
 		"target": "es2019",
 		"useDefineForClassFields": true,
-		"allowSyntheticDefaultImports": true
+		"allowSyntheticDefaultImports": true,
+		"typeRoots": [
+			"./node_modules/@types",
+			"./src/@types"
+		],
 	},
-	"include": ["src", "webviews"],
-	"exclude": ["node_modules"]
+	"include": ["src/**/*", "webviews/**/*"],
+	"exclude": ["node_modules", ".vscode-test"]
 }

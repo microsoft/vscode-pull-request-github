@@ -4,6 +4,12 @@
 		"lib": ["dom", "dom.iterable", "es2019"],
 		"module": "commonjs",
 		"outDir": "out",
-		"tsBuildInfoFile": "tsconfig.test.tsbuildinfo"
+		"tsBuildInfoFile": "./out/tsconfig.test.tsbuildinfo",
+		"noEmit": false,
+		"plugins": [
+			{
+				"transform": "ts-auto-mock/transformer",
+			}
+		]
 	}
 }

@@ -1,7 +1,7 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"tsBuildInfoFile": "tsconfig.tsbuildinfo"
+		"tsBuildInfoFile": "./out/tsconfig.tsbuildinfo"
 	},
 	"exclude": ["node_modules", "src/test", "webviews"]
 }
