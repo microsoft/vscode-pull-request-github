@@ -4,7 +4,8 @@ import { runTests } from 'vscode-test';
 
 async function go() {
 	try {
-		const extensionDevelopmentPath = path.resolve(__dirname, '../../');
+		console.log(__dirname);
+		const extensionDevelopmentPath = path.resolve(__dirname, '../../../');
 		const extensionTestsPath = path.resolve(__dirname, './');
 
 		dotenv.config();
@@ -17,7 +18,7 @@ async function go() {
 			extensionDevelopmentPath,
 			extensionTestsPath,
 			launchArgs: [
-				path.resolve(__dirname, '../../test_workspace/'),
+				path.resolve(__dirname, '../../../test_workspace/'),
 				'--disable-extensions',
 				// '--user-data-dir=' + path.resolve(__dirname,'../../.temp'),
 			],
