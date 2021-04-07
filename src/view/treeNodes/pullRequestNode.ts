@@ -22,6 +22,7 @@ import {
 	createVSCodeCommentThreadForReviewThread,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
+	updateThread,
 } from '../../github/utils';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { DescriptionNode } from './descriptionNode';
@@ -422,8 +423,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			const index = commentThreadCache[key].findIndex(t => t.threadId === thread.id);
 			if (index > -1) {
 				const matchingThread = commentThreadCache[key][index];
-				matchingThread.isResolved = thread.isResolved;
-				matchingThread.comments = thread.comments.map(c => new GHPRComment(c, matchingThread));
+				updateThread(matchingThread, thread);
 			}
 		});
 
@@ -508,7 +508,6 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		thread.comments = newComments;
 		updateCommentThreadLabel(thread);
 	}
-
 
 	// #endregion
 
@@ -824,6 +823,31 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	public async deleteReview(): Promise<void> {
 		await this.pullRequestModel.deleteReview();
 		this.setContextKey(false);
+	}
+
+	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
+		const pendingReviewId = await this.pullRequestModel.getPendingReviewId();
+		if (pendingReviewId) {
+			await this.createOrReplyComment(thread, input);
+		} else {
+			await this.createSingleComment(thread, input);
+		}
+	}
+
+	public async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
+		if (input) {
+			await this.createCommentOnResolve(thread, input);
+		}
+
+		await this.pullRequestModel.resolveReviewThread(thread.threadId);
+	}
+
+	public async unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
+		if (input) {
+			await this.createCommentOnResolve(thread, input);
+		}
+
+		await this.pullRequestModel.unresolveReviewThread(thread.threadId);
 	}
 
 	// #endregion

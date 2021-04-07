@@ -21,6 +21,7 @@ import {
 	createVSCodeCommentThreadForReviewThread,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
+	updateThread,
 } from '../github/utils';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
@@ -297,8 +298,7 @@ export class ReviewCommentController
 					const index = threadMap[thread.path].findIndex(t => t.threadId === thread.id);
 					if (index > -1) {
 						const matchingThread = threadMap[thread.path][index];
-						matchingThread.isResolved = thread.isResolved;
-						matchingThread.comments = thread.comments.map(c => new GHPRComment(c, matchingThread));
+						updateThread(matchingThread, thread);
 					}
 				});
 
@@ -662,6 +662,31 @@ export class ReviewCommentController
 				return c;
 			});
 		}
+	}
+
+	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
+		const pendingReviewId = await this._reposManager.activePullRequest.getPendingReviewId();
+		if (pendingReviewId) {
+			await this.createOrReplyComment(thread, input);
+		} else {
+			await this.createSingleComment(thread, input);
+		}
+	}
+
+	async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
+		if (input) {
+			await this.createCommentOnResolve(thread, input);
+		}
+
+		await this._reposManager.activePullRequest!.resolveReviewThread(thread.threadId);
+	}
+
+	async unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
+		if (input) {
+			await this.createCommentOnResolve(thread, input);
+		}
+
+		await this._reposManager.activePullRequest!.unresolveReviewThread(thread.threadId);
 	}
 
 	async editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {

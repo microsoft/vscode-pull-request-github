@@ -130,6 +130,7 @@ fragment ReviewThread on PullRequestReviewThread {
 	id
 	isResolved
 	viewerCanResolve
+	viewerCanUnresolve
 	path
 	diffSide
 	line
@@ -246,6 +247,7 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 					id
 					isResolved
 					viewerCanResolve
+					viewerCanUnresolve
 					path
 					diffSide
 					line
@@ -851,6 +853,22 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 					}
 				}
 			}
+		}
+	}
+}
+
+mutation ResolveReviewThread($input: ResolveReviewThreadInput!) {
+	resolveReviewThread(input: $input) {
+		thread {
+			...ReviewThread
+		}
+	}
+}
+
+mutation UnresolveReviewThread($input: UnresolveReviewThreadInput!) {
+	unresolveReviewThread(input: $input) {
+		thread {
+			...ReviewThread
 		}
 	}
 }

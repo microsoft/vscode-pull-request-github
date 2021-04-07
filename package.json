@@ -648,6 +648,16 @@
 				"enablement": "!commentIsEmpty"
 			},
 			{
+				"command": "pr.resolveReviewThread",
+				"title": "Resolve Conversation",
+				"category": "GitHub Pull Requests"
+			},
+			{
+				"command": "pr.unresolveReviewThread",
+				"title": "Unresolve Conversation",
+				"category": "GitHub Pull Requests"
+			},
+			{
 				"command": "pr.signinAndRefreshList",
 				"title": "Sign in and Refresh",
 				"category": "GitHub Pull Requests"
@@ -1310,32 +1320,32 @@
 			"comments/commentThread/context": [
 				{
 					"command": "pr.createComment",
-					"group": "inline",
+					"group": "inline@1",
 					"when": "commentController =~ /browse/ && prInDraft"
 				},
 				{
 					"command": "pr.createComment",
-					"group": "inline",
+					"group": "inline@1",
 					"when": "commentController =~ /review/ && reviewInDraftMode"
 				},
 				{
 					"command": "pr.createSingleComment",
-					"group": "inline",
+					"group": "inline@1",
 					"when": "commentController =~ /browse/ && !prInDraft"
 				},
 				{
 					"command": "pr.createSingleComment",
-					"group": "inline",
+					"group": "inline@1",
 					"when": "commentController =~ /review/ && !reviewInDraftMode"
 				},
 				{
 					"command": "pr.startReview",
-					"group": "inline",
+					"group": "inline@2",
 					"when": "commentController =~ /browse/ && !prInDraft"
 				},
 				{
 					"command": "pr.startReview",
-					"group": "inline",
+					"group": "inline@2",
 					"when": "commentController =~ /review/ && !reviewInDraftMode"
 				},
 				{
@@ -1357,6 +1367,16 @@
 					"command": "pr.finishReview",
 					"group": "inline",
 					"when": "commentController =~ /review/ && reviewInDraftMode"
+				},
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /browse|review/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /browse|review/ && commentThread == canUnresolve"
 				}
 			],
 			"comments/comment/title": [

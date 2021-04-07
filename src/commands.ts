@@ -673,6 +673,34 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.resolveReviewThread', async (reply: CommentReply) => {
+			/* __GDPR__
+			"pr.resolveReviewThread" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.resolveReviewThread');
+			const handler = resolveCommentHandler(reply.thread);
+
+			if (handler) {
+				await handler.resolveReviewThread(reply.thread, reply.text);
+			}
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.unresolveReviewThread', async (reply: CommentReply) => {
+			/* __GDPR__
+			"pr.unresolveReviewThread" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
+			const handler = resolveCommentHandler(reply.thread);
+
+			if (handler) {
+				await handler.unresolveReviewThread(reply.thread, reply.text);
+			}
+		})
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.createComment', async (reply: CommentReply) => {
 			/* __GDPR__
 			"pr.createComment" : {}
