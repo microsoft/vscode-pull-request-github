@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.1
+
+### Fixes
+
+- Fixed vulnerability described in [CVE-2021-28470](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-28470)
+
 ## 0.25.0
 
 ### Changes
