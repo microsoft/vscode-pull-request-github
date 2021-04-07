@@ -34,7 +34,7 @@ jobs:
       - name: NPM or Yarn install with caching
         uses: bahmutov/npm-install@v1.6.0
         with:
-          install-command: yarn install
+          install-command: yarn config set script-shell /bin/bash && yarn install
 
       - name: Build
         run: yarn run vscode:prepublish
