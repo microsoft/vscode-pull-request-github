@@ -5,10 +5,10 @@
 
 import { Comment, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as React from 'react';
-import * as ReactMarkdown from 'react-markdown';
+import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import * as gfm from 'remark-gfm';
+import gfm from 'remark-gfm';
 
 import { PullRequest, ReviewType } from '../common/cache';
 import PullRequestContext from '../common/context';

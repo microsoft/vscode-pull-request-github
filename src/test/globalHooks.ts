@@ -1,3 +1,5 @@
+/* eslint-disable prefer-rest-params */
+/* eslint-disable prefer-spread */
 // Global Mocha test hooks.
 
 import * as util from 'util';

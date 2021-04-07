@@ -6,8 +6,6 @@
 import * as OctokitTypes from '@octokit/types';
 import { IdentityRefWithVote } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
-// eslint-disable-next-line import/extensions
-import webviewContent from '../../dist/webview-open-pr-view.js';
 import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { SETTINGS_NAMESPACE } from '../constants';
@@ -355,6 +353,8 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 	private _getHtmlForWebview() {
 		const nonce = getNonce();
 
+		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-open-pr-view.js');
+
 		return `<!DOCTYPE html>
 		<html lang="en">
 		<head>
@@ -366,7 +366,7 @@ export class PullRequestViewProvider extends WebviewBase implements vscode.Webvi
 		</head>
 		<body>
 			<div id="app"></div>
-			<script nonce="${nonce}">${webviewContent}</script>
+			<script nonce="${nonce}"src="${this._webview!.asWebviewUri(uri).toString()}"></script>
 		</body>
 		</html>`;
 	}

@@ -8,6 +8,47 @@ import { APIState } from '../@types/git';
 import { TernarySearchTree } from '../common/utils';
 import { API, IGit, Repository } from './api';
 
+export const enum RefType {
+	Head,
+	RemoteHead,
+	Tag,
+}
+
+export const enum GitErrorCodes {
+	BadConfigFile = 'BadConfigFile',
+	AuthenticationFailed = 'AuthenticationFailed',
+	NoUserNameConfigured = 'NoUserNameConfigured',
+	NoUserEmailConfigured = 'NoUserEmailConfigured',
+	NoRemoteRepositorySpecified = 'NoRemoteRepositorySpecified',
+	NotAGitRepository = 'NotAGitRepository',
+	NotAtRepositoryRoot = 'NotAtRepositoryRoot',
+	Conflict = 'Conflict',
+	StashConflict = 'StashConflict',
+	UnmergedChanges = 'UnmergedChanges',
+	PushRejected = 'PushRejected',
+	RemoteConnectionError = 'RemoteConnectionError',
+	DirtyWorkTree = 'DirtyWorkTree',
+	CantOpenResource = 'CantOpenResource',
+	GitNotFound = 'GitNotFound',
+	CantCreatePipe = 'CantCreatePipe',
+	CantAccessRemote = 'CantAccessRemote',
+	RepositoryNotFound = 'RepositoryNotFound',
+	RepositoryIsLocked = 'RepositoryIsLocked',
+	BranchNotFullyMerged = 'BranchNotFullyMerged',
+	NoRemoteReference = 'NoRemoteReference',
+	InvalidBranchName = 'InvalidBranchName',
+	BranchAlreadyExists = 'BranchAlreadyExists',
+	NoLocalChanges = 'NoLocalChanges',
+	NoStashFound = 'NoStashFound',
+	LocalChangesOverwritten = 'LocalChangesOverwritten',
+	NoUpstreamBranch = 'NoUpstreamBranch',
+	IsInSubmodule = 'IsInSubmodule',
+	WrongCase = 'WrongCase',
+	CantLockRef = 'CantLockRef',
+	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
+	PatchDoesNotApply = 'PatchDoesNotApply',
+}
+
 export class GitApiImpl implements API, IGit, vscode.Disposable {
 	private static _handlePool: number = 0;
 	private _providers = new Map<number, IGit>();

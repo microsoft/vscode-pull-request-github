@@ -1,6 +1,6 @@
 import * as path from 'path';
-import { runTests } from 'vscode-test';
 import * as dotenv from 'dotenv';
+import { runTests } from 'vscode-test';
 
 async function go() {
 	try {

@@ -7,7 +7,7 @@
 import * as pathLib from 'path';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
-import { GitErrorCodes } from './api/api';
+import { GitErrorCodes } from './api/api1';
 import { CredentialStore } from './azdo/credentials';
 import { FolderRepositoryManager } from './azdo/folderRepositoryManager';
 import { PullRequest } from './azdo/interface';

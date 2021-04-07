@@ -1,7 +1,7 @@
-import assert = require('assert');
-import { parseDiffHunk, DiffHunk } from '../../common/diffHunk';
-import { DiffLine, DiffChangeType } from '../../common/diffHunk';
-import { getDiffLineByPosition, mapHeadLineToDiffHunkPosition, mapCommentsToHead } from '../../common/diffPositionMapping';
+import { strict as assert } from 'assert';
+import { DiffChangeType, DiffHunk, DiffLine, parseDiffHunk } from '../../common/diffHunk';
+
+import { getDiffLineByPosition, mapCommentsToHead, mapHeadLineToDiffHunkPosition } from '../../common/diffPositionMapping';
 
 const diff_hunk_0 = [
 	`@@ -1,5 +1,6 @@`,

@@ -13,8 +13,6 @@ import {
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { AccountRecentActivityWorkItemModel2, WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces';
 import * as vscode from 'vscode';
-// eslint-disable-next-line import/extensions
-import webviewContent from '../../dist/webview-pr-description.js';
 import { onDidUpdatePR } from '../commands';
 import Logger from '../common/logger';
 import { formatError } from '../common/utils';
@@ -118,8 +116,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			enableScripts: true,
 			retainContextWhenHidden: true,
 
-			// And restrict the webview to only loading content from our extension's `media` directory.
-			localResourceRoots: [vscode.Uri.file(path.join(this._extensionPath, 'media'))],
+			// And restrict the webview to only loading content from our extension's `dist` directory.
+			localResourceRoots: [vscode.Uri.file(path.join(this._extensionPath, 'dist'))],
 		});
 
 		this._webview = this._panel.webview;
@@ -939,6 +937,8 @@ export class PullRequestOverviewPanel extends WebviewBase {
 	protected getHtmlForWebview(number: string) {
 		const nonce = getNonce();
 
+		const uri = vscode.Uri.file(path.join(this._extensionPath, 'dist', 'webview-pr-description.js'));
+
 		return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -950,7 +950,7 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			</head>
 			<body class="${process.platform}">
 				<div id=app></div>
-				<script nonce="${nonce}">${webviewContent}</script>
+				<script nonce="${nonce}" src="${this._webview!.asWebviewUri(uri).toString()}"></script>
 			</body>
 			</html>`;
 	}

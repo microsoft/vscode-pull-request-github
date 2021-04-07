@@ -1,28 +1,28 @@
+import { strict as assert } from 'assert';
+import { GitPullRequest, GitRepository } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { createSandbox, SinonSandbox } from 'sinon';
+import { createMock } from 'ts-auto-mock';
 import * as vscode from 'vscode';
-import { SinonSandbox, createSandbox } from 'sinon';
-import assert = require('assert');
 
-import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+import { GitApiImpl } from '../../api/api1';
+import { IMetadata } from '../../azdo/azdoRepository';
+import { Azdo, CredentialStore } from '../../azdo/credentials';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
-
-import { MockTelemetry } from '../mocks/mockTelemetry';
-import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockRepository } from '../mocks/mockRepository';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { IRepository } from '../../azdo/interface';
 import { PullRequestGitHelper } from '../../azdo/pullRequestGitHelper';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { Remote } from '../../common/remote';
-import { Protocol } from '../../common/protocol';
-import { CredentialStore, Azdo } from '../../azdo/credentials';
-import { Resource } from '../../common/resources';
-import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../azdo/repositoriesManager';
-import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
-import { createMock } from 'ts-auto-mock';
-import { IMetadata } from '../../azdo/azdoRepository';
 import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
-import { GitPullRequest, GitRepository } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { IRepository } from '../../azdo/interface';
+import { Protocol } from '../../common/protocol';
+import { Remote } from '../../common/remote';
+import { Resource } from '../../common/resources';
+import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExtensionContext';
+import { MockRepository } from '../mocks/mockRepository';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;

@@ -304,6 +304,26 @@ async function getExtensionConfig(target, mode, env) {
 					? {
 							path: require.resolve('path-browserify'),
 							url: false,
+							// stream: require.resolve("stream-browserify"),
+							// zlib: require.resolve("browserify-zlib"),
+							// crypto: require.resolve("crypto-browserify"),
+							// http: require.resolve("stream-http"),
+							// https: require.resolve("https-browserify"),
+							// util: require.resolve("util/"),
+							// buffer:  require.resolve("buffer/"),
+							// assert: require.resolve("assert/"),
+							stream:false,
+							zlib: false,
+							crypto:false,
+							http: false,
+							https:false,
+							util: false,
+							buffer:false,
+							assert:false,
+							fs: false,
+							net: false,
+							tls: false
+
 					  }
 					: undefined,
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],

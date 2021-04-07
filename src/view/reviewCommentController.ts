@@ -5,7 +5,7 @@
 
 import * as nodePath from 'path';
 import { Comment, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import * as uuid from 'uuid';
+import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { FolderRepositoryManager } from '../azdo/folderRepositoryManager';

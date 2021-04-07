@@ -1,18 +1,18 @@
 import { Uri } from 'vscode';
 
 import {
-	Repository,
-	RepositoryState,
-	RepositoryUIState,
-	Commit,
-	Change,
 	Branch,
-	RefType,
+	BranchQuery,
+	Change,
+	Commit,
 	CommitOptions,
 	InputBox,
 	Ref,
-	BranchQuery,
+	Repository,
+	RepositoryState,
+	RepositoryUIState,
 } from '../../api/api';
+import { RefType } from '../../api/api1';
 
 type Mutable<T> = {
 	-readonly [P in keyof T]: T[P];

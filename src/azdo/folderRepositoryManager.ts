@@ -10,8 +10,8 @@ import {
 	PullRequestStatus,
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
-import { GitErrorCodes, RefType, Repository, UpstreamRef } from '../api/api';
-import { GitApiImpl } from '../api/api1';
+import type { Repository, UpstreamRef } from '../api/api';
+import { GitApiImpl, GitErrorCodes, RefType } from '../api/api1';
 import { AzdoManager } from '../authentication/azdoServer';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
@@ -20,13 +20,12 @@ import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri } from '../common/uri';
 import { formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID, SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../constants';
-import { UserCompletion } from '../issues/util';
 import { AzdoRepository } from './azdoRepository';
 import { CredentialStore } from './credentials';
 import { IAccount, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { convertRESTIdentityToAccount, getRelatedUsersFromPullrequest, loginComparator } from './utils';
+import { convertRESTIdentityToAccount, getRelatedUsersFromPullrequest, loginComparator, UserCompletion } from './utils';
 
 interface PageInformation {
 	pullRequestPage: number;

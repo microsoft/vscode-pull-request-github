@@ -6,7 +6,8 @@
 import * as nodePath from 'path';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
-import { Branch, GitErrorCodes, Repository } from '../api/api';
+import type { Branch, Repository } from '../api/api';
+import { GitErrorCodes } from '../api/api1';
 import { PullRequestViewProvider } from '../azdo/activityBarViewProvider';
 import { AzdoRepository } from '../azdo/azdoRepository';
 import { FolderRepositoryManager, PullRequestDefaults, titleAndBodyFrom } from '../azdo/folderRepositoryManager';

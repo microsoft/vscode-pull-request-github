@@ -3,40 +3,40 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert = require('assert');
-import { SinonSandbox, createSandbox } from 'sinon';
-import { CredentialStore } from '../../azdo/credentials';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { MockTelemetry } from '../mocks/mockTelemetry';
-import { ReviewCommentController } from '../../view/reviewCommentController';
-import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
-import { MockRepository } from '../mocks/mockRepository';
-import { GitFileChangeNode, RemoteFileChangeNode } from '../../view/treeNodes/fileChangeNode';
-import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
-import { GitChangeType } from '../../common/file';
-import { toReviewUri } from '../../common/uri';
-import * as vscode from 'vscode';
-import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
-import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { AzdoRepository } from '../../azdo/azdoRepository';
-import { Protocol } from '../../common/protocol';
-import { Remote } from '../../common/remote';
-import { GHPRCommentThread } from '../../azdo/prComment';
-import { DiffLine } from '../../common/diffHunk';
-import { GitApiImpl } from '../../api/api1';
-import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
-import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { strict as assert } from 'assert';
 import {
+	Comment,
+	CommentThreadStatus,
+	CommentType,
 	GitPullRequest,
 	GitPullRequestCommentThread,
-	Comment,
-	CommentType,
-	CommentThreadStatus,
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { createSandbox, SinonSandbox } from 'sinon';
 import { createMock } from 'ts-auto-mock';
+import * as vscode from 'vscode';
 import { Repository } from '../../api/api';
+import { GitApiImpl } from '../../api/api1';
+import { AzdoRepository } from '../../azdo/azdoRepository';
+import { CredentialStore } from '../../azdo/credentials';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { CommentPermissions } from '../../azdo/interface';
+import { GHPRCommentThread } from '../../azdo/prComment';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
 import { CommonCommentHandler } from '../../common/commonCommentHandler';
+import { DiffLine } from '../../common/diffHunk';
+import { GitChangeType } from '../../common/file';
+import { Protocol } from '../../common/protocol';
+import { Remote } from '../../common/remote';
+import { toReviewUri } from '../../common/uri';
+import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+import { ReviewCommentController } from '../../view/reviewCommentController';
+import { GitFileChangeNode, RemoteFileChangeNode } from '../../view/treeNodes/fileChangeNode';
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
+import { MockRepository } from '../mocks/mockRepository';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
 const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new Remote('test', 'github/test', protocol);
@@ -154,9 +154,9 @@ describe('ReviewCommentController', function () {
 			comments: [],
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 			label: 'Start discussion',
-			canReply: false,
 			dispose: () => {},
 			rawThread: createMock<GitPullRequestCommentThread>(),
+			canReply: true,
 		};
 	}
 

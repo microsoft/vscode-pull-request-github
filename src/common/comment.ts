@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IAccount } from '../github/interface';
+import { IAccount } from '../azdo/interface';
 import { DiffHunk } from './diffHunk';
 
 export interface Reaction {

@@ -1,6 +1,6 @@
 import { inspect } from 'util';
 import { Octokit } from '@octokit/rest';
-import { ApolloQueryResult, QueryOptions, DocumentNode, OperationVariables, MutationOptions, FetchResult } from 'apollo-boost';
+import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, OperationVariables, QueryOptions } from 'apollo-boost';
 import { SinonSandbox, SinonStubbedInstance } from 'sinon';
 
 interface RecordedQueryResult<T> {

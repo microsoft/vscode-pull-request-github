@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import uuid = require('uuid');
+import { v4 as uuid } from 'uuid';
 import { chevronIcon } from './icon';
 
 const { useState } = React;

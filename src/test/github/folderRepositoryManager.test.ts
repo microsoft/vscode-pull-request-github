@@ -1,20 +1,20 @@
-import assert = require('assert');
+import { strict as assert } from 'assert';
+import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { createSandbox, SinonSandbox } from 'sinon';
 import { createMock } from 'ts-auto-mock';
-import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
+import { GitApiImpl } from '../../api/api1';
+import { AzdoRepository } from '../../azdo/azdoRepository';
+import { CredentialStore } from '../../azdo/credentials';
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
+import { Protocol } from '../../common/protocol';
+import { Remote } from '../../common/remote';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { Remote } from '../../common/remote';
-import { Protocol } from '../../common/protocol';
-import { AzdoRepository } from '../../azdo/azdoRepository';
-import { GitApiImpl } from '../../api/api1';
-import { CredentialStore } from '../../azdo/credentials';
-import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
-import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;

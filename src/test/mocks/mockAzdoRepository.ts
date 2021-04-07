@@ -1,9 +1,9 @@
 import { SinonSandbox } from 'sinon';
+import { createMock } from 'ts-auto-mock';
 import { AzdoRepository, IMetadata } from '../../azdo/azdoRepository';
 import { CredentialStore } from '../../azdo/credentials';
 import { Remote } from '../../common/remote';
 import { MockTelemetry } from './mockTelemetry';
-import { createMock } from 'ts-auto-mock';
 
 export class MockAzdoRepository extends AzdoRepository {
 	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {

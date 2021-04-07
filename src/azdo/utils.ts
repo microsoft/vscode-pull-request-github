@@ -382,3 +382,9 @@ export function getCommentThreadStatusKeys(): string[] {
 		.filter(f => f !== CommentThreadStatus[CommentThreadStatus.ByDesign]) // ByDesign is not shown in the Azdo UI
 		.map(f => f.toString());
 }
+
+export class UserCompletion extends vscode.CompletionItem {
+	login: string;
+	email?: string;
+	uri: vscode.Uri;
+}

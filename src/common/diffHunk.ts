@@ -11,7 +11,6 @@ import { VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitIn
 import { Repository } from '../api/api';
 import { IRawFileChange as IAzdoRawFileChange } from '../azdo/interface';
 import { removeLeadingSlash } from '../azdo/utils';
-import { IRawFileChange } from '../github/interface';
 import { GitChangeType, InMemFileChange, SlimFileChange } from './file';
 
 export enum DiffChangeType {
@@ -297,65 +296,6 @@ export function getGitChangeType(status: string): GitChangeType {
 		default:
 			return GitChangeType.UNKNOWN;
 	}
-}
-
-export async function parseDiff(
-	reviews: IRawFileChange[],
-	repository: Repository,
-	parentCommit: string,
-): Promise<(InMemFileChange | SlimFileChange)[]> {
-	const fileChanges: (InMemFileChange | SlimFileChange)[] = [];
-
-	for (let i = 0; i < reviews.length; i++) {
-		const review = reviews[i];
-		const gitChangeType = getGitChangeType(review.status);
-
-		if (!review.patch) {
-			fileChanges.push(
-				new SlimFileChange(parentCommit, review.blob_url, gitChangeType, review.filename, review.previous_filename),
-			);
-			continue;
-		}
-
-		let originalFileExist = false;
-
-		switch (gitChangeType) {
-			case GitChangeType.DELETE:
-			case GitChangeType.MODIFY:
-				try {
-					await repository.getObjectDetails(parentCommit, review.filename);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
-			case GitChangeType.RENAME:
-				try {
-					await repository.getObjectDetails(parentCommit, review.previous_filename!);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
-		}
-
-		const diffHunks = parsePatch(review.patch);
-		const isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
-		fileChanges.push(
-			new InMemFileChange(
-				parentCommit,
-				gitChangeType,
-				review.filename,
-				review.previous_filename,
-				review.patch,
-				diffHunks,
-				isPartial,
-				review.blob_url,
-			),
-		);
-	}
-
-	return fileChanges;
 }
 
 export async function parseDiffAzdo(

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert = require('assert');
+import { strict as assert } from 'assert';
 import { FileDiff, LineDiffBlockChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { getDiffHunkFromFileDiff } from '../../azdo/utils';
 import { getCommentingRanges } from '../../common/commentingRanges';

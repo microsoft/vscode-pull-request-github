@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert = require('assert');
-import * as ssh from '../../env/node/ssh';
+import { strict as assert } from 'assert';
 import { Protocol, ProtocolType } from '../../common/protocol';
+import * as ssh from '../../env/node/ssh';
 
 const SSH_CONFIG_WITH_HOST_ALIASES = `
 Host gh_nocap

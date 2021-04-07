@@ -10,7 +10,6 @@ import { EventEmitter, Uri, UriHandler } from 'vscode';
 import { Repository } from '../api/api';
 import { PullRequestModel as AzdoPullRequestModel } from '../azdo/pullRequestModel';
 import { URI_SCHEME_PR, URI_SCHEME_REVIEW } from '../constants';
-import { PullRequestModel } from '../github/pullRequestModel';
 import { GitChangeType } from './file';
 
 export interface ReviewUriParams {
@@ -130,34 +129,6 @@ export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams | undef
 	try {
 		return JSON.parse(uri.query) as FileChangeNodeUriParams;
 	} catch (e) {}
-}
-
-export function toPRUri(
-	uri: Uri,
-	pullRequestModel: PullRequestModel,
-	baseCommit: string,
-	headCommit: string,
-	fileName: string,
-	base: boolean,
-	status: GitChangeType,
-): Uri {
-	const params: PRUriParams = {
-		baseCommit: baseCommit,
-		headCommit: headCommit,
-		isBase: base,
-		fileName: fileName,
-		prNumber: pullRequestModel.number,
-		status: status,
-		remoteName: pullRequestModel.githubRepository.remote.remoteName,
-	};
-
-	const path = uri.path;
-
-	return uri.with({
-		scheme: 'pr',
-		path,
-		query: JSON.stringify(params),
-	});
 }
 
 export function toPRUriAzdo(

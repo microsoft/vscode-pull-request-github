@@ -10,12 +10,6 @@ export interface InputBox {
 	value: string;
 }
 
-export const enum RefType {
-	Head,
-	RemoteHead,
-	Tag,
-}
-
 export interface Ref {
 	readonly type: RefType;
 	readonly name?: string;
@@ -223,41 +217,6 @@ export interface LogOptions {
 	/** Max number of log entries to retrieve. If not specified, the default is 32. */
 	readonly maxEntries?: number;
 	readonly path?: string;
-}
-
-export const enum GitErrorCodes {
-	BadConfigFile = 'BadConfigFile',
-	AuthenticationFailed = 'AuthenticationFailed',
-	NoUserNameConfigured = 'NoUserNameConfigured',
-	NoUserEmailConfigured = 'NoUserEmailConfigured',
-	NoRemoteRepositorySpecified = 'NoRemoteRepositorySpecified',
-	NotAGitRepository = 'NotAGitRepository',
-	NotAtRepositoryRoot = 'NotAtRepositoryRoot',
-	Conflict = 'Conflict',
-	StashConflict = 'StashConflict',
-	UnmergedChanges = 'UnmergedChanges',
-	PushRejected = 'PushRejected',
-	RemoteConnectionError = 'RemoteConnectionError',
-	DirtyWorkTree = 'DirtyWorkTree',
-	CantOpenResource = 'CantOpenResource',
-	GitNotFound = 'GitNotFound',
-	CantCreatePipe = 'CantCreatePipe',
-	CantAccessRemote = 'CantAccessRemote',
-	RepositoryNotFound = 'RepositoryNotFound',
-	RepositoryIsLocked = 'RepositoryIsLocked',
-	BranchNotFullyMerged = 'BranchNotFullyMerged',
-	NoRemoteReference = 'NoRemoteReference',
-	InvalidBranchName = 'InvalidBranchName',
-	BranchAlreadyExists = 'BranchAlreadyExists',
-	NoLocalChanges = 'NoLocalChanges',
-	NoStashFound = 'NoStashFound',
-	LocalChangesOverwritten = 'LocalChangesOverwritten',
-	NoUpstreamBranch = 'NoUpstreamBranch',
-	IsInSubmodule = 'IsInSubmodule',
-	WrongCase = 'WrongCase',
-	CantLockRef = 'CantLockRef',
-	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
-	PatchDoesNotApply = 'PatchDoesNotApply',
 }
 
 export interface IGit {

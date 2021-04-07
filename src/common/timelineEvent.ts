@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CommentType, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { IAccount } from '../github/interface';
+import { IAccount } from '../azdo/interface';
 import { IComment } from './comment';
 
 export enum EventType {

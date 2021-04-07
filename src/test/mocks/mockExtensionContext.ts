@@ -1,5 +1,5 @@
 import * as path from 'path';
-import sinon = require('sinon');
+import sinon from 'sinon';
 import * as temp from 'temp';
 import { ExtensionContext, SecretStorage, Uri } from 'vscode';
 

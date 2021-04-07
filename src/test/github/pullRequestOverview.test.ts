@@ -1,25 +1,25 @@
-import assert = require('assert');
-import * as vscode from 'vscode';
+import { strict as assert } from 'assert';
 import * as path from 'path';
-import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
+import { GitPullRequest, GitStatusState } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { createSandbox, match as sinonMatch, SinonSandbox } from 'sinon';
 import { createMock } from 'ts-auto-mock';
+import * as vscode from 'vscode';
 
-import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
-import { MockTelemetry } from '../mocks/mockTelemetry';
-import { MockRepository } from '../mocks/mockRepository';
-import { PullRequestOverviewPanel } from '../../azdo/pullRequestOverview';
-import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { Remote } from '../../common/remote';
-import { Protocol } from '../../common/protocol';
-import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
-import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../azdo/credentials';
-import { GitPullRequest, GitStatusState } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { AzdoWorkItem } from '../../azdo/workItem';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { PullRequestOverviewPanel } from '../../azdo/pullRequestOverview';
 import { AzdoUserManager } from '../../azdo/userManager';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
+import { AzdoWorkItem } from '../../azdo/workItem';
+import { Protocol } from '../../common/protocol';
+import { Remote } from '../../common/remote';
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExtensionContext';
+import { MockRepository } from '../mocks/mockRepository';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
@@ -77,7 +77,7 @@ describe('PullRequestOverview', function () {
 				createWebviewPanel.calledWith(sinonMatch.string, 'Pull Request #1000', vscode.ViewColumn.One, {
 					enableScripts: true,
 					retainContextWhenHidden: true,
-					localResourceRoots: [vscode.Uri.file(path.resolve(EXTENSION_PATH, 'media'))],
+					localResourceRoots: [vscode.Uri.file(path.resolve(EXTENSION_PATH, 'dist'))],
 				}),
 			);
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);

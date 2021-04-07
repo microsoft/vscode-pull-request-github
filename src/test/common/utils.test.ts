@@ -1,6 +1,6 @@
-import assert = require('assert');
-import * as utils from '../../common/utils';
+import { strict as assert } from 'assert';
 import { EventEmitter } from 'vscode';
+import * as utils from '../../common/utils';
 
 describe('utils', () => {
 	class HookError extends Error {

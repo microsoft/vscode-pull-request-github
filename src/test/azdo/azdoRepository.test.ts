@@ -1,14 +1,14 @@
-import { SinonSandbox, createSandbox } from 'sinon';
-import { CredentialStore } from '../../azdo/credentials';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { MockTelemetry } from '../mocks/mockTelemetry';
-import { Remote } from '../../common/remote';
-import { Protocol } from '../../common/protocol';
-import { AzdoRepository } from '../../azdo/azdoRepository';
-import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { expect } from 'chai';
+import * as dotenv from 'dotenv';
+import { createSandbox, SinonSandbox } from 'sinon';
+import { AzdoRepository } from '../../azdo/azdoRepository';
+import { CredentialStore } from '../../azdo/credentials';
+import { Protocol } from '../../common/protocol';
+import { Remote } from '../../common/remote';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
 describe('AzdoRepository', function () {
 	let sinon: SinonSandbox;

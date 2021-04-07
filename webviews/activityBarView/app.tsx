@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as React from 'react';
+// eslint-disable-next-line no-duplicate-imports
 import { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
 import { PullRequest } from '../common/cache';
