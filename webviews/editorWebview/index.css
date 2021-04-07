@@ -603,7 +603,7 @@ textarea {
 	margin-left: 0;
 }
 
-.comment-form .form-actions > #request-changes {
+.comment-form .form-actions > .push-right {
 	margin-left: auto;
 }
 
