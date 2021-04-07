@@ -188,6 +188,7 @@ describe('ReviewCommentController', function () {
 		it('creates a new comment on an empty thread in a local file', async function () {
 			const fileName = 'data/products.json';
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
+			await activePullRequest.initializeReviewThreadCache();
 			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
 			const reviewCommentController = new TestReviewCommentController(
 				manager,
@@ -218,7 +219,6 @@ describe('ReviewCommentController', function () {
 
 			sinon.stub(repository, 'diffWith').returns(Promise.resolve(''));
 
-			await activePullRequest.initializeReviewThreadCache();
 			await reviewCommentController.initialize();
 			const workspaceFileChangeCommentThreads = reviewCommentController.workspaceFileChangeCommentThreads();
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 0);
