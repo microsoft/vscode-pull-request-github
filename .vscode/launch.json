@@ -37,7 +37,7 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders",
 			],
 			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
 			"preLaunchTask": "npm: watch",
@@ -53,7 +53,7 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders",
 			],
 			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
 			"preLaunchTask": "npm: watch",
@@ -67,6 +67,7 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
+				"${workspaceFolder}/test_workspace/",
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/src/test",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders",
