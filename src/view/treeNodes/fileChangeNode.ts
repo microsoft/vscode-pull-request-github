@@ -118,6 +118,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
 
+	public childrenDisposables: vscode.Disposable[] = [];
+
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: PullRequestModel,
@@ -146,11 +148,13 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			this.status,
 		);
 
-		this.pullRequest.onDidChangeReviewThreads(e => {
-			if ([...e.added, ...e.removed].some(thread => thread.path === this.fileName)) {
-				this.updateShowOptions();
-			}
-		});
+		this.childrenDisposables.push(
+			this.pullRequest.onDidChangeReviewThreads(e => {
+				if ([...e.added, ...e.removed].some(thread => thread.path === this.fileName)) {
+					this.updateShowOptions();
+				}
+			}),
+		);
 	}
 
 	updateShowOptions() {
