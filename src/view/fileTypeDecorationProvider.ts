@@ -19,6 +19,10 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		uri: vscode.Uri,
 		_token: vscode.CancellationToken,
 	): vscode.ProviderResult<vscode.FileDecoration> {
+		if (uri.scheme !== 'filechange' && uri.scheme !== 'github') {
+			return;
+		}
+
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
 			return {

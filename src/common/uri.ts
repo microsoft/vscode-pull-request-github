@@ -133,6 +133,7 @@ export function toResourceUri(uri: Uri, prNumber: number, fileName: string, stat
 	};
 
 	return uri.with({
+		scheme: 'filechange',
 		query: JSON.stringify(params),
 	});
 }
