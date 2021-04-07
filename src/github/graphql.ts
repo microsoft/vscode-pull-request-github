@@ -557,9 +557,7 @@ export interface UserResponse {
 export interface StartReviewResponse {
 	addPullRequestReview: {
 		pullRequestReview: {
-			comments: {
-				nodes: ReviewComment[];
-			};
+			id: string;
 		};
 	};
 }

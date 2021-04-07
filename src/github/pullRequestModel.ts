@@ -381,9 +381,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param commitId The optional commit id to start the review on. Defaults to using the current head commit.
 	 */
 	async startReview(
-		initialComment: { body: string; path: string; position: number },
 		commitId?: string,
-	): Promise<IComment> {
+	): Promise<string> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<StartReviewResponse>({
 			mutation: schema.StartReview,
@@ -391,7 +390,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				input: {
 					body: '',
 					pullRequestId: this.item.graphNodeId,
-					comments: initialComment,
 					commitOID: commitId || this.head?.sha,
 				},
 			},
@@ -401,10 +399,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			throw new Error('Failed to start review');
 		}
 
-		this.hasPendingReview = true;
-		await this.updateDraftModeContext();
-
-		return parseGraphQLComment(data.addPullRequestReview.pullRequestReview.comments.nodes[0], false);
+		return data.addPullRequestReview.pullRequestReview.id;
 	}
 
 	/**
@@ -468,12 +463,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return newThread;
 	}
 
-	async createCommentReply(body: string, inReplyTo: string, commitId?: string): Promise<IComment> {
+	/**
+	 * Creates a new comment in reply to an existing comment
+	 * @param body The text of the comment to be created
+	 * @param inReplyTo The id of the comment this is in reply to
+	 * @param isSingleComment Whether this is a single comment, i.e. one that
+	 * will be immediately submitted and so should not show a pending label
+	 * @param commitId The commit id the comment was made on
+	 * @returns The new comment
+	 */
+	async createCommentReply(body: string, inReplyTo: string, isSingleComment: boolean, commitId?: string): Promise<IComment> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
 
-		const pendingReviewId = await this.getPendingReviewId();
+		let pendingReviewId = await this.getPendingReviewId();
+		if (!pendingReviewId) {
+			pendingReviewId = await this.startReview(commitId);
+		}
+
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddCommentResponse>({
 			mutation: schema.AddComment,
@@ -489,6 +497,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const { comment } = data.addPullRequestReviewComment;
 		const newComment = parseGraphQLComment(comment, false);
+
+		if (isSingleComment) {
+			newComment.isDraft = false;
+		}
 
 		const threadWithComment = this._reviewThreadsCache.find(thread =>
 			thread.comments.some(comment => comment.graphNodeId === inReplyTo),

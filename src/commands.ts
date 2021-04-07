@@ -681,7 +681,7 @@ export function registerCommands(
 			const handler = resolveCommentHandler(reply.thread);
 
 			if (handler) {
-				handler.createOrReplyComment(reply.thread, reply.text);
+				handler.createOrReplyComment(reply.thread, reply.text, false);
 			}
 		}),
 	);
@@ -695,7 +695,7 @@ export function registerCommands(
 			const handler = resolveCommentHandler(reply.thread);
 
 			if (handler) {
-				handler.createSingleComment(reply.thread, reply.text);
+				handler.createOrReplyComment(reply.thread, reply.text, true);
 			}
 		}),
 	);
