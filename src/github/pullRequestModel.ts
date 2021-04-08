@@ -434,7 +434,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		const pendingReviewId = await this.getPendingReviewId();
 
-		const { mutate, schema, remote } = await this.githubRepository.ensure();
+		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddReviewThreadResponse>({
 			mutation: schema.AddReviewThread,
 			variables: {
@@ -1193,25 +1193,21 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async unresolveReviewThread(threadId: string): Promise<void> {
-		try {
-			const { mutate, schema } = await this.githubRepository.ensure();
-			const {data } = await mutate<UnresolveReviewThreadResponse>({
-				mutation: schema.UnresolveReviewThread,
-				variables: {
-					input: {
-						threadId,
-					},
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const { data } = await mutate<UnresolveReviewThreadResponse>({
+			mutation: schema.UnresolveReviewThread,
+			variables: {
+				input: {
+					threadId,
 				},
-			});
+			},
+		});
 
-			const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
-			if (index > -1) {
-				const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread);
-				this._reviewThreadsCache.splice(index, 1, thread);
-				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
-			}
-		} catch (e) {
-			console.log(e);
+		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
+		if (index > -1) {
+			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread);
+			this._reviewThreadsCache.splice(index, 1, thread);
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 		}
 	}
 }

@@ -674,19 +674,27 @@ export class ReviewCommentController
 	}
 
 	async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
-		if (input) {
-			await this.createCommentOnResolve(thread, input);
-		}
+		try {
+			if (input) {
+				await this.createCommentOnResolve(thread, input);
+			}
 
-		await this._reposManager.activePullRequest!.resolveReviewThread(thread.threadId);
+			await this._reposManager.activePullRequest!.resolveReviewThread(thread.threadId);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Resolving conversation failed: ${e}`);
+		}
 	}
 
 	async unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
-		if (input) {
-			await this.createCommentOnResolve(thread, input);
-		}
+		try {
+			if (input) {
+				await this.createCommentOnResolve(thread, input);
+			}
 
-		await this._reposManager.activePullRequest!.unresolveReviewThread(thread.threadId);
+			await this._reposManager.activePullRequest!.unresolveReviewThread(thread.threadId);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unresolving conversation failed: ${e}`);
+		}
 	}
 
 	async editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {

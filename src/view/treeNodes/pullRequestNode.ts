@@ -835,19 +835,27 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	public async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
-		if (input) {
-			await this.createCommentOnResolve(thread, input);
-		}
+		try {
+			if (input) {
+				await this.createCommentOnResolve(thread, input);
+			}
 
-		await this.pullRequestModel.resolveReviewThread(thread.threadId);
+			await this.pullRequestModel.resolveReviewThread(thread.threadId);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Resolving conversation failed: ${e}`);
+		}
 	}
 
 	public async unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
-		if (input) {
-			await this.createCommentOnResolve(thread, input);
-		}
+		try {
+			if (input) {
+				await this.createCommentOnResolve(thread, input);
+			}
 
-		await this.pullRequestModel.unresolveReviewThread(thread.threadId);
+			await this.pullRequestModel.unresolveReviewThread(thread.threadId);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unresolving conversation failed: ${e}`);
+		}
 	}
 
 	// #endregion
