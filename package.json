@@ -1350,22 +1350,22 @@
 				},
 				{
 					"command": "pr.deleteReview",
-					"group": "inline",
+					"group": "inline@2",
 					"when": "commentController =~ /browse/ && prInDraft"
 				},
 				{
 					"command": "pr.deleteReview",
-					"group": "inline",
+					"group": "inline@2",
 					"when": "commentController =~ /review/ && reviewInDraftMode"
 				},
 				{
 					"command": "pr.finishReview",
-					"group": "inline",
+					"group": "inline@3",
 					"when": "commentController =~ /browse/ && prInDraft"
 				},
 				{
 					"command": "pr.finishReview",
-					"group": "inline",
+					"group": "inline@3",
 					"when": "commentController =~ /review/ && reviewInDraftMode"
 				},
 				{

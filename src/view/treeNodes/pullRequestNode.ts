@@ -340,13 +340,12 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			return;
 		}
 
+		this._hasInitializedThreads = true;
 		const commentThreadCache = (await this.resolvePRCommentController()).commentThreadCache;
 
 		const prEditors = this.getPREditors(editors);
 		this._openPREditors = prEditors;
 		this.addThreadsForEditors(prEditors, commentThreadCache);
-
-		this._hasInitializedThreads = true;
 	}
 
 	private onDidChangeOpenEditors(editors: vscode.TextEditor[]): void {
@@ -372,12 +371,9 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	private onDidChangeReviewThreads(e: ReviewThreadChangeEvent): void {
 		const commentThreadCache = this._prCommentController.commentThreadCache;
 		e.added.forEach(thread => {
-			const fileName = path
-				.relative(this._folderReposManager.repository.rootUri.path, thread.path)
-				.replace(/\\/g, '/');
+			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
-				const fileName = this.gitRelativeRootPath(t.uri.path);
-				const samePath = fileName === thread.path;
+				const samePath = this.gitRelativeRootPath(t.uri.path) === thread.path;
 				const sameLine = t.range.start.line + 1 === thread.line;
 				return samePath && sameLine;
 			});
