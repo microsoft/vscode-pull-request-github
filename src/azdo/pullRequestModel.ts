@@ -2,6 +2,7 @@ import * as path from 'path';
 import { ResourceRef } from 'azure-devops-node-api/interfaces/common/VSSInterfaces';
 import {
 	Comment,
+	CommentThreadContext,
 	CommentThreadStatus,
 	CommentType,
 	FileDiff,
@@ -253,13 +254,29 @@ export class PullRequestModel implements IPullRequestModel {
 
 	async createThread(
 		message?: string,
-		threadContext?: { filePath: string; line: number; startOffset: number; endOffset: number },
+		threadContext?: { filePath: string; line: number; startOffset: number; endOffset: number; isLeft: boolean },
 		prCommentThreadContext?: GitPullRequestCommentThreadContext,
 	): Promise<GitPullRequestCommentThread | undefined> {
 		const azdoRepo = await this.azdoRepository.ensure();
 		const repoId = (await azdoRepo.getRepositoryId()) || '';
 		const azdo = azdoRepo.azdo;
 		const git = await azdo?.connection.getGitApi();
+
+		let tc: CommentThreadContext = undefined;
+
+		if (threadContext?.isLeft) {
+			tc = {
+				filePath: threadContext?.filePath,
+				leftFileStart: { line: threadContext?.line, offset: threadContext?.startOffset },
+				leftFileEnd: { line: threadContext?.line, offset: threadContext?.endOffset },
+			};
+		} else {
+			tc = {
+				filePath: threadContext?.filePath,
+				rightFileStart: { line: threadContext?.line, offset: threadContext?.startOffset },
+				rightFileEnd: { line: threadContext?.line, offset: threadContext?.endOffset },
+			};
+		}
 
 		const thread: GitPullRequestCommentThread = {
 			comments: [
@@ -270,11 +287,7 @@ export class PullRequestModel implements IPullRequestModel {
 				},
 			],
 			status: CommentThreadStatus.Active,
-			threadContext: {
-				filePath: threadContext?.filePath,
-				rightFileStart: { line: threadContext?.line, offset: threadContext?.startOffset },
-				rightFileEnd: { line: threadContext?.line, offset: threadContext?.endOffset },
-			},
+			threadContext: tc,
 			pullRequestThreadContext: prCommentThreadContext,
 		};
 
@@ -640,7 +653,7 @@ export class PullRequestModel implements IPullRequestModel {
 
 		const baseCommit = diffBase !== DiffBaseConfig.head ? commonCommit : base.version!;
 
-		const changes = commitDiffs?.changes?.filter(c => <any>c.item?.gitObjectType === 'blob'); // The API returns string not enum (int)
+		const changes = commitDiffs?.changes?.filter(c => (c.item?.gitObjectType as any) === 'blob'); // The API returns string not enum (int)
 		if (!changes?.length) {
 			Logger.debug(
 				`Fetch file changes, base, head and merge base of PR #${this.getPullRequestId()} - No changes found - done`,
@@ -717,7 +730,9 @@ export class PullRequestModel implements IPullRequestModel {
 
 	private getFileDiffParamsFromChanges(changes: GitChange[]): FileDiffParams[] {
 		const diff_params = changes
-			.filter(change => change.changeType !== VersionControlChangeType.None && <any>change.item?.gitObjectType === 'blob')
+			.filter(
+				change => change.changeType !== VersionControlChangeType.None && (change.item?.gitObjectType as any) === 'blob',
+			)
 			.map(change => {
 				const params: FileDiffParams = { path: '', originalPath: '' };
 				// tslint:disable-next-line: no-bitwise

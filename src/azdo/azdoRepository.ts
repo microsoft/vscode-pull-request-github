@@ -68,7 +68,6 @@ export class AzdoRepository implements vscode.Disposable {
 			);
 			this.commentsHandler = new PRCommentController(this.commentsController);
 			this._toDispose.push(this.commentsController);
-			this._toDispose.push(this.commentsController);
 		} catch (e) {
 			console.log(e);
 		}
@@ -118,7 +117,7 @@ export class AzdoRepository implements vscode.Disposable {
 			const remote = parseRemote(this.remote.remoteName, metadata?.remoteUrl, this.remote.gitProtocol)!;
 			// TODO Disabling this as it fixes #5 Dont know what it does
 			// this.remote = remote;
-			// tslint:disable-next-line: no-unused-expression
+			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 			remote;
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`, AzdoRepository.ID);

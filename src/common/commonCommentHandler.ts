@@ -40,7 +40,8 @@ export class CommonCommentHandler {
 			let rawThread: GitPullRequestCommentThread = thread.rawThread;
 			let rawComment: Comment | undefined;
 			if (!hasExistingComments) {
-				rawThread = (await this.createNewThread(thread, input, fileChange))!;
+				let isLeft = this.isFileLeft(thread.uri);
+				rawThread = (await this.createNewThread(thread, input, fileChange, isLeft))!;
 				thread.threadId = rawThread?.id;
 				thread.rawThread = rawThread!;
 				addCommentToCache(thread, fileChange.fileName);
@@ -67,6 +68,16 @@ export class CommonCommentHandler {
 				return c;
 			});
 		}
+	}
+
+	private isFileLeft(uri: vscode.Uri): boolean {
+		if (uri.scheme === URI_SCHEME_REVIEW) {
+			return fromReviewUri(uri).base;
+		} else if (uri.scheme === URI_SCHEME_PR) {
+			return fromPRUri(uri).isBase;
+		}
+
+		return false;
 	}
 
 	public async editComment(
@@ -226,12 +237,14 @@ export class CommonCommentHandler {
 		thread: GHPRCommentThread,
 		input: string,
 		fileChange: InMemFileChangeNode | GitFileChangeNode,
+		isLeft: boolean,
 	): Promise<GitPullRequestCommentThread | undefined> {
 		const rawComment = await this.pullRequestModel.createThread(input, {
 			filePath: fileChange.fileName,
 			line: thread.range.start.line + 1,
 			endOffset: 0,
 			startOffset: 0,
+			isLeft: isLeft,
 		});
 
 		return rawComment;
