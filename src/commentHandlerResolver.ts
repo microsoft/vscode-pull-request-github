@@ -19,6 +19,9 @@ export interface CommentHandler {
 	startReview(thread: GHPRCommentThread, input: string): Promise<void>;
 	finishReview(thread: GHPRCommentThread, input: string): Promise<void>;
 	deleteReview(): Promise<void>;
+
+	resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void>;
+	unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void>;
 }
 
 export interface CommentReply {

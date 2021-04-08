@@ -33,9 +33,11 @@ import {
 	PullRequestCommentsResponse,
 	PullRequestResponse,
 	ReactionGroup,
+	ResolveReviewThreadResponse,
 	StartReviewResponse,
 	SubmitReviewResponse,
 	TimelineEventsResponse,
+	UnresolveReviewThreadResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
 import {
@@ -57,6 +59,7 @@ import {
 	parseGraphQLComment,
 	parseGraphQLReaction,
 	parseGraphQLReviewEvent,
+	parseGraphQLReviewThread,
 	parseGraphQLTimelineEvents,
 	parseMergeability,
 } from './utils';
@@ -426,7 +429,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		const pendingReviewId = await this.getPendingReviewId();
 
-		const { mutate, schema, remote } = await this.githubRepository.ensure();
+		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddReviewThreadResponse>({
 			mutation: schema.AddReviewThread,
 			variables: {
@@ -447,17 +450,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const thread = data.addPullRequestReviewThread.thread;
-		const newThread = {
-			id: thread.id,
-			isResolved: thread.isResolved,
-			viewerCanResolve: thread.viewerCanResolve,
-			path: thread.path,
-			line: thread.line,
-			originalLine: thread.originalLine,
-			diffSide: thread.diffSide,
-			isOutdated: thread.isOutdated,
-			comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved), remote),
-		};
+		const newThread = parseGraphQLReviewThread(thread);
 		this._reviewThreadsCache.push(newThread);
 		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
 		return newThread;
@@ -694,17 +687,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			const reviewThreads = data.repository.pullRequest.reviewThreads.nodes.map(node => {
-				return {
-					id: node.id,
-					isResolved: node.isResolved,
-					viewerCanResolve: node.viewerCanResolve,
-					path: node.path,
-					line: node.line,
-					originalLine: node.originalLine,
-					diffSide: node.diffSide,
-					isOutdated: node.isOutdated,
-					comments: node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved), remote),
-				};
+				return parseGraphQLReviewThread(node);
 			});
 
 			this.diffThreads(reviewThreads);
@@ -1201,5 +1184,43 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.updateCommentReactions(graphNodeId, reactionGroups);
 
 		return data;
+	}
+
+	async resolveReviewThread(threadId: string): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const { data } = await mutate<ResolveReviewThreadResponse>({
+			mutation: schema.ResolveReviewThread,
+			variables: {
+				input: {
+					threadId,
+				},
+			},
+		});
+
+		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
+		if (index > -1) {
+			const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread);
+			this._reviewThreadsCache.splice(index, 1, thread);
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
+		}
+	}
+
+	async unresolveReviewThread(threadId: string): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const { data } = await mutate<UnresolveReviewThreadResponse>({
+			mutation: schema.UnresolveReviewThread,
+			variables: {
+				input: {
+					threadId,
+				},
+			},
+		});
+
+		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
+		if (index > -1) {
+			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread);
+			this._reviewThreadsCache.splice(index, 1, thread);
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
+		}
 	}
 }

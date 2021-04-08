@@ -23,6 +23,7 @@ export interface IReviewThread {
 	id: string;
 	isResolved: boolean;
 	viewerCanResolve: boolean;
+	viewerCanUnresolve: boolean;
 	path: string;
 	diffSide: DiffSide;
 	line: number;

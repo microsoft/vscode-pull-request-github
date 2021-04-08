@@ -146,6 +146,7 @@ describe('ReviewCommentController', function () {
 					id: '1',
 					isResolved: false,
 					viewerCanResolve: false,
+					viewerCanUnresolve: false,
 					path: fileName,
 					diffSide: DiffSide.RIGHT,
 					line: 372,

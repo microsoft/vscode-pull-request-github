@@ -166,6 +166,7 @@ export interface ReviewThread {
 	id: string;
 	isResolved: boolean;
 	viewerCanResolve: boolean;
+	viewerCanUnresolve: boolean;
 	path: string;
 	diffSide: DiffSide;
 	line: number;
@@ -210,21 +211,7 @@ export interface PullRequestCommentsResponse {
 	repository: {
 		pullRequest: {
 			reviewThreads: {
-				nodes: [
-					{
-						id: string;
-						isResolved: boolean;
-						viewerCanResolve: boolean;
-						path: string;
-						diffSide: DiffSide;
-						line: number;
-						originalLine: number;
-						isOutdated: boolean;
-						comments: {
-							nodes: ReviewComment[];
-						};
-					},
-				];
+				nodes: ReviewThread[];
 			};
 		};
 	};
@@ -614,4 +601,16 @@ export interface GetChecksResponse {
 			};
 		};
 	};
+}
+
+export interface ResolveReviewThreadResponse {
+	resolveReviewThread: {
+		thread: ReviewThread;
+	}
+}
+
+export interface UnresolveReviewThreadResponse {
+	unresolveReviewThread: {
+		thread: ReviewThread;
+	}
 }

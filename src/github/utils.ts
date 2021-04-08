@@ -46,6 +46,12 @@ export function createVSCodeCommentThreadForReviewThread(
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
 	(vscodeThread as GHPRCommentThread).isResolved = thread.isResolved;
 
+	if (thread.viewerCanResolve && !thread.isResolved) {
+		vscodeThread.contextValue = 'canResolve';
+	} else if (thread.viewerCanUnresolve && thread.isResolved) {
+		vscodeThread.contextValue = 'canUnresolve';
+	}
+
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
 	const isOnLocalFile = uri.scheme !== 'pr' && uri.scheme !== 'review';
 	vscodeThread.collapsibleState =
@@ -56,7 +62,30 @@ export function createVSCodeCommentThreadForReviewThread(
 	return vscodeThread as GHPRCommentThread;
 }
 
+export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread) {
+	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
+		vscodeThread.contextValue = 'canResolve';
+	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
+		vscodeThread.contextValue = 'canUnresolve';
+	}
+
+	if (vscodeThread.isResolved !== reviewThread.isResolved) {
+		vscodeThread.isResolved = reviewThread.isResolved;
+		vscodeThread.collapsibleState = reviewThread.isResolved
+			? vscode.CommentThreadCollapsibleState.Collapsed
+			: vscode.CommentThreadCollapsibleState.Expanded;
+	}
+
+	vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread));
+	updateCommentThreadLabel(vscodeThread);
+}
+
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
+	if (thread.isResolved) {
+		thread.label = 'This thread has been marked as resolved';
+		return;
+	}
+
 	if (thread.comments.length) {
 		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name)
 			.map(comment => `@${comment.author.name}`)
@@ -303,6 +332,21 @@ export function convertGraphQLEventType(text: string) {
 		default:
 			return Common.EventType.Other;
 	}
+}
+
+export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread): IReviewThread {
+	return {
+		id: thread.id,
+		isResolved: thread.isResolved,
+		viewerCanResolve: thread.viewerCanResolve,
+		viewerCanUnresolve: thread.viewerCanUnresolve,
+		path: thread.path,
+		line: thread.line,
+		originalLine: thread.originalLine,
+		diffSide: thread.diffSide,
+		isOutdated: thread.isOutdated,
+		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved)),
+	};
 }
 
 export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean): IComment {
