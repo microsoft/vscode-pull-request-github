@@ -268,7 +268,7 @@ describe('ReviewCommentController', function () {
 				}
 			)
 
-			await reviewCommentController.createOrReplyComment(thread, 'hello world');
+			await reviewCommentController.createOrReplyComment(thread, 'hello world', false);
 
 			assert.strictEqual(thread.comments.length, 1);
 			assert.strictEqual(thread.comments[0].parent, thread);
