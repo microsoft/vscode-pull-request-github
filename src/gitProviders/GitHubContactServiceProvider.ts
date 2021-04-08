@@ -92,7 +92,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 			currentLoginUser = await this.getCurrentUserLogin();
 		} catch (e) {
 			// If there are no GitHub repositories at the time of the above call, then we can get an error here.
-			// Since we don't care about the error and are just trying to nofity accounts and not responding to user action,
+			// Since we don't care about the error and are just trying to notify accounts and not responding to user action,
 			// it is safe to ignore and leave currentLoginUser undefined.
 		}
 		if (currentLoginUser) {

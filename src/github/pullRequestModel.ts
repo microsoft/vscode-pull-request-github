@@ -409,7 +409,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param commentPath The path to the file being commented on.
 	 * @param line The line on which to add the comment.
 	 * @param side The side the comment should be deleted on, i.e. the original or modified file.
-	 * @param surpressDraftModeUpdate If a draft mode change should event should be surpressed. In the
+	 * @param suppressDraftModeUpdate If a draft mode change should event should be suppressed. In the
 	 * case of a single comment add, the review is created and then immediately submitted, so this prevents
 	 * a "Pending" label from flashing on the comment.
 	 * @returns The new review thread object.
@@ -419,7 +419,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		commentPath: string,
 		line: number,
 		side: DiffSide,
-		surpressDraftModeUpdate?: boolean,
+		suppressDraftModeUpdate?: boolean,
 	): Promise<IReviewThread> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
@@ -441,7 +441,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		if (!surpressDraftModeUpdate) {
+		if (!suppressDraftModeUpdate) {
 			this.hasPendingReview = true;
 			await this.updateDraftModeContext();
 		}
@@ -1041,7 +1041,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		if (this.item.merged) {
-			const repsonse = await octokit.pulls.listFiles({
+			const response = await octokit.pulls.listFiles({
 				repo: remote.repositoryName,
 				owner: remote.owner,
 				pull_number: this.number,
@@ -1050,7 +1050,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			// Use the original base to compare against for merged PRs
 			this.mergeBase = this.base.sha;
 
-			return repsonse.data as IRawFileChange[];
+			return response.data as IRawFileChange[];
 		}
 
 		const { data } = await octokit.repos.compareCommits({
@@ -1091,9 +1091,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	/**
-	 * Get the current mergability of the pull request.
+	 * Get the current mergeability of the pull request.
 	 */
-	async getMergability(): Promise<PullRequestMergeability> {
+	async getMergeability(): Promise<PullRequestMergeability> {
 		try {
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();

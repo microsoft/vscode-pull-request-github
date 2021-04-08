@@ -262,7 +262,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.open-diff':
 				return this.openDiff(message);
 			case 'pr.checkMergeability':
-				return this._replyMessage(message, await this._item.getMergability());
+				return this._replyMessage(message, await this._item.getMergeability());
 			case 'pr.add-reviewers':
 				return this.addReviewers(message);
 			case 'pr.remove-milestone':
@@ -475,13 +475,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			);
 
 			if (assigneesToAdd) {
-				const addedAsignees: IAccount[] = assigneesToAdd.map(item => item.assignee);
-				this._item.assignees = this._item.assignees.concat(addedAsignees);
+				const addedAssignees: IAccount[] = assigneesToAdd.map(item => item.assignee);
+				this._item.assignees = this._item.assignees.concat(addedAssignees);
 
-				await this._item.updateAssignees(addedAsignees.map(assignee => assignee.login));
+				await this._item.updateAssignees(addedAssignees.map(assignee => assignee.login));
 
 				this._replyMessage(message, {
-					added: addedAsignees,
+					added: addedAssignees,
 				});
 			}
 		} catch (e) {

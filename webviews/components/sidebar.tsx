@@ -53,7 +53,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			) : (
 				''
 			)}
-			<div id="assignes" className="section">
+			<div id="assignees" className="section">
 				<div className="section-header">
 					<div>Assignees</div>
 					{hasWritePermission ? (

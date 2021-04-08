@@ -11,7 +11,7 @@ import {
 	VSLS_GIT_PR_SESSION_NAME,
 	VSLS_REPOSITORY_INITIALIZATION_NAME,
 	VSLS_REQUEST_NAME,
-	VSLS_STATE_CHANGE_NOFITY_NAME,
+	VSLS_STATE_CHANGE_NOTIFY_NAME,
 } from '../constants';
 
 export class VSLSGuest implements IGit, vscode.Disposable {
@@ -182,7 +182,7 @@ class LiveShareRepository {
 		]);
 		this.state = new LiveShareRepositoryState(result);
 		this.rootUri = vscode.Uri.parse(result.rootUri);
-		this.proxy.onNotify(VSLS_STATE_CHANGE_NOFITY_NAME, this._notifyHandler.bind(this));
+		this.proxy.onNotify(VSLS_STATE_CHANGE_NOTIFY_NAME, this._notifyHandler.bind(this));
 	}
 
 	private _notifyHandler(args: any) {

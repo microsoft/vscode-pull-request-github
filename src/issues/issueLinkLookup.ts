@@ -32,7 +32,7 @@ export async function findCodeLinkLocally(
 	const owner = codeLink[2];
 	const repo = codeLink[3];
 	const repoSubPath = codeLink[5];
-	// subract 1 because VS Code starts lines at 0, whereas GitHub starts at 1.
+	// subtract 1 because VS Code starts lines at 0, whereas GitHub starts at 1.
 	const startingLine = Number(codeLink[6]) - 1;
 	const endingLine = codeLink[8] ? Number(codeLink[8]) - 1 : startingLine;
 	let linkFolderManager: FolderRepositoryManager | undefined;

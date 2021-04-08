@@ -20,7 +20,7 @@
 /**
  * {@link FieldTemplate} that describes a _scalar_ value; one that is initialized directly by a setter rather than constructed by a sub-builder.
  * The default value provided is used by the builder if this field's value is not explicitly set. The default value's type must be
- * assignable to the corresponding field in the buider's record type.
+ * assignable to the corresponding field in the builder's record type.
  *
  * @example
  * interface Example {

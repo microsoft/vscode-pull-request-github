@@ -33,7 +33,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.children.forEach(n => {
 			if (n instanceof DirectoryTreeNode) {
-				n.trimTree(); // reccursive
+				n.trimTree(); // recursive
 			}
 		});
 

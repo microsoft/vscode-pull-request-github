@@ -606,7 +606,7 @@ export class ReviewManager {
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 
-			await this._folderRepoManager.fullfillPullRequestMissingInfo(pr);
+			await this._folderRepoManager.fulfillPullRequestMissingInfo(pr);
 
 			/* __GDPR__
 				"pr.checkout" : {}
@@ -686,7 +686,7 @@ export class ReviewManager {
 				inputBox.validationMessage = undefined;
 				inputBox.hide();
 				try {
-					// since we are probably pushing a remote branch with a different name, we use the complete synatx
+					// since we are probably pushing a remote branch with a different name, we use the complete syntax
 					// git push -u origin local_branch:remote_branch
 					await this._repository.push(remote.remoteName, `${branch.name}:${inputBox.value}`, true);
 				} catch (err) {
@@ -820,7 +820,7 @@ export class ReviewManager {
 	private clear(quitReviewMode: boolean) {
 		this._updateMessageShown = false;
 
-		this._localToDispose.forEach(disposeable => disposeable.dispose());
+		this._localToDispose.forEach(disposable => disposable.dispose());
 
 		if (quitReviewMode) {
 			this._prNumber = undefined;

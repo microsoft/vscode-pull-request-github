@@ -420,8 +420,8 @@ export function parseMilestone(
 	};
 }
 
-export function parseMergeability(mergability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING'): PullRequestMergeability {
-	switch (mergability) {
+export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING'): PullRequestMergeability {
+	switch (mergeability) {
 		case 'UNKNOWN':
 			return PullRequestMergeability.Unknown;
 		case 'MERGEABLE':

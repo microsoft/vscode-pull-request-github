@@ -90,7 +90,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		super.initialize();
 
 		// Listen for when the panel is disposed
-		// This happens when the user closes the panel or when the panel is closed programatically
+		// This happens when the user closes the panel or when the panel is closed programmatically
 		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
 		this._folderRepositoryManager.onDidChangeActiveIssue(
