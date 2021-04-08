@@ -50,7 +50,7 @@ export interface AbbreviatedIssueComment {
 
 export interface IssueComment extends AbbreviatedIssueComment {
 	__typename: string;
-	authorAssocation: string;
+	authorAssociation: string;
 	id: string;
 	url: string;
 	bodyHTML: string;

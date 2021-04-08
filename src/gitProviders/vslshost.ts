@@ -10,7 +10,7 @@ import {
 	VSLS_GIT_PR_SESSION_NAME,
 	VSLS_REPOSITORY_INITIALIZATION_NAME,
 	VSLS_REQUEST_NAME,
-	VSLS_STATE_CHANGE_NOFITY_NAME,
+	VSLS_STATE_CHANGE_NOTIFY_NAME,
 } from '../constants';
 
 export class VSLSHost implements vscode.Disposable {
@@ -47,7 +47,7 @@ export class VSLSHost implements vscode.Disposable {
 			if (type === VSLS_REPOSITORY_INITIALIZATION_NAME) {
 				this._disposables.push(
 					localRepository.state.onDidChange(_ => {
-						this._sharedService!.notify(VSLS_STATE_CHANGE_NOFITY_NAME, {
+						this._sharedService!.notify(VSLS_STATE_CHANGE_NOTIFY_NAME, {
 							HEAD: localRepository.state.HEAD,
 							remotes: localRepository.state.remotes,
 							refs: localRepository.state.refs,

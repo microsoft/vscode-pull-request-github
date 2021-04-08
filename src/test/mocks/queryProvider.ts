@@ -37,7 +37,7 @@ export class QueryProvider {
 	}
 
 	get octokit(): Octokit {
-		// Cast through "any" because SinonStubbedInstance<Octokit> does not propertly map the type of the
+		// Cast through "any" because SinonStubbedInstance<Octokit> does not properly map the type of the
 		// overloaded "authenticate" method.
 		return (this._octokit as any) as Octokit;
 	}

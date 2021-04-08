@@ -111,7 +111,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 					}
 				</div>
 			) : (
-				<div className="flex-action-bar comment-actons"></div>
+				<div className="flex-action-bar comment-actions"></div>
 			)}
 			<div className="button-group">
 				<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue }} />

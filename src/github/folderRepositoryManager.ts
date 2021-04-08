@@ -896,7 +896,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async getMilestones(
 		options: IPullRequestsPagingOptions = { fetchNextPage: false },
-		includeIssuesWithoutMilstone: boolean = false,
+		includeIssuesWithoutMilestone: boolean = false,
 		query?: string,
 	): Promise<ItemsResponseResult<MilestoneModel>> {
 		const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(
@@ -906,7 +906,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			PRType.All,
 			query,
 		);
-		if (includeIssuesWithoutMilstone) {
+		if (includeIssuesWithoutMilestone) {
 			const additionalIssues: ItemsResponseResult<IssueModel> = await this.fetchPagedData<IssueModel>(
 				options,
 				'issuesKey',
@@ -1109,7 +1109,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					}
 				}
 
-				// There are uncommited changes
+				// There are uncommitted changes
 				if (this._repository.state.workingTreeChanges.length || this._repository.state.indexChanges.length) {
 					const shouldCommit = await vscode.window.showInformationMessage(
 						`There are no commits between '${params.base}' and '${params.head}'.\n\nDo you want to commit your changes and create the pull request?`,
@@ -1563,13 +1563,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return mergeOptions;
 	}
 
-	async fullfillPullRequestMissingInfo(pullRequest: PullRequestModel): Promise<void> {
+	async fulfillPullRequestMissingInfo(pullRequest: PullRequestModel): Promise<void> {
 		try {
 			if (!pullRequest.isResolved()) {
 				return;
 			}
 
-			Logger.debug(`Fullfill pull request missing info - start`, FolderRepositoryManager.ID);
+			Logger.debug(`Fulfill pull request missing info - start`, FolderRepositoryManager.ID);
 			const githubRepository = pullRequest.githubRepository;
 			const { octokit, remote } = await githubRepository.ensure();
 
@@ -1595,7 +1595,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
 		}
-		Logger.debug(`Fullfill pull request missing info - done`, FolderRepositoryManager.ID);
+		Logger.debug(`Fulfill pull request missing info - done`, FolderRepositoryManager.ID);
 	}
 
 	//#region Git related APIs

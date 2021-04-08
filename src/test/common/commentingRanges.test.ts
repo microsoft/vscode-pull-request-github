@@ -47,7 +47,7 @@ const deletionPatch = [
 const diffHunks = parsePatch(patch);
 
 describe('getCommentingRanges', () => {
-	it('shoud return only ranges for deleted lines, mapped to full file, for the base file', () => {
+	it('should return only ranges for deleted lines, mapped to full file, for the base file', () => {
 		const commentingRanges = getCommentingRanges(diffHunks, true);
 		assert.strictEqual(commentingRanges.length, 1);
 		assert.strictEqual(commentingRanges[0].start.line, 754);
@@ -56,7 +56,7 @@ describe('getCommentingRanges', () => {
 		assert.strictEqual(commentingRanges[0].end.character, 0);
 	});
 
-	it('shoud return only ranges for changes, mapped to full file, for the modified file', () => {
+	it('should return only ranges for changes, mapped to full file, for the modified file', () => {
 		const commentingRanges = getCommentingRanges(diffHunks, false);
 		assert.strictEqual(commentingRanges.length, 2);
 		assert.strictEqual(commentingRanges[0].start.line, 7);
