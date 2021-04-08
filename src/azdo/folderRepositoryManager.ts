@@ -3,26 +3,29 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { CredentialStore } from './credentials';
-import { Remote, parseRepositoryRemotes } from '../common/remote';
-import { TimelineEvent, EventType } from '../common/timelineEvent';
+import {
+	GitPullRequest,
+	GitPullRequestSearchCriteria,
+	PullRequestStatus,
+} from 'azure-devops-node-api/interfaces/GitInterfaces';
+import * as vscode from 'vscode';
+import type { Repository, UpstreamRef } from '../api/api';
+import { GitApiImpl, GitErrorCodes, RefType } from '../api/api1';
+import { AzdoManager } from '../authentication/azdoServer';
+import Logger from '../common/logger';
+import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
+import { EventType, TimelineEvent } from '../common/timelineEvent';
+import { fromPRUri } from '../common/uri';
+import { formatError, Predicate } from '../common/utils';
+import { EXTENSION_ID, SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../constants';
 import { AzdoRepository } from './azdoRepository';
-import { IPullRequestsPagingOptions, PRType, IAccount, RepoAccessAndMergeMethods } from './interface';
+import { CredentialStore } from './credentials';
+import { IAccount, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-import { AzdoManager } from '../authentication/azdoServer';
-import { formatError, Predicate } from '../common/utils';
-import { Repository, RefType, UpstreamRef, GitErrorCodes } from '../api/api';
-import Logger from '../common/logger';
-import { EXTENSION_ID, SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../constants';
-import { fromPRUri } from '../common/uri';
-import { convertRESTIdentityToAccount, getRelatedUsersFromPullrequest, loginComparator } from './utils';
-import { ITelemetry } from '../common/telemetry';
-import { GitApiImpl } from '../api/api1';
-import { UserCompletion } from '../issues/util';
-import { GitPullRequest, GitPullRequestSearchCriteria, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { convertRESTIdentityToAccount, getRelatedUsersFromPullrequest, loginComparator, UserCompletion } from './utils';
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -56,15 +59,16 @@ export class DetachedHeadError extends Error {
 }
 
 export class BadUpstreamError extends Error {
-	constructor(
-		public branchName: string,
-		public upstreamRef: UpstreamRef,
-		public problem: string) {
+	constructor(public branchName: string, public upstreamRef: UpstreamRef, public problem: string) {
 		super();
 	}
 
 	get message() {
-		const { upstreamRef: { remote, name }, branchName, problem } = this;
+		const {
+			upstreamRef: { remote, name },
+			branchName,
+			problem,
+		} = this;
 		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
 	}
 }
@@ -76,7 +80,7 @@ export const ReposManagerStateContext: string = 'ReposManagerStateContext';
 export enum ReposManagerState {
 	Initializing = 'Initializing',
 	NeedsAuthentication = 'NeedsAuthentication',
-	RepositoriesLoaded = 'RepositoriesLoaded'
+	RepositoriesLoaded = 'RepositoriesLoaded',
 }
 
 export interface PullRequestDefaults {
@@ -91,7 +95,7 @@ enum PagedDataType {
 	PullRequest,
 	Milestones,
 	IssuesWithoutMilestone,
-	IssueSearch
+	IssueSearch,
 }
 
 export class FolderRepositoryManager implements vscode.Disposable {
@@ -133,11 +137,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		this._azdoRepositories = [];
 		this._githubManager = new AzdoManager();
 
-		this._subs.push(vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
-				await this.updateRepositories();
-			}
-		}));
+		this._subs.push(
+			vscode.workspace.onDidChangeConfiguration(async e => {
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
+					await this.updateRepositories();
+				}
+			}),
+		);
 
 		this.setUpCompletionItemProvider();
 	}
@@ -168,7 +174,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		remotesSetting.forEach(remote => {
 			if (!allGitHubRemotes.some(repo => repo.remoteName === remote)) {
-				Logger.appendLine(`No remote with name '${remote}' found. All other remotes: ${allGitHubRemotes.map(r => r.remoteName).join(',')}`, FolderRepositoryManager.ID);
+				Logger.appendLine(
+					`No remote with name '${remote}' found. All other remotes: ${allGitHubRemotes
+						.map(r => r.remoteName)
+						.join(',')}`,
+					FolderRepositoryManager.ID,
+				);
 			}
 		});
 
@@ -184,183 +195,205 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const lastPullRequestTimelineEvents: TimelineEvent[] = [];
 		let cachedUsers: UserCompletion[] = [];
 
-		vscode.languages.registerCompletionItemProvider({ scheme: 'comment' }, {
-			provideCompletionItems: async (document, position, token) => {
-				try {
-					const query = JSON.parse(document.uri.query);
-					if (query.extensionId !== EXTENSION_ID) { // TODO Change extension id
-						return;
-					}
-
-					const wordRange = document.getWordRangeAtPosition(position, /@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})?/i);
-					if (!wordRange || wordRange.isEmpty) {
-						return;
-					}
-
-					let prRelatedusers: { login: string; name?: string; email?: string }[] = [];
-					const fileRelatedUsersNames: { [key: string]: boolean } = {};
-					let mentionableUsers: { [key: string]: { id?: string; name?: string; email?: string }[]; } = {};
-					let prNumber: number | undefined;
-					let remoteName: string | undefined;
-
-					const activeTextEditors = vscode.window.visibleTextEditors;
-					if (activeTextEditors.length) {
-						const visiblePREditor = activeTextEditors.find(editor => editor.document.uri.scheme === URI_SCHEME_PR);
-
-						if (visiblePREditor) {
-							const params = fromPRUri(visiblePREditor.document.uri);
-							prNumber = params!.prNumber;
-							remoteName = params!.remoteName;
-						} else if (this._activePullRequest) {
-							prNumber = this._activePullRequest.getPullRequestId();
-							remoteName = this._activePullRequest.remote.remoteName;
+		vscode.languages.registerCompletionItemProvider(
+			{ scheme: 'comment' },
+			{
+				provideCompletionItems: async (document, position) => {
+					try {
+						const query = JSON.parse(document.uri.query);
+						if (query.extensionId !== EXTENSION_ID) {
+							// TODO Change extension id
+							return;
 						}
 
-						if (lastPullRequest && prNumber && prNumber === lastPullRequest.getPullRequestId()) {
-							return cachedUsers;
-						}
-					}
-
-					const prRelatedUsersPromise = new Promise(async resolve => {
-						if (prNumber && remoteName) {
-							Logger.debug('get Timeline Events and parse users', FolderRepositoryManager.ID);
-							if (lastPullRequest && lastPullRequest.getPullRequestId() === prNumber) {
-								// TODO This will always be empty
-								return lastPullRequestTimelineEvents;
-							}
-
-							const githubRepo = this._azdoRepositories.find(repo => repo.remote.remoteName === remoteName);
-
-							if (githubRepo) {
-								lastPullRequest = await githubRepo.getPullRequest(prNumber);
-							}
-
-							const [threads, commits] = await Promise.all([lastPullRequest?.getAllActiveThreadsBetweenAllIterations(), lastPullRequest?.getCommits()]);
-
-							prRelatedusers = getRelatedUsersFromPullrequest(lastPullRequest?.item!, threads, commits);
-							resolve();
+						const wordRange = document.getWordRangeAtPosition(
+							position,
+							/@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})?/i,
+						);
+						if (!wordRange || wordRange.isEmpty) {
+							return;
 						}
 
-						resolve();
-					});
+						let prRelatedusers: { login: string; name?: string; email?: string }[] = [];
+						const fileRelatedUsersNames: { [key: string]: boolean } = {};
+						let mentionableUsers: { [key: string]: { id?: string; name?: string; email?: string }[] } = {};
+						let prNumber: number | undefined;
+						let remoteName: string | undefined;
 
-					const fileRelatedUsersNamesPromise = new Promise(async resolve => {
+						const activeTextEditors = vscode.window.visibleTextEditors;
 						if (activeTextEditors.length) {
-							try {
-								Logger.debug('git blame and parse users', FolderRepositoryManager.ID);
-								const fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
-								let blames: string | undefined;
-								if (this._gitBlameCache[fsPath]) {
-									blames = this._gitBlameCache[fsPath];
-								} else {
-									blames = await this.repository.blame(fsPath);
-									this._gitBlameCache[fsPath] = blames;
-								}
+							const visiblePREditor = activeTextEditors.find(
+								editor => editor.document.uri.scheme === URI_SCHEME_PR,
+							);
 
-								const blameLines = blames.split('\n');
+							if (visiblePREditor) {
+								const params = fromPRUri(visiblePREditor.document.uri);
+								prNumber = params!.prNumber;
+								remoteName = params!.remoteName;
+							} else if (this._activePullRequest) {
+								prNumber = this._activePullRequest.getPullRequestId();
+								remoteName = this._activePullRequest.remote.remoteName;
+							}
 
-								for (const line in blameLines) {
-									const matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(blameLines[line]);
-
-									if (matches && matches.length === 2) {
-										const name = matches[1].trim();
-										fileRelatedUsersNames[name] = true;
-									}
-								}
-							} catch (err) {
-								Logger.debug(err, FolderRepositoryManager.ID);
+							if (lastPullRequest && prNumber && prNumber === lastPullRequest.getPullRequestId()) {
+								return cachedUsers;
 							}
 						}
 
-						resolve();
-					});
-
-					const getMentionableUsersPromise = new Promise(async resolve => {
-						Logger.debug('get mentionable users', FolderRepositoryManager.ID);
-						mentionableUsers = await this.getMentionableUsers();
-						resolve();
-					});
-
-					await Promise.all([prRelatedUsersPromise, fileRelatedUsersNamesPromise, getMentionableUsersPromise]);
-
-					cachedUsers = [];
-					const prRelatedUsersMap: { [key: string]: { login: string; name?: string; email?: string } } = {};
-					Logger.debug('prepare user suggestions', FolderRepositoryManager.ID);
-
-					prRelatedusers.forEach(user => {
-						if (!prRelatedUsersMap[user.login]) {
-							prRelatedUsersMap[user.login] = user;
-						}
-					});
-
-					const secondMap: { [key: string]: boolean } = {};
-
-					for (const mentionableUserGroup in mentionableUsers) {
-						mentionableUsers[mentionableUserGroup].forEach(user => {
-							if (!prRelatedUsersMap[user.id!] && !secondMap[user.id!]) {
-								secondMap[user.id!] = true;
-
-								let priority = 2;
-								if (fileRelatedUsersNames[user.id!] || (user.name && fileRelatedUsersNames[user.name])) {
-									priority = 1;
+						const prRelatedUsersPromise = new Promise<void>(async resolve => {
+							if (prNumber && remoteName) {
+								Logger.debug('get Timeline Events and parse users', FolderRepositoryManager.ID);
+								if (lastPullRequest && lastPullRequest.getPullRequestId() === prNumber) {
+									// TODO This will always be empty
+									return lastPullRequestTimelineEvents;
 								}
 
-								if (prRelatedUsersMap[user.id!]) {
-									priority = 0;
+								const githubRepo = this._azdoRepositories.find(repo => repo.remote.remoteName === remoteName);
+
+								if (githubRepo) {
+									lastPullRequest = await githubRepo.getPullRequest(prNumber);
 								}
 
-								cachedUsers.push({
-									label: user.id!,
-									email: user.email,
-									insertText: user.id!,
-									filterText: `${user.id!}` + (user.name && user.name !== user.id! ? `_${user.name.toLowerCase().replace(' ', '_')}` : ''),
-									sortText: `${priority}_${user.id!}`,
-									detail: user.name,
-									kind: vscode.CompletionItemKind.User,
-									login: user.id!,
-									uri: this.repository.rootUri
-								});
+								const [threads, commits] = await Promise.all([
+									lastPullRequest?.getAllActiveThreadsBetweenAllIterations(),
+									lastPullRequest?.getCommits(),
+								]);
+
+								prRelatedusers = getRelatedUsersFromPullrequest(lastPullRequest!.item!, threads, commits);
+								resolve();
+							}
+
+							resolve();
+						});
+
+						const fileRelatedUsersNamesPromise = new Promise<void>(async resolve => {
+							if (activeTextEditors.length) {
+								try {
+									Logger.debug('git blame and parse users', FolderRepositoryManager.ID);
+									const fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
+									let blames: string | undefined;
+									if (this._gitBlameCache[fsPath]) {
+										blames = this._gitBlameCache[fsPath];
+									} else {
+										blames = await this.repository.blame(fsPath);
+										this._gitBlameCache[fsPath] = blames;
+									}
+
+									const blameLines = blames.split('\n');
+
+									for (const line of blameLines) {
+										const matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(line);
+
+										if (matches && matches.length === 2) {
+											const name = matches[1].trim();
+											fileRelatedUsersNames[name] = true;
+										}
+									}
+								} catch (err) {
+									Logger.debug(err, FolderRepositoryManager.ID);
+								}
+							}
+
+							resolve();
+						});
+
+						const getMentionableUsersPromise = new Promise<void>(async resolve => {
+							Logger.debug('get mentionable users', FolderRepositoryManager.ID);
+							mentionableUsers = await this.getMentionableUsers();
+							resolve();
+						});
+
+						await Promise.all([prRelatedUsersPromise, fileRelatedUsersNamesPromise, getMentionableUsersPromise]);
+
+						cachedUsers = [];
+						const prRelatedUsersMap: { [key: string]: { login: string; name?: string; email?: string } } = {};
+						Logger.debug('prepare user suggestions', FolderRepositoryManager.ID);
+
+						prRelatedusers.forEach(user => {
+							if (!prRelatedUsersMap[user.login]) {
+								prRelatedUsersMap[user.login] = user;
 							}
 						});
-					}
 
-					for (const user in prRelatedUsersMap) {
-						if (!secondMap[user]) {
-							// if the mentionable api call fails partially, we should still populate related users from timeline events into the completion list
-							cachedUsers.push({
-								label: prRelatedUsersMap[user].login,
-								insertText: `${prRelatedUsersMap[user].login}`,
-								filterText: `${prRelatedUsersMap[user].login}` + (prRelatedUsersMap[user].name && prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login ? `_${prRelatedUsersMap[user].name!.toLowerCase().replace(' ', '_')}` : ''),
-								sortText: `0_${prRelatedUsersMap[user].login}`,
-								detail: prRelatedUsersMap[user].name,
-								kind: vscode.CompletionItemKind.User,
-								login: prRelatedUsersMap[user].login,
-								uri: this.repository.rootUri,
-								email: prRelatedUsersMap[user].email
+						const secondMap: { [key: string]: boolean } = {};
+
+						for (const mentionableUserGroup in mentionableUsers) {
+							// eslint-disable-next-line no-loop-func
+							mentionableUsers[mentionableUserGroup].forEach(user => {
+								if (!prRelatedUsersMap[user.id!] && !secondMap[user.id!]) {
+									secondMap[user.id!] = true;
+
+									let priority = 2;
+									if (fileRelatedUsersNames[user.id!] || (user.name && fileRelatedUsersNames[user.name])) {
+										priority = 1;
+									}
+
+									if (prRelatedUsersMap[user.id!]) {
+										priority = 0;
+									}
+
+									cachedUsers.push({
+										label: user.id!,
+										email: user.email,
+										insertText: user.id!,
+										filterText:
+											`${user.id!}` +
+											(user.name && user.name !== user.id!
+												? `_${user.name.toLowerCase().replace(' ', '_')}`
+												: ''),
+										sortText: `${priority}_${user.id!}`,
+										detail: user.name,
+										kind: vscode.CompletionItemKind.User,
+										login: user.id!,
+										uri: this.repository.rootUri,
+									});
+								}
 							});
 						}
+
+						for (const user in prRelatedUsersMap) {
+							if (!secondMap[user]) {
+								// if the mentionable api call fails partially, we should still populate related users from timeline events into the completion list
+								cachedUsers.push({
+									label: prRelatedUsersMap[user].login,
+									insertText: `${prRelatedUsersMap[user].login}`,
+									filterText:
+										`${prRelatedUsersMap[user].login}` +
+										(prRelatedUsersMap[user].name &&
+										prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login
+											? `_${prRelatedUsersMap[user].name!.toLowerCase().replace(' ', '_')}`
+											: ''),
+									sortText: `0_${prRelatedUsersMap[user].login}`,
+									detail: prRelatedUsersMap[user].name,
+									kind: vscode.CompletionItemKind.User,
+									login: prRelatedUsersMap[user].login,
+									uri: this.repository.rootUri,
+									email: prRelatedUsersMap[user].email,
+								});
+							}
+						}
+
+						Logger.debug('done', FolderRepositoryManager.ID);
+						return cachedUsers;
+					} catch (e) {
+						return [];
 					}
-
-					Logger.debug('done', FolderRepositoryManager.ID);
-					return cachedUsers;
-				} catch (e) {
-					return [];
-				}
+				},
+				resolveCompletionItem: async (item: vscode.CompletionItem) => {
+					// try {
+					// 	const repo = await this.getPullRequestDefaults();
+					// 	const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, item.label);
+					// 	if (user) {
+					// 		item.documentation = userMarkdown(repo, user);
+					// 	}
+					// } catch (e) {
+					// 	// The user might not be resolvable in the repo, since users from outside the repo are included in the list.
+					// }
+					return item;
+				},
 			},
-			resolveCompletionItem: async (item: vscode.CompletionItem, token: vscode.CancellationToken) => {
-				// try {
-				// 	const repo = await this.getPullRequestDefaults();
-				// 	const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, item.label);
-				// 	if (user) {
-				// 		item.documentation = userMarkdown(repo, user);
-				// 	}
-				// } catch (e) {
-				// 	// The user might not be resolvable in the repo, since users from outside the repo are included in the list.
-				// }
-				return item;
-			}
-		}, '@');
-
+			'@',
+		);
 	}
 
 	get activePullRequest(): PullRequestModel | undefined {
@@ -398,10 +431,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'azdo:hasAzdoRemotes', true);
-			Logger.appendLine(`Found Azdo remotes ${activeRemotes.map(r => r.remoteName).join(',')}`, FolderRepositoryManager.ID);
+			Logger.appendLine(
+				`Found Azdo remotes ${activeRemotes.map(r => r.remoteName).join(',')}`,
+				FolderRepositoryManager.ID,
+			);
 		} else {
 			await vscode.commands.executeCommand('setContext', 'azdo:hasAzdoRemotes', false);
-			Logger.appendLine(`No Azdo remotes found. All remotes: ${this._allGitHubRemotes.map(r => r.remoteName).join(',')}`, FolderRepositoryManager.ID);
+			Logger.appendLine(
+				`No Azdo remotes found. All remotes: ${this._allGitHubRemotes.map(r => r.remoteName).join(',')}`,
+				FolderRepositoryManager.ID,
+			);
 		}
 
 		return activeRemotes;
@@ -431,12 +470,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			this._azdoRepositories = repositories;
 			oldRepositories.forEach(repo => repo.dispose());
 
-			const repositoriesChanged = oldRepositories.length !== this._azdoRepositories.length
-				|| !oldRepositories.every(oldRepo => this._azdoRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)));
+			const repositoriesChanged =
+				oldRepositories.length !== this._azdoRepositories.length ||
+				!oldRepositories.every(oldRepo =>
+					this._azdoRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)),
+				);
 
 			this.getMentionableUsers(repositoriesChanged);
 			this.getAssignableUsers(repositoriesChanged);
-			this._onDidLoadRepositories.fire(isAuthenticated || !activeRemotes.length ? ReposManagerState.RepositoriesLoaded : ReposManagerState.NeedsAuthentication);
+			this._onDidLoadRepositories.fire(
+				isAuthenticated || !activeRemotes.length
+					? ReposManagerState.RepositoriesLoaded
+					: ReposManagerState.NeedsAuthentication,
+			);
 			if (!silent) {
 				this._onDidChangeRepositories.fire();
 			}
@@ -466,7 +512,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		if (!this._fetchMentionableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
-			return this._fetchMentionableUsersPromise = new Promise((resolve) => {
+			return (this._fetchMentionableUsersPromise = new Promise(resolve => {
 				const promises = this._azdoRepositories.map(async repo => {
 					const data = await repo.getMentionableUsers();
 					cache[repo.remote.remoteName] = data;
@@ -478,7 +524,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					this._fetchMentionableUsersPromise = undefined;
 					resolve(cache);
 				});
-			});
+			}));
 		}
 
 		return this._fetchMentionableUsersPromise;
@@ -496,7 +542,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
 			const allAssignableUsers: IAccount[] = [];
-			return this._fetchAssignableUsersPromise = new Promise((resolve) => {
+			return (this._fetchAssignableUsersPromise = new Promise(resolve => {
 				const promises = this._azdoRepositories.map(async repo => {
 					const data = await repo.getAssignableUsers();
 					cache[repo.remote.remoteName] = data.sort(loginComparator);
@@ -510,7 +556,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					resolve(cache);
 					this._onDidChangeAssignableUsers.fire(allAssignableUsers);
 				});
-			});
+			}));
 		}
 
 		return this._fetchAssignableUsersPromise;
@@ -549,11 +595,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			.map(r => r.name!);
 
 		const promises = localBranches.map(async localBranchName => {
-			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, localBranchName);
+			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
+				this.repository,
+				localBranchName,
+			);
 
 			if (matchingPRMetadata) {
 				const { owner, prNumber } = matchingPRMetadata;
-				const githubRepo = githubRepositories.find(repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+				const githubRepo = githubRepositories.find(
+					repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase(),
+				);
 
 				if (githubRepo) {
 					const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber);
@@ -625,7 +676,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		let remoteName: string | undefined = undefined;
 		try {
 			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
-		} catch (e) { }
+		} catch (e) {}
 
 		if (!remoteName) {
 			return;
@@ -635,8 +686,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const isPRRemote = await PullRequestGitHelper.isRemoteCreatedForPullRequest(this.repository, remoteName);
 		if (isPRRemote) {
 			const configs = await this.repository.getConfigs();
-			const hasOtherAssociatedBranches = configs
-				.some(({ key, value }) => /^branch.*\.remote$/.test(key) && value === remoteName);
+			const hasOtherAssociatedBranches = configs.some(
+				({ key, value }) => /^branch.*\.remote$/.test(key) && value === remoteName,
+			);
 
 			if (!hasOtherAssociatedBranches) {
 				await this.repository.removeRemote(remoteName);
@@ -663,12 +715,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	 *   If `this.totalFetchQueries[queryId] === 0`, we are in case 1.
 	 *   Otherwise, we're in case 3.
 	 */
-	private async fetchPagedData<T>(options: IPullRequestsPagingOptions = { fetchNextPage: false }, queryId: string, pagedDataType: PagedDataType = PagedDataType.PullRequest, type: PRType = PRType.AllActive, query?: string, prSearchCriteria?: GitPullRequestSearchCriteria): Promise<ItemsResponseResult<T>> {
+	private async fetchPagedData<T>(
+		options: IPullRequestsPagingOptions = { fetchNextPage: false },
+		queryId: string,
+		pagedDataType: PagedDataType = PagedDataType.PullRequest,
+		type: PRType = PRType.AllActive,
+		_query?: string,
+		prSearchCriteria?: GitPullRequestSearchCriteria,
+	): Promise<ItemsResponseResult<T>> {
 		if (!this._azdoRepositories || !this._azdoRepositories.length) {
 			return {
 				items: [],
 				hasMorePages: false,
-				hasUnsearchedRepositories: false
+				hasUnsearchedRepositories: false,
 			};
 		}
 
@@ -680,7 +739,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!this._repositoryPageInformation.get(remoteId)) {
 				this._repositoryPageInformation.set(remoteId, {
 					pullRequestPage: 0,
-					hasMorePages: null
+					hasMorePages: null,
 				});
 			}
 		}
@@ -706,15 +765,27 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const remoteId = azdoRepository.remote.url.toString() + queryId;
 			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
 
-			const fetchPage = async (pageNumber: number): Promise<{ items: any[], hasMorePages: boolean } | undefined> => {
+			const fetchPage = async (_pageNumber: number): Promise<{ items: any[]; hasMorePages: boolean } | undefined> => {
 				switch (pagedDataType) {
 					case PagedDataType.PullRequest: {
 						if (type === PRType.AllActive) {
 							return { items: await azdoRepository.getAllActivePullRequests(), hasMorePages: false };
 						} else if (type === PRType.CreatedByMe) {
-							return { items: await azdoRepository.getPullRequests({ creatorId: this.getCurrentUser()?.id, status: PullRequestStatus.Active }), hasMorePages: false };
+							return {
+								items: await azdoRepository.getPullRequests({
+									creatorId: this.getCurrentUser()?.id,
+									status: PullRequestStatus.Active,
+								}),
+								hasMorePages: false,
+							};
 						} else if (type === PRType.AssignedToMe) {
-							return { items: await azdoRepository.getPullRequests({ reviewerId: this.getCurrentUser()?.id, status: PullRequestStatus.Active }), hasMorePages: false };
+							return {
+								items: await azdoRepository.getPullRequests({
+									reviewerId: this.getCurrentUser()?.id,
+									status: PullRequestStatus.Active,
+								}),
+								hasMorePages: false,
+							};
 						} else {
 							return { items: await azdoRepository.getPullRequests(prSearchCriteria!), hasMorePages: false };
 						}
@@ -736,7 +807,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 
 				const pages = await Promise.all(
-					Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => fetchPage(j + 1)));
+					Array.from({ length: pageInformation.pullRequestPage }).map((_, j) => fetchPage(j + 1)),
+				);
 				pages.forEach(page => addPage(page?.items));
 			}
 
@@ -748,8 +820,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
 			if (
 				itemData.items.length &&
-				(options.fetchNextPage === true ||
-					(options.fetchNextPage === false && pagesFetched >= getTotalFetchedPages()))
+				(options.fetchNextPage === true || (options.fetchNextPage === false && pagesFetched >= getTotalFetchedPages()))
 			) {
 				if (getTotalFetchedPages() === 0) {
 					// We're in case 1, manually set number of pages we looked through until we found first results.
@@ -759,7 +830,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				return {
 					items: itemData.items,
 					hasMorePages: pageInformation.hasMorePages || false,
-					hasUnsearchedRepositories: i < azdoRepositories.length - 1
+					hasUnsearchedRepositories: i < azdoRepositories.length - 1,
 				};
 			}
 		}
@@ -767,11 +838,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return {
 			items: [],
 			hasMorePages: false,
-			hasUnsearchedRepositories: false
+			hasUnsearchedRepositories: false,
 		};
 	}
 
-	async getPullRequests(type: PRType, options: IPullRequestsPagingOptions = { fetchNextPage: false }, query?: string): Promise<ItemsResponseResult<PullRequestModel>> {
+	async getPullRequests(
+		type: PRType,
+		options: IPullRequestsPagingOptions = { fetchNextPage: false },
+		query?: string,
+	): Promise<ItemsResponseResult<PullRequestModel>> {
 		const queryId = type.toString() + (query || '');
 		return this.fetchPagedData<PullRequestModel>(options, queryId, PagedDataType.PullRequest, type, query);
 	}
@@ -782,11 +857,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		 * - At the root, the docs folder, or the.github folder, named pull_request_template.md or PULL_REQUEST_TEMPLATE.md
 		 * - At the same folder locations under a PULL_REQUEST_TEMPLATE folder with any name
 		 */
-		const templatesPattern1 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{pull_request_template,PULL_REQUEST_TEMPLATE}.md'));
-		const templatesPattern2 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md'));
+		const templatesPattern1 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri.path, '{pull_request_template,PULL_REQUEST_TEMPLATE}.md'),
+		);
+		const templatesPattern2 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(
+				this._repository.rootUri.path,
+				'{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md',
+			),
+		);
 
-		const templatesPattern3 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, 'PULL_REQUEST_TEMPLATE/*.md'));
-		const templatesPattern4 = await vscode.workspace.findFiles(new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md'));
+		const templatesPattern3 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri.path, 'PULL_REQUEST_TEMPLATE/*.md'),
+		);
+		const templatesPattern4 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md'),
+		);
 
 		return [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
 	}
@@ -804,7 +890,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return {
 			owner: await origin.getAuthenticatedUserName(),
 			repo: parent!.name!,
-			base: parent!.defaultBranch!
+			base: parent!.defaultBranch!,
 		};
 	}
 
@@ -845,10 +931,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				// No GitHubRepository? We currently won't try pushing elsewhere,
 				// so fail.
-				throw new BadUpstreamError(
-					this.repository.state.HEAD!.name!,
-					upstreamRef,
-					'is not a GitHub repo');
+				throw new BadUpstreamError(this.repository.state.HEAD!.name!, upstreamRef, 'is not a GitHub repo');
 			}
 
 			// Otherwise, we'll push upstream.
@@ -857,11 +940,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		// If no upstream is set, let's go digging.
 		const [first, ...rest] = this._azdoRepositories;
-		return !rest.length  // Is there only one GitHub remote?
+		return !rest.length // Is there only one GitHub remote?
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
-			:  // Otherwise, let's try...
-			this.findRepo(byRemoteName('origin')) || // by convention
-			first; // out of raw desperation
+			: // Otherwise, let's try...
+			  this.findRepo(byRemoteName('origin')) || // by convention
+					first; // out of raw desperation
 	}
 
 	findRepo(where: Predicate<AzdoRepository>): AzdoRepository | undefined {
@@ -873,7 +956,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return HEAD && HEAD.upstream;
 	}
 
-	async createPullRequest(params: GitPullRequest): Promise<PullRequestModel | undefined> {
+	async createPullRequest(_params: GitPullRequest): Promise<PullRequestModel | undefined> {
 		// TODO later
 		return undefined;
 		// try {
@@ -960,16 +1043,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return convertRESTIdentityToAccount(this._credentialStore.getAuthenticatedUser()!);
 	}
 
-	async mergePullRequest(pullRequest: PullRequestModel, title?: string, description?: string, method?: 'merge' | 'squash' | 'rebase'): Promise<any> {
+	async mergePullRequest(
+		_pullRequest: PullRequestModel,
+		_title?: string,
+		_description?: string,
+		_method?: 'merge' | 'squash' | 'rebase',
+	): Promise<any> {
 		// TODO LATER
 		// const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
 		// const workingDirectorySHA = this.repository.state.HEAD && this.repository.state.HEAD.commit;
 		// const mergingPRSHA = pullRequest.head && pullRequest.head.sha;
 		// const workingDirectoryIsDirty = this.repository.state.workingTreeChanges.length > 0;
-
 		// if (activePRSHA === mergingPRSHA) {
 		// 	// We're on the branch of the pr being merged.
-
 		// 	if (workingDirectorySHA !== mergingPRSHA) {
 		// 		// We are looking at different commit than what will be merged
 		// 		const { ahead } = this.repository.state.HEAD!;
@@ -985,7 +1071,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		// 			};
 		// 		}
 		// 	}
-
 		// 	if (workingDirectoryIsDirty) {
 		// 		// We have made changes to the PR that are not committed
 		// 		if (await vscode.window.showWarningMessage(
@@ -997,7 +1082,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		// 		}
 		// 	}
 		// }
-
 		// return await octokit.pulls.merge({
 		// 	commit_message: description,
 		// 	commit_title: title,
@@ -1056,12 +1140,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		});
 
-		const actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata, legacy?: boolean })[] = [];
+		const actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata; legacy?: boolean })[] = [];
 		branchInfos.forEach((value, key) => {
 			if (value.metadata) {
 				const activePRUrl = this.activePullRequest && this.activePullRequest.base.repositoryCloneUrl;
 				const matchesActiveBranch = activePRUrl
-					? activePRUrl.owner === value.metadata.owner && activePRUrl.repositoryName === value.metadata.repositoryName && this.activePullRequest && this.activePullRequest.getPullRequestId() === value.metadata.prNumber
+					? activePRUrl.owner === value.metadata.owner &&
+					  activePRUrl.repositoryName === value.metadata.repositoryName &&
+					  this.activePullRequest &&
+					  this.activePullRequest.getPullRequestId() === value.metadata.prNumber
 					: false;
 
 				if (!matchesActiveBranch) {
@@ -1069,32 +1156,36 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						label: `${key}`,
 						description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata.prNumber}`,
 						picked: false,
-						metadata: value.metadata!
+						metadata: value.metadata!,
 					});
 				}
 			}
 		});
 
-		const results = await Promise.all(actions.map(async action => {
-			const metadata = action.metadata;
-			// tslint:disable-next-line: no-shadowed-variable
-			const repo = this._azdoRepositories.find(repo =>
-				repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase()
-			);
+		const results = await Promise.all(
+			actions.map(async action => {
+				const metadata = action.metadata;
+				// tslint:disable-next-line: no-shadowed-variable
+				const repo = this._azdoRepositories.find(
+					repo =>
+						repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() &&
+						repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase(),
+				);
 
-			if (!repo) {
+				if (!repo) {
+					return action;
+				}
+
+				await repo.ensure();
+				try {
+					const prModel = await repo.getPullRequest(metadata!.prNumber);
+
+					action.legacy = prModel?.item.status !== PullRequestStatus.Active;
+				} catch {}
+
 				return action;
-			}
-
-			await repo.ensure();
-			try {
-				const prModel = await repo.getPullRequest(metadata!.prNumber);
-
-				action.legacy = prModel?.item.status !== PullRequestStatus.Active;
-			} catch { }
-
-			return action;
-		}));
+			}),
+		);
 
 		results.forEach(result => {
 			if (result.legacy) {
@@ -1149,7 +1240,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				if (matches[2] === 'url') {
 					value!.url = config.value;
 				}
-
 			}
 		});
 
@@ -1159,14 +1249,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (value.branches.size === 0) {
 				let description = value.createdForPullRequest ? '' : 'Not created by GitHub Pull Request extension';
 				if (value.url) {
-					description = description ? (description + ' ' + value.url) : value.url;
+					description = description ? description + ' ' + value.url : value.url;
 				}
 
 				remoteItems.push({
 					label: key,
 					description: description,
 					picked: value.createdForPullRequest,
-					remote: key
+					remote: key,
 				});
 			}
 		});
@@ -1175,7 +1265,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async deleteLocalBranchesNRemotes() {
-		return new Promise(async resolve => {
+		return new Promise<void>(async resolve => {
 			const quickPick = vscode.window.createQuickPick();
 			quickPick.canSelectMany = true;
 			quickPick.ignoreFocusOut = true;
@@ -1196,9 +1286,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					if (picks.length) {
 						quickPick.busy = true;
 						try {
-							await Promise.all(picks.map(async pick => {
-								await this.repository.deleteBranch(pick.label, true);
-							}));
+							await Promise.all(
+								picks.map(async pick => {
+									await this.repository.deleteBranch(pick.label, true);
+								}),
+							);
 							quickPick.busy = false;
 						} catch (e) {
 							quickPick.hide();
@@ -1224,9 +1316,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
 						quickPick.busy = true;
-						await Promise.all(picks.map(async pick => {
-							await this.repository.removeRemote(pick.label);
-						}));
+						await Promise.all(
+							picks.map(async pick => {
+								await this.repository.removeRemote(pick.label);
+							}),
+						);
 						quickPick.busy = false;
 					}
 					quickPick.hide();
@@ -1244,15 +1338,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return branch;
 	}
 
-	async getPullRequestRepositoryAccessAndMergeMethods(pullRequest: PullRequestModel): Promise<RepoAccessAndMergeMethods> {
+	async getPullRequestRepositoryAccessAndMergeMethods(_pullRequest: PullRequestModel): Promise<RepoAccessAndMergeMethods> {
 		return {
 			hasWritePermission: true,
 			mergeMethodsAvailability: {
 				NoFastForward: true,
 				Squash: true,
 				Rebase: true,
-				RebaseMerge: true
-			}
+				RebaseMerge: true,
+			},
 		};
 	}
 
@@ -1260,14 +1354,20 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	private async resolveItem(owner: string, repositoryName: string): Promise<AzdoRepository | undefined> {
 		const githubRepo = this._azdoRepositories.find(repo => {
-			const ret = repo.remote.owner.toLowerCase() === owner.toLowerCase() && repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
+			const ret =
+				repo.remote.owner.toLowerCase() === owner.toLowerCase() &&
+				repo.remote.repositoryName.toLowerCase() === repositoryName.toLowerCase();
 			return ret;
 		});
 
 		return githubRepo;
 	}
 
-	async resolvePullRequest(owner: string, repositoryName: string, pullRequestNumber: number): Promise<PullRequestModel | undefined> {
+	async resolvePullRequest(
+		owner: string,
+		repositoryName: string,
+		pullRequestNumber: number,
+	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		if (githubRepo) {
 			return githubRepo.getPullRequest(pullRequestNumber);
@@ -1279,12 +1379,20 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return null;
 		}
 
-		const matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, this.repository.state.HEAD.name);
+		const matchingPullRequestMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
+			this.repository,
+			this.repository.state.HEAD.name,
+		);
 		return matchingPullRequestMetadata;
 	}
 
 	async getMatchingPullRequestMetadataFromGitHub(): Promise<(PullRequestMetadata & { model: PullRequestModel }) | null> {
-		if (!this.repository || !this.repository.state.HEAD || !this.repository.state.HEAD.name || !this.repository.state.HEAD.upstream) {
+		if (
+			!this.repository ||
+			!this.repository.state.HEAD ||
+			!this.repository.state.HEAD.name ||
+			!this.repository.state.HEAD.upstream
+		) {
 			return null;
 		}
 
@@ -1297,7 +1405,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						owner: repo.remote.owner,
 						repositoryName: repo.remote.repositoryName,
 						prNumber: matchingPullRequest[0].getPullRequestId(),
-						model: matchingPullRequest[0]
+						model: matchingPullRequest[0],
 					};
 				}
 				break;
@@ -1325,7 +1433,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	public async checkoutDefaultBranch(branch?: string): Promise<void> {
 		try {
 			if (!branch) {
-				branch = await this._activePullRequest?.azdoRepository?.getDefaultBranch() ?? await this.azdoRepositories?.[0].getDefaultBranch() ?? 'main';
+				branch =
+					(await this._activePullRequest?.azdoRepository?.getDefaultBranch()) ??
+					(await this.azdoRepositories?.[0].getDefaultBranch()) ??
+					'main';
 			}
 			const branchObj = await this.repository.getBranch(branch);
 
@@ -1338,7 +1449,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
 				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
-					vscode.window.showErrorMessage('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches');
+					vscode.window.showErrorMessage(
+						'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
+					);
 					return;
 				}
 			}
@@ -1351,12 +1464,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return new AzdoRepository(remote, credentialStore, this._telemetry);
 	}
 
-	async findUpstreamForItem(item: { remote: Remote, githubRepository: AzdoRepository }): Promise<{ needsFork: boolean, upstream?: AzdoRepository, remote?: Remote }> {
+	async findUpstreamForItem(item: {
+		remote: Remote;
+		githubRepository: AzdoRepository;
+	}): Promise<{ needsFork: boolean; upstream?: AzdoRepository; remote?: Remote }> {
 		let upstream: AzdoRepository | undefined;
 		let existingForkRemote: Remote | undefined;
 		for (const azdoRepo of this.azdoRepositories) {
-			if (!upstream && (azdoRepo.remote.owner === item.remote.owner) &&
-				(azdoRepo.remote.repositoryName === item.remote.repositoryName)) {
+			if (
+				!upstream &&
+				azdoRepo.remote.owner === item.remote.owner &&
+				azdoRepo.remote.repositoryName === item.remote.repositoryName
+			) {
 				upstream = azdoRepo;
 				continue;
 			}
@@ -1364,11 +1483,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const forkDetails = {
 				isFork: repo?.isFork ?? false,
 				parent: {
-					name: repo?.parentRepository?.name
-				}
+					name: repo?.parentRepository?.name,
+				},
 			};
-			if (forkDetails && forkDetails.isFork &&
-				(forkDetails.parent.name === item.remote.repositoryName)) {
+			if (forkDetails && forkDetails.isFork && forkDetails.parent.name === item.remote.repositoryName) {
 				existingForkRemote = azdoRepo.remote;
 				break;
 			}
@@ -1398,20 +1516,13 @@ export function getEventType(text: string) {
 	}
 }
 
-const byRemoteName = (name: string): Predicate<AzdoRepository> =>
-	({ remote: { remoteName } }) => remoteName === name;
+const byRemoteName = (name: string): Predicate<AzdoRepository> => ({ remote: { remoteName } }) => remoteName === name;
 
-export const titleAndBodyFrom = (message: string): { title: string, body: string } => {
+export const titleAndBodyFrom = (message: string): { title: string; body: string } => {
 	const idxLineBreak = message.indexOf('\n');
 	return {
-		title: idxLineBreak === -1
-			? message
-			: message.substr(0, idxLineBreak),
+		title: idxLineBreak === -1 ? message : message.substr(0, idxLineBreak),
 
-		body: idxLineBreak === -1
-			? ''
-			: message
-				.slice(idxLineBreak + 1)
-				.trim(),
+		body: idxLineBreak === -1 ? '' : message.slice(idxLineBreak + 1).trim(),
 	};
 };

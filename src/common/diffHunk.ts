@@ -7,18 +7,17 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
-import { Repository } from '../api/api';
-import { IRawFileChange } from '../github/interface';
-import { IRawFileChange as IAzdoRawFileChange } from '../azdo/interface';
 import { VersionControlChangeType } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Repository } from '../api/api';
+import { IRawFileChange as IAzdoRawFileChange } from '../azdo/interface';
 import { removeLeadingSlash } from '../azdo/utils';
+import { GitChangeType, InMemFileChange, SlimFileChange } from './file';
 
 export enum DiffChangeType {
 	Context,
 	Add,
 	Delete,
-	Control
+	Control,
 }
 
 export class DiffLine {
@@ -32,21 +31,25 @@ export class DiffLine {
 
 	constructor(
 		public type: DiffChangeType,
-		public oldLineNumber: number, /* 1 based */
-		public newLineNumber: number, /* 1 based */
+		public oldLineNumber: number /* 1 based */,
+		public newLineNumber: number /* 1 based */,
 		public positionInHunk: number,
 		private _raw: string = '',
-		public endwithLineBreak: boolean = true
-	) { }
+		public endwithLineBreak: boolean = true,
+	) {}
 }
 
 export function getDiffChangeType(text: string) {
 	const c = text[0];
 	switch (c) {
-		case ' ': return DiffChangeType.Context;
-		case '+': return DiffChangeType.Add;
-		case '-': return DiffChangeType.Delete;
-		default: return DiffChangeType.Control;
+		case ' ':
+			return DiffChangeType.Context;
+		case '+':
+			return DiffChangeType.Add;
+		case '-':
+			return DiffChangeType.Delete;
+		default:
+			return DiffChangeType.Control;
 	}
 }
 
@@ -58,8 +61,8 @@ export class DiffHunk {
 		public oldLength: number,
 		public newLineNumber: number,
 		public newLength: number,
-		public positionInHunk: number
-	) { }
+		public positionInHunk: number,
+	) {}
 }
 
 export const DIFF_HUNK_HEADER = /^@@ \-(\d+)(,(\d+))?( \+(\d+)(,(\d+)?)?)? @@/;
@@ -118,11 +121,11 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 			}
 
 			const matches = DIFF_HUNK_HEADER.exec(line);
-			const oriStartLine = oldLine = Number(matches![1]);
+			const oriStartLine = (oldLine = Number(matches![1]));
 			// http://www.gnu.org/software/diffutils/manual/diffutils.html#Detailed-Unified
 			// `count` is added when the changes have more than 1 line.
 			const oriLen = Number(matches![3]) || 1;
-			const newStartLine = newLine = Number(matches![5]);
+			const newStartLine = (newLine = Number(matches![5]));
 			const newLen = Number(matches![7]) || 1;
 
 			diffHunk = new DiffHunk(oriStartLine, oriLen, newStartLine, newLen, positionInHunk);
@@ -136,11 +139,15 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 					diffHunk.diffLines[diffHunk.diffLines.length - 1].endwithLineBreak = false;
 				}
 			} else {
-				diffHunk.diffLines.push(new DiffLine(type, type !== DiffChangeType.Add ? oldLine : -1,
-					type !== DiffChangeType.Delete ? newLine : -1,
-					positionInHunk,
-					line
-				));
+				diffHunk.diffLines.push(
+					new DiffLine(
+						type,
+						type !== DiffChangeType.Add ? oldLine : -1,
+						type !== DiffChangeType.Delete ? newLine : -1,
+						positionInHunk,
+						line,
+					),
+				);
 
 				const lineCount = 1 + countCarriageReturns(line);
 
@@ -215,6 +222,7 @@ export function getModifiedContentFromDiffHunk(originalContent: string, patch: s
 			right.push(left[j - 1]);
 		}
 
+		// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
 		lastCommonLine = oriStartLine + diffHunk.oldLength - 1;
 
 		for (let j = 0; j < diffHunk.diffLines.length; j++) {
@@ -290,45 +298,11 @@ export function getGitChangeType(status: string): GitChangeType {
 	}
 }
 
-export async function parseDiff(reviews: IRawFileChange[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
-	const fileChanges: (InMemFileChange | SlimFileChange)[] = [];
-
-	for (let i = 0; i < reviews.length; i++) {
-		const review = reviews[i];
-		const gitChangeType = getGitChangeType(review.status);
-
-		if (!review.patch) {
-			fileChanges.push(new SlimFileChange(parentCommit, review.blob_url, gitChangeType, review.filename, review.previous_filename));
-			continue;
-		}
-
-		let originalFileExist = false;
-
-		switch (gitChangeType) {
-			case GitChangeType.DELETE:
-			case GitChangeType.MODIFY:
-				try {
-					await repository.getObjectDetails(parentCommit, review.filename);
-					originalFileExist = true;
-				} catch (err) { /* noop */ }
-				break;
-			case GitChangeType.RENAME:
-				try {
-					await repository.getObjectDetails(parentCommit, review.previous_filename!);
-					originalFileExist = true;
-				} catch (err) { /* noop */ }
-				break;
-		}
-
-		const diffHunks = parsePatch(review.patch);
-		const isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
-		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.previous_filename, review.patch, diffHunks, isPartial, review.blob_url));
-	}
-
-	return fileChanges;
-}
-
-export async function parseDiffAzdo(reviews: IAzdoRawFileChange[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
+export async function parseDiffAzdo(
+	reviews: IAzdoRawFileChange[],
+	repository: Repository,
+	parentCommit: string,
+): Promise<(InMemFileChange | SlimFileChange)[]> {
 	const fileChanges: (InMemFileChange | SlimFileChange)[] = [];
 
 	for (let i = 0; i < reviews.length; i++) {
@@ -336,7 +310,17 @@ export async function parseDiffAzdo(reviews: IAzdoRawFileChange[], repository: R
 		const gitChangeType = getGitChangeTypeFromVersionControlChangeType(review.status);
 
 		if (review.diffHunk === undefined) {
-			fileChanges.push(new SlimFileChange(parentCommit, review.blob_url, gitChangeType, review.filename, review.previous_filename, review.file_sha, review.previous_file_sha));
+			fileChanges.push(
+				new SlimFileChange(
+					parentCommit,
+					review.blob_url,
+					gitChangeType,
+					review.filename,
+					review.previous_filename,
+					review.file_sha,
+					review.previous_file_sha,
+				),
+			);
 			continue;
 		}
 
@@ -347,20 +331,37 @@ export async function parseDiffAzdo(reviews: IAzdoRawFileChange[], repository: R
 				try {
 					await repository.getObjectDetails(parentCommit, removeLeadingSlash(review.filename));
 					originalFileExist = true;
-				} catch (err) {/* noop */ }
+				} catch (err) {
+					/* noop */
+				}
 				break;
 			case GitChangeType.RENAME:
 			case GitChangeType.DELETE:
 				try {
 					await repository.getObjectDetails(parentCommit, removeLeadingSlash(review.previous_filename!));
 					originalFileExist = true;
-				} catch (err) { /* noop */ }
+				} catch (err) {
+					/* noop */
+				}
 				break;
 		}
 
 		const diffHunks = review.diffHunk ?? [];
 		const isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
-		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.previous_filename, 'review.patch', diffHunks, isPartial, review.blob_url, review.file_sha, review.previous_file_sha));
+		fileChanges.push(
+			new InMemFileChange(
+				parentCommit,
+				gitChangeType,
+				review.filename,
+				review.previous_filename,
+				'review.patch',
+				diffHunks,
+				isPartial,
+				review.blob_url,
+				review.file_sha,
+				review.previous_file_sha,
+			),
+		);
 	}
 
 	return fileChanges;
@@ -370,12 +371,12 @@ export function getGitChangeTypeFromVersionControlChangeType(status: VersionCont
 	// tslint:disable-next-line: no-bitwise
 	if (status & VersionControlChangeType.Delete || status & VersionControlChangeType.SourceRename) {
 		return GitChangeType.DELETE;
-	// tslint:disable-next-line: no-bitwise
+		// tslint:disable-next-line: no-bitwise
 	} else if (status & VersionControlChangeType.Rename) {
 		return GitChangeType.RENAME;
 	} else if (status === VersionControlChangeType.Add) {
 		return GitChangeType.ADD;
-	// tslint:disable-next-line: no-bitwise
+		// tslint:disable-next-line: no-bitwise
 	} else if (status & VersionControlChangeType.Edit) {
 		return GitChangeType.MODIFY;
 	}

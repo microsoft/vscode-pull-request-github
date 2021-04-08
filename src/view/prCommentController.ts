@@ -5,22 +5,23 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { fromPRUri } from '../common/uri';
-import { GHPRCommentThread, GHPRComment } from '../azdo/prComment';
+import { GHPRComment, GHPRCommentThread } from '../azdo/prComment';
 import { CommentReactionHandler } from '../azdo/utils';
+import { fromPRUri } from '../common/uri';
 
 export class PRCommentController implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
 	private _prCommentControllers: { [key: number]: vscode.CommentingRangeProvider & CommentReactionHandler } = {};
 	private _prDocumentCommentThreadMap: { [key: number]: { [key: string]: GHPRCommentThread[] } } = {};
 
-	constructor(
-		public commentsController: vscode.CommentController
-	) {
+	constructor(public commentsController: vscode.CommentController) {
 		this.commentsController.commentingRangeProvider = this;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
 
-	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
+	async provideCommentingRanges(
+		document: vscode.TextDocument,
+		token: vscode.CancellationToken,
+	): Promise<vscode.Range[] | undefined> {
 		const uri = document.uri;
 		const params = fromPRUri(uri);
 
@@ -28,7 +29,9 @@ export class PRCommentController implements vscode.CommentingRangeProvider, Comm
 			return;
 		}
 
-		const provideCommentingRanges = this._prCommentControllers[params.prNumber].provideCommentingRanges.bind(this._prCommentControllers[params.prNumber]);
+		const provideCommentingRanges = this._prCommentControllers[params.prNumber].provideCommentingRanges.bind(
+			this._prCommentControllers[params.prNumber],
+		);
 
 		return provideCommentingRanges(document, token);
 	}
@@ -37,11 +40,17 @@ export class PRCommentController implements vscode.CommentingRangeProvider, Comm
 		const uri = comment.parent!.uri;
 		const params = fromPRUri(uri);
 
-		if (!params || !this._prCommentControllers[params.prNumber] || !this._prCommentControllers[params.prNumber].toggleReaction) {
+		if (
+			!params ||
+			!this._prCommentControllers[params.prNumber] ||
+			!this._prCommentControllers[params.prNumber].toggleReaction
+		) {
 			return;
 		}
 
-		const toggleReaction = this._prCommentControllers[params.prNumber].toggleReaction!.bind(this._prCommentControllers[params.prNumber]);
+		const toggleReaction = this._prCommentControllers[params.prNumber].toggleReaction!.bind(
+			this._prCommentControllers[params.prNumber],
+		);
 
 		return toggleReaction(comment, reaction);
 	}
@@ -58,7 +67,7 @@ export class PRCommentController implements vscode.CommentingRangeProvider, Comm
 			commentThreadCache: commentThreadCache,
 			dispose: () => {
 				delete this._prCommentControllers[prNumber];
-			}
+			},
 		};
 	}
 

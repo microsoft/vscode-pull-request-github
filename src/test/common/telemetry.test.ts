@@ -1,11 +1,11 @@
-import assert = require('assert');
+import { strict as assert } from 'assert';
 import * as vscode from 'vscode';
 
 describe('Telemetry', () => {
 	let disposable: vscode.Disposable;
 
 	beforeEach(function () {
-		disposable = new vscode.Disposable(() => { });
+		disposable = new vscode.Disposable(() => {});
 	});
 
 	afterEach(function () {

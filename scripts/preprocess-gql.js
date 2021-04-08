@@ -20,11 +20,11 @@ Options:
 const argv = minimist(process.argv.slice(2), {
 	string: ['in', 'out'],
 	boolean: ['help'],
-	alias: {h: 'help', i: 'in', o: 'out'},
+	alias: { h: 'help', i: 'in', o: 'out' },
 	unknown: param => {
 		console.error(`Unrecognized command-line argument: ${param}\n`);
 		printUsage(console.error, 1);
-	}
+	},
 });
 
 if (argv.help) {
@@ -39,6 +39,6 @@ if (!inFilename || !outFilename) {
 	printUsage(console.error, 1);
 }
 
-const querySource = fs.readFileSync(inFilename, {encoding: 'utf8'});
+const querySource = fs.readFileSync(inFilename, { encoding: 'utf8' });
 const jsSource = gqlLoader.call({ cacheable() {} }, querySource);
-fs.writeFileSync(outFilename, jsSource, {encoding: 'utf8'});
+fs.writeFileSync(outFilename, jsSource, { encoding: 'utf8' });

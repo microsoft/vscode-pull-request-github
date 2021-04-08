@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { useState } from 'react'
-import uuid = require('uuid');
+import { v4 as uuid } from 'uuid';
 import { chevronIcon } from './icon';
 
+const { useState } = React;
 const enum KEYCODES {
 	esc = 27,
 	down = 40,
-	up = 38
+	up = 38,
 }
 
 export const Dropdown = ({ options, defaultOption, submitAction }) => {
@@ -23,14 +23,14 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 
 	const onClick = e => {
 		setOptionsVisible(!areOptionsVisible);
-	}
+	};
 
 	const onMethodChange = e => {
 		selectMethod(e.target.value);
 		setOptionsVisible(false);
 		const primaryButton = document.getElementById(`confirm-button${dropdownId}`);
 		primaryButton.focus();
-	}
+	};
 
 	const onKeyDown = e => {
 		if (areOptionsVisible) {
@@ -41,14 +41,14 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 					setOptionsVisible(false);
 					const expandOptionsButton = document.getElementById(EXPAND_OPTIONS_BUTTON);
 					expandOptionsButton.focus();
-					break
+					break;
 
 				case KEYCODES.down:
 					if (!currentElement.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
 						const firstOptionButton = document.getElementById(`${dropdownId}option0`);
 						firstOptionButton.focus();
 					} else {
-						const regex = new RegExp(`${dropdownId}option([0-9])`)
+						const regex = new RegExp(`${dropdownId}option([0-9])`);
 						const result = currentElement.id.match(regex);
 						if (result.length) {
 							const index = parseInt(result[1]);
@@ -66,7 +66,7 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 						const lastOptionButton = document.getElementById(`${dropdownId}option${lastIndex}`);
 						lastOptionButton.focus();
 					} else {
-						const regex = new RegExp(`${dropdownId}option([0-9])`)
+						const regex = new RegExp(`${dropdownId}option([0-9])`);
 						const result = currentElement.id.match(regex);
 						if (result.length) {
 							const index = parseInt(result[1]);
@@ -79,34 +79,40 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 					break;
 			}
 		}
-	}
+	};
 
-	const expandButtonClass = Object.entries(options).length === 1
-		? 'hidden'
-		: areOptionsVisible
-			? 'open'
-			: '';
+	const expandButtonClass = Object.entries(options).length === 1 ? 'hidden' : areOptionsVisible ? 'open' : '';
 
-	return <div className='select-container' onKeyDown={onKeyDown}>
-		<div className='select-control'>
-			<Confirm dropdownId={dropdownId} options={options} selected={selectedMethod} submitAction={submitAction} />
-			<button id={EXPAND_OPTIONS_BUTTON} className={expandButtonClass} onClick={onClick}>{chevronIcon}</button>
+	return (
+		<div className="select-container" onKeyDown={onKeyDown}>
+			<div className="select-control">
+				<Confirm dropdownId={dropdownId} options={options} selected={selectedMethod} submitAction={submitAction} />
+				<button id={EXPAND_OPTIONS_BUTTON} className={expandButtonClass} onClick={onClick}>
+					{chevronIcon}
+				</button>
+			</div>
+			<div className={areOptionsVisible ? 'options-select' : 'hidden'}>
+				{Object.entries(options).map(([method, text], index) => (
+					<button id={`${dropdownId}option${index}`} key={method} value={method} onClick={onMethodChange}>
+						{text}
+					</button>
+				))}
+			</div>
 		</div>
-		<div className={areOptionsVisible ? 'options-select' : 'hidden'}>
-			{
-				Object.entries(options)
-					.map(([method, text], index) =>
-						<button id={`${dropdownId}option${index}`} key={method} value={method} onClick={onMethodChange}>
-							{text}
-						</button>
-					)
-			}
-		</div>
-	</div>;
-}
+	);
+};
 
-function Confirm({ dropdownId, options, selected, submitAction }: { dropdownId: string, options: { [key: string]: string }, selected: string, submitAction: (selected: string) => Promise<void> }) {
-
+function Confirm({
+	dropdownId,
+	options,
+	selected,
+	submitAction,
+}: {
+	dropdownId: string;
+	options: { [key: string]: string };
+	selected: string;
+	submitAction: (selected: string) => Promise<void>;
+}) {
 	const [isBusy, setBusy] = useState(false);
 
 	const onSubmit = async (event: React.FormEvent) => {
@@ -118,9 +124,11 @@ function Confirm({ dropdownId, options, selected, submitAction }: { dropdownId: 
 		} finally {
 			setBusy(false);
 		}
-	}
+	};
 
-	return <form onSubmit={onSubmit}>
-		<input disabled={isBusy} type='submit' id={`confirm-button${dropdownId}`} value={options[selected]} />
-	</form>;
+	return (
+		<form onSubmit={onSubmit}>
+			<input disabled={isBusy} type="submit" id={`confirm-button${dropdownId}`} value={options[selected]} />
+		</form>
+	);
 }

@@ -3,24 +3,23 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { DiffHunk, DiffChangeType } from '../../common/diffHunk';
-import { GitChangeType } from '../../common/file';
-import { TreeNode } from './treeNode';
-import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
-import { toResourceUri, asImageDataURI, EMPTY_IMAGE_URI } from '../../common/uri';
-import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { DecorationProvider } from '../treeDecorationProvider';
-import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import * as vscode from 'vscode';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { getPositionFromThread, removeLeadingSlash } from '../../azdo/utils';
+import { DiffChangeType, DiffHunk } from '../../common/diffHunk';
+import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
+import { GitChangeType } from '../../common/file';
+import { asImageDataURI, EMPTY_IMAGE_URI, toResourceUri } from '../../common/uri';
+import { DecorationProvider } from '../treeDecorationProvider';
+import { TreeNode } from './treeNode';
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
  */
 export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public description: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public command: vscode.Command;
@@ -36,7 +35,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly blobUrl: string,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public readonly sha?: string
+		public readonly sha?: string,
 	) {
 		super();
 		this.contextValue = `filechange:${GitChangeType[status]}`;
@@ -48,9 +47,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.command = {
 			title: 'show remote file',
 			command: 'azdopr.openDiffView',
-			arguments: [
-				this
-			]
+			arguments: [this],
 		};
 	}
 
@@ -63,7 +60,6 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
  * File change node whose content is stored in memory and resolved when being revealed.
  */
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public description: string;
 	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
 	public resourceUri: vscode.Uri;
@@ -82,7 +78,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly parentFilePath: vscode.Uri,
 		public readonly diffHunks: DiffHunk[],
 		public comments: GitPullRequestCommentThread[],
-		public readonly sha?: string
+		public readonly sha?: string,
 	) {
 		super();
 		this.contextValue = `filechange:${GitChangeType[status]}`;
@@ -90,10 +86,15 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.description = path.relative('.', path.dirname(removeLeadingSlash(fileName)));
 		this.iconPath = vscode.ThemeIcon.File;
 		this.opts = {
-			preserveFocus: true
+			preserveFocus: true,
 		};
 		this.update(this.comments);
-		this.resourceUri = toResourceUri(vscode.Uri.file(this.fileName), this.pullRequest.getPullRequestId(), this.fileName, this.status);
+		this.resourceUri = toResourceUri(
+			vscode.Uri.file(this.fileName),
+			this.pullRequest.getPullRequestId(),
+			this.fileName,
+			this.status,
+		);
 	}
 
 	private findFirstActiveComment() {
@@ -118,7 +119,12 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	update(comments: GitPullRequestCommentThread[]) {
 		this.comments = comments;
-		DecorationProvider.updateFileComments(this.resourceUri, this.pullRequest.getPullRequestId(), this.fileName, comments.length > 0);
+		DecorationProvider.updateFileComments(
+			this.resourceUri,
+			this.pullRequest.getPullRequestId(),
+			this.fileName,
+			comments.length > 0,
+		);
 
 		if (comments && comments.length) {
 			const comment = this.findFirstActiveComment();
@@ -126,7 +132,10 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 				const diffLine = getDiffLineByPosition(this.diffHunks, getPositionFromThread(comment) ?? 0);
 				if (diffLine) {
 					// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
-					const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+					const lineNumber = Math.max(
+						getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber),
+						0,
+					);
 					this.opts.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
 				}
 			}
@@ -140,7 +149,10 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		if (diffLine) {
 			// If the diff is a deletion, the new line number is invalid so use the old line number. Ensure the line number is positive.
-			const lineNumber = Math.max(getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber), 0);
+			const lineNumber = Math.max(
+				getZeroBased(diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber),
+				0,
+			);
 			return lineNumber;
 		}
 
@@ -156,8 +168,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		const filePath = this.filePath;
 		const opts = this.opts;
 
-		let parentURI = await asImageDataURI(parentFilePath, folderManager.repository) || parentFilePath;
-		let headURI = await asImageDataURI(filePath, folderManager.repository) || filePath;
+		let parentURI = (await asImageDataURI(parentFilePath, folderManager.repository)) || parentFilePath;
+		let headURI = (await asImageDataURI(filePath, folderManager.repository)) || filePath;
 		if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
 			if (this.status === GitChangeType.ADD) {
 				parentURI = EMPTY_IMAGE_URI;
@@ -168,7 +180,13 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		const pathSegments = filePath.path.split('/');
-		vscode.commands.executeCommand('vscode.diff', parentURI, headURI, `${pathSegments[pathSegments.length - 1]} (Pull Request)`, opts);
+		vscode.commands.executeCommand(
+			'vscode.diff',
+			parentURI,
+			headURI,
+			`${pathSegments[pathSegments.length - 1]} (Pull Request)`,
+			opts,
+		);
 	}
 }
 
@@ -176,15 +194,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
  * File change node whose content is stored in memory and resolved when being revealed.
  */
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
-	public label: string;
-	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
-	public resourceUri: vscode.Uri;
-	public parentSha: string;
-	public contextValue: string;
-	public command: vscode.Command;
-	public opts: vscode.TextDocumentShowOptions;
-
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: PullRequestModel,
@@ -198,13 +207,13 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
 		public comments: GitPullRequestCommentThread[],
-		public readonly sha?: string
+		public readonly sha?: string,
 	) {
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {
 			title: 'show diff',
 			command: 'azdopr.openDiffView',
-			arguments: [this]
+			arguments: [this],
 		};
 	}
 }
@@ -213,15 +222,6 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
  * File change node whose content can be resolved by git commit sha.
  */
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
-	public label: string;
-	public description: string;
-	public iconPath?: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon;
-	public resourceUri: vscode.Uri;
-	public parentSha: string;
-	public contextValue: string;
-	public command: vscode.Command;
-	public opts: vscode.TextDocumentShowOptions;
-
 	constructor(
 		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
 		public readonly pullRequest: PullRequestModel,
@@ -238,7 +238,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		this.command = {
 			title: 'open changed file',
 			command: 'azdopr.openChangedFile',
-			arguments: [this]
+			arguments: [this],
 		};
 	}
 }

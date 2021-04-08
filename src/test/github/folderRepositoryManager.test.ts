@@ -1,20 +1,20 @@
-import assert = require('assert');
+import { strict as assert } from 'assert';
+import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { createSandbox, SinonSandbox } from 'sinon';
 import { createMock } from 'ts-auto-mock';
-import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
 
+import { GitApiImpl } from '../../api/api1';
+import { AzdoRepository } from '../../azdo/azdoRepository';
+import { CredentialStore } from '../../azdo/credentials';
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../azdo/folderRepositoryManager';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
+import { Protocol } from '../../common/protocol';
+import { Remote } from '../../common/remote';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { Remote } from '../../common/remote';
-import { Protocol } from '../../common/protocol';
-import { AzdoRepository } from '../../azdo/azdoRepository';
-import { GitApiImpl } from '../../api/api1';
-import { CredentialStore } from '../../azdo/credentials';
-import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
-import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -57,27 +57,27 @@ describe('PullRequestManager', function () {
 	});
 });
 
-describe('titleAndBodyFrom', function() {
-	it('separates title and body', function() {
+describe('titleAndBodyFrom', function () {
+	it('separates title and body', function () {
 		const message = 'title\n\ndescription 1\n\ndescription 2\n';
 
-		const {title, body} = titleAndBodyFrom(message);
+		const { title, body } = titleAndBodyFrom(message);
 		assert.strictEqual(title, 'title');
 		assert.strictEqual(body, 'description 1\n\ndescription 2');
 	});
 
-	it('returns only title with no body', function() {
+	it('returns only title with no body', function () {
 		const message = 'title';
 
-		const {title, body} = titleAndBodyFrom(message);
+		const { title, body } = titleAndBodyFrom(message);
 		assert.strictEqual(title, 'title');
 		assert.strictEqual(body, '');
 	});
 
-	it('returns only title when body contains only whitespace', function() {
+	it('returns only title when body contains only whitespace', function () {
 		const message = 'title\n\n';
 
-		const {title, body} = titleAndBodyFrom(message);
+		const { title, body } = titleAndBodyFrom(message);
 		assert.strictEqual(title, 'title');
 		assert.strictEqual(body, '');
 	});

@@ -21,7 +21,7 @@ export class Azdo {
 	}
 
 	public getNewWebApiClient(orgUrl: string): azdev.WebApi {
-		return new azdev.WebApi(this.orgUrl, this._authHandler);
+		return new azdev.WebApi(orgUrl, this._authHandler);
 	}
 }
 
@@ -43,12 +43,14 @@ export class CredentialStore implements vscode.Disposable {
 		// 	}
 		// }));
 
-		this._disposables.push(_secretStore.onDidChange((e) => {
-			const tokenKey = this.getTokenKey();
-			if (e.key === tokenKey && !this.isAuthenticated()) {
-				return this.initialize();
-			}
-		}));
+		this._disposables.push(
+			_secretStore.onDidChange(e => {
+				const tokenKey = this.getTokenKey();
+				if (e.key === tokenKey && !this.isAuthenticated()) {
+					return this.initialize();
+				}
+			}),
+		);
 	}
 
 	public async initialize(): Promise<void> {
@@ -72,7 +74,12 @@ export class CredentialStore implements vscode.Disposable {
 		// Based on https://github.com/microsoft/azure-repos-vscode/blob/6bc90f0853086623486d0e527e9fe5a577370e9b/src/team-extension.ts#L74
 
 		Logger.debug(`Manual personal access token option chosen.`, CREDENTIALS_COMPONENT_ID);
-		const token = await vscode.window.showInputBox({ value: '', prompt: 'Please provide PAT', placeHolder: '', password: true });
+		const token = await vscode.window.showInputBox({
+			value: '',
+			prompt: 'Please provide PAT',
+			placeHolder: '',
+			password: true,
+		});
 		if (token) {
 			this._telemetry.sendTelemetryEvent('auth.manual');
 		}
@@ -97,7 +104,6 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async login(): Promise<Azdo | undefined> {
-
 		/* __GDPR__
 			"auth.start" : {}
 		*/
@@ -130,7 +136,7 @@ export class CredentialStore implements vscode.Disposable {
 
 		try {
 			const azdo = new Azdo(this._orgUrl, projectName, token);
-			azdo.authenticatedUser = await (await azdo.connection.connect()).authenticatedUser;
+			azdo.authenticatedUser = (await azdo.connection.connect()).authenticatedUser;
 
 			Logger.debug(`Auth> Successful: Logged userid: ${azdo?.authenticatedUser?.id}`, CredentialStore.ID);
 			this._telemetry.sendTelemetryEvent('auth.success');

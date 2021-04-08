@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
-import moment = require('moment');
+import moment from 'moment';
+import { Disposable, Event } from 'vscode';
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -54,10 +54,14 @@ export function filterEvent<T>(event: Event<T>, filter: (e: T) => boolean): Even
 
 export function onceEvent<T>(event: Event<T>): Event<T> {
 	return (listener, thisArgs = null, disposables?) => {
-		const result = event(e => {
-			result.dispose();
-			return listener.call(thisArgs, e);
-		}, null, disposables);
+		const result = event(
+			e => {
+				result.dispose();
+				return listener.call(thisArgs, e);
+			},
+			null,
+			disposables,
+		);
 
 		return result;
 	};
@@ -98,10 +102,10 @@ interface HookError extends Error {
 }
 
 function isHookError(e: Error): e is HookError {
-	return !!(<any>e).errors;
+	return !!(e as any).errors;
 }
 
-function hasFieldErrors(e: any): e is (Error & { errors: { value: string, field: string, code: string }[] }) {
+function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; code: string }[] } {
 	let areFieldErrors = true;
 	if (!!e.errors && Array.isArray(e.errors)) {
 		for (const error of e.errors) {
@@ -124,7 +128,7 @@ export function formatError(e: HookError | any): string {
 
 		if (e.gitErrorCode) {
 			// known git errors, we should display detailed git error messages.
-			return e.message + '. Please check git output for more details';
+			return `${e.message}. Please check git output for more details`;
 		}
 		return 'Error';
 	}
@@ -132,17 +136,21 @@ export function formatError(e: HookError | any): string {
 	let errorMessage = e.message;
 	let furtherInfo: string | undefined;
 	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
-		furtherInfo = e.errors.map(error => {
-			return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
-		}).join(', ');
+		furtherInfo = e.errors
+			.map(error => {
+				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
+			})
+			.join(', ');
 	} else if (isHookError(e) && e.errors) {
-		return e.errors.map((error: any) => {
-			if (typeof error === 'string') {
-				return error;
-			} else {
-				return error.message;
-			}
-		}).join(', ');
+		return e.errors
+			.map((error: any) => {
+				if (typeof error === 'string') {
+					return error;
+				} else {
+					return error.message;
+				}
+			})
+			.join(', ');
 	}
 	if (furtherInfo) {
 		errorMessage = `${errorMessage}: ${furtherInfo}`;
@@ -152,13 +160,7 @@ export function formatError(e: HookError | any): string {
 }
 
 export interface PromiseAdapter<T, U> {
-	(
-		value: T,
-		resolve:
-			(value?: U | PromiseLike<U>) => void,
-		reject:
-			(reason: any) => void
-	): any;
+	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
 const passthrough = (value: any, resolve: (value?: any) => void) => resolve(value);
@@ -177,19 +179,17 @@ const passthrough = (value: any, resolve: (value?: any) => void) => resolve(valu
  * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
  * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
  */
-export async function promiseFromEvent<T, U>(
-	event: Event<T>,
-	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
+export async function promiseFromEvent<T, U>(event: Event<T>, adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
 	let subscription: Disposable;
-	return new Promise<U>((resolve, reject) =>
-		subscription = event((value: T) => {
-			try {
-				Promise.resolve(adapter(value, resolve, reject))
-					.catch(reject);
-			} catch (error) {
-				reject(error);
-			}
-		})
+	return new Promise<U>(
+		(resolve, reject) =>
+			(subscription = event((value: T) => {
+				try {
+					Promise.resolve(adapter(value, resolve, reject)).catch(reject);
+				} catch (error) {
+					reject(error);
+				}
+			})),
 	).then(
 		(result: U) => {
 			subscription.dispose();
@@ -198,7 +198,7 @@ export async function promiseFromEvent<T, U>(
 		error => {
 			subscription.dispose();
 			throw error;
-		}
+		},
 	);
 }
 
@@ -218,7 +218,6 @@ export interface Predicate<T> {
 }
 
 export class PathIterator implements IKeyIterator {
-
 	private _value: string;
 	private _from: number;
 	private _to: number;
@@ -254,7 +253,6 @@ export class PathIterator implements IKeyIterator {
 	}
 
 	cmp(a: string): number {
-
 		let aPos = 0;
 		const aLen = a.length;
 		let thisPos = this._from;
@@ -311,7 +309,6 @@ class TernarySearchTreeNode<E> {
 }
 
 export class TernarySearchTree<E> {
-
 	static forPaths<E>(): TernarySearchTree<E> {
 		return new TernarySearchTree<E>(new PathIterator());
 	}
@@ -353,7 +350,6 @@ export class TernarySearchTree<E> {
 					node.right.segment = iter.value();
 				}
 				node = node.right;
-
 			} else if (iter.hasNext()) {
 				// mid
 				iter.next();
@@ -395,7 +391,6 @@ export class TernarySearchTree<E> {
 	}
 
 	delete(key: string): void {
-
 		const iter = this._iter.reset(key);
 		const stack: [-1 | 0 | 1, TernarySearchTreeNode<E>][] = [];
 		let node = this._root;
@@ -424,9 +419,15 @@ export class TernarySearchTree<E> {
 				while (stack.length > 0 && node.isEmpty()) {
 					const [dir, parent] = stack.pop()!;
 					switch (dir) {
-						case 1: parent.left = undefined; break;
-						case 0: parent.mid = undefined; break;
-						case -1: parent.right = undefined; break;
+						case 1:
+							parent.left = undefined;
+							break;
+						case 0:
+							parent.mid = undefined;
+							break;
+						case -1:
+							parent.right = undefined;
+							break;
 					}
 					node = parent;
 				}
@@ -456,7 +457,7 @@ export class TernarySearchTree<E> {
 				break;
 			}
 		}
-		return node && node.value || candidate;
+		return (node && node.value) || candidate;
 	}
 
 	findSuperstr(key: string): Iterator<E | undefined> | undefined {
@@ -487,7 +488,7 @@ export class TernarySearchTree<E> {
 	}
 
 	private _nodeIterator(node: TernarySearchTreeNode<E>): Iterator<E | undefined> {
-		let res: { done: false; value: E; };
+		let res: { done: false; value: E };
 		let idx: number;
 		let data: E[];
 		const next = (): IteratorResult<E | undefined> => {

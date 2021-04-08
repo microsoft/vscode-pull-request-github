@@ -1,805 +1,823 @@
 {
-  "name": "vscode-pull-request-azdo",
-  "displayName": "Azure Devops Pull Requests",
-  "description": "Pull Request Provider for Azure Devops",
-  "icon": "resources/icons/azdo_logo.png",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ankitbko/vscode-pull-request-azdo"
-  },
-  "bugs": {
-    "url": "https://github.com/ankitbko/vscode-pull-request-azdo/issues"
-  },
-  "enableProposedApi": false,
-  "preview": true,
-  "version": "0.0.18",
-  "publisher": "ankitbko",
-  "engines": {
-    "vscode": "^1.53.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished",
-    "onFileSystem:newIssue"
-  ],
-  "browser": "./dist/browser/extension",
-  "main": "./media/extension",
-  "contributes": {
-    "configuration": {
-      "type": "object",
-      "title": "Azdo Pull Requests",
-      "properties": {
-        "azdoPullRequests.projectName": {
-          "type": "string"
-        },
-        "azdoPullRequests.orgUrl": {
-          "type": "string"
-        },
-        "azdoPullRequests.telemetry.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable usage data and errors to be sent to a Azure Appinsights online service"
-        },
-        "azdoPullRequests.diffBase": {
-          "type": "string",
-          "enum": [
-            "mergebase",
-            "head"
-          ],
-          "enumDescriptions": [
-            "Use the merge base of PR",
-            "Use the target branch's HEAD"
-          ],
-          "default": "mergebase",
-          "description": "The commit used to calculate diff against PR's HEAD."
-        },
-        "azdoPullRequests.pullRequestTitle": {
-          "type": "string",
-          "enum": [
-            "commit",
-            "branch",
-            "custom",
-            "ask"
-          ],
-          "enumDescriptions": [
-            "Use the latest commit message",
-            "Use the branch name",
-            "Specify a custom title",
-            "Ask which of the above methods to use"
-          ],
-          "default": "ask",
-          "description": "The title used when creating pull requests."
-        },
-        "azdoPullRequests.pullRequestDescription": {
-          "type": "string",
-          "enum": [
-            "template",
-            "commit",
-            "custom",
-            "ask"
-          ],
-          "enumDescriptions": [
-            "Use a pull request template, or use the commit description if no templates were found",
-            "Use the latest commit message",
-            "Specify a custom description",
-            "Ask which of the above methods to use"
-          ],
-          "default": "template",
-          "description": "The description used when creating pull requests."
-        },
-        "azdoPullRequests.logLevel": {
-          "type": "string",
-          "enum": [
-            "info",
-            "debug",
-            "off"
-          ],
-          "default": "info",
-          "description": "Logging for Azure Devops Pull Request extension. The log is emitted to the output channel named as Azure Devops Pull Request."
-        },
-        "azdoPullRequests.remotes": {
-          "type": "array",
-          "default": [
-            "origin",
-            "upstream"
-          ],
-          "items": {
-            "type": "string"
-          },
-          "markdownDescription": "List of remotes, by name, to fetch pull requests from."
-        },
-        "azdoPullRequests.includeRemotes": {
-          "type": "string",
-          "enum": [
-            "default",
-            "all"
-          ],
-          "default": "default",
-          "deprecationMessage": "The setting `azdoPullRequests.includeRemotes` has been deprecated. Use `azdoPullRequests.remotes` to configure what remotes are shown.",
-          "description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
-        },
-        "azdoPullRequests.defaultMergeMethod": {
-          "type": "string",
-          "enum": [
-            "NoFastForward",
-            "Squash",
-            "Rebase",
-            "RebaseMerge"
-          ],
-          "default": "Squash",
-          "description": "The method to use when merging pull requests."
-        },
-        "azdoPullRequests.fileListLayout": {
-          "type": "string",
-          "enum": [
-            "flat",
-            "tree"
-          ],
-          "default": "tree",
-          "description": "The layout to use when displaying changed files list."
-        },
-        "azdoPullRequests.defaultDeletionMethod.selectLocalBranch": {
-          "type": "boolean",
-          "default": true,
-          "description": "When true, the option to delete the local branch will be selected by default when deleting a branch from a pull request."
-        },
-        "azdoPullRequests.defaultDeletionMethod.selectRemote": {
-          "type": "boolean",
-          "default": true,
-          "description": "When true, the option to delete the remote will be selected by default when deleting a branch from a pull request."
-        }
-      }
-    },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "azdo-pull-requests",
-          "title": "Azure Devops",
-          "icon": "resources/icons/pull-request.png"
-        }
-      ]
-    },
-    "views": {
-      "azdo-pull-requests": [
-        {
-          "id": "azdo:login",
-          "name": "Login",
-          "when": "ReposManagerStateContext == NeedsAuthentication",
-          "icon": "resources/icons/pull-request.png"
-        },
-        {
-          "id": "azdoprStatus:azdo",
-          "name": "Changes In Pull Request",
-          "when": "azdo:inReviewMode",
-          "icon": "resources/icons/pull-request.png",
-          "visibility": "visible"
-        },
-        {
-          "id": "azdopr:azdo",
-          "name": "Pull Requests",
-          "when": "ReposManagerStateContext != NeedsAuthentication && !azdo:focusedReview",
-          "icon": "resources/icons/pull-request.png"
-        },
-        {
-          "id": "azdo:activePullRequest",
-          "type": "webview",
-          "name": "Active Pull Request",
-          "when": "azdo:focusedReview"
-        }
-      ]
-    },
-    "commands": [
-      {
-        "command": "azdopr.signout",
-        "title": "Sign out of AzDO",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.pick",
-        "title": "Checkout Pull Request",
-        "category": "AzDO Pull Requests",
-        "icon": "$(arrow-right)"
-      },
-      {
-        "command": "azdopr.exit",
-        "title": "Exit Review Mode",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.merge",
-        "title": "Merge Pull Request",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.readyForReview",
-        "title": "Mark Pull Request Ready For Review",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.close",
-        "title": "Close Pull Request",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.openPullRequestInAzdo",
-        "title": "Open Pull Request in AzDO",
-        "category": "AzDO Pull Requests",
-        "icon": "$(globe)"
-      },
-      {
-        "command": "azdopr.refreshPullRequest",
-        "title": "Refresh Pull Request",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.openFileInAzdo",
-        "title": "Open File in AzDO",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.copyCommitHash",
-        "title": "Copy Commit Hash",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.openOriginalFile",
-        "title": "Open Original File",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.openModifiedFile",
-        "title": "Open Modified File",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.openDiffView",
-        "title": "Open Diff View",
-        "category": "AzDO Pull Requests",
-        "icon": "$(compare-changes)"
-      },
-      {
-        "command": "azdopr.openChangedFile",
-        "title": "Open Changed File in PR",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.openDescription",
-        "title": "View Pull Request Description",
-        "category": "AzDO Pull Requests",
-        "when": "azdo:inReviewMode"
-      },
-      {
-        "command": "azdopr.openDescriptionToTheSide",
-        "title": "Open Pull Request Description to the Side",
-        "icon": "$(split-horizontal)"
-      },
-      {
-        "command": "azdopr.refreshDescription",
-        "title": "Refresh Pull Request Description",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdoreview.openFile",
-        "title": "Open File",
-        "icon": "$(go-to-file)"
-      },
-      {
-        "command": "azdoreview.suggestDiff",
-        "title": "Suggest Edit"
-      },
-      {
-        "command": "azdopr.refreshList",
-        "title": "Refresh Pull Requests List",
-        "icon": "$(refresh)",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.setFileListLayoutAsTree",
-        "title": "Toggle View Mode",
-        "icon": "$(list-tree)",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.setFileListLayoutAsFlat",
-        "title": "Toggle View Mode",
-        "icon": "$(list-flat)",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.refreshChanges",
-        "title": "Refresh",
-        "icon": "$(refresh)",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.configurePRViewlet",
-        "title": "Configure...",
-        "category": "AzDO Pull Requests",
-        "icon": "$(gear)"
-      },
-      {
-        "command": "azdopr.deleteLocalBranch",
-        "title": "Delete Local Branch",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.signin",
-        "title": "Sign in to AzDO",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.deleteLocalBranchesNRemotes",
-        "title": "Delete local branches and remotes",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.createComment",
-        "title": "Add Comment",
-        "category": "AzDO Pull Requests",
-        "enablement": "!commentIsEmpty"
-      },
-      {
-        "command": "azdopr.changeThreadStatus",
-        "title": "Change status",
-        "category": "AzDO Pull Requests",
-        "enablement": "!commentThreadIsEmpty",
-        "icon": "$(settings)"
-      },
-      {
-        "command": "azdopr.editComment",
-        "title": "Edit Comment",
-        "category": "AzDO Pull Requests",
-        "icon": "$(edit)"
-      },
-      {
-        "command": "azdopr.cancelEditComment",
-        "title": "Cancel",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.saveComment",
-        "title": "Save",
-        "category": "AzDO Pull Requests",
-        "enablement": "!commentIsEmpty"
-      },
-      {
-        "command": "azdopr.deleteComment",
-        "title": "Delete Comment",
-        "category": "AzDO Pull Requests",
-        "icon": "$(close)"
-      },
-      {
-        "command": "azdopr.signinAndRefreshList",
-        "title": "Sign in and Refresh",
-        "category": "AzDO Pull Requests"
-      },
-      {
-        "command": "azdopr.configureRemotes",
-        "title": "Configure Remotes...",
-        "category": "AzDO Pull Requests"
-      }
-    ],
-    "viewsWelcome": [
-      {
-        "view": "azdo:login",
-        "when": "ReposManagerStateContext == NeedsAuthentication",
-        "contents": "You have not yet signed in with Azure Devops\n[Sign in](command:azdopr.signin)"
-      }
-    ],
-    "menus": {
-      "commandPalette": [
-        {
-          "command": "azdopr.signout",
-          "when": "gitOpenRepositoryCount != 0 && azdo:authenticated"
-        },
-        {
-          "command": "azdopr.configureRemotes",
-          "when": "gitOpenRepositoryCount != 0"
-        },
-        {
-          "command": "azdopr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0"
-        },
-        {
-          "command": "azdopr.signout",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.exit",
-          "when": "false"
-        },
-        {
-          "command": "azdoreview.openFile",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.openChangedFile",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.close",
-          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
-        },
-        {
-          "command": "azdopr.merge",
-          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
-        },
-        {
-          "command": "azdopr.readyForReview",
-          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
-        },
-        {
-          "command": "azdopr.openPullRequestInAzdo",
-          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
-        },
-        {
-          "command": "azdopr.refreshDescription",
-          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
-        },
-        {
-          "command": "azdopr.openFileInAzdo",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.openOriginalFile",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.openModifiedFile",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.refreshPullRequest",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.deleteLocalBranch",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.openDiffView",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.openDescriptionToTheSide",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.openDescription",
-          "when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
-        },
-        {
-          "command": "azdopr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && azdo:authenticated && azdo:hasAzdoRemotes"
-        },
-        {
-          "command": "azdopr.setFileListLayoutAsTree",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.setFileListLayoutAsFlat",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.refreshChanges",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.signin",
-          "when": "gitOpenRepositoryCount != 0 && azdo:hasAzdoRemotes"
-        },
-        {
-          "command": "azdopr.signinAndRefreshList",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.copyCommitHash",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.createComment",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.changeThreadStatus",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.editComment",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.cancelEditComment",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.saveComment",
-          "when": "false"
-        },
-        {
-          "command": "azdopr.deleteComment",
-          "when": "false"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "azdopr.configurePRViewlet",
-          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(azdopr|issues):azdo/",
-          "group": "navigation@3"
-        },
-        {
-          "command": "azdopr.refreshList",
-          "when": "gitOpenRepositoryCount != 0 && azdo:initialized && view == azdopr:azdo",
-          "group": "navigation@2"
-        },
-        {
-          "command": "azdopr.refreshChanges",
-          "when": "view == azdoprStatus:azdo",
-          "group": "navigation@2"
-        },
-        {
-          "command": "azdopr.setFileListLayoutAsTree",
-          "when": "view == azdoprStatus:azdo && fileListLayout:flat",
-          "group": "navigation"
-        },
-        {
-          "command": "azdopr.setFileListLayoutAsFlat",
-          "when": "view == azdoprStatus:azdo && !fileListLayout:flat",
-          "group": "navigation"
-        },
-        {
-          "command": "azdopr.openPullRequestInAzdo",
-          "when": "view == azdo:activePullRequest && azdo:hasAzdoRemotes",
-          "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "azdopr.pick",
-          "when": "view == azdopr:azdo && viewItem =~ /pullrequest(:local)?:nonactive|description/",
-          "group": "pullrequest@1"
-        },
-        {
-          "command": "azdopr.pick",
-          "when": "view == azdopr:azdo && viewItem =~ /description/",
-          "group": "inline"
-        },
-        {
-          "command": "azdopr.exit",
-          "when": "view == azdopr:azdo && viewItem =~ /pullrequest(:local)?:active|description/",
-          "group": "pullrequest@1"
-        },
-        {
-          "command": "azdopr.refreshPullRequest",
-          "when": "view == azdopr:azdo && viewItem =~ /pullrequest|description/",
-          "group": "pullrequest@2"
-        },
-        {
-          "command": "azdopr.openPullRequestInAzdo",
-          "when": "view == azdopr:azdo && viewItem =~ /pullrequest|description/",
-          "group": "pullrequest@3"
-        },
-        {
-          "command": "azdopr.deleteLocalBranch",
-          "when": "view == azdopr:azdo && viewItem =~ /pullrequest:local:nonactive/",
-          "group": "pullrequest@4"
-        },
-        {
-          "command": "azdopr.openFileInAzdo",
-          "when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange/"
-        },
-        {
-          "command": "azdopr.copyCommitHash",
-          "when": "view == azdoprStatus:azdo && viewItem =~ /commit/"
-        },
-        {
-          "command": "azdopr.openDescriptionToTheSide",
-          "group": "inline",
-          "when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /description/"
-        },
-        {
-          "command": "azdoreview.openFile",
-          "group": "inline",
-          "when": "config.git.openDiffOnClick && view == azdoprStatus:azdo && viewItem =~ /filechange(?!:DELETE)/"
-        },
-        {
-          "command": "azdopr.openDiffView",
-          "group": "inline",
-          "when": "!config.git.openDiffOnClick && view == azdoprStatus:azdo && viewItem =~ /filechange(?!:DELETE)/"
-        },
-        {
-          "command": "azdopr.openOriginalFile",
-          "when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange:MODIFY/"
-        },
-        {
-          "command": "azdopr.openModifiedFile",
-          "when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange:MODIFY/"
-        }
-      ],
-      "editor/title": [
-        {
-          "command": "azdoreview.openFile",
-          "group": "navigation",
-          "when": "resourceScheme =~ /^review$/"
-        }
-      ],
-      "scm/title": [
-        {
-          "command": "azdoreview.suggestDiff",
-          "when": "scmProvider == git && azdo:inReviewMode",
-          "group": "inline"
-        }
-      ],
-      "comments/commentThread/context": [
-        {
-          "command": "azdopr.createComment",
-          "group": "inline",
-          "when": "commentController =~ /^azdopr-(browse|review)/"
-        }
-      ],
-      "comments/commentThread/title": [
-        {
-          "command": "azdopr.changeThreadStatus",
-          "group": "inline",
-          "when": "commentController =~ /^azdopr-(browse|review)/ && !commentThreadIsEmpty"
-        }
-      ],
-      "comments/comment/title": [
-        {
-          "command": "azdopr.editComment",
-          "group": "inline@1",
-          "when": "commentController =~ /^azdopr-(browse|review)/ && comment =~ /canEdit/"
-        },
-        {
-          "command": "azdopr.deleteComment",
-          "group": "inline@2",
-          "when": "commentController =~ /^azdopr-(browse|review)/ && comment =~ /canDelete/"
-        }
-      ],
-      "comments/comment/context": [
-        {
-          "command": "azdopr.cancelEditComment",
-          "group": "inline@1",
-          "when": "commentController =~ /^azdopr-(browse|review)/"
-        },
-        {
-          "command": "azdopr.saveComment",
-          "group": "inline@2",
-          "when": "commentController =~ /^azdopr-(browse|review)/"
-        }
-      ]
-    },
-    "colors": [
-      {
-        "id": "issues.newIssueDecoration",
-        "defaults": {
-          "dark": "#ffffff48",
-          "light": "#00000048",
-          "highContrast": "editor.foreground"
-        },
-        "description": "The color used for the assignees and labels fields in a new issue editor."
-      },
-      {
-        "id": "issues.open",
-        "defaults": {
-          "dark": "#22863a",
-          "light": "#22863a",
-          "highContrast": "editor.foreground"
-        },
-        "description": "The color used for indicating that an issue is open."
-      },
-      {
-        "id": "issues.closed",
-        "defaults": {
-          "dark": "#cb2431",
-          "light": "#cb2431",
-          "highContrast": "editor.foreground"
-        },
-        "description": "The color used for indicating that an issue is closed."
-      }
-    ]
-  },
-  "scripts": {
-    "vscode:prepublish": "webpack --env.production --config-name webviewIndex.js && webpack --env.production --config-name activityBar-webviewIndex.js && webpack --env.production --config-name extension && npx webpack-cli --config browser.webpack.config --env.production --config-name extension --mode none",
-    "postinstall": "cd src/typings && npx vscode-dts master && npx vscode-dts dev master",
-    "compile": "tsc -p ./",
-    "clean": "rm -r out/ media/",
-    "webpack": "webpack --env.development --config-name webviewIndex.js && webpack --env.development --config-name activityBar-webviewIndex.js && webpack --env.development --config-name extension",
-    "watch": "webpack --watch --env.development --info-verbosity verbose",
-    "test": "yarn run preprocess-test && node ./out/test/runTests.js",
-    "preprocess-test": "ttsc -p ./ && yarn run preprocess-gql && yarn run preprocess-svg",
-    "preprocess": "yarn run compile && yarn run preprocess-gql && yarn run preprocess-svg",
-    "preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/github/queries.gql",
-    "preprocess-svg": "node scripts/preprocess-svg --in resources/ --out preview-src/dist/resources",
-    "compile-web": "npx webpack-cli --config browser.webpack.config  --config-name webviewIndex.js --mode none && npx webpack-cli --config browser.webpack.config --config-name activityBar-webviewIndex.js && npx webpack-cli --config browser.webpack.config --config-name extension --mode none",
-    "watch-web": "npx webpack-cli --config browser.webpack.config --mode none --watch --info-verbosity verbose"
-  },
-  "devDependencies": {
-    "@types/chai": "^4.2.14",
-    "@types/debounce": "^3.0.0",
-    "@types/glob": "7.1.1",
-    "@types/graphql": "^14.0.5",
-    "@types/keytar": "^4.0.1",
-    "@types/lru-cache": "^5.1.0",
-    "@types/marked": "^0.7.2",
-    "@types/mocha": "^5.2.2",
-    "@types/node": "^12.0.0",
-    "@types/node-fetch": "^2.1.4",
-    "@types/query-string": "^6.1.1",
-    "@types/react": "^16.8.4",
-    "@types/react-dom": "^16.8.2",
-    "@types/sinon": "7.0.11",
-    "@types/temp": "0.8.34",
-    "@types/uuid": "^3.4.3",
-    "@types/webpack": "^4.41.6",
-    "chai": "^4.2.0",
-    "css-loader": "^3.4.2",
-    "dotenv": "^8.2.0",
-    "glob": "7.1.6",
-    "jsdom": "16.2.0",
-    "jsdom-global": "3.0.2",
-    "merge-options": "^2.0.0",
-    "minimist": "^1.2.3",
-    "mkdirp": "0.5.1",
-    "mocha": "^7.0.1",
-    "mocha-junit-reporter": "1.23.0",
-    "mocha-multi-reporters": "1.1.7",
-    "react": "^16.12.0",
-    "react-dom": "^16.12.0",
-    "react-markdown": "^5.0.3",
-    "react-syntax-highlighter": "^15.4.3",
-    "react-testing-library": "7.0.1",
-    "remark-gfm": "^1.0.0",
-    "sinon": "9.0.0",
-    "source-map-support": "0.5.16",
-    "style-loader": "^1.1.3",
-    "svg-inline-loader": "^0.8.2",
-    "temp": "0.9.1",
-    "terser-webpack-plugin": "^4.1.0",
-    "ts-auto-mock": "^3.1.0",
-    "ts-loader": "^6.2.1",
-    "tslint": "^6.0.0",
-    "tslint-webpack-plugin": "^2.1.0",
-    "tty": "1.0.1",
-    "ttypescript": "^1.5.12",
-    "typescript": "^3.8.3",
-    "vscode-test": "^1.3.0",
-    "webpack": "^4.41.6",
-    "webpack-cli": "^3.3.11"
-  },
-  "dependencies": {
-    "@octokit/rest": "^18.0.0",
-    "@octokit/types": "^5.1.0",
-    "apollo-boost": "^0.1.22",
-    "apollo-link-context": "^1.0.12",
-    "azure-devops-node-api": "^10.1.2",
-    "cross-fetch": "^3.0.5",
-    "debounce": "^1.2.0",
-    "es6-promise": "^4.2.5",
-    "events": "^3.0.0",
-    "git-credential-node": "^1.1.0",
-    "graphql": "^14.0.2",
-    "js-base64": "^2.5.2",
-    "lru-cache": "^5.1.1",
-    "marked": "^0.8.0",
-    "moment": "^2.22.1",
-    "node-emoji": "^1.8.1",
-    "node-fetch": "3.0.0-beta.9",
-    "query-string": "^6.2.0",
-    "raw-loader": "^4.0.1",
-    "ssh-config": "^2.0.0-alpha.3",
-    "tunnel": "0.0.6",
-    "uuid": "^3.3.3",
-    "vscode-extension-telemetry": "^0.1.3",
-    "vsls": "^0.3.967"
-  },
-  "optionalDependencies": {
-    "spawn-sync": "^2.0.0"
-  },
-  "resolutions": {
-    "webpack/**/tar": "^4.4.2"
-  },
-  "license": "MIT"
+	"name": "vscode-pull-request-azdo",
+	"displayName": "Azure Devops Pull Requests",
+	"description": "Pull Request Provider for Azure Devops",
+	"icon": "resources/icons/azdo_logo.png",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ankitbko/vscode-pull-request-azdo"
+	},
+	"bugs": {
+		"url": "https://github.com/ankitbko/vscode-pull-request-azdo/issues"
+	},
+	"enableProposedApi": false,
+	"preview": true,
+	"version": "0.0.18",
+	"publisher": "ankitbko",
+	"engines": {
+		"vscode": "^1.53.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished",
+		"onFileSystem:newIssue"
+	],
+	"browser": "./dist/browser/extension",
+	"main": "./dist/extension",
+	"contributes": {
+		"configuration": {
+			"type": "object",
+			"title": "Azdo Pull Requests",
+			"properties": {
+				"azdoPullRequests.projectName": {
+					"type": "string"
+				},
+				"azdoPullRequests.orgUrl": {
+					"type": "string"
+				},
+				"azdoPullRequests.telemetry.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable usage data and errors to be sent to a Azure Appinsights online service"
+				},
+				"azdoPullRequests.diffBase": {
+					"type": "string",
+					"enum": [
+						"mergebase",
+						"head"
+					],
+					"enumDescriptions": [
+						"Use the merge base of PR",
+						"Use the target branch's HEAD"
+					],
+					"default": "mergebase",
+					"description": "The commit used to calculate diff against PR's HEAD."
+				},
+				"azdoPullRequests.pullRequestTitle": {
+					"type": "string",
+					"enum": [
+						"commit",
+						"branch",
+						"custom",
+						"ask"
+					],
+					"enumDescriptions": [
+						"Use the latest commit message",
+						"Use the branch name",
+						"Specify a custom title",
+						"Ask which of the above methods to use"
+					],
+					"default": "ask",
+					"description": "The title used when creating pull requests."
+				},
+				"azdoPullRequests.pullRequestDescription": {
+					"type": "string",
+					"enum": [
+						"template",
+						"commit",
+						"custom",
+						"ask"
+					],
+					"enumDescriptions": [
+						"Use a pull request template, or use the commit description if no templates were found",
+						"Use the latest commit message",
+						"Specify a custom description",
+						"Ask which of the above methods to use"
+					],
+					"default": "template",
+					"description": "The description used when creating pull requests."
+				},
+				"azdoPullRequests.logLevel": {
+					"type": "string",
+					"enum": [
+						"info",
+						"debug",
+						"off"
+					],
+					"default": "info",
+					"description": "Logging for Azure Devops Pull Request extension. The log is emitted to the output channel named as Azure Devops Pull Request."
+				},
+				"azdoPullRequests.remotes": {
+					"type": "array",
+					"default": [
+						"origin",
+						"upstream"
+					],
+					"items": {
+						"type": "string"
+					},
+					"markdownDescription": "List of remotes, by name, to fetch pull requests from."
+				},
+				"azdoPullRequests.includeRemotes": {
+					"type": "string",
+					"enum": [
+						"default",
+						"all"
+					],
+					"default": "default",
+					"deprecationMessage": "The setting `azdoPullRequests.includeRemotes` has been deprecated. Use `azdoPullRequests.remotes` to configure what remotes are shown.",
+					"description": "By default we only support remotes created by users. If you want to see pull requests from remotes this extension created for pull requests, change this setting to 'all'."
+				},
+				"azdoPullRequests.defaultMergeMethod": {
+					"type": "string",
+					"enum": [
+						"NoFastForward",
+						"Squash",
+						"Rebase",
+						"RebaseMerge"
+					],
+					"default": "Squash",
+					"description": "The method to use when merging pull requests."
+				},
+				"azdoPullRequests.fileListLayout": {
+					"type": "string",
+					"enum": [
+						"flat",
+						"tree"
+					],
+					"default": "tree",
+					"description": "The layout to use when displaying changed files list."
+				},
+				"azdoPullRequests.defaultDeletionMethod.selectLocalBranch": {
+					"type": "boolean",
+					"default": true,
+					"description": "When true, the option to delete the local branch will be selected by default when deleting a branch from a pull request."
+				},
+				"azdoPullRequests.defaultDeletionMethod.selectRemote": {
+					"type": "boolean",
+					"default": true,
+					"description": "When true, the option to delete the remote will be selected by default when deleting a branch from a pull request."
+				}
+			}
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "azdo-pull-requests",
+					"title": "Azure Devops",
+					"icon": "resources/icons/pull-request.png"
+				}
+			]
+		},
+		"views": {
+			"azdo-pull-requests": [
+				{
+					"id": "azdo:login",
+					"name": "Login",
+					"when": "ReposManagerStateContext == NeedsAuthentication",
+					"icon": "resources/icons/pull-request.png"
+				},
+				{
+					"id": "azdoprStatus:azdo",
+					"name": "Changes In Pull Request",
+					"when": "azdo:inReviewMode",
+					"icon": "resources/icons/pull-request.png",
+					"visibility": "visible"
+				},
+				{
+					"id": "azdopr:azdo",
+					"name": "Pull Requests",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !azdo:focusedReview",
+					"icon": "resources/icons/pull-request.png"
+				},
+				{
+					"id": "azdo:activePullRequest",
+					"type": "webview",
+					"name": "Active Pull Request",
+					"when": "azdo:focusedReview"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "azdopr.signout",
+				"title": "Sign out of AzDO",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.pick",
+				"title": "Checkout Pull Request",
+				"category": "AzDO Pull Requests",
+				"icon": "$(arrow-right)"
+			},
+			{
+				"command": "azdopr.exit",
+				"title": "Exit Review Mode",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.merge",
+				"title": "Merge Pull Request",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.readyForReview",
+				"title": "Mark Pull Request Ready For Review",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.close",
+				"title": "Close Pull Request",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.openPullRequestInAzdo",
+				"title": "Open Pull Request in AzDO",
+				"category": "AzDO Pull Requests",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "azdopr.refreshPullRequest",
+				"title": "Refresh Pull Request",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.openFileInAzdo",
+				"title": "Open File in AzDO",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.copyCommitHash",
+				"title": "Copy Commit Hash",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.openOriginalFile",
+				"title": "Open Original File",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.openModifiedFile",
+				"title": "Open Modified File",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.openDiffView",
+				"title": "Open Diff View",
+				"category": "AzDO Pull Requests",
+				"icon": "$(compare-changes)"
+			},
+			{
+				"command": "azdopr.openChangedFile",
+				"title": "Open Changed File in PR",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.openDescription",
+				"title": "View Pull Request Description",
+				"category": "AzDO Pull Requests",
+				"when": "azdo:inReviewMode"
+			},
+			{
+				"command": "azdopr.openDescriptionToTheSide",
+				"title": "Open Pull Request Description to the Side",
+				"icon": "$(split-horizontal)"
+			},
+			{
+				"command": "azdopr.refreshDescription",
+				"title": "Refresh Pull Request Description",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdoreview.openFile",
+				"title": "Open File",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "azdoreview.suggestDiff",
+				"title": "Suggest Edit"
+			},
+			{
+				"command": "azdopr.refreshList",
+				"title": "Refresh Pull Requests List",
+				"icon": "$(refresh)",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.setFileListLayoutAsTree",
+				"title": "Toggle View Mode",
+				"icon": "$(list-tree)",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.setFileListLayoutAsFlat",
+				"title": "Toggle View Mode",
+				"icon": "$(list-flat)",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.refreshChanges",
+				"title": "Refresh",
+				"icon": "$(refresh)",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.configurePRViewlet",
+				"title": "Configure...",
+				"category": "AzDO Pull Requests",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "azdopr.deleteLocalBranch",
+				"title": "Delete Local Branch",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.signin",
+				"title": "Sign in to AzDO",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.deleteLocalBranchesNRemotes",
+				"title": "Delete local branches and remotes",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.createComment",
+				"title": "Add Comment",
+				"category": "AzDO Pull Requests",
+				"enablement": "!commentIsEmpty"
+			},
+			{
+				"command": "azdopr.changeThreadStatus",
+				"title": "Change status",
+				"category": "AzDO Pull Requests",
+				"enablement": "!commentThreadIsEmpty",
+				"icon": "$(settings)"
+			},
+			{
+				"command": "azdopr.editComment",
+				"title": "Edit Comment",
+				"category": "AzDO Pull Requests",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "azdopr.cancelEditComment",
+				"title": "Cancel",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.saveComment",
+				"title": "Save",
+				"category": "AzDO Pull Requests",
+				"enablement": "!commentIsEmpty"
+			},
+			{
+				"command": "azdopr.deleteComment",
+				"title": "Delete Comment",
+				"category": "AzDO Pull Requests",
+				"icon": "$(close)"
+			},
+			{
+				"command": "azdopr.signinAndRefreshList",
+				"title": "Sign in and Refresh",
+				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "azdopr.configureRemotes",
+				"title": "Configure Remotes...",
+				"category": "AzDO Pull Requests"
+			}
+		],
+		"viewsWelcome": [
+			{
+				"view": "azdo:login",
+				"when": "ReposManagerStateContext == NeedsAuthentication",
+				"contents": "You have not yet signed in with Azure Devops\n[Sign in](command:azdopr.signin)"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "azdopr.signout",
+					"when": "gitOpenRepositoryCount != 0 && azdo:authenticated"
+				},
+				{
+					"command": "azdopr.configureRemotes",
+					"when": "gitOpenRepositoryCount != 0"
+				},
+				{
+					"command": "azdopr.configurePRViewlet",
+					"when": "gitOpenRepositoryCount != 0"
+				},
+				{
+					"command": "azdopr.signout",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.exit",
+					"when": "false"
+				},
+				{
+					"command": "azdoreview.openFile",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.openChangedFile",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.close",
+					"when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
+				},
+				{
+					"command": "azdopr.merge",
+					"when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
+				},
+				{
+					"command": "azdopr.readyForReview",
+					"when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
+				},
+				{
+					"command": "azdopr.openPullRequestInAzdo",
+					"when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
+				},
+				{
+					"command": "azdopr.refreshDescription",
+					"when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
+				},
+				{
+					"command": "azdopr.openFileInAzdo",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.openOriginalFile",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.openModifiedFile",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.refreshPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.deleteLocalBranch",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.openDiffView",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.openDescriptionToTheSide",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.openDescription",
+					"when": "gitOpenRepositoryCount != 0 && azdo:inReviewMode"
+				},
+				{
+					"command": "azdopr.refreshList",
+					"when": "gitOpenRepositoryCount != 0 && azdo:authenticated && azdo:hasAzdoRemotes"
+				},
+				{
+					"command": "azdopr.setFileListLayoutAsTree",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.setFileListLayoutAsFlat",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.refreshChanges",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.signin",
+					"when": "gitOpenRepositoryCount != 0 && azdo:hasAzdoRemotes"
+				},
+				{
+					"command": "azdopr.signinAndRefreshList",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.copyCommitHash",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.createComment",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.changeThreadStatus",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.editComment",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.cancelEditComment",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.saveComment",
+					"when": "false"
+				},
+				{
+					"command": "azdopr.deleteComment",
+					"when": "false"
+				}
+			],
+			"view/title": [
+				{
+					"command": "azdopr.configurePRViewlet",
+					"when": "gitOpenRepositoryCount != 0 && azdo:initialized && view =~ /(azdopr|issues):azdo/",
+					"group": "navigation@3"
+				},
+				{
+					"command": "azdopr.refreshList",
+					"when": "gitOpenRepositoryCount != 0 && azdo:initialized && view == azdopr:azdo",
+					"group": "navigation@2"
+				},
+				{
+					"command": "azdopr.refreshChanges",
+					"when": "view == azdoprStatus:azdo",
+					"group": "navigation@2"
+				},
+				{
+					"command": "azdopr.setFileListLayoutAsTree",
+					"when": "view == azdoprStatus:azdo && fileListLayout:flat",
+					"group": "navigation"
+				},
+				{
+					"command": "azdopr.setFileListLayoutAsFlat",
+					"when": "view == azdoprStatus:azdo && !fileListLayout:flat",
+					"group": "navigation"
+				},
+				{
+					"command": "azdopr.openPullRequestInAzdo",
+					"when": "view == azdo:activePullRequest && azdo:hasAzdoRemotes",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "azdopr.pick",
+					"when": "view == azdopr:azdo && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+					"group": "pullrequest@1"
+				},
+				{
+					"command": "azdopr.pick",
+					"when": "view == azdopr:azdo && viewItem =~ /description/",
+					"group": "inline"
+				},
+				{
+					"command": "azdopr.exit",
+					"when": "view == azdopr:azdo && viewItem =~ /pullrequest(:local)?:active|description/",
+					"group": "pullrequest@1"
+				},
+				{
+					"command": "azdopr.refreshPullRequest",
+					"when": "view == azdopr:azdo && viewItem =~ /pullrequest|description/",
+					"group": "pullrequest@2"
+				},
+				{
+					"command": "azdopr.openPullRequestInAzdo",
+					"when": "view == azdopr:azdo && viewItem =~ /pullrequest|description/",
+					"group": "pullrequest@3"
+				},
+				{
+					"command": "azdopr.deleteLocalBranch",
+					"when": "view == azdopr:azdo && viewItem =~ /pullrequest:local:nonactive/",
+					"group": "pullrequest@4"
+				},
+				{
+					"command": "azdopr.openFileInAzdo",
+					"when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange/"
+				},
+				{
+					"command": "azdopr.copyCommitHash",
+					"when": "view == azdoprStatus:azdo && viewItem =~ /commit/"
+				},
+				{
+					"command": "azdopr.openDescriptionToTheSide",
+					"group": "inline",
+					"when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /description/"
+				},
+				{
+					"command": "azdoreview.openFile",
+					"group": "inline",
+					"when": "config.git.openDiffOnClick && view == azdoprStatus:azdo && viewItem =~ /filechange(?!:DELETE)/"
+				},
+				{
+					"command": "azdopr.openDiffView",
+					"group": "inline",
+					"when": "!config.git.openDiffOnClick && view == azdoprStatus:azdo && viewItem =~ /filechange(?!:DELETE)/"
+				},
+				{
+					"command": "azdopr.openOriginalFile",
+					"when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange:MODIFY/"
+				},
+				{
+					"command": "azdopr.openModifiedFile",
+					"when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange:MODIFY/"
+				}
+			],
+			"editor/title": [
+				{
+					"command": "azdoreview.openFile",
+					"group": "navigation",
+					"when": "resourceScheme =~ /^review$/"
+				}
+			],
+			"scm/title": [
+				{
+					"command": "azdoreview.suggestDiff",
+					"when": "scmProvider == git && azdo:inReviewMode",
+					"group": "inline"
+				}
+			],
+			"comments/commentThread/context": [
+				{
+					"command": "azdopr.createComment",
+					"group": "inline",
+					"when": "commentController =~ /^azdopr-(browse|review)/"
+				}
+			],
+			"comments/commentThread/title": [
+				{
+					"command": "azdopr.changeThreadStatus",
+					"group": "inline",
+					"when": "commentController =~ /^azdopr-(browse|review)/ && !commentThreadIsEmpty"
+				}
+			],
+			"comments/comment/title": [
+				{
+					"command": "azdopr.editComment",
+					"group": "inline@1",
+					"when": "commentController =~ /^azdopr-(browse|review)/ && comment =~ /canEdit/"
+				},
+				{
+					"command": "azdopr.deleteComment",
+					"group": "inline@2",
+					"when": "commentController =~ /^azdopr-(browse|review)/ && comment =~ /canDelete/"
+				}
+			],
+			"comments/comment/context": [
+				{
+					"command": "azdopr.cancelEditComment",
+					"group": "inline@1",
+					"when": "commentController =~ /^azdopr-(browse|review)/"
+				},
+				{
+					"command": "azdopr.saveComment",
+					"group": "inline@2",
+					"when": "commentController =~ /^azdopr-(browse|review)/"
+				}
+			]
+		},
+		"colors": [
+			{
+				"id": "issues.newIssueDecoration",
+				"defaults": {
+					"dark": "#ffffff48",
+					"light": "#00000048",
+					"highContrast": "editor.foreground"
+				},
+				"description": "The color used for the assignees and labels fields in a new issue editor."
+			},
+			{
+				"id": "issues.open",
+				"defaults": {
+					"dark": "#22863a",
+					"light": "#22863a",
+					"highContrast": "editor.foreground"
+				},
+				"description": "The color used for indicating that an issue is open."
+			},
+			{
+				"id": "issues.closed",
+				"defaults": {
+					"dark": "#cb2431",
+					"light": "#cb2431",
+					"highContrast": "editor.foreground"
+				},
+				"description": "The color used for indicating that an issue is closed."
+			}
+		]
+	},
+	"scripts": {
+		"postinstall": "yarn update-dts",
+		"vscode:prepublish": "yarn run bundle",
+		"bundle": "webpack --mode production --env esbuild",
+		"bundle:node": "webpack --mode production --config-name extension:node --config-name webviews",
+		"bundle:web": "webpack --mode production --config-name extension:webworker --config-name webviews",
+		"clean": "rm -r dist/ out/",
+		"compile": "webpack --mode development --env esbuild",
+		"compile:test": "ttsc -p tsconfig.test.json",
+		"compile:node": "webpack --mode development --config-name extension:node --config-name webviews",
+		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
+		"lint": "eslint --fix --cache --config .eslintrc.json --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.ts?\"",
+		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.ts?\"",
+		"package": "vsce package --yarn",
+		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
+		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",
+		"test:preprocess": "yarn run compile:test && yarn run test:preprocess-svg",
+		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
+		"update-dts": "pushd \"src/@types\" && npx vscode-dts master && npx vscode-dts dev && popd",
+		"watch": "webpack --watch --mode development --env esbuild",
+		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews"
+	},
+	"devDependencies": {
+		"@types/chai": "^4.2.14",
+		"@types/glob": "7.1.3",
+		"@types/lru-cache": "^5.1.0",
+		"@types/marked": "^0.7.2",
+		"@types/mocha": "^5.2.2",
+		"@types/node": "^12.12.70",
+		"@types/react": "^16.12.0",
+		"@types/react-dom": "^16.8.2",
+		"@types/sinon": "7.0.11",
+		"@types/temp": "0.8.34",
+		"@types/uuid": "^8.3.0",
+		"@typescript-eslint/eslint-plugin": "4.18.0",
+		"@typescript-eslint/parser": "4.18.0",
+		"assert": "2.0.0",
+		"browserify-zlib": "0.2.0",
+		"buffer": "6.0.3",
+		"chai": "^4.2.0",
+		"crypto-browserify": "3.12.0",
+		"css-loader": "5.1.3",
+		"dotenv": "^8.2.0",
+		"esbuild-loader": "2.10.0",
+		"eslint": "7.22.0",
+		"eslint-cli": "1.1.1",
+		"eslint-config-prettier": "8.1.0",
+		"eslint-plugin-import": "2.22.1",
+		"fork-ts-checker-webpack-plugin": "6.1.1",
+		"glob": "7.1.6",
+		"https-browserify": "1.0.0",
+		"jsdom": "16.4.0",
+		"jsdom-global": "3.0.2",
+		"json5": "2.2.0",
+		"merge-options": "3.0.4",
+		"minimist": "^1.2.5",
+		"mkdirp": "1.0.4",
+		"mocha": "^7.0.1",
+		"mocha-junit-reporter": "1.23.0",
+		"mocha-multi-reporters": "1.1.7",
+		"path-browserify": "1.0.1",
+		"prettier": "2.2.1",
+		"raw-loader": "4.0.2",
+		"react-testing-library": "7.0.1",
+		"remark-gfm": "^1.0.0",
+		"sinon": "9.0.0",
+		"source-map-support": "0.5.19",
+		"stream-browserify": "^3.0.0",
+		"stream-http": "3.1.1",
+		"style-loader": "2.0.0",
+		"svg-inline-loader": "^0.8.2",
+		"temp": "0.9.4",
+		"terser-webpack-plugin": "5.1.1",
+		"ts-auto-mock": "^3.1.0",
+		"ts-loader": "8.0.18",
+		"tty": "1.0.1",
+		"ttypescript": "^1.5.12",
+		"typescript": "4.2.3",
+		"util": "0.12.3",
+		"vsce": "1.87.0",
+		"vscode-test": "^1.5.1",
+		"webpack": "5.26.3",
+		"webpack-cli": "4.2.0"
+	},
+	"dependencies": {
+		"@octokit/rest": "^18.0.0",
+		"@octokit/types": "^5.1.0",
+		"apollo-boost": "^0.1.22",
+		"apollo-link-context": "^1.0.12",
+		"azure-devops-node-api": "^10.1.2",
+		"cross-fetch": "^3.0.5",
+		"es6-promise": "^4.2.5",
+		"events": "3.2.0",
+		"git-credential-node": "^1.1.0",
+		"graphql": "^14.0.2",
+		"js-base64": "^2.5.2",
+		"lru-cache": "^5.1.1",
+		"marked": "^0.8.0",
+		"moment": "^2.22.1",
+		"node-emoji": "^1.8.1",
+		"node-fetch": "3.0.0-beta.9",
+		"query-string": "^6.2.0",
+		"react": "^16.12.0",
+		"react-dom": "^16.12.0",
+		"react-markdown": "^5.0.3",
+		"react-syntax-highlighter": "^15.4.3",
+		"ssh-config": "^2.0.0-alpha.3",
+		"tunnel": "0.0.6",
+		"uuid": "8.3.2",
+		"vscode-extension-telemetry": "^0.1.6",
+		"vsls": "^0.3.967"
+	},
+	"optionalDependencies": {
+		"spawn-sync": "^2.0.0"
+	},
+	"resolutions": {
+		"webpack/**/tar": "^4.4.2"
+	},
+	"license": "MIT"
 }

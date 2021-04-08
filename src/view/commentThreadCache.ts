@@ -1,13 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-*  Copyright (c) Microsoft Corporation. All rights reserved.
-*  Licensed under the MIT License. See License.txt in the project root for license information.
-*--------------------------------------------------------------------------------------------*/
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
-import { GHPRCommentThread } from '../azdo/prComment';
 import * as vscode from 'vscode';
+import { GHPRCommentThread } from '../azdo/prComment';
 
 export class CommentThreadCache {
-	private _data: { [key: string]: { original?: GHPRCommentThread[], modified?: GHPRCommentThread[] } } = {};
+	private _data: { [key: string]: { original?: GHPRCommentThread[]; modified?: GHPRCommentThread[] } } = {};
 
 	public setDocumentThreads(fileName: string, isBase: boolean, threads: GHPRCommentThread[] | undefined) {
 		if (!this._data[fileName]) {
@@ -34,7 +34,10 @@ export class CommentThreadCache {
 		return this._data[fileName] && (this._data[fileName].original || []).concat(this._data[fileName].modified || []);
 	}
 
-	public maybeDisposeThreads(visibleEditors: vscode.TextEditor[], matchEditor: (editor: vscode.TextEditor, fileName: string, isBase: boolean) => boolean) {
+	public maybeDisposeThreads(
+		visibleEditors: vscode.TextEditor[],
+		matchEditor: (editor: vscode.TextEditor, fileName: string, isBase: boolean) => boolean,
+	) {
 		for (const fileName in this._data) {
 			const threads = this._data[fileName];
 

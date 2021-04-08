@@ -1,5 +1,5 @@
 import * as path from 'path';
-import sinon = require('sinon');
+import sinon from 'sinon';
 import * as temp from 'temp';
 import { ExtensionContext, SecretStorage, Uri } from 'vscode';
 
@@ -10,7 +10,7 @@ export class MockExtensionContext implements ExtensionContext {
 
 	workspaceState = new InMemoryMemento();
 	globalState = new InMemoryMemento();
-	subscriptions: { dispose(): any; }[] = [];
+	subscriptions: { dispose(): any }[] = [];
 
 	storagePath: string;
 	globalStoragePath: string;

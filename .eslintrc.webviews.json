@@ -1,0 +1,9 @@
+{
+	"extends": [".eslintrc.base.json"],
+	"env": {
+		"browser": true
+	},
+	"parserOptions": {
+		"project": "tsconfig.webviews.json"
+	}
+}

@@ -1,3 +1,5 @@
+/* eslint-disable prefer-rest-params */
+/* eslint-disable prefer-spread */
 // Global Mocha test hooks.
 
 import * as util from 'util';
@@ -9,8 +11,8 @@ const original = {
 
 beforeEach(function () {
 	const currentTest = this.currentTest as {
-		consoleOutputs?: string[],
-		consoleErrors?: string[],
+		consoleOutputs?: string[];
+		consoleErrors?: string[];
 	};
 	console.log = function captureLog() {
 		original.log.apply(console, arguments);

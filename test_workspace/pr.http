@@ -1,0 +1,40 @@
+@orgUrl = https://dev.azure.com/anksinha
+@projectName = test
+@reposiory = 855d47a0-f732-4e48-b87c-132f2cd209b6
+@pr = 8
+@api-version = 6.1-preview.1
+@user = anksinha@microsoft.com
+
+###
+
+GET {{orgUrl}}/{{projectName}}/_apis/git/repositories/{{reposiory}}/pullrequests/{{pr}}?api-version={{api-version}}
+Authorization: Basic {{user}} {{$dotenv pat}}
+
+###
+
+GET {{orgUrl}}/{{projectName}}/_apis/git/repositories/{{reposiory}}/pullrequests/{{pr}}/reviewers?api-version={{api-version}}
+Authorization: Basic {{user}} {{$dotenv pat}}
+
+
+###
+GET https://dev.azure.com/anksinha/_apis/core/identityMru/anksinhs%40microsoft.com
+Authorization: Basic {{user}} {{$dotenv pat}}
+#requires tokens read and manage permission
+
+###
+GET https://vssps.dev.azure.com/anksinha/_apis/Identities?searchFilter=General&filterValue=anksinha%40microsoft.com&api-version={{api-version}}
+Authorization: Basic {{user}} {{$dotenv pat}}
+
+###
+GET https://dev.azure.com/anksinha/_apis/resourceAreas?api-version={{api-version}}
+Authorization: Basic {{user}} {{$dotenv pat}}
+
+
+###
+GET https://vsaex.dev.azure.com/anksinha/_apis/userentitlements?$filter=name%20eq%20'ankit'&api-version=6.1-preview.3
+Authorization: Basic {{user}} {{$dotenv pat}}
+
+
+###
+OPTIONS https://vsaex.dev.azure.com/anksinha/_apis/MemberEntitlementManagement
+Authorization: Basic {{user}} {{$dotenv pat}}

@@ -1,5 +1,5 @@
-import * as vscode from 'vscode';
 import { SinonSandbox } from 'sinon';
+import * as vscode from 'vscode';
 
 /**
  * Intercept calls to `vscode.commands.registerCommand` for the lifetime of a Sinon sandbox. Store the

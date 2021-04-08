@@ -3,16 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { CredentialStore } from './credentials';
-import { Remote } from '../common/remote';
-import { EventType } from '../common/timelineEvent';
-import { AzdoRepository } from './azdoRepository';
+import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
 import { Protocol } from '../common/protocol';
-import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
+import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
+import { EventType } from '../common/timelineEvent';
+import { AzdoRepository } from './azdoRepository';
+import { CredentialStore } from './credentials';
+import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
 
 export interface ItemsResponseResult<T> {
@@ -42,15 +42,16 @@ export class DetachedHeadError extends Error {
 }
 
 export class BadUpstreamError extends Error {
-	constructor(
-		public branchName: string,
-		public upstreamRef: UpstreamRef,
-		public problem: string) {
+	constructor(public branchName: string, public upstreamRef: UpstreamRef, public problem: string) {
 		super();
 	}
 
 	get message() {
-		const { upstreamRef: { remote, name }, branchName, problem } = this;
+		const {
+			upstreamRef: { remote, name },
+			branchName,
+			problem,
+		} = this;
 		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
 	}
 }
@@ -78,14 +79,16 @@ export class RepositoriesManager implements vscode.Disposable {
 	constructor(
 		private _folderManagers: FolderRepositoryManager[],
 		private _credentialStore: CredentialStore,
-		private _telemetry: ITelemetry
+		private _telemetry: ITelemetry,
 	) {
 		this._subs = [];
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 
-		this._subs.push(..._folderManagers.map(folderManager => {
-			return folderManager.onDidLoadRepositories(state => this.state = state);
-		}));
+		this._subs.push(
+			..._folderManagers.map(folderManager => {
+				return folderManager.onDidLoadRepositories(state => (this.state = state));
+			}),
+		);
 	}
 
 	get folderManagers(): FolderRepositoryManager[] {
@@ -96,7 +99,9 @@ export class RepositoriesManager implements vscode.Disposable {
 		// Try to insert the new repository in workspace folder order
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (workspaceFolders) {
-			const index = workspaceFolders.findIndex(folder => folder.uri.toString() === folderManager.repository.rootUri.toString());
+			const index = workspaceFolders.findIndex(
+				folder => folder.uri.toString() === folderManager.repository.rootUri.toString(),
+			);
 			if (index > -1) {
 				const arrayEnd = this._folderManagers.slice(index, this._folderManagers.length);
 				this._folderManagers = this._folderManagers.slice(0, index);
@@ -106,11 +111,12 @@ export class RepositoriesManager implements vscode.Disposable {
 			}
 		}
 		this._folderManagers.push(folderManager);
-
 	}
 
 	removeRepo(repo: Repository) {
-		const existingFolderManagerIndex = this._folderManagers.findIndex(manager =>  manager.repository.rootUri.toString() === repo.rootUri.toString());
+		const existingFolderManagerIndex = this._folderManagers.findIndex(
+			manager => manager.repository.rootUri.toString() === repo.rootUri.toString(),
+		);
 		if (existingFolderManagerIndex > -1) {
 			const folderManager = this._folderManagers[existingFolderManagerIndex];
 			this._folderManagers.splice(existingFolderManagerIndex);
@@ -122,9 +128,16 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
-		const issueRemoteUrl = issueModel.remote.url.substring(0, issueModel.remote.url.length - path.extname(issueModel.remote.url).length);
+		const issueRemoteUrl = issueModel.remote.url.substring(
+			0,
+			issueModel.remote.url.length - path.extname(issueModel.remote.url).length,
+		);
 		for (const folderManager of this._folderManagers) {
-			if (folderManager.azdoRepositories.map(repo => repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length)).includes(issueRemoteUrl)) {
+			if (
+				folderManager.azdoRepositories
+					.map(repo => repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length))
+					.includes(issueRemoteUrl)
+			) {
 				return folderManager;
 			}
 		}
@@ -134,7 +147,9 @@ export class RepositoriesManager implements vscode.Disposable {
 	getManagerForFile(uri: vscode.Uri): FolderRepositoryManager | undefined {
 		for (const folderManager of this._folderManagers) {
 			const managerPath = folderManager.repository.rootUri.path;
-			const testUriRelativePath = uri.path.substring(managerPath.length > 1 ? managerPath.length + 1 : managerPath.length);
+			const testUriRelativePath = uri.path.substring(
+				managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
+			);
 			if (vscode.Uri.joinPath(folderManager.repository.rootUri, testUriRelativePath).path === uri.path) {
 				return folderManager;
 			}

@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
+import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { Azdo, CredentialStore } from './credentials';
-import Logger from '../common/logger';
-import { IUserEntitlementApi, getEntitlementApi, User } from './entitlementApi';
+import { getEntitlementApi, IUserEntitlementApi, User } from './entitlementApi';
 
 export class AzdoUserManager implements vscode.Disposable {
-
 	static ID = 'UserManager';
 	private _toDispose: vscode.Disposable[] = [];
 	private _hub: Azdo | undefined;
@@ -17,12 +16,11 @@ export class AzdoUserManager implements vscode.Disposable {
 	}
 
 	async ensure(): Promise<AzdoUserManager> {
-
 		if (!this._credentialStore.isAuthenticated()) {
 			await this._credentialStore.initialize();
 		}
 		this._hub = this._credentialStore.getHub();
-		this._entitlementApi = await getEntitlementApi(this._hub?.connection!);
+		this._entitlementApi = await getEntitlementApi(this._hub?.connection);
 
 		return this;
 	}
@@ -31,7 +29,9 @@ export class AzdoUserManager implements vscode.Disposable {
 		try {
 			this._telemetry.sendTelemetryEvent('user.search');
 			Logger.debug(`Searching for Identities filter: ${filter} - started.`, AzdoUserManager.ID);
-			const users = this._identityCache.filter(i => i.user.displayName.includes(filter) || i.user.mailAddress.includes(filter));
+			const users = this._identityCache.filter(
+				i => i.user.displayName.includes(filter) || i.user.mailAddress.includes(filter),
+			);
 			if (users.length > 0) {
 				Logger.debug(`Searching for Identities filter: ${filter} - cache hit.`, AzdoUserManager.ID);
 				return users;
@@ -40,12 +40,18 @@ export class AzdoUserManager implements vscode.Disposable {
 			const searchResult = await this._entitlementApi?.searchUserEntitlement(`name eq '${filter}'`);
 			const members = searchResult?.members ?? [];
 
-			this._identityCache = [...this._identityCache, ...members.filter(m => !this._identityCache.some(i => i.id === m.id))];
+			this._identityCache = [
+				...this._identityCache,
+				...members.filter(m => !this._identityCache.some(i => i.id === m.id)),
+			];
 			Logger.debug(`Searching for Identities filter: ${filter} - finished.`, AzdoUserManager.ID);
 
 			return members;
 		} catch (error) {
-			Logger.appendLine(`Searching for Identities filter: ${filter} - failed. Error: ${error.message}`, AzdoUserManager.ID);
+			Logger.appendLine(
+				`Searching for Identities filter: ${filter} - failed. Error: ${error.message}`,
+				AzdoUserManager.ID,
+			);
 			return [];
 		}
 	}
@@ -53,5 +59,4 @@ export class AzdoUserManager implements vscode.Disposable {
 	dispose() {
 		this._toDispose.forEach(d => d.dispose());
 	}
-
 }

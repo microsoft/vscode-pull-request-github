@@ -5,8 +5,14 @@
 
 import * as vscode from 'vscode';
 import { LiveShare, SharedService } from 'vsls/vscode.js';
-import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
 import { API } from '../api/api';
+import {
+	VSLS_GIT_PR_SESSION_NAME,
+	VSLS_REPOSITORY_INITIALIZATION_NAME,
+	VSLS_REQUEST_NAME,
+	VSLS_STATE_CHANGE_NOFITY_NAME,
+} from '../constants';
+
 export class VSLSHost implements vscode.Disposable {
 	private _sharedService?: SharedService;
 	private _disposables: vscode.Disposable[];
@@ -15,7 +21,7 @@ export class VSLSHost implements vscode.Disposable {
 	}
 
 	public async initialize() {
-		this._sharedService = await this._liveShareAPI!.shareService(VSLS_GIT_PR_SESSION_NAME) || undefined;
+		this._sharedService = (await this._liveShareAPI!.shareService(VSLS_GIT_PR_SESSION_NAME)) || undefined;
 
 		if (this._sharedService) {
 			this._sharedService.onRequest(VSLS_REQUEST_NAME, this._gitHandler.bind(this));
@@ -33,22 +39,26 @@ export class VSLSHost implements vscode.Disposable {
 			return;
 		}
 
-		const localRepository: any = gitProvider.repositories.filter(repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString())[0];
+		const localRepository: any = gitProvider.repositories.filter(
+			repository => repository.rootUri.toString() === localWorkSpaceFolderUri.toString(),
+		)[0];
 		if (localRepository) {
 			const commandArgs = args.slice(2);
 			if (type === VSLS_REPOSITORY_INITIALIZATION_NAME) {
-				this._disposables.push(localRepository.state.onDidChange((e: any) => {
-					this._sharedService!.notify(VSLS_STATE_CHANGE_NOFITY_NAME, {
-						HEAD: localRepository.state.HEAD,
-						remotes: localRepository.state.remotes,
-						refs: localRepository.state.refs
-					});
-				}));
+				this._disposables.push(
+					localRepository.state.onDidChange((_e: any) => {
+						this._sharedService!.notify(VSLS_STATE_CHANGE_NOFITY_NAME, {
+							HEAD: localRepository.state.HEAD,
+							remotes: localRepository.state.remotes,
+							refs: localRepository.state.refs,
+						});
+					}),
+				);
 				return {
 					HEAD: localRepository.state.HEAD,
 					remotes: localRepository.state.remotes,
 					refs: localRepository.state.refs,
-					rootUri: workspaceFolderUri.toString() // file: --> vsls:/
+					rootUri: workspaceFolderUri.toString(), // file: --> vsls:/
 				};
 			}
 

@@ -1,21 +1,21 @@
-import assert = require('assert');
+import { strict as assert } from 'assert';
 
-import { MockRepository } from '../mocks/mockRepository';
+import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { createSandbox, SinonSandbox } from 'sinon';
+import { createMock } from 'ts-auto-mock';
+import { RefType } from '../../api/api1';
+import { CredentialStore } from '../../azdo/credentials';
+import { IRepository } from '../../azdo/interface';
 import { PullRequestGitHelper } from '../../azdo/pullRequestGitHelper';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { createMock } from 'ts-auto-mock';
-import { Remote } from '../../common/remote';
-import { Protocol } from '../../common/protocol';
-import { CredentialStore } from '../../azdo/credentials';
-import { MockTelemetry } from '../mocks/mockTelemetry';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { SinonSandbox, createSandbox } from 'sinon';
-import { RefType } from '../../api/api';
-import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
 import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
-import { GitPullRequest } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { Protocol } from '../../common/protocol';
+import { Remote } from '../../common/remote';
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
-import { IRepository } from '../../azdo/interface';
+import { MockRepository } from '../mocks/mockRepository';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
@@ -55,19 +55,22 @@ describe('PullRequestGitHelper', function () {
 				sha: '',
 				exists: true,
 				repo: createMock<IRepository>({
-					cloneUrl: 'https://dev.azure.com/aaa/bbb/you/bbb'
-				})
+					cloneUrl: 'https://dev.azure.com/aaa/bbb/you/bbb',
+				}),
 			});
 
-			const prItem = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>({
-				pullRequestId: 100,
-				createdBy: {
-					id: '1134',
-					uniqueName: 'me'
-				},
-				sourceRefName: 'ref/heads/my-branch',
-				targetRefName: 'ref/heads/main'
-			}), azdoRepository);
+			const prItem = await convertAzdoPullRequestToRawPullRequest(
+				createMock<GitPullRequest>({
+					pullRequestId: 100,
+					createdBy: {
+						id: '1134',
+						uniqueName: 'me',
+					},
+					sourceRefName: 'ref/heads/my-branch',
+					targetRefName: 'ref/heads/main',
+				}),
+				azdoRepository,
+			);
 
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);
 			repository.expectPull(true);
@@ -81,12 +84,14 @@ describe('PullRequestGitHelper', function () {
 
 			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);
 
-			assert.deepEqual(repository.state.remotes, [{
-				name: 'you',
-				fetchUrl: 'https://dev.azure.com/aaa/bbb/you/bbb',
-				pushUrl: 'https://dev.azure.com/aaa/bbb/you/bbb',
-				isReadOnly: false,
-			}]);
+			assert.deepEqual(repository.state.remotes, [
+				{
+					name: 'you',
+					fetchUrl: 'https://dev.azure.com/aaa/bbb/you/bbb',
+					pushUrl: 'https://dev.azure.com/aaa/bbb/you/bbb',
+					isReadOnly: false,
+				},
+			]);
 			assert.deepEqual(repository.state.HEAD, {
 				type: RefType.Head,
 				name: 'pr/me/100',
@@ -94,7 +99,7 @@ describe('PullRequestGitHelper', function () {
 				upstream: {
 					remote: 'you',
 					name: 'my-branch',
-				}
+				},
 			});
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'you#bbb#100');
 		});

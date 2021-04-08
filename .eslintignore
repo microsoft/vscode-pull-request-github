@@ -1,0 +1,6 @@
+build/*
+dist/*
+src/test/*
+**/@types/*
+webpack.config.js
+webviews/editorWebView/test/*

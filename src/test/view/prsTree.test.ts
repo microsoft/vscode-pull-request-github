@@ -1,28 +1,28 @@
+import { strict as assert } from 'assert';
+import { GitPullRequest, GitRepository } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { createSandbox, SinonSandbox } from 'sinon';
+import { createMock } from 'ts-auto-mock';
 import * as vscode from 'vscode';
-import { SinonSandbox, createSandbox } from 'sinon';
-import assert = require('assert');
 
-import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+import { GitApiImpl } from '../../api/api1';
+import { IMetadata } from '../../azdo/azdoRepository';
+import { Azdo, CredentialStore } from '../../azdo/credentials';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
-
-import { MockTelemetry } from '../mocks/mockTelemetry';
-import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockRepository } from '../mocks/mockRepository';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { IRepository } from '../../azdo/interface';
 import { PullRequestGitHelper } from '../../azdo/pullRequestGitHelper';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { Remote } from '../../common/remote';
-import { Protocol } from '../../common/protocol';
-import { CredentialStore, Azdo } from '../../azdo/credentials';
-import { Resource } from '../../common/resources';
-import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../azdo/repositoriesManager';
-import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
-import { createMock } from 'ts-auto-mock';
-import { IMetadata } from '../../azdo/azdoRepository';
 import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
-import { GitPullRequest, GitRepository } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { IRepository } from '../../azdo/interface';
+import { Protocol } from '../../common/protocol';
+import { Remote } from '../../common/remote';
+import { Resource } from '../../common/resources';
+import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+
+import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { createFakeSecretStorage, MockExtensionContext } from '../mocks/mockExtensionContext';
+import { MockRepository } from '../mocks/mockRepository';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -44,7 +44,7 @@ describe('GitHub Pull Requests view', function () {
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
 		// a dummy GitHub/Octokit object.
 		sinon.stub(credentialStore, 'login').callsFake(async () => {
-			const azdo: Azdo = new Azdo(',',',',',');
+			const azdo: Azdo = new Azdo(',', ',', ',');
 
 			return azdo;
 		});
@@ -72,9 +72,9 @@ describe('GitHub Pull Requests view', function () {
 	});
 
 	it('displays a message when no GitHub remotes are available', async function () {
-		sinon.stub(vscode.workspace, 'workspaceFolders').value([
-			{ index: 0, name: __dirname, uri: vscode.Uri.file(__dirname) },
-		]);
+		sinon
+			.stub(vscode.workspace, 'workspaceFolders')
+			.value([{ index: 0, name: __dirname, uri: vscode.Uri.file(__dirname) }]);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 1);
@@ -90,7 +90,11 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'https://aaa@dev.azure.com/aaa/bbb/_git/bbb');
 
-		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
+		const manager = new RepositoriesManager(
+			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)],
+			credentialStore,
+			telemetry,
+		);
 		provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
@@ -107,7 +111,11 @@ describe('GitHub Pull Requests view', function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'https://aaa@dev.azure.com/aaa/bbb/_git/bbb');
 
-		const manager = new RepositoriesManager([new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)], credentialStore, telemetry);
+		const manager = new RepositoriesManager(
+			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)],
+			credentialStore,
+			telemetry,
+		);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockAzdoRepository(remote, cStore, telemetry, sinon);
 		});
@@ -118,12 +126,10 @@ describe('GitHub Pull Requests view', function () {
 		const rootNodes = await provider.getChildren();
 
 		assert(rootNodes.every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
-		assert.deepEqual(rootNodes.map(n => n.getTreeItem().label), [
-			'Local Pull Request Branches',
-			'Created By Me',
-			'Assigned To Me',
-			'All Active',
-		]);
+		assert.deepEqual(
+			rootNodes.map(n => n.getTreeItem().label),
+			['Local Pull Request Branches', 'Created By Me', 'Assigned To Me', 'All Active'],
+		);
 	});
 
 	describe('Local Pull Request Branches', function () {
@@ -132,47 +138,55 @@ describe('GitHub Pull Requests view', function () {
 			const remote = new Remote('origin', url, new Protocol(url));
 			const azdoRepository = new MockAzdoRepository(remote, credentialStore, telemetry, sinon);
 
-			azdoRepository.buildMetadata(createMock<IMetadata>({
-				url: 'https://dev.azure.com/aaa/bbb/_git/bbb'
-			}));
+			azdoRepository.buildMetadata(
+				createMock<IMetadata>({
+					url: 'https://dev.azure.com/aaa/bbb/_git/bbb',
+				}),
+			);
 
 			sinon.stub(azdoRepository, 'getBranchRef').resolves({
 				ref: 'main',
 				sha: '123',
 				exists: true,
 				repo: createMock<IRepository>({
-					cloneUrl: 'https://dev.azure.com/aaa/bbb/_git/bbb'
-				})
+					cloneUrl: 'https://dev.azure.com/aaa/bbb/_git/bbb',
+				}),
 			});
 
 			const azdoGetPRStub = sinon.stub(azdoRepository, 'getPullRequest');
 
-			const prItem0 = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>({
-				pullRequestId: 1111,
-				title: 'zero',
-				createdBy: {
-					uniqueName: 'me',
-					imageUrl: 'https://avatars.com/me.jpg'
-				},
-				sourceRefName: 'ref/heads/branch',
-				targetRefName: 'ref/heads/main',
-				repository: createMock<GitRepository>()
-			}), azdoRepository);
+			const prItem0 = await convertAzdoPullRequestToRawPullRequest(
+				createMock<GitPullRequest>({
+					pullRequestId: 1111,
+					title: 'zero',
+					createdBy: {
+						uniqueName: 'me',
+						imageUrl: 'https://avatars.com/me.jpg',
+					},
+					sourceRefName: 'ref/heads/branch',
+					targetRefName: 'ref/heads/main',
+					repository: createMock<GitRepository>(),
+				}),
+				azdoRepository,
+			);
 
 			const pullRequest0 = new PullRequestModel(telemetry, azdoRepository, remote, prItem0);
 			azdoGetPRStub.withArgs(1111).resolves(pullRequest0);
 
-			const prItem1 = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>({
-				pullRequestId: 2222,
-				title: 'one',
-				createdBy: {
-					uniqueName: 'you',
-					imageUrl: 'https://avatars.com/you.jpg'
-				},
-				sourceRefName: 'ref/heads/branch',
-				targetRefName: 'ref/heads/main',
-				repository: createMock<GitRepository>()
-			}), azdoRepository);
+			const prItem1 = await convertAzdoPullRequestToRawPullRequest(
+				createMock<GitPullRequest>({
+					pullRequestId: 2222,
+					title: 'one',
+					createdBy: {
+						uniqueName: 'you',
+						imageUrl: 'https://avatars.com/you.jpg',
+					},
+					sourceRefName: 'ref/heads/branch',
+					targetRefName: 'ref/heads/main',
+					repository: createMock<GitRepository>(),
+				}),
+				azdoRepository,
+			);
 			const pullRequest1 = new PullRequestModel(telemetry, azdoRepository, remote, prItem1);
 			azdoGetPRStub.withArgs(2222).resolves(pullRequest1);
 

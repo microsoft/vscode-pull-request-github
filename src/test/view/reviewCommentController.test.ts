@@ -3,34 +3,40 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert = require('assert');
-import { SinonSandbox, createSandbox } from 'sinon';
-import { CredentialStore } from '../../azdo/credentials';
-import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { MockTelemetry } from '../mocks/mockTelemetry';
-import { ReviewCommentController } from '../../view/reviewCommentController';
-import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
-import { MockRepository } from '../mocks/mockRepository';
-import { GitFileChangeNode, RemoteFileChangeNode } from '../../view/treeNodes/fileChangeNode';
-import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
-import { GitChangeType } from '../../common/file';
-import { toReviewUri } from '../../common/uri';
+import { strict as assert } from 'assert';
+import {
+	Comment,
+	CommentThreadStatus,
+	CommentType,
+	GitPullRequest,
+	GitPullRequestCommentThread,
+} from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { createSandbox, SinonSandbox } from 'sinon';
+import { createMock } from 'ts-auto-mock';
 import * as vscode from 'vscode';
-import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
-import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { Repository } from '../../api/api';
+import { GitApiImpl } from '../../api/api1';
 import { AzdoRepository } from '../../azdo/azdoRepository';
+import { CredentialStore } from '../../azdo/credentials';
+import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
+import { CommentPermissions } from '../../azdo/interface';
+import { GHPRCommentThread } from '../../azdo/prComment';
+import { PullRequestModel } from '../../azdo/pullRequestModel';
+import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
+import { CommonCommentHandler } from '../../common/commonCommentHandler';
+import { DiffLine } from '../../common/diffHunk';
+import { GitChangeType } from '../../common/file';
 import { Protocol } from '../../common/protocol';
 import { Remote } from '../../common/remote';
-import { GHPRCommentThread } from '../../azdo/prComment';
-import { DiffLine } from '../../common/diffHunk';
-import { GitApiImpl } from '../../api/api1';
-import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
+import { toReviewUri } from '../../common/uri';
+import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
+import { ReviewCommentController } from '../../view/reviewCommentController';
+import { GitFileChangeNode, RemoteFileChangeNode } from '../../view/treeNodes/fileChangeNode';
 import { MockAzdoRepository } from '../mocks/mockAzdoRepository';
-import { GitPullRequest, GitPullRequestCommentThread, Comment, CommentType, CommentThreadStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
-import { createMock } from 'ts-auto-mock';
-import { Repository } from '../../api/api';
-import { CommentPermissions } from '../../azdo/interface';
-import { CommonCommentHandler } from '../../common/commonCommentHandler';
+import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
+import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
+import { MockRepository } from '../mocks/mockRepository';
+import { MockTelemetry } from '../mocks/mockTelemetry';
 
 const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new Remote('test', 'github/test', protocol);
@@ -46,7 +52,8 @@ class TestReviewCommentController extends ReviewCommentController {
 		_obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		_comments: GitPullRequestCommentThread[],
 		_getCommentPermissions: (comment: Comment) => CommentPermissions,
-		commonCommentHandler: CommonCommentHandler) {
+		commonCommentHandler: CommonCommentHandler,
+	) {
 		super(_reposManager, _repository, _localFileChanges, _obsoleteFileChanges, _comments, _getCommentPermissions);
 		this._commonCommentHandler = commonCommentHandler;
 	}
@@ -88,7 +95,12 @@ describe('ReviewCommentController', function () {
 
 		const pr = createMock<GitPullRequest>();
 		const repo = new AzdoRepository(remote, credentialStore, telemetry);
-		activePullRequest = new PullRequestModel(telemetry, repo, remote, await convertAzdoPullRequestToRawPullRequest(pr, repo));
+		activePullRequest = new PullRequestModel(
+			telemetry,
+			repo,
+			remote,
+			await convertAzdoPullRequestToRawPullRequest(pr, repo),
+		);
 
 		manager.activePullRequest = activePullRequest;
 	});
@@ -115,9 +127,9 @@ describe('ReviewCommentController', function () {
 					positionInHunk: 0,
 					diffLines: [
 						new DiffLine(3, -1, -1, 0, '@@ -22,5 +22,11 @@', true),
-						new DiffLine(0, 22, 22, 1, '     \'title\': \'Papayas\',', true),
-						new DiffLine(0, 23, 23, 2, '     \'title\': \'Papayas\',', true),
-						new DiffLine(0, 24, 24, 3, '     \'title\': \'Papayas\',', true),
+						new DiffLine(0, 22, 22, 1, "     'title': 'Papayas',", true),
+						new DiffLine(0, 23, 23, 2, "     'title': 'Papayas',", true),
+						new DiffLine(0, 24, 24, 3, "     'title': 'Papayas',", true),
 						new DiffLine(1, -1, 25, 4, '+  {', true),
 						new DiffLine(1, -1, 26, 5, '+  {', true),
 						new DiffLine(1, -1, 27, 6, '+  {', true),
@@ -125,11 +137,12 @@ describe('ReviewCommentController', function () {
 						new DiffLine(1, -1, 29, 8, '+  {', true),
 						new DiffLine(1, -1, 30, 9, '+  {', true),
 						new DiffLine(0, 25, 31, 10, '+  {', true),
-						new DiffLine(0, 26, 32, 11, '+  {', true)
+						new DiffLine(0, 26, 32, 11, '+  {', true),
 					],
-				}],
+				},
+			],
 			[],
-			'abcd'
+			'abcd',
 		);
 	}
 
@@ -141,9 +154,9 @@ describe('ReviewCommentController', function () {
 			comments: [],
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 			label: 'Start discussion',
-			canReply: false,
-			dispose: () => { },
-			rawThread: createMock<GitPullRequestCommentThread>()
+			dispose: () => {},
+			rawThread: createMock<GitPullRequestCommentThread>(),
+			canReply: true,
 		};
 	}
 
@@ -153,7 +166,15 @@ describe('ReviewCommentController', function () {
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
 			const commonCommentHandler = new CommonCommentHandler(manager.activePullRequest!, manager);
-			const reviewCommentController = new TestReviewCommentController(manager, repository, localFileChanges, [], [], undefined as any, commonCommentHandler);
+			const reviewCommentController = new TestReviewCommentController(
+				manager,
+				repository,
+				localFileChanges,
+				[],
+				[],
+				undefined as any,
+				commonCommentHandler,
+			);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
 			// sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
@@ -166,14 +187,14 @@ describe('ReviewCommentController', function () {
 
 			sinon.stub(activePullRequest, 'createThread').resolves({
 				id: 1,
-				comments: [{ id: 1, commentType: CommentType.Text, content: 'text'}],
-				status: CommentThreadStatus.Active
+				comments: [{ id: 1, commentType: CommentType.Text, content: 'text' }],
+				status: CommentThreadStatus.Active,
 			});
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 				uri: repository.rootUri,
 				name: '',
-				index: 0
+				index: 0,
 			});
 
 			sinon.stub(vscode.workspace, 'asRelativePath').callsFake((pathOrUri: string | vscode.Uri): string => {

@@ -1,0 +1,7 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "es2019"],
+		"tsBuildInfoFile": "./out/tsconfig.browser.tsbuildinfo"
+	}
+}

@@ -5,7 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { GHPRCommentThread, GHPRComment, TemporaryComment } from './azdo/prComment';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from './azdo/prComment';
 import Logger from './common/logger';
 
 export interface CommentHandler {

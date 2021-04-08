@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IComment } from './comment';
-import { IAccount } from '../github/interface';
 import { CommentType, GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import { IAccount } from '../azdo/interface';
+import { IComment } from './comment';
 
 export enum EventType {
 	Committed,
@@ -20,7 +20,7 @@ export enum EventType {
 	Merged,
 	Other,
 	Thread,
-	ThreadComment
+	ThreadComment,
 }
 
 export interface Committer {

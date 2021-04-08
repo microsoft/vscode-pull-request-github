@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -6,39 +7,46 @@
 
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
+import { LiveShare } from 'vsls/vscode.js';
 import { Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
+import { CredentialStore } from './azdo/credentials';
+import { FolderRepositoryManager } from './azdo/folderRepositoryManager';
+import { RepositoriesManager } from './azdo/repositoriesManager';
+import { AzdoUserManager } from './azdo/userManager';
+import { AzdoWorkItem } from './azdo/workItem';
 import { registerCommands } from './commands';
 import Logger from './common/logger';
+import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
 import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
-import * as PersistentState from './common/persistentState';
 import { EXTENSION_ID, SETTINGS_NAMESPACE } from './constants';
-import { FolderRepositoryManager } from './azdo/folderRepositoryManager';
-import { registerBuiltinGitProvider } from './gitProviders/api';
+import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
+import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
-import { CredentialStore } from './azdo/credentials';
-import { LiveShare } from 'vsls/vscode.js';
-import { RepositoriesManager } from './azdo/repositoriesManager';
-import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
 import { ReviewsManager } from './view/reviewsManager';
-import { registerLiveShareGitProvider } from './gitProviders/api';
-import { AzdoWorkItem } from './azdo/workItem';
-import { AzdoUserManager } from './azdo/userManager';
 
 const aiKey: string = '6d22c8ed-52c8-4779-a6f8-09c748e18e95';
 
 // fetch.promise polyfill
-const fetch = require('node-fetch');
 const PolyfillPromise = require('es6-promise').Promise;
+const fetch = require('node-fetch');
+
 fetch.Promise = PolyfillPromise;
 
 let telemetry: TelemetryReporter;
 
-async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentialStore: CredentialStore, repositories: Repository[], tree: PullRequestsTreeDataProvider, liveshareApiPromise: Promise<LiveShare | undefined>): Promise<void> {
+async function init(
+	context: vscode.ExtensionContext,
+	git: GitApiImpl,
+	credentialStore: CredentialStore,
+	repositories: Repository[],
+	tree: PullRequestsTreeDataProvider,
+	liveshareApiPromise: Promise<LiveShare | undefined>,
+): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
 
@@ -51,7 +59,7 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	// 	}
 	// });
 
-	context.secrets.onDidChange(async (e) => {
+	context.secrets.onDidChange(async e => {
 		if (e.key === credentialStore.getTokenKey()) {
 			await reposManager.clearCredentialCache();
 			if (reviewManagers) {
@@ -89,12 +97,14 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	const userManager = new AzdoUserManager(credentialStore, telemetry);
 	await userManager.ensure();
 	context.subscriptions.push(userManager);
-	const folderManagers = repositories.map(repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore));
+	const folderManagers = repositories.map(
+		repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore),
+	);
 	context.subscriptions.push(...folderManagers);
 	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
 
-	liveshareApiPromise.then((api) => {
+	liveshareApiPromise.then(api => {
 		if (api) {
 			// register the pull request provider to suggest PR contacts
 			// TODO used by VLSS.
@@ -103,13 +113,15 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	});
 	const changesTree = new PullRequestChangesTreeDataProvider(context);
 	context.subscriptions.push(changesTree);
-	const reviewManagers = folderManagers.map(folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree));
+	const reviewManagers = folderManagers.map(
+		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree),
+	);
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, git);
 	context.subscriptions.push(reviewsManager);
 	tree.initialize(reposManager);
 	registerCommands(context, reposManager, reviewManagers, workItem, userManager, telemetry, credentialStore, tree);
 	const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>('fileListLayout');
-	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat' ? true : false);
+	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
 	git.onDidChangeState(() => {
 		reviewManagers.forEach(reviewManager => reviewManager.updateState());
@@ -119,7 +131,13 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 		const disposable = repo.state.onDidChange(() => {
 			const newFolderManager = new FolderRepositoryManager(repo, telemetry, git, credentialStore);
 			reposManager.insertFolderManager(newFolderManager);
-			const newReviewManager = new ReviewManager(context, newFolderManager.repository, newFolderManager, telemetry, changesTree);
+			const newReviewManager = new ReviewManager(
+				context,
+				newFolderManager.repository,
+				newFolderManager,
+				telemetry,
+				changesTree,
+			);
 			reviewManagers.push(newReviewManager);
 			tree.refresh();
 			disposable.dispose();
@@ -129,7 +147,9 @@ async function init(context: vscode.ExtensionContext, git: GitApiImpl, credentia
 	git.onDidCloseRepository(repo => {
 		reposManager.removeRepo(repo);
 
-		const reviewManagerIndex = reviewManagers.findIndex(manager => manager.repository.rootUri.toString() === repo.rootUri.toString());
+		const reviewManagerIndex = reviewManagers.findIndex(
+			manager => manager.repository.rootUri.toString() === repo.rootUri.toString(),
+		);
 		if (reviewManagerIndex) {
 			const manager = reviewManagers[reviewManagerIndex];
 			reviewManagers.splice(reviewManagerIndex);
