@@ -89,8 +89,8 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 				return [descriptionNode];
 			}
 
-			this._fileChanges = await this.resolveFileChanges();
 			await this.pullRequestModel.initializeReviewThreadCache();
+			this._fileChanges = await this.resolveFileChanges();
 
 			if (!this._inMemPRContentProvider) {
 				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(
@@ -243,7 +243,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 						change.fileName,
 						true,
 						change.status,
-					)
+					),
 				);
 			}
 
@@ -303,7 +303,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return `${fileName}-${isBase ? 'original' : 'modified'}`;
 	}
 
-	private addThreadsForEditors(editors: vscode.TextEditor[], commentThreadCache: {[key: string]: GHPRCommentThread[]}): void {
+	private addThreadsForEditors(
+		editors: vscode.TextEditor[],
+		commentThreadCache: { [key: string]: GHPRCommentThread[] },
+	): void {
 		const reviewThreads = this.pullRequestModel.reviewThreadsCache;
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 		editors.forEach(editor => {
@@ -658,40 +661,32 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	// #region comment
-	public async createSingleComment(thread: GHPRCommentThread, input: string): Promise<void> {
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, false);
-		try {
-			const fileName = this.gitRelativeRootPath(thread.uri.path);
-			const side = this.getCommentSide(thread);
-			this._pendingCommentThreadAdds.push(thread);
-			await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, side, true);
-			await this.pullRequestModel.submitReview();
-		} catch (e) {
-			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
-
-			thread.comments = thread.comments.map(c => {
-				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-					c.mode = vscode.CommentMode.Editing;
-				}
-
-				return c;
-			});
-		}
-	}
-
-	public async createOrReplyComment(thread: GHPRCommentThread, input: string, inDraft?: boolean): Promise<void> {
+	public async createOrReplyComment(
+		thread: GHPRCommentThread,
+		input: string,
+		isSingleComment: boolean,
+		inDraft?: boolean,
+	): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const isDraft = inDraft !== undefined ? inDraft : this.pullRequestModel.hasPendingReview;
+		const isDraft = isSingleComment
+			? false
+			: inDraft !== undefined
+			? inDraft
+			: this.pullRequestModel.hasPendingReview;
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
 			if (hasExistingComments) {
-				await this.reply(thread, input);
+				await this.reply(thread, input, isSingleComment);
 			} else {
 				const fileName = this.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
-				await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, side);
+				await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, side, isSingleComment);
+			}
+
+			if (isSingleComment) {
+				await this.pullRequestModel.submitReview();
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
@@ -733,10 +728,10 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		return temporaryComment.id;
 	}
 
-	private reply(thread: GHPRCommentThread, input: string): Promise<IComment | undefined> {
+	private reply(thread: GHPRCommentThread, input: string, isSingleComment: boolean): Promise<IComment | undefined> {
 		const replyingTo = thread.comments[0];
 		if (replyingTo instanceof GHPRComment) {
-			return this.pullRequestModel.createCommentReply(input, replyingTo._rawComment.graphNodeId);
+			return this.pullRequestModel.createCommentReply(input, replyingTo._rawComment.graphNodeId, isSingleComment);
 		} else {
 			// TODO can we do better?
 			throw new Error('Cannot respond to temporary comment');
@@ -766,6 +761,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			this.createOrReplyComment(
 				thread,
 				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+				false,
 			);
 		}
 	}
@@ -774,7 +770,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 		if (comment instanceof GHPRComment) {
 			await this.pullRequestModel.deleteReviewComment(comment.commentId);
 		} else {
-			thread.comments = thread.comments.filter(c => c instanceof TemporaryComment && c.id === comment.id);
+			thread.comments = thread.comments.filter(c => !(c instanceof TemporaryComment && c.id === comment.id));
 		}
 
 		await this.pullRequestModel.validateDraftMode();
@@ -812,7 +808,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		try {
-			await this.createOrReplyComment(thread, input, false);
+			await this.createOrReplyComment(thread, input, false, false);
 			await this.pullRequestModel.submitReview();
 			this.setContextKey(false);
 		} catch (e) {

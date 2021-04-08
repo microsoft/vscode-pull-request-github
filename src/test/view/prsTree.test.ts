@@ -130,7 +130,9 @@ describe('GitHub Pull Requests view', function () {
 
 		const rootNodes = await provider.getChildren();
 
-		assert(rootNodes.every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
+		// All but the last category are expected to be collapsed
+		assert(rootNodes.slice(0, rootNodes.length - 1).every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
+		assert(rootNodes[rootNodes.length - 1].getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
 		assert.deepStrictEqual(
 			rootNodes.map(n => n.getTreeItem().label),
 			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All Open'],

@@ -159,6 +159,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					.get<MergeMethod>('defaultMergeMethod');
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
+				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item);
 
 				const isCrossRepository =
 					pullRequest.base &&
@@ -202,6 +203,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						milestone: pullRequest.milestone,
 						assignees: pullRequest.assignees,
 						showMergeOnGitHub,
+						isAuthor: currentUser.login === pullRequest.author.login
 					},
 				});
 			})

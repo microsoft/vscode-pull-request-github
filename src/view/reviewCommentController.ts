@@ -542,8 +542,8 @@ export class ReviewCommentController
 
 	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		try {
-			await this.createOrReplyComment(thread, input);
-			await this._reposManager.activePullRequest!.submitReview();
+			await this.createOrReplyComment(thread, input, false, false);
+			await this._reposManager.activePullRequest.submitReview();
 		} catch (e) {
 			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
 		}
@@ -587,41 +587,18 @@ export class ReviewCommentController
 	}
 
 	// #region Comment
-	async createSingleComment(thread: GHPRCommentThread, input: string): Promise<void> {
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, false);
-		try {
-			const fileName = this.gitRelativeRootPath(thread.uri.path);
-			this._pendingCommentThreadAdds.push(thread);
-			const side = this.getCommentSide(thread);
-
-			// If the thread is on the workspace file, make sure the position
-			// is properly adjusted to account for any local changes.
-			let line: number;
-			if (side === DiffSide.RIGHT) {
-				const diff = await this.getContentDiff(thread.uri, fileName);
-				line = mapNewPositionToOld(diff, thread.range.start.line);
-			} else {
-				line = thread.range.start.line;
-			}
-
-			await this._reposManager.activePullRequest!.createReviewThread(input, fileName, line + 1, side, true);
-			await this._reposManager.activePullRequest!.submitReview();
-		} catch (e) {
-			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
-
-			thread.comments = thread.comments.map(c => {
-				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-					c.mode = vscode.CommentMode.Editing;
-				}
-
-				return c;
-			});
-		}
-	}
-
-	async createOrReplyComment(thread: GHPRCommentThread, input: string, inDraft?: boolean): Promise<void> {
+	async createOrReplyComment(
+		thread: GHPRCommentThread,
+		input: string,
+		isSingleComment: boolean,
+		inDraft?: boolean,
+	): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const isDraft = inDraft !== undefined ? inDraft : this._reposManager.activePullRequest!.hasPendingReview;
+		const isDraft = isSingleComment
+			? false
+			: inDraft !== undefined
+			? inDraft
+			: this._reposManager.activePullRequest.hasPendingReview;
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
@@ -639,17 +616,28 @@ export class ReviewCommentController
 				} else {
 					line = thread.range.start.line;
 				}
-				await this._reposManager.activePullRequest!.createReviewThread(input, fileName, line + 1, side);
+				await this._reposManager.activePullRequest.createReviewThread(
+					input,
+					fileName,
+					line + 1,
+					side,
+					isSingleComment,
+				);
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					await this._reposManager.activePullRequest!.createCommentReply(
+					await this._reposManager.activePullRequest.createCommentReply(
 						input,
 						comment._rawComment.graphNodeId,
+						isSingleComment,
 					);
 				} else {
 					throw new Error('Cannot reply to temporary comment');
 				}
+			}
+
+			if (isSingleComment) {
+				await this._reposManager.activePullRequest.submitReview();
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
@@ -724,6 +712,7 @@ export class ReviewCommentController
 			this.createOrReplyComment(
 				thread,
 				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+				false,
 			);
 		}
 	}
@@ -737,7 +726,7 @@ export class ReviewCommentController
 			if (comment instanceof GHPRComment) {
 				await this._reposManager.activePullRequest.deleteReviewComment(comment.commentId);
 			} else {
-				thread.comments = thread.comments.filter(c => c instanceof TemporaryComment && c.id === comment.id);
+				thread.comments = thread.comments.filter(c => !(c instanceof TemporaryComment && c.id === comment.id));
 			}
 
 			if (thread.comments.length === 0) {
