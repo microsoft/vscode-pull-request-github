@@ -654,11 +654,7 @@ export class ReviewCommentController
 
 	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
 		const pendingReviewId = await this._reposManager.activePullRequest.getPendingReviewId();
-		if (pendingReviewId) {
-			await this.createOrReplyComment(thread, input);
-		} else {
-			await this.createSingleComment(thread, input);
-		}
+		await this.createOrReplyComment(thread, input, !pendingReviewId);
 	}
 
 	async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {

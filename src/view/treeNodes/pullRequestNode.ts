@@ -823,11 +823,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
 		const pendingReviewId = await this.pullRequestModel.getPendingReviewId();
-		if (pendingReviewId) {
-			await this.createOrReplyComment(thread, input);
-		} else {
-			await this.createSingleComment(thread, input);
-		}
+		await this.createOrReplyComment(thread, input, !pendingReviewId);
 	}
 
 	public async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
