@@ -26,6 +26,13 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		private _item: PullRequestModel,
 	) {
 		super();
+
+		this._disposables.push(this._folderRepositoryManager.onDidMergePullRequest(_ => {
+			this._postMessage({
+				command: 'update-state',
+				state: GithubItemStateEnum.Merged,
+			});
+		}));
 	}
 
 	public resolveWebviewView(

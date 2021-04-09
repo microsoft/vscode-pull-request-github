@@ -123,6 +123,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
+	private _onDidMergePullRequest = new vscode.EventEmitter<void>();
+	readonly onDidMergePullRequest = this._onDidMergePullRequest.event;
+
 	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
 	private _onDidChangeActiveIssue = new vscode.EventEmitter<void>();
@@ -1303,6 +1306,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					"pr.merge.success" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('pr.merge.success');
+				this._onDidMergePullRequest.fire();
 				return x.data;
 			})
 			.catch(e => {

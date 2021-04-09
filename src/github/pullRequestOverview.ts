@@ -104,6 +104,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			null,
 			this._disposables,
 		);
+
+		this._disposables.push(folderRepositoryManager.onDidMergePullRequest(_ => {
+			this._postMessage({
+				command: 'update-state',
+				state: GithubItemStateEnum.Merged,
+			});
+		}));
 	}
 
 	registerFolderRepositoryListener() {
