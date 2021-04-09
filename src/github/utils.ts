@@ -53,9 +53,7 @@ export function createVSCodeCommentThreadForReviewThread(
 	}
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
-	const isOnLocalFile = uri.scheme !== 'pr' && uri.scheme !== 'review';
-	vscodeThread.collapsibleState =
-		isOnLocalFile || thread.isResolved
+	vscodeThread.collapsibleState = thread.isResolved
 			? vscode.CommentThreadCollapsibleState.Collapsed
 			: vscode.CommentThreadCollapsibleState.Expanded;
 

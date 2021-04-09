@@ -194,34 +194,6 @@ export class ReviewCommentController
 
 	async registerListeners(): Promise<void> {
 		this._localToDispose.push(
-			vscode.window.onDidChangeVisibleTextEditors(async visibleTextEditors => {
-				if (this.visibleEditorsEqual(this._visibleNormalTextEditors, visibleTextEditors)) {
-					return;
-				}
-
-				this._visibleNormalTextEditors = visibleTextEditors.filter(ed => ed.document.uri.scheme !== 'comment');
-
-				const workspaceDocuments = visibleTextEditors.filter(
-					editor => editor.document.uri.scheme === this._repository.rootUri.scheme,
-				);
-				workspaceDocuments.forEach(editor => {
-					const fileName = this.gitRelativeRootPath(editor.document.uri.path);
-					const threadsForEditor = this._workspaceFileChangeCommentThreads[fileName] || [];
-					// If the editor has no view column, assume it is part of a diff editor and expand the comments. Otherwise, collapse them.
-					const isEmbedded = !editor.viewColumn;
-					this._workspaceFileChangeCommentThreads[fileName] = threadsForEditor.map(thread => {
-						thread.collapsibleState =
-							isEmbedded && !thread.isResolved
-								? vscode.CommentThreadCollapsibleState.Expanded
-								: vscode.CommentThreadCollapsibleState.Collapsed;
-
-						return thread;
-					});
-				});
-			}),
-		);
-
-		this._localToDispose.push(
 			this._reposManager.activePullRequest!.onDidChangePendingReviewState(newDraftMode => {
 				[
 					this._workspaceFileChangeCommentThreads,
