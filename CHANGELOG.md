@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.19
+
+### Changes
+
+- Fixed a bug where new thread couldn't be created on left side files.
+- Reworked build system
+
 ## 0.0.18
 
 ### Changes
