@@ -183,7 +183,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 			let result: TreeNode[];
 			if (this._reposManager.folderManagers.length === 1) {
-				return WorkspaceFolderNode.getCategoryTreeNodes(
+				result = WorkspaceFolderNode.getCategoryTreeNodes(
 					this._reposManager.folderManagers[0],
 					this._telemetry,
 					this._view,
