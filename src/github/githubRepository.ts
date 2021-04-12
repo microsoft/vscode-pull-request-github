@@ -12,7 +12,7 @@ import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRemote, Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import { PRCommentController } from '../view/prCommentController';
+import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
@@ -90,7 +90,7 @@ export class GitHubRepository implements vscode.Disposable {
 	protected _metadata: IMetadata | undefined;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
-	public commentsHandler?: PRCommentController;
+	public commentsHandler?: PRCommentControllerRegistry;
 	private _pullRequestModels = new Map<number, PullRequestModel>();
 	public readonly isGitHubDotCom: boolean;
 
@@ -120,7 +120,7 @@ export class GitHubRepository implements vscode.Disposable {
 				`browse-${this.remote.normalizedHost}`,
 				`GitHub Pull Request for ${this.remote.normalizedHost}`,
 			);
-			this.commentsHandler = new PRCommentController(this.commentsController);
+			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController);
 			this._toDispose.push(this.commentsController);
 			this._toDispose.push(this.commentsController);
 		} catch (e) {
