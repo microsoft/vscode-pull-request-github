@@ -173,8 +173,11 @@ export class PRContext {
 		}
 	};
 
-	public applyPatch = async (comment: GitPullRequestCommentThread) => {
-		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
+	public applyPatch = async (commentContent: string, commentId: number, threadId: number) => {
+		this.postMessage({
+			command: 'pr.apply-patch',
+			args: { content: commentContent, commentId: commentId, threadId: threadId },
+		});
 	};
 
 	private appendReview({ review, reviewers }: any) {

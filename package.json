@@ -287,7 +287,8 @@
 			},
 			{
 				"command": "azdoreview.suggestDiff",
-				"title": "Suggest Edit"
+				"title": "Suggest Edit",
+				"category": "AzDO Pull Requests"
 			},
 			{
 				"command": "azdopr.refreshList",

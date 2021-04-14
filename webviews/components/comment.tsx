@@ -92,7 +92,13 @@ export function CommentView(comment: Props) {
 					{/* {canDelete ? <button title='Delete comment' onClick={() => deleteComment({ id, pullRequestReviewId })} >{deleteIcon}</button> : null} */}
 				</div>
 			) : null}
-			<CommentBody comment={comment} bodyHTML={bodyHTMLState} body={bodyMd} />
+			<CommentBody
+				commentContent={comment.content}
+				commentId={comment.id}
+				threadId={comment.threadId}
+				bodyHTML={bodyHTMLState}
+				body={bodyMd}
+			/>
 		</CommentBox>
 	);
 }
@@ -237,7 +243,9 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 }
 
 export interface Embodied {
-	comment?: Comment;
+	commentContent: string;
+	commentId: number;
+	threadId: number;
 	bodyHTML?: string;
 	body?: string;
 }
@@ -256,7 +264,7 @@ const renderers = {
 	},
 };
 
-export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
+export const CommentBody = ({ commentContent, commentId, threadId, bodyHTML, body }: Embodied) => {
 	if (!body && !bodyHTML) {
 		return (
 			<div className="comment-body">
@@ -269,7 +277,11 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	// const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
 	const renderedBody = <ReactMarkdown renderers={renderers} plugins={[gfm]} children={body} />;
 	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
-	const applyPatchButton = containsSuggestion ? <button onClick={() => applyPatch(comment)}>Apply Patch</button> : <></>;
+	const applyPatchButton = containsSuggestion ? (
+		<button onClick={() => applyPatch(commentContent, commentId, threadId)}>Apply Patch</button>
+	) : (
+		<></>
+	);
 
 	return (
 		<div className="comment-body">

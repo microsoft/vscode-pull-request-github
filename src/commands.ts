@@ -166,10 +166,10 @@ export function registerCommands(
 					`${folderManager.activePullRequest.getPullRequestId()}.diff`,
 				);
 				const encoder = new TextEncoder();
-				const tempUri = vscode.Uri.parse(tempFilePath);
+				const tempUri = vscode.Uri.file(tempFilePath);
 
 				await vscode.workspace.fs.writeFile(tempUri, encoder.encode(diff));
-				await folderManager.repository.apply(tempFilePath, true);
+				await folderManager.repository.apply(tempUri.fsPath, true);
 				await vscode.workspace.fs.delete(tempUri);
 			} catch (err) {
 				Logger.appendLine(`Applying patch failed: ${err}`);

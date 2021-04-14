@@ -577,22 +577,34 @@ export class PullRequestOverviewPanel extends WebviewBase {
 			});
 	}
 
-	private async applyPatch(message: IRequestMessage<{ comment: Comment }>): Promise<void> {
+	private async applyPatch(
+		message: IRequestMessage<{ content: string; commentId: number; threadId: number }>,
+	): Promise<void> {
 		try {
-			const comment = message.args.comment;
+			const { content, commentId, threadId } = message.args;
 			const regex = /```diff\n([\s\S]*)\n```/g;
-			const matches = regex.exec(comment.content!);
+			const matches = regex.exec(content);
 
-			const tempFilePath = path.join(this._folderRepositoryManager.repository.rootUri.path, '.git', `${comment.id}.diff`);
+			if (!matches) {
+				Logger.appendLine(`Unable to apply patch as regex failed: content: ${content}`, PullRequestOverviewPanel.ID);
+				vscode.window.showErrorMessage('Unable to apply patch. The message is not a valid diff format');
+				return;
+			}
+
+			const tempFilePath = path.join(
+				this._folderRepositoryManager.repository.rootUri.path,
+				'.git',
+				`${threadId}.${commentId}.diff`,
+			);
 
 			const encoder = new TextEncoder();
-			const tempUri = vscode.Uri.parse(tempFilePath);
+			const tempUri = vscode.Uri.file(tempFilePath);
 
 			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(matches![1]));
-			await this._folderRepositoryManager.repository.apply(tempFilePath, true);
+			await this._folderRepositoryManager.repository.apply(tempUri.fsPath, false);
 			await vscode.workspace.fs.delete(tempUri);
 		} catch (e) {
-			Logger.appendLine(`Applying patch failed: ${e}`);
+			Logger.appendLine(`Applying patch failed: ${e}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);
 		}
 	}

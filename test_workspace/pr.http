@@ -15,6 +15,10 @@ Authorization: Basic {{user}} {{$dotenv pat}}
 GET {{orgUrl}}/{{projectName}}/_apis/git/repositories/{{reposiory}}/pullrequests/{{pr}}/reviewers?api-version={{api-version}}
 Authorization: Basic {{user}} {{$dotenv pat}}
 
+###
+
+GET {{orgUrl}}/{{projectName}}/_apis/git/repositories/{{reposiory}}/pullrequests/{{pr}}/threads?api-version={{api-version}}
+Authorization: Basic {{user}} {{$dotenv pat}}
 
 ###
 GET https://dev.azure.com/anksinha/_apis/core/identityMru/anksinhs%40microsoft.com
