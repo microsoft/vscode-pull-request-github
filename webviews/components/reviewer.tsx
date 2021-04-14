@@ -32,7 +32,7 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 					</a>
 				</>
 			) : null}
-			{REVIEW_STATE[state.toString()]}
+			{REVIEW_STATE[state?.toString() ?? PullRequestVote.NO_VOTE.toString()]}
 		</div>
 	);
 }

@@ -166,11 +166,11 @@ const VotePanel = ({ vote }: { vote: number }) => {
 // 	}</select>);
 
 const VoteSelect = ({ currentVote, changeVote }) => (
-	<select onChange={e => changeVote(e.target.value)} defaultValue={currentVote === 0 ? '10' : currentVote.toString()}>
+	<select onChange={e => changeVote(e.target.value)} defaultValue={currentVote === 0 ? '10' : currentVote?.toString()}>
 		{VoteOrder.map(vote => (
 			<option key={vote} value={vote}>
 				{VoteText[vote]}
-				{currentVote.toString() === vote ? ' (current vote)' : null}
+				{currentVote?.toString() === vote ? ' (current vote)' : null}
 			</option>
 		))}
 	</select>
