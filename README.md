@@ -30,6 +30,10 @@ It's easy to get started with Azure Devops Pull Requests for Visual Studio Code.
 1. A new tab would have appeared on the activity bar on the left. Open it and click on `Sign in` button. Enter the PAT token and press enter.
 1. You should be good to go!
 
+## Features
+
+Learn all about the extension in the [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki)
+
 ### Scopes required by PAT Token
 
 - **Minimum**: These scopes are required for extension to access Pull Requests and Threads. Without these scopes the extension will not even start.
@@ -67,7 +71,7 @@ It's easy to get started with Azure Devops Pull Requests for Visual Studio Code.
 - _type_: enum
 - _required_: false
 - _default_: mergebase
-- _Description_: The commit to use to get diff against the PR branch's HEAD. Read more about different options in [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki/Diff-Options:-HEAD-vs-Merge-Base)
+- _Description_: The commit to use to get diff against the PR branch's HEAD. Read more about different options in [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki/Diff-Options-HEAD-vs-Merge-Base)
 
 ## Known Major Issues
 
