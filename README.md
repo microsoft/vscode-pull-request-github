@@ -32,7 +32,7 @@ It's easy to get started with Azure Devops Pull Requests for Visual Studio Code.
 
 ## Features
 
-Learn all about the extension in the [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki)
+Learn all about different features of the extension in the [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki).
 
 ### Scopes required by PAT Token
 
