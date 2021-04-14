@@ -342,7 +342,9 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 );
 
 function getSummaryLabel(statuses: PullRequestChecks['statuses']) {
-	const statusTypes = groupBy(statuses, status => status.state.toString());
+	const statusTypes = groupBy(statuses, status =>
+		!!status.state ? status.state.toString() : GitStatusState.NotSet.toString(),
+	);
 	const statusPhrases = [];
 	for (const statusType of Object.keys(statusTypes)) {
 		const numOfType = statusTypes[statusType].length;
