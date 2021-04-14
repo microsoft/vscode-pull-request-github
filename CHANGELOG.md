@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.20
+
+### Changes
+
+- Suggest Edit not works.
+- Edits can now be applied from PR Description page. Read more in the [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki/Suggest-Edit).
+
 ## 0.0.19
 
 ### Changes

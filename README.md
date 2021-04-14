@@ -2,12 +2,13 @@
 
 ![Build and Test](https://github.com/ankitbko/vscode-pull-request-azdo/workflows/Build%20and%20Test/badge.svg?branch=master&event=push)
 
-This extension is inspired and based on [Github Pull Request Extension for VS Code](https://github.com/Microsoft/vscode-pull-request-github). The extension only works with _git_ based repository. _TFVC_ is not supported. Currently the extension supports following feature -
+This extension is inspired and based on [Github Pull Request Extension for VS Code](https://github.com/Microsoft/vscode-pull-request-github). The extension only works with _git_ based repository. _TFVC_ is not supported. Below are some the features that extension supports. Read about all the features in [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki).
 
 - Authenticating and connecting VS Code to Azure Devops.
 - Listing and browsing PRs from within VS Code.
 - Reviewing PRs from within VS Code with in-editor commenting.
 - Validating PRs from within VS Code with easy checkouts.
+- Suggest edits to the PR Author. Author can apply edits directly from Description page.
 
 You can read more about the basic features in my [blog](https://ankitbko.github.io/blog/2021/01/azdo-pr-vscode-extension/).
 
@@ -79,6 +80,7 @@ Learn all about different features of the extension in the [wiki](https://github
 1. Can't mention users in comments
 1. **Some incompatibility with Github PR Extension**. If you have both extensions installed and seeing issues with either try disabling the other extension and reloading the window.
 1. In some cases, user avatar image does not show up in Dashboard.
+1. Reactions do not work.
 
 ## Questions? Authentication?
 
