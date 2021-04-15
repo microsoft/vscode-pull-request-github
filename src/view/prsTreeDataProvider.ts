@@ -12,10 +12,10 @@ import { getInMemPRContentProvider } from './inMemPRContentProvider';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
-import { TreeNode } from './treeNodes/treeNode';
+import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { QUERIES_SETTING, WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
-export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, vscode.Disposable {
+export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
@@ -94,6 +94,10 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		);
 	}
 
+	async reveal(element: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean }): Promise<void> {
+		return this._view.reveal(element, options);
+	}
+
 	initialize(reposManager: RepositoriesManager) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
@@ -128,7 +132,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		);
 	}
 
-	async refresh(node?: TreeNode) {
+	refresh(node?: TreeNode): void {
 		return node ? this._onDidChangeTreeData.fire(node) : this._onDidChangeTreeData.fire();
 	}
 
@@ -151,25 +155,25 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 		if (remotesSetting) {
 			return Promise.resolve([
-				new PRCategoryActionNode(this._view, PRCategoryActionType.NoMatchingRemotes),
-				new PRCategoryActionNode(this._view, PRCategoryActionType.ConfigureRemotes),
+				new PRCategoryActionNode(this, PRCategoryActionType.NoMatchingRemotes),
+				new PRCategoryActionNode(this, PRCategoryActionType.ConfigureRemotes),
 			]);
 		}
 
-		return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.NoRemotes)]);
+		return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)]);
 	}
 
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!this._reposManager) {
 			if (!vscode.workspace.workspaceFolders) {
-				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.NoOpenFolder)]);
+				return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.NoOpenFolder)]);
 			} else {
-				return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.NoGitRepositories)]);
+				return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.NoGitRepositories)]);
 			}
 		}
 
 		if (this._reposManager.state === ReposManagerState.Initializing) {
-			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Initializing)]);
+			return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.Initializing)]);
 		}
 
 		if (this._reposManager.folderManagers.filter(manager => manager.getGitHubRemotes().length > 0).length === 0) {
@@ -186,13 +190,13 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				result = WorkspaceFolderNode.getCategoryTreeNodes(
 					this._reposManager.folderManagers[0],
 					this._telemetry,
-					this._view,
+					this,
 				);
 			} else {
 				result = this._reposManager.folderManagers.map(
 					folderManager =>
 						new WorkspaceFolderNode(
-							this._view,
+							this,
 							folderManager.repository.rootUri,
 							folderManager,
 							this._telemetry,
@@ -208,7 +212,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			this._reposManager.folderManagers.filter(manager => manager.repository.state.remotes.length > 0).length ===
 			0
 		) {
-			return Promise.resolve([new PRCategoryActionNode(this._view, PRCategoryActionType.Empty)]);
+			return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.Empty)]);
 		}
 
 		return element.getChildren();

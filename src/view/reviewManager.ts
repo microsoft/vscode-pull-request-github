@@ -461,7 +461,7 @@ export class ReviewManager {
 			);
 
 			const changedItem = new GitFileChangeNode(
-				this.changesInPrDataProvider.view,
+				this.changesInPrDataProvider,
 				this._folderRepoManager,
 				pr,
 				change.status,
@@ -510,7 +510,7 @@ export class ReviewManager {
 					const oldComments = commentsForFile[fileName];
 					const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, fileName));
 					const obsoleteFileChange = new GitFileChangeNode(
-						this.changesInPrDataProvider.view,
+						this.changesInPrDataProvider,
 						this._folderRepoManager,
 						pr,
 						GitChangeType.MODIFY,

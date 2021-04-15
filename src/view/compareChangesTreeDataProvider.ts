@@ -25,6 +25,10 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 	private _gitHubRepository: GitHubRepository | undefined;
 
+	get view(): vscode.TreeView<TreeNode>  {
+		return this._view;
+	}
+
 	constructor(
 		private readonly repository: Repository,
 		private baseOwner: string,
@@ -52,6 +56,14 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 	updateBaseOwner(owner: string) {
 		this.baseOwner = owner;
+		this._onDidChangeTreeData.fire();
+	}
+
+	async reveal(treeNode: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean }): Promise<void> {
+		return this._view.reveal(treeNode, options);
+	}
+
+	refresh(): void {
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -134,7 +146,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 			return data.files.map(file => {
 				return new GitHubFileChangeNode(
-					this._view,
+					this,
 					file.filename,
 					file.previous_filename,
 					getGitChangeType(file.status),
