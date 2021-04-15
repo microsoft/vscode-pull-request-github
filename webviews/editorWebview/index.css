@@ -394,7 +394,7 @@ body .overview-title .button-group button {
 	color: var(--vscode-badge-foreground);
 	border-radius: 4px;
 	padding: 2px 8px;
-	margin-right: 12px;
+	margin-right: 10px;
 }
 
 .section {
@@ -936,10 +936,6 @@ code {
 		border: 1px solid var(--vscode-badge-background);
 		border-radius: 3px;
 		padding: 2px 6px;
-	}
-
-	.section-item .avatar {
-		border-radius: 3px;
 	}
 
 	.section-item .login {

@@ -109,10 +109,15 @@ body img.avatar,
 body span.avatar-icon svg {
 	width: 24px;
 	height: 24px;
+	border-radius: 50%;
 }
 
 body img.avatar {
 	vertical-align: middle;
+}
+
+.avatar-link {
+	flex-shrink: 0;;
 }
 
 .section-item .avatar-link {
