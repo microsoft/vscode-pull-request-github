@@ -5,13 +5,14 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IComment } from '../../common/comment';
+import { IComment, ViewedState } from '../../common/comment';
 import { DiffHunk } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -73,6 +74,8 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public command: vscode.Command;
 	public resourceUri: vscode.Uri;
 	public contextValue: string;
+	public childrenDisposables: vscode.Disposable[] = [];
+	private _viewed: ViewedState;
 
 	constructor(
 		public readonly parent: TreeNodeParent,
@@ -85,16 +88,47 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly parentFilePath: vscode.Uri,
 	) {
 		super();
-		this.contextValue = `filechange:${GitChangeType[status]}`;
+		const viewed = this.pullRequest.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
+		this.contextValue = `filechange:${GitChangeType[status]}:${
+			viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
 		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.number, fileName, status);
+		this.updateViewed(viewed);
 		this.command = {
 			command: 'pr.openFileOnGitHub',
 			title: 'Open File on GitHub',
 			arguments: [this],
 		};
+
+		this.childrenDisposables.push(
+			this.pullRequest.onDidChangeFileViewedState(e => {
+				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === this.fileName);
+				if (matchingChange) {
+					this.updateViewed(matchingChange.viewed);
+					this.refresh(this);
+				}
+			}),
+		);
+	}
+
+	updateViewed(viewed: ViewedState) {
+		if (this._viewed === viewed) {
+			return;
+		}
+
+		this._viewed = viewed;
+		this.contextValue = `filechange:${GitChangeType[this.status]}:${
+			viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		}`;
+		FileViewedDecorationProvider.updateFileViewedState(
+			this.resourceUri,
+			this.pullRequest.number,
+			this.fileName,
+			viewed,
+		);
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -119,6 +153,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public opts: vscode.TextDocumentShowOptions;
 
 	public childrenDisposables: vscode.Disposable[] = [];
+	private _viewed: ViewedState;
 
 	constructor(
 		public readonly parent: TreeNodeParent,
@@ -133,7 +168,10 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string,
 	) {
 		super();
-		this.contextValue = `filechange:${GitChangeType[status]}`;
+		const viewed = this.pullRequest.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
+		this.contextValue = `filechange:${GitChangeType[status]}:${
+			viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
@@ -147,6 +185,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			this.fileName,
 			this.status,
 		);
+		this.updateViewed(viewed);
 
 		this.childrenDisposables.push(
 			this.pullRequest.onDidChangeReviewThreads(e => {
@@ -154,6 +193,33 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 					this.updateShowOptions();
 				}
 			}),
+		);
+
+		this.childrenDisposables.push(
+			this.pullRequest.onDidChangeFileViewedState(e => {
+				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === this.fileName);
+				if (matchingChange) {
+					this.updateViewed(matchingChange.viewed);
+					this.refresh(this);
+				}
+			}),
+		);
+	}
+
+	updateViewed(viewed: ViewedState) {
+		if (this._viewed === viewed) {
+			return;
+		}
+
+		this._viewed = viewed;
+		this.contextValue = `filechange:${GitChangeType[this.status]}:${
+			viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		}`;
+		FileViewedDecorationProvider.updateFileViewedState(
+			this.resourceUri,
+			this.pullRequest.number,
+			this.fileName,
+			viewed,
 		);
 	}
 

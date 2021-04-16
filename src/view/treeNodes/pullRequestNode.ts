@@ -66,6 +66,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			}
 
 			await this.pullRequestModel.initializeReviewThreadCache();
+			await this.pullRequestModel.getPullRequestFileViewState();
 			this._fileChanges = await this.resolveFileChanges();
 
 			if (!this._inMemPRContentProvider) {

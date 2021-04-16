@@ -331,6 +331,19 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query PullRequestFiles($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			files(first: 50) {
+				nodes {
+					path
+					viewerViewedState
+				}
+			}
+		}
+	}
+}
+
 query Issue($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest: issue(number: $number) {
@@ -864,6 +877,22 @@ mutation UnresolveReviewThread($input: UnresolveReviewThreadInput!) {
 	unresolveReviewThread(input: $input) {
 		thread {
 			...ReviewThread
+		}
+	}
+}
+
+mutation MarkFileAsViewed($input: MarkFileAsViewedInput!) {
+	markFileAsViewed(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
+mutation UnmarkFileAsViewed($input: UnmarkFileAsViewedInput!) {
+	unmarkFileAsViewed(input: $input) {
+		pullRequest {
+			id
 		}
 	}
 }
