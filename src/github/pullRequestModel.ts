@@ -6,7 +6,7 @@
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
-import { DiffSide, IComment, IReviewThread } from '../common/comment';
+import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -31,6 +31,7 @@ import {
 	MarkPullRequestReadyForReviewResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
+	PullRequestFilesResponse,
 	PullRequestResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
@@ -78,6 +79,13 @@ export interface ReviewThreadChangeEvent {
 	removed: IReviewThread[];
 }
 
+export interface FileViewedStateChangeEvent {
+	changed: {
+		fileName: string;
+		viewed: ViewedState;
+	}[];
+}
+
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static ID = 'PullRequestModel';
 
@@ -93,6 +101,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _reviewThreadsCacheInitialized = false;
 	private _onDidChangeReviewThreads = new vscode.EventEmitter<ReviewThreadChangeEvent>();
 	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
+
+	public fileChangeViewedState:{ [key: string]: ViewedState } = {};
+	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
+	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
 
 	// Whether the pull request is currently checked out locally
 	public isActive: boolean;
@@ -383,9 +395,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param initialComment The comment text and position information to begin the review with
 	 * @param commitId The optional commit id to start the review on. Defaults to using the current head commit.
 	 */
-	async startReview(
-		commitId?: string,
-	): Promise<string> {
+	async startReview(commitId?: string): Promise<string> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<StartReviewResponse>({
 			mutation: schema.StartReview,
@@ -465,7 +475,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param commitId The commit id the comment was made on
 	 * @returns The new comment
 	 */
-	async createCommentReply(body: string, inReplyTo: string, isSingleComment: boolean, commitId?: string): Promise<IComment> {
+	async createCommentReply(
+		body: string,
+		inReplyTo: string,
+		isSingleComment: boolean,
+		commitId?: string,
+	): Promise<IComment> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
@@ -1222,5 +1237,65 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._reviewThreadsCache.splice(index, 1, thread);
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 		}
+	}
+
+	async getPullRequestFileViewState(): Promise<{ [path: string]: ViewedState }> {
+		const { query, schema, remote } = await this.githubRepository.ensure();
+		const { data } = await query<PullRequestFilesResponse>({
+			query: schema.PullRequestFiles,
+			variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+			},
+		});
+
+
+		const changed: { fileName: string, viewed: ViewedState }[] = [];
+		data.repository.pullRequest.files.nodes.forEach(n => {
+			if (this.fileChangeViewedState[n.path] !== n.viewerViewedState) {
+				changed.push({ fileName: n.path, viewed: n.viewerViewedState });
+			}
+
+			this.fileChangeViewedState[n.path] = n.viewerViewedState;
+		});
+
+		if (changed.length) {
+			this._onDidChangeFileViewedState.fire({ changed });
+		}
+
+		return this.fileChangeViewedState;
+	}
+
+	async markFileAsViewed(fileName: string): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+		await mutate<void>({
+			mutation: schema.MarkFileAsViewed,
+			variables: {
+				input: {
+					path: fileName,
+					pullRequestId: this.graphNodeId,
+				},
+			},
+		});
+
+		this.fileChangeViewedState[fileName] = ViewedState.VIEWED;
+		this._onDidChangeFileViewedState.fire({ changed: [{ fileName, viewed: ViewedState.VIEWED }] });
+	}
+
+	async unmarkFileAsViewed(fileName: string): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+		await mutate<void>({
+			mutation: schema.UnmarkFileAsViewed,
+			variables: {
+				input: {
+					path: fileName,
+					pullRequestId: this.graphNodeId,
+				},
+			},
+		});
+
+		this.fileChangeViewedState[fileName] = ViewedState.UNVIEWED;
+		this._onDidChangeFileViewedState.fire({ changed: [{ fileName, viewed: ViewedState.UNVIEWED }] });
 	}
 }

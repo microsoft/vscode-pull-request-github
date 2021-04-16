@@ -12,6 +12,12 @@ export enum DiffSide {
 	RIGHT = 'RIGHT',
 }
 
+export enum ViewedState {
+	DISMISSED = 'DISMISSED',
+	VIEWED = 'VIEWED',
+	UNVIEWED = 'UNVIEWED'
+}
+
 export interface Reaction {
 	label: string;
 	count: number;
