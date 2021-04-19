@@ -1241,24 +1241,33 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	async getPullRequestFileViewState(): Promise<{ [path: string]: ViewedState }> {
 		const { query, schema, remote } = await this.githubRepository.ensure();
-		const { data } = await query<PullRequestFilesResponse>({
-			query: schema.PullRequestFiles,
-			variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-			},
-		});
-
 
 		const changed: { fileName: string, viewed: ViewedState }[] = [];
-		data.repository.pullRequest.files.nodes.forEach(n => {
-			if (this.fileChangeViewedState[n.path] !== n.viewerViewedState) {
-				changed.push({ fileName: n.path, viewed: n.viewerViewedState });
-			}
+		let after = null;
+		let hasNextPage = false;
 
-			this.fileChangeViewedState[n.path] = n.viewerViewedState;
-		});
+		do {
+			const { data } = await query<PullRequestFilesResponse>({
+				query: schema.PullRequestFiles,
+				variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: this.number,
+						after: after,
+				},
+			});
+
+			data.repository.pullRequest.files.nodes.forEach(n => {
+				if (this.fileChangeViewedState[n.path] !== n.viewerViewedState) {
+					changed.push({ fileName: n.path, viewed: n.viewerViewedState });
+				}
+
+				this.fileChangeViewedState[n.path] = n.viewerViewedState;
+			});
+
+			hasNextPage = data.repository.pullRequest.files.pageInfo.hasNextPage;
+			after = data.repository.pullRequest.files.pageInfo.endCursor;
+		} while (hasNextPage);
 
 		if (changed.length) {
 			this._onDidChangeFileViewedState.fire({ changed });

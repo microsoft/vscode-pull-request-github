@@ -623,6 +623,10 @@ export interface PullRequestFilesResponse {
 					path: string;
 					viewerViewedState: ViewedState
 				}[]
+				pageInfo: {
+					hasNextPage: boolean;
+					endCursor: string;
+				};
 			}
 		}
 	}
