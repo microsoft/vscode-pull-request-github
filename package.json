@@ -682,7 +682,7 @@
 			},
 			{
 				"command": "pr.unmarkFileAsViewed",
-				"title": "Nark File As Not Viewed",
+				"title": "Mark File As Not Viewed",
 				"category": "GitHub Pull Requests",
 				"icon": "$(eye-closed)"
 			},
