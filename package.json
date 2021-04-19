@@ -27,6 +27,7 @@
 	],
 	"browser": "./dist/browser/extension",
 	"main": "./dist/extension",
+	"workspaceTrust": { "request": "never" },
 	"contributes": {
 		"configuration": {
 			"type": "object",

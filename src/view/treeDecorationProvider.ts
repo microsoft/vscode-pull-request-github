@@ -33,7 +33,7 @@ class TreeDecorationProvider implements vscode.FileDecorationProvider {
 				return {
 					propagate: false,
 					tooltip: 'Commented',
-					badge: '◆',
+					badge: '💬',
 				};
 			}
 		}
