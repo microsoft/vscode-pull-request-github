@@ -483,6 +483,7 @@ export class ReviewManager {
 		try {
 			this._comments = await pr.getReviewComments();
 			await pr.initializeReviewThreadCache();
+			await pr.getPullRequestFileViewState();
 			const activeComments = this._comments.filter(comment => comment.position);
 			const outdatedComments = this._comments.filter(comment => !comment.position);
 

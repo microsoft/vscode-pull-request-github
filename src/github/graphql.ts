@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffSide } from '../common/comment';
+import { DiffSide, ViewedState } from '../common/comment';
 import { ForkDetails } from './githubRepository';
 
 export interface MergedEvent {
@@ -612,5 +612,22 @@ export interface ResolveReviewThreadResponse {
 export interface UnresolveReviewThreadResponse {
 	unresolveReviewThread: {
 		thread: ReviewThread;
+	}
+}
+
+export interface PullRequestFilesResponse {
+	repository: {
+		pullRequest: {
+			files: {
+				nodes: {
+					path: string;
+					viewerViewedState: ViewedState
+				}[]
+				pageInfo: {
+					hasNextPage: boolean;
+					endCursor: string;
+				};
+			}
+		}
 	}
 }

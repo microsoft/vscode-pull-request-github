@@ -26,7 +26,12 @@ import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
-import { GitFileChangeNode, InMemFileChangeNode, openFileCommand, RemoteFileChangeNode } from './view/treeNodes/fileChangeNode';
+import {
+	GitFileChangeNode,
+	InMemFileChangeNode,
+	openFileCommand,
+	RemoteFileChangeNode,
+} from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
@@ -202,7 +207,10 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.openFileOnGitHub', async (e: GitFileChangeNode | RemoteFileChangeNode) => {
 			if (e instanceof RemoteFileChangeNode) {
-				const choice = await vscode.window.showInformationMessage(`${e.fileName} can't be opened locally. Do you want to open it on GitHub?`, 'Open');
+				const choice = await vscode.window.showInformationMessage(
+					`${e.fileName} can't be opened locally. Do you want to open it on GitHub?`,
+					'Open',
+				);
 				if (!choice) {
 					return;
 				}
@@ -683,7 +691,7 @@ export function registerCommands(
 			if (handler) {
 				await handler.resolveReviewThread(reply.thread, reply.text);
 			}
-		})
+		}),
 	);
 
 	context.subscriptions.push(
@@ -697,7 +705,7 @@ export function registerCommands(
 			if (handler) {
 				await handler.unresolveReviewThread(reply.thread, reply.text);
 			}
-		})
+		}),
 	);
 
 	context.subscriptions.push(
@@ -819,6 +827,26 @@ export function registerCommands(
 
 			PullRequestOverviewPanel.refresh();
 			tree.refresh(prNode);
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: GitFileChangeNode) => {
+			try {
+				await treeNode.pullRequest.markFileAsViewed(treeNode.fileName);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Marked file as viewed failed: ${e}`);
+			}
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: GitFileChangeNode) => {
+			try {
+				await treeNode.pullRequest.unmarkFileAsViewed(treeNode.fileName);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Marked file as not viewed failed: ${e}`);
+			}
 		}),
 	);
 }

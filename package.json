@@ -675,6 +675,18 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "pr.markFileAsViewed",
+				"title": "Mark File As Viewed",
+				"category": "GitHub Pull Requests",
+				"icon": "$(check)"
+			},
+			{
+				"command": "pr.unmarkFileAsViewed",
+				"title": "Mark File As Not Viewed",
+				"category": "GitHub Pull Requests",
+				"icon": "$(eye-closed)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "Create Issue From Selection",
 				"category": "GitHub Issues"
@@ -1292,6 +1304,16 @@
 				{
 					"command": "issue.editQuery",
 					"when": "view == issues:github && viewItem == query"
+				},
+				{
+					"command": "pr.markFileAsViewed",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):unviewed/",
+					"group": "inline"
+				},
+				{
+					"command": "pr.unmarkFileAsViewed",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):viewed/",
+					"group": "inline"
 				}
 			],
 			"editor/title": [
