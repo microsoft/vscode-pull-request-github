@@ -173,7 +173,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					pullRequest.head &&
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
-				const showMergeOnGitHub = isCrossRepository && isInCodespaces();
+				const continueOnGitHub = isCrossRepository && isInCodespaces();
 
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 				this._postMessage({
@@ -209,7 +209,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						isIssue: false,
 						milestone: pullRequest.milestone,
 						assignees: pullRequest.assignees,
-						showMergeOnGitHub,
+						continueOnGitHub,
 						isAuthor: currentUser.login === pullRequest.author.login
 					},
 				});

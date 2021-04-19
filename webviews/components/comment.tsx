@@ -231,8 +231,15 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	);
 };
 
-export function AddComment({ pendingCommentText, state, hasWritePermission, isIssue, isAuthor }: PullRequest) {
-	const { updatePR, comment, requestChanges, approve, close } = useContext(PullRequestContext);
+export function AddComment({
+	pendingCommentText,
+	state,
+	hasWritePermission,
+	isIssue,
+	isAuthor,
+	continueOnGitHub,
+}: PullRequest) {
+	const { updatePR, comment, requestChanges, approve, close, openOnGitHub } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -248,8 +255,12 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 			try {
 				setBusy(true);
 				const { body }: FormInputSet = form.current;
-				await command(body.value);
-				updatePR({ pendingCommentText: '' });
+				if (continueOnGitHub && command !== comment) {
+					await openOnGitHub();
+				} else {
+					await command(body.value);
+					updatePR({ pendingCommentText: '' });
+				}
 			} finally {
 				setBusy(false);
 			}
@@ -314,7 +325,7 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 						onClick={onClick}
 						data-command="requestChanges"
 					>
-						Request Changes
+						{continueOnGitHub ? 'Request changes on github.com' : 'Request Changes'}
 					</button>
 				) : null}
 				{!isIssue && !isAuthor ? (
@@ -325,7 +336,7 @@ export function AddComment({ pendingCommentText, state, hasWritePermission, isIs
 						onClick={onClick}
 						data-command="approve"
 					>
-						Approve
+						{continueOnGitHub ? 'Approve on github.com' : 'Approve'}
 					</button>
 				) : null}
 				<input
@@ -347,11 +358,16 @@ const COMMENT_METHODS = {
 };
 
 export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, comment } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, approve, comment, openOnGitHub } = useContext(PullRequestContext);
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
 	async function submitAction(selected: string): Promise<void> {
 		const { value } = textareaRef.current;
+		if (pr.continueOnGitHub && selected !== ReviewType.Comment) {
+			await openOnGitHub();
+			return;
+		}
+
 		switch (selected) {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
@@ -369,7 +385,11 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
 
-	const availableActions = pr.isAuthor ? { comment: 'Comment' } : COMMENT_METHODS;
+	const availableActions = pr.isAuthor
+		? { comment: 'Comment' }
+		: pr.continueOnGitHub
+		? { comment: 'Comment', approve: 'Approve on github.com', requestChanges: 'Request changes on github.com' }
+		: COMMENT_METHODS;
 
 	return (
 		<span>

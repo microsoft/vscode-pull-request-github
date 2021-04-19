@@ -138,7 +138,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					pullRequest.head &&
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
-				const showMergeOnGitHub = isCrossRepository && isInCodespaces();
+				const continueOnGitHub = isCrossRepository && isInCodespaces();
 
 				this._postMessage({
 					command: 'pr.initialize',
@@ -171,7 +171,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						isIssue: false,
 						isAuthor: currentUser.login === pullRequest.author.login,
 						reviewers: this._existingReviewers,
-						showMergeOnGitHub,
+						continueOnGitHub,
 					},
 				});
 			})

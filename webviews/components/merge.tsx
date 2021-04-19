@@ -170,8 +170,8 @@ export const Merge = (pr: PullRequest) => {
 };
 
 export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	const { hasWritePermission, canEdit, isDraft, mergeable, showMergeOnGitHub } = pr;
-	if (showMergeOnGitHub) {
+	const { hasWritePermission, canEdit, isDraft, mergeable, continueOnGitHub } = pr;
+	if (continueOnGitHub) {
 		return canEdit ? <MergeOnGitHub /> : null;
 	}
 	if (isDraft) {

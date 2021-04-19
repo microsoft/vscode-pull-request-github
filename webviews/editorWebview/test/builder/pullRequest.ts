@@ -34,5 +34,5 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isIssue: { default: false },
 	assignees: { default: [] },
 	milestone: { default: undefined },
-	showMergeOnGitHub: { default: false },
+	continueOnGitHub: { default: false },
 });
