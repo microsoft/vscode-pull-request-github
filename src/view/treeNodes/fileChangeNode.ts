@@ -13,7 +13,7 @@ import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { DecorationProvider } from '../treeDecorationProvider';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export function openFileCommand(uri: vscode.Uri): vscode.Command {
 	const activeTextEditor = vscode.window.activeTextEditor;
@@ -75,7 +75,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public contextValue: string;
 
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -121,7 +121,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public childrenDisposables: vscode.Disposable[] = [];
 
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -203,7 +203,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
 		private readonly folderRepositoryManager: FolderRepositoryManager,
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -240,7 +240,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
  */
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		private readonly pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
@@ -350,7 +350,7 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public command: vscode.Command;
 
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		public readonly fileName: string,
 		public readonly previousFileName: string | undefined,
 		public readonly status: GitChangeType,

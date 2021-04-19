@@ -9,7 +9,7 @@ import { ITelemetry } from '../../common/telemetry';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { CategoryTreeNode } from './categoryNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export interface IQueryInfo {
 	label: string;
@@ -23,7 +23,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 
 	constructor(
-		parent: TreeNode | vscode.TreeView<TreeNode>,
+		parent: TreeNodeParent,
 		uri: vscode.Uri,
 		private folderManager: FolderRepositoryManager,
 		private telemetry: ITelemetry,
@@ -53,7 +53,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	public static getCategoryTreeNodes(
 		folderManager: FolderRepositoryManager,
 		telemetry: ITelemetry,
-		parent: TreeNode | vscode.TreeView<TreeNode>,
+		parent: TreeNodeParent,
 	) {
 		const queryCategories = WorkspaceFolderNode.getQueries(folderManager).map(
 			queryInfo =>

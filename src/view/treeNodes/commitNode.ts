@@ -12,7 +12,7 @@ import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { GitFileChangeNode } from './fileChangeNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public sha: string;
@@ -21,7 +21,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public contextValue?: string;
 
 	constructor(
-		public parent: TreeNode | vscode.TreeView<TreeNode>,
+		public parent: TreeNodeParent,
 		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,

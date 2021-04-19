@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Files';
@@ -14,7 +14,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	private directories: TreeNode[] = [];
 
 	constructor(
-		public parent: TreeNode | vscode.TreeView<TreeNode>,
+		public parent: TreeNodeParent,
 		private _fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 	) {
 		super();

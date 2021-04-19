@@ -8,7 +8,7 @@ import { IComment } from '../../common/comment';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { CommitNode } from './commitNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Commits';
@@ -18,7 +18,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	private _comments: IComment[];
 
 	constructor(
-		parent: TreeNode | vscode.TreeView<TreeNode>,
+		parent: TreeNodeParent,
 		reposManager: FolderRepositoryManager,
 		pr: PullRequestModel,
 		comments: IComment[],
