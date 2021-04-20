@@ -33,33 +33,6 @@
 			"type": "object",
 			"title": "GitHub Pull Requests",
 			"properties": {
-				"githubPullRequests.telemetry.enabled": {
-					"type": "boolean",
-					"default": true,
-					"description": "Enable usage data and errors to be sent to a GitHub online service"
-				},
-				"githubPullRequests.hosts": {
-					"type": "array",
-					"default": [],
-					"markdownDescription": "List of host credentials. For example, \"githubPullRequests.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
-					"items": {
-						"type": "object",
-						"properties": {
-							"host": {
-								"type": "string",
-								"description": "The host name of the GitHub server (for eg., 'https://github.com')"
-							},
-							"username": {
-								"type": "string",
-								"description": "The username to access GitHub (optional)"
-							},
-							"token": {
-								"type": "string",
-								"description": "GitHub access token with the following scopes: read:user, user:email, repo, write:discussion"
-							}
-						}
-					}
-				},
 				"githubPullRequests.pullRequestTitle": {
 					"deprecationMessage": "The pull request title now uses the same defaults as GitHub, and can be edited before create.",
 					"type": "string",
@@ -208,35 +181,6 @@
 					],
 					"default": "ask",
 					"description": "Default handler for terminal links."
-				},
-				"telemetry.optout": {
-					"type": "boolean",
-					"default": false,
-					"deprecationMessage": "The setting `telemetry.optout` has been deprecated in favor of `githubPullRequests.telemetry.enabled`.",
-					"description": "Disable usage data and errors to be sent to a GitHub online service"
-				},
-				"github.hosts": {
-					"type": "array",
-					"default": [],
-					"deprecationMessage": "The setting `github.hosts` has been deprecated in favor of `githubPullRequests.hosts`.",
-					"description": "List of host credentials. For example, \"github.hosts\": [ { \"host\": \"https://github.com\", \"token\": \"GITHUB TOKEN\" } ]",
-					"items": {
-						"type": "object",
-						"properties": {
-							"host": {
-								"type": "string",
-								"description": "The host name of the GitHub server (for eg., 'https://github.com')"
-							},
-							"username": {
-								"type": "string",
-								"description": "The username to access GitHub (optional)"
-							},
-							"token": {
-								"type": "string",
-								"description": "GitHub access token with the following scopes: read:user, user:email, repo, write:discussion"
-							}
-						}
-					}
 				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
