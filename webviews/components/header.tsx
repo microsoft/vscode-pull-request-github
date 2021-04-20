@@ -150,14 +150,14 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
 				<button aria-live="polite" className="checkedOut" disabled>
 					{checkIcon} Checked Out
 				</button>
-				<button aria-live="polite" disabled={isBusy} onClick={() => onClick('exitReviewMode')}>
+				<button aria-live="polite" title="Switch to a different branch than this pull request branch"disabled={isBusy} onClick={() => onClick('exitReviewMode')}>
 					Exit Review Mode
 				</button>
 			</>
 		);
 	} else if (!isIssue) {
 		return (
-			<button aria-live="polite" disabled={isBusy} onClick={() => onClick('checkout')}>
+			<button aria-live="polite" title="Checkout a local copy of this pull request branch to verify or edit changes" disabled={isBusy} onClick={() => onClick('checkout')}>
 				Checkout
 			</button>
 		);
