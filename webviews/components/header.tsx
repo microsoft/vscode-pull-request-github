@@ -38,8 +38,8 @@ export function Header({
 						<Spaced>
 							<AuthorLink for={author} />
 							{getActionText(state)}
-							into <code>{base}</code>
-							from <code>{head}</code>
+							into<code>{base}</code>
+							from<code>{head}</code>
 						</Spaced>
 					) : null}
 				</span>
