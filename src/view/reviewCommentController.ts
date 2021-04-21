@@ -54,7 +54,7 @@ export class ReviewCommentController
 		private _localFileChanges: GitFileChangeNode[],
 	) {
 		this._commentController = vscode.comments.createCommentController(
-			`review-${_reposManager.activePullRequest!.number}`,
+			`github-review-${_reposManager.activePullRequest!.number}`,
 			_reposManager.activePullRequest!.title,
 		);
 		this._commentController.commentingRangeProvider = this;
