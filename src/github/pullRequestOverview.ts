@@ -27,6 +27,12 @@ import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { isInCodespaces, parseReviewers } from './utils';
 
+type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
+
+function isMilestoneQuickPickItem(x: any): x is MilestoneQuickPickItem {
+	return !!x.id && !!x.milestone;
+}
+
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
 	/**
@@ -105,12 +111,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._disposables,
 		);
 
-		this._disposables.push(folderRepositoryManager.onDidMergePullRequest(_ => {
-			this._postMessage({
-				command: 'update-state',
-				state: GithubItemStateEnum.Merged,
-			});
-		}));
+		this._disposables.push(
+			folderRepositoryManager.onDidMergePullRequest(_ => {
+				this._postMessage({
+					command: 'update-state',
+					state: GithubItemStateEnum.Merged,
+				});
+			}),
+		);
 	}
 
 	registerFolderRepositoryListener() {
@@ -210,7 +218,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						milestone: pullRequest.milestone,
 						assignees: pullRequest.assignees,
 						continueOnGitHub,
-						isAuthor: currentUser.login === pullRequest.author.login
+						isAuthor: currentUser.login === pullRequest.author.login,
 					},
 				});
 			})
@@ -431,8 +439,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			async function getMilestoneOptions(
 				folderRepoManager: FolderRepositoryManager,
-			): Promise<(vscode.QuickPickItem & { id: string; milestone: IMilestone })[]> {
-				return (await folderRepoManager.getMilestones()).items.map(result => {
+			): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
+				const milestones = await folderRepoManager.getMilestones();
+				if (!milestones.items.length) {
+					return [
+						{
+							label: 'No milestones created for this repository.',
+						},
+					];
+				}
+
+				return milestones.items.map(result => {
 					return {
 						label: result.milestone.title,
 						id: result.milestone.id,
@@ -448,7 +465,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				},
 			);
 
-			if (milestoneToAdd) {
+			if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
 				await this._item.updateMilestone(milestoneToAdd.id);
 				this._replyMessage(message, {
 					added: milestoneToAdd.milestone,
