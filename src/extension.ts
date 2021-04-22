@@ -186,7 +186,7 @@ async function init(
 
 	const experimentationService = await createExperimentationService(context, telemetry);
 	await experimentationService.initializePromise;
-	experimentationService.isCachedFlightEnabled('githubaa');
+	await experimentationService.isCachedFlightEnabled('githubaa');
 
 	/* __GDPR__
 		"startup" : {}
