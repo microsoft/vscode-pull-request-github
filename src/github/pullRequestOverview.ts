@@ -29,8 +29,8 @@ import { isInCodespaces, parseReviewers } from './utils';
 
 type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
 
-function isMilestoneQuickPickItem(x: any): x is MilestoneQuickPickItem {
-	return !!x.id && !!x.milestone;
+function isMilestoneQuickPickItem(x: vscode.QuickPickItem | MilestoneQuickPickItem): x is MilestoneQuickPickItem {
+	return !!(x as MilestoneQuickPickItem).id && !!(x as MilestoneQuickPickItem).milestone;
 }
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
