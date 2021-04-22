@@ -184,13 +184,14 @@ async function init(
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
+	const experimentationService = await createExperimentationService(context, telemetry);
+	await experimentationService.initializePromise;
+	await experimentationService.isCachedFlightEnabled('githubaa');
+
 	/* __GDPR__
 		"startup" : {}
 	*/
 	telemetry.sendTelemetryEvent('startup');
-
-	const experimentationService = await createExperimentationService(context, telemetry);
-	experimentationService.isCachedFlightEnabled('githubaa');
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
