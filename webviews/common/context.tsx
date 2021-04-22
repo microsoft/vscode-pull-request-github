@@ -199,6 +199,13 @@ export class PRContext {
 				return this.updatePR({ isCurrentlyCheckedOut: true });
 			case 'set-scroll':
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
+				return;
+			case 'pr.scrollToPendingReview':
+				const pendingReview = document.getElementById('pending-review');
+				if (pendingReview) {
+					pendingReview.scrollIntoView();
+				}
+				return;
 		}
 	};
 

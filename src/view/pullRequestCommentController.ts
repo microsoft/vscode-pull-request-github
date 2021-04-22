@@ -13,6 +13,7 @@ import { groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestModel, ReviewThreadChangeEvent } from '../github/pullRequestModel';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
@@ -389,19 +390,15 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		}
 	}
 
-	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
-		try {
-			await this.createOrReplyComment(thread, input, false, false);
-			await this.pullRequestModel.submitReview();
-			this.setContextKey(false);
-		} catch (e) {
-			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
-		}
-	}
 
-	public async deleteReview(): Promise<void> {
-		await this.pullRequestModel.deleteReview();
-		this.setContextKey(false);
+	public async openReview(): Promise<void> {
+		await PullRequestOverviewPanel.createOrShow(this._folderReposManager.context.extensionUri, this._folderReposManager, this.pullRequestModel);
+		PullRequestOverviewPanel.openReview();
+
+		/* __GDPR__
+			"pr.openDescription" : {}
+		*/
+		this._folderReposManager._telemetry.sendTelemetryEvent('pr.openDescription');
 	}
 
 	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {

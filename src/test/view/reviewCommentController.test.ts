@@ -26,6 +26,9 @@ import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
 import { DiffSide } from '../../common/comment';
+import { ReviewManager } from '../../view/reviewManager';
+import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
+import { MockExtensionContext } from '../mocks/mockExtensionContext';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -46,6 +49,7 @@ describe('ReviewCommentController', function () {
 	let manager: FolderRepositoryManager;
 	let activePullRequest: PullRequestModel;
 	let githubRepo: MockGitHubRepository;
+	let reviewManager: ReviewManager;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -58,7 +62,10 @@ describe('ReviewCommentController', function () {
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
-		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
+		const context = new MockExtensionContext();
+		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
+		const tree = new PullRequestChangesTreeDataProvider(context);
+		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return new MockGitHubRepository(r, cStore, telemetry, sinon);
 		});
@@ -137,7 +144,7 @@ describe('ReviewCommentController', function () {
 		const fileName = 'data/products.json';
 		const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 		const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
-		const reviewCommentController = new TestReviewCommentController(manager, repository, localFileChanges);
+		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, localFileChanges);
 
 		sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 		sinon.stub(activePullRequest, 'getReviewThreads').returns(
@@ -192,6 +199,7 @@ describe('ReviewCommentController', function () {
 			await activePullRequest.initializeReviewThreadCache();
 			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
 			const reviewCommentController = new TestReviewCommentController(
+				reviewManager,
 				manager,
 				repository,
 				localFileChanges,

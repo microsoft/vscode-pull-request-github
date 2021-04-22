@@ -141,8 +141,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
 
 	constructor(
+		public context: vscode.ExtensionContext,
 		private _repository: Repository,
-		private readonly _telemetry: ITelemetry,
+		public readonly _telemetry: ITelemetry,
 		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
 	) {

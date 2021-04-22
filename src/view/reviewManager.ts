@@ -552,6 +552,7 @@ export class ReviewManager {
 
 	private async registerCommentController() {
 		this._reviewCommentController = new ReviewCommentController(
+			this,
 			this._folderRepoManager,
 			this._repository,
 			this._localFileChanges,
@@ -801,6 +802,22 @@ export class ReviewManager {
 		}
 
 		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch);
+	}
+
+	public async openDescription(): Promise<void> {
+		const pullRequest = this._folderRepoManager.activePullRequest;
+		if (!pullRequest) {
+			return;
+		}
+
+		const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
+		await openDescription(
+			this._context,
+			this._telemetry,
+			pullRequest,
+			descriptionNode,
+			this._folderRepoManager,
+		);
 	}
 
 	get isCreatingPullRequest() {
