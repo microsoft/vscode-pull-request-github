@@ -141,8 +141,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
 
 	constructor(
+		public context: vscode.ExtensionContext,
 		private _repository: Repository,
-		private readonly _telemetry: ITelemetry,
+		public readonly telemetry: ITelemetry,
 		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
 	) {
@@ -749,7 +750,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		/* __GDPR__
 			"branch.delete" : {}
 		*/
-		this._telemetry.sendTelemetryEvent('branch.delete');
+		this.telemetry.sendTelemetryEvent('branch.delete');
 	}
 
 	// Keep track of how many pages we've fetched for each query, so when we reload we pull the same ones.
@@ -1039,7 +1040,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!upstream) {
 				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
 				if (remote) {
-					return new GitHubRepository(remote, this._credentialStore, this._telemetry);
+					return new GitHubRepository(remote, this._credentialStore, this.telemetry);
 				}
 
 				Logger.appendLine(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
@@ -1092,7 +1093,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
-			this._telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
+			this.telemetry.sendTelemetryEvent('pr.create.success', { isDraft: (params.draft || '').toString() });
 			return pullRequestModel;
 		} catch (e) {
 			if (e.message.indexOf('No commits between ') > -1) {
@@ -1150,7 +1151,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					"isDraft" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('pr.create.failure', {
+			this.telemetry.sendTelemetryErrorEvent('pr.create.failure', {
 				isDraft: (params.draft || '').toString(),
 			});
 
@@ -1178,7 +1179,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				"issue.create.success" : {
 				}
 			*/
-			this._telemetry.sendTelemetryEvent('issue.create.success');
+			this.telemetry.sendTelemetryEvent('issue.create.success');
 			return issueModel;
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Creating issue failed: ${e}`);
@@ -1186,7 +1187,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			/* __GDPR__
 				"issue.create.failure" : {}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('issue.create.failure');
+			this.telemetry.sendTelemetryErrorEvent('issue.create.failure');
 			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
 		}
 
@@ -1218,7 +1219,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				"issue.assign.success" : {
 				}
 			*/
-			this._telemetry.sendTelemetryEvent('issue.assign.success');
+			this.telemetry.sendTelemetryEvent('issue.assign.success');
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Assigning issue failed: ${e}`);
 
@@ -1226,7 +1227,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				"issue.assign.failure" : {
 				}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('issue.assign.failure');
+			this.telemetry.sendTelemetryErrorEvent('issue.assign.failure');
 			vscode.window.showWarningMessage(`Assigning issue failed: ${formatError(e)}`);
 		}
 	}
@@ -1305,7 +1306,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				/* __GDPR__
 					"pr.merge.success" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('pr.merge.success');
+				this.telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidMergePullRequest.fire();
 				return x.data;
 			})
@@ -1313,7 +1314,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				/* __GDPR__
 					"pr.merge.failure" : {}
 				*/
-				this._telemetry.sendTelemetryErrorEvent('pr.merge.failure');
+				this.telemetry.sendTelemetryErrorEvent('pr.merge.failure');
 				throw e;
 			});
 	}
@@ -1748,12 +1749,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
-		return new GitHubRepository(remote, credentialStore, this._telemetry);
+		return new GitHubRepository(remote, credentialStore, this.telemetry);
 	}
 
 	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
 		const uri = `https://github.com/${owner}/${name}`;
-		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry);
+		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this.telemetry);
 	}
 
 	async findUpstreamForItem(item: {

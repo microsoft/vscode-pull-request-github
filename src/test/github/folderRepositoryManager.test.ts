@@ -13,6 +13,7 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
+import { MockExtensionContext } from '../mocks/mockExtensionContext';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -26,7 +27,8 @@ describe('PullRequestManager', function () {
 		telemetry = new MockTelemetry();
 		const repository = new MockRepository();
 		const credentialStore = new CredentialStore(telemetry);
-		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
+		const context = new MockExtensionContext();
+		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
 	});
 
 	afterEach(function () {

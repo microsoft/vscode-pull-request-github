@@ -100,7 +100,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
 	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
 	return (
-		<div className="comment-container comment">
+		<div id={reviewIsPending ? 'pending-review' : null} className="comment-container comment">
 			<div className="review-comment-container">
 				<div className="review-comment-header">
 					<Spaced>

@@ -16,6 +16,7 @@ import { fromReviewUri, ReviewUriParams, toReviewUri } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
@@ -23,6 +24,7 @@ import {
 	updateCommentThreadLabel,
 	updateThread,
 } from '../github/utils';
+import { ReviewManager } from './reviewManager';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export class ReviewCommentController
@@ -49,6 +51,7 @@ export class ReviewCommentController
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 
 	constructor(
+		private _reviewManager: ReviewManager,
 		private _reposManager: FolderRepositoryManager,
 		private _repository: Repository,
 		private _localFileChanges: GitFileChangeNode[],
@@ -512,17 +515,9 @@ export class ReviewCommentController
 		}
 	}
 
-	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
-		try {
-			await this.createOrReplyComment(thread, input, false, false);
-			await this._reposManager.activePullRequest.submitReview();
-		} catch (e) {
-			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
-		}
-	}
-
-	async deleteReview(): Promise<void> {
-		await this._reposManager.activePullRequest!.deleteReview();
+	public async openReview(): Promise<void> {
+		await this._reviewManager.openDescription();
+		PullRequestOverviewPanel.scrollToReview();
 	}
 
 	// #endregion

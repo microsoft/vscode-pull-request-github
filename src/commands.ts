@@ -61,7 +61,7 @@ export async function openDescription(
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
 	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	// Create and show a new webview
-	PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
+	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
 
 	/* __GDPR__
 		"pr.openDescription" : {}
@@ -642,40 +642,15 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.finishReview', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('pr.openReview', async (reply: CommentReply) => {
 			/* __GDPR__
-			"pr.finishReview" : {}
-		*/
-			telemetry.sendTelemetryEvent('pr.finishReview');
+				"pr.openReview" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.openReview');
 			const handler = resolveCommentHandler(reply.thread);
 
 			if (handler) {
-				await handler.finishReview(reply.thread, reply.text);
-			}
-		}),
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.deleteReview', async (reply: CommentReply) => {
-			/* __GDPR__
-			"pr.deleteReview" : {}
-		*/
-			telemetry.sendTelemetryEvent('pr.deleteReview');
-			const shouldDelete = await vscode.window.showWarningMessage(
-				'Delete this review and all associated comments?',
-				{ modal: true },
-				'Delete',
-			);
-			if (shouldDelete) {
-				const handler = resolveCommentHandler(reply.thread);
-
-				if (handler) {
-					await handler.deleteReview();
-				}
-
-				if (!reply.thread.comments.length) {
-					reply.thread.dispose();
-				}
+				await handler.openReview(reply.thread);
 			}
 		}),
 	);

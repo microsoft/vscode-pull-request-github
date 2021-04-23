@@ -559,11 +559,6 @@
 				"enablement": "!commentIsEmpty"
 			},
 			{
-				"command": "pr.deleteReview",
-				"title": "Delete Review",
-				"category": "GitHub Pull Requests"
-			},
-			{
 				"command": "pr.editComment",
 				"title": "Edit Comment",
 				"category": "GitHub Pull Requests",
@@ -585,12 +580,6 @@
 				"title": "Delete Comment",
 				"category": "GitHub Pull Requests",
 				"icon": "$(trash)"
-			},
-			{
-				"command": "pr.finishReview",
-				"title": "Finish Review",
-				"category": "GitHub Pull Requests",
-				"enablement": "!commentIsEmpty"
 			},
 			{
 				"command": "pr.resolveReviewThread",
@@ -629,6 +618,11 @@
 				"title": "Mark File As Not Viewed",
 				"category": "GitHub Pull Requests",
 				"icon": "$(eye-closed)"
+			},
+			{
+				"command": "pr.openReview",
+				"title": "Open Review",
+				"category": "GitHub Pull Requests"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
@@ -929,10 +923,6 @@
 					"when": "false"
 				},
 				{
-					"command": "pr.deleteReview",
-					"when": "false"
-				},
-				{
 					"command": "pr.editComment",
 					"when": "false"
 				},
@@ -949,7 +939,7 @@
 					"when": "false"
 				},
 				{
-					"command": "pr.finishReview",
+					"command": "pr.openReview",
 					"when": "false"
 				},
 				{
@@ -1316,22 +1306,12 @@
 					"when": "commentController =~ /^github-review/ && !reviewInDraftMode"
 				},
 				{
-					"command": "pr.deleteReview",
-					"group": "inline@2",
-					"when": "commentController =~ /^github-browse/ && prInDraft"
-				},
-				{
-					"command": "pr.deleteReview",
-					"group": "inline@2",
-					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
-				},
-				{
-					"command": "pr.finishReview",
+					"command": "pr.openReview",
 					"group": "inline@3",
 					"when": "commentController =~ /^github-browse/ && prInDraft"
 				},
 				{
-					"command": "pr.finishReview",
+					"command": "pr.openReview",
 					"group": "inline@3",
 					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				},

@@ -86,6 +86,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	public static scrollToReview(): void {
+		if (this.currentPanel) {
+			this.currentPanel._postMessage({ command: 'pr.scrollToPendingReview' });
+		}
+	}
+
 	protected constructor(
 		extensionUri: vscode.Uri,
 		column: vscode.ViewColumn,

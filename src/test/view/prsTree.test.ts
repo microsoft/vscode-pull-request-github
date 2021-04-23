@@ -96,7 +96,7 @@ describe('GitHub Pull Requests view', function () {
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
 		const manager = new RepositoriesManager(
-			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)],
+			[new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore)],
 			credentialStore,
 			telemetry,
 		);
@@ -117,7 +117,7 @@ describe('GitHub Pull Requests view', function () {
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
 		const manager = new RepositoriesManager(
-			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)],
+			[new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore)],
 			credentialStore,
 			telemetry,
 		);
@@ -188,7 +188,7 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
+			const manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
 			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepStrictEqual(r, remote);
