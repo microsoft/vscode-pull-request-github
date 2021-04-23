@@ -524,7 +524,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				if (missingParentRemote) {
 					const upstreamAvailable = !this.repository.state.remotes.some(remote => remote.name === 'upstream');
 					const remoteName = upstreamAvailable ? 'upstream' : metadata.parent.owner.login;
-					await this.repository.addRemote(remoteName, metadata.parent.git_url);
+					await this.repository.addRemote(remoteName, metadata.parent.clone_url);
 				}
 			}
 		} catch (e) {
