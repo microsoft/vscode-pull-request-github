@@ -393,12 +393,12 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 	public async openReview(): Promise<void> {
 		await PullRequestOverviewPanel.createOrShow(this._folderReposManager.context.extensionUri, this._folderReposManager, this.pullRequestModel);
-		PullRequestOverviewPanel.openReview();
+		PullRequestOverviewPanel.scrollToReview();
 
 		/* __GDPR__
 			"pr.openDescription" : {}
 		*/
-		this._folderReposManager._telemetry.sendTelemetryEvent('pr.openDescription');
+		this._folderReposManager.telemetry.sendTelemetryEvent('pr.openDescription');
 	}
 
 	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {

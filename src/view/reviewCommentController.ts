@@ -517,7 +517,7 @@ export class ReviewCommentController
 
 	public async openReview(): Promise<void> {
 		await this._reviewManager.openDescription();
-		PullRequestOverviewPanel.openReview();
+		PullRequestOverviewPanel.scrollToReview();
 	}
 
 	// #endregion

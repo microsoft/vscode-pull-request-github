@@ -86,7 +86,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	public static openReview(): void {
+	public static scrollToReview(): void {
 		if (this.currentPanel) {
 			this.currentPanel._postMessage({ command: 'pr.scrollToPendingReview' });
 		}
