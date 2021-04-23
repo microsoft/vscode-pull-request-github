@@ -93,7 +93,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			compareBranch?.upstream?.remote !== this._compareBranch.upstream?.remote
 		) {
 			this._compareBranch = compareBranch;
-			void this.initializeParams(true);
+			void this.initializeParams();
 			this._onDidChangeCompareBranch.fire(this._compareBranch.name!);
 		}
 	}
