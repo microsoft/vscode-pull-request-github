@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.22
+
+- Added support for marking files as reviewed [ankitbko/vscode-pull-request-azdo#7](https://github.com/ankitbko/vscode-pull-request-azdo/issues/7)
+
 ## 0.0.21
 
 ### Changes

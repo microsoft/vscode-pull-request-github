@@ -9,6 +9,7 @@ This extension is inspired and based on [Github Pull Request Extension for VS Co
 - Reviewing PRs from within VS Code with in-editor commenting.
 - Validating PRs from within VS Code with easy checkouts.
 - Suggest edits to the PR Author. Author can apply edits directly from Description page.
+- Mark file as viewed when reviewing PR.
 
 You can read more about the basic features in my [blog](https://ankitbko.github.io/blog/2021/01/azdo-pr-vscode-extension/).
 
