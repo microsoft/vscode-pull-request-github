@@ -27,12 +27,12 @@ import { GitChangeType, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { fromPRUri, toPRUriAzdo } from '../../common/uri';
 import { uniqBy } from '../../common/utils';
-import { SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../../constants';
+import { SETTINGS_NAMESPACE, URI_SCHEME_PR, URI_SCHEME_RESOURCE } from '../../constants';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
 import { DescriptionNode } from './descriptionNode';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 /**
  * Thread data is raw data. It should be transformed to GHPRCommentThreads
@@ -118,7 +118,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 	}
 
 	constructor(
-		public parent: TreeNode | vscode.TreeView<TreeNode>,
+		public parent: TreeNodeParent,
 		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
@@ -149,6 +149,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 			}
 
 			this._fileChanges = await this.resolveFileChanges();
+			await this.pullRequestModel.getPullRequestFileViewState();
 
 			if (!this._inMemPRContentProvider) {
 				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(
@@ -592,7 +593,7 @@ export class PRNode extends TreeNode implements CommentHandler, vscode.Commentin
 
 				if (matchingCommentThreads.length === 0) {
 					added.push(thread);
-					if (thread.uri.scheme === 'file') {
+					if (thread.uri.scheme === URI_SCHEME_RESOURCE) {
 						thread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
 					}
 				}

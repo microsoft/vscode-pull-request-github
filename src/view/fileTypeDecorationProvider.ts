@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { GitChangeType } from '../common/file';
 import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
+import { URI_SCHEME_PR, URI_SCHEME_RESOURCE } from '../constants';
 
 export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[];
@@ -16,6 +17,9 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 	}
 
 	provideFileDecoration(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.FileDecoration> {
+		if (uri.scheme !== URI_SCHEME_RESOURCE && uri.scheme !== URI_SCHEME_PR) {
+			return;
+		}
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
 			return {

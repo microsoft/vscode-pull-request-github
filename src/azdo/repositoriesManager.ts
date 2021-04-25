@@ -6,11 +6,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
-import { Protocol } from '../common/protocol';
-import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { AzdoRepository } from './azdoRepository';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
@@ -185,15 +182,6 @@ export class RepositoriesManager implements vscode.Disposable {
 			return true;
 		}
 		return false;
-	}
-
-	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): AzdoRepository {
-		return new AzdoRepository(remote, credentialStore, this._telemetry);
-	}
-
-	createGitHubRepositoryFromOwnerName(owner: string, name: string): AzdoRepository {
-		const uri = `https://github.com/${owner}/${name}`;
-		return new AzdoRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry);
 	}
 
 	dispose() {

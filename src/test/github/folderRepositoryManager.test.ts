@@ -6,6 +6,7 @@ import { createMock } from 'ts-auto-mock';
 import { GitApiImpl } from '../../api/api1';
 import { AzdoRepository } from '../../azdo/azdoRepository';
 import { CredentialStore } from '../../azdo/credentials';
+import { FileReviewedStatusService } from '../../azdo/fileReviewedStatusService';
 import { FolderRepositoryManager, titleAndBodyFrom } from '../../azdo/folderRepositoryManager';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { convertAzdoPullRequestToRawPullRequest } from '../../azdo/utils';
@@ -20,6 +21,7 @@ describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
 	let manager: FolderRepositoryManager;
 	let telemetry: MockTelemetry;
+	let fileReviewedStatusService;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -29,7 +31,8 @@ describe('PullRequestManager', function () {
 		const repository = new MockRepository();
 		const secretStorage = createFakeSecretStorage();
 		const credentialStore = new CredentialStore(telemetry, secretStorage);
-		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
+		fileReviewedStatusService = sinon.createStubInstance(FileReviewedStatusService);
+		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore, fileReviewedStatusService);
 	});
 
 	afterEach(function () {
@@ -46,7 +49,7 @@ describe('PullRequestManager', function () {
 			const url = 'https://dev.azure.com.com/aaa/bbb/_git/bbb';
 			const protocol = new Protocol(url);
 			const remote = new Remote('origin', url, protocol);
-			const repository = new AzdoRepository(remote, manager.credentialStore, telemetry);
+			const repository = new AzdoRepository(remote, manager.credentialStore, fileReviewedStatusService, telemetry);
 			const prItem = await convertAzdoPullRequestToRawPullRequest(createMock<GitPullRequest>(), repository);
 			const pr = new PullRequestModel(telemetry, repository, remote, prItem);
 

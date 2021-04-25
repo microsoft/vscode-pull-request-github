@@ -9,12 +9,14 @@ import * as vscode from 'vscode';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { getPositionFromThread, removeLeadingSlash } from '../../azdo/utils';
+import { ViewedState } from '../../common/comment';
 import { DiffChangeType, DiffHunk } from '../../common/diffHunk';
 import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
 import { GitChangeType } from '../../common/file';
 import { asImageDataURI, EMPTY_IMAGE_URI, toResourceUri } from '../../common/uri';
+import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
 import { DecorationProvider } from '../treeDecorationProvider';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 /**
  * File change node whose content can not be resolved locally and we direct users to GitHub.
@@ -25,9 +27,11 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public command: vscode.Command;
 	public resourceUri: vscode.Uri;
 	public contextValue: string;
+	public childrenDisposables: vscode.Disposable[] = [];
+	private _viewed: ViewedState;
 
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -38,7 +42,8 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string,
 	) {
 		super();
-		this.contextValue = `filechange:${GitChangeType[status]}`;
+		const viewed = this.pullRequest.fileChangeViewedState[sha] ?? ViewedState.UNVIEWED;
+		this.contextValue = `filechange:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(fileName));
 		this.iconPath = vscode.ThemeIcon.File;
@@ -49,6 +54,31 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 			command: 'azdopr.openDiffView',
 			arguments: [this],
 		};
+
+		this.childrenDisposables.push(
+			this.pullRequest.onDidChangeFileViewedState(e => {
+				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileSHA === this.sha);
+				if (matchingChange) {
+					this.updateViewed(matchingChange.viewed);
+					this.refresh(this);
+				}
+			}),
+		);
+	}
+
+	updateViewed(viewed: ViewedState) {
+		if (this._viewed === viewed) {
+			return;
+		}
+
+		this._viewed = viewed;
+		this.contextValue = `filechange:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'}`;
+		FileViewedDecorationProvider.updateFileViewedState(
+			this.resourceUri,
+			this.pullRequest.getPullRequestId(),
+			this.fileName,
+			viewed,
+		);
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -68,8 +98,11 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
 
+	public childrenDisposables: vscode.Disposable[] = [];
+	private _viewed: ViewedState;
+
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -81,7 +114,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string,
 	) {
 		super();
-		this.contextValue = `filechange:${GitChangeType[status]}`;
+		const viewed = this.pullRequest.fileChangeViewedState[sha] ?? ViewedState.UNVIEWED;
+		this.contextValue = `filechange:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'}`;
 		this.label = path.basename(fileName);
 		this.description = path.relative('.', path.dirname(removeLeadingSlash(fileName)));
 		this.iconPath = vscode.ThemeIcon.File;
@@ -94,6 +128,32 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			this.pullRequest.getPullRequestId(),
 			this.fileName,
 			this.status,
+		);
+		this.updateViewed(viewed);
+
+		this.childrenDisposables.push(
+			this.pullRequest.onDidChangeFileViewedState(e => {
+				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileSHA === this.sha);
+				if (matchingChange) {
+					this.updateViewed(matchingChange.viewed);
+					this.refresh(this);
+				}
+			}),
+		);
+	}
+
+	updateViewed(viewed: ViewedState) {
+		if (this._viewed === viewed) {
+			return;
+		}
+
+		this._viewed = viewed;
+		this.contextValue = `filechange:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'}`;
+		FileViewedDecorationProvider.updateFileViewedState(
+			this.resourceUri,
+			this.pullRequest.getPullRequestId(),
+			this.fileName,
+			viewed,
 		);
 	}
 
@@ -195,7 +255,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
  */
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -223,7 +283,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
  */
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
-		public readonly parent: TreeNode | vscode.TreeView<TreeNode>,
+		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
@@ -233,6 +293,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly diffHunks: DiffHunk[],
 		public comments: GitPullRequestCommentThread[] = [],
 		public readonly sha?: string, // For GitFileChangeNode this is commit id
+		public readonly commitId?: string,
 	) {
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 		this.command = {

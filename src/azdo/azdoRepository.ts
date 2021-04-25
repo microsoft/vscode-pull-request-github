@@ -6,6 +6,7 @@ import { parseRemote, Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentController } from '../view/prCommentController';
 import { Azdo, CredentialStore } from './credentials';
+import { FileReviewedStatusService, FileViewedStatus } from './fileReviewedStatusService';
 import { IAccount, IGitHubRef } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import {
@@ -31,6 +32,7 @@ export class AzdoRepository implements vscode.Disposable {
 	constructor(
 		public remote: Remote,
 		private readonly _credentialStore: CredentialStore,
+		private readonly _fileReviewedStatusService: FileReviewedStatusService,
 		private readonly _telemetry: ITelemetry,
 	) {
 		// this.isGitHubDotCom = remote.host.toLowerCase() === 'github.com';
@@ -280,6 +282,14 @@ export class AzdoRepository implements vscode.Disposable {
 			Logger.debug(`List branches for ${this.remote.owner}/${this.remote.repositoryName} failed`, AzdoRepository.ID);
 			throw e;
 		}
+	}
+
+	getFileReviewedStatusForPr(prId: number) {
+		return this._fileReviewedStatusService.getFileReviewedStatusForPr(prId);
+	}
+
+	setFileReviewedStatusForPr(prId: number, fileViewedStatus: FileViewedStatus) {
+		this._fileReviewedStatusService.setFileReviewedStatusForPr(prId, fileViewedStatus);
 	}
 
 	async getAssignableUsers(): Promise<IAccount[]> {

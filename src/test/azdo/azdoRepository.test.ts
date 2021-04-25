@@ -9,11 +9,13 @@ import { Remote } from '../../common/remote';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { createFakeSecretStorage } from '../mocks/mockExtensionContext';
 import { MockTelemetry } from '../mocks/mockTelemetry';
+import { FileReviewedStatusService } from '../../azdo/fileReviewedStatusService';
 
 describe('AzdoRepository', function () {
 	let sinon: SinonSandbox;
 	let credentialStore: CredentialStore;
 	let telemetry: MockTelemetry;
+	let fileReviewedStatusService;
 
 	this.timeout(1000000);
 
@@ -29,6 +31,7 @@ describe('AzdoRepository', function () {
 
 		telemetry = new MockTelemetry();
 		credentialStore = new CredentialStore(telemetry, secretStorage);
+		fileReviewedStatusService = sinon.createStubInstance(FileReviewedStatusService);
 	});
 
 	afterEach(function () {
@@ -40,7 +43,7 @@ describe('AzdoRepository', function () {
 			await credentialStore.initialize();
 			const url = 'https://dev.azure.com/anksinha/test/_git/test';
 			const remote = new Remote('origin', url, new Protocol(url));
-			const azdoRepo = new AzdoRepository(remote, credentialStore, telemetry);
+			const azdoRepo = new AzdoRepository(remote, credentialStore, fileReviewedStatusService, telemetry);
 			const metadata = await azdoRepo.getMetadata();
 			expect(metadata?.name).to.be.eq('test');
 		});

@@ -380,6 +380,18 @@
 				"command": "azdopr.configureRemotes",
 				"title": "Configure Remotes...",
 				"category": "AzDO Pull Requests"
+			},
+			{
+				"command": "pr.markFileAsViewed",
+				"title": "Mark File As Viewed",
+				"category": "AzDO Pull Requests",
+				"icon": "$(check)"
+			},
+			{
+				"command": "pr.unmarkFileAsViewed",
+				"title": "Mark File As Not Viewed",
+				"category": "AzDO Pull Requests",
+				"icon": "$(eye-closed)"
 			}
 		],
 		"viewsWelcome": [
@@ -617,6 +629,16 @@
 				{
 					"command": "azdopr.openModifiedFile",
 					"when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange:MODIFY/"
+				},
+				{
+					"command": "pr.markFileAsViewed",
+					"when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange(.*):unviewed/",
+					"group": "inline"
+				},
+				{
+					"command": "pr.unmarkFileAsViewed",
+					"when": "view =~ /(azdopr|azdoprStatus):azdo/ && viewItem =~ /filechange(.*):viewed/",
+					"group": "inline"
 				}
 			],
 			"editor/title": [

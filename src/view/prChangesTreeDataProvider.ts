@@ -10,9 +10,11 @@ import { PullRequestModel } from '../azdo/pullRequestModel';
 import { SETTINGS_NAMESPACE } from '../constants';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
-import { TreeNode } from './treeNodes/treeNode';
+import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 
-export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode> {
+export class PullRequestChangesTreeDataProvider
+	extends vscode.Disposable
+	implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _disposables: vscode.Disposable[] = [];
@@ -54,7 +56,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		comments: GitPullRequestCommentThread[],
 	) {
 		const node: RepositoryChangesNode = new RepositoryChangesNode(
-			this._view,
+			this,
 			pullRequest,
 			pullRequestManager,
 			comments,

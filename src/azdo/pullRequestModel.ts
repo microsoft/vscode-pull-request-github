@@ -23,6 +23,7 @@ import {
 	VersionControlChangeType,
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
+import { ViewedState } from '../common/comment';
 import { parseDiffAzdo } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -33,6 +34,7 @@ import { toPRUriAzdo, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { SETTINGS_NAMESPACE } from '../constants';
 import { AzdoRepository } from './azdoRepository';
+import { FileViewedStatus, PRFileViewedState } from './fileReviewedStatusService';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	CommentPermissions,
@@ -53,14 +55,7 @@ export interface IResolvedPullRequestModel extends IPullRequestModel {
 	head: GitHubRef;
 }
 
-// interface NewCommentPosition {
-// 	path: string;
-// 	position: number;
-// }
-
-// interface ReplyCommentPosition {
-// 	inReplyTo: string;
-// }
+export type FileViewedStateChangeEvent = PRFileViewedState;
 
 export class PullRequestModel implements IPullRequestModel {
 	static ID = 'PullRequestModel';
@@ -71,6 +66,9 @@ export class PullRequestModel implements IPullRequestModel {
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
+	public fileChangeViewedState: { [key: string]: ViewedState } = {};
+	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
+	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
 
 	// Whether the pull request is currently checked out locally
 	public isActive: boolean;
@@ -711,6 +709,48 @@ export class PullRequestModel implements IPullRequestModel {
 	async canEdit(): Promise<boolean> {
 		const username = await this.azdoRepository.getAuthenticatedUserName();
 		return this.item.createdBy?.uniqueName === username;
+	}
+
+	async getPullRequestFileViewState(): Promise<{ [path: string]: ViewedState }> {
+		await this.azdoRepository.ensure();
+
+		const changed: FileViewedStatus[] = [];
+		const statuses = this.azdoRepository.getFileReviewedStatusForPr(this.getPullRequestId());
+		statuses.changed.forEach(n => {
+			if (this.fileChangeViewedState[n.fileSHA] !== n.fileSHA) {
+				changed.push({ fileSHA: n.fileSHA, viewed: n.viewed });
+			}
+
+			this.fileChangeViewedState[n.fileSHA] = n.viewed;
+		});
+
+		if (changed.length) {
+			this._onDidChangeFileViewedState.fire({ changed });
+		}
+
+		return this.fileChangeViewedState;
+	}
+
+	async markFileAsViewed(fileSHA: string): Promise<void> {
+		await this.azdoRepository.ensure();
+
+		const status: FileViewedStatus = { fileSHA: fileSHA, viewed: ViewedState.VIEWED };
+
+		this.azdoRepository.setFileReviewedStatusForPr(this.getPullRequestId(), status);
+
+		this.fileChangeViewedState[status.fileSHA] = ViewedState.VIEWED;
+		this._onDidChangeFileViewedState.fire({ changed: [status] });
+	}
+
+	async unmarkFileAsViewed(fileSHA: string): Promise<void> {
+		await this.azdoRepository.ensure();
+
+		const status: FileViewedStatus = { fileSHA: fileSHA, viewed: ViewedState.UNVIEWED };
+
+		this.azdoRepository.setFileReviewedStatusForPr(this.getPullRequestId(), status);
+
+		this.fileChangeViewedState[status.fileSHA] = ViewedState.UNVIEWED;
+		this._onDidChangeFileViewedState.fire({ changed: [status] });
 	}
 
 	public getDiffTarget(): string {

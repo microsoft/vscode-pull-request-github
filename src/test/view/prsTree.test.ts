@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { GitApiImpl } from '../../api/api1';
 import { IMetadata } from '../../azdo/azdoRepository';
 import { Azdo, CredentialStore } from '../../azdo/credentials';
+import { FileReviewedStatusService } from '../../azdo/fileReviewedStatusService';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { IRepository } from '../../azdo/interface';
 import { PullRequestGitHelper } from '../../azdo/pullRequestGitHelper';
@@ -30,6 +31,7 @@ describe('GitHub Pull Requests view', function () {
 	let telemetry: MockTelemetry;
 	let provider: PullRequestsTreeDataProvider;
 	let credentialStore: CredentialStore;
+	let fileReviewedStatusService;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -40,6 +42,7 @@ describe('GitHub Pull Requests view', function () {
 		telemetry = new MockTelemetry();
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		credentialStore = new CredentialStore(telemetry, createFakeSecretStorage());
+		fileReviewedStatusService = sinon.createStubInstance(FileReviewedStatusService);
 
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
 		// a dummy GitHub/Octokit object.
@@ -91,7 +94,7 @@ describe('GitHub Pull Requests view', function () {
 		repository.addRemote('origin', 'https://aaa@dev.azure.com/aaa/bbb/_git/bbb');
 
 		const manager = new RepositoriesManager(
-			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)],
+			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore, fileReviewedStatusService)],
 			credentialStore,
 			telemetry,
 		);
@@ -112,13 +115,10 @@ describe('GitHub Pull Requests view', function () {
 		repository.addRemote('origin', 'https://aaa@dev.azure.com/aaa/bbb/_git/bbb');
 
 		const manager = new RepositoriesManager(
-			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore)],
+			[new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore, fileReviewedStatusService)],
 			credentialStore,
 			telemetry,
 		);
-		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
-			return new MockAzdoRepository(remote, cStore, telemetry, sinon);
-		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.folderManagers[0].updateRepositories();
 		provider.initialize(manager as any);
@@ -200,9 +200,9 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
+			const manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore, fileReviewedStatusService);
 			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry);
-			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
+			sinon.stub(manager, 'createAzdoRepository').callsFake((r, cs) => {
 				assert.deepEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
 				return azdoRepository;

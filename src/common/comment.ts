@@ -39,3 +39,9 @@ export interface IComment {
 	reactions?: Reaction[];
 	threadId?: number;
 }
+
+export enum ViewedState {
+	DISMISSED = 'DISMISSED',
+	VIEWED = 'VIEWED',
+	UNVIEWED = 'UNVIEWED',
+}

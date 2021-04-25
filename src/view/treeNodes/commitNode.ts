@@ -11,7 +11,7 @@ import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { getGitChangeTypeFromVersionControlChangeType } from '../../common/diffHunk';
 import { toReviewUri } from '../../common/uri';
 import { GitFileChangeNode } from './fileChangeNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public sha: string;
@@ -20,7 +20,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public contextValue?: string;
 
 	constructor(
-		public parent: TreeNode | vscode.TreeView<TreeNode>,
+		public parent: TreeNodeParent,
 		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: GitCommitRef,
@@ -84,6 +84,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				),
 				[],
 				[], //matchingComments,
+				'',
 				this.commit.commitId,
 			);
 

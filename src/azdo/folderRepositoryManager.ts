@@ -22,6 +22,7 @@ import { formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID, SETTINGS_NAMESPACE, URI_SCHEME_PR } from '../constants';
 import { AzdoRepository } from './azdoRepository';
 import { CredentialStore } from './credentials';
+import { FileReviewedStatusService } from './fileReviewedStatusService';
 import { IAccount, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods } from './interface';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
@@ -132,6 +133,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		private readonly _telemetry: ITelemetry,
 		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
+		private _fileReviewedStatusService: FileReviewedStatusService,
 	) {
 		this._subs = [];
 		this._azdoRepositories = [];
@@ -460,7 +462,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const authenticatedRemotes = isAuthenticated ? activeRemotes : [];
 		authenticatedRemotes.forEach(remote => {
-			const repository = this.createGitHubRepository(remote, this._credentialStore);
+			const repository = this.createAzdoRepository(remote, this._credentialStore, this._fileReviewedStatusService);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
 		});
@@ -924,7 +926,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!upstream) {
 				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
 				if (remote) {
-					return new AzdoRepository(remote, this._credentialStore, this._telemetry);
+					return new AzdoRepository(remote, this._credentialStore, this._fileReviewedStatusService, this._telemetry);
 				}
 
 				Logger.appendLine(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
@@ -1460,8 +1462,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): AzdoRepository {
-		return new AzdoRepository(remote, credentialStore, this._telemetry);
+	createAzdoRepository(
+		remote: Remote,
+		credentialStore: CredentialStore,
+		fileReviewedStatusService: FileReviewedStatusService,
+	): AzdoRepository {
+		return new AzdoRepository(remote, credentialStore, fileReviewedStatusService, this._telemetry);
 	}
 
 	async findUpstreamForItem(item: {

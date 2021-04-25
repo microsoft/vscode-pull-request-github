@@ -9,7 +9,7 @@ import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { PRType } from '../../azdo/interface';
 import { ITelemetry } from '../../common/telemetry';
 import { CategoryTreeNode } from './categoryNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export interface IQueryInfo {
 	label: string;
@@ -21,7 +21,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 
 	constructor(
-		parent: TreeNode | vscode.TreeView<TreeNode>,
+		parent: TreeNodeParent,
 		uri: vscode.Uri,
 		private folderManager: FolderRepositoryManager,
 		private telemetry: ITelemetry,
@@ -40,11 +40,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		return WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this);
 	}
 
-	public static getCategoryTreeNodes(
-		folderManager: FolderRepositoryManager,
-		telemetry: ITelemetry,
-		parent: TreeNode | vscode.TreeView<TreeNode>,
-	) {
+	public static getCategoryTreeNodes(folderManager: FolderRepositoryManager, telemetry: ITelemetry, parent: TreeNodeParent) {
 		return [
 			new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest),
 			new CategoryTreeNode(parent, folderManager, telemetry, PRType.CreatedByMe),

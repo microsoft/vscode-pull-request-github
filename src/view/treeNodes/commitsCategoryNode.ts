@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
 import { CommitNode } from './commitNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Commits';
@@ -18,7 +18,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	private _comments: GitPullRequestCommentThread[];
 
 	constructor(
-		parent: TreeNode | vscode.TreeView<TreeNode>,
+		parent: TreeNodeParent,
 		reposManager: FolderRepositoryManager,
 		pr: PullRequestModel,
 		comments: GitPullRequestCommentThread[],

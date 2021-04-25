@@ -9,7 +9,7 @@ import * as pathUtils from 'path';
 import { EventEmitter, Uri, UriHandler } from 'vscode';
 import { Repository } from '../api/api';
 import { PullRequestModel as AzdoPullRequestModel } from '../azdo/pullRequestModel';
-import { URI_SCHEME_PR, URI_SCHEME_REVIEW } from '../constants';
+import { URI_SCHEME_PR, URI_SCHEME_RESOURCE, URI_SCHEME_REVIEW } from '../constants';
 import { GitChangeType } from './file';
 
 export interface ReviewUriParams {
@@ -121,6 +121,7 @@ export function toResourceUri(uri: Uri, prNumber: number, fileName: string, stat
 	};
 
 	return uri.with({
+		scheme: URI_SCHEME_RESOURCE,
 		query: JSON.stringify(params),
 	});
 }

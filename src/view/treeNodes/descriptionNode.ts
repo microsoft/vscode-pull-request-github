@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PullRequestModel } from '../../azdo/pullRequestModel';
-import { Revealable, TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;
@@ -13,7 +13,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public tooltip: string;
 
 	constructor(
-		public parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>,
+		public parent: TreeNodeParent,
 		public label: string,
 		public iconPath: string | vscode.Uri | { light: string | vscode.Uri; dark: string | vscode.Uri } | vscode.ThemeIcon,
 		public pullRequestModel: PullRequestModel,

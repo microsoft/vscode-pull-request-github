@@ -729,4 +729,24 @@ export function registerCommands(
 			tree.refresh(prNode);
 		}),
 	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: GitFileChangeNode) => {
+			try {
+				await treeNode.pullRequest.markFileAsViewed(treeNode.sha);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Marked file as viewed failed: ${e}`);
+			}
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: GitFileChangeNode) => {
+			try {
+				await treeNode.pullRequest.unmarkFileAsViewed(treeNode.sha);
+			} catch (e) {
+				vscode.window.showErrorMessage(`Marked file as not viewed failed: ${e}`);
+			}
+		}),
+	);
 }

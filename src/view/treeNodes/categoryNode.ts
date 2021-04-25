@@ -11,7 +11,7 @@ import { AuthenticationError } from '../../common/authentication';
 import { ITelemetry } from '../../common/telemetry';
 import { formatError } from '../../common/utils';
 import { PRNode } from './pullRequestNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -32,7 +32,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 	public type: PRCategoryActionType;
 	public command?: vscode.Command;
 
-	constructor(parent: TreeNode | vscode.TreeView<TreeNode>, type: PRCategoryActionType, node?: CategoryTreeNode) {
+	constructor(parent: TreeNodeParent, type: PRCategoryActionType, node?: CategoryTreeNode) {
 		super();
 		this.parent = parent;
 		this.type = type;
@@ -110,7 +110,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 
 	constructor(
-		public parent: TreeNode | vscode.TreeView<TreeNode>,
+		public parent: TreeNodeParent,
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		private _type: PRType,

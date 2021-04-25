@@ -6,14 +6,14 @@
 import * as vscode from 'vscode';
 import { GitChangeType } from '../../common/file';
 import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
-import { TreeNode } from './treeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = [];
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
 
-	constructor(public parent: TreeNode | vscode.TreeView<TreeNode>, public label: string) {
+	constructor(public parent: TreeNodeParent, public label: string) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 	}

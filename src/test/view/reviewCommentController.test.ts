@@ -18,6 +18,7 @@ import { Repository } from '../../api/api';
 import { GitApiImpl } from '../../api/api1';
 import { AzdoRepository } from '../../azdo/azdoRepository';
 import { CredentialStore } from '../../azdo/credentials';
+import { FileReviewedStatusService } from '../../azdo/fileReviewedStatusService';
 import { FolderRepositoryManager } from '../../azdo/folderRepositoryManager';
 import { CommentPermissions } from '../../azdo/interface';
 import { GHPRCommentThread } from '../../azdo/prComment';
@@ -74,6 +75,7 @@ describe('ReviewCommentController', function () {
 	let provider: PullRequestsTreeDataProvider;
 	let manager: FolderRepositoryManager;
 	let activePullRequest: PullRequestModel;
+	let fileReviewedStatusService;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -86,15 +88,13 @@ describe('ReviewCommentController', function () {
 		repository.addRemote('origin', 'git@dev.azure.com.com:aaa/aaa/bbb_git/bbb');
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
-		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore);
-		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
-			return new MockAzdoRepository(r, cStore, telemetry, sinon);
-		});
+		fileReviewedStatusService = sinon.createStubInstance(FileReviewedStatusService);
+		manager = new FolderRepositoryManager(repository, telemetry, new GitApiImpl(), credentialStore, fileReviewedStatusService);
 		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();
 
 		const pr = createMock<GitPullRequest>();
-		const repo = new AzdoRepository(remote, credentialStore, telemetry);
+		const repo = new AzdoRepository(remote, credentialStore, fileReviewedStatusService, telemetry);
 		activePullRequest = new PullRequestModel(
 			telemetry,
 			repo,
@@ -111,7 +111,7 @@ describe('ReviewCommentController', function () {
 
 	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri): GitFileChangeNode {
 		return new GitFileChangeNode(
-			provider.view,
+			provider,
 			activePullRequest as any,
 			GitChangeType.MODIFY,
 			fileName,
@@ -156,7 +156,7 @@ describe('ReviewCommentController', function () {
 			label: 'Start discussion',
 			dispose: () => {},
 			rawThread: createMock<GitPullRequestCommentThread>(),
-			canReply: true,
+			canReply: false,
 		};
 	}
 

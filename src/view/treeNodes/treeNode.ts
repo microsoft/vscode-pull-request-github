@@ -5,13 +5,17 @@
 
 import * as vscode from 'vscode';
 
-export interface Revealable<T> {
-	reveal(element: T, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
+export interface BaseTreeNode {
+	reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
+	refresh(treeNode?: TreeNode): void;
+	view: vscode.TreeView<TreeNode>;
 }
+
+export type TreeNodeParent = TreeNode | BaseTreeNode;
 
 export abstract class TreeNode implements vscode.Disposable {
 	childrenDisposables: vscode.Disposable[];
-	parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>;
+	parent: TreeNodeParent;
 	label?: string;
 
 	constructor() {}
@@ -31,6 +35,10 @@ export abstract class TreeNode implements vscode.Disposable {
 
 	async getChildren(): Promise<TreeNode[]> {
 		return [];
+	}
+
+	refresh(treeNode?: TreeNode): void {
+		return this.parent.refresh(treeNode);
 	}
 
 	dispose(): void {

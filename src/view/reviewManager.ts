@@ -432,7 +432,7 @@ export class ReviewManager {
 			);
 
 			const changedItem = new GitFileChangeNode(
-				this.changesInPrDataProvider.view,
+				this.changesInPrDataProvider,
 				pr,
 				change.status,
 				fileName,
@@ -441,6 +441,7 @@ export class ReviewManager {
 				originalFileUri,
 				diffHunks,
 				activeComments.filter(comment => comment.threadContext?.filePath === fileName),
+				change.status === GitChangeType.DELETE ? change.previousFileSHA : change.fileSHA,
 				headSha,
 			);
 			nodes.push(changedItem);
@@ -452,6 +453,7 @@ export class ReviewManager {
 	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
 			this._comments = ((await pr.getAllActiveThreadsBetweenAllIterations()) ?? []).filter(isUserThread);
+			await pr.getPullRequestFileViewState();
 
 			// TODO What is outdated comments?
 			const activeComments = this._comments;
@@ -485,8 +487,9 @@ export class ReviewManager {
 
 					const oldComments = commentsForFile[fileName];
 					const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, fileName));
+					const details = await this._repository.getObjectDetails(commit, fileName);
 					const obsoleteFileChange = new GitFileChangeNode(
-						this.changesInPrDataProvider.view,
+						this.changesInPrDataProvider,
 						pr,
 						GitChangeType.MODIFY,
 						fileName,
@@ -498,6 +501,7 @@ export class ReviewManager {
 						toReviewUri(uri, fileName, undefined, '', true, { base: true }, this._repository.rootUri),
 						diffHunks,
 						oldComments,
+						details.object,
 						commit,
 					);
 
@@ -1065,13 +1069,13 @@ export class ReviewManager {
 			.filter(change => change.fileName === path)
 			.filter(
 				fileChange =>
-					fileChange.sha === commit ||
-					(fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit,
+					fileChange.commitId === commit ||
+					(fileChange.parentSha ? fileChange.parentSha : `${fileChange.commitId}^`) === commit,
 			);
 
 		if (changedItems.length) {
 			const changedItem = changedItems[0];
-			const diffChangeTypeFilter = commit === changedItem.sha ? DiffChangeType.Delete : DiffChangeType.Add;
+			const diffChangeTypeFilter = commit === changedItem.commitId ? DiffChangeType.Delete : DiffChangeType.Add;
 			const ret = changedItem.diffHunks.map(diffHunk =>
 				diffHunk.diffLines.filter(diffLine => diffLine.type !== diffChangeTypeFilter).map(diffLine => diffLine.text),
 			);
@@ -1082,8 +1086,8 @@ export class ReviewManager {
 			.filter(change => change.fileName === path)
 			.filter(
 				fileChange =>
-					fileChange.sha === commit ||
-					(fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit,
+					fileChange.commitId === commit ||
+					(fileChange.parentSha ? fileChange.parentSha : `${fileChange.commitId}^`) === commit,
 			);
 
 		if (changedItems.length) {

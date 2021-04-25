@@ -696,7 +696,7 @@ export class ReviewCommentController
 			if (fileChange.filePath.scheme !== URI_SCHEME_REVIEW) {
 				// local file
 
-				if (fileChange.sha === query.commit) {
+				if (fileChange.commitId === query.commit) {
 					return true;
 				}
 			}

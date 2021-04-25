@@ -11,7 +11,7 @@ import { CommitsNode } from './commitsCategoryNode';
 import { DescriptionNode } from './descriptionNode';
 import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { FilesCategoryNode } from './filesCategoryNode';
-import { TreeNode } from './treeNode';
+import { BaseTreeNode, TreeNode } from './treeNode';
 
 export class RepositoryChangesNode extends DescriptionNode implements vscode.TreeItem {
 	private _filesCategoryNode?: FilesCategoryNode;
@@ -21,7 +21,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	private _disposables: vscode.Disposable[] = [];
 
 	constructor(
-		public parent: vscode.TreeView<TreeNode>,
+		public parent: BaseTreeNode,
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
 		private _comments: GitPullRequestCommentThread[],
@@ -38,7 +38,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		);
 
 		this._disposables.push(
-			this.parent.onDidChangeVisibility(_ => {
+			this.parent.view.onDidChangeVisibility(_ => {
 				const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
 				this.revealActiveEditorInTree(activeEditorUri);
 			}),
@@ -46,7 +46,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	}
 
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
-		if (this.parent.visible && activeEditorUri) {
+		if (this.parent.view.visible && activeEditorUri) {
 			const matchingFile = this._localFileChanges.find(change => change.filePath.toString() === activeEditorUri);
 			if (matchingFile) {
 				this.reveal(matchingFile, { select: true });

@@ -11,11 +11,13 @@ import { LiveShare } from 'vsls/vscode.js';
 import { Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { CredentialStore } from './azdo/credentials';
+import { FileReviewedStatusService } from './azdo/fileReviewedStatusService';
 import { FolderRepositoryManager } from './azdo/folderRepositoryManager';
 import { RepositoriesManager } from './azdo/repositoriesManager';
 import { AzdoUserManager } from './azdo/userManager';
 import { AzdoWorkItem } from './azdo/workItem';
 import { registerCommands } from './commands';
+import { LocalStorageService } from './common/localStorageService';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
@@ -59,6 +61,9 @@ async function init(
 	// 	}
 	// });
 
+	const localStorageService = new LocalStorageService(context.workspaceState);
+	const fileReviewedStatusService = new FileReviewedStatusService(localStorageService);
+
 	context.secrets.onDidChange(async e => {
 		if (e.key === credentialStore.getTokenKey()) {
 			await reposManager.clearCredentialCache();
@@ -98,7 +103,7 @@ async function init(
 	await userManager.ensure();
 	context.subscriptions.push(userManager);
 	const folderManagers = repositories.map(
-		repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore),
+		repository => new FolderRepositoryManager(repository, telemetry, git, credentialStore, fileReviewedStatusService),
 	);
 	context.subscriptions.push(...folderManagers);
 	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
@@ -129,7 +134,13 @@ async function init(
 
 	git.onDidOpenRepository(repo => {
 		const disposable = repo.state.onDidChange(() => {
-			const newFolderManager = new FolderRepositoryManager(repo, telemetry, git, credentialStore);
+			const newFolderManager = new FolderRepositoryManager(
+				repo,
+				telemetry,
+				git,
+				credentialStore,
+				fileReviewedStatusService,
+			);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
 				context,
