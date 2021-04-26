@@ -616,7 +616,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async deleteBranch(message: IRequestMessage<any>) {
 		const branchInfo = await this._folderRepositoryManager.getBranchNameForPullRequest(this._item);
-		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
+		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' | 'suspend' })[] = [];
 
 		if (this._item.isResolved()) {
 			const branchHeadRef = this._item.head.ref;
@@ -653,6 +653,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					picked: !!preferredRemoteDeletionMethod,
 				});
 			}
+		}
+
+		if (vscode.env.remoteName === 'codespaces') {
+			actions.push({
+				label: 'Suspend Codespace',
+				type: 'suspend'
+			});
 		}
 
 		if (!actions.length) {
@@ -698,6 +705,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						return await this._folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
 					case 'remote':
 						return this._folderRepositoryManager.repository.removeRemote(branchInfo!.remote!);
+					case 'suspend':
+						return vscode.commands.executeCommand('github.codespaces.disconnectSuspend');
 				}
 			});
 
