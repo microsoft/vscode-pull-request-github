@@ -84,6 +84,18 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.submitReview(message);
 			case 'pr.openOnGitHub':
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			case 'pr.checkout-default-branch':
+				return this.checkoutDefaultBranch(message);
+		}
+	}
+
+	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
+		try {
+			const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
+			await this._folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
+		} finally {
+			// Complete webview promise so that button becomes enabled again
+			this._replyMessage(message, {});
 		}
 	}
 
@@ -267,7 +279,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 	private async deleteBranch(message: IRequestMessage<any>) {
 		const branchInfo = await this._folderRepositoryManager.getBranchNameForPullRequest(this._item);
-		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' })[] = [];
+		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' | 'suspend' })[] = [];
 
 		if (this._item.isResolved()) {
 			const branchHeadRef = this._item.head.ref;
@@ -305,6 +317,13 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					picked: !!preferredRemoteDeletionMethod,
 				});
 			}
+		}
+
+		if (vscode.env.remoteName === 'codespaces') {
+			actions.push({
+				label: 'Suspend Codespace',
+				type: 'suspend'
+			});
 		}
 
 		if (!actions.length) {
@@ -353,6 +372,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						return this._folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
 					case 'remote':
 						return this._folderRepositoryManager.repository.removeRemote(branchInfo!.remote!);
+					case 'suspend':
+						return vscode.commands.executeCommand('github.codespaces.disconnectSuspend');
 				}
 			});
 

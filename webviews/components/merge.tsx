@@ -241,7 +241,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 					}}
 				>
 					<button disabled={isBusy} type="submit">
-						Delete branch
+						Delete branch...
 					</button>
 				</form>
 			</div>

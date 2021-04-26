@@ -50,10 +50,15 @@ textarea {
 
 .select-control,
 #merge-on-github,
-form {
+form,
+.button-container {
 	display: flex;
 	margin: auto;
 	max-width: 260px;
+	width: 100%;
+}
+
+.button-container button {
 	width: 100%;
 }
 
