@@ -621,7 +621,7 @@
 			},
 			{
 				"command": "pr.openReview",
-				"title": "Open Review",
+				"title": "Go to Review",
 				"category": "GitHub Pull Requests"
 			},
 			{
