@@ -52,6 +52,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		try {
 			if (this.childrenDisposables && this.childrenDisposables.length) {
 				this.childrenDisposables.forEach(dp => dp.dispose());
+				this.childrenDisposables = [];
 			}
 
 			const descriptionNode = new DescriptionNode(
@@ -415,5 +416,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		this._commentController = undefined;
 
 		this._disposables.forEach(d => d.dispose());
+		this._disposables = [];
 	}
 }

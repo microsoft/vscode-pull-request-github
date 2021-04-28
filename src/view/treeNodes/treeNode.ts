@@ -44,6 +44,7 @@ export abstract class TreeNode implements vscode.Disposable {
 	dispose(): void {
 		if (this.childrenDisposables) {
 			this.childrenDisposables.forEach(dispose => dispose.dispose());
+			this.childrenDisposables = [];
 		}
 	}
 }
