@@ -487,21 +487,34 @@ export class ReviewCommentController
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, true);
 
 		try {
-			const fileName = this.gitRelativeRootPath(thread.uri.path);
-			const side = this.getCommentSide(thread);
-			this._pendingCommentThreadAdds.push(thread);
+			if (!thread.comments.length) {
+				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const side = this.getCommentSide(thread);
+				this._pendingCommentThreadAdds.push(thread);
 
-			// If the thread is on the workspace file, make sure the position
-			// is properly adjusted to account for any local changes.
-			let line: number;
-			if (side === DiffSide.RIGHT) {
-				const diff = await this.getContentDiff(thread.uri, fileName);
-				line = mapNewPositionToOld(diff, thread.range.start.line);
+				// If the thread is on the workspace file, make sure the position
+				// is properly adjusted to account for any local changes.
+				let line: number;
+				if (side === DiffSide.RIGHT) {
+					const diff = await this.getContentDiff(thread.uri, fileName);
+					line = mapNewPositionToOld(diff, thread.range.start.line);
+				} else {
+					line = thread.range.start.line;
+				}
+
+				await this._reposManager.activePullRequest!.createReviewThread(input, fileName, line + 1, side);
 			} else {
-				line = thread.range.start.line;
+				const comment = thread.comments[0];
+				if (comment instanceof GHPRComment) {
+					await this._reposManager.activePullRequest.createCommentReply(
+						input,
+						comment._rawComment.graphNodeId,
+						false,
+					);
+				} else {
+					throw new Error('Cannot reply to temporary comment');
+				}
 			}
-
-			await this._reposManager.activePullRequest!.createReviewThread(input, fileName, line + 1, side);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Starting review failed: ${e}`);
 
