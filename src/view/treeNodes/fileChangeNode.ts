@@ -6,8 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
-import { DiffChangeType, DiffHunk } from '../../common/diffHunk';
-import { getDiffLineByPosition, getZeroBased } from '../../common/diffPositionMapping';
+import { DiffHunk } from '../../common/diffHunk';
 import { GitChangeType } from '../../common/file';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
@@ -371,16 +370,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			.sort((a, b) => a.line - b.line);
 
 		if (reviewThreadsForNode.length) {
-			const diffLine = getDiffLineByPosition(this.diffHunks, reviewThreadsForNode[0].originalLine);
-			if (diffLine) {
-				const lineNumber = Math.max(
-					getZeroBased(
-						diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber,
-					),
-					0,
-				);
-				options.selection = new vscode.Range(lineNumber, 0, lineNumber, 0);
-			}
+			options.selection = new vscode.Range(reviewThreadsForNode[0].originalLine, 0, reviewThreadsForNode[0].originalLine, 0);
 		}
 
 		return {
