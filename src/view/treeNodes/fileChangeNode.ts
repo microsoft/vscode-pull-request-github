@@ -370,7 +370,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			.sort((a, b) => a.line - b.line);
 
 		if (reviewThreadsForNode.length) {
-			options.selection = new vscode.Range(reviewThreadsForNode[0].line, 0, reviewThreadsForNode[0].line, 0);
+			options.selection = new vscode.Range(reviewThreadsForNode[0].originalLine, 0, reviewThreadsForNode[0].originalLine, 0);
 		}
 
 		return {
