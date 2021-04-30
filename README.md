@@ -15,9 +15,9 @@ This extension allows you to review and manage GitHub pull requests and issues i
 - A "Start working on issue" action which can create a branch for you.
 - Code actions to create issues from "todo" comments.
 
-![PR Demo](.readme/demo.gif)
+![PR Demo](https://github.com/Microsoft/vscode-pull-request-github/raw/main/.readme/demo.gif)
 
-![Issue Demo](.readme/issueDemo.gif)
+![Issue Demo](https://github.com/Microsoft/vscode-pull-request-github/raw/main/.readme/issueDemo.gif)
 
 # Getting Started
 
