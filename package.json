@@ -1495,5 +1495,8 @@
 		"vscode-tas-client": "^0.1.17",
 		"vsls": "^0.3.967"
 	},
+	"extensionDependencies": [
+		"vscode.git"
+	],
 	"license": "MIT"
 }
