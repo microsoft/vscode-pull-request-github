@@ -484,10 +484,11 @@ export class ReviewCommentController
 	}
 
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
+		const hasExistingComments = thread.comments.length;
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, true);
 
 		try {
-			if (!thread.comments.length) {
+			if (!hasExistingComments) {
 				const fileName = this.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
