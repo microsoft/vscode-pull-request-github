@@ -2,8 +2,17 @@
 
 ## 0.26.0
 - Files that have been marked as viewed on GitHub show a checkmark decoration in the pull request tree. Each file in the tree has an inline action for marking it as viewed or not viewed.
+
+![Hovering over a file in the pull request tree, an inline action to mark the file as viewed appears. When marked as viewed, the file is updated with a checkmark decoration and the action changes to mark as not viewed ](documentation/changelog/0.26.0/mark-as-viewed.gif)
+
 - Conversations can be marked as resolved within the editor. Resolved conversations collapse by default.
+
+-![The comment editor widget in a file. The comment thread has actions to "Resolve Conversation" and "Add Comment".](documentation/changelog/0.26.0/resolve-conversation.png)
+
 - The commented decoration in tree views has been updated to a speech bubble for clarity.
+
+-![The pull request tree, showing a file decorated with a speech bubble indicating it has been commented on.](documentation/changelog/0.26.0/file-decoration.png)
+
 - The "Delete Review" and "Finish Review" buttons have been removed from the comment widget. Instead there is a "Go to Review" button which shows all comments in the pending review and allows choosing how to submit the review, as an approval or requesting changes.
 - The "All" category of the pull request tree is expanded by default.
 - Thanks to @icatalina, there is a new `githubPullRequests.terminalLinksHandler` setting to choose how create pull request links should be handled from the terminal.
