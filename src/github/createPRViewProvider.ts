@@ -107,22 +107,29 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	private async getTitle(): Promise<string> {
-		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name.
+		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name, as long as it is not the default branch.
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
 		// compare branch if it has a GitHub remote.
 		const origin = await this._folderRepositoryManager.getOrigin(this._compareBranch);
 
-		let hasMultipleCommits = false;
+		let useBranchName = false;
 		if (this.compareBranch.upstream) {
 			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
 			if (headRepo) {
 				const headBranch = `${headRepo.remote.owner}:${this.compareBranch.name ?? ''}`;
-				const commits = await origin.compareCommits(this._pullRequestDefaults.base, headBranch);
-				hasMultipleCommits = commits.total_commits > 1;
+				try {
+					const commits = await origin.compareCommits(`${this._pullRequestDefaults.owner}:${this._pullRequestDefaults.base}`, headBranch);
+					if (commits.total_commits > 1) {
+						const defaultBranch = await origin.getDefaultBranch();
+						useBranchName = defaultBranch !== this._compareBranch.name;
+					}
+				} catch (e) {
+					// Ignore and fall back to commit message
+				}
 			}
 		}
 
-		if (hasMultipleCommits) {
+		if (useBranchName) {
 			return this.compareBranch.name ?? '';
 		} else {
 			return this.compareBranch.name
