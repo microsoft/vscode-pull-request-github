@@ -29,7 +29,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			{!isIssue ? (
 				<div id="reviewers" className="section">
 					<div className="section-header">
-						<div>Reviewers</div>
+						<div className="section-title">Reviewers</div>
 						{hasWritePermission ? (
 							<button
 								title="Add Reviewers"
@@ -47,7 +47,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 							<Reviewer key={state.reviewer.login} {...state} canDelete={hasWritePermission} />
 						))
 					) : (
-						<div>None yet</div>
+						<div className="section-placeholder">None yet</div>
 					)}
 				</div>
 			) : (
@@ -55,7 +55,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			)}
 			<div id="assignees" className="section">
 				<div className="section-header">
-					<div>Assignees</div>
+					<div className="section-title">Assignees</div>
 					{hasWritePermission ? (
 						<button
 							title="Add Assignees"
@@ -92,13 +92,13 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						);
 					})
 				) : (
-					<div>None yet</div>
+					<div className="section-placeholder">None yet</div>
 				)}
 			</div>
 
 			<div id="labels" className="section">
 				<div className="section-header">
-					<div>Labels</div>
+					<div className="section-title">Labels</div>
 					{hasWritePermission ? (
 						<button
 							title="Add Labels"
@@ -114,12 +114,12 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				{labels.length ? (
 					labels.map(label => <Label key={label.name} {...label} canDelete={hasWritePermission} />)
 				) : (
-					<div>None yet</div>
+					<div className="section-placeholder">None yet</div>
 				)}
 			</div>
 			<div id="milestone" className="section">
 				<div className="section-header">
-					<div>Milestone</div>
+					<div className="section-title">Milestone</div>
 					{hasWritePermission ? (
 						<button
 							title="Add Milestone"
@@ -152,7 +152,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						) : null}
 					</div>
 				) : (
-					<div>No milestone</div>
+					<div className="section-placeholder">No milestone</div>
 				)}
 			</div>
 		</div>

@@ -406,6 +406,14 @@ body .overview-title .button-group button {
 	display: flex;
 }
 
+.section-header .section-title {
+	font-weight: bold;
+}
+
+.section-placeholder {
+	font-style: italic;
+}
+
 .section button {
 	margin-left: auto;
 	padding: 0;
@@ -472,6 +480,7 @@ body .overview-title .button-group button {
 	align-items: center;
 	line-height: 18px;
 	overflow: hidden;
+	flex-grow: 1;
 }
 
 .commit .commit-message .avatar-container,
@@ -498,8 +507,7 @@ body .overview-title .button-group button {
 }
 
 .commit .sha {
-	align-self: center;
-	margin-left: auto;
+	min-width: 50px;
 }
 
 .merged .merged-message .message,
@@ -530,6 +538,7 @@ body .overview-title .button-group button {
 	width: 100%;
 	display: flex;
 	margin: 0;
+	align-items: center;
 }
 
 .comment-container[data-type='commit'] {
