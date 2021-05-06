@@ -27,7 +27,11 @@
 	],
 	"browser": "./dist/browser/extension",
 	"main": "./dist/extension",
-	"workspaceTrust": { "request": "never" },
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
 	"contributes": {
 		"configuration": {
 			"type": "object",
