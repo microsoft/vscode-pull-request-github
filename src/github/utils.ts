@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -13,6 +14,7 @@ import { Resource } from '../common/resources';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
+import { AuthProvider } from './credentials';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
@@ -141,7 +143,7 @@ export function convertRESTUserToAccount(
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: githubRepository.isGitHubDotCom ? user.avatar_url : undefined,
+		avatarUrl: getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id, githubRepository.remote.authProviderId),
 	};
 }
 
@@ -431,14 +433,15 @@ function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
 }
 
 function parseAuthor(
-	author: { login: string; url: string; avatarUrl: string } | null,
+	author: { login: string; url: string; avatarUrl: string; email?: string } | null,
 	githubRepository: GitHubRepository,
 ): IAccount {
 	if (author) {
 		return {
 			login: author.login,
 			url: author.url,
-			avatarUrl: githubRepository.isGitHubDotCom ? author.avatarUrl : undefined,
+			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, author.email, githubRepository.remote.authProviderId),
+			email: author.email
 		};
 	} else {
 		return {
@@ -500,7 +503,7 @@ export function parseGraphQLPullRequest(
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
 		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository),
 		milestone: parseMilestone(graphQLPullRequest.milestone),
-		assignees: graphQLPullRequest.assignees?.nodes,
+		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
 	};
 }
 
@@ -536,7 +539,7 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		title: issue.title,
 		createdAt: issue.createdAt,
 		updatedAt: issue.updatedAt,
-		assignees: issue.assignees.nodes,
+		assignees: issue.assignees.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
 		user: parseAuthor(issue.author, githubRepository),
 		labels: issue.labels.nodes,
 		repositoryName: issue.repository?.name,
@@ -923,4 +926,26 @@ export function getPRFetchQuery(repo: string, user: string, query: string): stri
 
 export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
+}
+
+export function getEnterpriseUri(): vscode.Uri | undefined {
+	try {
+		return vscode.Uri.parse(vscode.workspace.getConfiguration('github-enterprise').get<string>('uri') || '', true);
+	} catch {
+		// ignore
+	}
+}
+
+export function hasEnterpriseUri(): boolean {
+	return !!getEnterpriseUri();
+}
+
+export function generateGravatarUrl(gravatarId: string, size: number = 200): string | undefined {
+	return !!gravatarId ? `https://www.gravatar.com/avatar/${gravatarId}?s=${size}&d=retro` : undefined;
+}
+
+export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string, authProviderId: AuthProvider): string | undefined {
+	return authProviderId === AuthProvider.github ? avatarUrl : generateGravatarUrl(
+		crypto.createHash('md5').update(email?.trim()?.toLowerCase()).digest('hex')
+	);
 }

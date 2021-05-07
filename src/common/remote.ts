@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Repository } from '../api/api';
+import { AuthProvider } from '../github/credentials';
+import { getEnterpriseUri } from '../github/utils';
 import { Protocol } from './protocol';
 
 export class Remote {
@@ -20,6 +22,10 @@ export class Remote {
 	public get normalizedHost(): string {
 		const normalizedUri = this.gitProtocol.normalizeUri();
 		return `${normalizedUri!.scheme}://${normalizedUri!.authority}`;
+	}
+
+	public get authProviderId(): AuthProvider {
+		return this.host === getEnterpriseUri()?.authority ? AuthProvider['github-enterprise'] : AuthProvider.github;
 	}
 
 	constructor(

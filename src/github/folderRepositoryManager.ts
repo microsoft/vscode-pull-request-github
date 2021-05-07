@@ -18,7 +18,7 @@ import { formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
-import { CredentialStore } from './credentials';
+import { AuthProvider, CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
 import { IAccount, ILabel, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
@@ -468,13 +468,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		const activeRemotes = await this.getActiveRemotes();
-		const isAuthenticated = this._credentialStore.isAuthenticated();
+		const isAuthenticated = this._credentialStore.isAuthenticated(AuthProvider.github) || this._credentialStore.isAuthenticated(AuthProvider['github-enterprise']);
 		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
 
 		const repositories: GitHubRepository[] = [];
 		const resolveRemotePromises: Promise<void>[] = [];
 
-		const authenticatedRemotes = isAuthenticated ? activeRemotes : [];
+		const authenticatedRemotes = activeRemotes.filter(remote => this._credentialStore.isAuthenticated(remote.authProviderId));
 		authenticatedRemotes.forEach(remote => {
 			const repository = this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
@@ -1233,7 +1233,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	getCurrentUser(issueModel: IssueModel): IAccount {
-		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(), issueModel.githubRepository);
+		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(issueModel.githubRepository.remote.authProviderId), issueModel.githubRepository);
 	}
 
 	async mergePullRequest(

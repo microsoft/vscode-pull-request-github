@@ -43,6 +43,7 @@ export interface AbbreviatedIssueComment {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		email?: string
 	};
 	body: string;
 	databaseId: number;
@@ -387,6 +388,8 @@ export interface PullRequest {
 		nodes: {
 			login: string;
 			url: string;
+			email: string;
+			avatarUrl: string;
 		}[];
 	};
 	author: {

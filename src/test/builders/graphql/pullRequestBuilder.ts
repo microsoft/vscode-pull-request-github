@@ -37,6 +37,8 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 				nodes: {
 					default: [
 						{
+							avatarUrl: undefined,
+							email: undefined,
 							login: 'me',
 							url: 'https://github.com/me',
 						},
