@@ -655,7 +655,7 @@
 			},
 			{
 				"command": "issue.openIssue",
-				"title": "Open Issue",
+				"title": "Open Issue on GitHub",
 				"category": "GitHub Issues",
 				"icon": "$(globe)"
 			},
