@@ -34,7 +34,10 @@ export interface PullRequest {
 	state: GithubItemStateEnum;
 	events: TimelineEvent[];
 	isCurrentlyCheckedOut: boolean;
+	isRemoteBaseDeleted?: boolean;
 	base: string;
+	isRemoteHeadDeleted?: boolean;
+	isLocalHeadDeleted?: boolean;
 	head: string;
 	labels: ILabel[];
 	assignees: IAccount[];

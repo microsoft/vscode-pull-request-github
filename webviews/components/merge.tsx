@@ -220,7 +220,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 	const { deleteBranch } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
-	if (pr.head === 'UNKNOWN') {
+	if (pr.isRemoteHeadDeleted !== false && pr.isLocalHeadDeleted !== false) {
 		return <div />;
 	} else {
 		return (

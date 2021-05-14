@@ -156,21 +156,23 @@ describe('GitHub Pull Requests view', function () {
 							p.title('zero');
 							p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg'));
 							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
+							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
 						}),
-					);
-				});
-			}).pullRequest;
-			const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository);
-			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
+						);
+					});
+				}).pullRequest;
+				const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository);
+				const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
 
-			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
-				builder.pullRequest(pr => {
-					pr.repository(r =>
+				const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
+					builder.pullRequest(pr => {
+						pr.repository(r =>
 						r.pullRequest(p => {
 							p.number(2222);
 							p.title('one');
 							p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
 							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
+							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
 						}),
 					);
 				});

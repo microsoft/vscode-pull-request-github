@@ -418,18 +418,15 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 	return reactions;
 }
 
-function parseRef(ref: GraphQL.Ref | undefined): IGitHubRef | undefined {
-	if (ref) {
-		return {
-			label: `${ref.repository.owner.login}:${ref.name}`,
-			ref: ref.name,
-			sha: ref.target.oid,
-			repo: {
-				cloneUrl: ref.repository.url,
-			},
-		};
-	}
-	return undefined;
+function parseRef(refName: string, oid: string, repository: GraphQL.RefRepository): IGitHubRef | undefined {
+	return {
+		label: `${repository.owner.login}:${refName}`,
+		ref: refName,
+		sha: oid,
+		repo: {
+			cloneUrl: repository.url,
+		},
+	};
 }
 
 function parseAuthor(
@@ -493,8 +490,10 @@ export function parseGraphQLPullRequest(
 		title: graphQLPullRequest.title,
 		createdAt: graphQLPullRequest.createdAt,
 		updatedAt: graphQLPullRequest.updatedAt,
-		head: parseRef(graphQLPullRequest.headRef),
-		base: parseRef(graphQLPullRequest.baseRef),
+		isRemoteHeadDeleted: !graphQLPullRequest.headRef,
+		head: parseRef(graphQLPullRequest.headRefName, graphQLPullRequest.headRefOid, graphQLPullRequest.headRepository),
+		isRemoteBaseDeleted: !graphQLPullRequest.baseRef,
+		base: parseRef(graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable),
@@ -565,8 +564,10 @@ export function parseGraphQLIssuesRequest(
 		title: graphQLPullRequest.title,
 		createdAt: graphQLPullRequest.createdAt,
 		updatedAt: graphQLPullRequest.updatedAt,
-		head: parseRef(graphQLPullRequest.headRef),
-		base: parseRef(graphQLPullRequest.baseRef),
+		isRemoteHeadDeleted: !graphQLPullRequest.headRef,
+		head: parseRef(graphQLPullRequest.headRefName, graphQLPullRequest.headRefOid, graphQLPullRequest.headRepository),
+		isRemoteBaseDeleted: !graphQLPullRequest.baseRef,
+		base: parseRef(graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable),

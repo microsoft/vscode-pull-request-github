@@ -1,16 +1,18 @@
 import { createBuilderClass, createLink } from '../base';
-import { PullRequestResponse, Ref } from '../../../github/graphql';
+import { PullRequestResponse, Ref, RefRepository } from '../../../github/graphql';
 
 import { RateLimitBuilder } from './rateLimitBuilder';
 
+const RefRepositoryBuilder = createBuilderClass<RefRepository>()({
+	owner: createLink<RefRepository['owner']>()({
+		login: { default: 'me' },
+	}),
+	url: { default: 'https://github.com/owner/repo' },
+});
+
 const RefBuilder = createBuilderClass<Ref>()({
 	name: { default: 'main' },
-	repository: createLink<Ref['repository']>()({
-		owner: createLink<Ref['repository']['owner']>()({
-			login: { default: 'me' },
-		}),
-		url: { default: 'https://github.com/owner/repo' },
-	}),
+	repository: { linked: RefRepositoryBuilder },
 	target: createLink<Ref['target']>()({
 		oid: { default: '0000000000000000000000000000000000000000' },
 	}),
@@ -53,7 +55,13 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			createdAt: { default: '2019-01-01T10:00:00Z' },
 			updatedAt: { default: '2019-01-01T11:00:00Z' },
 			headRef: { linked: RefBuilder },
+			headRefName: { default: 'pr-branch' },
+			headRefOid: { default: '0000000000000000000000000000000000000000' },
+			headRepository: { linked: RefRepositoryBuilder },
 			baseRef: { linked: RefBuilder },
+			baseRefName: { default: 'main'},
+			baseRefOid: { default: '0000000000000000000000000000000000000000' },
+			baseRepository: { linked: RefRepositoryBuilder },
 			labels: createLink<LabelConn>()({
 				nodes: { default: [] },
 			}),

@@ -308,8 +308,24 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			headRef {
 				...Ref
 			}
+			headRefName
+			headRefOid
+			headRepository {
+				owner {
+					login
+				}
+				url
+			}
 			baseRef {
 				...Ref
+			}
+			baseRefName
+			baseRefOid
+			baseRepository {
+				owner {
+					login
+				}
+				url
 			}
 			labels(first: 50) {
 				nodes {
