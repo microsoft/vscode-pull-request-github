@@ -77,16 +77,6 @@ export function setState(pullRequest: PullRequest): void {
 
 	if (oldPullRequest && oldPullRequest.number && oldPullRequest.number === pullRequest.number) {
 		pullRequest.pendingCommentText = oldPullRequest.pendingCommentText;
-
-		// if(pullRequest.isRemoteHeadDeleted == null) {
-		// 	pullRequest.isRemoteHeadDeleted = oldPullRequest.isRemoteHeadDeleted;
-		// }
-		// if(pullRequest.isLocalHeadDeleted == null) {
-		// 	pullRequest.isLocalHeadDeleted = oldPullRequest.isLocalHeadDeleted;
-		// }
-		// if(pullRequest.isRemoteBaseDeleted == null) {
-		// 	pullRequest.isRemoteBaseDeleted = oldPullRequest.isRemoteBaseDeleted;
-		// }
 	}
 
 	if (pullRequest) {
