@@ -153,7 +153,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
+	public isRemoteHeadDeleted?: boolean;
 	public head: GitHubRef | null;
+	public isRemoteBaseDeleted?: boolean;
 	public base: GitHubRef;
 
 	protected updateState(state: string) {
@@ -169,10 +171,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.isDraft = item.isDraft;
 		this.suggestedReviewers = item.suggestedReviewers;
 
+		if (item.isRemoteHeadDeleted != null) {
+			this.isRemoteHeadDeleted = item.isRemoteHeadDeleted;
+		}
 		if (item.head) {
 			this.head = new GitHubRef(item.head.ref, item.head.label, item.head.sha, item.head.repo.cloneUrl);
 		}
 
+		if (item.isRemoteBaseDeleted != null) {
+			this.isRemoteBaseDeleted = item.isRemoteBaseDeleted;
+		}
 		if (item.base) {
 			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl);
 		}

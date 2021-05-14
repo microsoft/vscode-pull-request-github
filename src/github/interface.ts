@@ -102,7 +102,9 @@ export interface Issue {
 
 export interface PullRequest extends Issue {
 	isDraft?: boolean;
+	isRemoteHeadDeleted?: boolean;
 	head?: IGitHubRef;
+	isRemoteBaseDeleted?: boolean;
 	base?: IGitHubRef;
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;

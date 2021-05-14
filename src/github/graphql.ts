@@ -351,14 +351,15 @@ export interface UpdatePullRequestResponse {
 	};
 }
 
+export interface RefRepository {
+	owner: {
+		login: string;
+	};
+	url: string;
+}
 export interface Ref {
 	name: string;
-	repository: {
-		owner: {
-			login: string;
-		};
-		url: string;
-	};
+	repository: RefRepository;
 	target: {
 		oid: string;
 	};
@@ -403,7 +404,13 @@ export interface PullRequest {
 	createdAt: string;
 	updatedAt: string;
 	headRef?: Ref;
+	headRefName: string;
+	headRefOid: string;
+	headRepository: RefRepository;
 	baseRef?: Ref;
+	baseRefName: string;
+	baseRefOid: string;
+	baseRepository: RefRepository;
 	labels: {
 		nodes: {
 			name: string;
