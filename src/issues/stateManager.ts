@@ -505,7 +505,7 @@ export class StateManager {
 		return state.issues[`${issueNumber}`] ?? {};
 	}
 
-	setSavedIssueState(issue: IssueModel, issueState: IssueState) {
+	async setSavedIssueState(issue: IssueModel, issueState: IssueState) {
 		const state: IssuesState = this.getSavedState();
 		state.issues[`${issue.number}`] = { ...issueState, stateModifiedTime: new Date().valueOf() };
 		if (issueState.branch) {
@@ -518,6 +518,6 @@ export class StateManager {
 				repositoryName: issue.remote.repositoryName,
 			};
 		}
-		this.context.workspaceState.update(ISSUES_KEY, JSON.stringify(state));
+		return this.context.workspaceState.update(ISSUES_KEY, JSON.stringify(state));
 	}
 }
