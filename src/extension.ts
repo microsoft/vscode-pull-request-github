@@ -234,7 +234,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 		await credentialStore.initialize(AuthProvider['github-enterprise']);
 	}
 
-	const builtInGitProvider = registerBuiltinGitProvider(credentialStore, apiImpl);
+	const builtInGitProvider = await registerBuiltinGitProvider(credentialStore, apiImpl);
 	if (builtInGitProvider) {
 		context.subscriptions.push(builtInGitProvider);
 	}
