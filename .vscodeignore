@@ -21,7 +21,6 @@ webviews/**
 azure-pipeline.*
 **/tsconfig*.json
 *.tsbuildinfo
-tslint.json
 **/webpack.config*.js
 yarn.lock
 **/*.map
@@ -31,4 +30,3 @@ yarn.lock
 **/*.bak
 package.insiders.json
 README.insiders.md
-
