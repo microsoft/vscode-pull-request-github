@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.0
+
+- Thanks to a community PR from @kabel, there is support for GitHub Enterprise. See [the discussion in the PR](https://github.com/microsoft/vscode/pull/115940) for how to get set up.
+
 ## 0.26.0
 - Files that have been marked as viewed on GitHub show a checkmark decoration in the pull request tree. Each file in the tree has an inline action for marking it as viewed or not viewed.
 
