@@ -251,10 +251,13 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	Logger.appendLine('Looking for git repository');
 
 	const repositories = apiImpl.repositories;
+	Logger.appendLine(`Found ${repositories.length} repositories during activation`);
+
 	if (repositories.length > 0) {
 		await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise);
 	} else {
 		onceEvent(apiImpl.onDidOpenRepository)(async r => {
+			Logger.appendLine(`Repository ${r.rootUri} opened`);
 			await init(context, apiImpl, credentialStore, [r], prTree, liveshareApiPromise);
 		});
 	}
