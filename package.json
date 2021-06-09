@@ -1011,14 +1011,6 @@
 					"when": "false"
 				},
 				{
-					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes && github:authenticated"
-				},
-				{
-					"command": "issue.openGithubPermalink",
-					"when": "github:hasGitHubRemotes && github:authenticated"
-				},
-				{
 					"command": "issue.issueCompletion",
 					"when": "false"
 				},
