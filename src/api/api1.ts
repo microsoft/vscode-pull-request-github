@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
+import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
 import { API, IGit, Repository } from './api';
 
@@ -94,6 +95,7 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	}
 
 	registerGitProvider(provider: IGit): vscode.Disposable {
+		Logger.appendLine(`Registering git provider`);
 		const handle = this._nextHandle();
 		this._providers.set(handle, provider);
 
