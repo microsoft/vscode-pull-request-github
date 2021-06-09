@@ -157,10 +157,10 @@ function convertHexToRgb(hex: string): { r: number; g: number; b: number } | und
 	const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
 	return result
 		? {
-				r: parseInt(result[1], 16),
-				g: parseInt(result[2], 16),
-				b: parseInt(result[3], 16),
-		  }
+			r: parseInt(result[1], 16),
+			g: parseInt(result[2], 16),
+			b: parseInt(result[3], 16),
+		}
 		: undefined;
 }
 
@@ -445,9 +445,17 @@ export async function createGithubPermalink(
 		return { permalink: undefined, error: "The current file isn't part of repository." };
 	}
 
-	const log = await repository.log({ maxEntries: 1, path: document.uri.fsPath });
-	if (log.length === 0) {
-		return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.' };
+	let commit: Commit | undefined;
+	let commitHash: string | undefined;
+	try {
+		const log = await repository.log({ maxEntries: 1, path: document.uri.fsPath });
+		if (log.length === 0) {
+			return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.' };
+		}
+		commit = log[0];
+		commitHash = log[0].hash;
+	} catch (e) {
+		commitHash = repository.state.HEAD?.commit;
 	}
 
 	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
@@ -461,14 +469,15 @@ export async function createGithubPermalink(
 		resolve(undefined);
 	});
 
-	let upstream: Remote | undefined = await Promise.race([
-		getUpstream(repository, log[0]),
+	let upstream: Remote | undefined = commit ? await Promise.race([
+		getUpstream(repository, commit),
 		new Promise<Remote | undefined>(resolve => {
 			setTimeout(() => {
 				resolve(fallbackUpstream);
 			}, 2000);
 		}),
-	]);
+	]) : await fallbackUpstream;
+
 	if (!upstream || !upstream.fetchUrl) {
 		// Check fallback
 		upstream = await fallbackUpstream;
@@ -478,9 +487,8 @@ export async function createGithubPermalink(
 	}
 	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
 	return {
-		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${
-			log[0].hash
-		}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`,
+		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
+			}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`,
 		error: undefined,
 	};
 }
