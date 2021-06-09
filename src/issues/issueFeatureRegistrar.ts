@@ -908,9 +908,10 @@ ${body ?? ''}\n
 		const allLabels = (await folderManager.getLabels(undefined, createParams)).map(label => label.name);
 		const newLabels: string[] = [];
 		const filteredLabels: string[] = [];
-		createParams.labels?.forEach(label => {
-			if (typeof label !== 'string') {
-				label = label.name;
+		createParams.labels?.forEach(paramLabel => {
+			let label = typeof paramLabel === 'string' ? paramLabel : paramLabel.name;
+			if (!label) {
+				return;
 			}
 
 			if (allLabels.includes(label)) {

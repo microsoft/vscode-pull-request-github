@@ -372,7 +372,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 									filterText:
 										`${prRelatedUsersMap[user].login}` +
 										(prRelatedUsersMap[user].name &&
-										prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login
+											prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login
 											? `_${prRelatedUsersMap[user].name!.toLowerCase().replace(' ', '_')}`
 											: ''),
 									sortText: `0_${prRelatedUsersMap[user].login}`,
@@ -514,7 +514,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		try {
 			const origin = await this.getOrigin();
 			const metadata = await origin.getMetadata();
-			if (metadata.fork) {
+			if (metadata.fork && metadata.parent) {
 				const parentUrl = new Protocol(metadata.parent.git_url);
 				const missingParentRemote = !this._githubRepositories.some(
 					repo =>
@@ -524,8 +524,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				if (missingParentRemote) {
 					const upstreamAvailable = !this.repository.state.remotes.some(remote => remote.name === 'upstream');
-					const remoteName = upstreamAvailable ? 'upstream' : metadata.parent.owner.login;
-					await this.repository.addRemote(remoteName, metadata.parent.clone_url);
+					const remoteName = upstreamAvailable ? 'upstream' : metadata.parent.owner?.login;
+					if (remoteName) {
+						await this.repository.addRemote(remoteName, metadata.parent.clone_url);
+					}
 				}
 			}
 		} catch (e) {
@@ -674,8 +676,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const repo = issue
 			? issue.githubRepository
 			: this._githubRepositories.find(
-					r => r.remote.owner === repoInfo?.owner && r.remote.repositoryName === repoInfo?.repo,
-			  );
+				r => r.remote.owner === repoInfo?.owner && r.remote.repositoryName === repoInfo?.repo,
+			);
 		if (!repo) {
 			throw new Error(`No matching repository found for getting labels.`);
 		}
@@ -728,7 +730,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		let remoteName: string | undefined = undefined;
 		try {
 			remoteName = await this.repository.getConfig(`branch.${pullRequest.localBranchName}.remote`);
-		} catch (e) {}
+		} catch (e) { }
 
 		if (!remoteName) {
 			return;
@@ -988,12 +990,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const origin = await this.getOrigin(branch);
 		const meta = await origin.getMetadata();
-		const parent = meta.fork
+		const parent = (meta.fork && meta.parent)
 			? meta.parent
 			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
 
 		return {
-			owner: parent.owner.login,
+			owner: parent.owner!.login,
 			repo: parent.name,
 			base: parent.default_branch,
 		};
@@ -1059,9 +1061,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return !rest.length // Is there only one GitHub remote?
 			? first // I GUESS THAT'S WHAT WE'RE GOING WITH, THEN.
 			: // Otherwise, let's try...
-			  this.findRepo(byRemoteName('origin')) || // by convention
-					this.findRepo(ownedByMe) || // bc maybe we can push there
-					first; // out of raw desperation
+			this.findRepo(byRemoteName('origin')) || // by convention
+			this.findRepo(ownedByMe) || // bc maybe we can push there
+			first; // out of raw desperation
 	}
 
 	findRepo(where: Predicate<GitHubRepository>): GitHubRepository | undefined {
@@ -1258,8 +1260,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				if (
 					ahead &&
 					(await vscode.window.showWarningMessage(
-						`You have ${ahead} unpushed ${
-							ahead > 1 ? 'commits' : 'commit'
+						`You have ${ahead} unpushed ${ahead > 1 ? 'commits' : 'commit'
 						} on this PR branch.\n\nWould you like to proceed anyway?`,
 						{ modal: true },
 						'Yes',
@@ -1358,17 +1359,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const activePRUrl = this.activePullRequest && this.activePullRequest.base.repositoryCloneUrl;
 				const matchesActiveBranch = activePRUrl
 					? activePRUrl.owner === value.metadata.owner &&
-					  activePRUrl.repositoryName === value.metadata.repositoryName &&
-					  this.activePullRequest &&
-					  this.activePullRequest.number === value.metadata.prNumber
+					activePRUrl.repositoryName === value.metadata.repositoryName &&
+					this.activePullRequest &&
+					this.activePullRequest.number === value.metadata.prNumber
 					: false;
 
 				if (!matchesActiveBranch) {
 					actions.push({
 						label: `${key}`,
-						description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${
-							value.metadata.prNumber
-						}`,
+						description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata.prNumber
+							}`,
 						picked: false,
 						metadata: value.metadata!,
 					});
@@ -1401,7 +1401,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					});
 
 					action.legacy = data.repository.pullRequest.state !== 'OPEN';
-				} catch {}
+				} catch { }
 
 				return action;
 			}),

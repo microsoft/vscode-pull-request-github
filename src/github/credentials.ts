@@ -207,7 +207,7 @@ export class CredentialStore implements vscode.Disposable {
 	public getCurrentUser(authProviderId: AuthProvider): OctokitCommon.PullsGetResponseUser {
 		const github = this.getHub(authProviderId);
 		const octokit = github?.octokit;
-		return octokit && github.currentUser;
+		return (octokit && github?.currentUser)!;
 	}
 
 	private async setCurrentUser(github: GitHub): Promise<void> {
@@ -227,9 +227,13 @@ export class CredentialStore implements vscode.Disposable {
 
 	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
 		let baseUrl = 'https://api.github.com';
+		let enterpriseServerUri: vscode.Uri | undefined;
 		if (authProviderId === AuthProvider['github-enterprise']) {
-			const serverUri = getEnterpriseUri();
-			baseUrl = `${serverUri.scheme}://${serverUri.authority}/api/v3`;
+			enterpriseServerUri = getEnterpriseUri();
+		}
+
+		if (enterpriseServerUri) {
+			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
 		}
 
 		const octokit = new Octokit({
@@ -241,10 +245,10 @@ export class CredentialStore implements vscode.Disposable {
 			baseUrl: baseUrl,
 		});
 
-		if (authProviderId === AuthProvider['github-enterprise']) {
-			const serverUri = getEnterpriseUri();
-			baseUrl = `${serverUri.scheme}://${serverUri.authority}/api`;
+		if (enterpriseServerUri) {
+			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api`;
 		}
+
 		const graphql = new ApolloClient({
 			link: link(baseUrl, token || ''),
 			cache: new InMemoryCache(),

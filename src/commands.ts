@@ -215,7 +215,9 @@ export function registerCommands(
 					return;
 				}
 			}
-			return vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
+			if (e.blobUrl) {
+				return vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
+			}
 		}),
 	);
 

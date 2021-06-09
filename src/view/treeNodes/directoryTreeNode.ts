@@ -81,7 +81,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		// sort
 		dirs.sort((a, b) => (a.label < b.label ? -1 : 1));
-		files.sort((a, b) => (a.label < b.label ? -1 : 1));
+		files.sort((a, b) => (a.label! < b.label! ? -1 : 1));
 
 		this.children = [...dirs, ...files];
 	}

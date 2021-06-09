@@ -34,7 +34,7 @@ export class DiffLine {
 		public positionInHunk: number,
 		private _raw: string,
 		public endwithLineBreak: boolean = true,
-	) {}
+	) { }
 }
 
 export function getDiffChangeType(text: string) {
@@ -60,7 +60,7 @@ export class DiffHunk {
 		public newLineNumber: number,
 		public newLength: number,
 		public positionInHunk: number,
-	) {}
+	) { }
 }
 
 export const DIFF_HUNK_HEADER = /^@@ \-(\d+)(,(\d+))?( \+(\d+)(,(\d+)?)?)? @@/;
@@ -178,9 +178,9 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 export function parsePatch(patch: string): DiffHunk[] {
 	const diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
-	const diffHunks = [];
+	const diffHunks: DiffHunk[] = [];
 
-	const right = [];
+	const right: string[] = [];
 	while (!diffHunkIter.done) {
 		const diffHunk = diffHunkIter.value;
 		diffHunks.push(diffHunk);
@@ -206,9 +206,9 @@ export function getModifiedContentFromDiffHunk(originalContent: string, patch: s
 	const left = originalContent.split(/\r?\n/);
 	const diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
-	const diffHunks = [];
+	const diffHunks: DiffHunk[] = [];
 
-	const right = [];
+	const right: string[] = [];
 	let lastCommonLine = 0;
 	while (!diffHunkIter.done) {
 		const diffHunk: DiffHunk = diffHunkIter.value;

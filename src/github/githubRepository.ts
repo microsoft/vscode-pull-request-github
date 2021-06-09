@@ -188,7 +188,7 @@ export class GitHubRepository implements vscode.Disposable {
 		Logger.debug(`Fetch metadata - enter`, GitHubRepository.ID);
 		if (this._metadata) {
 			Logger.debug(
-				`Fetch metadata ${this._metadata.owner.login}/${this._metadata.name} - done`,
+				`Fetch metadata ${this._metadata.owner?.login}/${this._metadata.name} - done`,
 				GitHubRepository.ID,
 			);
 			return this._metadata;
@@ -393,7 +393,7 @@ export class GitHubRepository implements vscode.Disposable {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					assignee: this._credentialStore.getCurrentUser(remote.authProviderId).login,
+					assignee: this._credentialStore.getCurrentUser(remote.authProviderId)?.login,
 				},
 			});
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
@@ -433,7 +433,7 @@ export class GitHubRepository implements vscode.Disposable {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					assignee: this._credentialStore.getCurrentUser(remote.authProviderId).login,
+					assignee: this._credentialStore.getCurrentUser(remote.authProviderId)?.login,
 				},
 			});
 			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
@@ -750,7 +750,7 @@ export class GitHubRepository implements vscode.Disposable {
 		Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
 		const { query, remote, schema } = await this.ensure();
 
-		let after = null;
+		let after: string | null = null;
 		let hasNextPage = false;
 		const ret: IAccount[] = [];
 
@@ -793,7 +793,7 @@ export class GitHubRepository implements vscode.Disposable {
 		Logger.debug(`Fetch assignable users - enter`, GitHubRepository.ID);
 		const { query, remote, schema } = await this.ensure();
 
-		let after = null;
+		let after: string | null = null;
 		let hasNextPage = false;
 		const ret: IAccount[] = [];
 

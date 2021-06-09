@@ -109,7 +109,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		const reviewThreads = this.pullRequestModel.reviewThreadsCache;
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 		editors.forEach(editor => {
-			const { fileName, isBase } = fromPRUri(editor.document.uri);
+			const { fileName, isBase } = fromPRUri(editor.document.uri)!;
 			if (threadsByPath[fileName]) {
 				this._commentThreadCache[this.getCommentThreadCacheKey(fileName, isBase)] = threadsByPath[fileName]
 					.filter(
@@ -147,7 +147,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this._openPREditors = prEditors;
 
 		removed.forEach(editor => {
-			const { fileName, isBase } = fromPRUri(editor.document.uri);
+			const { fileName, isBase } = fromPRUri(editor.document.uri)!;
 			const key = this.getCommentThreadCacheKey(fileName, isBase);
 			const threads = this._commentThreadCache[key] || [];
 			threads.forEach(t => t.dispose());
@@ -168,20 +168,20 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				return samePath && sameLine;
 			});
 
-			let newThread: GHPRCommentThread;
+			let newThread: GHPRCommentThread | undefined = undefined;
 			if (index > -1) {
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.threadId = thread.id;
-				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread));
+				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread!));
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = this.getPREditors(vscode.window.visibleTextEditors);
 				const matchingEditor = openPREditors.find(editor => {
 					const query = fromPRUri(editor.document.uri);
 					const sameSide =
-						(thread.diffSide === DiffSide.RIGHT && !query.isBase) ||
-						(thread.diffSide === DiffSide.LEFT && query.isBase);
-					return query.fileName === fileName && sameSide;
+						(thread.diffSide === DiffSide.RIGHT && !query?.isBase) ||
+						(thread.diffSide === DiffSide.LEFT && query?.isBase);
+					return query?.fileName === fileName && sameSide;
 				});
 
 				if (matchingEditor) {
@@ -199,6 +199,9 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				}
 			}
 
+			if (!newThread) {
+				return;
+			}
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
 			if (this._commentThreadCache[key]) {
 				this._commentThreadCache[key].push(newThread);
@@ -243,7 +246,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 	private getCommentSide(thread: GHPRCommentThread): DiffSide {
 		const query = fromPRUri(thread.uri);
-		return query.isBase ? DiffSide.LEFT : DiffSide.RIGHT;
+		return query?.isBase ? DiffSide.LEFT : DiffSide.RIGHT;
 	}
 
 	public async createOrReplyComment(

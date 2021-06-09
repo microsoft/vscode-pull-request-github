@@ -347,7 +347,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			if (readContentFromDiffHunk) {
 				if (params.isBase) {
 					// left
-					const left = [];
+					const left: string[] = [];
 					for (let i = 0; i < fileChange.diffHunks.length; i++) {
 						for (let j = 0; j < fileChange.diffHunks[i].diffLines.length; j++) {
 							const diffLine = fileChange.diffHunks[i].diffLines[j];
@@ -365,7 +365,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 					return left.join('\n');
 				} else {
-					const right = [];
+					const right: string[] = [];
 					for (let i = 0; i < fileChange.diffHunks.length; i++) {
 						for (let j = 0; j < fileChange.diffHunks[i].diffLines.length; j++) {
 							const diffLine = fileChange.diffHunks[i].diffLines[j];

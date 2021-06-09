@@ -13,6 +13,7 @@ import { SinonSandbox, createSandbox } from 'sinon';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { RefType } from '../../api/api';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
@@ -45,10 +46,10 @@ describe('PullRequestGitHelper', function () {
 					.number(100)
 					.user(u => u.login('me'))
 					.base(b => {
-						b.repo(r => r.clone_url('git@github.com:owner/name.git'));
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
 					})
 					.head(h => {
-						h.repo(r => r.clone_url('git@github.com:you/name.git'));
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:you/name.git'));
 						h.ref('my-branch');
 					})
 					.build(),

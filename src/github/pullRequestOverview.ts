@@ -215,7 +215,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						base: pullRequest.base.label,
 						isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 						isLocalHeadDeleted: !branchInfo,
-						head: pullRequest.head.label,
+						head: pullRequest.head?.label ?? '',
 						repositoryDefaultBranch: defaultBranch,
 						canEdit: canEdit,
 						hasWritePermission,
@@ -374,7 +374,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
-		const skipList: Set<string> = new Set([...this._item.assignees.map(assignee => assignee.login)]);
+		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
 
 		const assignees: (vscode.QuickPickItem & { assignee: IAccount })[] = [];
 		for (const suggestedReviewer of suggestedReviewers) {
@@ -511,7 +511,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			if (assigneesToAdd) {
 				const addedAssignees: IAccount[] = assigneesToAdd.map(item => item.assignee);
-				this._item.assignees = this._item.assignees.concat(addedAssignees);
+				this._item.assignees = this._item.assignees?.concat(addedAssignees);
 
 				await this._item.updateAssignees(addedAssignees.map(assignee => assignee.login));
 
@@ -541,8 +541,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			await this._item.deleteAssignees(message.args);
 
-			const index = this._item.assignees.findIndex(assignee => assignee.login === message.args);
-			this._item.assignees.splice(index, 1);
+			const index = this._item.assignees?.findIndex(assignee => assignee.login === message.args) ?? -1;
+			this._item.assignees?.splice(index, 1);
 
 			this._replyMessage(message, {});
 		} catch (e) {

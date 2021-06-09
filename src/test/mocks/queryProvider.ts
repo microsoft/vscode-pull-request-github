@@ -77,12 +77,12 @@ export class QueryProvider {
 					i < accessorPath.length - 1
 						? {}
 						: this._sinon.stub().callsFake((...variables) => {
-								throw new Error(
-									`Unexpected octokit query: ${accessorPath.join('.')}(${variables
-										.map(v => inspect(v))
-										.join(', ')})`,
-								);
-						  });
+							throw new Error(
+								`Unexpected octokit query: ${accessorPath.join('.')}(${variables
+									.map(v => inspect(v))
+									.join(', ')})`,
+							);
+						});
 				currentStub[accessor] = nextStub;
 			}
 			currentStub = nextStub;
@@ -111,7 +111,7 @@ export class QueryProvider {
 		}
 	}
 
-	emulateGraphQLMutation<T>(m: MutationOptions): FetchResult<T> {
+	emulateGraphQLMutation<T>(m: MutationOptions<T, OperationVariables>): FetchResult<T> {
 		const cannedResponses = this._graphqlMutationResponses.get(m.mutation) || [];
 		const cannedResponse = cannedResponses.find(
 			each =>
@@ -121,8 +121,7 @@ export class QueryProvider {
 		if (cannedResponse) {
 			return cannedResponse.result;
 		} else {
-			if (cannedResponses.length > 0)
-			{
+			if (cannedResponses.length > 0) {
 				let message = 'Variables did not match any expected queries:\n';
 				for (const { variables } of cannedResponses) {
 					message += `  ${inspect(variables, { depth: 3 })}\n`;

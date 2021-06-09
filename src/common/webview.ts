@@ -45,13 +45,16 @@ export class WebviewBase {
 	}
 
 	public initialize(): void {
-		this._disposables.push(this._webview?.onDidReceiveMessage(
+		const disposable = this._webview?.onDidReceiveMessage(
 			async message => {
 				await this._onDidReceiveMessage(message);
 			},
 			null,
 			this._disposables,
-		));
+		);
+		if (disposable) {
+			this._disposables.push(disposable);
+		}
 	}
 
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>): Promise<any> {

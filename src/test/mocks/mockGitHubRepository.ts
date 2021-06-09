@@ -1,5 +1,5 @@
 import { SinonSandbox } from 'sinon';
-import { QueryOptions, ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus } from 'apollo-boost';
+import { QueryOptions, ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, OperationVariables } from 'apollo-boost';
 
 import { GitHubRepository } from '../../github/githubRepository';
 import { QueryProvider } from './queryProvider';
@@ -43,7 +43,7 @@ export class MockGitHubRepository extends GitHubRepository {
 	query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> =>
 		this.queryProvider.emulateGraphQLQuery(query);
 
-	mutate = async <T>(mutation: MutationOptions): Promise<FetchResult<T>> =>
+	mutate = async <T>(mutation: MutationOptions<T, OperationVariables>): Promise<FetchResult<T>> =>
 		this.queryProvider.emulateGraphQLMutation(mutation);
 
 	buildMetadata(block: (repoBuilder: RepositoryBuilder, userBuilder: UserBuilder) => void) {

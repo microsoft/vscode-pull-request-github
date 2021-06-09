@@ -13,7 +13,7 @@ export namespace OctokitCommon {
 	export type PullsCreateReviewResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews']['response']['data'];
 	export type PullsCreateReviewCommentResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/comments']['response']['data'];
 	export type PullsGetResponseData = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}']['response']['data'];
-	export type PullsGetResponseUser = PullsGetResponseData['user'];
+	export type PullsGetResponseUser = Exclude<PullsGetResponseData['user'], null>;
 	export type PullsListCommitsResponseData = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/commits']['response']['data'];
 	export type PullsListRequestedReviewersResponseData = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers']['response']['data'];
 	export type PullsListResponseItem = Endpoints['GET /repos/{owner}/{repo}/pulls']['response']['data'][0];
@@ -21,10 +21,10 @@ export namespace OctokitCommon {
 	export type PullsListResponseItemBase = PullsListResponseItem['base'];
 	export type PullsListResponseItemHeadRepo = PullsListResponseItemHead['repo'];
 	export type PullsListResponseItemBaseRepo = PullsListResponseItemBase['repo'];
-	export type PullsListResponseItemUser = PullsListResponseItem['user'];
+	export type PullsListResponseItemUser = Exclude<PullsListResponseItem['user'], null>;
 	export type PullsListResponseItemAssignee = PullsListResponseItem['assignee'];
-	export type PullsListResponseItemAssigneesItem = PullsListResponseItem['assignees'][0];
-	export type PullsListResponseItemRequestedReviewersItem = PullsListResponseItem['requested_reviewers'][0];
+	export type PullsListResponseItemAssigneesItem = (Exclude<PullsListResponseItem['assignees'], null | undefined>)[0];
+	export type PullsListResponseItemRequestedReviewersItem = (Exclude<PullsListResponseItem['requested_reviewers'], null | undefined>)[0];
 	export type PullsListResponseItemBaseUser = PullsListResponseItemBase['user'];
 	export type PullsListResponseItemBaseRepoOwner = PullsListResponseItemBase['repo']['owner'];
 	export type PullsListResponseItemHeadUser = PullsListResponseItemHead['user'];

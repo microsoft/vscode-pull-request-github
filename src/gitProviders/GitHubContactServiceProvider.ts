@@ -46,7 +46,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		_parameters: Object,
 		_cancellationToken?: vscode.CancellationToken,
 	): Promise<Object> {
-		let result = null;
+		let result: Object | null = null;
 
 		switch (type) {
 			case 'initialize':
