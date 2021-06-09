@@ -10,7 +10,8 @@ export const RefBuilder = createBuilderClass<RefUnion>()({
 	ref: { default: 'new-feature' },
 	user: { linked: UserBuilder },
 	sha: { default: '0000000000000000000000000000000000000000' },
-	repo: { linked: RepositoryBuilder },
+	// Must cast to any here to prevent recursive type.
+	repo: { linked: <any>RepositoryBuilder },
 });
 
 export type RefBuilder = InstanceType<typeof RefBuilder>;

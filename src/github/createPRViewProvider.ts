@@ -89,8 +89,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 	set compareBranch(compareBranch: Branch | undefined) {
 		if (
-			compareBranch?.name !== this._compareBranch.name ||
-			compareBranch?.upstream?.remote !== this._compareBranch.upstream?.remote
+			compareBranch &&
+			(compareBranch?.name !== this._compareBranch.name ||
+			compareBranch?.upstream?.remote !== this._compareBranch.upstream?.remote)
 		) {
 			this._compareBranch = compareBranch;
 			void this.initializeParams();
@@ -113,7 +114,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const origin = await this._folderRepositoryManager.getOrigin(this._compareBranch);
 
 		let useBranchName = false;
-		if (this.compareBranch.upstream) {
+		if (this.compareBranch?.upstream) {
 			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
 			if (headRepo) {
 				const headBranch = `${headRepo.remote.owner}:${this.compareBranch.name ?? ''}`;
@@ -130,9 +131,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 
 		if (useBranchName) {
-			return this.compareBranch.name ?? '';
+			return this.compareBranch?.name ?? '';
 		} else {
-			return this.compareBranch.name
+			return this.compareBranch?.name
 				? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name))
 						.title
 				: '';
@@ -161,7 +162,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			return pullRequestTemplate;
 		}
 
-		return this.compareBranch.name
+		return this.compareBranch?.name
 			? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name)).body
 			: '';
 	}
@@ -243,7 +244,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const defaultBranch = await githubRepository.getDefaultBranch();
 		const newBranches = await this._folderRepositoryManager.listBranches(owner, repositoryName);
 
-		if (!isBase && this.compareBranch.name && !newBranches.includes(this.compareBranch.name)) {
+		if (!isBase && this.compareBranch?.name && !newBranches.includes(this.compareBranch.name)) {
 			newBranches.push(this.compareBranch.name);
 			newBranches.sort();
 		}
@@ -263,7 +264,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		try {
 			let branchName;
 			let remote;
-			if (!this.compareBranch.name) {
+			if (!this.compareBranch?.name) {
 				this._throwError(message, 'Please create a branch.');
 				return;
 			}

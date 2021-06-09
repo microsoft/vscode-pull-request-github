@@ -102,7 +102,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeReviewThreads = new vscode.EventEmitter<ReviewThreadChangeEvent>();
 	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
 
-	public fileChangeViewedState:{ [key: string]: ViewedState } = {};
+	public fileChangeViewedState: { [key: string]: ViewedState } = {};
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
 
@@ -441,7 +441,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		line: number,
 		side: DiffSide,
 		suppressDraftModeUpdate?: boolean,
-	): Promise<IReviewThread> {
+	): Promise<IReviewThread | undefined> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
@@ -461,6 +461,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			},
 		});
+
+		if (!data) {
+			throw new Error('Creating review thread failed.');
+		}
 
 		if (!suppressDraftModeUpdate) {
 			this.hasPendingReview = true;
@@ -488,7 +492,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		inReplyTo: string,
 		isSingleComment: boolean,
 		commitId?: string,
-	): Promise<IComment> {
+	): Promise<IComment | undefined> {
 		if (!this.validatePullRequestModel('Creating comment failed')) {
 			return;
 		}
@@ -510,6 +514,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			},
 		});
+
+		if (!data) {
+			throw new Error('Creating comment reply failed.');
+		}
 
 		const { comment } = data.addPullRequestReviewComment;
 		const newComment = parseGraphQLComment(comment, false);
@@ -566,6 +574,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			},
 		});
+
+		if (!data) {
+			throw new Error('Editing review comment failed.');
+		}
 
 		const newComment = parseGraphQLComment(
 			data.updatePullRequestReviewComment.pullRequestReviewComment,
@@ -796,7 +808,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				PullRequestModel.ID,
 			);
 
-			return fullCommit.data.files.filter(file => !!file.patch);
+			return fullCommit.data.files?.filter(file => !!file.patch) ?? [];
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching commit file changes failed: ${formatError(e)}`);
 			return [];
@@ -860,7 +872,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const reviewEvents = events.filter(isReviewEvent);
 		const reviewThreads = await this.getReviewThreads();
-		const reviewComments = reviewThreads.reduce((previous, current) => previous.concat(current.comments), []);
+		const reviewComments = reviewThreads.reduce((previous, current) => (previous as IComment[]).concat(current.comments), []);
 
 		const reviewEventsById = reviewEvents.reduce((index, evt) => {
 			index[evt.id] = evt;
@@ -995,14 +1007,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			headUri =
 				change.status === GitChangeType.DELETE
 					? toReviewUri(
-							uri,
-							undefined,
-							undefined,
-							'',
-							false,
-							{ base: false },
-							folderManager.repository.rootUri,
-					  )
+						uri,
+						undefined,
+						undefined,
+						'',
+						false,
+						{ base: false },
+						folderManager.repository.rootUri,
+					)
 					: uri;
 
 			baseUri = toReviewUri(
@@ -1157,12 +1169,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		);
 		if (reviewThread) {
 			const updatedComment = reviewThread.comments.find(c => c.graphNodeId === graphNodeId);
-			updatedComment.reactions = parseGraphQLReaction(reactionGroups);
-			this._onDidChangeReviewThreads.fire({ added: [], changed: [reviewThread], removed: [] });
+			if (updatedComment) {
+				updatedComment.reactions = parseGraphQLReaction(reactionGroups);
+				this._onDidChangeReviewThreads.fire({ added: [], changed: [reviewThread], removed: [] });
+			}
 		}
 	}
 
-	async addCommentReaction(graphNodeId: string, reaction: vscode.CommentReaction): Promise<AddReactionResponse> {
+	async addCommentReaction(graphNodeId: string, reaction: vscode.CommentReaction): Promise<AddReactionResponse | undefined> {
 		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
 			prev[curr.label] = curr.title;
 			return prev;
@@ -1178,6 +1192,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
+		if (!data) {
+			throw new Error('Add comment reaction failed.');
+		}
+
 		const reactionGroups = data.addReaction.subject.reactionGroups;
 		this.updateCommentReactions(graphNodeId, reactionGroups);
 
@@ -1187,7 +1205,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async deleteCommentReaction(
 		graphNodeId: string,
 		reaction: vscode.CommentReaction,
-	): Promise<DeleteReactionResponse> {
+	): Promise<DeleteReactionResponse | undefined> {
 		const reactionEmojiToContent = getReactionGroup().reduce((prev, curr) => {
 			prev[curr.label] = curr.title;
 			return prev;
@@ -1202,6 +1220,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			},
 		});
+
+		if (!data) {
+			throw new Error('Delete comment reaction failed.');
+		}
 
 		const reactionGroups = data.removeReaction.subject.reactionGroups;
 		this.updateCommentReactions(graphNodeId, reactionGroups);
@@ -1219,6 +1241,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			},
 		});
+
+		if (!data) {
+			throw new Error('Resolve review thread failed.');
+		}
 
 		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
 		if (index > -1) {
@@ -1239,6 +1265,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
+		if (!data) {
+			throw new Error('Unresolve review thread failed.');
+		}
+
 		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
 		if (index > -1) {
 			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread);
@@ -1251,17 +1281,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { query, schema, remote } = await this.githubRepository.ensure();
 
 		const changed: { fileName: string, viewed: ViewedState }[] = [];
-		let after = null;
+		let after: string | null = null;
 		let hasNextPage = false;
 
 		do {
 			const { data } = await query<PullRequestFilesResponse>({
 				query: schema.PullRequestFiles,
 				variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						number: this.number,
-						after: after,
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+					after: after,
 				},
 			});
 

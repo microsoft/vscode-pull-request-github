@@ -110,8 +110,8 @@ export class CreatePullRequestHelper {
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
 
 		const branch =
-			(compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ??
-			folderRepoManager.repository.state.HEAD;
+			((compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ??
+			folderRepoManager.repository.state.HEAD)!;
 
 		if (!this._createPRViewProvider) {
 			const pullRequestDefaults = await this.ensureDefaultsAreLocal(
@@ -123,7 +123,7 @@ export class CreatePullRequestHelper {
 				extensionUri,
 				folderRepoManager,
 				pullRequestDefaults,
-				branch!,
+				branch,
 			);
 
 			const compareOrigin  = await folderRepoManager.getOrigin(branch);

@@ -175,7 +175,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						base: pullRequest.base.label,
 						isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
 						isLocalHeadDeleted: !branchInfo,
-						head: pullRequest.head.label,
+						head: pullRequest.head?.label ?? '',
 						canEdit: canEdit,
 						hasWritePermission,
 						mergeable: pullRequest.item.mergeable,

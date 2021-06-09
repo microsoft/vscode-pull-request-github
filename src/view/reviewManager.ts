@@ -894,7 +894,7 @@ export class ReviewManager {
 			// it's from obsolete file changes, which means the content is in complete.
 			const changedItem = changedItems[0];
 			const diffChangeTypeFilter = commit === changedItem.sha ? DiffChangeType.Delete : DiffChangeType.Add;
-			const ret = [];
+			const ret: string[] = [];
 			const commentGroups = groupBy(changedItem.comments, comment => String(comment.originalPosition));
 
 			for (const comment_position in commentGroups) {
