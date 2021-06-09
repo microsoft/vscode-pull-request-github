@@ -127,9 +127,11 @@ export class CurrentIssue {
 			}
 			return true;
 		} catch (e) {
-			vscode.window.showErrorMessage(
-				`Unable to checkout branch ${branch}. There may be file conflicts that prevent this branch change. Git error: ${e.error}`,
-			);
+			if (e.message !== 'User aborted') {
+				vscode.window.showErrorMessage(
+					`Unable to checkout branch ${branch}. There may be file conflicts that prevent this branch change. Git error: ${e.error}`,
+				);
+			}
 			return false;
 		}
 	}
