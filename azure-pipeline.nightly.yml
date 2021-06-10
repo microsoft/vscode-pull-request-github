@@ -18,6 +18,12 @@ jobs:
     steps:
       - template: scripts/ci/common-setup.yml
 
+      - task: ComponentGovernanceComponentDetection@0
+        inputs:
+          scanType: 'Register'
+          verbosity: 'Verbose'
+          alertWarningLevel: 'High'
+
       - script: yarn run test
         displayName: Run test suite
         env:
