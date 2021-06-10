@@ -41,15 +41,3 @@ jobs:
           DISPLAYNAME: GitHub Pull Request Nightly Build
           DESCRIPTION: Nightly Build GitHub Pull Request extension
           PUBLISHER: GitHub
-
-      - script: |
-          mv ./package.json ./package.json.bak
-          mv ./package.insiders.json ./package.json
-          mv ./README.md ./README.md.bak
-          mv ./README.insiders.md ./README.md
-          mv ./src/constants.ts ./src/constants.ts.bak
-          mv ./src/constants.insiders.ts ./src/constants.ts
-          vsce publish -p "$TOKEN" --yarn --noVerify --web
-        displayName: Publish
-        env:
-          TOKEN: $(vsce.token)
