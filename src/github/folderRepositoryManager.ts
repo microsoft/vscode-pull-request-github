@@ -1657,7 +1657,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					login,
 				},
 			});
-			return parseGraphQLUser(data);
+			return parseGraphQLUser(data, githubRepository);
 		} catch (e) {
 			console.log(e);
 		}

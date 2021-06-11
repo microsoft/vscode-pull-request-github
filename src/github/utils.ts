@@ -728,11 +728,11 @@ export function parseGraphQLTimelineEvents(
 	return normalizedEvents;
 }
 
-export function parseGraphQLUser(user: GraphQL.UserResponse): User {
+export function parseGraphQLUser(user: GraphQL.UserResponse, githubRepository: GitHubRepository): User {
 	return {
 		login: user.user.login,
 		name: user.user.name,
-		avatarUrl: user.user.avatarUrl,
+		avatarUrl: user.user.avatarUrl ? getAvatarWithEnterpriseFallback(user.user.avatarUrl, undefined, githubRepository.remote.authProviderId) : undefined,
 		url: user.user.url,
 		bio: user.user.bio,
 		company: user.user.company,
