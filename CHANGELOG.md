@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.23
+
+- Fixed [#45](https://github.com/ankitbko/vscode-pull-request-azdo/issues/45) - Seeing duplicate review comments.
+
 ## 0.0.22
 
 - Added support for marking files as reviewed [ankitbko/vscode-pull-request-azdo#7](https://github.com/ankitbko/vscode-pull-request-azdo/issues/7)
