@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { GitPullRequestCommentThread } from 'azure-devops-node-api/interfaces/GitInterfaces';
 import * as vscode from 'vscode';
 import { IAccount } from '../azdo/interface';
 import { DiffHunk } from './diffHunk';
@@ -44,4 +45,22 @@ export enum ViewedState {
 	DISMISSED = 'DISMISSED',
 	VIEWED = 'VIEWED',
 	UNVIEWED = 'UNVIEWED',
+}
+
+export interface IReviewThread {
+	id: number;
+	isResolved: boolean;
+	viewerCanResolve: boolean;
+	path: string;
+	diffSide: DiffSide;
+	line: number;
+	originalLine: number;
+	isOutdated: boolean;
+	isDeleted: boolean;
+	thread: GitPullRequestCommentThread;
+}
+
+export enum DiffSide {
+	LEFT = 'LEFT',
+	RIGHT = 'RIGHT',
 }

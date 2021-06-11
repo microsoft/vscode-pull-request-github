@@ -143,6 +143,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		if (this.childrenDisposables && this.childrenDisposables.length) {
+			this.childrenDisposables.forEach(dp => dp.dispose());
+		}
+
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
 		let needLogin = false;

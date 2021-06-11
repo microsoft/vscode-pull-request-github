@@ -22,8 +22,9 @@ import {
 	PullRequestStatus,
 	VersionControlChangeType,
 } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
-import { ViewedState } from '../common/comment';
+import { IReviewThread, ViewedState } from '../common/comment';
 import { parseDiffAzdo } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -45,7 +46,15 @@ import {
 	PullRequestCompletion,
 	PullRequestVote,
 } from './interface';
-import { convertAzdoPullRequestToRawPullRequest, getDiffHunkFromFileDiff, readableToString, removeLeadingSlash } from './utils';
+import {
+	convertAzdoPullRequestToRawPullRequest,
+	getDiffHunkFromFileDiff,
+	getDiffSide,
+	getPositionFromThread,
+	isCommentResolved,
+	readableToString,
+	removeLeadingSlash,
+} from './utils';
 
 interface IPullRequestModel {
 	head: GitHubRef | null;
@@ -57,6 +66,12 @@ export interface IResolvedPullRequestModel extends IPullRequestModel {
 
 export type FileViewedStateChangeEvent = PRFileViewedState;
 
+export interface ReviewThreadChangeEvent {
+	added: IReviewThread[];
+	changed: IReviewThread[];
+	removed: IReviewThread[];
+}
+
 export class PullRequestModel implements IPullRequestModel {
 	static ID = 'PullRequestModel';
 
@@ -66,6 +81,9 @@ export class PullRequestModel implements IPullRequestModel {
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
+	public reviewThreadsCache: IReviewThread[] = [];
+	private _onDidChangeReviewThreads = new vscode.EventEmitter<ReviewThreadChangeEvent>();
+	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
 	public fileChangeViewedState: { [key: string]: ViewedState } = {};
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
@@ -289,7 +307,31 @@ export class PullRequestModel implements IPullRequestModel {
 			pullRequestThreadContext: prCommentThreadContext,
 		};
 
-		return await git?.createThread(thread, repoId, this.getPullRequestId());
+		const result = await git?.createThread(thread, repoId, this.getPullRequestId());
+		if (!result) {
+			return result;
+		}
+
+		const newThread: IReviewThread = this.convertThreadToIReviewThread(result);
+		this.reviewThreadsCache.push(newThread);
+		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
+
+		return result;
+	}
+
+	private convertThreadToIReviewThread(result: GitPullRequestCommentThread): IReviewThread {
+		return {
+			id: result.id,
+			isResolved: isCommentResolved(result.status),
+			viewerCanResolve: true,
+			path: result.threadContext?.filePath,
+			line: getPositionFromThread(result),
+			diffSide: getDiffSide(result),
+			isDeleted: result.isDeleted,
+			thread: result,
+			isOutdated: false,
+			originalLine: 0, // TODO What goes here and in isOutdated
+		};
 	}
 
 	async updateThreadStatus(
@@ -307,7 +349,16 @@ export class PullRequestModel implements IPullRequestModel {
 			pullRequestThreadContext: prCommentThreadContext,
 		};
 
-		return await git?.updateThread(thread, repoId, this.getPullRequestId(), threadId);
+		const result = await git?.updateThread(thread, repoId, this.getPullRequestId(), threadId);
+		if (!result) {
+			return result;
+		}
+
+		const newThread = this.convertThreadToIReviewThread(result);
+		this.reviewThreadsCache = [...this.reviewThreadsCache.filter(thread => thread.id !== threadId), newThread];
+		this._onDidChangeReviewThreads.fire({ added: [], changed: [newThread], removed: [] });
+
+		return result;
 	}
 
 	async getAllActiveThreadsBetweenAllIterations(): Promise<GitPullRequestCommentThread[] | undefined> {
@@ -319,7 +370,45 @@ export class PullRequestModel implements IPullRequestModel {
 		const iterations = await git?.getPullRequestIterations(repoId, this.getPullRequestId());
 		const max = Math.max(...(iterations?.map(i => i.id!) ?? [0]));
 
-		return await this.getAllActiveThreads(max, 1);
+		const result = await this.getAllActiveThreads(max, 1);
+		if (!result) {
+			return result;
+		}
+
+		const reviewThreads = result?.map(r => this.convertThreadToIReviewThread(r));
+		this.diffThreads(reviewThreads);
+		this.reviewThreadsCache = reviewThreads;
+
+		return result;
+	}
+
+	private diffThreads(newReviewThreads: IReviewThread[]): void {
+		const added: IReviewThread[] = [];
+		const changed: IReviewThread[] = [];
+		const removed: IReviewThread[] = [];
+
+		newReviewThreads.forEach(thread => {
+			const existingThread = this.reviewThreadsCache.find(t => t.id === thread.id);
+			if (existingThread) {
+				if (!equals(thread, existingThread)) {
+					changed.push(thread);
+				}
+			} else {
+				added.push(thread);
+			}
+		});
+
+		this.reviewThreadsCache.forEach(thread => {
+			if (!newReviewThreads.find(t => t.id === thread.id)) {
+				removed.push(thread);
+			}
+		});
+
+		this._onDidChangeReviewThreads.fire({
+			added,
+			changed,
+			removed,
+		});
 	}
 
 	async getAllActiveThreads(iteration?: number, baseIteration?: number): Promise<GitPullRequestCommentThread[] | undefined> {
@@ -345,7 +434,18 @@ export class PullRequestModel implements IPullRequestModel {
 			content: message,
 		};
 
-		return await git?.createComment(comment, repoId, this.getPullRequestId(), threadId);
+		const result = await git?.createComment(comment, repoId, this.getPullRequestId(), threadId);
+		if (!result) {
+			return result;
+		}
+		const threadWithComment = this.reviewThreadsCache.find(thread => thread.id === threadId);
+
+		if (threadWithComment) {
+			threadWithComment.thread.comments.push(result);
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
+		}
+
+		return result;
 	}
 
 	async getCommentsOnThread(threadId: number): Promise<Comment[] | undefined> {
@@ -405,7 +505,19 @@ export class PullRequestModel implements IPullRequestModel {
 			content: message,
 		};
 
-		return await git!.updateComment(comment, repoId, this.getPullRequestId(), threadId, commentId);
+		const result = await git!.updateComment(comment, repoId, this.getPullRequestId(), threadId, commentId);
+		if (!result) {
+			return result;
+		}
+
+		const threadWithComment = this.reviewThreadsCache.find(thread => thread.id === threadId);
+
+		if (threadWithComment) {
+			threadWithComment.thread.comments = [...threadWithComment.thread.comments.filter(c => c.id !== commentId), result];
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
+		}
+
+		return result;
 	}
 
 	getCommentPermission(comment: Comment): CommentPermissions {

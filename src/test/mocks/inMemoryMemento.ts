@@ -2,6 +2,7 @@ import { Memento } from 'vscode';
 
 export class InMemoryMemento implements Memento {
 	private _storage: { [keyName: string]: any } = {};
+	public keys: any = {};
 
 	get<T>(key: string): T | undefined;
 	get<T>(key: string, defaultValue: T): T;

@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { parseRemote, Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import { PRCommentController } from '../view/prCommentController';
+import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { Azdo, CredentialStore } from './credentials';
 import { FileReviewedStatusService, FileViewedStatus } from './fileReviewedStatusService';
 import { IAccount, IGitHubRef } from './interface';
@@ -26,7 +26,7 @@ export class AzdoRepository implements vscode.Disposable {
 	protected _metadata: IMetadata | undefined;
 	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
-	public commentsHandler?: PRCommentController;
+	public commentsHandler?: PRCommentControllerRegistry;
 	public readonly isGitHubDotCom: boolean; // TODO: WTF is this for? Enterprise?
 
 	constructor(
@@ -68,7 +68,7 @@ export class AzdoRepository implements vscode.Disposable {
 				`azdopr-browse-${this.remote.normalizedHost}`,
 				`Azdo Pull Request for ${this.remote.normalizedHost}`,
 			);
-			this.commentsHandler = new PRCommentController(this.commentsController);
+			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController);
 			this._toDispose.push(this.commentsController);
 		} catch (e) {
 			console.log(e);

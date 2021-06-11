@@ -47,12 +47,12 @@ export class CommonCommentHandler {
 				addCommentToCache(thread, fileChange.fileName);
 				updateCommentThreadLabel(thread);
 				rawComment = rawThread.comments?.[0];
-				fileChange.update(fileChange.comments.concat(rawThread!));
+				//fileChange.update(fileChange.comments.concat(rawThread!));
 			} else {
 				rawComment = await this.reply(thread, input);
 				rawThread.comments?.push(rawComment!);
 				fileChange.comments.find(r => r.id === rawThread.id)?.comments?.push(rawComment!);
-				fileChange.update(fileChange.comments);
+				//fileChange.update(fileChange.comments);
 			}
 
 			this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
