@@ -100,7 +100,10 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 		this._providers.set(handle, provider);
 
 		this._disposables.push(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
-		this._disposables.push(provider.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
+		this._disposables.push(provider.onDidOpenRepository(e => {
+			Logger.appendLine(`Repository ${e.rootUri} has been opened`);
+			this._onDidOpenRepository.fire(e);
+		}));
 		if (provider.onDidChangeState) {
 			this._disposables.push(provider.onDidChangeState(e => this._onDidChangeState.fire(e)));
 		}
