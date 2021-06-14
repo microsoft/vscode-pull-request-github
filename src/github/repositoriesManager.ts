@@ -57,8 +57,6 @@ export class BadUpstreamError extends Error {
 	}
 }
 
-export const REMOTES_SETTING = 'remotes';
-
 export interface PullRequestDefaults {
 	owner: string;
 	repo: string;

@@ -989,7 +989,8 @@ ${body ?? ''}\n
 			folderManager = this.manager.getManagerForFile(document.uri);
 		} else if (originUri) {
 			folderManager = this.manager.getManagerForFile(originUri);
-		} else {
+		}
+		if (!folderManager) {
 			folderManager = await this.chooseRepo('Choose where to create the issue.');
 		}
 

@@ -990,7 +990,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const origin = await this.getOrigin(branch);
 		const meta = await origin.getMetadata();
-		const parent = (meta.fork && meta.parent)
+		const remotesSettingDefault = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).inspect<string[]>(REMOTES_SETTING)?.defaultValue;
+		const remotesSettingSetValue = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+		const parent = (meta.fork && meta.parent && (remotesSettingDefault === remotesSettingSetValue))
 			? meta.parent
 			: await (this.findRepo(byRemoteName('upstream')) || origin).getMetadata();
 
