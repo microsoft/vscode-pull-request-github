@@ -89,11 +89,13 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		const viewed = this.pullRequest.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-		this.contextValue = `filechange:${GitChangeType[status]}:${
-			viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
-		}`;
+		this.contextValue = `filechange:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+			}`;
 		this.label = path.basename(fileName);
-		this.description = path.relative('.', path.dirname(fileName));
+		this.description = vscode.workspace.asRelativePath(path.dirname(fileName), false);
+		if (this.description === '.') {
+			this.description = '';
+		}
 		this.iconPath = vscode.ThemeIcon.File;
 		this.resourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.number, fileName, status);
 		this.updateViewed(viewed);
@@ -120,9 +122,8 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		this._viewed = viewed;
-		this.contextValue = `filechange:${GitChangeType[this.status]}:${
-			viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
-		}`;
+		this.contextValue = `filechange:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+			}`;
 		FileViewedDecorationProvider.updateFileViewedState(
 			this.resourceUri,
 			this.pullRequest.number,
@@ -169,11 +170,13 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		const viewed = this.pullRequest.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-		this.contextValue = `filechange:${GitChangeType[status]}:${
-			viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
-		}`;
+		this.contextValue = `filechange:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+			}`;
 		this.label = path.basename(fileName);
-		this.description = path.relative('.', path.dirname(fileName));
+		this.description = vscode.workspace.asRelativePath(path.dirname(fileName), false);
+		if (this.description === '.') {
+			this.description = '';
+		}
 		this.iconPath = vscode.ThemeIcon.File;
 		this.opts = {
 			preserveFocus: true,
@@ -212,9 +215,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		this._viewed = viewed;
-		this.contextValue = `filechange:${GitChangeType[this.status]}:${
-			viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
-		}`;
+		this.contextValue = `filechange:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+			}`;
 		FileViewedDecorationProvider.updateFileViewedState(
 			this.resourceUri,
 			this.pullRequest.number,
