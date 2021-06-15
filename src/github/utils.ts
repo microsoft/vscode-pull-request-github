@@ -437,7 +437,7 @@ function parseAuthor(
 		return {
 			login: author.login,
 			url: author.url,
-			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, author.email, githubRepository.remote.authProviderId),
+			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.authProviderId),
 			email: author.email
 		};
 	} else {
