@@ -121,7 +121,7 @@ export class GitHubRepository implements vscode.Disposable {
 				`GitHub Pull Request for ${this.remote.normalizedHost}`,
 			);
 			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController);
-			this._toDispose.push(this.commentsController);
+			this._toDispose.push(this.commentsHandler);
 			this._toDispose.push(this.commentsController);
 		} catch (e) {
 			console.log(e);
