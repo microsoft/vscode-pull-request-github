@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { openPullRequestOnGitHub } from '../commands';
+import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
@@ -17,7 +17,6 @@ import { isInCodespaces, parseReviewers } from './utils';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';
-
 	private _existingReviewers: ReviewState[] = [];
 
 	constructor(
@@ -27,11 +26,40 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	) {
 		super();
 
+		this.registerFolderRepositoryListener();
+
+		onDidUpdatePR(
+			pr => {
+				if (pr) {
+					this._item.update(pr);
+				}
+
+				this._postMessage({
+					command: 'update-state',
+					state: this._item.state,
+				});
+			},
+			null,
+			this._disposables,
+		);
+
 		this._disposables.push(this._folderRepositoryManager.onDidMergePullRequest(_ => {
 			this._postMessage({
 				command: 'update-state',
 				state: GithubItemStateEnum.Merged,
 			});
+		}));
+	}
+
+	private registerFolderRepositoryListener() {
+		this._disposables.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
+			if (this._folderRepositoryManager && this._item) {
+				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
+				this._postMessage({
+					command: 'pr.update-checkout-status',
+					isCurrentlyCheckedOut,
+				});
+			}
 		}));
 	}
 

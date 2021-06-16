@@ -139,7 +139,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 			});
 
 			if (!data.files.length) {
-				this._view.message = `The are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+				this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
 			} else {
 				this._view.message = undefined;
 			}

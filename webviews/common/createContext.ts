@@ -79,7 +79,7 @@ export class CreatePRContext {
 	};
 
 	public changeBaseBranch = async (branch: string): Promise<void> => {
-		this.postMessage({ command: 'pr.changeBaseBranch', args: branch });
+		return this.postMessage({ command: 'pr.changeBaseBranch', args: branch });
 	};
 
 	public changeCompareRemote = async (owner: string, repositoryName: string): Promise<void> => {
@@ -99,7 +99,7 @@ export class CreatePRContext {
 	};
 
 	public changeCompareBranch = async (branch: string): Promise<void> => {
-		this.postMessage({ command: 'pr.changeCompareBranch', args: branch });
+		return this.postMessage({ command: 'pr.changeCompareBranch', args: branch });
 	};
 
 	public validate = (): boolean => {
@@ -137,7 +137,7 @@ export class CreatePRContext {
 		return this._handler.postMessage(message);
 	};
 
-	handleMessage = (message: any): void => {
+	handleMessage = async (message: any): Promise<void> => {
 		switch (message.command) {
 			case 'pr.initialize':
 				if (this.createParams.pendingTitle === undefined) {
@@ -152,7 +152,7 @@ export class CreatePRContext {
 					message.params.baseRemote = message.params.defaultBaseRemote;
 				} else {
 					// Notify the extension of the stored selected remote state
-					this.changeBaseRemote(
+					await this.changeBaseRemote(
 						this.createParams.baseRemote.owner,
 						this.createParams.baseRemote.repositoryName,
 					);
@@ -162,16 +162,16 @@ export class CreatePRContext {
 					message.params.baseBranch = message.params.defaultBaseBranch;
 				} else {
 					// Notify the extension of the stored base branch state
-					this.changeBaseBranch(this.createParams.baseBranch);
+					await this.changeBaseBranch(this.createParams.baseBranch);
 				}
 
 				if (this.createParams.compareRemote === undefined) {
 					message.params.compareRemote = message.params.defaultCompareRemote;
 				} else {
-					// Notify the extension of the stored base branch state
-					this.changeCompareRemote(
+					// Notify the extension of the stored base branch state This is where master is getting set.
+					await this.changeCompareRemote(
 						this.createParams.compareRemote.owner,
-						this.createParams.compareRemote.repositoryName,
+						this.createParams.compareRemote.repositoryName
 					);
 				}
 
@@ -179,7 +179,7 @@ export class CreatePRContext {
 					message.params.compareBranch = message.params.defaultCompareBranch;
 				} else {
 					// Notify the extension of the stored compare branch state
-					this.changeCompareBranch(this.createParams.compareBranch);
+					await this.changeCompareBranch(this.createParams.compareBranch);
 				}
 
 				this.updateState(message.params);

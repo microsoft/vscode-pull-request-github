@@ -91,11 +91,25 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		if (
 			compareBranch &&
 			(compareBranch?.name !== this._compareBranch.name ||
-			compareBranch?.upstream?.remote !== this._compareBranch.upstream?.remote)
+				compareBranch?.upstream?.remote !== this._compareBranch.upstream?.remote)
 		) {
 			this._compareBranch = compareBranch;
 			void this.initializeParams();
 			this._onDidChangeCompareBranch.fire(this._compareBranch.name!);
+		}
+	}
+
+	private _compareRemote: RemoteInfo | undefined;
+	get compareRemote(): RemoteInfo | undefined {
+		return this._compareRemote;
+	}
+
+	set compareRemote(ownerAndRepo: RemoteInfo | undefined) {
+		if (ownerAndRepo &&
+			((ownerAndRepo.owner !== this._compareRemote?.owner) || (ownerAndRepo.repositoryName !== this._compareRemote?.repositoryName))) {
+			this._compareRemote = ownerAndRepo;
+			void this.initializeParams();
+			this._onDidChangeCompareRemote.fire(this._compareRemote);
 		}
 	}
 
@@ -111,7 +125,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name, as long as it is not the default branch.
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
 		// compare branch if it has a GitHub remote.
-		const origin = await this._folderRepositoryManager.getOrigin(this._compareBranch);
+		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
 
 		let useBranchName = false;
 		if (this.compareBranch?.upstream) {
@@ -122,7 +136,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 					const commits = await origin.compareCommits(`${this._pullRequestDefaults.owner}:${this._pullRequestDefaults.base}`, headBranch);
 					if (commits.total_commits > 1) {
 						const defaultBranch = await origin.getDefaultBranch();
-						useBranchName = defaultBranch !== this._compareBranch.name;
+						useBranchName = defaultBranch !== this.compareBranch.name;
 					}
 				} catch (e) {
 					// Ignore and fall back to commit message
@@ -135,7 +149,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		} else {
 			return this.compareBranch?.name
 				? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name))
-						.title
+					.title
 				: '';
 		}
 	}
@@ -253,11 +267,16 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
 			this._onDidChangeBaseBranch.fire(defaultBranch);
 		} else {
-			this._onDidChangeCompareRemote.fire({ owner, repositoryName });
-			this._onDidChangeCompareBranch.fire(defaultBranch);
+			const oldCompareRemote = this.compareRemote;
+			this.compareRemote = { owner, repositoryName };
+			if (oldCompareRemote &&
+				((this.compareRemote.repositoryName !== oldCompareRemote.repositoryName) || (this.compareRemote.owner !== oldCompareRemote.owner))) {
+				this.compareBranch = await this._folderRepositoryManager.repository.getBranch(defaultBranch);
+			}
+
 		}
 
-		return this._replyMessage(message, { branches: newBranches, defaultBranch });
+		return this._replyMessage(message, { branches: newBranches, defaultBranch: isBase ? defaultBranch : this.compareBranch });
 	}
 
 	private async create(message: IRequestMessage<OctokitCommon.PullsCreateParams>): Promise<void> {
@@ -332,7 +351,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			case 'pr.cancelCreate':
 				vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
 				this._onDone.fire(undefined);
-				return;
+				return this._replyMessage(message, undefined);
 
 			case 'pr.create':
 				return this.create(message);
@@ -342,14 +361,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			case 'pr.changeBaseBranch':
 				this._onDidChangeBaseBranch.fire(message.args);
-				return;
+				return this._replyMessage(message, undefined);
 
 			case 'pr.changeCompareRemote':
 				return this.changeRemote(message, false);
 
 			case 'pr.changeCompareBranch':
-				this._onDidChangeCompareBranch.fire(message.args);
-				return;
+				this.compareBranch = await this._folderRepositoryManager.repository.getBranch(message.args.name);
+				return this._replyMessage(message, undefined);
 
 			default:
 				// Log error
