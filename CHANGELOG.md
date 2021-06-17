@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.1
+
+- Fix links in the readme for the marketplace: https://github.com/microsoft/vscode-pull-request-github/issues/2769
+
 ## 0.27.0
 
 - Thanks to a community PR from @kabel, there is support for GitHub Enterprise. See [the discussion in the PR](https://github.com/microsoft/vscode/pull/115940) for how to get set up.
