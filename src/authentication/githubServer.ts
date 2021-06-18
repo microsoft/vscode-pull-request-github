@@ -12,6 +12,11 @@ export class GitHubManager {
 			return false;
 		}
 
+		// .wiki repos are not supported
+		if (host.path.endsWith('.wiki')) {
+			return false;
+		}
+
 		if (this._servers.has(host.authority)) {
 			return !!this._servers.get(host.authority);
 		}
