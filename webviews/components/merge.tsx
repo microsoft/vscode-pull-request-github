@@ -10,7 +10,7 @@ import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
 import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, deleteIcon, pendingIcon } from './icon';
+import { alertIcon, checkIcon, deleteIcon, mergeIcon, pendingIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 
@@ -40,7 +40,7 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest; isSimple: bool
 		<div id="status-checks">
 			{state === GithubItemStateEnum.Merged ? (
 				<>
-					<div className="branch-status-message">{'Pull request successfully merged.'}</div>
+					<div className="branch-status-message"><div className="branch-status-icon">{isSimple ? mergeIcon : null}</div> {'Pull request successfully merged.'}</div>
 					<DeleteBranch {...pr} />
 				</>
 			) : state === GithubItemStateEnum.Closed ? (
@@ -67,8 +67,8 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest; isSimple: bool
 					{isSimple
 						? pr.reviewers
 							? pr.reviewers.map(state => (
-									<Reviewer key={state.reviewer.login} {...state} canDelete={false} />
-							  ))
+								<Reviewer key={state.reviewer.login} {...state} canDelete={false} />
+							))
 							: []
 						: null}
 					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
@@ -109,16 +109,16 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 			{isSimple
 				? null
 				: mergeable === PullRequestMergeability.Mergeable
-				? checkIcon
-				: mergeable === PullRequestMergeability.NotMergeable
-				? deleteIcon
-				: pendingIcon}
+					? checkIcon
+					: mergeable === PullRequestMergeability.NotMergeable
+						? deleteIcon
+						: pendingIcon}
 			<div>
 				{mergeable === PullRequestMergeability.Mergeable
 					? 'This branch has no conflicts with the base branch.'
 					: mergeable === PullRequestMergeability.NotMergeable
-					? 'This branch has conflicts that must be resolved.'
-					: 'Checking if this branch can be merged...'}
+						? 'This branch has conflicts that must be resolved.'
+						: 'Checking if this branch can be merged...'}
 			</div>
 		</div>
 	);

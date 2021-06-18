@@ -145,3 +145,12 @@ button .icon svg {
 		margin-bottom: 3px;
 	}
 }
+
+#status-checks .branch-status-message {
+	display: flex;
+}
+
+#status-checks .branch-status-icon {
+	display: flex;
+	padding-top: 1px;
+}
