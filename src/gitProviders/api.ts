@@ -14,8 +14,11 @@ export function registerLiveShareGitProvider(apiImpl: API): LiveShareManager {
 	return liveShareManager;
 }
 
-export function registerBuiltinGitProvider(_credentialStore: CredentialStore, apiImpl: API): vscode.Disposable | undefined {
-	const builtInGitProvider = BuiltinGitProvider.createProvider();
+export async function registerBuiltinGitProvider(
+	_credentialStore: CredentialStore,
+	apiImpl: API,
+): Promise<vscode.Disposable | undefined> {
+	const builtInGitProvider = await BuiltinGitProvider.createProvider();
 	if (builtInGitProvider) {
 		apiImpl.registerGitProvider(builtInGitProvider);
 		return builtInGitProvider;

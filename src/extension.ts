@@ -196,7 +196,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	context.subscriptions.push(credentialStore);
 	await credentialStore.initialize();
 
-	const builtInGitProvider = registerBuiltinGitProvider(credentialStore, apiImpl);
+	const builtInGitProvider = await registerBuiltinGitProvider(credentialStore, apiImpl);
 	if (builtInGitProvider) {
 		context.subscriptions.push(builtInGitProvider);
 	}
