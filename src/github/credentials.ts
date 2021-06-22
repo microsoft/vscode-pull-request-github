@@ -24,6 +24,7 @@ const IGNORE_COMMAND = "Don't show again";
 const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
+// If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES = ['read:user', 'user:email', 'repo'];
 
 export enum AuthProvider {
