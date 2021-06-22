@@ -1064,7 +1064,8 @@ ${body ?? ''}\n
 			return link;
 		}
 		const linkUri = vscode.Uri.parse(link);
-		return linkUri.with({ authority }).toString();
+		const linkPath = `/github${linkUri.path}`;
+		return linkUri.with({ authority, path: linkPath }).toString();
 	}
 
 	async copyPermalink() {
