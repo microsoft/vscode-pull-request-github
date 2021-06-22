@@ -16,6 +16,7 @@ const { ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
+const webpack = require('webpack');
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
@@ -80,22 +81,22 @@ async function getWebviewConfig(mode, env, entry) {
 				// @ts-ignore
 				env.esbuild
 					? new ESBuildMinifyPlugin({
-							format: 'cjs',
-							minify: true,
-							treeShaking: true,
-							// Keep the class names
-							keepNames: true,
-							target: 'es2019',
-					  })
+						format: 'cjs',
+						minify: true,
+						treeShaking: true,
+						// Keep the class names
+						keepNames: true,
+						target: 'es2019',
+					})
 					: new TerserPlugin({
-							extractComments: false,
-							parallel: true,
-							terserOptions: {
-								ecma: 2019,
-								keep_classnames: /^AbortSignal$/,
-								module: true,
-							},
-					  }),
+						extractComments: false,
+						parallel: true,
+						terserOptions: {
+							ecma: 2019,
+							keep_classnames: /^AbortSignal$/,
+							module: true,
+						},
+					}),
 			],
 		},
 		module: {
@@ -106,21 +107,21 @@ async function getWebviewConfig(mode, env, entry) {
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {
-								loader: 'esbuild-loader',
-								options: {
-									loader: 'tsx',
-									target: 'es2019',
-									tsconfigRaw: await resolveTSConfig(path.join(__dirname, 'tsconfig.webviews.json')),
-								},
-						  }
+							loader: 'esbuild-loader',
+							options: {
+								loader: 'tsx',
+								target: 'es2019',
+								tsconfigRaw: await resolveTSConfig(path.join(__dirname, 'tsconfig.webviews.json')),
+							},
+						}
 						: {
-								loader: 'ts-loader',
-								options: {
-									configFile: path.join(__dirname, 'tsconfig.webviews.json'),
-									experimentalWatchApi: true,
-									transpileOnly: true,
-								},
-						  },
+							loader: 'ts-loader',
+							options: {
+								configFile: path.join(__dirname, 'tsconfig.webviews.json'),
+								experimentalWatchApi: true,
+								transpileOnly: true,
+							},
+						},
 				},
 				{
 					test: /\.css/,
@@ -175,6 +176,13 @@ async function getExtensionConfig(target, mode, env) {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
 			},
 		}),
+		new webpack.ProvidePlugin({
+			process: path.join(
+				__dirname,
+				'node_modules',
+				'process',
+				'browser.js')
+		})
 	];
 
 	return {
@@ -196,23 +204,23 @@ async function getExtensionConfig(target, mode, env) {
 				// @ts-ignore
 				env.esbuild
 					? new ESBuildMinifyPlugin({
-							format: 'cjs',
-							minify: true,
-							treeShaking: true,
-							// // Keep the class names
-							// keepNames: true,
-							target: 'es2019',
-					  })
+						format: 'cjs',
+						minify: true,
+						treeShaking: true,
+						// // Keep the class names
+						// keepNames: true,
+						target: 'es2019',
+					})
 					: new TerserPlugin({
-							extractComments: false,
-							parallel: true,
-							terserOptions: {
-								ecma: 2019,
-								// // Keep the class names
-								// keep_classnames: true,
-								module: true,
-							},
-					  }),
+						extractComments: false,
+						parallel: true,
+						terserOptions: {
+							ecma: 2019,
+							// // Keep the class names
+							// keep_classnames: true,
+							module: true,
+						},
+					}),
 			],
 		},
 		module: {
@@ -223,29 +231,29 @@ async function getExtensionConfig(target, mode, env) {
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {
-								loader: 'esbuild-loader',
-								options: {
-									loader: 'ts',
-									target: 'es2019',
-									tsconfigRaw: await resolveTSConfig(
-										path.join(
-											__dirname,
-											target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
-										),
-									),
-								},
-						  }
-						: {
-								loader: 'ts-loader',
-								options: {
-									configFile: path.join(
+							loader: 'esbuild-loader',
+							options: {
+								loader: 'ts',
+								target: 'es2019',
+								tsconfigRaw: await resolveTSConfig(
+									path.join(
 										__dirname,
 										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
 									),
-									experimentalWatchApi: true,
-									transpileOnly: true,
-								},
-						  },
+								),
+							},
+						}
+						: {
+							loader: 'ts-loader',
+							options: {
+								configFile: path.join(
+									__dirname,
+									target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
+								),
+								experimentalWatchApi: true,
+								transpileOnly: true,
+							},
+						},
 				},
 				// // FIXME: apollo-client uses .mjs, which imposes hard restrictions
 				// // on imports available from other callers. They probably didn't know
@@ -274,32 +282,32 @@ async function getExtensionConfig(target, mode, env) {
 			alias:
 				target === 'webworker'
 					? {
-							'universal-user-agent': path.join(
-								__dirname,
-								'node_modules',
-								'universal-user-agent',
-								'dist-web',
-								'index.js',
-							),
-							'node-fetch': 'cross-fetch',
-							'vscode-extension-telemetry': path.resolve(
-								__dirname,
-								'src',
-								'env',
-								'browser',
-								'vscode-extension-telemetry.js',
-							),
-							'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
-							'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
-							'./env/node/gitProviders/api': path.resolve(
-								__dirname,
-								'src',
-								'env',
-								'browser',
-								'gitProviders',
-								'api',
-							),
-					  }
+						'universal-user-agent': path.join(
+							__dirname,
+							'node_modules',
+							'universal-user-agent',
+							'dist-web',
+							'index.js',
+						),
+						'node-fetch': 'cross-fetch',
+						'vscode-extension-telemetry': path.resolve(
+							__dirname,
+							'src',
+							'env',
+							'browser',
+							'vscode-extension-telemetry.js',
+						),
+						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
+						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
+						'./env/node/gitProviders/api': path.resolve(
+							__dirname,
+							'src',
+							'env',
+							'browser',
+							'gitProviders',
+							'api',
+						),
+					}
 					: undefined,
 			// : {
 			// 	'universal-user-agent': path.join(__dirname, 'node_modules', 'universal-user-agent', 'dist-node', 'index.js'),
@@ -307,11 +315,11 @@ async function getExtensionConfig(target, mode, env) {
 			fallback:
 				target === 'webworker'
 					? {
-							crypto: require.resolve("crypto-browserify"),
-							path: require.resolve('path-browserify'),
-							stream: require.resolve("stream-browserify"),
-							url: false,
-					  }
+						crypto: require.resolve("crypto-browserify"),
+						path: require.resolve('path-browserify'),
+						stream: require.resolve("stream-browserify"),
+						url: false,
+					}
 					: undefined,
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false,
