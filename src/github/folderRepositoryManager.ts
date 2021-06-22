@@ -393,7 +393,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				resolveCompletionItem: async (item: vscode.CompletionItem, _token: vscode.CancellationToken) => {
 					try {
 						const repo = await this.getPullRequestDefaults();
-						const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, item.label);
+						const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, (typeof item.label === 'string') ? item.label : item.label.label);
 						if (user) {
 							item.documentation = userMarkdown(repo, user);
 						}
