@@ -427,7 +427,7 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 export async function createGithubPermalink(
 	gitAPI: GitApiImpl,
 	positionInfo?: NewIssue,
-): Promise<{ permalink: string | undefined; error: string | undefined }> {
+): Promise<{ permalink: string | undefined; error: string | undefined, originalFile: vscode.Uri | undefined }> {
 	let document: vscode.TextDocument;
 	let range: vscode.Range;
 	if (!positionInfo && vscode.window.activeTextEditor) {
@@ -437,12 +437,12 @@ export async function createGithubPermalink(
 		document = positionInfo.document;
 		range = positionInfo.range;
 	} else {
-		return { permalink: undefined, error: 'No active text editor position to create permalink from.' };
+		return { permalink: undefined, error: 'No active text editor position to create permalink from.', originalFile: undefined };
 	}
 
 	const repository = getRepositoryForFile(gitAPI, document.uri);
 	if (!repository) {
-		return { permalink: undefined, error: "The current file isn't part of repository." };
+		return { permalink: undefined, error: "The current file isn't part of repository.", originalFile: document.uri };
 	}
 
 	let commit: Commit | undefined;
@@ -450,7 +450,7 @@ export async function createGithubPermalink(
 	try {
 		const log = await repository.log({ maxEntries: 1, path: document.uri.fsPath });
 		if (log.length === 0) {
-			return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.' };
+			return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.', originalFile: document.uri };
 		}
 		commit = log[0];
 		commitHash = log[0].hash;
@@ -482,7 +482,7 @@ export async function createGithubPermalink(
 		// Check fallback
 		upstream = await fallbackUpstream;
 		if (!upstream || !upstream.fetchUrl) {
-			return { permalink: undefined, error: 'There is no suitable remote.' };
+			return { permalink: undefined, error: 'There is no suitable remote.', originalFile: document.uri };
 		}
 	}
 	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
@@ -490,6 +490,7 @@ export async function createGithubPermalink(
 		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
 			}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`,
 		error: undefined,
+		originalFile: document.uri
 	};
 }
 

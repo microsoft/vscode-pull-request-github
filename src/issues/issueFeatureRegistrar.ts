@@ -45,11 +45,11 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo:
 		| {
-				document: vscode.TextDocument;
-				newIssue: NewIssue | undefined;
-				lineNumber: number | undefined;
-				insertIndex: number | undefined;
-		  }
+			document: vscode.TextDocument;
+			newIssue: NewIssue | undefined;
+			lineNumber: number | undefined;
+			insertIndex: number | undefined;
+		}
 		| undefined;
 
 	constructor(
@@ -384,7 +384,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		});
 	}
 
-	dispose() {}
+	dispose() { }
 
 	private documentFilters: Array<vscode.DocumentFilter | string> = [
 		{ language: 'php' },
@@ -444,19 +444,19 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			disposable: vscode.Disposable | undefined;
 			configuration: string;
 		}[] = [
-			{
-				provider: IssueCompletionProvider,
-				trigger: '#',
-				disposable: undefined,
-				configuration: ISSUE_COMPLETIONS_CONFIGURATION,
-			},
-			{
-				provider: UserCompletionProvider,
-				trigger: '@',
-				disposable: undefined,
-				configuration: USER_COMPLETIONS_CONFIGURATION,
-			},
-		];
+				{
+					provider: IssueCompletionProvider,
+					trigger: '#',
+					disposable: undefined,
+					configuration: ISSUE_COMPLETIONS_CONFIGURATION,
+				},
+				{
+					provider: UserCompletionProvider,
+					trigger: '@',
+					disposable: undefined,
+					configuration: USER_COMPLETIONS_CONFIGURATION,
+				},
+			];
 		for (const element of providers) {
 			if (vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(element.configuration, true)) {
 				this.context.subscriptions.push(
@@ -845,9 +845,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			return;
 		}
 		await vscode.workspace.fs.delete(bodyPath);
-		const assigneeLine = `${ASSIGNEES} ${
-			assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''
-		}`;
+		const assigneeLine = `${ASSIGNEES} ${assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''
+			}`;
 		const labelLine = `${LABELS} `;
 		const text = `${title ?? 'Issue Title'}\n
 ${assigneeLine}
@@ -1025,7 +1024,7 @@ ${body ?? ''}\n
 				const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
 				const insertText: string =
 					vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createInsertFormat', 'number') ===
-					'number'
+						'number'
 						? `#${issue.number}`
 						: issue.html_url;
 				edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
@@ -1050,18 +1049,29 @@ ${body ?? ''}\n
 		return false;
 	}
 
-	private async getPermalinkWithError(): Promise<string | undefined> {
+	private async getPermalinkWithError(): Promise<{ permalink: string | undefined, originalFile: vscode.Uri | undefined }> {
 		const link = await createGithubPermalink(this.gitAPI);
 		if (link.error) {
 			vscode.window.showWarningMessage(`Unable to create a GitHub permalink for the selection. ${link.error}`);
 		}
-		return link.permalink;
+		return link;
+	}
+
+	private async getContextualizedPermalink(file: vscode.Uri, link: string): Promise<string> {
+		const uri = await vscode.env.asExternalUri(file);
+		const authority = (uri.scheme === 'https' && /^(vscode|github)\./.test(uri.authority)) ? uri.authority : undefined;
+		if (!authority) {
+			return link;
+		}
+		const linkUri = vscode.Uri.parse(link);
+		return linkUri.with({ authority }).toString();
 	}
 
 	async copyPermalink() {
 		const link = await this.getPermalinkWithError();
-		if (link) {
-			return vscode.env.clipboard.writeText(link);
+		if (link.permalink) {
+			return vscode.env.clipboard.writeText(
+				link.originalFile ? (await this.getContextualizedPermalink(link.originalFile, link.permalink)) : link.permalink);
 		}
 	}
 
@@ -1090,15 +1100,16 @@ ${body ?? ''}\n
 	async copyMarkdownPermalink() {
 		const link = await this.getPermalinkWithError();
 		const selection = this.getMarkdownLinkText();
-		if (link && selection) {
-			return vscode.env.clipboard.writeText(`[${selection.trim()}](${link})`);
+		if (link.permalink && selection) {
+			return vscode.env.clipboard.writeText(`[${selection.trim()}](${link.permalink})`);
 		}
 	}
 
 	async openPermalink() {
 		const link = await this.getPermalinkWithError();
-		if (link) {
-			return vscode.env.openExternal(vscode.Uri.parse(link));
+		if (link.permalink) {
+			return vscode.env.openExternal(vscode.Uri.parse(
+				link.originalFile ? (await this.getContextualizedPermalink(link.originalFile, link.permalink)) : link.permalink));
 		}
 		return undefined;
 	}
