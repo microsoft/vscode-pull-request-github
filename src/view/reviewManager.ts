@@ -91,7 +91,7 @@ export class ReviewManager {
 
 		this.registerListeners();
 
-		this.updateState();
+		this.updateState(true);
 		this.pollForStatusChange();
 	}
 
@@ -113,8 +113,8 @@ export class ReviewManager {
 				} else {
 					sameUpstream = !!oldHead.upstream
 						? newHead.upstream &&
-						  oldHead.upstream.name === newHead.upstream.name &&
-						  oldHead.upstream.remote === newHead.upstream.remote
+						oldHead.upstream.name === newHead.upstream.name &&
+						oldHead.upstream.remote === newHead.upstream.remote
 						: !newHead.upstream;
 				}
 
@@ -343,11 +343,7 @@ export class ReviewManager {
 				}),
 			);
 
-			if (
-				!silent &&
-				this._context.workspaceState.get(FOCUS_REVIEW_MODE) &&
-				vscode.env.remoteName === 'codespaces'
-			) {
+			if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE) && (vscode.env.remoteName === 'codespaces')) {
 				this._webviewViewProvider.show();
 			}
 		} else {
