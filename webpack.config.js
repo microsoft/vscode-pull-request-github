@@ -175,15 +175,18 @@ async function getExtensionConfig(target, mode, env) {
 			typescript: {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
 			},
-		}),
-		new webpack.ProvidePlugin({
+		})
+	];
+
+	if (target === 'webworker') {
+		plugins.push(new webpack.ProvidePlugin({
 			process: path.join(
 				__dirname,
 				'node_modules',
 				'process',
 				'browser.js')
-		})
-	];
+		}));
+	}
 
 	return {
 		name: `extension:${target}`,
