@@ -53,7 +53,7 @@ async function init(
 		if (e.provider.id === 'github') {
 			await reposManager.clearCredentialCache();
 			if (reviewManagers) {
-				reviewManagers.forEach(reviewManager => reviewManager.updateState());
+				reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
 			}
 		}
 	});
@@ -135,7 +135,7 @@ async function init(
 
 	git.onDidChangeState(() => {
 		Logger.appendLine(`Git initialization state changed: state=${git.state}}`);
-		reviewManagers.forEach(reviewManager => reviewManager.updateState());
+		reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
 	});
 
 	git.onDidOpenRepository(repo => {

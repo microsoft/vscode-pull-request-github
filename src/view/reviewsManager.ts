@@ -42,7 +42,7 @@ export class ReviewsManager {
 						this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._context);
 
 						for (const reviewManager of this._reviewManagers) {
-							reviewManager.updateState();
+							reviewManager.updateState(true);
 						}
 					}
 
