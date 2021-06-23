@@ -207,7 +207,7 @@ body .comment-container .review-comment-header {
 }
 
 .status-section {
-	padding-bottom: 12px;
+	padding-bottom: 16px;
 }
 
 .status-section:last-of-type {
@@ -242,6 +242,10 @@ body .comment-container .review-comment-header {
 
 #status-checks .merge-select-container > * {
 	margin-right: 5px;
+}
+
+#status-checks .merge-select-container > select {
+	margin-left: 5px;
 }
 
 #status-checks .branch-status-container {
@@ -352,7 +356,7 @@ body button .icon {
 }
 
 .overview-title .button-group {
-	padding-top: 5px;
+	padding-top: 2px;
 	margin-left: auto;
 	display: flex;
 	align-self: start;
