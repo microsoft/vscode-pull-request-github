@@ -338,16 +338,15 @@ export function getPositionFromThread(comment: GitPullRequestCommentThread) {
 
 export function getDiffSide(thread: GitPullRequestCommentThread): DiffSide | undefined {
 	if (thread.pullRequestThreadContext?.trackingCriteria !== undefined || thread.threadContext !== undefined) {
-		if (
-			thread.pullRequestThreadContext?.trackingCriteria?.origLeftFileStart !== undefined ||
-			thread.threadContext?.leftFileStart !== undefined
-		) {
-			return DiffSide.LEFT;
-		} else if (
-			thread.pullRequestThreadContext?.trackingCriteria?.origRightFileStart !== undefined ||
-			thread.threadContext?.rightFileStart !== undefined
-		) {
+		if (thread.pullRequestThreadContext?.trackingCriteria?.origRightFileStart !== undefined) {
 			return DiffSide.RIGHT;
+		} else if (thread.pullRequestThreadContext?.trackingCriteria?.origLeftFileStart !== undefined) {
+			return DiffSide.LEFT;
+		} else if (thread.threadContext?.rightFileStart !== undefined) {
+			// Check on threadContext needs to happen after trackingCriteria
+			return DiffSide.RIGHT;
+		} else if (thread.threadContext?.leftFileStart !== undefined) {
+			return DiffSide.LEFT;
 		}
 	}
 }

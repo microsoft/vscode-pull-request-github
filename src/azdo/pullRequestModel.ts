@@ -81,7 +81,7 @@ export class PullRequestModel implements IPullRequestModel {
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
-	public reviewThreadsCache: IReviewThread[] = [];
+	private _reviewThreadsCache: IReviewThread[] = [];
 	private _onDidChangeReviewThreads = new vscode.EventEmitter<ReviewThreadChangeEvent>();
 	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
 	public fileChangeViewedState: { [key: string]: ViewedState } = {};
@@ -107,6 +107,10 @@ export class PullRequestModel implements IPullRequestModel {
 
 		this.isActive = isActive === undefined ? item.status === PullRequestStatus.Active : false;
 		this.update(item);
+	}
+
+	public get reviewThreadsCache(): IReviewThread[] {
+		return this._reviewThreadsCache;
 	}
 
 	public get isMerged(): boolean {
@@ -313,7 +317,7 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 
 		const newThread: IReviewThread = this.convertThreadToIReviewThread(result);
-		this.reviewThreadsCache.push(newThread);
+		this._reviewThreadsCache.push(newThread);
 		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
 
 		return result;
@@ -355,7 +359,7 @@ export class PullRequestModel implements IPullRequestModel {
 		}
 
 		const newThread = this.convertThreadToIReviewThread(result);
-		this.reviewThreadsCache = [...this.reviewThreadsCache.filter(thread => thread.id !== threadId), newThread];
+		this._reviewThreadsCache = [...this._reviewThreadsCache.filter(thread => thread.id !== threadId), newThread];
 		this._onDidChangeReviewThreads.fire({ added: [], changed: [newThread], removed: [] });
 
 		return result;
@@ -377,7 +381,7 @@ export class PullRequestModel implements IPullRequestModel {
 
 		const reviewThreads = result?.map(r => this.convertThreadToIReviewThread(r));
 		this.diffThreads(reviewThreads);
-		this.reviewThreadsCache = reviewThreads;
+		this._reviewThreadsCache = reviewThreads;
 
 		return result;
 	}
@@ -388,7 +392,7 @@ export class PullRequestModel implements IPullRequestModel {
 		const removed: IReviewThread[] = [];
 
 		newReviewThreads.forEach(thread => {
-			const existingThread = this.reviewThreadsCache.find(t => t.id === thread.id);
+			const existingThread = this._reviewThreadsCache.find(t => t.id === thread.id);
 			if (existingThread) {
 				if (!equals(thread, existingThread)) {
 					changed.push(thread);
@@ -398,7 +402,7 @@ export class PullRequestModel implements IPullRequestModel {
 			}
 		});
 
-		this.reviewThreadsCache.forEach(thread => {
+		this._reviewThreadsCache.forEach(thread => {
 			if (!newReviewThreads.find(t => t.id === thread.id)) {
 				removed.push(thread);
 			}
@@ -438,7 +442,7 @@ export class PullRequestModel implements IPullRequestModel {
 		if (!result) {
 			return result;
 		}
-		const threadWithComment = this.reviewThreadsCache.find(thread => thread.id === threadId);
+		const threadWithComment = this._reviewThreadsCache.find(thread => thread.id === threadId);
 
 		if (threadWithComment) {
 			threadWithComment.thread.comments.push(result);
@@ -510,7 +514,7 @@ export class PullRequestModel implements IPullRequestModel {
 			return result;
 		}
 
-		const threadWithComment = this.reviewThreadsCache.find(thread => thread.id === threadId);
+		const threadWithComment = this._reviewThreadsCache.find(thread => thread.id === threadId);
 
 		if (threadWithComment) {
 			threadWithComment.thread.comments = [...threadWithComment.thread.comments.filter(c => c.id !== commentId), result];

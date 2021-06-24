@@ -55,7 +55,7 @@ class TestReviewCommentController extends ReviewCommentController {
 		_getCommentPermissions: (comment: Comment) => CommentPermissions,
 		commonCommentHandler: CommonCommentHandler,
 	) {
-		super(_reposManager, _repository, _localFileChanges, _obsoleteFileChanges, _comments, _getCommentPermissions);
+		super(_reposManager, _repository, _localFileChanges, _getCommentPermissions);
 		this._commonCommentHandler = commonCommentHandler;
 	}
 	public workspaceFileChangeCommentThreads() {
@@ -172,7 +172,10 @@ describe('ReviewCommentController', function () {
 				localFileChanges,
 				[],
 				[],
-				undefined as any,
+				c => { return {
+					canDelete: false,
+					canEdit: false,
+				}},
 				commonCommentHandler,
 			);
 			const thread = createGHPRCommentThread('review-1.1', uri);
@@ -185,11 +188,31 @@ describe('ReviewCommentController', function () {
 				url: 'https://github.com/rmacfarlane',
 			});
 
-			sinon.stub(activePullRequest, 'createThread').resolves({
-				id: 1,
-				comments: [{ id: 1, commentType: CommentType.Text, content: 'text' }],
-				status: CommentThreadStatus.Active,
-			});
+			// sinon.stub(activePullRequest, 'createThread').resolves({
+			// 	id: 1,
+			// 	comments: [{ id: 1, commentType: CommentType.Text, content: 'text', author: {
+			// 		displayName: 'Ankit'
+			// 	} }],
+			// 	status: CommentThreadStatus.Active,
+			// });
+
+			sinon.stub(activePullRequest.azdoRepository.azdo.connection, 'getGitApi').resolves({
+				createThread: async (c,r,n,p) => {
+					return {
+						id: 1,
+						comments: [{ id: 1, commentType: CommentType.Text, content: 'text', author: {
+							displayName: 'Ankit'
+						} }],
+						threadContext: {rightFileStart: 10, filePath: fileName},
+						status: CommentThreadStatus.Active,
+					};
+				},
+				getPullRequestIterations: (r, n, p, i) => {
+					return []
+				}
+			} as any);
+
+			sinon.stub(activePullRequest.azdoRepository, 'ensure').resolves(activePullRequest.azdoRepository);
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 				uri: repository.rootUri,
@@ -202,15 +225,17 @@ describe('ReviewCommentController', function () {
 				return path.substring('/root/'.length);
 			});
 
-			sinon.stub(repository, 'diffWith').returns(Promise.resolve(''));
+			sinon.stub(repository, 'diffWithHEAD').returns(Promise.resolve(''));
+
+			sinon.stub(activePullRequest, 'getAllActiveThreads').returns(Promise.resolve([]));
+
+			await activePullRequest.getAllActiveThreadsBetweenAllIterations();
 
 			const replaceCommentSpy = sinon.spy(commonCommentHandler, 'replaceTemporaryComment');
 
 			await reviewCommentController.initialize();
 			const workspaceFileChangeCommentThreads = reviewCommentController.workspaceFileChangeCommentThreads();
-			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 1);
-			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
-			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 0);
+			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 0);
 
 			await reviewCommentController.createOrReplyComment(thread, 'hello world');
 

@@ -76,6 +76,29 @@ export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: num
 	return undefined;
 }
 
+export function mapNewPositionToOld(patch: string, line: number): number {
+	const diffReader = parseDiffHunk(patch);
+	let diffIter = diffReader.next();
+
+	let delta = 0;
+	while (!diffIter.done) {
+		const diffHunk: DiffHunk = diffIter.value;
+
+		if (diffHunk.newLineNumber > line) {
+			// No-op
+		} else if (diffHunk.newLineNumber + diffHunk.newLength - 1 < line) {
+			delta += diffHunk.oldLength - diffHunk.newLength;
+		} else {
+			delta += diffHunk.oldLength - diffHunk.newLength;
+			return line + delta;
+		}
+
+		diffIter = diffReader.next();
+	}
+
+	return line + delta;
+}
+
 export function mapHeadLineToDiffHunkPosition(
 	diffHunks: DiffHunk[],
 	localDiff: string,

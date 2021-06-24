@@ -50,8 +50,8 @@ export class CommonCommentHandler {
 				//fileChange.update(fileChange.comments.concat(rawThread!));
 			} else {
 				rawComment = await this.reply(thread, input);
-				rawThread.comments?.push(rawComment!);
-				fileChange.comments.find(r => r.id === rawThread.id)?.comments?.push(rawComment!);
+				//rawThread.comments?.push(rawComment!);
+				//fileChange.comments.find(r => r.id === rawThread.id)?.comments?.push(rawComment!);
 				//fileChange.update(fileChange.comments);
 			}
 

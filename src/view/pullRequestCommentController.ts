@@ -247,9 +247,9 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				const matchingThread = this._commentThreadCache[key][index];
 				updateThread(
 					matchingThread,
-					thread.thread.comments.map(
-						c => new GHPRComment(c, this.pullRequestModel.getCommentPermission(c), matchingThread),
-					),
+					thread.thread.comments
+						.filter(c => !c.isDeleted)
+						.map(c => new GHPRComment(c, this.pullRequestModel.getCommentPermission(c), matchingThread)),
 				);
 			}
 		});

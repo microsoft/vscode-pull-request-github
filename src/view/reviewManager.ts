@@ -520,8 +520,6 @@ export class ReviewManager {
 			this._folderRepoManager,
 			this._repository,
 			this._localFileChanges,
-			this._obsoleteFileChanges,
-			this._comments,
 			pr.getCommentPermission.bind(pr),
 		);
 
