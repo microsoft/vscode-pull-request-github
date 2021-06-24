@@ -15,7 +15,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		private stateManager: StateManager,
 		private manager: RepositoriesManager,
 		_context: vscode.ExtensionContext,
-	) {}
+	) { }
 
 	async provideCompletionItems(
 		document: vscode.TextDocument,
@@ -59,15 +59,16 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			document.uri.scheme === NEW_ISSUE_SCHEME
 				? extractIssueOriginFromQuery(document.uri) ?? document.uri
 				: document.languageId === 'scminput'
-				? getRootUriFromScmInputUri(document.uri)
-				: document.uri;
+					? getRootUriFromScmInputUri(document.uri)
+					: document.uri;
 		if (!uri) {
 			return [];
 		}
 
 		const completionItems: vscode.CompletionItem[] = [];
 		(await this.stateManager.getUserMap(uri)).forEach(item => {
-			const completionItem: UserCompletion = new UserCompletion(item.login, vscode.CompletionItemKind.User);
+			const completionItem: UserCompletion = new UserCompletion(
+				{ label: item.login, description: item.name }, vscode.CompletionItemKind.User);
 			completionItem.insertText = `@${item.login}`;
 			completionItem.login = item.login;
 			completionItem.uri = uri;
