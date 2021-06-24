@@ -114,6 +114,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 				}
 			}),
 		);
+		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link'};
 	}
 
 	updateViewed(viewed: ViewedState) {
@@ -207,6 +208,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 				}
 			}),
 		);
+
+		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link'};
 	}
 
 	updateViewed(viewed: ViewedState) {
