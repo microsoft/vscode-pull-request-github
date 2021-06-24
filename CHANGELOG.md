@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.24
+
+- Fixed [#50](https://github.com/ankitbko/vscode-pull-request-azdo/issues/50) - Comments duplicate in review mode
+- Fixed [#51](https://github.com/ankitbko/vscode-pull-request-azdo/issues/51) - Comments appear on wrong side in review mode
+- Fixed [#52](https://github.com/ankitbko/vscode-pull-request-azdo/issues/52) - Comments when deleted from server does not disappear completely
+- Added workplace trust setting
+- Git extension activation is now forced before activation of this extension
+
 ## 0.0.23
 
 - Fixed [#45](https://github.com/ankitbko/vscode-pull-request-azdo/issues/45) - Seeing duplicate review comments.

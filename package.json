@@ -12,7 +12,7 @@
 	},
 	"enableProposedApi": false,
 	"preview": true,
-	"version": "0.0.23",
+	"version": "0.0.24",
 	"publisher": "ankitbko",
 	"engines": {
 		"vscode": "^1.53.0"
