@@ -32,6 +32,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 
 		this.contextValue = 'description';
 		this.tooltip = `Description of pull request #${pullRequestModel.number}`;
+		this.accessibilityInformation = { label: `Pull request page of pull request number ${pullRequestModel.number}`, role: 'button' };
 	}
 
 	getTreeItem(): vscode.TreeItem {
