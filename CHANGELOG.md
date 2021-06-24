@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.25
+
+- Removed explicit check of azdo url to resolve [#55](https://github.com/ankitbko/vscode-pull-request-azdo/issues/55)
+
 ## 0.0.24
 
 - Fixed [#50](https://github.com/ankitbko/vscode-pull-request-azdo/issues/50) - Comments duplicate in review mode
