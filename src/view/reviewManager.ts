@@ -17,6 +17,7 @@ import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, toReviewUri } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
+import { NEVER_SHOW_PULL_NOTIFICATION } from '../extensionState';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
@@ -199,20 +200,26 @@ export class ReviewManager {
 			const remote = branch.upstream ? branch.upstream.remote : null;
 			if (remote) {
 				await this._repository.fetch(remote, this._repository.state.HEAD?.name);
-				if (
-					(pr.head.sha !== this._lastCommitSha || (branch.behind !== undefined && branch.behind > 0)) &&
-					!this._updateMessageShown
+				const canShowNotification = !this._context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
+				if (canShowNotification && !this._updateMessageShown &&
+					((this._lastCommitSha && (pr.head.sha !== this._lastCommitSha))
+						|| (branch.behind !== undefined && branch.behind > 0))
 				) {
 					this._updateMessageShown = true;
+					const pull = 'Pull';
+					const never = 'Never show again';
 					const result = await vscode.window.showInformationMessage(
 						'There are updates available for this pull request.',
 						{},
-						'Pull',
+						pull,
+						never
 					);
 
-					if (result === 'Pull') {
+					if (result === pull) {
 						await vscode.commands.executeCommand('git.pull');
 						this._updateMessageShown = false;
+					} else if (never) {
+						await this._context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, true);
 					}
 				}
 			}

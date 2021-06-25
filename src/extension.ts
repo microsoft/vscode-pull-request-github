@@ -17,6 +17,7 @@ import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
+import { setSyncedKeys } from './extensionState';
 import { AuthProvider, CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { RepositoriesManager } from './github/repositoriesManager';
@@ -172,6 +173,7 @@ async function init(
 
 	tree.initialize(reposManager);
 
+	setSyncedKeys(context);
 	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
 
 	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
