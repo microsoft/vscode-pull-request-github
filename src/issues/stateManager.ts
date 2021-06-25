@@ -484,7 +484,8 @@ export class StateManager {
 			return;
 		}
 		if (shouldShowStatusBarItem && !this.statusBarItem) {
-			this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
+			this.statusBarItem = vscode.window.createStatusBarItem('github.issues.status', vscode.StatusBarAlignment.Left, 0);
+			this.statusBarItem.name = 'GitHub Active Issue';
 		}
 		const statusBarItem = this.statusBarItem!;
 		statusBarItem.text = `$(issues) Issue ${currentIssues

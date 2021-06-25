@@ -169,7 +169,8 @@ export class ReviewManager {
 
 	get statusBarItem() {
 		if (!this._statusBarItem) {
-			this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+			this._statusBarItem = vscode.window.createStatusBarItem('github.pullrequest.status', vscode.StatusBarAlignment.Left);
+			this._statusBarItem.name = 'GitHub Active Pull Request';
 		}
 
 		return this._statusBarItem;
