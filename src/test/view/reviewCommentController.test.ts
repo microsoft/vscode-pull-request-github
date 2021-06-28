@@ -26,7 +26,7 @@ import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
 import { DiffSide } from '../../common/comment';
-import { ReviewManager } from '../../view/reviewManager';
+import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 const schema = require('../../github/queries.gql');
@@ -65,7 +65,7 @@ describe('ReviewCommentController', function () {
 		const context = new MockExtensionContext();
 		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
 		const tree = new PullRequestChangesTreeDataProvider(context);
-		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree);
+		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest());
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return new MockGitHubRepository(r, cStore, telemetry, sinon);
 		});

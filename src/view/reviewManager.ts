@@ -81,6 +81,7 @@ export class ReviewManager {
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,
+		private _showPullRequest: ShowPullRequest
 	) {
 		this._switchingToReviewMode = false;
 		this._disposables = [];
@@ -351,8 +352,17 @@ export class ReviewManager {
 				}),
 			);
 
-			if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE) && (vscode.env.remoteName === 'codespaces')) {
+			const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
+			if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
 				this._webviewViewProvider.show();
+			} else if (!this._showPullRequest.shouldShow && isFocusMode) {
+				const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
+					if (shouldShow) {
+						this._webviewViewProvider?.show();
+					}
+					showPRChangedDisposable.dispose();
+				});
+				this._localToDispose.push(showPRChangedDisposable);
 			}
 		} else {
 			this._webviewViewProvider.updatePullRequest(pr);
@@ -941,5 +951,22 @@ export class ReviewManager {
 		folderManager: FolderRepositoryManager,
 	): ReviewManager | undefined {
 		return reviewManagers.find(reviewManager => reviewManager._folderRepoManager === folderManager);
+	}
+}
+
+export class ShowPullRequest {
+	private _shouldShow: boolean = false;
+	private _onChangedShowValue: vscode.EventEmitter<boolean> = new vscode.EventEmitter();
+	public readonly onChangedShowValue: vscode.Event<boolean> = this._onChangedShowValue.event;
+	constructor() { }
+	get shouldShow(): boolean {
+		return this._shouldShow;
+	}
+	set shouldShow(shouldShow: boolean) {
+		const oldShowValue = this._shouldShow;
+		this._shouldShow = shouldShow;
+		if (oldShowValue !== this._shouldShow) {
+			this._onChangedShowValue.fire(this._shouldShow);
+		}
 	}
 }

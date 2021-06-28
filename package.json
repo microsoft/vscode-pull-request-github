@@ -384,7 +384,7 @@
 					"id": "github:activePullRequest",
 					"type": "webview",
 					"name": "Active Pull Request",
-					"when": "github:initialized && github:focusedReview"
+					"when": "github:inReviewMode && github:focusedReview"
 				},
 				{
 					"id": "github:activePullRequest:welcome",
