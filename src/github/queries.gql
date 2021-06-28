@@ -904,7 +904,9 @@ query GetRepositoryForkDetails($owner: String!, $name: String!) {
 		isFork
 		parent {
 			name
-			owner
+			owner {
+				login
+			}
 		}
 	}
 }
