@@ -406,7 +406,7 @@ export interface PullRequest {
 	headRef?: Ref;
 	headRefName: string;
 	headRefOid: string;
-	headRepository: RefRepository;
+	headRepository?: RefRepository;
 	baseRef?: Ref;
 	baseRefName: string;
 	baseRefOid: string;

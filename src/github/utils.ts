@@ -418,7 +418,11 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 	return reactions;
 }
 
-function parseRef(refName: string, oid: string, repository: GraphQL.RefRepository): IGitHubRef | undefined {
+function parseRef(refName: string, oid: string, repository?: GraphQL.RefRepository): IGitHubRef | undefined {
+	if (!repository) {
+		return undefined;
+	}
+
 	return {
 		label: `${repository.owner.login}:${refName}`,
 		ref: refName,
