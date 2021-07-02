@@ -37,7 +37,7 @@ export interface PRUriParams {
 export function fromPRUri(uri: Uri): PRUriParams | undefined {
 	try {
 		return JSON.parse(uri.query) as PRUriParams;
-	} catch (e) {}
+	} catch (e) { }
 }
 
 export interface GitHubUriParams {
@@ -48,7 +48,7 @@ export interface GitHubUriParams {
 export function fromGitHubURI(uri: Uri): GitHubUriParams | undefined {
 	try {
 		return JSON.parse(uri.query) as GitHubUriParams;
-	} catch (e) {}
+	} catch (e) { }
 }
 
 export interface GitUriOptions {
@@ -140,8 +140,8 @@ export function toResourceUri(uri: Uri, prNumber: number, fileName: string, stat
 
 export function fromFileChangeNodeUri(uri: Uri): FileChangeNodeUriParams | undefined {
 	try {
-		return JSON.parse(uri.query) as FileChangeNodeUriParams;
-	} catch (e) {}
+		return uri.query ? JSON.parse(uri.query) as FileChangeNodeUriParams : undefined;
+	} catch (e) { }
 }
 
 export function toPRUri(
