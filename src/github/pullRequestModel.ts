@@ -366,7 +366,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					author: currentUser,
 				},
 			});
-			return data.node.reviews.nodes[0].id;
+			return data.node.reviews.nodes.length > 0 ? data.node.reviews.nodes[0].id : undefined;
 		} catch (error) {
 			return;
 		}

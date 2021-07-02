@@ -934,10 +934,9 @@ export function isInCodespaces(): boolean {
 }
 
 export function getEnterpriseUri(): vscode.Uri | undefined {
-	try {
-		return vscode.Uri.parse(vscode.workspace.getConfiguration('github-enterprise').get<string>('uri') || '', true);
-	} catch {
-		// ignore
+	const config: string = vscode.workspace.getConfiguration('github-enterprise').get<string>('uri', '');
+	if (config) {
+		return vscode.Uri.parse(config, true);
 	}
 }
 
