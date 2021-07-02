@@ -876,7 +876,7 @@ export class ReviewManager {
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
-		const { path, commit } = fromReviewUri(uri);
+		const { path, commit } = fromReviewUri(uri.query);
 		let changedItems = gitFileChangeNodeFilter(this._localFileChanges)
 			.filter(change => change.fileName === path)
 			.filter(

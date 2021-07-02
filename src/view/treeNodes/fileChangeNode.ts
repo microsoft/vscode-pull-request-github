@@ -352,7 +352,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		}
 
 		// Show the file change in a diff view.
-		const { path: filePath, ref, commit, rootPath } = fromReviewUri(this.filePath);
+		const { path: filePath, ref, commit, rootPath } = fromReviewUri(this.filePath.query);
 		const previousCommit = `${commit}^`;
 		const query: ReviewUriParams = {
 			path: filePath,

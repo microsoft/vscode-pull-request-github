@@ -20,8 +20,8 @@ export interface ReviewUriParams {
 	rootPath: string;
 }
 
-export function fromReviewUri(uri: Uri): ReviewUriParams {
-	return JSON.parse(uri.query);
+export function fromReviewUri(query: string): ReviewUriParams {
+	return JSON.parse(query);
 }
 
 export interface PRUriParams {

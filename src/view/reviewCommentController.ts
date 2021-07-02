@@ -346,11 +346,8 @@ export class ReviewCommentController
 		document: vscode.TextDocument,
 		_token: vscode.CancellationToken,
 	): Promise<vscode.Range[] | undefined> {
-		let query: ReviewUriParams | undefined;
-
-		try {
-			query = fromReviewUri(document.uri);
-		} catch (e) { }
+		let query: ReviewUriParams | undefined =
+			(document.uri.query && document.uri.query !== '') ? fromReviewUri(document.uri.query) : undefined;
 
 		if (query) {
 			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
@@ -430,7 +427,7 @@ export class ReviewCommentController
 		fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 		uri: vscode.Uri,
 	): GitFileChangeNode | undefined {
-		const query = fromReviewUri(uri);
+		const query = fromReviewUri(uri.query);
 		const matchedFiles = fileChanges.filter(fileChange => {
 			if (fileChange instanceof RemoteFileChangeNode) {
 				return false;
@@ -483,7 +480,7 @@ export class ReviewCommentController
 	// #region Review
 	private getCommentSide(thread: GHPRCommentThread): DiffSide {
 		if (thread.uri.scheme === 'review') {
-			const query = fromReviewUri(thread.uri);
+			const query = fromReviewUri(thread.uri.query);
 			return query.base ? DiffSide.LEFT : DiffSide.RIGHT;
 		}
 
