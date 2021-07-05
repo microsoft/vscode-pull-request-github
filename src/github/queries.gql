@@ -372,10 +372,10 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
-query PullRequestFiles($owner: String!, $name: String!, $number: Int!) {
+query PullRequestFiles($owner: String!, $name: String!, $number: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			files(first: 100) {
+			files(first: 100, after: $after) {
 				nodes {
 					path
 					viewerViewedState
