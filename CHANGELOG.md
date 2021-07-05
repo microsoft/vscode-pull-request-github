@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.28.0
+
+### Changes
+
+- Status bar entries use the new `createStatusBarItem` API to show better names.
+
+![Status bar name](documentation/changelog/0.28.0/status-bar-name.png)
+
+
+### Fixes
+
+- Placeholder avatar is shown correctly with GitHub Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/2771
+- Error messages no longer shown when there's a non-GitHub remote. https://github.com/microsoft/vscode-pull-request-github/issues/2768
+- Copying a permalink doesn't require sign in. https://github.com/microsoft/vscode-pull-request-github/issues/2761
+- There's a new timeout for listing branches so that repositories with many branches don't hang. https://github.com/microsoft/vscode-pull-request-github/issues/2753
+- "There are updates" notification is shown less often and can be permanently hidden. https://github.com/microsoft/vscode-pull-request-github/issues/2628
+- [And more!](https://github.com/microsoft/vscode-pull-request-github/issues?q=is%3Aissue+label%3Abug+milestone%3A%22June+2021%22+is%3Aclosed)
+
 ## 0.27.1
 
 - Fix links in the readme for the marketplace: https://github.com/microsoft/vscode-pull-request-github/issues/2769
