@@ -316,8 +316,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			this.hasPendingReview = false;
 			await this.updateDraftModeContext();
+			const reviewEvent = parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, this.githubRepository);
 
-			return parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, this.githubRepository);
+			const threadWithComment = this._reviewThreadsCache.find(thread =>
+				thread.comments.length ? (thread.comments[0].pullRequestReviewId === reviewEvent.id) : undefined,
+			);
+			if (threadWithComment) {
+				threadWithComment.comments = reviewEvent.comments;
+				this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
+			}
+			return reviewEvent;
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${this.number}.`);
 		}
