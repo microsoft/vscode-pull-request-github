@@ -445,21 +445,17 @@ export class ReviewCommentController
 				}
 			}
 
-			try {
-				const q = JSON.parse(fileChange.filePath.query);
+			const q = fileChange.filePath.query ? JSON.parse(fileChange.filePath.query) : undefined;
 
-				if (q.commit === query.commit) {
-					return true;
-				}
-			} catch (e) { }
+			if (q && (q.commit === query.commit)) {
+				return true;
+			}
 
-			try {
-				const q = JSON.parse(fileChange.parentFilePath.query);
+			const parentQ = fileChange.parentFilePath.query ? JSON.parse(fileChange.parentFilePath.query) : undefined;
 
-				if (q.commit === query.commit) {
-					return true;
-				}
-			} catch (e) { }
+			if (parentQ && (parentQ.commit === query.commit)) {
+				return true;
+			}
 
 			return false;
 		});
