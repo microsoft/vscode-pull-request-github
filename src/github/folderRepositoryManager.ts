@@ -14,7 +14,7 @@ import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri } from '../common/uri';
-import { formatError, Predicate } from '../common/utils';
+import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
@@ -212,7 +212,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				provideCompletionItems: async (document, position, _token) => {
 					try {
 						const query = JSON.parse(document.uri.query);
-						if (query.extensionId !== EXTENSION_ID) {
+						if (compareIgnoreCase(query.extensionId, EXTENSION_ID) !== 0) {
 							return;
 						}
 
