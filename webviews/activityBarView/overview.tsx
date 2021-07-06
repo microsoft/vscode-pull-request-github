@@ -8,7 +8,7 @@ import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 
 import { AddCommentSimple } from '../components/comment';
-import { StatusChecks } from '../components/merge';
+import { StatusChecksSection } from '../components/merge';
 
 export const Overview = (pr: PullRequest) => {
 	const { exitReviewMode } = useContext(PullRequestContext);
@@ -26,9 +26,9 @@ export const Overview = (pr: PullRequest) => {
 	return <>
 		<div id="main">
 			<AddCommentSimple {...pr} />
-			<StatusChecks pr={pr} isSimple={true} />
+			<StatusChecksSection pr={pr} isSimple={true} />
 			<div className="button-container">
-				<button title="Switch to a different branch than this pull request branch"disabled={isBusy} onClick={() => onClick()}>
+				<button title="Switch to a different branch than this pull request branch" disabled={isBusy} onClick={() => onClick()}>
 					Exit Review Mode
 				</button>
 			</div>

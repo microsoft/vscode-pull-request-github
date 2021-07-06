@@ -8,7 +8,7 @@ import { PullRequest } from '../common/cache';
 
 import { AddComment, CommentView } from '../components/comment';
 import { Header } from '../components/header';
-import { StatusChecks } from '../components/merge';
+import { StatusChecksSection } from '../components/merge';
 import Sidebar from '../components/sidebar';
 import { Timeline } from '../components/timeline';
 
@@ -25,7 +25,7 @@ export const Overview = (pr: PullRequest) => (
 				<CommentView isPRDescription {...pr} />
 			</div>
 			<Timeline events={pr.events} />
-			<StatusChecks pr={pr} isSimple={false} />
+			<StatusChecksSection pr={pr} isSimple={false} />
 			<AddComment {...pr} />
 		</div>
 	</>

@@ -14,10 +14,20 @@ import { alertIcon, checkIcon, deleteIcon, mergeIcon, pendingIcon } from './icon
 import { nbsp } from './space';
 import { Avatar } from './user';
 
-export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	if (pr.isIssue) {
-		return null;
-	}
+const PRStatusMessage = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
+	return pr.state === GithubItemStateEnum.Merged ? (
+		<div className="branch-status-message"><div className="branch-status-icon">{isSimple ? mergeIcon : null}</div> {'Pull request successfully merged.'}</div>
+	) : pr.state === GithubItemStateEnum.Closed ? (
+		<div className="branch-status-message">{'This pull request is closed.'}</div>
+	) : null;
+};
+
+const DeleteOption = ({ pr }: { pr: PullRequest }) => {
+	return pr.state === GithubItemStateEnum.Open ? null
+		: (<DeleteBranch {...pr} />);
+};
+
+const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 	const { state, status } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
@@ -36,49 +46,60 @@ export const StatusChecks = ({ pr, isSimple }: { pr: PullRequest; isSimple: bool
 		}
 	}, status.statuses);
 
+	return ((state === GithubItemStateEnum.Open) && status.statuses.length) ? (
+		<>
+			<div className="status-section">
+				<div className="status-item">
+					<StateIcon state={status.state} />
+					<div>{getSummaryLabel(status.statuses)}</div>
+					<a aria-role="button" onClick={toggleDetails}>
+						{showDetails ? 'Hide' : 'Show'}
+					</a>
+				</div>
+				{showDetails ? <StatusCheckDetails statuses={status.statuses} /> : null}
+			</div>
+		</>
+	) : null;
+};
+
+const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest, isSimple: boolean }) => {
+	return (isSimple && (pr.state === GithubItemStateEnum.Open))
+		? pr.reviewers
+			?
+			<> {
+				pr.reviewers.map(state => (
+					<Reviewer key={state.reviewer.login} {...state} canDelete={false} />
+				))
+			}</>
+			: null
+		: null;
+};
+
+export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+	if (pr.isIssue) {
+		return null;
+	}
+
 	return (
 		<div id="status-checks">
-			{state === GithubItemStateEnum.Merged ? (
+			{
 				<>
-					<div className="branch-status-message"><div className="branch-status-icon">{isSimple ? mergeIcon : null}</div> {'Pull request successfully merged.'}</div>
-					<DeleteBranch {...pr} />
-				</>
-			) : state === GithubItemStateEnum.Closed ? (
-				<>
-					<div className="branch-status-message">{'This pull request is closed.'}</div>
-					<DeleteBranch {...pr} />
-				</>
-			) : (
-				<>
-					{status.statuses.length ? (
-						<>
-							<div className="status-section">
-								<div className="status-item">
-									<StateIcon state={status.state} />
-									<div>{getSummaryLabel(status.statuses)}</div>
-									<a aria-role="button" onClick={toggleDetails}>
-										{showDetails ? 'Hide' : 'Show'}
-									</a>
-								</div>
-								{showDetails ? <StatusCheckDetails statuses={status.statuses} /> : null}
-							</div>
-						</>
-					) : null}
-					{isSimple
-						? pr.reviewers
-							? pr.reviewers.map(state => (
-								<Reviewer key={state.reviewer.login} {...state} canDelete={false} />
-							))
-							: []
-						: null}
+					<PRStatusMessage pr={pr} isSimple={isSimple} />
+					<DeleteOption pr={pr} />
+					<StatusChecks pr={pr} />
+					<InlineReviewers pr={pr} isSimple={isSimple} />
 					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
 				</>
-			)}
+			}
 		</div>
 	);
 };
 
 export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
+	if (pr.state !== GithubItemStateEnum.Open) {
+		return null;
+	}
+
 	const { mergeable: _mergeable } = pr;
 
 	const [mergeable, setMergeability] = useState(_mergeable);
@@ -101,7 +122,7 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	);
 };
 
-export default StatusChecks;
+export default StatusChecksSection;
 
 export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMergeability; isSimple: boolean }) => {
 	return (
