@@ -394,7 +394,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		if (this._useViewChangesCommand) {
 			this.command = await this.alternateCommand();
 		} else {
-			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick');
+			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick', true);
 			if (openDiff) {
 				this.command = await openDiffCommand(
 					this.pullRequestManager,
