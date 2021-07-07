@@ -85,10 +85,10 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 			{
 				<>
 					<PRStatusMessage pr={pr} isSimple={isSimple} />
-					<DeleteOption pr={pr} />
 					<StatusChecks pr={pr} />
 					<InlineReviewers pr={pr} isSimple={isSimple} />
 					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
+					<DeleteOption pr={pr} />
 				</>
 			}
 		</div>
@@ -96,7 +96,18 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 };
 
 export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	if (pr.state !== GithubItemStateEnum.Open) {
+	if (isSimple && (pr.state !== GithubItemStateEnum.Open)) {
+		const string = (pr.state === GithubItemStateEnum.Merged) ? 'Pull Request Merged' : 'Pull Request Closed';
+		return (
+			<div className="branch-status-container">
+				<form>
+					<button disabled={true} type="submit">
+						{string}
+					</button>
+				</form>
+			</div>
+		);
+	} else if (pr.state !== GithubItemStateEnum.Open) {
 		return null;
 	}
 
@@ -261,7 +272,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 						}
 					}}
 				>
-					<button disabled={isBusy} type="submit">
+					<button disabled={isBusy} className="secondary" type="submit">
 						Delete branch...
 					</button>
 				</form>
