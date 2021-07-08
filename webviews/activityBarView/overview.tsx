@@ -3,35 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useState } from 'react';
+import React from 'react';
 import { PullRequest } from '../common/cache';
-import PullRequestContext from '../common/context';
 
 import { AddCommentSimple } from '../components/comment';
-import { StatusChecks } from '../components/merge';
+import { StatusChecksSection } from '../components/merge';
+import { ExitSection } from './exit';
 
 export const Overview = (pr: PullRequest) => {
-	const { exitReviewMode } = useContext(PullRequestContext);
-	const [isBusy, setBusy] = useState(false);
-
-	const onClick = async () => {
-		try {
-			setBusy(true);
-			await exitReviewMode();
-		} finally {
-			setBusy(false);
-		}
-	};
-
 	return <>
 		<div id="main">
 			<AddCommentSimple {...pr} />
-			<StatusChecks pr={pr} isSimple={true} />
-			<div className="button-container">
-				<button title="Switch to a different branch than this pull request branch"disabled={isBusy} onClick={() => onClick()}>
-					Exit Review Mode
-				</button>
-			</div>
+			<StatusChecksSection pr={pr} isSimple={true} />
+			<ExitSection pr={pr} />
 		</div>
 	</>;
 };
