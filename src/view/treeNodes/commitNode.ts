@@ -26,6 +26,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
 		private readonly comments: IComment[],
+		private readonly isCurrent: boolean
 	) {
 		super();
 		this.label = commit.commit.message;
@@ -85,6 +86,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				[],
 				matchingComments,
 				this.commit.sha,
+				this.isCurrent
 			);
 
 			fileChangeNode.useViewChangesCommand();

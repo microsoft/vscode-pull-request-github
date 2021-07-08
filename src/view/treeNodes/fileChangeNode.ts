@@ -114,7 +114,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 				}
 			}),
 		);
-		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link'};
+		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}
 
 	updateViewed(viewed: ViewedState) {
@@ -209,7 +209,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			}),
 		);
 
-		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link'};
+		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}
 
 	updateViewed(viewed: ViewedState) {
@@ -322,6 +322,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly diffHunks: DiffHunk[],
 		public comments: IComment[] = [],
 		public readonly sha?: string,
+		private isCurrent?: boolean
 	) {
 		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
 	}
@@ -363,6 +364,12 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			rootPath,
 		};
 		const previousFileUri = this.filePath.with({ query: JSON.stringify(query) });
+		let currentFilePath = this.filePath;
+		// If the commit is the most recent/current commit, then we just use the current file for the right.
+		// This is so that comments display properly.
+		if (this.isCurrent) {
+			currentFilePath = vscode.Uri.file(path.posix.join(query.rootPath, query.path));
+		}
 
 		const options: vscode.TextDocumentShowOptions = {
 			preserveFocus: true,
@@ -382,7 +389,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			command: 'vscode.diff',
 			arguments: [
 				previousFileUri,
-				this.filePath,
+				currentFilePath,
 				`${this.fileName} from ${(commit || '').substr(0, 8)}`,
 				options,
 			],
