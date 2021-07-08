@@ -1778,7 +1778,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (
 				forkDetails &&
 				forkDetails.isFork &&
-				forkDetails.parent.owner === item.remote.owner &&
+				forkDetails.parent.owner.login === item.remote.owner &&
 				forkDetails.parent.name === item.remote.repositoryName
 			) {
 				const foundforkPermission = await githubRepo.getViewerPermission();

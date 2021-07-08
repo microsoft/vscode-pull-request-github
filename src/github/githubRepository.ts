@@ -74,7 +74,9 @@ export enum ViewerPermission {
 export interface ForkDetails {
 	isFork: boolean;
 	parent: {
-		owner: string;
+		owner: {
+			login: string;
+		};
 		name: string;
 	};
 }
@@ -551,19 +553,19 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getRepositoryForkDetails(): Promise<ForkDetails | undefined> {
 		try {
-			Logger.debug(`Fetch viewer permission - enter`, GitHubRepository.ID);
+			Logger.debug(`Fetch repository fork details - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
 			const { data } = await query<ForkDetailsResponse>({
-				query: schema.GetViewerPermission,
+				query: schema.GetRepositoryForkDetails,
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
 				},
 			});
-			Logger.debug(`Fetch viewer permission - done`, GitHubRepository.ID);
+			Logger.debug(`Fetch repository fork details - done`, GitHubRepository.ID);
 			return data.repository;
 		} catch (e) {
-			Logger.appendLine(`GithubRepository> Unable to fetch viewer permission: ${e}`);
+			Logger.appendLine(`GithubRepository> Unable to fetch repository fork details: ${e}`);
 			return;
 		}
 	}
