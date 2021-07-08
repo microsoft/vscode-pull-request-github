@@ -45,12 +45,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private _firstLoad: boolean = true;
 
 	constructor(
-		private readonly _extensionUri: vscode.Uri,
+		extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
 		private readonly _pullRequestDefaults: PullRequestDefaults,
 		compareBranch: Branch,
 	) {
-		super();
+		super(extensionUri);
 
 		this._compareBranch = compareBranch;
 	}
@@ -60,16 +60,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		_context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken,
 	) {
-		this._view = webviewView;
-		this._webview = webviewView.webview;
-		super.initialize();
-		webviewView.webview.options = {
-			// Allow scripts in the webview
-			enableScripts: true,
-
-			localResourceRoots: [this._extensionUri],
-		};
-
+		super.resolveWebviewView(webviewView, _context, _token);
 		webviewView.webview.html = this._getHtmlForWebview();
 
 		if (this._firstLoad) {

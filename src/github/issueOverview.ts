@@ -40,8 +40,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
-			? vscode.window.activeTextEditor.viewColumn
-			: vscode.ViewColumn.One;
+				? vscode.window.activeTextEditor.viewColumn
+				: vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
@@ -364,6 +364,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 		// Clean up our resources
 		this._panel.dispose();
+		this._webview = undefined;
 
 		while (this._disposables.length) {
 			const x = this._disposables.pop();

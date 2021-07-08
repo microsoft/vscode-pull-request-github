@@ -101,6 +101,30 @@ export class WebviewViewBase extends WebviewBase {
 	public readonly viewType: string;
 	protected _view?: vscode.WebviewView;
 
+	constructor(
+		protected readonly _extensionUri: vscode.Uri) {
+		super();
+	}
+
+	protected resolveWebviewView(
+		webviewView: vscode.WebviewView,
+		_context: vscode.WebviewViewResolveContext,
+		_token: vscode.CancellationToken) {
+		this._view = webviewView;
+		this._webview = webviewView.webview;
+		super.initialize();
+		webviewView.webview.options = {
+			// Allow scripts in the webview
+			enableScripts: true,
+
+			localResourceRoots: [this._extensionUri],
+		};
+		this._disposables.push(this._view.onDidDispose(() => {
+			this._webview = undefined;
+			this._view = undefined;
+		}));
+	}
+
 	public show() {
 		if (this._view) {
 			this._view.show();

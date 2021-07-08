@@ -20,11 +20,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private _existingReviewers: ReviewState[] = [];
 
 	constructor(
-		private readonly _extensionUri: vscode.Uri,
+		extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
 		private _item: PullRequestModel,
 	) {
-		super();
+		super(extensionUri);
 
 		this.registerFolderRepositoryListener();
 
@@ -68,17 +68,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		_context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken,
 	) {
-		this._view = webviewView;
-		this._webview = webviewView.webview;
-		super.initialize();
-
-		webviewView.webview.options = {
-			// Allow scripts in the webview
-			enableScripts: true,
-
-			localResourceRoots: [this._extensionUri],
-		};
-
+		super.resolveWebviewView(webviewView, _context, _token);
 		webviewView.webview.html = this._getHtmlForWebview();
 
 		this.updatePullRequest(this._item);
