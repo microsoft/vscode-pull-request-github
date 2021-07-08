@@ -18,6 +18,10 @@
 - "There are updates" notification is shown less often and can be permanently hidden. https://github.com/microsoft/vscode-pull-request-github/issues/2628
 - [And more!](https://github.com/microsoft/vscode-pull-request-github/issues?q=is%3Aissue+label%3Abug+milestone%3A%22June+2021%22+is%3Aclosed)
 
+**_Thank You_**
+
+- Fix broken pull request files pagination [#2766](https://github.com/microsoft/vscode-pull-request-github/pull/2766) by @habibm
+
 ## 0.27.1
 
 - Fix links in the readme for the marketplace: https://github.com/microsoft/vscode-pull-request-github/issues/2769
