@@ -226,6 +226,7 @@ export class CurrentIssue {
 		await this.stateManager.setSavedIssueState(this.issueModel, state);
 		if (!(await this.createOrCheckoutBranch(this._branchName))) {
 			this._branchName = undefined;
+			return false;
 		}
 		return true;
 	}
