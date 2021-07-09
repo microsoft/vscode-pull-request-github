@@ -3,13 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { DiffChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../../common/diffHunk';
 import { GitChangeType, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
-import { fromPRUri, toPRUri } from '../../common/uri';
+import { fromPRUri, resolvePath, toPRUri } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { getInMemPRContentProvider } from '../inMemPRContentProvider';
@@ -182,7 +181,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					change.blobUrl,
 					toPRUri(
 						vscode.Uri.file(
-							path.resolve(this._folderReposManager.repository.rootUri.fsPath, change.fileName),
+							resolvePath(this._folderReposManager.repository.rootUri, change.fileName),
 						),
 						this.pullRequestModel,
 						change.baseCommit,
@@ -193,7 +192,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					),
 					toPRUri(
 						vscode.Uri.file(
-							path.resolve(this._folderReposManager.repository.rootUri.fsPath, parentFileName),
+							resolvePath(this._folderReposManager.repository.rootUri, parentFileName),
 						),
 						this.pullRequestModel,
 						change.baseCommit,
@@ -205,6 +204,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				);
 			}
 
+			console.log(vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName)));
+
 			const changedItem = new InMemFileChangeNode(
 				this._folderReposManager,
 				this,
@@ -214,7 +215,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				change.previousFileName,
 				change.blobUrl,
 				toPRUri(
-					vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, change.fileName)),
+					vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName)),
 					this.pullRequestModel,
 					change.baseCommit,
 					headCommit,
@@ -223,7 +224,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					change.status,
 				),
 				toPRUri(
-					vscode.Uri.file(path.resolve(this._folderReposManager.repository.rootUri.fsPath, parentFileName)),
+					vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, parentFileName)),
 					this.pullRequestModel,
 					change.baseCommit,
 					headCommit,

@@ -14,7 +14,7 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent, isReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { toPRUri, toReviewUri } from '../common/uri';
+import { resolvePath, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { OctokitCommon } from './common';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -992,7 +992,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const headCommit = pullRequestModel.head!.sha;
 			const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
 			headUri = toPRUri(
-				vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, change.fileName)),
+				vscode.Uri.file(resolvePath(folderManager.repository.rootUri, change.fileName)),
 				pullRequestModel,
 				change.baseCommit,
 				headCommit,
@@ -1001,7 +1001,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				change.status,
 			);
 			baseUri = toPRUri(
-				vscode.Uri.file(path.resolve(folderManager.repository.rootUri.fsPath, parentFileName)),
+				vscode.Uri.file(resolvePath(folderManager.repository.rootUri, parentFileName)),
 				pullRequestModel,
 				change.baseCommit,
 				headCommit,

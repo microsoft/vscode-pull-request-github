@@ -172,6 +172,18 @@ export function toPRUri(
 	});
 }
 
+export enum Schemas {
+	file = 'file'
+}
+
+export function resolvePath(from: Uri, to: string) {
+	if (from.scheme === Schemas.file) {
+		return pathUtils.resolve(from.fsPath, to);
+	} else {
+		return pathUtils.posix.resolve(from.path, to);
+	}
+}
+
 class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
 	public handleUri(uri: Uri) {
 		this.fire(uri);
