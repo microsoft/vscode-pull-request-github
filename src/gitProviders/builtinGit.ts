@@ -30,7 +30,15 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 
 	private constructor(extension: vscode.Extension<GitExtension>) {
 		const gitExtension = extension.exports;
-		this._gitAPI = gitExtension.getAPI(1);
+
+		try {
+			this._gitAPI = gitExtension.getAPI(1);
+		} catch (e) {
+			// The git extension will throw if a git model cannot be found, i.e. if git is not installed.
+			vscode.window.showErrorMessage('Activating the Pull Requests and Issues extension failed. Please make sure you have git installed.');
+			throw e;
+		}
+
 		this._disposables = [];
 		this._disposables.push(this._gitAPI.onDidCloseRepository(e => this._onDidCloseRepository.fire(e as any)));
 		this._disposables.push(this._gitAPI.onDidOpenRepository(e => this._onDidOpenRepository.fire(e as any)));
@@ -38,9 +46,10 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 		this._disposables.push(this._gitAPI.onDidPublish(e => this._onDidPublish.fire(e)));
 	}
 
-	static createProvider(): BuiltinGitProvider | undefined {
+	static async createProvider(): Promise<BuiltinGitProvider | undefined> {
 		const extension = vscode.extensions.getExtension<GitExtension>('vscode.git');
 		if (extension) {
+			await extension.activate();
 			return new BuiltinGitProvider(extension);
 		}
 		return undefined;
