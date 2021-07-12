@@ -111,12 +111,6 @@ export function registerCommands(
 	tree: PullRequestsTreeDataProvider,
 ) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('auth.signout', async () => {
-			credentialStore.logout();
-		}),
-	);
-
-	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
 			async (e: PRNode | DescriptionNode | PullRequestModel | undefined) => {

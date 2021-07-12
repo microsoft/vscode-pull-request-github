@@ -407,11 +407,6 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
-				"command": "auth.signout",
-				"title": "Sign out of GitHub",
-				"category": "GitHub Pull Requests"
-			},
-			{
 				"command": "pr.pick",
 				"title": "Checkout Pull Request",
 				"category": "GitHub Pull Requests",
@@ -806,10 +801,6 @@
 				{
 					"command": "github.api.preloadPullRequest",
 					"when": "false"
-				},
-				{
-					"command": "auth.signout",
-					"when": "gitOpenRepositoryCount != 0 && github:authenticated"
 				},
 				{
 					"command": "pr.configureRemotes",

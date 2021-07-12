@@ -61,11 +61,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
-				const isLoggedIn = this._reposManager?.state === ReposManagerState.RepositoriesLoaded;
 				const configuration = await vscode.window.showQuickPick([
 					'Configure Remotes...',
-					'Configure Queries...',
-					...(isLoggedIn ? ['Sign out of GitHub...'] : []),
+					'Configure Queries...'
 				]);
 
 				switch (configuration) {
@@ -79,8 +77,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 							'workbench.action.openSettings',
 							`@ext:${EXTENSION_ID} remotes`,
 						);
-					case 'Sign out of GitHub...':
-						return vscode.commands.executeCommand('auth.signout');
 					default:
 						return;
 				}

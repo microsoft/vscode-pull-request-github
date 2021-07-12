@@ -145,15 +145,6 @@ export class CredentialStore implements vscode.Disposable {
 		}
 	}
 
-	public async logout(): Promise<void> {
-		if (this._sessionId) {
-			vscode.authentication.logout(AuthProvider.github, this._sessionId);
-		}
-		if (this._enterpriseSessionId) {
-			vscode.authentication.logout(AuthProvider['github-enterprise'], this._enterpriseSessionId);
-		}
-	}
-
 	public async login(authProviderId: AuthProvider): Promise<GitHub | undefined> {
 		/* __GDPR__
 			"auth.start" : {}
