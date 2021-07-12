@@ -10,6 +10,7 @@ import { Protocol } from '../common/protocol';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
+import { compareIgnoreCase } from '../common/utils';
 import { AuthProvider, CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
@@ -151,7 +152,7 @@ export class RepositoriesManager implements vscode.Disposable {
 			const testUriRelativePath = uri.path.substring(
 				managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
 			);
-			if (vscode.Uri.joinPath(folderManager.repository.rootUri, testUriRelativePath).path === uri.path) {
+			if (compareIgnoreCase(vscode.Uri.joinPath(folderManager.repository.rootUri, testUriRelativePath).path, uri.path) === 0) {
 				return folderManager;
 			}
 		}
