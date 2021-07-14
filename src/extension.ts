@@ -136,7 +136,7 @@ async function init(
 	context.subscriptions.push(reviewsManager);
 
 	git.onDidChangeState(() => {
-		Logger.appendLine(`Git initialization state changed: state=${git.state}}`);
+		Logger.appendLine(`Git initialization state changed: state=${git.state}`);
 		reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
 	});
 
