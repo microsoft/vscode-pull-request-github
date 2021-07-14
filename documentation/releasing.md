@@ -18,8 +18,7 @@
 
 
 5. Generate VSIX
-    - If you don't yet have  **vsce** install it `npm install -g vsce`
-    - Run `vsce package --yarn`. This will generate a .vsix in the project directory.
+    - Run `npx vsce package --yarn`. This will generate a .vsix in the project directory.
 
 6. Draft new GitHub release
     - Go to: https://github.com/Microsoft/vscode-pull-request-github/releases

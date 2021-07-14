@@ -29,9 +29,6 @@ jobs:
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-      - script: yarn global add vsce
-        displayName: Install vsce
-
       - script: >
           node ./scripts/prepare-nightly-build.js
           -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"
@@ -49,7 +46,7 @@ jobs:
           mv ./README.insiders.md ./README.md
           mv ./src/constants.ts ./src/constants.ts.bak
           mv ./src/constants.insiders.ts ./src/constants.ts
-          vsce publish -p "$TOKEN" --yarn --noVerify
+          npx vsce publish -p "$TOKEN" --yarn --noVerify
         displayName: Publish
         env:
           TOKEN: $(vsce.token)

@@ -1402,7 +1402,7 @@
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
 		"lint": "eslint --fix --cache --config .eslintrc.json --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
-		"package": "vsce package --yarn",
+		"package": "npx vsce package --yarn",
 		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
 		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",
 		"test:preprocess": "yarn run compile && yarn run compile:test && yarn run test:preprocess-gql && yarn run test:preprocess-svg",
@@ -1461,7 +1461,6 @@
 		"ts-loader": "8.0.18",
 		"tty": "1.0.1",
 		"typescript": "4.2.3",
-		"vsce": "1.87.0",
 		"vscode-test": "^1.5.1",
 		"webpack": "5.26.3",
 		"webpack-cli": "4.2.0"
