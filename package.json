@@ -804,11 +804,11 @@
 				},
 				{
 					"command": "pr.configureRemotes",
-					"when": "gitOpenRepositoryCount != 0"
+					"when": "gitHubOpenRepositoryCount != 0"
 				},
 				{
 					"command": "pr.configurePRViewlet",
-					"when": "gitOpenRepositoryCount != 0"
+					"when": "gitHubOpenRepositoryCount != 0"
 				},
 				{
 					"command": "pr.pick",
@@ -824,27 +824,27 @@
 				},
 				{
 					"command": "pr.close",
-					"when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
 					"command": "pr.create",
-					"when": "gitOpenRepositoryCount != 0 && github:authenticated"
+					"when": "gitHubOpenRepositoryCount != 0 && github:authenticated"
 				},
 				{
 					"command": "pr.merge",
-					"when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
 					"command": "pr.readyForReview",
-					"when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
-					"when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
 					"command": "pr.refreshDescription",
-					"when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
 					"command": "pr.openFileOnGitHub",
@@ -876,11 +876,11 @@
 				},
 				{
 					"command": "pr.openDescription",
-					"when": "gitOpenRepositoryCount != 0 && github:inReviewMode"
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
 					"command": "pr.refreshList",
-					"when": "gitOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
+					"when": "gitHubOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
 				},
 				{
 					"command": "pr.setFileListLayoutAsTree",
@@ -896,7 +896,7 @@
 				},
 				{
 					"command": "pr.signin",
-					"when": "gitOpenRepositoryCount != 0 && github:hasGitHubRemotes"
+					"when": "gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes"
 				},
 				{
 					"command": "pr.signinAndRefreshList",
@@ -1026,17 +1026,17 @@
 			"view/title": [
 				{
 					"command": "pr.create",
-					"when": "gitOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
 					"group": "navigation@1"
 				},
 				{
 					"command": "pr.configurePRViewlet",
-					"when": "gitOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):github/",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):github/",
 					"group": "navigation@3"
 				},
 				{
 					"command": "pr.refreshList",
-					"when": "gitOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
 					"group": "navigation@2"
 				},
 				{
