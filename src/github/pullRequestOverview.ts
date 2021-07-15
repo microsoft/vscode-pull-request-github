@@ -191,6 +191,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 				const continueOnGitHub = isCrossRepository && isInCodespaces();
 
+				vscode.commands.executeCommand('pr.refreshList');
+
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 				this._postMessage({
 					command: 'pr.initialize',
