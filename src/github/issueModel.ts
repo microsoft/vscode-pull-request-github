@@ -146,6 +146,8 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 
+			vscode.commands.executeCommand('pr.refreshList');
+
 			return data!.updatePullRequest.pullRequest;
 		} catch (e) {
 			throw new Error(formatError(e));
