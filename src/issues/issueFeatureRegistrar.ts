@@ -636,18 +636,26 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async doStartWorking(
-		repoManager: FolderRepositoryManager | undefined,
+		matchingRepoManager: FolderRepositoryManager | undefined,
 		issueModel: IssueModel,
 		needsBranchPrompt?: boolean,
 	) {
+		let repoManager = matchingRepoManager;
+		let githubRepository = issueModel.githubRepository;
+		let remote = issueModel.remote;
 		if (!repoManager) {
-			vscode.window.showErrorMessage(`There are no repositories open that match ${issueModel.remote.url}`);
-			return;
+			repoManager = await this.chooseRepo('Choose which repository you want to work on this isssue in.');
+			if (!repoManager) {
+				return;
+			}
+			githubRepository = await repoManager.getOrigin();
+			remote = githubRepository.remote;
 		}
 
-		const remoteNameResult = await repoManager.findUpstreamForItem(issueModel);
+
+		const remoteNameResult = await repoManager.findUpstreamForItem({githubRepository, remote});
 		if (remoteNameResult.needsFork) {
-			if ((await repoManager.tryOfferToFork(issueModel.githubRepository)) === undefined) {
+			if ((await repoManager.tryOfferToFork(githubRepository)) === undefined) {
 				return;
 			}
 		}
