@@ -157,7 +157,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	 * @param reviewers All the reviewers who have been requested to review the current PR
 	 * @param pullRequestModel Model of the PR
 	 */
-	private parseReviewsAndGetState(reviewers:ReviewState[],pullRequestModel:PullRequestModel): String | undefined {
+	private getCurrentUserReviewState(reviewers: ReviewState[], pullRequestModel: PullRequestModel): string | undefined {
 		const user = this._pullRequestManager.getCurrentUser(pullRequestModel);
 		const review = reviewers.find(r => r.reviewer.login === user.login);
 		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
@@ -226,7 +226,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					mergeMethodsAvailability,
 					defaultMergeMethod,
 					isIssue: false,
-					reviewState: this.parseReviewsAndGetState(parsedReviewers,pullRequestModel)
+					reviewState: this.getCurrentUserReviewState(parsedReviewers, pullRequestModel)
 				}
 			});
 		}).catch(e => {

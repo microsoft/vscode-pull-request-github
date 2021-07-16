@@ -42,7 +42,7 @@ export interface PullRequest {
 	reviewers: ReviewState[];
 	isDraft?: boolean;
 	isIssue: boolean;
-	reviewState: ReviewState['state'];
+	reviewState: string;
 }
 
 export function getState(): PullRequest {
