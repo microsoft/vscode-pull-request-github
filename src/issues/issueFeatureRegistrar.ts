@@ -110,12 +110,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.copyGithubPermalink',
-				() => {
+				(fileUri: any) => {
 					/* __GDPR__
 				"issue.copyGithubPermalink" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
-					return this.copyPermalink();
+					return this.copyPermalink(fileUri instanceof vscode.Uri ? fileUri : undefined);
 				},
 				this,
 			),
@@ -1057,8 +1057,8 @@ ${body ?? ''}\n
 		return false;
 	}
 
-	private async getPermalinkWithError(): Promise<{ permalink: string | undefined, originalFile: vscode.Uri | undefined }> {
-		const link = await createGithubPermalink(this.gitAPI);
+	private async getPermalinkWithError(fileUri?: vscode.Uri): Promise<{ permalink: string | undefined, originalFile: vscode.Uri | undefined }> {
+		const link = await createGithubPermalink(this.gitAPI, undefined, fileUri);
 		if (link.error) {
 			vscode.window.showWarningMessage(`Unable to create a GitHub permalink for the selection. ${link.error}`);
 		}
@@ -1076,8 +1076,8 @@ ${body ?? ''}\n
 		return linkUri.with({ authority, path: linkPath }).toString();
 	}
 
-	async copyPermalink() {
-		const link = await this.getPermalinkWithError();
+	async copyPermalink(fileUri?: vscode.Uri) {
+		const link = await this.getPermalinkWithError(fileUri);
 		if (link.permalink) {
 			return vscode.env.clipboard.writeText(
 				link.originalFile ? (await this.getContextualizedPermalink(link.originalFile, link.permalink)) : link.permalink);

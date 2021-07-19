@@ -427,30 +427,33 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 export async function createGithubPermalink(
 	gitAPI: GitApiImpl,
 	positionInfo?: NewIssue,
+	fileUri?: vscode.Uri
 ): Promise<{ permalink: string | undefined; error: string | undefined, originalFile: vscode.Uri | undefined }> {
-	let document: vscode.TextDocument;
-	let range: vscode.Range;
-	if (!positionInfo && vscode.window.activeTextEditor) {
-		document = vscode.window.activeTextEditor.document;
+	let uri: vscode.Uri;
+	let range: vscode.Range | undefined;
+	if (fileUri) {
+		uri = fileUri;
+	} else if (!positionInfo && vscode.window.activeTextEditor) {
+		uri = vscode.window.activeTextEditor.document.uri;
 		range = vscode.window.activeTextEditor.selection;
 	} else if (positionInfo) {
-		document = positionInfo.document;
+		uri = positionInfo.document.uri;
 		range = positionInfo.range;
 	} else {
 		return { permalink: undefined, error: 'No active text editor position to create permalink from.', originalFile: undefined };
 	}
 
-	const repository = getRepositoryForFile(gitAPI, document.uri);
+	const repository = getRepositoryForFile(gitAPI, uri);
 	if (!repository) {
-		return { permalink: undefined, error: "The current file isn't part of repository.", originalFile: document.uri };
+		return { permalink: undefined, error: "The current file isn't part of repository.", originalFile: uri };
 	}
 
 	let commit: Commit | undefined;
 	let commitHash: string | undefined;
 	try {
-		const log = await repository.log({ maxEntries: 1, path: document.uri.fsPath });
+		const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
 		if (log.length === 0) {
-			return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.', originalFile: document.uri };
+			return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.', originalFile: uri };
 		}
 		commit = log[0];
 		commitHash = log[0].hash;
@@ -482,15 +485,16 @@ export async function createGithubPermalink(
 		// Check fallback
 		upstream = await fallbackUpstream;
 		if (!upstream || !upstream.fetchUrl) {
-			return { permalink: undefined, error: 'There is no suitable remote.', originalFile: document.uri };
+			return { permalink: undefined, error: 'There is no suitable remote.', originalFile: uri };
 		}
 	}
-	const pathSegment = document.uri.path.substring(repository.rootUri.path.length);
+	const pathSegment = uri.path.substring(repository.rootUri.path.length);
+	const rangeString = range ? `#L${range.start.line + 1}-L${range.end.line + 1}` : '';
 	return {
 		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
-			}${pathSegment}#L${range.start.line + 1}-L${range.end.line + 1}`,
+			}${pathSegment}${rangeString}`,
 		error: undefined,
-		originalFile: document.uri
+		originalFile: uri
 	};
 }
 
