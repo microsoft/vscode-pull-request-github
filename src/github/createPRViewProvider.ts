@@ -119,20 +119,15 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
 
 		let useBranchName = false;
-		if (this.compareBranch?.upstream) {
-			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
-			if (headRepo) {
-				const headBranch = `${headRepo.remote.owner}:${this.compareBranch.name ?? ''}`;
-				try {
-					const commits = await origin.compareCommits(`${this._pullRequestDefaults.owner}:${this._pullRequestDefaults.base}`, headBranch);
-					if (commits.total_commits > 1) {
-						const defaultBranch = await origin.getDefaultBranch();
-						useBranchName = defaultBranch !== this.compareBranch.name;
-					}
-				} catch (e) {
-					// Ignore and fall back to commit message
-				}
+
+		try {
+			const totalCommits = await this.getTotalCommits();
+			if (totalCommits > 1) {
+				const defaultBranch = await origin.getDefaultBranch();
+				useBranchName = defaultBranch !== this.compareBranch?.name;
 			}
+		} catch (e) {
+			// Ignore and fall back to commit message
 		}
 
 		if (useBranchName) {
@@ -160,10 +155,41 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return undefined;
 	}
 
+	private async getTotalCommits() {
+		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
+
+		if (this.compareBranch?.upstream) {
+			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
+
+			if (headRepo) {
+				const headBranch = `${headRepo.remote.owner}:${this.compareBranch.name ?? ''}`;
+				const baseBranch = `${this._pullRequestDefaults.owner}:${this._pullRequestDefaults.base}`;
+				const { total_commits } = await origin.compareCommits(baseBranch, headBranch);
+
+				return total_commits;
+			}
+		}
+
+		return 0;
+	}
+
 	private async getDescription(): Promise<string> {
 		// Try to match github's default, first look for template, then use commit body if available.
 		const pullRequestTemplate = await this.getPullRequestTemplate();
 		if (pullRequestTemplate) {
+			try {
+				const totalCommits = await this.getTotalCommits();
+
+				// If there's just a single commit, we include it as well as the PR template
+				if (totalCommits === 1 && this.compareBranch?.name) {
+					const message = titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name)).body;
+
+					return `${message}\n\n${pullRequestTemplate}`;
+				}
+			} catch (e) {
+				// Ignore and fall back to the template
+			}
+
 			return pullRequestTemplate;
 		}
 
