@@ -53,7 +53,6 @@ export function Header({
 
 function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: Partial<PullRequest>) {
 	const [inEditMode, setEditMode] = useState(false);
-	const [showActionBar, setShowActionBar] = useState(false);
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const { setTitle, refresh, copyPrLink } = useContext(PullRequestContext);
 	const editableTitle = inEditMode ? (
@@ -85,11 +84,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 	);
 
 	return (
-		<div
-			className="overview-title"
-			onMouseEnter={() => setShowActionBar(true)}
-			onMouseLeave={() => setShowActionBar(false)}
-		>
+		<div className="overview-title">
 			{editableTitle}
 			<div className="block-select">
 				{/*
@@ -97,7 +92,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 			  Add an empty selectable div here to block triple click on title from selecting the following buttons. Issue #628.
 			*/}
 			</div>
-			{canEdit && showActionBar && !inEditMode ? (
+			{canEdit && !inEditMode ? (
 				<div className="flex-action-bar comment-actions">
 					{
 						<button title="Edit" onClick={() => setEditMode(true)}>
