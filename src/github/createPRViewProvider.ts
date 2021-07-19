@@ -112,6 +112,24 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		super.show();
 	}
 
+	private async getTotalCommits() {
+		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
+
+		if (this.compareBranch?.upstream) {
+			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
+
+			if (headRepo) {
+				const headBranch = `${headRepo.remote.owner}:${this.compareBranch.name ?? ''}`;
+				const baseBranch = `${this._pullRequestDefaults.owner}:${this._pullRequestDefaults.base}`;
+				const { total_commits } = await origin.compareCommits(baseBranch, headBranch);
+
+				return total_commits;
+			}
+		}
+
+		return 0;
+	}
+
 	private async getTitle(): Promise<string> {
 		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name, as long as it is not the default branch.
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
@@ -153,24 +171,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 
 		return undefined;
-	}
-
-	private async getTotalCommits() {
-		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
-
-		if (this.compareBranch?.upstream) {
-			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(this.compareBranch.upstream.remote));
-
-			if (headRepo) {
-				const headBranch = `${headRepo.remote.owner}:${this.compareBranch.name ?? ''}`;
-				const baseBranch = `${this._pullRequestDefaults.owner}:${this._pullRequestDefaults.base}`;
-				const { total_commits } = await origin.compareCommits(baseBranch, headBranch);
-
-				return total_commits;
-			}
-		}
-
-		return 0;
 	}
 
 	private async getDescription(): Promise<string> {
