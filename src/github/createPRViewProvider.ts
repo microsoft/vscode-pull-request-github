@@ -136,7 +136,10 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 
 		if (useBranchName) {
-			return this.compareBranch?.name ?? '';
+			const name  = this.compareBranch?.name;
+			return name != null
+				? `${name.charAt(0).toUpperCase()}${name.slice(1)}`
+				: '';
 		} else {
 			return this.compareBranch?.name
 				? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name))
