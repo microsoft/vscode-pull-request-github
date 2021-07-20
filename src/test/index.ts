@@ -6,17 +6,6 @@ import Mocha from 'mocha';
 import { mockWebviewEnvironment } from './mocks/mockWebviewEnvironment';
 import { EXTENSION_ID } from '../constants';
 
-// Linux: prevent a weird NPE when mocha on Linux requires the window size from the TTY
-// Since we are not running in a tty environment, we just implement the method statically.
-// This is copied verbatim from the upstream, default Mocha test runner:
-// https://github.com/microsoft/vscode-extension-vscode/blob/master/lib/testrunner.ts
-const tty = require('tty') as any;
-if (!tty.getWindowSize) {
-	tty.getWindowSize = function () {
-		return [80, 75];
-	};
-}
-
 function addTests(mocha: Mocha, root: string): Promise<void> {
 	return new Promise((resolve, reject) => {
 		glob('**/**.test.js', { cwd: root }, (error, files) => {
@@ -40,7 +29,7 @@ async function runAllExtensionTests(testsRoot: string, clb: (error: Error | null
 
 	const mocha = new Mocha({
 		ui: 'bdd',
-		useColors: true,
+		color: true
 	});
 	mocha.addFile(path.resolve(testsRoot, 'globalHooks.js'));
 

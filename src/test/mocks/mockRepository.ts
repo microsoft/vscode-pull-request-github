@@ -1,13 +1,13 @@
 import { Uri } from 'vscode';
+import { RefType } from '../../api/api1';
 
-import {
+import type {
 	Repository,
 	RepositoryState,
 	RepositoryUIState,
 	Commit,
 	Change,
 	Branch,
-	RefType,
 	CommitOptions,
 	InputBox,
 	Ref,
@@ -63,7 +63,7 @@ export class MockRepository implements Repository {
 		mergeChanges: [],
 		indexChanges: [],
 		workingTreeChanges: [],
-		onDidChange: () => ({ dispose() {} }),
+		onDidChange: () => ({ dispose() { } }),
 	};
 	private _config: Map<string, string> = new Map();
 	private _branches: Branch[] = [];
@@ -79,7 +79,7 @@ export class MockRepository implements Repository {
 
 	ui: RepositoryUIState = {
 		selected: true,
-		onDidChange: () => ({ dispose() {} }),
+		onDidChange: () => ({ dispose() { } }),
 	};
 
 	async getConfigs(): Promise<{ key: string; value: string }[]> {

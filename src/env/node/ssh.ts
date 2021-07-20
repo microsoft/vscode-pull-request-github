@@ -1,28 +1,11 @@
 import { readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import { parse as parseConfig } from 'ssh-config';
 import Logger from '../../common/logger';
+import { baseResolver, chainResolvers, Config, ConfigResolver, resolverFromConfig } from '../browser/ssh';
 
 const SSH_URL_RE = /^(?:([^@:]+)@)?([^:/]+):?(.+)$/;
 const URL_SCHEME_RE = /^([a-z-]+):\/\//;
-
-/**
- * SSH Config interface
- *
- * Note that this interface atypically capitalizes field names. This is for consistency
- * with SSH config files.
- */
-export interface Config {
-	Host: string;
-	[param: string]: string;
-}
-
-/**
- * ConfigResolvers take a config, resolve some additional data (perhaps using
- * a config file), and return a new Config.
- */
-export type ConfigResolver = (config: Config) => Config;
 
 /**
  * Parse and resolve an SSH url. Resolves host aliases using the configuration
@@ -83,13 +66,6 @@ const parse = (url: string): Config | undefined => {
 	return { User, Host, path };
 };
 
-function baseResolver(config: Config) {
-	return {
-		...config,
-		Hostname: config.Host,
-	};
-}
-
 function resolverFromConfigFile(configPath = join(homedir(), '.ssh', 'config')): ConfigResolver | undefined {
 	try {
 		const config = readFileSync(configPath).toString();
@@ -97,21 +73,4 @@ function resolverFromConfigFile(configPath = join(homedir(), '.ssh', 'config')):
 	} catch (error) {
 		Logger.appendLine(`${configPath}: ${error.message}`);
 	}
-}
-
-export function resolverFromConfig(text: string): ConfigResolver {
-	const config = parseConfig(text);
-	return h => config.compute(h.Host);
-}
-
-function chainResolvers(...chain: (ConfigResolver | undefined)[]): ConfigResolver {
-	const resolvers = chain.filter(x => !!x) as ConfigResolver[];
-	return (config: Config) =>
-		resolvers.reduce(
-			(resolved, next) => ({
-				...resolved,
-				...next(resolved),
-			}),
-			config,
-		);
 }

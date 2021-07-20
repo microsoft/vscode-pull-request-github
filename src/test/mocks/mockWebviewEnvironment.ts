@@ -8,7 +8,7 @@ interface WebviewEnvironmentSetters {
 }
 
 class WebviewVsCodeApi {
-	constructor(private readonly _callbacks: WebviewEnvironmentSetters) {}
+	constructor(private readonly _callbacks: WebviewEnvironmentSetters) { }
 
 	postMessage(message: any) {
 		this._callbacks.messageAdder(message);
@@ -40,23 +40,18 @@ class MockWebviewEnvironment {
 			},
 		});
 
-		this._uninstall = () => {};
+		this._uninstall = () => { };
 	}
 
 	install(host: any) {
 		const previous = host.acquireVsCodeApi;
 		host.acquireVsCodeApi = () => this._api;
-		const cleanup = installJsDomGlobal('', {
-			runScripts: 'outside-only',
-		});
-
 		this._uninstall = () => {
 			if (previous) {
 				host.acquireVsCodeApi = previous;
 			} else {
 				delete host.acquireVsCodeApi;
 			}
-			cleanup();
 		};
 	}
 
