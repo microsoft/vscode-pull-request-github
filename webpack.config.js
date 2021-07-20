@@ -335,7 +335,6 @@ async function getExtensionConfig(target, mode, env) {
 					: undefined,
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false,
-			mainFields: ['module', 'main'],
 		},
 		externals: {
 			vscode: 'commonjs vscode',
