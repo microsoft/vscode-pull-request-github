@@ -88,11 +88,11 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/dist/test",
+				"--extensionTestsPath=${workspaceFolder}/out/src/test",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders",
 				"--disable-extensions"
 			],
-			// "preLaunchTask": "npm: test:preprocess",
+			"preLaunchTask": "npm: test:preprocess",
 			"smartStep": true,
 			"sourceMaps": true,
 			"outFiles": [
@@ -112,7 +112,10 @@
 			],
 			"cascadeTerminateToConfigurations": [
 				"Launch Web Test"
-			]
+			],
+			"presentation": {
+				"hidden": true,
+			}
 		},
 		{
 			"type": "pwa-chrome",
@@ -125,7 +128,10 @@
 			"resolveSourceMapLocations": [
 				"!**/vs/**", // exclude core vscode sources
 				"!**/static/build/extensions/**", // exclude built-in extensions
-			]
+			],
+			"presentation": {
+				"hidden": true,
+			}
 		},
 	],
 	"compounds": [

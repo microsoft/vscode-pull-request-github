@@ -190,7 +190,7 @@ async function getExtensionConfig(target, mode, env) {
 
 	const entry = {
 		extension: './src/extension.ts',
-	}
+	};
 	if (target === 'webworker') {
 		entry['test/index'] = './src/test/browser/index.ts';
 	}
@@ -339,14 +339,12 @@ async function getExtensionConfig(target, mode, env) {
 		},
 		externals: {
 			vscode: 'commonjs vscode',
-			'utf-8-validate': 'utf-8-validate',
-			'bufferutil': 'bufferutil',
+			// 'utf-8-validate': 'utf-8-validate',
+			// 'bufferutil': 'bufferutil',
 			// 'encoding': 'encoding',
 			'applicationinsights-native-metrics': 'applicationinsights-native-metrics',
 			'@opentelemetry/tracing': '@opentelemetry/tracing',
-			'canvas': 'canvas',
 			'fs': 'fs',
-			'fsevents': 'fsevents',
 		},
 		plugins: plugins,
 		stats: {

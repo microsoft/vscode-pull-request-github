@@ -1446,6 +1446,7 @@
 		"@vscode/test-electron": "^1.6.1",
 		"assert": "^2.0.0",
 		"buffer": "^6.0.3",
+		"constants-browserify": "^1.0.0",
 		"crypto-browserify": "3.12.0",
 		"css-loader": "5.1.3",
 		"esbuild-loader": "2.10.0",
@@ -1466,6 +1467,7 @@
 		"mocha": "^9.0.1",
 		"mocha-junit-reporter": "1.23.0",
 		"mocha-multi-reporters": "1.1.7",
+		"os-browserify": "^0.3.0",
 		"path-browserify": "1.0.1",
 		"prettier": "2.2.1",
 		"process": "^0.11.10",
@@ -1481,6 +1483,7 @@
 		"ts-loader": "8.0.18",
 		"tty": "1.0.1",
 		"typescript": "4.2.3",
+		"vscode-test-web": "^0.0.5",
 		"webpack": "5.26.3",
 		"webpack-cli": "4.2.0"
 	},
@@ -1489,7 +1492,6 @@
 		"@octokit/types": "6.10.0",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
-		"constants-browserify": "^1.0.0",
 		"cross-fetch": "3.0.6",
 		"dayjs": "1.10.4",
 		"events": "3.2.0",
@@ -1497,7 +1499,6 @@
 		"lru-cache": "6.0.0",
 		"marked": "^0.8.0",
 		"node-fetch": "3.0.0-beta.9",
-		"os-browserify": "^0.3.0",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
 		"ssh-config": "^2.0.0-alpha.3",
@@ -1505,7 +1506,6 @@
 		"uuid": "8.3.2",
 		"vscode-extension-telemetry": "0.1.6",
 		"vscode-tas-client": "^0.1.17",
-		"vscode-test-web": "^0.0.5",
 		"vsls": "^0.3.967"
 	},
 	"license": "MIT"

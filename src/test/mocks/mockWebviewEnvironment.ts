@@ -46,17 +46,12 @@ class MockWebviewEnvironment {
 	install(host: any) {
 		const previous = host.acquireVsCodeApi;
 		host.acquireVsCodeApi = () => this._api;
-		// const cleanup = installJsDomGlobal('', {
-		// 	runScripts: 'outside-only',
-		// });
-
 		this._uninstall = () => {
 			if (previous) {
 				host.acquireVsCodeApi = previous;
 			} else {
 				delete host.acquireVsCodeApi;
 			}
-			// cleanup();
 		};
 	}
 
