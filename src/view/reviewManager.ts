@@ -599,6 +599,11 @@ export class ReviewManager {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);
 			this.switchingToReviewMode = false;
 
+			if (e.message === 'User aborted') {
+				// The user cancelled the action
+				return;
+			}
+
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
 				if (
