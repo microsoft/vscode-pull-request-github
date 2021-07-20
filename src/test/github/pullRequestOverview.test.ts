@@ -1,6 +1,5 @@
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
 
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -18,7 +17,7 @@ import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 
-const EXTENSION_URI = vscode.Uri.file(path.resolve(__dirname, '../../..'));
+const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
 describe('PullRequestOverview', function () {
 	let sinon: SinonSandbox;

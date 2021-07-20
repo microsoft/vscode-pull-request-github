@@ -188,11 +188,16 @@ async function getExtensionConfig(target, mode, env) {
 		}));
 	}
 
+	const entry = {
+		extension: './src/extension.ts',
+	}
+	if (target === 'webworker') {
+		entry['test/index'] = './src/test/browser/index.ts';
+	}
+
 	return {
 		name: `extension:${target}`,
-		entry: {
-			extension: './src/extension.ts',
-		},
+		entry,
 		mode: mode,
 		target: target,
 		devtool: mode !== 'production' ? 'source-map' : undefined,
@@ -302,6 +307,7 @@ async function getExtensionConfig(target, mode, env) {
 						),
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
+						'../../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
 						'./env/node/gitProviders/api': path.resolve(
 							__dirname,
 							'src',
@@ -309,7 +315,7 @@ async function getExtensionConfig(target, mode, env) {
 							'browser',
 							'gitProviders',
 							'api',
-						),
+						)
 					}
 					: undefined,
 			// : {
@@ -322,18 +328,25 @@ async function getExtensionConfig(target, mode, env) {
 						path: require.resolve('path-browserify'),
 						stream: require.resolve("stream-browserify"),
 						url: false,
+						'assert': require.resolve('assert'),
+						'os': require.resolve('os-browserify/browser'),
+						"constants": require.resolve("constants-browserify"),
 					}
 					: undefined,
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false,
+			mainFields: ['module', 'main'],
 		},
 		externals: {
 			vscode: 'commonjs vscode',
-			// 'utf-8-validate': 'utf-8-validate',
-			// 'bufferutil': 'bufferutil',
+			'utf-8-validate': 'utf-8-validate',
+			'bufferutil': 'bufferutil',
 			// 'encoding': 'encoding',
 			'applicationinsights-native-metrics': 'applicationinsights-native-metrics',
 			'@opentelemetry/tracing': '@opentelemetry/tracing',
+			'canvas': 'canvas',
+			'fs': 'fs',
+			'fsevents': 'fsevents',
 		},
 		plugins: plugins,
 		stats: {

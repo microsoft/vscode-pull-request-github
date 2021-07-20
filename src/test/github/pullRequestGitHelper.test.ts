@@ -12,7 +12,7 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
-import { RefType } from '../../api/api';
+import { RefType } from '../../api/api1';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 
 describe('PullRequestGitHelper', function () {

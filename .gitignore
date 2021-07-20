@@ -336,6 +336,7 @@ dist
 ./test/
 media
 .vscode-test
+.vscode-test-web
 .DS_Store
 *.vsix
 package-lock.json
