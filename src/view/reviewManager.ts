@@ -353,10 +353,14 @@ export class ReviewManager {
 			);
 
 			const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
+			Logger.appendLine(`Review> using focus mode = ${isFocusMode}.`);
+			Logger.appendLine(`Review> state validation silent = ${silent}.`);
+			Logger.appendLine(`Review> PR show should show = ${this._showPullRequest.shouldShow}.`);
 			if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
 				this._webviewViewProvider.show();
 			} else if (!this._showPullRequest.shouldShow && isFocusMode) {
 				const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
+					Logger.appendLine(`Review> PR show value changed = ${shouldShow}.`);
 					if (shouldShow) {
 						this._webviewViewProvider?.show();
 					}
