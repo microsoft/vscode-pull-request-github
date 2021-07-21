@@ -80,6 +80,11 @@ export class PullRequestGitHelper {
 
 		try {
 			branch = await repository.getBranch(branchName);
+			// Make sure we aren't already on this branch
+			if (repository.state.HEAD?.name === branch.name) {
+				Logger.appendLine(`Tried to checkout ${branchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
+				return;
+			}
 			Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
 			await repository.checkout(branchName);
 
