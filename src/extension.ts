@@ -142,6 +142,13 @@ async function init(
 
 	git.onDidOpenRepository(repo => {
 		const disposable = repo.state.onDidChange(() => {
+			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`);
+			// Make sure we don't already have a folder manager for this repo.
+			const existing = reposManager.getManagerForFile(repo.rootUri);
+			if (existing) {
+				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`);
+				return;
+			}
 			const newFolderManager = new FolderRepositoryManager(context, repo, telemetry, git, credentialStore);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
