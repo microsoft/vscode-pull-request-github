@@ -296,10 +296,22 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 					'Publish branch',
 				);
 				if (shouldPushUpstream === 'Publish branch') {
-					await vscode.commands.executeCommand('git.publish');
+					let pushRemote: string | undefined;
+					if (this._folderRepositoryManager.repository.state.remotes.length === 1) {
+						pushRemote = this._folderRepositoryManager.repository.state.remotes[0].name;
+					} else if (this._folderRepositoryManager.repository.state.remotes.length > 1) {
+						pushRemote = await vscode.window.showQuickPick(
+							this._folderRepositoryManager.repository.state.remotes.map(value => value.name),
+							{ placeHolder: 'Remote to push to' },
+						);
+					}
+					if (pushRemote) {
+						await this._folderRepositoryManager.repository.push(pushRemote, branchName, true);
+					} else {
+						this._throwError(message, 'The current repository has no remotes to push to. Please set up a remote and try again.');
+					}
 					if (this._folderRepositoryManager.repository.state.HEAD) {
-						this.compareBranch = this._folderRepositoryManager.repository.state.HEAD;
-						remote = this.compareBranch.upstream?.remote;
+						remote = pushRemote;
 					}
 				} else {
 					this._throwError(message, 'No upstream for the compare branch.');
