@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
@@ -842,7 +843,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const contents = (fileContent.data as any).content ?? '';
-		const buff = Buffer.from(contents, (fileContent.data as any).encoding);
+		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
 		return buff.toString();
 	}
 

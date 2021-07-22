@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as buffer from 'buffer';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { getGitChangeType } from '../common/diffHunk';
@@ -12,6 +13,8 @@ import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
+
+export const GITHUB_FILE_SCHEME = 'githubpr';
 
 export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 	private _view: vscode.TreeView<TreeNode>;
@@ -25,7 +28,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 	private _gitHubRepository: GitHubRepository | undefined;
 
-	get view(): vscode.TreeView<TreeNode>  {
+	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
@@ -124,7 +127,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		if (!this._contentProvider) {
 			this._contentProvider = new GitHubContentProvider(this._gitHubRepository);
 			this._disposables.push(
-				vscode.workspace.registerTextDocumentContentProvider('github', this._contentProvider),
+				vscode.workspace.registerTextDocumentContentProvider(GITHUB_FILE_SCHEME, this._contentProvider),
 			);
 		}
 
@@ -162,15 +165,16 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 	dispose() {
 		this._disposables.forEach(d => d.dispose());
+		this._contentProvider = undefined;
 	}
 }
 
 /**
- * Provides file contents for documents with 'github' scheme. Contents are fetched from GitHub based on
+ * Provides file contents for documents with GITHUB_FILE_SCHEME (githubpr) scheme. Contents are fetched from GitHub based on
  * information in the document's query string.
  */
 class GitHubContentProvider {
-	constructor(public gitHubRepository: GitHubRepository) {}
+	constructor(public gitHubRepository: GitHubRepository) { }
 
 	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
 		const params = fromGitHubURI(uri);
@@ -187,7 +191,7 @@ class GitHubContentProvider {
 		});
 
 		const contents = (fileContent.data as any).content ?? '';
-		const buff = Buffer.from(contents, (fileContent.data as any).encoding);
+		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
 		return buff.toString();
 	}
 }

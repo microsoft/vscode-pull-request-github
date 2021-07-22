@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { GitChangeType } from '../common/file';
 import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
+import { GITHUB_FILE_SCHEME } from './compareChangesTreeDataProvider';
 
 export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[];
@@ -19,7 +20,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		uri: vscode.Uri,
 		_token: vscode.CancellationToken,
 	): vscode.ProviderResult<vscode.FileDecoration> {
-		if (uri.scheme !== 'filechange' && uri.scheme !== 'github') {
+		if (uri.scheme !== 'filechange' && uri.scheme !== GITHUB_FILE_SCHEME) {
 			return;
 		}
 
