@@ -12,6 +12,7 @@ import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toReso
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { GITHUB_FILE_SCHEME } from '../compareChangesTreeDataProvider';
 import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -439,36 +440,36 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.label = fileName;
 		this.iconPath = vscode.ThemeIcon.File;
 		this.resourceUri = vscode.Uri.file(fileName).with({
-			scheme: 'github',
+			scheme: GITHUB_FILE_SCHEME,
 			query: JSON.stringify({ status, fileName }),
 		});
 
 		let parentURI = vscode.Uri.file(fileName).with({
-			scheme: 'github',
+			scheme: GITHUB_FILE_SCHEME,
 			query: JSON.stringify({ fileName, branch: baseBranch }),
 		});
 		let headURI = vscode.Uri.file(fileName).with({
-			scheme: 'github',
+			scheme: GITHUB_FILE_SCHEME,
 			query: JSON.stringify({ fileName, branch: headBranch }),
 		});
 		switch (status) {
 			case GitChangeType.ADD:
 				parentURI = vscode.Uri.file(fileName).with({
-					scheme: 'github',
+					scheme: GITHUB_FILE_SCHEME,
 					query: JSON.stringify({ fileName, branch: baseBranch, isEmpty: true }),
 				});
 				break;
 
 			case GitChangeType.RENAME:
 				parentURI = vscode.Uri.file(previousFileName!).with({
-					scheme: 'github',
+					scheme: GITHUB_FILE_SCHEME,
 					query: JSON.stringify({ fileName: previousFileName, branch: baseBranch, isEmpty: true }),
 				});
 				break;
 
 			case GitChangeType.DELETE:
 				headURI = vscode.Uri.file(fileName).with({
-					scheme: 'github',
+					scheme: GITHUB_FILE_SCHEME,
 					query: JSON.stringify({ fileName, branch: headBranch, isEmpty: true }),
 				});
 				break;
