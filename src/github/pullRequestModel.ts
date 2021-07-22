@@ -926,14 +926,26 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async getStatusChecks(): Promise<PullRequestChecks> {
 		const { query, remote, schema } = await this.githubRepository.ensure();
-		const result = await query<GetChecksResponse>({
-			query: schema.GetChecks,
-			variables: {
-				owner: remote.owner,
-				name: remote.repositoryName,
-				number: this.number,
-			},
-		});
+		let result;
+		try {
+			result = await query<GetChecksResponse>({
+				query: schema.GetChecks,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+				},
+			});
+		} catch (e) {
+			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
+				// Ignore SAML errors here.
+				return {
+					state: 'pending',
+					statuses: [],
+				};
+			}
+		}
 
 		// We always fetch the status checks for only the last commit, so there should only be one node present
 		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;

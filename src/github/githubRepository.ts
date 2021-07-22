@@ -159,7 +159,17 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		Logger.debug(`Request: ${JSON.stringify(query, null, 2)}`, GRAPHQL_COMPONENT_ID);
-		const rsp = await gql.query<T>(query);
+		let rsp;
+		try {
+			rsp = await gql.query<T>(query);
+		} catch (e) {
+			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+				await this._credentialStore.recreate();
+				rsp = await gql.query<T>(query);
+			} else {
+				throw e;
+			}
+		}
 		Logger.debug(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
 	};

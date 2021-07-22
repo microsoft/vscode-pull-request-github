@@ -62,15 +62,24 @@ export class CredentialStore implements vscode.Disposable {
 		);
 	}
 
-	public async initialize(authProviderId: AuthProvider): Promise<void> {
+	public async initialize(authProviderId: AuthProvider, force: boolean = false): Promise<void> {
 		if (authProviderId === AuthProvider['github-enterprise']) {
 			if (!hasEnterpriseUri()) {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
 				return;
 			}
 		}
-
-		const session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: false });
+		let session;
+		try {
+			session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: false, forceRecreate: force });
+		} catch (e) {
+			if (force && (e.message === 'User did not consent to login.')) {
+				// There are cases where a forced login may not be 100% needed, so just continue as usual if
+				// the user didn't consent to the login prompt.
+			} else {
+				throw e;
+			}
+		}
 
 		if (session) {
 			if (authProviderId === AuthProvider.github) {
@@ -88,6 +97,13 @@ export class CredentialStore implements vscode.Disposable {
 			this._onDidInitialize.fire();
 		} else {
 			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
+		}
+	}
+
+	public async recreate() {
+		await this.initialize(AuthProvider.github, true);
+		if (hasEnterpriseUri()) {
+			await this.initialize(AuthProvider['github-enterprise'], true);
 		}
 	}
 
