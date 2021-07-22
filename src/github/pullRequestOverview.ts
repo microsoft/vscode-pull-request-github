@@ -144,7 +144,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * @param reviewers All the reviewers who have been requested to review the current PR
 	 * @param pullRequestModel Model of the PR
 	 */
-	private parseReviewsAndGetState(reviewers:ReviewState[],pullRequestModel:PullRequestModel): String | undefined {
+	private getCurrentUserReviewState(reviewers: ReviewState[], pullRequestModel: PullRequestModel): string | undefined {
 		const user = this._folderRepositoryManager.getCurrentUser(pullRequestModel);
 		const review = reviewers.find(r => r.reviewer.login === user.login);
 		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
@@ -239,7 +239,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						assignees: pullRequest.assignees,
 						continueOnGitHub,
 						isAuthor: currentUser.login === pullRequest.author.login,
-						reviewState: this.parseReviewsAndGetState(this._existingReviewers,pullRequestModel)
+						reviewState: this.getCurrentUserReviewState(this._existingReviewers,pullRequestModel)
 					},
 				});
 			})

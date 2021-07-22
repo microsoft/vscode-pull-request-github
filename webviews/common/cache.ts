@@ -65,7 +65,7 @@ export interface PullRequest {
 	isIssue: boolean;
 	isAuthor?: boolean;
 	continueOnGitHub: boolean;
-	reviewState: ReviewState['state'];
+	reviewState: string;
 }
 
 export function getState(): PullRequest {
