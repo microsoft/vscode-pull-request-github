@@ -3,30 +3,30 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { PullsListCommitsResponseItem } from '@octokit/rest';
-import { TreeNode } from './treeNode';
-import { GitFileChangeNode } from './fileChangeNode';
-import { toReviewUri } from '../../common/uri';
-import { getGitChangeType } from '../../common/diffHunk';
+import * as vscode from 'vscode';
 import { IComment } from '../../common/comment';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { getGitChangeType } from '../../common/diffHunk';
+import { toReviewUri } from '../../common/uri';
+import { OctokitCommon } from '../../github/common';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { GitFileChangeNode } from './fileChangeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
-	public label: string;
 	public sha: string;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath: vscode.Uri | undefined;
 	public contextValue?: string;
 
 	constructor(
-		public parent: TreeNode | vscode.TreeView<TreeNode>,
-		private readonly pullRequestManager: PullRequestManager,
+		public parent: TreeNodeParent,
+		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
-		private readonly commit: PullsListCommitsResponseItem,
-		private readonly comments: IComment[]
+		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
+		private readonly comments: IComment[],
+		private readonly isCurrent: boolean
 	) {
 		super();
 		this.label = commit.commit.message;
@@ -50,38 +50,50 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		const fileChanges = await this.pullRequestManager.getCommitChangedFiles(this.pullRequest, this.commit);
+		const fileChanges = (await this.pullRequest.getCommitChangedFiles(this.commit)) ?? [];
 
 		const fileChangeNodes = fileChanges.map(change => {
-			const matchingComments = this.comments.filter(comment => comment.path === change.filename && comment.originalCommitId === this.commit.sha);
-			const fileName = change.filename;
-			const uri = vscode.Uri.parse(path.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
+			const matchingComments = this.comments.filter(
+				comment => comment.path === change.filename && comment.originalCommitId === this.commit.sha,
+			);
+			const fileName = change.filename!;
+			const uri = vscode.Uri.parse(path.posix.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
 			const fileChangeNode = new GitFileChangeNode(
 				this,
+				this.pullRequestManager,
 				this.pullRequest,
-				getGitChangeType(change.status),
+				getGitChangeType(change.status!),
 				fileName,
 				undefined,
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: false }),
-				toReviewUri(uri, fileName, undefined, this.commit.sha, true, { base: true }),
-				false,
+				toReviewUri(
+					uri,
+					fileName,
+					undefined,
+					this.commit.sha,
+					true,
+					{ base: false },
+					this.pullRequestManager.repository.rootUri,
+				),
+				toReviewUri(
+					uri,
+					fileName,
+					undefined,
+					this.commit.sha,
+					true,
+					{ base: true },
+					this.pullRequestManager.repository.rootUri,
+				),
 				[],
 				matchingComments,
-				this.commit.sha
+				this.commit.sha,
+				this.isCurrent
 			);
 
-			fileChangeNode.command = {
-				title: 'View Changes',
-				command: 'pr.viewChanges',
-				arguments: [
-					fileChangeNode
-				]
-			};
+			fileChangeNode.useViewChangesCommand();
 
 			return fileChangeNode;
 		});
 
 		return Promise.resolve(fileChangeNodes);
 	}
-
 }

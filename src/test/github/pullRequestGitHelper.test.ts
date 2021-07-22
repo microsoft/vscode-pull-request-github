@@ -1,4 +1,4 @@
-import assert = require('assert');
+import { default as assert } from 'assert';
 
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
@@ -12,7 +12,8 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
-import { RefType } from '../../api/api';
+import { RefType } from '../../api/api1';
+import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
@@ -38,17 +39,17 @@ describe('PullRequestGitHelper', function () {
 		it('fetches, checks out, and configures a branch from a fork', async function () {
 			const url = 'git@github.com:owner/name.git';
 			const remote = new Remote('elsewhere', url, new Protocol(url));
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, sinon);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 
 			const prItem = convertRESTPullRequestToRawPullRequest(
 				new PullRequestBuilder()
 					.number(100)
 					.user(u => u.login('me'))
 					.base(b => {
-						b.repo(r => r.clone_url('git@github.com:owner/name.git'));
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
 					})
 					.head(h => {
-						h.repo(r => r.clone_url('git@github.com:you/name.git'));
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:you/name.git'));
 						h.ref('my-branch');
 					})
 					.build(),
@@ -58,29 +59,30 @@ describe('PullRequestGitHelper', function () {
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);
 			repository.expectPull(true);
 
-			const pullRequest = new PullRequestModel(gitHubRepository, remote, prItem);
+			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, remote, prItem);
 
 			if (!pullRequest.isResolved()) {
-				assert(pullRequest.isResolved(), 'pull request head not resolved successfully');
-				return;
+				assert(false, 'pull request head not resolved successfully');
 			}
 
 			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);
 
-			assert.deepEqual(repository.state.remotes, [{
-				name: 'you',
-				fetchUrl: 'git@github.com:you/name',
-				pushUrl: 'git@github.com:you/name',
-				isReadOnly: false,
-			}]);
-			assert.deepEqual(repository.state.HEAD, {
+			assert.deepStrictEqual(repository.state.remotes, [
+				{
+					name: 'you',
+					fetchUrl: 'git@github.com:you/name',
+					pushUrl: 'git@github.com:you/name',
+					isReadOnly: false,
+				},
+			]);
+			assert.deepStrictEqual(repository.state.HEAD, {
 				type: RefType.Head,
 				name: 'pr/me/100',
 				commit: undefined,
 				upstream: {
 					remote: 'you',
 					name: 'my-branch',
-				}
+				},
 			});
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
 		});

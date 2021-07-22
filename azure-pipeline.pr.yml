@@ -1,21 +1,21 @@
 jobs:
-- job: test_suite
-  displayName: Test suite
-  pool:
-    name: Hosted macOS
-  steps:
+  - job: test_suite
+    displayName: Test suite
+    pool:
+      name: Hosted macOS
+    steps:
+      - template: scripts/ci/common-setup.yml
 
-  - template: scripts/ci/common-setup.yml
+      - script: yarn run test
+        displayName: Run test suite
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-  - script: yarn run test
-    displayName: Run test suite
-    env:
-      TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
-
-  - task: PublishTestResults@2
-    displayName: Publish test results
-    inputs:
-      testResultsFormat: JUnit
-      testResultsFiles: $(Agent.HomeDirectory)/test-results.xml
-      testRunTitle: Mocha test suite
-    condition: succeededOrFailed()
+      - task: PublishTestResults@2
+        displayName: Publish test results
+        inputs:
+          testResultsFormat: JUnit
+          testResultsFiles: $(Agent.HomeDirectory)/test-results.xml
+          testRunTitle: Mocha test suite
+          failTaskOnFailedTests: true
+        condition: succeededOrFailed()

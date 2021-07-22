@@ -6,13 +6,13 @@
 export enum PRType {
 	Query,
 	All,
-	LocalPullRequest
+	LocalPullRequest,
 }
 
 export enum ReviewEvent {
 	Approve = 'APPROVE',
 	RequestChanges = 'REQUEST_CHANGES',
-	Comment = 'COMMENT'
+	Comment = 'COMMENT',
 }
 
 export enum GithubItemStateEnum {
@@ -24,7 +24,7 @@ export enum GithubItemStateEnum {
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,
-	Unknown
+	Unknown,
 }
 
 export interface ReviewState {
@@ -84,7 +84,7 @@ export interface Issue {
 	body: string;
 	bodyHTML?: string;
 	title: string;
-	assignee?: IAccount;
+	assignees?: IAccount[];
 	createdAt: string;
 	updatedAt: string;
 	user: IAccount;
@@ -102,7 +102,9 @@ export interface Issue {
 
 export interface PullRequest extends Issue {
 	isDraft?: boolean;
+	isRemoteHeadDeleted?: boolean;
 	head?: IGitHubRef;
+	isRemoteBaseDeleted?: boolean;
 	base?: IGitHubRef;
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
@@ -138,7 +140,7 @@ export type MergeMethodsAvailability = {
 
 export type RepoAccessAndMergeMethods = {
 	hasWritePermission: boolean;
-	mergeMethodsAvailability: MergeMethodsAvailability
+	mergeMethodsAvailability: MergeMethodsAvailability;
 };
 
 export interface User extends IAccount {
@@ -148,5 +150,18 @@ export interface User extends IAccount {
 	commitContributions: {
 		createdAt: Date;
 		repoNameWithOwner: string;
+	}[];
+}
+
+export interface PullRequestChecks {
+	state: string;
+	statuses: {
+		id: string;
+		url?: string;
+		avatar_url?: string;
+		state?: string;
+		description?: string;
+		target_url?: string;
+		context: string;
 	}[];
 }

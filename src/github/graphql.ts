@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DiffSide, ViewedState } from '../common/comment';
+import { ForkDetails } from './githubRepository';
+
 export interface MergedEvent {
 	__typename: string;
 	id: string;
@@ -40,6 +43,7 @@ export interface AbbreviatedIssueComment {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		email?: string
 	};
 	body: string;
 	databaseId: number;
@@ -47,7 +51,7 @@ export interface AbbreviatedIssueComment {
 
 export interface IssueComment extends AbbreviatedIssueComment {
 	__typename: string;
-	authorAssocation: string;
+	authorAssociation: string;
 	id: string;
 	url: string;
 	bodyHTML: string;
@@ -111,7 +115,7 @@ export interface Commit {
 				login: string;
 				avatarUrl: string;
 				url: string;
-			}
+			};
 		};
 		committer: {
 			avatarUrl: string;
@@ -119,6 +123,7 @@ export interface Commit {
 		};
 		oid: string;
 		message: string;
+		authoredDate: Date;
 	};
 
 	url: string;
@@ -158,13 +163,28 @@ export interface Review {
 	createdAt: string;
 }
 
+export interface ReviewThread {
+	id: string;
+	isResolved: boolean;
+	viewerCanResolve: boolean;
+	viewerCanUnresolve: boolean;
+	path: string;
+	diffSide: DiffSide;
+	line: number;
+	originalLine: number;
+	isOutdated: boolean;
+	comments: {
+		nodes: ReviewComment[];
+	};
+}
+
 export interface TimelineEventsResponse {
 	repository: {
 		pullRequest: {
 			timelineItems: {
 				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
-			}
-		}
+			};
+		};
 	};
 	rateLimit: RateLimit;
 }
@@ -173,7 +193,7 @@ export interface PendingReviewIdResponse {
 	node: {
 		reviews: {
 			nodes: Review[];
-		}
+		};
 	};
 	rateLimit: RateLimit;
 }
@@ -184,25 +204,18 @@ export interface PullRequestState {
 			title: string;
 			number: number;
 			state: 'OPEN' | 'CLOSED' | 'MERGED';
-		}
+		};
 	};
 }
 
 export interface PullRequestCommentsResponse {
 	repository: {
 		pullRequest: {
-			reviews: {
-				nodes: [
-					{
-						comments: {
-							nodes: ReviewComment[];
-						}
-					}
-				]
-			}
-		}
+			reviewThreads: {
+				nodes: ReviewThread[];
+			};
+		};
 	};
-	rateLimit: RateLimit;
 }
 
 export interface MentionableUsersResponse {
@@ -219,7 +232,7 @@ export interface MentionableUsersResponse {
 				hasNextPage: boolean;
 				endCursor: string;
 			};
-		}
+		};
 	};
 	rateLimit: RateLimit;
 }
@@ -238,9 +251,15 @@ export interface AssignableUsersResponse {
 				hasNextPage: boolean;
 				endCursor: string;
 			};
-		}
+		};
 	};
 	rateLimit: RateLimit;
+}
+
+export interface AddReviewThreadResponse {
+	addPullRequestReviewThread: {
+		thread: ReviewThread;
+	}
 }
 
 export interface AddCommentResponse {
@@ -252,8 +271,8 @@ export interface AddCommentResponse {
 export interface AddIssueCommentResponse {
 	addComment: {
 		commentEdge: {
-			node: IssueComment
-		}
+			node: IssueComment;
+		};
 	};
 }
 
@@ -272,7 +291,7 @@ export interface EditIssueCommentResponse {
 export interface MarkPullRequestReadyForReviewResponse {
 	markPullRequestReadyForReview: {
 		pullRequest: {
-			isDraft: boolean
+			isDraft: boolean;
 		};
 	};
 }
@@ -295,8 +314,8 @@ export interface DeleteReviewResponse {
 			databaseId: number;
 			comments: {
 				nodes: ReviewComment[];
-			}
-		}
+			};
+		};
 	};
 }
 
@@ -304,10 +323,10 @@ export interface AddReactionResponse {
 	addReaction: {
 		reaction: {
 			content: string;
-		}
+		};
 		subject: {
 			reactionGroups: ReactionGroup[];
-		}
+		};
 	};
 }
 
@@ -315,10 +334,10 @@ export interface DeleteReactionResponse {
 	removeReaction: {
 		reaction: {
 			content: string;
-		}
+		};
 		subject: {
 			reactionGroups: ReactionGroup[];
-		}
+		};
 	};
 }
 
@@ -332,14 +351,15 @@ export interface UpdatePullRequestResponse {
 	};
 }
 
+export interface RefRepository {
+	owner: {
+		login: string;
+	};
+	url: string;
+}
 export interface Ref {
 	name: string;
-	repository: {
-		owner: {
-			login: string;
-		}
-		url: string;
-	};
+	repository: RefRepository;
 	target: {
 		oid: string;
 	};
@@ -365,6 +385,14 @@ export interface PullRequest {
 	body: string;
 	bodyHTML: string;
 	title: string;
+	assignees?: {
+		nodes: {
+			login: string;
+			url: string;
+			email: string;
+			avatarUrl: string;
+		}[];
+	};
 	author: {
 		login: string;
 		url: string;
@@ -376,7 +404,13 @@ export interface PullRequest {
 	createdAt: string;
 	updatedAt: string;
 	headRef?: Ref;
+	headRefName: string;
+	headRefOid: string;
+	headRepository?: RefRepository;
 	baseRef?: Ref;
+	baseRefName: string;
+	baseRefOid: string;
+	baseRepository: RefRepository;
 	labels: {
 		nodes: {
 			name: string;
@@ -388,17 +422,17 @@ export interface PullRequest {
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
 	milestone?: {
-		title: string,
-		dueOn?: string,
-		id: string,
-		createdAt: string
+		title: string;
+		dueOn?: string;
+		id: string;
+		createdAt: string;
 	};
 	repository?: {
-		name: string,
+		name: string;
 		owner: {
-			login: string
-		},
-		url: string
+			login: string;
+		};
+		url: string;
 	};
 }
 
@@ -411,14 +445,14 @@ export interface PullRequestResponse {
 
 export interface IssuesSearchResponse {
 	search: {
-		issueCount: number,
+		issueCount: number;
 		pageInfo: {
-			hasNextPage: boolean
-			endCursor: string
-		},
+			hasNextPage: boolean;
+			endCursor: string;
+		};
 		edges: {
-			node: PullRequest
-		}[]
+			node: PullRequest;
+		}[];
 	};
 	rateLimit: RateLimit;
 }
@@ -427,21 +461,21 @@ export interface MilestoneIssuesResponse {
 	repository: {
 		milestones: {
 			nodes: {
-				dueOn: string,
-				createdAt: string,
-				title: string,
-				id: string,
+				dueOn: string;
+				createdAt: string;
+				title: string;
+				id: string;
 				issues: {
 					edges: {
-						node: PullRequest
-					}[]
-				}
-			}[],
+						node: PullRequest;
+					}[];
+				};
+			}[];
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
-			}
-		}
+			};
+		};
 	};
 }
 
@@ -449,14 +483,36 @@ export interface IssuesResponse {
 	repository: {
 		issues: {
 			edges: {
-				node: PullRequest
-			}[],
+				node: PullRequest;
+			}[];
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
-			}
-		}
+			};
+		};
 	};
+}
+
+export interface MaxIssueResponse {
+	repository: {
+		issues: {
+			edges: {
+				node: {
+					number: number;
+				};
+			}[];
+		};
+	};
+}
+
+export interface ViewerPermissionResponse {
+	repository: {
+		viewerPermission: string;
+	};
+}
+
+export interface ForkDetailsResponse {
+	repository: ForkDetails;
 }
 
 export interface QueryWithRateLimit {
@@ -498,9 +554,90 @@ export interface UserResponse {
 export interface StartReviewResponse {
 	addPullRequestReview: {
 		pullRequestReview: {
-			comments: {
-				nodes: ReviewComment[]
-			}
+			id: string;
 		};
 	};
+}
+
+export interface StatusContext {
+	id: string;
+	state?: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+	description?: string;
+	context: string;
+	targetUrl?: string;
+	avatarUrl?: string;
+}
+
+export interface CheckRun {
+	id: string;
+	conclusion?:
+		| 'ACTION_REQUIRED'
+		| 'CANCELLED'
+		| 'FAILURE'
+		| 'NEUTRAL'
+		| 'SKIPPED'
+		| 'STALE'
+		| 'SUCCESS'
+		| 'TIMED_OUT';
+	name: string;
+	title?: string;
+	detailsUrl?: string;
+	checkSuite: {
+		app?: {
+			logoUrl: string;
+			url: string;
+		};
+	};
+}
+
+export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
+	return !!(x as CheckRun).conclusion;
+}
+
+export interface GetChecksResponse {
+	repository: {
+		pullRequest: {
+			commits: {
+				nodes: {
+					commit: {
+						statusCheckRollup?: {
+							state: string;
+							contexts: {
+								nodes: (StatusContext | CheckRun)[];
+							};
+						};
+					};
+				}[];
+			};
+		};
+	};
+}
+
+export interface ResolveReviewThreadResponse {
+	resolveReviewThread: {
+		thread: ReviewThread;
+	}
+}
+
+export interface UnresolveReviewThreadResponse {
+	unresolveReviewThread: {
+		thread: ReviewThread;
+	}
+}
+
+export interface PullRequestFilesResponse {
+	repository: {
+		pullRequest: {
+			files: {
+				nodes: {
+					path: string;
+					viewerViewedState: ViewedState
+				}[]
+				pageInfo: {
+					hasNextPage: boolean;
+					endCursor: string;
+				};
+			}
+		}
+	}
 }

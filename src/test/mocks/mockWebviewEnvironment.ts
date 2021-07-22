@@ -1,4 +1,4 @@
-import installJsDomGlobal = require('jsdom-global');
+import installJsDomGlobal from 'jsdom-global';
 import { Suite } from 'mocha';
 
 interface WebviewEnvironmentSetters {
@@ -31,32 +31,27 @@ class MockWebviewEnvironment {
 
 	constructor() {
 		this._api = new WebviewVsCodeApi({
-			stateSetter: (nState) => {
+			stateSetter: nState => {
 				this._persistedState = nState;
 			},
 			stateGetter: () => this._persistedState,
-			messageAdder: (newMessage) => {
+			messageAdder: newMessage => {
 				this._messages.push(newMessage);
-			}
+			},
 		});
 
-		this._uninstall = () => {};
+		this._uninstall = () => { };
 	}
 
 	install(host: any) {
 		const previous = host.acquireVsCodeApi;
 		host.acquireVsCodeApi = () => this._api;
-		const cleanup = installJsDomGlobal('', {
-			runScripts: 'outside-only',
-		});
-
 		this._uninstall = () => {
 			if (previous) {
 				host.acquireVsCodeApi = previous;
 			} else {
 				delete host.acquireVsCodeApi;
 			}
-			cleanup();
 		};
 	}
 

@@ -5,20 +5,22 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { GHPRCommentThread, GHPRComment, TemporaryComment } from './github/prComment';
 import Logger from './common/logger';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 
 export interface CommentHandler {
 	commentController?: vscode.CommentController;
 	hasCommentThread(thread: GHPRCommentThread): boolean;
 
-	createOrReplyComment(thread: GHPRCommentThread, input: string): Promise<void>;
+	createOrReplyComment(thread: GHPRCommentThread, input: string, isSingleComment: boolean): Promise<void>;
 	editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
 	deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void>;
 
 	startReview(thread: GHPRCommentThread, input: string): Promise<void>;
-	finishReview(thread: GHPRCommentThread, input: string): Promise<void>;
-	deleteReview(): Promise<void>;
+	openReview(thread: GHPRCommentThread): Promise<void>;
+
+	resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void>;
+	unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void>;
 }
 
 export interface CommentReply {

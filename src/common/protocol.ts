@@ -4,16 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { resolve } from '../env/node/ssh';
 import Logger from './logger';
 
-import { resolve } from './ssh';
 
 export enum ProtocolType {
 	Local,
 	HTTP,
 	SSH,
 	GIT,
-	OTHER
+	OTHER,
 }
 
 export class Protocol {
@@ -29,9 +29,7 @@ export class Protocol {
 	}
 
 	public readonly url: vscode.Uri;
-	constructor(
-		uriString: string,
-	) {
+	constructor(uriString: string) {
 		if (this.parseSshProtocol(uriString)) {
 			return;
 		}
@@ -47,7 +45,9 @@ export class Protocol {
 			}
 		} catch (e) {
 			Logger.appendLine(`Failed to parse '${uriString}'`);
-			vscode.window.showWarningMessage(`Unable to parse remote '${uriString}'. Please check that it is correctly formatted.`);
+			vscode.window.showWarningMessage(
+				`Unable to parse remote '${uriString}'. Please check that it is correctly formatted.`,
+			);
 		}
 	}
 
@@ -69,7 +69,9 @@ export class Protocol {
 
 	private parseSshProtocol(uriString: string): boolean {
 		const sshConfig = resolve(uriString);
-		if (!sshConfig) { return false; }
+		if (!sshConfig) {
+			return false;
+		}
 		const { Hostname, HostName, path } = sshConfig;
 		this.host = HostName || Hostname;
 		this.owner = this.getOwnerName(path) || '';
@@ -83,7 +85,6 @@ export class Protocol {
 		const matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
 
 		if (matches && matches.length >= 2) {
-
 			// normalize to fix #903.
 			// www.github.com will redirect anyways, so this is safe in this specific case, but potentially not in others.
 			return matches[1].toLocaleLowerCase() === 'www.github.com' ? 'github.com' : matches[1];
@@ -135,7 +136,9 @@ export class Protocol {
 		}
 
 		try {
-			return vscode.Uri.parse(`${scheme}://${this.host.toLocaleLowerCase()}/${this.nameWithOwner.toLocaleLowerCase()}`);
+			return vscode.Uri.parse(
+				`${scheme}://${this.host.toLocaleLowerCase()}/${this.nameWithOwner.toLocaleLowerCase()}`,
+			);
 		} catch (e) {
 			return;
 		}
@@ -169,7 +172,7 @@ export class Protocol {
 		return;
 	}
 
-	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string; }): Protocol {
+	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string }): Protocol {
 		if (change.type) {
 			this.type = change.type;
 		}

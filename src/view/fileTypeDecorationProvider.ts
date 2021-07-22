@@ -4,27 +4,30 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
 import { GitChangeType } from '../common/file';
+import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
 
-export class FileTypeDecorationProvider implements vscode.DecorationProvider {
+export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[];
 
-	constructor(
-	) {
+	constructor() {
 		this._disposables = [];
-		this._disposables.push(vscode.window.registerDecorationProvider(this));
+		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
 	}
 
-	_onDidChangeDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
-	onDidChangeDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeDecorations.event;
-	provideDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Decoration> {
+	provideFileDecoration(
+		uri: vscode.Uri,
+		_token: vscode.CancellationToken,
+	): vscode.ProviderResult<vscode.FileDecoration> {
+		if (uri.scheme !== 'filechange' && uri.scheme !== 'github') {
+			return;
+		}
+
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
 			return {
-				bubble: false,
-				letter: this.letter(fileChangeUriParams.status),
-				priority: 1
+				propagate: false,
+				badge: this.letter(fileChangeUriParams.status),
 			};
 		}
 
@@ -32,9 +35,8 @@ export class FileTypeDecorationProvider implements vscode.DecorationProvider {
 
 		if (prParams && prParams.status !== undefined) {
 			return {
-				bubble: false,
-				letter: this.letter(prParams.status),
-				priority: 1
+				propagate: false,
+				badge: this.letter(prParams.status),
 			};
 		}
 

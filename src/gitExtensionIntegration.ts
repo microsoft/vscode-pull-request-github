@@ -3,8 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { RemoteSourceProvider, RemoteSource } from './typings/git';
-import { CredentialStore, GitHub } from './github/credentials';
+import { RemoteSource, RemoteSourceProvider } from './@types/git';
+import { OctokitCommon } from './github/common';
+import { AuthProvider, CredentialStore, GitHub } from './github/credentials';
 
 interface Repository {
 	readonly full_name: string;
@@ -13,26 +14,37 @@ interface Repository {
 	readonly ssh_url: string;
 }
 
+function repoResponseAsRemoteSource(raw: OctokitCommon.SearchReposResponseItem): RemoteSource {
+	return {
+		name: `$(github) ${raw.full_name}`,
+		description: raw.description || undefined,
+		url: raw.url,
+	};
+}
+
 function asRemoteSource(raw: Repository): RemoteSource {
 	return {
 		name: `$(github) ${raw.full_name}`,
 		description: raw.description || undefined,
-		url: raw.clone_url
+		url: raw.clone_url,
 	};
 }
 
 export class GithubRemoteSourceProvider implements RemoteSourceProvider {
-
-	readonly name = 'GitHub';
+	readonly name: string = 'GitHub';
 	readonly icon = 'github';
 	readonly supportsQuery = true;
 
 	private userReposCache: RemoteSource[] = [];
 
-	constructor(private readonly credentialStore: CredentialStore) { }
+	constructor(private readonly credentialStore: CredentialStore, private readonly authProviderId: AuthProvider = AuthProvider.github) {
+		if (authProviderId === AuthProvider['github-enterprise']) {
+			this.name = 'GitHub Enterprise';
+		}
+	}
 
 	async getRemoteSources(query?: string): Promise<RemoteSource[]> {
-		const hub = await this.credentialStore.getHubOrLogin();
+		const hub = await this.credentialStore.getHubOrLogin(this.authProviderId);
 
 		if (!hub) {
 			throw new Error('Could not fetch repositories from GitHub.');
@@ -40,20 +52,17 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 
 		const [fromUser, fromQuery] = await Promise.all([
 			this.getUserRemoteSources(hub, query),
-			this.getQueryRemoteSources(hub, query)
+			this.getQueryRemoteSources(hub, query),
 		]);
 
 		const userRepos = new Set(fromUser.map(r => r.name));
 
-		return [
-			...fromUser,
-			...fromQuery.filter(r => !userRepos.has(r.name))
-		];
+		return [...fromUser, ...fromQuery.filter(r => !userRepos.has(r.name))];
 	}
 
 	private async getUserRemoteSources(hub: GitHub, query?: string): Promise<RemoteSource[]> {
 		if (!query) {
-			const res = await hub.octokit.repos.list({ sort: 'pushed', per_page: 100 });
+			const res = await hub.octokit.repos.listForAuthenticatedUser({ sort: 'pushed', per_page: 100 });
 			this.userReposCache = res.data.map(asRemoteSource);
 		}
 
@@ -66,6 +75,6 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 		}
 
 		const raw = await hub.octokit.search.repos({ q: query, sort: 'updated' });
-		return raw.data.items.map(asRemoteSource);
+		return raw.data.items.map(repoResponseAsRemoteSource);
 	}
 }

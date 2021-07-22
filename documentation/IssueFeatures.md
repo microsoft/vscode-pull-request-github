@@ -11,7 +11,19 @@ You can also create an issue from a text selection by running the **Create Issue
 
 # Commands
 
-There are two new commands for easily creating GitHub permalinks. The **Copy GitHub Permalink** command will take the text you have selected and make a git hub permalink. The **Open Permalink in GitHub** command creates the same permalink, but also opens the link in your browser.
+There are two new commands for easily creating GitHub permalinks. The **Copy GitHub Permalink** command will take the text you have selected and make a git hub permalink. The **Open Permalink on GitHub** command creates the same permalink, but also opens the link in your browser.
+
+# Creating an issue
+
+When creating an issue from any of the **Create Issue** commands, you have the option to modify a subset of issue properties from an editor using the pencil icon.
+
+![Create Issue Quick Input](images/quickCreateIssue.png)
+
+The issue editor is a simple text file with some conventions to allow setting the issue title, assignees, labels, and body.
+
+![Create Issue Editor](images/issueEditor.png)
+
+To edit other issue properties, you'll need to open the issue on GitHub.
 
 # Inline Completion Suggestions
 
@@ -78,5 +90,4 @@ From the issues view you can start working on an issue. This creates a branch, p
 
 ![Start Working](images/startWorking.gif)
 
-**Start Working** is customizable. If you don't want a branch to be created, use `"githubIssues.useBranchForIssues": "off"`. If you always want to be prompted to enter the name of the branch use the `"prompt"` option of the setting. If you have a different naming scheme for your branches you can use `"githubIssues.workingIssueBranch": "${user}/issue${issueNumber}"` to configure it.
-
+**Start Working** is customizable. If you don't want a branch to be created, use `"githubIssues.useBranchForIssues": "off"`. If you always want to be prompted to enter the name of the branch use the `"prompt"` option of the setting. If you have a different naming scheme for your branches you can use `"githubIssues.issueBranchTitle": "${user}/issue${issueNumber}"` to configure it.

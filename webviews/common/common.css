@@ -1,0 +1,184 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body a {
+	text-decoration: none;
+}
+
+body a:hover {
+	text-decoration: underline;
+}
+button,
+input[type='submit'] {
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	font-family: var(--vscode-font-family);
+	border-radius: 0px;
+	border: 1px solid transparent;
+	outline: none;
+	padding: 4px 12px;
+	font-size: 13px;
+	line-height: 18px;
+	white-space: nowrap;
+	user-select: none;
+}
+
+button:focus,
+input[type='submit']:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+button:hover:enabled,
+button:focus:enabled,
+input[type='submit']:focus:enabled,
+input[type='submit']:hover:enabled {
+	background-color: var(--vscode-button-hoverBackground);
+	cursor: pointer;
+}
+
+body button.secondary {
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+body button.secondary:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+textarea,
+input[type='text'] {
+	display: block;
+	box-sizing: border-box;
+	padding: 8px;
+	width: 100%;
+	resize: vertical;
+	font-size: 13px;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-family: var(--vscode-font-family);
+}
+
+textarea::placeholder,
+input[type='text']::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+select {
+	display: block;
+	box-sizing: border-box;
+	padding: 4px 12px;
+	border-radius: 0;
+	font-size: 13px;
+	border: 1px solid var(--vscode-dropdown-border);
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+}
+
+textarea:focus,
+input[type='text']:focus,
+input[type='checkbox']:focus,
+select:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+input[type='checkbox'] {
+	outline-offset: 1px;
+}
+
+.vscode-high-contrast input[type='checkbox'] {
+	outline: 1px solid var(--vscode-contrastBorder);
+}
+
+.vscode-high-contrast input[type='checkbox']:focus {
+	outline: 1px solid var(--vscode-contrastActiveBorder);
+}
+
+svg path {
+	fill: var(--vscode-foreground);
+}
+
+body button:disabled,
+input[type='submit']:disabled {
+	opacity: 0.4;
+}
+
+body .hidden {
+	display: none !important;
+}
+
+body img.avatar,
+body span.avatar-icon svg {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+}
+
+body img.avatar {
+	vertical-align: middle;
+}
+
+.avatar-link {
+	flex-shrink: 0;;
+}
+
+.section-item .avatar-link {
+	margin-right: 8px;
+}
+
+.section-item .avatar-container {
+	flex-shrink: 0;
+}
+
+.section-item .login {
+	width: 129px;
+	flex-shrink: 0;
+}
+
+.section-item {
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+}
+
+.section-item img.avatar {
+	width: 18px;
+	height: 18px;
+}
+
+.push-right {
+	margin-left: auto;
+}
+
+.author-link {
+	font-weight: bolder;
+	color: var(--vscode-editor-foreground);
+}
+
+.section-item {
+	margin-right: 8px;
+}
+
+/** Theming */
+
+.vscode-high-contrast button,
+.vscode-high-contrast input {
+	outline: none;
+	background: none !important;
+	border: 1px solid var(--vscode-contrastBorder);
+}
+
+.vscode-high-contrast button:focus {
+	border: 1px solid var(--vscode-contrastActiveBorder);
+}
+
+.vscode-high-contrast button:hover {
+	border: 1px dotted var(--vscode-contrastActiveBorder);
+}
+
+::-webkit-scrollbar-corner {
+	display: none;
+}

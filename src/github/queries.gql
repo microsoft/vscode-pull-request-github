@@ -53,6 +53,12 @@ fragment Comment on IssueComment {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
 	url
 	body
@@ -72,6 +78,7 @@ fragment Commit on PullRequestCommit {
 				login
 				avatarUrl
 				url
+				email
 			}
 		}
 		committer {
@@ -80,6 +87,7 @@ fragment Commit on PullRequestCommit {
 		}
 		oid
 		message
+		authoredDate
 	}
 	url
 }
@@ -106,6 +114,12 @@ fragment Review on PullRequestReview {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
 	state
 	body
@@ -121,6 +135,23 @@ fragment Reactable on Reactable {
 		viewerHasReacted
 		users {
 			totalCount
+		}
+	}
+}
+
+fragment ReviewThread on PullRequestReviewThread {
+	id
+	isResolved
+	viewerCanResolve
+	viewerCanUnresolve
+	path
+	diffSide
+	line
+	originalLine
+	isOutdated
+	comments(first: 100) {
+		nodes {
+			...ReviewComment
 		}
 	}
 }
@@ -164,19 +195,30 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 }
 
 fragment ReviewComment on PullRequestReviewComment {
-	id databaseId url
+	id
+	databaseId
+	url
 	author {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
-	path originalPosition
+	path
+	originalPosition
 	body
 	bodyHTML
 	diffHunk
 	position
 	state
-	pullRequestReview { databaseId }
+	pullRequestReview {
+		databaseId
+	}
 	commit {
 		oid
 	}
@@ -200,8 +242,12 @@ fragment ReviewComment on PullRequestReviewComment {
 
 query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 	node(id: $pullRequestId) {
-		...on PullRequest {
-			reviews(first: 1, author: $author, states: [PENDING]) { nodes { id } }
+		... on PullRequest {
+			reviews(first: 1, author: $author, states: [PENDING]) {
+				nodes {
+					id
+				}
+			}
 		}
 	}
 	rateLimit {
@@ -212,23 +258,28 @@ query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 	}
 }
 
-query PullRequestComments($owner:String!, $name:String!, $number:Int!, $first:Int=100) {
-	repository(owner:$owner, name:$name) {
-		pullRequest(number:$number) {
-			reviews(first:$first) {
+query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first: Int = 100) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewThreads(first: $first) {
 				nodes {
-					comments(first:100) {
-						nodes { ...ReviewComment }
+					id
+					isResolved
+					viewerCanResolve
+					viewerCanUnresolve
+					path
+					diffSide
+					line
+					originalLine
+					isOutdated
+					comments(first: 100) {
+						nodes {
+							...ReviewComment
+						}
 					}
 				}
 			}
 		}
-	}
-	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
 	}
 }
 
@@ -245,14 +296,36 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 				login
 				url
 				avatarUrl
+				... on User {
+					email
+				}
+				... on Organization {
+					email
+				}
 			}
 			createdAt
 			updatedAt
 			headRef {
 				...Ref
 			}
+			headRefName
+			headRefOid
+			headRepository {
+				owner {
+					login
+				}
+				url
+			}
 			baseRef {
 				...Ref
+			}
+			baseRefName
+			baseRefOid
+			baseRepository {
+				owner {
+					login
+				}
+				url
 			}
 			labels(first: 50) {
 				nodes {
@@ -264,6 +337,21 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			id
 			databaseId
 			isDraft
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+			}
+			assignees(first: 10) {
+				nodes {
+					login
+					name
+					avatarUrl
+					url
+					email
+				}
+			}
 			suggestedReviewers {
 				isAuthor
 				isCommenter
@@ -284,6 +372,23 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query PullRequestFiles($owner: String!, $name: String!, $number: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			files(first: 100, after: $after) {
+				nodes {
+					path
+					viewerViewedState
+				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
+			}
+		}
+	}
+}
+
 query Issue($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest: issue(number: $number) {
@@ -297,6 +402,12 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 				login
 				url
 				avatarUrl
+				... on User {
+					email
+				}
+				... on Organization {
+					email
+				}
 			}
 			createdAt
 			updatedAt
@@ -325,6 +436,12 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 				login
 				url
 				avatarUrl
+				... on User {
+					email
+				}
+				... on Organization {
+					email
+				}
 			}
 			createdAt
 			updatedAt
@@ -342,6 +459,12 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 						login
 						url
 						avatarUrl
+						... on User {
+							email
+						}
+						... on Organization {
+							email
+						}
 					}
 					body
 					databaseId
@@ -402,7 +525,15 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	addPullRequestReviewComment(input: $input) {
 		comment {
-		...ReviewComment
+			...ReviewComment
+		}
+	}
+}
+
+mutation AddReviewThread($input: AddPullRequestReviewThreadInput!) {
+	addPullRequestReviewThread(input: $input) {
+		thread {
+			...ReviewThread
 		}
 	}
 }
@@ -427,25 +558,17 @@ mutation StartReview($input: AddPullRequestReviewInput!) {
 	addPullRequestReview(input: $input) {
 		pullRequestReview {
 			id
-			comments(first:1) {
-				nodes {
-					...ReviewComment
-				}
-			}
-		 }
+		}
 	}
 }
 
-
 mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!, $body: String) {
-	submitPullRequestReview(input: {
-		event: $event,
-		pullRequestReviewId: $id,
-		body: $body
-	}) {
+	submitPullRequestReview(input: { event: $event, pullRequestReviewId: $id, body: $body }) {
 		pullRequestReview {
-			comments(first:100) {
-				nodes { ...ReviewComment }
+			comments(first: 100) {
+				nodes {
+					...ReviewComment
+				}
 			}
 			...Review
 		}
@@ -456,8 +579,10 @@ mutation DeleteReview($input: DeletePullRequestReviewInput!) {
 	deletePullRequestReview(input: $input) {
 		pullRequestReview {
 			databaseId
-			comments(first:100) {
-					nodes { ...ReviewComment }
+			comments(first: 100) {
+				nodes {
+					...ReviewComment
+				}
 			}
 		}
 	}
@@ -474,8 +599,8 @@ mutation AddReaction($input: AddReactionInput!) {
 	}
 }
 
-mutation DeleteReaction($input: RemoveReactionInput!){
-	removeReaction(input:$input){
+mutation DeleteReaction($input: RemoveReactionInput!) {
+	removeReaction(input: $input) {
 		reaction {
 			content
 		}
@@ -563,13 +688,12 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 
 query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!) {
 	repository(owner: $owner, name: $name) {
-		issues(first: 100, states: OPEN, filterBy: {
-			assignee: $assignee,
-			milestone: null
-		}, orderBy: {
-			direction: DESC
-			field: UPDATED_AT
-		}) {
+		issues(
+			first: 100
+			states: OPEN
+			filterBy: { assignee: $assignee, milestone: null }
+			orderBy: { direction: DESC, field: UPDATED_AT }
+		) {
 			edges {
 				node {
 					... on Issue {
@@ -579,10 +703,23 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 						body
 						bodyHTML
 						title
+						assignees(first: 10) {
+							nodes {
+								login
+								url
+								email
+							}
+						}
 						author {
 							login
 							url
 							avatarUrl(size: 50)
+							... on User {
+								email
+							}
+							... on Organization {
+								email
+							}
 						}
 						createdAt
 						updatedAt
@@ -609,23 +746,34 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 	}
 }
 
+query MaxIssue($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		issues(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
+			edges {
+				node {
+					... on Issue {
+						number
+					}
+				}
+			}
+		}
+	}
+}
+
 query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
 	repository(owner: $owner, name: $name) {
-		milestones(first: 12, orderBy: {
-			direction: DESC
-			field: DUE_DATE
-		} , states: OPEN) {
+		milestones(first: 12, orderBy: { direction: DESC, field: DUE_DATE }, states: OPEN) {
 			nodes {
 				dueOn
 				title
-				createdAt,
-				id,
-				issues(first: 100, filterBy: {
-					assignee: $assignee
-				}, orderBy: {
-					direction: DESC
-					field: UPDATED_AT
-				}, states: OPEN) {
+				createdAt
+				id
+				issues(
+					first: 100
+					filterBy: { assignee: $assignee }
+					orderBy: { direction: DESC, field: UPDATED_AT }
+					states: OPEN
+				) {
 					edges {
 						node {
 							... on Issue {
@@ -635,10 +783,24 @@ query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
 								body
 								bodyHTML
 								title
+								assignees(first: 10) {
+									nodes {
+										avatarUrl
+										email
+										login
+										url
+									}
+								}
 								author {
 									login
 									url
 									avatarUrl(size: 50)
+									... on User {
+										email
+									}
+									... on Organization {
+										email
+									}
 								}
 								createdAt
 								updatedAt
@@ -683,10 +845,24 @@ query Issues($query: String!) {
 					body
 					bodyHTML
 					title
+					assignees(first: 10) {
+						nodes {
+							avatarUrl
+							email
+							login
+							url
+						}
+					}
 					author {
 						login
 						url
 						avatarUrl(size: 50)
+						... on User {
+							email
+						}
+						... on Organization {
+							email
+						}
 					}
 					createdAt
 					updatedAt
@@ -713,6 +889,98 @@ query Issues($query: String!) {
 					}
 				}
 			}
+		}
+	}
+}
+
+query GetViewerPermission($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		viewerPermission
+	}
+}
+
+query GetRepositoryForkDetails($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		isFork
+		parent {
+			name
+			owner {
+				login
+			}
+		}
+	}
+}
+
+query GetChecks($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			commits(last: 1) {
+				nodes {
+					commit {
+						statusCheckRollup {
+							state
+							contexts(first: 100) {
+								nodes {
+									... on StatusContext {
+										id
+										state
+										targetUrl
+										description
+										context
+										avatarUrl
+									}
+									... on CheckRun {
+										id
+										conclusion
+										title
+										detailsUrl
+										name
+										resourcePath
+										checkSuite {
+											app {
+												logoUrl
+												url
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+mutation ResolveReviewThread($input: ResolveReviewThreadInput!) {
+	resolveReviewThread(input: $input) {
+		thread {
+			...ReviewThread
+		}
+	}
+}
+
+mutation UnresolveReviewThread($input: UnresolveReviewThreadInput!) {
+	unresolveReviewThread(input: $input) {
+		thread {
+			...ReviewThread
+		}
+	}
+}
+
+mutation MarkFileAsViewed($input: MarkFileAsViewedInput!) {
+	markFileAsViewed(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
+mutation UnmarkFileAsViewed($input: UnmarkFileAsViewedInput!) {
+	unmarkFileAsViewed(input: $input) {
+		pullRequest {
+			id
 		}
 	}
 }

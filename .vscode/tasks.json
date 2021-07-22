@@ -4,15 +4,26 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"identifier": "npm",
-			"label": "npm",
+			"type": "npm",
+			"script": "build",
+			"group": "build",
+			"problemMatcher": ["$ts-checker-webpack", "$ts-checker-eslint-webpack"]
+		},
+		{
+			"type": "npm",
+			"script": "lint",
+			"group": "build",
+			"problemMatcher": ["$eslint-stylish"]
+		},
+		{
 			"type": "npm",
 			"script": "watch",
-			"problemMatcher": ["$ts-webpack-watch"],
-			"group":{
+			"group": {
 				"kind": "build",
 				"isDefault": true
-			}
+			},
+			"isBackground": true,
+			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		}
 	]
 }

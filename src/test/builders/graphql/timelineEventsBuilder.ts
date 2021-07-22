@@ -11,11 +11,11 @@ export const TimelineEventsBuilder = createBuilderClass<TimelineEventsResponse>(
 	repository: createLink<Repository>()({
 		pullRequest: createLink<PullRequest>()({
 			timelineItems: createLink<TimelineConn>()({
-				nodes: {default: []},
+				nodes: { default: [] },
 			}),
 		}),
 	}),
-	rateLimit: {linked: RateLimitBuilder},
+	rateLimit: { linked: RateLimitBuilder },
 });
 
 export type TimelineEventsBuilder = InstanceType<typeof TimelineEventsBuilder>;

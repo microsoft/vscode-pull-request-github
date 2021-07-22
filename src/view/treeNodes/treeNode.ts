@@ -4,19 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IComment } from '../../common/comment';
 
-export interface Revealable<T> {
-	reveal(element: T, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Thenable<void>;
-	revealComment?(comment: IComment): Thenable<void>;
+export interface BaseTreeNode {
+	reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
+	refresh(treeNode?: TreeNode): void;
+	view: vscode.TreeView<TreeNode>;
 }
+
+export type TreeNodeParent = TreeNode | BaseTreeNode;
 
 export abstract class TreeNode implements vscode.Disposable {
 	childrenDisposables: vscode.Disposable[];
-	parent: TreeNode | vscode.TreeView<TreeNode> | Revealable<TreeNode>;
+	parent: TreeNodeParent;
 	label?: string;
+	accessibilityInformation?: vscode.AccessibilityInformation;
 
-	constructor() { }
+	constructor() {}
 	abstract getTreeItem(): vscode.TreeItem;
 	getParent(): TreeNode | undefined {
 		if (this.parent instanceof TreeNode) {
@@ -24,11 +27,16 @@ export abstract class TreeNode implements vscode.Disposable {
 		}
 	}
 
-	async reveal(treeNode: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean | number }): Promise<void> {
+	async reveal(
+		treeNode: TreeNode,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	): Promise<void> {
 		return this.parent.reveal(treeNode || this, options);
 	}
 
-	async revealComment?(comment: IComment) { }
+	refresh(treeNode?: TreeNode): void {
+		return this.parent.refresh(treeNode);
+	}
 
 	async getChildren(): Promise<TreeNode[]> {
 		return [];
@@ -37,6 +45,7 @@ export abstract class TreeNode implements vscode.Disposable {
 	dispose(): void {
 		if (this.childrenDisposables) {
 			this.childrenDisposables.forEach(dispose => dispose.dispose());
+			this.childrenDisposables = [];
 		}
 	}
 }

@@ -4,18 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TreeNode } from './treeNode';
-import { RemoteFileChangeNode, InMemFileChangeNode, GitFileChangeNode } from './fileChangeNode';
+import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
+import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] =  new Array();
+	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = [];
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
 
-	constructor(
-		public parent: TreeNode | vscode.TreeView<TreeNode>,
-		public label: string,
-	) {
+	constructor(public parent: TreeNodeParent, public label: string) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 	}
@@ -36,7 +33,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.children.forEach(n => {
 			if (n instanceof DirectoryTreeNode) {
-				n.trimTree(); // reccursive
+				n.trimTree(); // recursive
 			}
 		});
 
@@ -83,8 +80,8 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		});
 
 		// sort
-		dirs.sort((a, b) => (a.label < b.label) ? -1 : 1);
-		files.sort((a, b) => (a.label < b.label) ? -1 : 1);
+		dirs.sort((a, b) => (a.label < b.label ? -1 : 1));
+		files.sort((a, b) => (a.label! < b.label! ? -1 : 1));
 
 		this.children = [...dirs, ...files];
 	}

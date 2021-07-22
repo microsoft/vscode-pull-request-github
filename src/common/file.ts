@@ -13,11 +13,10 @@ export enum GitChangeType {
 	RENAME,
 	TYPE,
 	UNKNOWN,
-	UNMERGED
+	UNMERGED,
 }
 
 export class InMemFileChange {
-
 	constructor(
 		public readonly baseCommit: string,
 		public readonly status: GitChangeType,
@@ -27,8 +26,8 @@ export class InMemFileChange {
 		public readonly diffHunks: DiffHunk[],
 
 		public readonly isPartial: boolean,
-		public readonly blobUrl: string
-	) { }
+		public readonly blobUrl: string,
+	) {}
 }
 
 export class SlimFileChange {
@@ -37,6 +36,6 @@ export class SlimFileChange {
 		public readonly blobUrl: string,
 		public readonly status: GitChangeType,
 		public readonly fileName: string,
-		public readonly previousFileName: string | undefined
-	) { }
+		public readonly previousFileName: string | undefined,
+	) {}
 }

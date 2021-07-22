@@ -3,14 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, Event, Disposable } from 'vscode';
-import { APIState } from '../typings/git';
+import { Disposable, Event, Uri } from 'vscode';
+import { APIState, PublishEvent } from '../@types/git';
 
-export const enum RefType {
-	Head,
-	RemoteHead,
-	Tag
+export interface InputBox {
+	value: string;
 }
+
+export { RefType } from './api1';
 
 export interface Ref {
 	readonly type: RefType;
@@ -34,6 +34,10 @@ export interface Commit {
 	readonly hash: string;
 	readonly message: string;
 	readonly parents: string[];
+	readonly authorDate?: Date;
+	readonly authorName?: string;
+	readonly authorEmail?: string;
+	readonly commitDate?: Date;
 }
 
 export interface Submodule {
@@ -49,7 +53,7 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
-export enum Status {
+export const enum Status {
 	INDEX_MODIFIED,
 	INDEX_ADDED,
 	INDEX_DELETED,
@@ -68,11 +72,10 @@ export enum Status {
 	DELETED_BY_THEM,
 	BOTH_ADDED,
 	BOTH_DELETED,
-	BOTH_MODIFIED
+	BOTH_MODIFIED,
 }
 
 export interface Change {
-
 	/**
 	 * Returns either `originalUri` or `renameUri`, depending
 	 * on whether this change is a rename change. When
@@ -103,8 +106,31 @@ export interface RepositoryUIState {
 	readonly onDidChange: Event<void>;
 }
 
-export interface Repository {
+export interface CommitOptions {
+	all?: boolean | 'tracked';
+	amend?: boolean;
+	signoff?: boolean;
+	signCommit?: boolean;
+	empty?: boolean;
+}
 
+export interface FetchOptions {
+	remote?: string;
+	ref?: string;
+	all?: boolean;
+	prune?: boolean;
+	depth?: number;
+}
+
+export interface BranchQuery {
+	readonly remote?: boolean;
+	readonly pattern?: string;
+	readonly count?: number;
+	readonly contains?: string;
+}
+
+export interface Repository {
+	readonly inputBox: InputBox;
 	readonly rootUri: Uri;
 	readonly state: RepositoryState;
 	readonly ui: RepositoryUIState;
@@ -130,7 +156,7 @@ export interface Repository {
 	 * github-pr-owner-number = "Microsoft#vscode-pull-request-github#123"
 	 * ```
 	 */
-	getConfigs(): Promise<{ key: string; value: string; }[]>;
+	getConfigs(): Promise<{ key: string; value: string }[]>;
 
 	/**
 	 * Git providers are recommended to implement a minimal key value lookup for git config but you can only provide config for following keys to activate GH PR successfully
@@ -146,8 +172,8 @@ export interface Repository {
 	setConfig(key: string, value: string): Promise<string>;
 	getGlobalConfig(key: string): Promise<string>;
 
-	getObjectDetails(treeish: string, path: string): Promise<{ mode: string, object: string, size: number }>;
-	detectObjectType(object: string): Promise<{ mimetype: string, encoding?: string }>;
+	getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number }>;
+	detectObjectType(object: string): Promise<{ mimetype: string; encoding?: string }>;
 	buffer(ref: string, path: string): Promise<Buffer>;
 	show(ref: string, path: string): Promise<string>;
 	getCommit(ref: string): Promise<Commit>;
@@ -173,6 +199,7 @@ export interface Repository {
 	createBranch(name: string, checkout: boolean, ref?: string): Promise<void>;
 	deleteBranch(name: string, force?: boolean): Promise<void>;
 	getBranch(name: string): Promise<Branch>;
+	getBranches(query: BranchQuery): Promise<Ref[]>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
 	getMergeBase(ref1: string, ref2: string): Promise<string>;
 
@@ -181,13 +208,17 @@ export interface Repository {
 
 	addRemote(name: string, url: string): Promise<void>;
 	removeRemote(name: string): Promise<void>;
+	renameRemote(name: string, newName: string): Promise<void>;
 
+	fetch(options?: FetchOptions): Promise<void>;
 	fetch(remote?: string, ref?: string, depth?: number): Promise<void>;
 	pull(unshallow?: boolean): Promise<void>;
 	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
 
 	blame(path: string): Promise<string>;
 	log(options?: LogOptions): Promise<Commit[]>;
+
+	commit(message: string, opts?: CommitOptions): Promise<void>;
 }
 
 /**
@@ -196,42 +227,10 @@ export interface Repository {
 export interface LogOptions {
 	/** Max number of log entries to retrieve. If not specified, the default is 32. */
 	readonly maxEntries?: number;
+	readonly path?: string;
 }
 
-export const enum GitErrorCodes {
-	BadConfigFile = 'BadConfigFile',
-	AuthenticationFailed = 'AuthenticationFailed',
-	NoUserNameConfigured = 'NoUserNameConfigured',
-	NoUserEmailConfigured = 'NoUserEmailConfigured',
-	NoRemoteRepositorySpecified = 'NoRemoteRepositorySpecified',
-	NotAGitRepository = 'NotAGitRepository',
-	NotAtRepositoryRoot = 'NotAtRepositoryRoot',
-	Conflict = 'Conflict',
-	StashConflict = 'StashConflict',
-	UnmergedChanges = 'UnmergedChanges',
-	PushRejected = 'PushRejected',
-	RemoteConnectionError = 'RemoteConnectionError',
-	DirtyWorkTree = 'DirtyWorkTree',
-	CantOpenResource = 'CantOpenResource',
-	GitNotFound = 'GitNotFound',
-	CantCreatePipe = 'CantCreatePipe',
-	CantAccessRemote = 'CantAccessRemote',
-	RepositoryNotFound = 'RepositoryNotFound',
-	RepositoryIsLocked = 'RepositoryIsLocked',
-	BranchNotFullyMerged = 'BranchNotFullyMerged',
-	NoRemoteReference = 'NoRemoteReference',
-	InvalidBranchName = 'InvalidBranchName',
-	BranchAlreadyExists = 'BranchAlreadyExists',
-	NoLocalChanges = 'NoLocalChanges',
-	NoStashFound = 'NoStashFound',
-	LocalChangesOverwritten = 'LocalChangesOverwritten',
-	NoUpstreamBranch = 'NoUpstreamBranch',
-	IsInSubmodule = 'IsInSubmodule',
-	WrongCase = 'WrongCase',
-	CantLockRef = 'CantLockRef',
-	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
-	PatchDoesNotApply = 'PatchDoesNotApply'
-}
+export { GitErrorCodes } from './api1';
 
 export interface IGit {
 	readonly repositories: Repository[];
@@ -241,6 +240,7 @@ export interface IGit {
 	// Used by the actual git extension to indicate it has finished initializing state information
 	readonly state?: APIState;
 	readonly onDidChangeState?: Event<APIState>;
+	readonly onDidPublish?: Event<PublishEvent>;
 }
 
 export interface API {
