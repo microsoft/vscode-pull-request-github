@@ -77,7 +77,7 @@ export class ReviewManager {
 
 	constructor(
 		private _context: vscode.ExtensionContext,
-		private _repository: Repository,
+		private readonly _repository: Repository,
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,

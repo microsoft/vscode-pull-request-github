@@ -481,7 +481,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			repositories.push(repository);
 		});
 
-		return Promise.all(resolveRemotePromises).then(_ => {
+		return Promise.all(resolveRemotePromises).then(async _ => {
 			const oldRepositories = this._githubRepositories;
 			this._githubRepositories = repositories;
 			oldRepositories.forEach(repo => repo.dispose());
@@ -493,7 +493,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				);
 
 			if (this._githubRepositories.length && repositoriesChanged) {
-				this.checkIfMissingUpstream();
+				if (await this.checkIfMissingUpstream()) {
+					this.updateRepositories(silent);
+					return;
+				}
 			}
 
 			this.getMentionableUsers(repositoriesChanged);
@@ -506,11 +509,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!silent) {
 				this._onDidChangeRepositories.fire();
 			}
-			return Promise.resolve();
+			return;
 		});
 	}
 
-	private async checkIfMissingUpstream(): Promise<void> {
+	private async checkIfMissingUpstream(): Promise<boolean> {
 		try {
 			const origin = await this.getOrigin();
 			const metadata = await origin.getMetadata();
@@ -527,6 +530,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const remoteName = upstreamAvailable ? 'upstream' : metadata.parent.owner?.login;
 					if (remoteName) {
 						await this.repository.addRemote(remoteName, metadata.parent.clone_url);
+						return true;
 					}
 				}
 			}
@@ -534,6 +538,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			Logger.appendLine(`Missing upstream check failed: ${e}`);
 			// ignore
 		}
+		return false;
 	}
 
 	getAllAssignableUsers(): IAccount[] | undefined {
