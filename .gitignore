@@ -339,8 +339,14 @@ media
 .DS_Store
 *.vsix
 package-lock.json
+<<<<<<< HEAD
 src/@types/vscode.d.ts
 src/@types/vscode.proposed.d.ts
+=======
+src/typings/vscode.d.ts
+src/typings/vscode.proposed.d.ts
+dist/**
+>>>>>>> origin/alexr00/browser
 
 # CI
 package.insiders.json

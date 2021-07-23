@@ -3,7 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+<<<<<<< HEAD
 import { default as assert } from 'assert';
+=======
+import assert = require('assert');
+>>>>>>> origin/alexr00/browser
 import * as ssh from '../../env/node/ssh';
 import { Protocol, ProtocolType } from '../../common/protocol';
 

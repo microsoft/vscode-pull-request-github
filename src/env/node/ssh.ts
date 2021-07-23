@@ -1,7 +1,10 @@
 import { readFileSync } from 'fs';
 import { homedir } from 'os';
+<<<<<<< HEAD:src/env/node/ssh.ts
 import { join } from 'path';
 import { parse as parseConfig } from 'ssh-config';
+=======
+>>>>>>> origin/alexr00/browser:src/common/ssh.ts
 import Logger from '../../common/logger';
 
 const SSH_URL_RE = /^(?:([^@:]+)@)?([^:/]+):?(.+)$/;

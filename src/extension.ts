@@ -6,15 +6,17 @@
 'use strict';
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
+<<<<<<< HEAD
 import { LiveShare } from 'vsls/vscode.js';
 import { Repository } from './api/api';
+=======
+>>>>>>> origin/alexr00/browser
 import { GitApiImpl } from './api/api1';
-import { registerCommands } from './commands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
-import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
+<<<<<<< HEAD
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { setSyncedKeys } from './extensionState';
@@ -198,6 +200,15 @@ async function init(
 	*/
 	telemetry.sendTelemetryEvent('startup');
 }
+=======
+import * as PersistentState from './common/persistentState';
+import { EXTENSION_ID } from './constants';
+import {  } from './github/folderRepositoryManager';
+import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
+import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
+import { CredentialStore } from './github/credentials';
+import { setTelemetry, aiKey, telemetry, commonDeactivate, init } from './extensionCommon';
+>>>>>>> origin/alexr00/browser
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
 	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -223,7 +234,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	const apiImpl = new GitApiImpl();
 
 	const version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
+<<<<<<< HEAD
 	telemetry = new ExperimentationTelemetry(new TelemetryReporter(EXTENSION_ID, version, aiKey));
+=======
+	setTelemetry(new TelemetryReporter(EXTENSION_ID, version, aiKey));
+>>>>>>> origin/alexr00/browser
 	context.subscriptions.push(telemetry);
 
 	void deferredActivate(context, apiImpl, showPRController);
@@ -271,7 +286,12 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 }
 
 export async function deactivate() {
+<<<<<<< HEAD
 	if (telemetry) {
 		telemetry.dispose();
 	}
 }
+=======
+	commonDeactivate();
+}
+>>>>>>> origin/alexr00/browser

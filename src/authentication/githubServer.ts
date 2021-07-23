@@ -1,3 +1,4 @@
+
 import fetch, { RequestInit } from 'node-fetch';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';

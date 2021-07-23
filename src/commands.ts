@@ -5,9 +5,26 @@
 'use strict';
 
 import * as pathLib from 'path';
+<<<<<<< HEAD
 import * as vscode from 'vscode';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
+=======
+import { ReviewManager } from './view/reviewManager';
+import { PullRequestOverviewPanel } from './github/pullRequestOverview';
+import { fromReviewUri, ReviewUriParams, asImageDataURI, EMPTY_IMAGE_URI } from './common/uri';
+import { GitFileChangeNode, InMemFileChangeNode } from './view/treeNodes/fileChangeNode';
+import { CommitNode } from './view/treeNodes/commitNode';
+import { PRNode } from './view/treeNodes/pullRequestNode';
+import { PullRequest } from './github/interface';
+import { formatError } from './common/utils';
+import { GitChangeType } from './common/file';
+import { getDiffLineByPosition, getZeroBased } from './common/diffPositionMapping';
+import { DiffChangeType } from './common/diffHunk';
+import { DescriptionNode } from './view/treeNodes/descriptionNode';
+import Logger from './common/logger';
+import { GitErrorCodes } from './api/api';
+>>>>>>> origin/alexr00/browser
 import { IComment } from './common/comment';
 import Logger from './common/logger';
 import { ITelemetry } from './common/telemetry';
@@ -174,6 +191,7 @@ export function registerCommands(
 
 				const diff = await folderManager.repository.diff(true);
 
+<<<<<<< HEAD
 				let suggestEditMessage = '';
 				if (e && e.inputBox && e.inputBox.value) {
 					suggestEditMessage = `${e.inputBox.value}\n`;
@@ -214,6 +232,60 @@ export function registerCommands(
 				if (!choice) {
 					return;
 				}
+=======
+			const tempFilePath = pathLib.join(folderManager.repository.rootUri.path, '.git', `${folderManager.activePullRequest.number}.diff`);
+			const encoder = new TextEncoder();
+			const tempUri = vscode.Uri.parse(tempFilePath);
+
+			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(diff));
+			await folderManager.repository.apply(tempFilePath, true);
+			await vscode.workspace.fs.delete(tempUri);
+		} catch (err) {
+			Logger.appendLine(`Applying patch failed: ${err}`);
+			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openFileInGitHub', (e: GitFileChangeNode) => {
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl!));
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.copyCommitHash', (e: CommitNode) => {
+		vscode.env.clipboard.writeText(e.sha);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openOriginalFile', async (e: GitFileChangeNode) => {
+		// if this is an image, encode it as a base64 data URI
+		const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
+		if (folderManager) {
+			const imageDataURI = await asImageDataURI(e.parentFilePath, folderManager.repository);
+			vscode.commands.executeCommand('vscode.open', imageDataURI || e.parentFilePath);
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode) => {
+		vscode.commands.executeCommand('vscode.open', e.filePath);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openDiffView', async (fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
+		const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
+		if (!folderManager) {
+			return;
+		}
+
+		const parentFilePath = fileChangeNode.parentFilePath;
+		const filePath = fileChangeNode.filePath;
+		const fileName = fileChangeNode.fileName;
+		const opts = fileChangeNode.opts;
+
+		fileChangeNode.reveal(fileChangeNode, { select: true, focus: true });
+
+		let parentURI = await asImageDataURI(parentFilePath, folderManager.repository) || parentFilePath;
+		let headURI = await asImageDataURI(filePath, folderManager.repository) || filePath;
+		if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
+			if (fileChangeNode.status === GitChangeType.ADD) {
+				parentURI = EMPTY_IMAGE_URI;
+>>>>>>> origin/alexr00/browser
 			}
 			if (e.blobUrl) {
 				return vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
