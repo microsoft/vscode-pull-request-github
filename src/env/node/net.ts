@@ -3,6 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+<<<<<<< HEAD:src/env/node/net.ts
+=======
+import { window } from 'vscode';
+>>>>>>> origin/alexr00/browser:src/common/net.ts
 import { Agent, globalAgent } from 'https';
 import { URL } from 'url';
 import { httpsOverHttp } from 'tunnel';

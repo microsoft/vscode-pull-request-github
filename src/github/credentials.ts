@@ -9,6 +9,10 @@ import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'node-fetch';
 import * as vscode from 'vscode';
+<<<<<<< HEAD
+=======
+import { agent } from '../env/node/net';
+>>>>>>> origin/alexr00/browser
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';

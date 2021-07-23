@@ -17,6 +17,7 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
+<<<<<<< HEAD
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
@@ -144,6 +145,10 @@ async function getWebviewConfig(mode, env, entry) {
 		plugins: plugins,
 	};
 }
+=======
+const base = require('./base.webpack.config.js');
+const merge = require('merge-options');
+>>>>>>> origin/alexr00/browser
 
 /**
  * @param { 'node' | 'webworker' } target
@@ -151,6 +156,7 @@ async function getWebviewConfig(mode, env, entry) {
  * @param {{ esbuild?: boolean; }} env
  * @returns { Promise<WebpackConfig> }
  */
+<<<<<<< HEAD
 async function getExtensionConfig(target, mode, env) {
 	const basePath = path.join(__dirname, 'src');
 
@@ -372,3 +378,33 @@ module.exports =
 			}),
 		]);
 	};
+=======
+function getExtensionConfig(env) {
+	const baseConfig = base.getExtensionConfig(env);
+
+	/** @type webpack.Configuration */
+	const config = {
+		target: 'node',
+		resolve: {
+			extensions: ['.tsx', '.ts', '.js'],
+			alias: {
+				"node-fetch": path.resolve(__dirname, 'node_modules/node-fetch/lib/index.js'),
+			}
+		},
+		output: {
+			filename: '[name].js',
+			path: path.resolve(__dirname, 'media'),
+			libraryTarget: "commonjs",
+			devtoolModuleFilenameTemplate: 'file:///[absolute-resource-path]'
+		}
+	};
+
+	return merge(baseConfig, config);;
+}
+
+module.exports = function (env) {
+	env = env || {};
+	env.production = !!env.production;
+	return [getExtensionConfig(env), base.getWebviewConfig(env)];
+};
+>>>>>>> origin/alexr00/browser

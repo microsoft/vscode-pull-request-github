@@ -7,6 +7,10 @@ import * as vscode from 'vscode';
 import { resolve } from '../env/node/ssh';
 import Logger from './logger';
 
+<<<<<<< HEAD
+=======
+import { resolve } from '../env/node/ssh';
+>>>>>>> origin/alexr00/browser
 
 export enum ProtocolType {
 	Local,

@@ -537,6 +537,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+<<<<<<< HEAD
 	private async removeAssignee(message: IRequestMessage<string>): Promise<void> {
 		try {
 			await this._item.deleteAssignees(message.args);
@@ -550,17 +551,23 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+=======
+>>>>>>> origin/alexr00/browser
 	private async applyPatch(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
 
+<<<<<<< HEAD
 			const tempFilePath = path.join(
 				this._folderRepositoryManager.repository.rootUri.path,
 				'.git',
 				`${comment.id}.diff`,
 			);
+=======
+			const tempFilePath = path.join(this._folderRepositoryManager.repository.rootUri.path, '.git', `${comment.id}.diff`);
+>>>>>>> origin/alexr00/browser
 
 			const encoder = new TextEncoder();
 			const tempUri = vscode.Uri.parse(tempFilePath);

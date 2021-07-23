@@ -261,10 +261,18 @@ export class PullRequestGitHelper {
 		return `branch.${branchName}.${PullRequestMetadataKey}`;
 	}
 
+<<<<<<< HEAD
 	static async getMatchingPullRequestMetadataForBranch(
 		repository: Repository,
 		branchName: string,
 	): Promise<PullRequestMetadata | undefined> {
+=======
+	static getMetadataKeyForBranch(branchName: string): string {
+		return `branch.${branchName}.${PullRequestMetadataKey}`;
+	}
+
+	static async getMatchingPullRequestMetadataForBranch(repository: Repository, branchName: string): Promise<PullRequestMetadata | undefined> {
+>>>>>>> origin/alexr00/browser
 		try {
 			const configKey = this.getMetadataKeyForBranch(branchName);
 			const configValue = await repository.getConfig(configKey);
