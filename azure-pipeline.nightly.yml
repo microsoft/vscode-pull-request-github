@@ -1,6 +1,7 @@
 # Run on a schedule
 trigger: none
 pr: none
+name: $(Date:yyyyMMdd)_$(Rev:.r)
 
 schedules:
   - cron: '0 9 * * Mon-Thu'
