@@ -2,10 +2,17 @@ import { readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import Logger from '../../common/logger';
-import { baseResolver, chainResolvers, Config, ConfigResolver, resolverFromConfig } from '../browser/ssh';
+import { baseResolver, chainResolvers, ConfigResolver, resolverFromConfig, sshParse } from '../browser/ssh';
 
-const SSH_URL_RE = /^(?:([^@:]+)@)?([^:/]+):?(.+)$/;
-const URL_SCHEME_RE = /^([a-z-]+):\/\//;
+export class Resolvers {
+	static default = chainResolvers(baseResolver, resolverFromConfigFile());
+
+	static fromConfig(conf: string) {
+		return chainResolvers(baseResolver, resolverFromConfig(conf));
+	}
+
+	static current = Resolvers.default;
+}
 
 /**
  * Parse and resolve an SSH url. Resolves host aliases using the configuration
@@ -34,36 +41,8 @@ const URL_SCHEME_RE = /^([a-z-]+):\/\//;
  * @returns {Config}
  */
 export const resolve = (url: string, resolveConfig = Resolvers.current) => {
-	const config = parse(url);
+	const config = sshParse(url);
 	return config && resolveConfig(config);
-};
-
-export class Resolvers {
-	static default = chainResolvers(baseResolver, resolverFromConfigFile());
-
-	static fromConfig(conf: string) {
-		return chainResolvers(baseResolver, resolverFromConfig(conf));
-	}
-
-	static current = Resolvers.default;
-}
-
-const parse = (url: string): Config | undefined => {
-	const urlMatch = URL_SCHEME_RE.exec(url);
-	if (urlMatch) {
-		const [fullSchemePrefix, scheme] = urlMatch;
-		if (scheme === 'ssh') {
-			url = url.slice(fullSchemePrefix.length);
-		} else {
-			return;
-		}
-	}
-	const match = SSH_URL_RE.exec(url);
-	if (!match) {
-		return;
-	}
-	const [, User, Host, path] = match;
-	return { User, Host, path };
 };
 
 function resolverFromConfigFile(configPath = join(homedir(), '.ssh', 'config')): ConfigResolver | undefined {
