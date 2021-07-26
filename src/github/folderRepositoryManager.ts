@@ -1735,6 +1735,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		try {
 			const branchObj = await this.repository.getBranch(branch);
 
+			const currentBranch = this.repository.state.HEAD?.name;
+			if (currentBranch === branchObj.name) {
+				vscode.window.showInformationMessage('The default branch is already checked out.');
+				return;
+			}
+
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
 				await this.repository.checkout(branch);
 			} else {
