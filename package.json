@@ -1483,7 +1483,7 @@
 		"ts-loader": "8.0.18",
 		"tty": "1.0.1",
 		"typescript": "4.2.3",
-		"vscode-test-web": "^0.0.5",
+		"@vscode/test-web": "^0.0.7",
 		"webpack": "5.26.3",
 		"webpack-cli": "4.2.0"
 	},
