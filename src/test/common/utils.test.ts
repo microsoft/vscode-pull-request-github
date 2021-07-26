@@ -1,6 +1,7 @@
 import { default as assert } from 'assert';
 import * as utils from '../../common/utils';
 import { EventEmitter } from 'vscode';
+import * as timers from 'timers';
 
 describe('utils', () => {
 	class HookError extends Error {
@@ -128,12 +129,12 @@ describe('utils', () => {
 				password === 'sesame'
 					? resolve(true)
 					: password === 'mellon'
-					? reject(new Error('wrong fable'))
-					: {
+						? reject(new Error('wrong fable'))
+						: {
 							/* the door is silent */
-					  };
+						};
 
-			const tick = () => new Promise(resolve => setImmediate(resolve));
+			const tick = () => new Promise(resolve => timers.setImmediate(resolve));
 			it('should stay subscribed until the adapter resolves', async () => {
 				const emitter = new EventEmitter<string>();
 				const promise = utils.promiseFromEvent(emitter.event, door);

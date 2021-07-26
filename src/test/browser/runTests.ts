@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { runTests } from 'vscode-test-web';
+import { runTests } from '@vscode/test-web';
 
 async function go() {
 	try {

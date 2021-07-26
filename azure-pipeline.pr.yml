@@ -11,6 +11,11 @@ jobs:
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
+      - script: yarn run browsertest
+        displayName: Run test suite (browser)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-test-results.xml
+
       - task: PublishTestResults@2
         displayName: Publish test results
         inputs:

@@ -4,7 +4,57 @@
  *--------------------------------------------------------------------------------------------*/
 import { parse as parseConfig } from 'ssh-config';
 
-export const resolve = (_url: string) => undefined;
+const SSH_URL_RE = /^(?:([^@:]+)@)?([^:/]+):?(.+)$/;
+const URL_SCHEME_RE = /^([a-z-]+):\/\//;
+
+export const sshParse = (url: string): Config | undefined => {
+	const urlMatch = URL_SCHEME_RE.exec(url);
+	if (urlMatch) {
+		const [fullSchemePrefix, scheme] = urlMatch;
+		if (scheme === 'ssh') {
+			url = url.slice(fullSchemePrefix.length);
+		} else {
+			return;
+		}
+	}
+	const match = SSH_URL_RE.exec(url);
+	if (!match) {
+		return;
+	}
+	const [, User, Host, path] = match;
+	return { User, Host, path };
+};
+
+/**
+ * Parse and resolve an SSH url. Resolves host aliases using the configuration
+ * specified by ~/.ssh/config, if present.
+ *
+ * Examples:
+ *
+ *    resolve("git@github.com:Microsoft/vscode")
+ *      {
+ *        Host: 'github.com',
+ *        HostName: 'github.com',
+ *        User: 'git',
+ *        path: 'Microsoft/vscode',
+ *      }
+ *
+ *    resolve("hub:queerviolet/vscode", resolverFromConfig("Host hub\n  HostName github.com\n  User git\n"))
+ *      {
+ *        Host: 'hub',
+ *        HostName: 'github.com',
+ *        User: 'git',
+ *        path: 'queerviolet/vscode',
+ *      }
+ *
+ * @param {string} url the url to parse
+ * @param {ConfigResolver?} resolveConfig ssh config resolver (default: from ~/.ssh/config)
+ * @returns {Config}
+ */
+ export const resolve = (url: string, resolveConfig = Resolvers.current) => {
+	const config = sshParse(url);
+	return config && resolveConfig(config);
+};
 
 export function baseResolver(config: Config) {
 	return {
@@ -19,7 +69,7 @@ export function baseResolver(config: Config) {
  * Note that this interface atypically capitalizes field names. This is for consistency
  * with SSH config files.
  */
- export interface Config {
+export interface Config {
 	Host: string;
 	[param: string]: string;
 }
@@ -28,7 +78,7 @@ export function baseResolver(config: Config) {
  * ConfigResolvers take a config, resolve some additional data (perhaps using
  * a config file), and return a new Config.
  */
- export type ConfigResolver = (config: Config) => Config;
+export type ConfigResolver = (config: Config) => Config;
 
 export function chainResolvers(...chain: (ConfigResolver | undefined)[]): ConfigResolver {
 	const resolvers = chain.filter(x => !!x) as ConfigResolver[];

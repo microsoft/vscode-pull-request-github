@@ -505,6 +505,24 @@
     rimraf "^3.0.2"
     unzipper "^0.10.11"
 
+"@vscode/test-web@^0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@vscode/test-web/-/test-web-0.0.7.tgz#9fc0fb5e87f784ab809db082ecb3512cdd6c7279"
+  integrity sha512-UZD3K4E1kEGfYChbOTrsbmsPWEDGEJ7/gKQ+73bgOuhwYnHLq1933n3VVMTkvhV0aN7zZQZmydOILqLCeEhySA==
+  dependencies:
+    "@koa/router" "^10.0.0"
+    decompress "^4.2.1"
+    decompress-targz "^4.1.1"
+    http-proxy-agent "^4.0.1"
+    https-proxy-agent "^5.0.0"
+    koa "^2.13.1"
+    koa-morgan "^1.0.1"
+    koa-mount "^4.0.0"
+    koa-static "^5.0.0"
+    minimist "^1.2.5"
+    playwright "^1.12.2"
+    vscode-uri "^3.0.2"
+
 "@webassemblyjs/ast@1.11.0":
   version "1.11.0"
   resolved "https://registry.yarnpkg.com/@webassemblyjs/ast/-/ast-1.11.0.tgz#a5aa679efdc9e51707a4207139da57920555961f"
@@ -4585,7 +4603,7 @@ serialize-javascript@^5.0.1:
   dependencies:
     randombytes "^2.1.0"
 
-setimmediate@~1.0.4:
+setimmediate@^1.0.4, setimmediate@~1.0.4:
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/setimmediate/-/setimmediate-1.0.5.tgz#290cbb232e306942d7d7ea9b83732ab7856f8285"
   integrity sha1-KQy7Iy4waULX1+qbg3Mqt4VvgoU=
@@ -4991,6 +5009,13 @@ through@^2.3.8:
   resolved "https://registry.yarnpkg.com/through/-/through-2.3.8.tgz#0dd4c9ffaabc357960b1b724115d7e0e86a2e1f5"
   integrity sha1-DdTJ/6q8NXlgsbckEV1+Doai4fU=
 
+timers-browserify@^2.0.12:
+  version "2.0.12"
+  resolved "https://registry.yarnpkg.com/timers-browserify/-/timers-browserify-2.0.12.tgz#44a45c11fbf407f34f97bccd1577c652361b00ee"
+  integrity sha512-9phl76Cqm6FhSX9Xe1ZUAMLtm1BLkKj2Qd5ApyWkXzsMRaA7dgr81kf4wJmQf/hAvg8EEyJxDo3du/0KlhPiKQ==
+  dependencies:
+    setimmediate "^1.0.4"
+
 to-buffer@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/to-buffer/-/to-buffer-1.1.1.tgz#493bd48f62d7c43fcded313a03dcadb2e1213a80"
@@ -5279,24 +5304,6 @@ vscode-tas-client@^0.1.17:
   integrity sha512-5uqMeg7sjsu1/QkmuRtBOXtZnnrCXAMEihbOSxan3bk2NdA/nZvhfhfLh8gd9FlBBL56QH69I8Zn25B2yGPRng==
   dependencies:
     tas-client "0.1.16"
-
-vscode-test-web@^0.0.5:
-  version "0.0.5"
-  resolved "https://registry.yarnpkg.com/vscode-test-web/-/vscode-test-web-0.0.5.tgz#a5db25619537778a608b38214a809086b5a7e766"
-  integrity sha512-Di3HuiH2Tde+YU8ntVoivxyJx6Nlafb+c2YjoaPvmV2V7NKOMOZocb2y0IKANK7KTUHMZwEMHoxjyEuYjVnYeA==
-  dependencies:
-    "@koa/router" "^10.0.0"
-    decompress "^4.2.1"
-    decompress-targz "^4.1.1"
-    http-proxy-agent "^4.0.1"
-    https-proxy-agent "^5.0.0"
-    koa "^2.13.1"
-    koa-morgan "^1.0.1"
-    koa-mount "^4.0.0"
-    koa-static "^5.0.0"
-    minimist "^1.2.5"
-    playwright "^1.12.2"
-    vscode-uri "^3.0.2"
 
 vscode-uri@^3.0.2:
   version "3.0.2"

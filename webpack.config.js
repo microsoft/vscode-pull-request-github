@@ -332,6 +332,7 @@ async function getExtensionConfig(target, mode, env) {
 						'os': require.resolve('os-browserify/browser'),
 						"constants": require.resolve("constants-browserify"),
 						buffer: require.resolve('buffer'),
+						timers: require.resolve('timers-browserify')
 					}
 					: undefined,
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],

@@ -29,6 +29,11 @@ jobs:
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
+      - script: yarn run browsertest
+        displayName: Run test suite (browser)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-test-results.xml
+
       - script: >
           node ./scripts/prepare-nightly-build.js
           -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"
