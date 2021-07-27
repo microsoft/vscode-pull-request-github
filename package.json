@@ -316,7 +316,7 @@
 				"githubIssues.assignWhenWorking": {
 					"type": "boolean",
 					"default": true,
-					"description": "Assigns the issue you're working on to you."
+					"description": "Assigns the issue you're working on to you. Only applies when the issue you're working on is in a repo you currently have open."
 				},
 				"githubPullRequests.focusedMode": {
 					"type": "boolean",

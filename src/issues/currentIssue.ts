@@ -77,7 +77,12 @@ export class CurrentIssue {
 					vscode.workspace.getConfiguration('githubIssues').get('assignWhenWorking') &&
 					!this.issueModel.assignees?.find(value => value.login === login)
 				) {
-					await this.manager.assignIssue(this.issueModel, login);
+					// Check that we have a repo open for this issue and only try to assign in that case.
+					if (this.manager.gitHubRepositories.find(
+						r => r.remote.owner === this.issueModel.remote.owner && r.remote.repositoryName === this.issueModel.remote.repositoryName,
+					)) {
+						await this.manager.assignIssue(this.issueModel, login);
+					}
 					await this.stateManager.refresh();
 				}
 				return true;
