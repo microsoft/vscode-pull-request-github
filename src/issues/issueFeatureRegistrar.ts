@@ -652,7 +652,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			remote = githubRepository.remote;
 		}
 
-
 		const remoteNameResult = await repoManager.findUpstreamForItem({githubRepository, remote});
 		if (remoteNameResult.needsFork) {
 			if ((await repoManager.tryOfferToFork(githubRepository)) === undefined) {
@@ -681,9 +680,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async stopWorking(issueModel: any) {
-		const folderManager = this.manager.getManagerForIssueModel(issueModel);
+		let folderManager = this.manager.getManagerForIssueModel(issueModel);
 		if (!folderManager) {
-			return;
+			folderManager = await this.chooseRepo('Choose which repository you want to stop working on this issue in.');
+			if (!folderManager) {
+				return;
+			}
 		}
 		if (
 			issueModel instanceof IssueModel &&
