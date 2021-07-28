@@ -38,5 +38,5 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	assignees: { default: [] },
 	milestone: { default: undefined },
 	continueOnGitHub: { default: false },
-	reviewState: {default: 'REQUESTED'}
+	currentUserReviewState: { default: 'REQUESTED' }
 });

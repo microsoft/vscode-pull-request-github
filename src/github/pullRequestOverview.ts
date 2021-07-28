@@ -140,7 +140,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	/**
-	 * Find curently configured user's review status for the current PR
+	 * Find currently configured user's review status for the current PR
 	 * @param reviewers All the reviewers who have been requested to review the current PR
 	 * @param pullRequestModel Model of the PR
 	 */
@@ -239,7 +239,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						assignees: pullRequest.assignees,
 						continueOnGitHub,
 						isAuthor: currentUser.login === pullRequest.author.login,
-						reviewState: reviewState
+						currentUserReviewState: reviewState
 					},
 				});
 			})

@@ -238,7 +238,7 @@ export function AddComment({
 	isIssue,
 	isAuthor,
 	continueOnGitHub,
-	reviewState
+	currentUserReviewState
 }: PullRequest) {
 	const { updatePR, comment, requestChanges, approve, close, openOnGitHub } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
@@ -333,7 +333,7 @@ export function AddComment({
 					<button
 						id="approve"
 						className="secondary"
-						disabled={isBusy || reviewState === 'APPROVED'}
+						disabled={isBusy || currentUserReviewState === 'APPROVED'}
 						onClick={onClick}
 						data-command="approve"
 					>
