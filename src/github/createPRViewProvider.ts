@@ -370,7 +370,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				return this.changeRemote(message, false);
 
 			case 'pr.changeCompareBranch':
-				this.compareBranch = await this._folderRepositoryManager.repository.getBranch(message.args);
+				this.compareBranch = await this._folderRepositoryManager.repository.getBranch(message.args.name ?? message.args);
 				return this._replyMessage(message, undefined);
 
 			default:
