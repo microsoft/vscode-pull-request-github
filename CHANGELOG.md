@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.29.0
+
+### Changes
+
+- "Start working" on an issue has been expanded to let you work on issues outside of the repo you currently have open.
+- Improved UX for merged PRs in the sidebar view.
+
+![Merged PR sidebar view](documentation/changelog/0.29.0/merged-pr-sidebar.png)
+
+### Fixes
+
+- Comments can be deleted from the overview path. https://github.com/microsoft/vscode-pull-request-github/issues/2855
+- Comments no longer get stuck "pending". https://github.com/microsoft/vscode-pull-request-github/issues/2822
+- Comments are visible in diffs opened from the commits file view. https://github.com/microsoft/vscode-pull-request-github/issues/2688
+- "Webview is disposed" error is fixed. https://github.com/microsoft/vscode-pull-request-github/issues/2444
+
 ## 0.28.0
 
 ### Changes
