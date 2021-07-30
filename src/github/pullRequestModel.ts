@@ -612,23 +612,27 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			const { octokit, remote } = await this.githubRepository.ensure();
 			const id = Number(commentId);
-
-			await octokit.pulls.deleteReviewComment({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				comment_id: id,
-			});
-
 			const threadIndex = this._reviewThreadsCache.findIndex(thread => thread.comments.some(c => c.id === id));
-			if (threadIndex > -1) {
-				const threadWithComment = this._reviewThreadsCache[threadIndex];
-				const index = threadWithComment.comments.findIndex(c => c.id === id);
-				threadWithComment.comments.splice(index, 1);
-				if (threadWithComment.comments.length === 0) {
-					this._reviewThreadsCache.splice(threadIndex, 1);
-					this._onDidChangeReviewThreads.fire({ added: [], changed: [], removed: [threadWithComment] });
-				} else {
-					this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
+
+			if (threadIndex === -1) {
+				this.deleteIssueComment(commentId);
+			} else {
+				await octokit.pulls.deleteReviewComment({
+					owner: remote.owner,
+					repo: remote.repositoryName,
+					comment_id: id,
+				});
+
+				if (threadIndex > -1) {
+					const threadWithComment = this._reviewThreadsCache[threadIndex];
+					const index = threadWithComment.comments.findIndex(c => c.id === id);
+					threadWithComment.comments.splice(index, 1);
+					if (threadWithComment.comments.length === 0) {
+						this._reviewThreadsCache.splice(threadIndex, 1);
+						this._onDidChangeReviewThreads.fire({ added: [], changed: [], removed: [threadWithComment] });
+					} else {
+						this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
+					}
 				}
 			}
 		} catch (e) {
