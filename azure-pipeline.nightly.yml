@@ -14,7 +14,7 @@ jobs:
   - job: nightly_release
     displayName: Nightly Release
     pool:
-      name: Hosted macOS
+      vmImage: 'macOS-10.15'
     steps:
       - template: scripts/ci/common-setup.yml
 
