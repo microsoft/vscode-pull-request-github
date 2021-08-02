@@ -573,6 +573,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async editReviewComment(comment: IComment, text: string): Promise<IComment> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+		let threadWithComment = this._reviewThreadsCache.find(thread =>
+			thread.comments.some(c => c.graphNodeId === comment.graphNodeId),
+		);
+
+		if (!threadWithComment) {
+			return this.editIssueComment(comment, text);
+		}
 
 		const { data } = await mutate<EditCommentResponse>({
 			mutation: schema.EditComment,
@@ -591,9 +598,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const newComment = parseGraphQLComment(
 			data.updatePullRequestReviewComment.pullRequestReviewComment,
 			!!comment.isResolved,
-		);
-		const threadWithComment = this._reviewThreadsCache.find(thread =>
-			thread.comments.some(c => c.graphNodeId === comment.graphNodeId),
 		);
 		if (threadWithComment) {
 			const index = threadWithComment.comments.findIndex(c => c.graphNodeId === comment.graphNodeId);
