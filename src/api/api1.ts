@@ -72,12 +72,12 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 		}
 
 		for (const [, { state }] of this._providers) {
-			if (state !== 'initialized') {
-				return 'uninitialized';
+			if (state === 'initialized') {
+				return 'initialized';
 			}
 		}
 
-		return 'initialized';
+		return 'uninitialized';
 	}
 
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
