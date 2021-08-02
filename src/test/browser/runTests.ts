@@ -11,9 +11,6 @@ async function go() {
 		const browserTypeName = '--browserType=';
 		const browserType = process.argv.find(arg => arg.startsWith(browserTypeName));
 
-		/**
-		 * Basic usage
-		 */
 		await runTests({
 			browserType: browserType ? <BrowserType>browserType.slice(browserTypeName.length) : 'chromium',
 			extensionDevelopmentPath,
