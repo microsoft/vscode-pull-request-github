@@ -24,34 +24,47 @@ jobs:
           verbosity: 'Verbose'
           alertWarningLevel: 'High'
 
+      - script: yarn run compile
+        displayName: Compile
+
       - script: yarn run test
         displayName: Run test suite
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-      - script: yarn run browsertest
-        displayName: Run test suite (browser)
+      - script: yarn run browsertest --browserType=chromium
+        displayName: Run test suite (chromium)
         env:
-          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-test-results.xml
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-      - script: >
-          node ./scripts/prepare-nightly-build.js
-          -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"
-        displayName: Generate package.json
+      - script: yarn run browsertest --browserType=firefox
+        displayName: Run test suite (firefox)
         env:
-          NAME: vscode-pull-request-github-insiders
-          DISPLAYNAME: GitHub Pull Request Nightly Build
-          DESCRIPTION: Nightly Build GitHub Pull Request extension
-          PUBLISHER: GitHub
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      - script: |
-          mv ./package.json ./package.json.bak
-          mv ./package.insiders.json ./package.json
-          mv ./README.md ./README.md.bak
-          mv ./README.insiders.md ./README.md
-          mv ./src/constants.ts ./src/constants.ts.bak
-          mv ./src/constants.insiders.ts ./src/constants.ts
-          npx vsce publish -p "$TOKEN" --yarn --noVerify
-        displayName: Publish
+      - script: yarn run browsertest --browserType=webkit
+        displayName: Run test suite (webkit)
         env:
-          TOKEN: $(vsce.token)
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+
+      # - script: >
+      #     node ./scripts/prepare-nightly-build.js
+      #     -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"
+      #   displayName: Generate package.json
+      #   env:
+      #     NAME: vscode-pull-request-github-insiders
+      #     DISPLAYNAME: GitHub Pull Request Nightly Build
+      #     DESCRIPTION: Nightly Build GitHub Pull Request extension
+      #     PUBLISHER: GitHub
+
+      # - script: |
+      #     mv ./package.json ./package.json.bak
+      #     mv ./package.insiders.json ./package.json
+      #     mv ./README.md ./README.md.bak
+      #     mv ./README.insiders.md ./README.md
+      #     mv ./src/constants.ts ./src/constants.ts.bak
+      #     mv ./src/constants.insiders.ts ./src/constants.ts
+      #     npx vsce publish -p "$TOKEN" --yarn --noVerify
+      #   displayName: Publish
+      #   env:
+      #     TOKEN: $(vsce.token)
