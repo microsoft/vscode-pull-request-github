@@ -19,7 +19,6 @@ async function go() {
 			extensionDevelopmentPath,
 			extensionTestsPath,
 			waitForDebugger: waitForDebugger ? Number(waitForDebugger.slice(attachArgName.length)) : undefined,
-			headless: false
 		});
 	} catch (e) {
 		console.log(e);
