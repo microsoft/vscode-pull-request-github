@@ -6,7 +6,7 @@
 import { createContext } from 'react';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
-interface RemoteInfo {
+export interface RemoteInfo {
 	owner: string;
 	repositoryName: string;
 }

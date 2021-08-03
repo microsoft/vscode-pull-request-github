@@ -17,7 +17,7 @@ const ExitButton = ({ isBusy, onClick }: { isBusy: boolean, onClick: () => Promi
 const ExitLink = ({ onClick }: { onClick: () => Promise<void> }) => {
 	return (
 		<span>
-			<a title="Switch to a different branch than this pull request branch" aria-role="button" onClick={onClick}>Exit review mode </a>without deleting branch
+			<a title="Switch to a different branch than this pull request branch" onClick={onClick}>Exit review mode </a>without deleting branch
 		</span>
 	);
 };
