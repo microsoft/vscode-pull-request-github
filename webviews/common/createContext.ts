@@ -26,7 +26,7 @@ export interface CreateParams {
 
 	validate: boolean;
 	showTitleValidationError: boolean;
-	createError?: boolean;
+	createError?: string;
 }
 
 const defaultCreateParams: CreateParams = {
@@ -129,7 +129,7 @@ export class CreatePRContext {
 			});
 			vscode.setState(defaultCreateParams);
 		} catch (e) {
-			this.updateState({ createError: e });
+			this.updateState({ createError: (typeof e === 'string') ? e : (e.message ? e.message : 'An unknown error occurred.') });
 		}
 	};
 
