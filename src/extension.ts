@@ -74,6 +74,10 @@ async function init(
 				return;
 			}
 
+			if (!folderManagers.find(manager => manager.gitHubRepositories.length > 0)) {
+				return;
+			}
+
 			const create = 'Create Pull Request...';
 			const dontShowAgain = "Don't Show Again";
 			const result = await vscode.window.showInformationMessage(
