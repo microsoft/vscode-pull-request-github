@@ -9,7 +9,7 @@ import { IAccount } from './interface';
 import { updateCommentReactions } from './utils';
 
 export interface GHPRCommentThread extends vscode.CommentThread {
-	threadId: string;
+	gitHubThreadId: string;
 
 	/**
 	 * The uri of the document the thread has been created on.

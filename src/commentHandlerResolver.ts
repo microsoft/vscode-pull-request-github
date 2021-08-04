@@ -24,7 +24,7 @@ export interface CommentHandler {
 }
 
 export interface CommentReply {
-	thread: GHPRCommentThread;
+	thread: GHPRCommentThread & { value: GHPRCommentThread };
 	text: string;
 }
 
@@ -45,7 +45,7 @@ export function resolveCommentHandler(commentThread: GHPRCommentThread): Comment
 		}
 	}
 
-	Logger.appendLine(`Unable to find handler for comment thread ${commentThread.threadId}`);
+	Logger.appendLine(`Unable to find handler for comment thread ${commentThread.gitHubThreadId}`);
 
 	return;
 }

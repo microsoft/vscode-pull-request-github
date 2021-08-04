@@ -171,7 +171,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			let newThread: GHPRCommentThread | undefined = undefined;
 			if (index > -1) {
 				newThread = this._pendingCommentThreadAdds[index];
-				newThread.threadId = thread.id;
+				newThread.gitHubThreadId = thread.id;
 				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread!));
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
@@ -212,7 +212,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 		e.changed.forEach(thread => {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
-			const index = this._commentThreadCache[key].findIndex(t => t.threadId === thread.id);
+			const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id);
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
 				updateThread(matchingThread, thread);
@@ -221,7 +221,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 		e.removed.forEach(async thread => {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
-			const index = this._commentThreadCache[key].findIndex(t => t.threadId === thread.id);
+			const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id);
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
 				this._commentThreadCache[key].splice(index, 1);
@@ -432,7 +432,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				await this.createCommentOnResolve(thread, input);
 			}
 
-			await this.pullRequestModel.resolveReviewThread(thread.threadId);
+			await this.pullRequestModel.resolveReviewThread(thread.gitHubThreadId);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Resolving conversation failed: ${e}`);
 		}
@@ -444,7 +444,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				await this.createCommentOnResolve(thread, input);
 			}
 
-			await this.pullRequestModel.unresolveReviewThread(thread.threadId);
+			await this.pullRequestModel.unresolveReviewThread(thread.gitHubThreadId);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Unresolving conversation failed: ${e}`);
 		}

@@ -236,7 +236,7 @@ export class ReviewCommentController
 					let newThread: GHPRCommentThread;
 					if (index > -1) {
 						newThread = this._pendingCommentThreadAdds[index];
-						newThread.threadId = thread.id;
+						newThread.gitHubThreadId = thread.id;
 						newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread));
 						this._pendingCommentThreadAdds.splice(index, 1);
 					} else {
@@ -273,7 +273,7 @@ export class ReviewCommentController
 							? this._workspaceFileChangeCommentThreads
 							: this._reviewSchemeFileChangeCommentThreads;
 
-					const index = threadMap[thread.path].findIndex(t => t.threadId === thread.id);
+					const index = threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id);
 					if (index > -1) {
 						const matchingThread = threadMap[thread.path][index];
 						updateThread(matchingThread, thread);
@@ -287,7 +287,7 @@ export class ReviewCommentController
 							? this._workspaceFileChangeCommentThreads
 							: this._reviewSchemeFileChangeCommentThreads;
 
-					const index = threadMap[thread.path].findIndex(t => t.threadId === thread.id);
+					const index = threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id);
 					if (index > -1) {
 						const matchingThread = threadMap[thread.path][index];
 						threadMap[thread.path].splice(index, 1);
@@ -651,7 +651,7 @@ export class ReviewCommentController
 				await this.createCommentOnResolve(thread, input);
 			}
 
-			await this._reposManager.activePullRequest!.resolveReviewThread(thread.threadId);
+			await this._reposManager.activePullRequest!.resolveReviewThread(thread.gitHubThreadId);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Resolving conversation failed: ${e}`);
 		}
@@ -663,7 +663,7 @@ export class ReviewCommentController
 				await this.createCommentOnResolve(thread, input);
 			}
 
-			await this._reposManager.activePullRequest!.unresolveReviewThread(thread.threadId);
+			await this._reposManager.activePullRequest!.unresolveReviewThread(thread.gitHubThreadId);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Unresolving conversation failed: ${e}`);
 		}
