@@ -5,8 +5,48 @@
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import PullRequestContext, { CreateParams } from '../common/createContext';
+import PullRequestContext, { CreateParams, RemoteInfo } from '../common/createContext';
+import { ErrorBoundary } from '../common/errorBoundary';
 import { gitCompareIcon, repoIcon } from '../components/icon';
+
+export const RemoteSelect = ({ onChange, defaultOption, repos }:
+	{ onChange: (owner: string, repositoryName: string) => Promise<void>, defaultOption: string, repos: RemoteInfo[] }) => {
+	return <ErrorBoundary>
+		<div className='wrapper flex'>
+			{repoIcon}<select value={defaultOption} onChange={(e) => {
+				const [owner, repositoryName] = e.currentTarget.value.split('/');
+				onChange(owner, repositoryName);
+			}}>
+				{repos.map(param => {
+					const value = param.owner + '/' + param.repositoryName;
+
+					return <option
+						key={value}
+						value={value}>
+						{param.owner}/{param.repositoryName}
+					</option>;
+				})}
+			</select>
+		</div>
+	</ErrorBoundary>;
+};
+
+export const BranchSelect = ({ onChange, defaultOption, branches }:
+	{ onChange: (branch: string) => void, defaultOption: string, branches: string[] }) => {
+	return <ErrorBoundary>
+		<div className='wrapper flex'>
+			{gitCompareIcon}<select value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
+				{branches.map(branchName =>
+					<option
+						key={branchName}
+						value={branchName}>
+						{branchName}
+					</option>
+				)}
+			</select>
+		</div>
+	</ErrorBoundary>;
+};
 
 export function main() {
 	render(
@@ -49,71 +89,20 @@ export function main() {
 				return <div>
 					<div className='selector-group'>
 						<span className='input-label'>Merge changes from</span>
-						<div className='wrapper flex'>
-							{repoIcon}<select value={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`} onChange={(e) => {
-								const [owner, repositoryName] = e.currentTarget.value.split('/');
-								ctx.changeCompareRemote(owner, repositoryName);
-							}}>
-								{params.availableRemotes.map(param => {
-									const value = param.owner + '/' + param.repositoryName;
+						<RemoteSelect onChange={ctx.changeCompareRemote}
+							defaultOption={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`}
+							repos={params.availableRemotes} />
 
-									return <option
-										key={value}
-										value={value}>
-										{param.owner}/{param.repositoryName}
-									</option>;
-								}
-
-								)}
-							</select>
-						</div>
-
-						<div className='wrapper flex'>
-							{gitCompareIcon}<select value={params.compareBranch} onChange={(e) => updateCompareBranch(e.currentTarget.value)}>
-								{params.branchesForCompare.map(branchName =>
-									<option
-										key={branchName}
-										value={branchName}>
-										{branchName}
-									</option>
-								)}
-							</select>
-						</div>
+						<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
 					</div>
 
 					<div className='selector-group'>
 						<span className='input-label'>into</span>
-						<div className='wrapper flex'>
-							{repoIcon}<select value={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`} onChange={(e) => {
-								const [owner, repositoryName] = e.currentTarget.value.split('/');
-								ctx.changeBaseRemote(owner, repositoryName);
-							}}>
-								{params.availableRemotes.map(param => {
-									const value = param.owner + '/' + param.repositoryName;
+						<RemoteSelect onChange={ctx.changeBaseRemote}
+							defaultOption={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`}
+							repos={params.availableRemotes} />
 
-									return <option
-										key={value}
-										value={value}>
-										{param.owner}/{param.repositoryName}
-									</option>;
-								}
-
-								)}
-							</select>
-						</div>
-
-						<div className='wrapper flex'>
-							{gitCompareIcon}<select value={params.baseBranch} onChange={(e) => updateBaseBranch(e.currentTarget.value)}>
-								{params.branchesForRemote.map(branchName =>
-									<option
-										key={branchName}
-										value={branchName}>
-										{branchName}
-									</option>
-								)}
-							</select>
-						</div>
-
+						<BranchSelect onChange={updateBaseBranch} defaultOption={params.baseBranch} branches={params.branchesForRemote} />
 					</div>
 
 					<div className='wrapper'>
@@ -125,7 +114,7 @@ export function main() {
 							name='title'
 							className={params.showTitleValidationError ? 'input-error' : ''}
 							aria-invalid={!!params.showTitleValidationError}
-							aria-describedBy={params.showTitleValidationError ? 'title-error' : ''}
+							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Pull Request Title'
 							value={params.pendingTitle}
 							required
@@ -140,7 +129,9 @@ export function main() {
 					</div>
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
-						{params.createError}
+						<ErrorBoundary>
+							{params.createError}
+						</ErrorBoundary>
 					</div>
 					<div className="wrapper flex">
 						<input
@@ -148,7 +139,7 @@ export function main() {
 							type="checkbox"
 							name="draft"
 							checked={params.isDraft}
-							onClick={() => ctx.updateState({ isDraft: !params.isDraft })}
+							onChange={() => ctx.updateState({ isDraft: !params.isDraft })}
 						></input>
 						<label htmlFor="draft-checkbox">Create as draft</label>
 					</div>
