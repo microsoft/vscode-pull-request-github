@@ -16,6 +16,11 @@
 - Comments are visible in diffs opened from the commits file view. https://github.com/microsoft/vscode-pull-request-github/issues/2688
 - "Webview is disposed" error is fixed. https://github.com/microsoft/vscode-pull-request-github/issues/2444
 
+**_Thank You_**
+
+- Fix check fork details [#2806](https://github.com/microsoft/vscode-pull-request-github/pull/2806) by @binsee
+- chore: replace deprecated vscode-test with @vscode/test-electron [#2842](https://github.com/microsoft/vscode-pull-request-github/pull/2842) by @iChenLei
+
 ## 0.28.0
 
 ### Changes
