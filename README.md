@@ -4,7 +4,7 @@
 
 This extension allows you to review and manage GitHub pull requests and issues in Visual Studio Code. The support includes:
 
-- Authenticating and connecting VS Code to GitHub. **Note**: GitHub Enterprise is not supported
+- Authenticating and connecting VS Code to GitHub.
 - Listing and browsing PRs from within VS Code.
 - Reviewing PRs from within VS Code with in-editor commenting.
 - Validating PRs from within VS Code with easy checkouts.
