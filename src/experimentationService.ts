@@ -21,10 +21,10 @@ import {
 export class ExperimentationTelemetry implements IExperimentationTelemetry {
 	private sharedProperties: Record<string, string> = {};
 
-	constructor(private baseReporter: TelemetryReporter) {}
+	constructor(private baseReporter: TelemetryReporter | undefined) { }
 
 	sendTelemetryEvent(eventName: string, properties?: Record<string, string>, measurements?: Record<string, number>) {
-		this.baseReporter.sendTelemetryEvent(
+		this.baseReporter?.sendTelemetryEvent(
 			eventName,
 			{
 				...this.sharedProperties,
@@ -39,7 +39,7 @@ export class ExperimentationTelemetry implements IExperimentationTelemetry {
 		properties?: Record<string, string>,
 		_measurements?: Record<string, number>,
 	) {
-		this.baseReporter.sendTelemetryErrorEvent(eventName, {
+		this.baseReporter?.sendTelemetryErrorEvent(eventName, {
 			...this.sharedProperties,
 			...properties,
 		});
@@ -57,8 +57,8 @@ export class ExperimentationTelemetry implements IExperimentationTelemetry {
 		this.sendTelemetryEvent(eventName, event);
 	}
 
-	dispose(): Promise<any> {
-		return this.baseReporter.dispose();
+	async dispose(): Promise<any> {
+		return this.baseReporter?.dispose();
 	}
 }
 
