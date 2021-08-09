@@ -128,7 +128,7 @@ describe('ReviewCommentController', function () {
 
 	function createGHPRCommentThread(threadId: string, uri: vscode.Uri): GHPRCommentThread {
 		return {
-			threadId,
+			gitHubThreadId: threadId,
 			uri,
 			range: new vscode.Range(new vscode.Position(21, 0), new vscode.Position(21, 0)),
 			comments: [],

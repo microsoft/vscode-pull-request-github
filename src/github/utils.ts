@@ -43,7 +43,7 @@ export function createVSCodeCommentThreadForReviewThread(
 ): GHPRCommentThread {
 	const vscodeThread = commentController.createCommentThread(uri, range, []);
 
-	(vscodeThread as GHPRCommentThread).threadId = thread.id;
+	(vscodeThread as GHPRCommentThread).gitHubThreadId = thread.id;
 
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
 	(vscodeThread as GHPRCommentThread).isResolved = thread.isResolved;

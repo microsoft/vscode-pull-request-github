@@ -660,7 +660,8 @@ export function registerCommands(
 			const handler = resolveCommentHandler(reply.thread);
 
 			if (handler) {
-				await handler.resolveReviewThread(reply.thread, reply.text);
+				// Hack. We need to get the original gitHubThreadId back.
+				await handler.resolveReviewThread(reply.thread.value, reply.text);
 			}
 		}),
 	);
@@ -674,7 +675,8 @@ export function registerCommands(
 			const handler = resolveCommentHandler(reply.thread);
 
 			if (handler) {
-				await handler.unresolveReviewThread(reply.thread, reply.text);
+				// Hack. We need to get the original gitHubThreadId back.
+				await handler.unresolveReviewThread(reply.thread.value, reply.text);
 			}
 		}),
 	);
