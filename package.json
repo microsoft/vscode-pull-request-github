@@ -283,7 +283,8 @@
 				"githubIssues.workingIssueFormatScm": {
 					"type": "string",
 					"default": "${issueTitle} \nFixes ${issueNumberLabel}",
-					"markdownDescription": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`"
+					"markdownDescription": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`",
+					"editPresentation": "multilineText"
 				},
 				"githubIssues.queries": {
 					"type": "array",
