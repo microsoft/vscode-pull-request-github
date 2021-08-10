@@ -71,7 +71,7 @@ export class CredentialStore implements vscode.Disposable {
 		}
 		let session;
 		try {
-			session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: false, forceRecreate: force });
+			session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: false, forceNewSession: force });
 		} catch (e) {
 			if (force && (e.message === 'User did not consent to login.')) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
