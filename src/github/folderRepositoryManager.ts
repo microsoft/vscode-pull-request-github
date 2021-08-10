@@ -499,7 +499,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			}
 
-			this.getMentionableUsers(repositoriesChanged);
+			if (this.activePullRequest) {
+				this.getMentionableUsers(repositoriesChanged);
+			}
+
 			this.getAssignableUsers(repositoriesChanged);
 			this._onDidLoadRepositories.fire(
 				isAuthenticated || !activeRemotes.length
