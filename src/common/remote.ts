@@ -52,7 +52,7 @@ export class Remote {
 	}
 }
 
-export function parseRemote(remoteName: string, url: string | undefined, originalProtocol?: Protocol): Remote | null {
+export function parseRemote(remoteName: string, url: string, originalProtocol?: Protocol): Remote | null {
 	if (!url) {
 		return null;
 	}
@@ -71,5 +71,21 @@ export function parseRemote(remoteName: string, url: string | undefined, origina
 }
 
 export function parseRepositoryRemotes(repository: Repository): Remote[] {
-	return repository.state.remotes.map(r => parseRemote(r.name, r.fetchUrl || r.pushUrl)).filter(r => !!r) as Remote[];
+	const remotes: Remote[] = [];
+	for (const r of repository.state.remotes) {
+		const urls: string[] =[];
+		if (r.fetchUrl) {
+			urls.push(r.fetchUrl);
+		}
+		if (r.pushUrl && r.pushUrl !== r.fetchUrl) {
+			urls.push(r.pushUrl);
+		}
+		urls.forEach(url => {
+			const remote = parseRemote(r.name, url);
+			if (remote) {
+				remotes.push(remote);
+			}
+		});
+	}
+	return remotes;
 }
