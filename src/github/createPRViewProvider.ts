@@ -112,7 +112,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		super.show();
 	}
 
-	private async getTotalCommits() {
+	private async getTotalCommits(): Promise<number> {
 		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
 
 		if (this.compareBranch?.upstream) {
@@ -124,6 +124,13 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				const { total_commits } = await origin.compareCommits(baseBranch, headBranch);
 
 				return total_commits;
+			}
+		} else if (this.compareBranch?.commit) {
+			// We can use the git API instead of the GitHub API
+			const baseBranch = await this._folderRepositoryManager.repository.getBranch(this._pullRequestDefaults.base);
+			if (baseBranch.commit) {
+				const changes = await this._folderRepositoryManager.repository.diffBetween(baseBranch.commit, this.compareBranch.commit);
+				return changes.length;
 			}
 		}
 
