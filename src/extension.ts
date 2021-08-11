@@ -86,7 +86,7 @@ async function init(
 				dontShowAgain,
 			);
 			if (result === create) {
-				void vscode.commands.executeCommand('pr.create');
+				reviewManager?.createPullRequest(e.branch);
 			} else if (result === dontShowAgain) {
 				PersistentState.store(PROMPTS_SCOPE, PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY, false);
 			}
