@@ -63,9 +63,9 @@ export interface PullRequest {
 	reviewers: ReviewState[];
 	isDraft?: boolean;
 	isIssue: boolean;
-
 	isAuthor?: boolean;
 	continueOnGitHub: boolean;
+	currentUserReviewState: string;
 }
 
 export function getState(): PullRequest {

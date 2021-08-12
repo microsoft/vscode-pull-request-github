@@ -139,6 +139,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		});
 	}
 
+	/**
+	 * Find currently configured user's review status for the current PR
+	 * @param reviewers All the reviewers who have been requested to review the current PR
+	 * @param pullRequestModel Model of the PR
+	 */
+	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
+		const review = reviewers.find(r => r.reviewer.login === currentUser.login);
+		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
+		return review?.state;
+	}
+
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
@@ -190,7 +201,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
 				const continueOnGitHub = isCrossRepository && isInCodespaces();
-
+				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 				this._postMessage({
 					command: 'pr.initialize',
@@ -230,6 +241,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						assignees: pullRequest.assignees,
 						continueOnGitHub,
 						isAuthor: currentUser.login === pullRequest.author.login,
+						currentUserReviewState: reviewState
 					},
 				});
 			})

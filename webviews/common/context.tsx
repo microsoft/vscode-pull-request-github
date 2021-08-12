@@ -6,7 +6,7 @@
 import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
 import { EventType, isReviewEvent, ReviewEvent } from '../../src/common/timelineEvent';
-import { MergeMethod } from '../../src/github/interface';
+import { MergeMethod, ReviewState } from '../../src/github/interface';
 import { getState, PullRequest, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
@@ -148,7 +148,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	};
 
-	private appendReview({ review, reviewers }: any) {
+	private appendReview({ review, reviewers }: {review: ReviewEvent, reviewers: ReviewState[]}) {
 		const state = this.pr;
 		const events = state.events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
 		events.forEach(event => {
@@ -158,6 +158,7 @@ export class PRContext {
 		});
 		state.reviewers = reviewers;
 		state.events = [...state.events.filter(e => (isReviewEvent(e) ? e.state !== 'PENDING' : e)), review];
+		state.currentUserReviewState = review.state;
 		this.updatePR(state);
 	}
 
