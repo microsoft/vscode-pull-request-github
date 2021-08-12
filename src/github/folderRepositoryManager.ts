@@ -161,6 +161,26 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		);
 
 		this.setUpCompletionItemProvider();
+
+		this.cleanStoredRepoState();
+	}
+
+	private cleanStoredRepoState() {
+		const deleteDate: number = new Date().valueOf() - 30 /*days*/ * 86400000 /*milliseconds in a day*/;
+		const reposState = this.context.globalState.get<ReposState>(REPO_KEYS);
+		if (reposState?.repos) {
+			let keysChanged = false;
+			Object.keys(reposState.repos).forEach(repo => {
+				const repoState = reposState.repos[repo];
+				if ((repoState.stateModifiedTime ?? 0) < deleteDate) {
+					keysChanged = true;
+					delete reposState.repos[repo];
+				}
+			});
+			if (keysChanged) {
+				this.context.globalState.update(REPO_KEYS, reposState);
+			}
+		}
 	}
 
 	get gitHubRepositories(): GitHubRepository[] {
@@ -599,6 +619,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						globalReposState.repos[key] = {};
 					}
 					globalReposState.repos[key].mentionableUsers = cache[repo.remote.remoteName];
+					globalReposState.repos[key].stateModifiedTime = new Date().valueOf();
 				});
 				this.context.globalState.update(REPO_KEYS, globalReposState);
 				resolve(cache);
