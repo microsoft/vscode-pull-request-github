@@ -7,6 +7,8 @@ import { IAccount } from './github/interface';
 
 // Synced keys
 export const NEVER_SHOW_PULL_NOTIFICATION = 'github.pullRequest.pullNotification.show';
+
+// Not synced keys
 export const REPO_KEYS = 'github.pullRequest.repos';
 
 export interface RepoState {
@@ -18,5 +20,5 @@ export interface ReposState {
 }
 
 export function setSyncedKeys(context: vscode.ExtensionContext) {
-	context.globalState.setKeysForSync([NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS]);
+	context.globalState.setKeysForSync([NEVER_SHOW_PULL_NOTIFICATION]);
 }

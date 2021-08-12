@@ -615,18 +615,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._mentionableUsers;
 		}
 
-		if (useGlobalState && !this._fetchMentionableUsersPromise) {
-			const mentionableUsers = this.getMentionableUsersFromGlobalState();
-			if (!mentionableUsers) {
-				// Try again after settings sync has occurred, or after 10 seconds.
-				// If we still don't have mentionable users from globalState at that point, then fetch it from GitHub.
-				// TODO: can we tell when setting sync has happened?
-			}
-			return mentionableUsers ?? {};
+		let globalStateMentionableUsers = this.getMentionableUsersFromGlobalState();
+		if (useGlobalState && !this._fetchMentionableUsersPromise && globalStateMentionableUsers) {
+			return globalStateMentionableUsers;
 		}
 
 		if (!this._fetchMentionableUsersPromise) {
-			const globalStateMentionableUsers = this.getMentionableUsersFromGlobalState();
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
 			return globalStateMentionableUsers ?? this._fetchMentionableUsersPromise;
 		}
