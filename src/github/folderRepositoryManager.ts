@@ -16,6 +16,7 @@ import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri } from '../common/uri';
 import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
+import { REPO_KEYS, ReposState } from '../extensionState';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
 import { AuthProvider, CredentialStore } from './credentials';
@@ -500,7 +501,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 
 			if (this.activePullRequest) {
-				this.getMentionableUsers(repositoriesChanged);
+				this.getMentionableUsers(repositoriesChanged, true);
 			}
 
 			this.getAssignableUsers(repositoriesChanged);
@@ -557,7 +558,55 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return undefined;
 	}
 
-	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
+	private getMentionableUsersFromGlobalState(): { [key: string]: IAccount[] } | undefined {
+		Logger.appendLine('Trying to use globalState for mentionable users.');
+		const reposState = this.context.globalState.get<ReposState>(REPO_KEYS);
+		if (reposState) {
+			const cache: { [key: string]: IAccount[] } = {};
+			const hasAllRepos = this._githubRepositories.every(repo => {
+				const key = `${repo.remote.owner}/${repo.remote.repositoryName}`;
+				if (!reposState.repos[key]) {
+					return false;
+				}
+				cache[repo.remote.repositoryName] = reposState.repos[key].mentionableUsers ?? [];
+				return true;
+			});
+			if (hasAllRepos) {
+				Logger.appendLine(`Using globalState mentionable users for ${Object.keys(cache).length}.`);
+				return cache;
+			}
+		}
+		Logger.appendLine(`No globalState for mentionable users.`);
+		return undefined;
+	}
+
+	private createFetchMentionableUsersPromise(): Promise<{ [key: string]: IAccount[] }> {
+		const cache: { [key: string]: IAccount[] } = {};
+		return new Promise<{ [key: string]: IAccount[] }>(resolve => {
+			const promises = this._githubRepositories.map(async githubRepository => {
+				const data = await githubRepository.getMentionableUsers();
+				cache[githubRepository.remote.remoteName] = data;
+				return;
+			});
+
+			Promise.all(promises).then(() => {
+				this._mentionableUsers = cache;
+				this._fetchMentionableUsersPromise = undefined;
+				const globalReposState = this.context.globalState.get<ReposState>(REPO_KEYS, { repos: {} });
+				this._githubRepositories.forEach(repo => {
+					const key = `${repo.remote.owner}/${repo.remote.repositoryName}`;
+					if (!globalReposState.repos[key]) {
+						globalReposState.repos[key] = {};
+					}
+					globalReposState.repos[key].mentionableUsers = cache[repo.remote.remoteName];
+				});
+				this.context.globalState.update(REPO_KEYS, globalReposState);
+				resolve(cache);
+			});
+		});
+	}
+
+	async getMentionableUsers(clearCache?: boolean, useGlobalState?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._mentionableUsers;
 		}
@@ -566,21 +615,20 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._mentionableUsers;
 		}
 
-		if (!this._fetchMentionableUsersPromise) {
-			const cache: { [key: string]: IAccount[] } = {};
-			return (this._fetchMentionableUsersPromise = new Promise(resolve => {
-				const promises = this._githubRepositories.map(async githubRepository => {
-					const data = await githubRepository.getMentionableUsers();
-					cache[githubRepository.remote.remoteName] = data;
-					return;
-				});
+		if (useGlobalState && !this._fetchMentionableUsersPromise) {
+			const mentionableUsers = this.getMentionableUsersFromGlobalState();
+			if (!mentionableUsers) {
+				// Try again after settings sync has occurred, or after 10 seconds.
+				// If we still don't have mentionable users from globalState at that point, then fetch it from GitHub.
+				// TODO: can we tell when setting sync has happened?
+			}
+			return mentionableUsers ?? {};
+		}
 
-				Promise.all(promises).then(() => {
-					this._mentionableUsers = cache;
-					this._fetchMentionableUsersPromise = undefined;
-					resolve(cache);
-				});
-			}));
+		if (!this._fetchMentionableUsersPromise) {
+			const globalStateMentionableUsers = this.getMentionableUsersFromGlobalState();
+			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
+			return globalStateMentionableUsers ?? this._fetchMentionableUsersPromise;
 		}
 
 		return this._fetchMentionableUsersPromise;
