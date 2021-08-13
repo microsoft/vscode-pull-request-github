@@ -188,7 +188,7 @@ function AddReviewSummaryComment() {
 					</button>
 				)}
 				<button id="submit" className={isAuthor ? 'push-right' : ''} onClick={() => submit(comment.current.value)}>
-					Comment
+					Submit Review
 				</button>
 			</div>
 		</div>
