@@ -123,19 +123,6 @@ export class CurrentIssue {
 		return false;
 	}
 
-	private async renameBranch(oldBranch: string | undefined, newBranch: string): Promise<Boolean> {
-		try {
-			if (oldBranch && await this.branchExists(oldBranch)) {
-				await vscode.commands.executeCommand('git.renameBranch', [newBranch]);
-			}
-		} catch (e) {
-			vscode.window.showErrorMessage(
-				`Unable to rename branch ${oldBranch}. Git error: ${e.error}`,
-			);
-		}
-		return true;
-	}
-
 	private async createOrCheckoutBranch(branch: string): Promise<boolean> {
 		try {
 			if (await this.branchExists(branch)) {
