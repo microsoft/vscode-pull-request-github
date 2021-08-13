@@ -353,9 +353,9 @@ export function AddComment({
 }
 
 const COMMENT_METHODS = {
-	comment: 'Comment',
-	approve: 'Approve',
-	requestChanges: 'Request Changes',
+	comment: 'Comment and Submit',
+	approve: 'Approve and Submit',
+	requestChanges: 'Request Changes and Submit',
 };
 
 export const AddCommentSimple = (pr: PullRequest) => {
