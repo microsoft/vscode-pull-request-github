@@ -1068,13 +1068,19 @@ ${body ?? ''}\n
 	}
 
 	private async getContextualizedPermalink(file: vscode.Uri, link: string): Promise<string> {
-		const uri = await vscode.env.asExternalUri(file);
+		let uri: vscode.Uri;
+		try {
+			uri = await vscode.env.asExternalUri(file);
+		} catch (e) {
+			// asExternalUri can throw when in the browser and the embedder doesn't set a uri resolver.
+			return link;
+		}
 		const authority = (uri.scheme === 'https' && /^(vscode|github)\./.test(uri.authority)) ? uri.authority : undefined;
 		if (!authority) {
 			return link;
 		}
 		const linkUri = vscode.Uri.parse(link);
-		const linkPath = `/github${linkUri.path}`;
+		const linkPath = /^(github)\./.test(uri.authority) ? linkUri.path : `/github${linkUri.path}`;
 		return linkUri.with({ authority, path: linkPath }).toString();
 	}
 
