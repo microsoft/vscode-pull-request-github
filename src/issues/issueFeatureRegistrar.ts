@@ -1075,14 +1075,12 @@ ${body ?? ''}\n
 			// asExternalUri can throw when in the browser and the embedder doesn't set a uri resolver.
 			return link;
 		}
-		const isGitHub = /^github\./.test(uri.authority);
-		const isVscode = /^vscode\./.test(uri.authority);
-		const authority = (uri.scheme === 'https' && (isGitHub || isVscode)) ? uri.authority : undefined;
+		const authority = (uri.scheme === 'https' && /^(vscode|github)\./.test(uri.authority)) ? uri.authority : undefined;
 		if (!authority) {
 			return link;
 		}
 		const linkUri = vscode.Uri.parse(link);
-		const linkPath = isVscode ? `/github${linkUri.path}` : linkUri.path;
+		const linkPath = /^(github)\./.test(uri.authority) ? linkUri.path : `/github${linkUri.path}`;
 		return linkUri.with({ authority, path: linkPath }).toString();
 	}
 
