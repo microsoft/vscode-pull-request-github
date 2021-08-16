@@ -187,6 +187,19 @@
 					"default": "ask",
 					"description": "Default handler for terminal links."
 				},
+				"githubPullRequests.defaultCommentExpandState": {
+					"type":"string",
+					"enum": [
+						"expandUnresolved",
+						"collapseAll"
+					],
+					"enumDescriptions": [
+						"All unresolved comments will be expanded.",
+						"All comments will be collapsed"
+					],
+					"default": "expandUnresolved",
+					"description": "Controls the whether comments are expanded when a document with comments is opened."
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],

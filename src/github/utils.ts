@@ -15,6 +15,7 @@ import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { AuthProvider } from './credentials';
+import { SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
@@ -55,11 +56,17 @@ export function createVSCodeCommentThreadForReviewThread(
 	}
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
-	vscodeThread.collapsibleState = thread.isResolved
-		? vscode.CommentThreadCollapsibleState.Collapsed
-		: vscode.CommentThreadCollapsibleState.Expanded;
+	vscodeThread.collapsibleState = getCommentCollapsibleState(thread.isResolved);
 
 	return vscodeThread as GHPRCommentThread;
+}
+
+export function getCommentCollapsibleState(isResolved: boolean) {
+	if (isResolved) {
+		return vscode.CommentThreadCollapsibleState.Collapsed;
+	}
+	const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE)?.get('defaultCommentExpandState');
+	return config === 'collapseAll' ? vscode.CommentThreadCollapsibleState.Collapsed : vscode.CommentThreadCollapsibleState.Expanded;
 }
 
 export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread) {
@@ -71,9 +78,7 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 
 	if (vscodeThread.isResolved !== reviewThread.isResolved) {
 		vscodeThread.isResolved = reviewThread.isResolved;
-		vscodeThread.collapsibleState = reviewThread.isResolved
-			? vscode.CommentThreadCollapsibleState.Collapsed
-			: vscode.CommentThreadCollapsibleState.Expanded;
+		vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread.isResolved);
 	}
 
 	vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread));
