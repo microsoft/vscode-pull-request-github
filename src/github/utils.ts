@@ -61,11 +61,13 @@ export function createVSCodeCommentThreadForReviewThread(
 	return vscodeThread as GHPRCommentThread;
 }
 
+
+export const DEFAULT_COMMENT_EXPAND_STATE_SETTING = 'defaultCommentExpandState';
 export function getCommentCollapsibleState(isResolved: boolean) {
 	if (isResolved) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
-	const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE)?.get('defaultCommentExpandState');
+	const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE)?.get(DEFAULT_COMMENT_EXPAND_STATE_SETTING);
 	return config === 'collapseAll' ? vscode.CommentThreadCollapsibleState.Collapsed : vscode.CommentThreadCollapsibleState.Expanded;
 }
 

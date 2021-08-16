@@ -14,12 +14,13 @@ import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPosition
 import { GitChangeType } from '../common/file';
 import { fromReviewUri, ReviewUriParams, toReviewUri } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
+	DEFAULT_COMMENT_EXPAND_STATE_SETTING,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
@@ -296,6 +297,31 @@ export class ReviewCommentController
 				});
 			}),
 		);
+
+		this._localToDispose.push(
+			vscode.workspace.onDidChangeConfiguration(event => {
+				if (event.affectsConfiguration(`${SETTINGS_NAMESPACE}.${DEFAULT_COMMENT_EXPAND_STATE_SETTING}`)) {
+					if (!this._reposManager.activePullRequest) {
+						return undefined;
+					}
+
+					function updateThreads(threads: { [key: string]: GHPRCommentThread[] }, reviewThread: IReviewThread) {
+						const commentThreads = threads[reviewThread.path];
+						if (!commentThreads) {
+							return;
+						}
+						for (let index = 0; index < commentThreads.length; index++) {
+							updateThread(commentThreads[index], reviewThread);
+						}
+					}
+
+					for (const reviewThread of this._reposManager.activePullRequest.reviewThreadsCache) {
+						updateThreads(this._obsoleteFileChangeCommentThreads, reviewThread);
+						updateThreads(this._reviewSchemeFileChangeCommentThreads, reviewThread);
+						updateThreads(this._workspaceFileChangeCommentThreads, reviewThread);
+					}
+				}
+			}));
 	}
 
 	private visibleEditorsEqual(a: vscode.TextEditor[], b: vscode.TextEditor[]): boolean {

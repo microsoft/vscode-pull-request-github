@@ -10,13 +10,14 @@ import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from
 import { DiffSide, IComment } from '../common/comment';
 import { fromPRUri } from '../common/uri';
 import { groupBy } from '../common/utils';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestModel, ReviewThreadChangeEvent } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
+	DEFAULT_COMMENT_EXPAND_STATE_SETTING,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
@@ -65,6 +66,19 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				this.refreshContextKey(e);
 			}),
 		);
+
+		this._disposables.push(
+			vscode.workspace.onDidChangeConfiguration(event => {
+				if (event.affectsConfiguration(`${SETTINGS_NAMESPACE}.${DEFAULT_COMMENT_EXPAND_STATE_SETTING}`)) {
+					for (const reviewThread of this.pullRequestModel.reviewThreadsCache) {
+						const key = this.getCommentThreadCacheKey(reviewThread.path, reviewThread.diffSide === DiffSide.LEFT);
+						for (let index = 0; index < this._commentThreadCache[key].length; index++) {
+							const commentThread = this._commentThreadCache[key][index];
+							updateThread(commentThread, reviewThread);
+						}
+					}
+				}
+			}));
 	}
 
 	private refreshContextKey(editor: vscode.TextEditor | undefined): void {
