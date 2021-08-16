@@ -18,9 +18,9 @@ import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRep
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
+	COMMENT_EXPAND_STATE_SETTING,
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
-	DEFAULT_COMMENT_EXPAND_STATE_SETTING,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
@@ -300,7 +300,7 @@ export class ReviewCommentController
 
 		this._localToDispose.push(
 			vscode.workspace.onDidChangeConfiguration(event => {
-				if (event.affectsConfiguration(`${SETTINGS_NAMESPACE}.${DEFAULT_COMMENT_EXPAND_STATE_SETTING}`)) {
+				if (event.affectsConfiguration(`${SETTINGS_NAMESPACE}.${COMMENT_EXPAND_STATE_SETTING}`)) {
 					if (!this._reposManager.activePullRequest) {
 						return undefined;
 					}

@@ -639,6 +639,11 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.toggleCommentExpand",
+				"title": "Toggle Comment Expansion",
+				"category": "GitHub Pull Requests"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "Create Issue From Selection",
 				"category": "GitHub Issues"

@@ -15,9 +15,9 @@ import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prCo
 import { PullRequestModel, ReviewThreadChangeEvent } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
+	COMMENT_EXPAND_STATE_SETTING,
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
-	DEFAULT_COMMENT_EXPAND_STATE_SETTING,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
@@ -69,7 +69,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(event => {
-				if (event.affectsConfiguration(`${SETTINGS_NAMESPACE}.${DEFAULT_COMMENT_EXPAND_STATE_SETTING}`)) {
+				if (event.affectsConfiguration(`${SETTINGS_NAMESPACE}.${COMMENT_EXPAND_STATE_SETTING}`)) {
 					for (const reviewThread of this.pullRequestModel.reviewThreadsCache) {
 						const key = this.getCommentThreadCacheKey(reviewThread.path, reviewThread.diffSide === DiffSide.LEFT);
 						for (let index = 0; index < this._commentThreadCache[key].length; index++) {
