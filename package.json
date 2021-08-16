@@ -198,6 +198,7 @@
 						"All comments will be collapsed"
 					],
 					"default": "expandUnresolved",
+					"scope": "application",
 					"description": "Controls the whether comments are expanded when a document with comments is opened."
 				},
 				"githubIssues.ignoreMilestones": {

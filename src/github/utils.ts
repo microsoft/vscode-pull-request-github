@@ -83,8 +83,8 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 
 	if (vscodeThread.isResolved !== reviewThread.isResolved) {
 		vscodeThread.isResolved = reviewThread.isResolved;
-		vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread.isResolved);
 	}
+	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread.isResolved);
 
 	vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread));
 	updateCommentThreadLabel(vscodeThread);

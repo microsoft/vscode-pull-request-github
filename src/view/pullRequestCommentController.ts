@@ -72,8 +72,12 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				if (event.affectsConfiguration(`${SETTINGS_NAMESPACE}.${COMMENT_EXPAND_STATE_SETTING}`)) {
 					for (const reviewThread of this.pullRequestModel.reviewThreadsCache) {
 						const key = this.getCommentThreadCacheKey(reviewThread.path, reviewThread.diffSide === DiffSide.LEFT);
-						for (let index = 0; index < this._commentThreadCache[key].length; index++) {
-							const commentThread = this._commentThreadCache[key][index];
+						const commentThreads = this._commentThreadCache[key];
+						if (!commentThreads) {
+							continue;
+						}
+						for (let index = 0; index < commentThreads.length; index++) {
+							const commentThread = commentThreads[index];
 							updateThread(commentThread, reviewThread);
 						}
 					}

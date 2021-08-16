@@ -828,9 +828,9 @@ export function registerCommands(
 			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
 			const currentValue = settings.get(COMMENT_EXPAND_STATE_SETTING);
 			if (currentValue === COMMENT_EXPAND_STATE_EXPAND_VALUE) {
-				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_COLLAPSE_VALUE);
+				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_COLLAPSE_VALUE, vscode.ConfigurationTarget.Global);
 			} else if (currentValue === COMMENT_EXPAND_STATE_COLLAPSE_VALUE) {
-				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_EXPAND_VALUE);
+				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_EXPAND_VALUE, vscode.ConfigurationTarget.Global);
 			}
 		}));
 }
