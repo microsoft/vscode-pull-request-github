@@ -14,10 +14,11 @@ import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPosition
 import { GitChangeType } from '../common/file';
 import { fromReviewUri, ReviewUriParams, toReviewUri } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
+	COMMENT_EXPAND_STATE_SETTING,
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
 	updateCommentReviewState,
@@ -296,6 +297,53 @@ export class ReviewCommentController
 				});
 			}),
 		);
+
+		this._localToDispose.push(
+			vscode.workspace.onDidChangeConfiguration(event => {
+				if (event.affectsConfiguration(`${SETTINGS_NAMESPACE}.${COMMENT_EXPAND_STATE_SETTING}`)) {
+					if (!this._reposManager.activePullRequest) {
+						return undefined;
+					}
+
+					function updateThreads(threads: { [key: string]: GHPRCommentThread[] }, reviewThreads: Map<string, Map<string, IReviewThread>>) {
+						if (reviewThreads.size === 0) {
+							return;
+						}
+						for (const path of reviewThreads.keys()) {
+							const reviewThreadsForPath = reviewThreads.get(path)!;
+							const commentThreads = threads[path];
+							for (const commentThread of commentThreads) {
+								const reviewThread = reviewThreadsForPath.get(commentThread.gitHubThreadId)!;
+								updateThread(commentThread, reviewThread);
+							}
+						}
+					}
+
+					const obsoleteReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
+					const reviewSchemeReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
+					const workspaceFileReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
+					for (const reviewThread of this._reposManager.activePullRequest.reviewThreadsCache) {
+						let mapToUse: Map<string, Map<string, IReviewThread>>;
+						if (reviewThread.isOutdated) {
+							mapToUse = obsoleteReviewThreads;
+						} else {
+							if (reviewThread.diffSide === DiffSide.RIGHT) {
+								mapToUse = workspaceFileReviewThreads;
+							} else {
+								mapToUse = reviewSchemeReviewThreads;
+							}
+						}
+						if (!mapToUse.has(reviewThread.path)) {
+							mapToUse.set(reviewThread.path, new Map());
+						}
+						mapToUse.get(reviewThread.path)!.set(reviewThread.id, reviewThread);
+					}
+					updateThreads(this._obsoleteFileChangeCommentThreads, obsoleteReviewThreads);
+					updateThreads(this._reviewSchemeFileChangeCommentThreads, reviewSchemeReviewThreads);
+					updateThreads(this._workspaceFileChangeCommentThreads, workspaceFileReviewThreads);
+
+				}
+			}));
 	}
 
 	private visibleEditorsEqual(a: vscode.TextEditor[], b: vscode.TextEditor[]): boolean {

@@ -187,6 +187,20 @@
 					"default": "ask",
 					"description": "Default handler for terminal links."
 				},
+				"githubPullRequests.defaultCommentExpandState": {
+					"type":"string",
+					"enum": [
+						"expandUnresolved",
+						"collapseAll"
+					],
+					"enumDescriptions": [
+						"All unresolved comments will be expanded.",
+						"All comments will be collapsed"
+					],
+					"default": "expandUnresolved",
+					"scope": "application",
+					"description": "Controls whether comments are expanded when a document with comments is opened."
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
@@ -626,6 +640,23 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.toggleCommentExpand",
+				"title": "Toggle Comment Expansion",
+				"category": "GitHub Pull Requests"
+			},
+			{
+				"command": "pr.expandAllComments",
+				"title": "Expand All Comments",
+				"category": "GitHub Pull Requests",
+				"icon": "$(expand-all)"
+			},
+			{
+				"command": "pr.collapseAllComments",
+				"title": "Collapse All Comments",
+				"category": "GitHub Pull Requests",
+				"icon": "$(collapse-all)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "Create Issue From Selection",
 				"category": "GitHub Issues"
@@ -937,6 +968,14 @@
 				},
 				{
 					"command": "pr.openReview",
+					"when": "false"
+				},
+				{
+					"command": "pr.expandAllComments",
+					"when": "false"
+				},
+				{
+					"command": "pr.collapseAllComments",
 					"when": "false"
 				},
 				{
@@ -1325,6 +1364,16 @@
 					"command": "pr.deleteComment",
 					"group": "inline@2",
 					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/"
+				},
+				{
+					"command": "pr.expandAllComments",
+					"group": "inline@3",
+					"when": "config.githubPullRequests.defaultCommentExpandState == collapseAll"
+				},
+				{
+					"command": "pr.collapseAllComments",
+					"group": "inline@3",
+					"when": "config.githubPullRequests.defaultCommentExpandState == expandUnresolved"
 				}
 			],
 			"comments/comment/context": [

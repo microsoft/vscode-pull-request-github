@@ -15,13 +15,13 @@ import { asImageDataURI } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CredentialStore } from './github/credentials';
-import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from './github/folderRepositoryManager';
 import { PullRequest } from './github/interface';
 import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { isInCodespaces } from './github/utils';
+import { COMMENT_EXPAND_STATE_COLLAPSE_VALUE, COMMENT_EXPAND_STATE_EXPAND_VALUE, COMMENT_EXPAND_STATE_SETTING, isInCodespaces } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { CommitNode } from './view/treeNodes/commitNode';
@@ -822,4 +822,27 @@ export function registerCommands(
 			}
 		}),
 	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.toggleCommentExpand', () => {
+			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
+			const currentValue = settings.get(COMMENT_EXPAND_STATE_SETTING);
+			if (currentValue === COMMENT_EXPAND_STATE_EXPAND_VALUE) {
+				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_COLLAPSE_VALUE, vscode.ConfigurationTarget.Global);
+			} else if (currentValue === COMMENT_EXPAND_STATE_COLLAPSE_VALUE) {
+				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_EXPAND_VALUE, vscode.ConfigurationTarget.Global);
+			}
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.expandAllComments', () => {
+			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
+			settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_EXPAND_VALUE, vscode.ConfigurationTarget.Global);
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.collapseAllComments', () => {
+			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
+			settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_COLLAPSE_VALUE, vscode.ConfigurationTarget.Global);
+		}));
 }
