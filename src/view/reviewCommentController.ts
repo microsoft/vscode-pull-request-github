@@ -305,21 +305,43 @@ export class ReviewCommentController
 						return undefined;
 					}
 
-					function updateThreads(threads: { [key: string]: GHPRCommentThread[] }, reviewThread: IReviewThread) {
-						const commentThreads = threads[reviewThread.path];
-						if (!commentThreads) {
+					function updateThreads(threads: { [key: string]: GHPRCommentThread[] }, reviewThreads: Map<string, Map<string, IReviewThread>>) {
+						if (reviewThreads.size === 0) {
 							return;
 						}
-						for (let index = 0; index < commentThreads.length; index++) {
-							updateThread(commentThreads[index], reviewThread);
+						for (const path of reviewThreads.keys()) {
+							const reviewThreadsForPath = reviewThreads.get(path)!;
+							const commentThreads = threads[path];
+							for (const commentThread of commentThreads) {
+								const reviewThread = reviewThreadsForPath.get(commentThread.gitHubThreadId)!;
+								updateThread(commentThread, reviewThread);
+							}
 						}
 					}
 
+					const obsoleteReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
+					const reviewSchemeReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
+					const workspaceFileReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
 					for (const reviewThread of this._reposManager.activePullRequest.reviewThreadsCache) {
-						updateThreads(this._obsoleteFileChangeCommentThreads, reviewThread);
-						updateThreads(this._reviewSchemeFileChangeCommentThreads, reviewThread);
-						updateThreads(this._workspaceFileChangeCommentThreads, reviewThread);
+						let mapToUse: Map<string, Map<string, IReviewThread>>;
+						if (reviewThread.isOutdated) {
+							mapToUse = obsoleteReviewThreads;
+						} else {
+							if (reviewThread.diffSide === DiffSide.RIGHT) {
+								mapToUse = workspaceFileReviewThreads;
+							} else {
+								mapToUse = reviewSchemeReviewThreads;
+							}
+						}
+						if (!mapToUse.has(reviewThread.path)) {
+							mapToUse.set(reviewThread.path, new Map());
+						}
+						mapToUse.get(reviewThread.path)!.set(reviewThread.id, reviewThread);
 					}
+					updateThreads(this._obsoleteFileChangeCommentThreads, obsoleteReviewThreads);
+					updateThreads(this._reviewSchemeFileChangeCommentThreads, reviewSchemeReviewThreads);
+					updateThreads(this._workspaceFileChangeCommentThreads, workspaceFileReviewThreads);
+
 				}
 			}));
 	}
