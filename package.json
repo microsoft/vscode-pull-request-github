@@ -1364,15 +1364,17 @@
 					"command": "pr.deleteComment",
 					"group": "inline@2",
 					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/"
-				},
+				}
+			],
+			"comments/commentThread/title": [
 				{
 					"command": "pr.expandAllComments",
-					"group": "inline@3",
+					"group": "collapse@0",
 					"when": "config.githubPullRequests.commentExpandState == collapseAll"
 				},
 				{
 					"command": "pr.collapseAllComments",
-					"group": "inline@3",
+					"group": "collapse@0",
 					"when": "config.githubPullRequests.commentExpandState == expandUnresolved"
 				}
 			],
