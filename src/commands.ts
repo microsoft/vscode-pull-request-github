@@ -833,4 +833,16 @@ export function registerCommands(
 				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_EXPAND_VALUE, vscode.ConfigurationTarget.Global);
 			}
 		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.expandAllComments', () => {
+			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
+			settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_EXPAND_VALUE, vscode.ConfigurationTarget.Global);
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.collapseAllComments', () => {
+			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
+			settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_COLLAPSE_VALUE, vscode.ConfigurationTarget.Global);
+		}));
 }
