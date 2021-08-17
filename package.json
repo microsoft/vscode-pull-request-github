@@ -187,7 +187,7 @@
 					"default": "ask",
 					"description": "Default handler for terminal links."
 				},
-				"githubPullRequests.defaultCommentExpandState": {
+				"githubPullRequests.commentExpandState": {
 					"type":"string",
 					"enum": [
 						"expandUnresolved",
@@ -1368,12 +1368,12 @@
 				{
 					"command": "pr.expandAllComments",
 					"group": "inline@3",
-					"when": "config.githubPullRequests.defaultCommentExpandState == collapseAll"
+					"when": "config.githubPullRequests.commentExpandState == collapseAll"
 				},
 				{
 					"command": "pr.collapseAllComments",
 					"group": "inline@3",
-					"when": "config.githubPullRequests.defaultCommentExpandState == expandUnresolved"
+					"when": "config.githubPullRequests.commentExpandState == expandUnresolved"
 				}
 			],
 			"comments/comment/context": [

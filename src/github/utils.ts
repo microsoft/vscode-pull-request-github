@@ -62,7 +62,7 @@ export function createVSCodeCommentThreadForReviewThread(
 }
 
 
-export const COMMENT_EXPAND_STATE_SETTING = 'defaultCommentExpandState';
+export const COMMENT_EXPAND_STATE_SETTING = 'commentExpandState';
 export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
 export function getCommentCollapsibleState(isResolved: boolean) {
