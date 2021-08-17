@@ -971,6 +971,14 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.expandAllComments",
+					"when": "false"
+				},
+				{
+					"command": "pr.collapseAllComments",
+					"when": "false"
+				},
+				{
 					"command": "issue.openIssue",
 					"when": "false"
 				},
