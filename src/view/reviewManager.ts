@@ -333,6 +333,7 @@ export class ReviewManager {
 
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
+		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
 
 		if (!this._webviewViewProvider) {
 			this._webviewViewProvider = new PullRequestViewProvider(
@@ -351,23 +352,6 @@ export class ReviewManager {
 					this._webviewViewProvider?.refresh();
 				}),
 			);
-
-			const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
-			Logger.appendLine(`Review> using focus mode = ${isFocusMode}.`);
-			Logger.appendLine(`Review> state validation silent = ${silent}.`);
-			Logger.appendLine(`Review> PR show should show = ${this._showPullRequest.shouldShow}.`);
-			if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
-				this._webviewViewProvider.show();
-			} else if (!this._showPullRequest.shouldShow && isFocusMode) {
-				const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
-					Logger.appendLine(`Review> PR show value changed = ${shouldShow}.`);
-					if (shouldShow) {
-						this._webviewViewProvider?.show();
-					}
-					showPRChangedDisposable.dispose();
-				});
-				this._localToDispose.push(showPRChangedDisposable);
-			}
 		} else {
 			this._webviewViewProvider.updatePullRequest(pr);
 		}
@@ -381,20 +365,40 @@ export class ReviewManager {
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
-		if (!silent && this._context.workspaceState.get(FOCUS_REVIEW_MODE) && vscode.env.remoteName === 'codespaces') {
-			if (this.localFileChanges.length > 0) {
-				let fileChangeToShow: GitFileChangeNode | undefined;
-				for (const fileChange of this.localFileChanges) {
-					if (fileChange.status === GitChangeType.MODIFY) {
-						fileChangeToShow = fileChange;
-						break;
-					}
+
+		Logger.appendLine(`Review> using focus mode = ${isFocusMode}.`);
+		Logger.appendLine(`Review> state validation silent = ${silent}.`);
+		Logger.appendLine(`Review> PR show should show = ${this._showPullRequest.shouldShow}.`);
+		if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
+			this._doFocusShow();
+		} else if (!this._showPullRequest.shouldShow && isFocusMode) {
+			const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
+				Logger.appendLine(`Review> PR show value changed = ${shouldShow}.`);
+				if (shouldShow) {
+					this._doFocusShow();
 				}
-				fileChangeToShow = fileChangeToShow ?? this.localFileChanges[0];
-				fileChangeToShow.openDiff(this._folderRepoManager);
-			}
+				showPRChangedDisposable.dispose();
+			});
+			this._localToDispose.push(showPRChangedDisposable);
 		}
+
 		this._validateStatusInProgress = undefined;
+	}
+
+	private _doFocusShow() {
+		this._webviewViewProvider?.show();
+
+		if (this.localFileChanges.length > 0) {
+			let fileChangeToShow: GitFileChangeNode | undefined;
+			for (const fileChange of this.localFileChanges) {
+				if (fileChange.status === GitChangeType.MODIFY) {
+					fileChangeToShow = fileChange;
+					break;
+				}
+			}
+			fileChangeToShow = fileChangeToShow ?? this.localFileChanges[0];
+			fileChangeToShow.openDiff(this._folderRepoManager);
+		}
 	}
 
 	public async updateComments(): Promise<void> {
