@@ -32,20 +32,20 @@ jobs:
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-      # - script: yarn run browsertest --browserType=chromium
-      #   displayName: Run test suite (chromium)
-      #   env:
-      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
+      - script: yarn run browsertest --browserType=chromium
+        displayName: Run test suite (chromium)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-      # - script: yarn run browsertest --browserType=firefox
-      #   displayName: Run test suite (firefox)
-      #   env:
-      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
+      - script: yarn run browsertest --browserType=firefox
+        displayName: Run test suite (firefox)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      # - script: yarn run browsertest --browserType=webkit
-      #   displayName: Run test suite (webkit)
-      #   env:
-      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+      - script: yarn run browsertest --browserType=webkit
+        displayName: Run test suite (webkit)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
 
       - script: >
           node ./scripts/prepare-nightly-build.js
