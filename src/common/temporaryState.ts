@@ -57,6 +57,10 @@ export class TemporaryState extends vscode.Disposable {
 			tempState = new TemporaryState(context.globalStorageUri);
 			try {
 				await vscode.workspace.fs.delete(tempState.path, { recursive: true });
+			} catch (e) {
+				Logger.appendLine(`TemporaryState> Error in initialization: ${e.message}`);
+			}
+			try {
 				await vscode.workspace.fs.createDirectory(tempState.path);
 			} catch (e) {
 				Logger.appendLine(`TemporaryState> Error in initialization: ${e.message}`);
