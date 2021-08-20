@@ -1167,17 +1167,12 @@
 				{
 					"command": "review.openFile",
 					"group": "inline",
-					"when": "config.git.openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
-				},
-				{
-					"command": "review.openFile",
-					"group": "inline",
-					"when": "scmProvider =~ /^remoteHub:/ && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.openDiffView",
 					"group": "inline",
-					"when": "!config.git.openDiffOnClick && scmProvider == git && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "!openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.openOriginalFile",
