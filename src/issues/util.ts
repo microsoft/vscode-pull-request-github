@@ -433,6 +433,9 @@ export async function createGithubPermalink(
 	let range: vscode.Range | undefined;
 	if (fileUri) {
 		uri = fileUri;
+		if (vscode.window.activeTextEditor?.document.uri.fsPath === uri.fsPath) {
+			range = vscode.window.activeTextEditor.selection;
+		}
 	} else if (!positionInfo && vscode.window.activeTextEditor) {
 		uri = vscode.window.activeTextEditor.document.uri;
 		range = vscode.window.activeTextEditor.selection;
