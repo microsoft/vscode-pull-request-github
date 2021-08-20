@@ -13,6 +13,7 @@ import { registerCommands } from './commands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
+import { TemporaryState } from './common/temporaryState';
 import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
@@ -244,6 +245,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 
 async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl, showPRController: ShowPullRequest) {
 	PersistentState.init(context);
+	TemporaryState.init(context);
 	const credentialStore = new CredentialStore(telemetry);
 	context.subscriptions.push(credentialStore);
 	await credentialStore.initialize(AuthProvider.github);
