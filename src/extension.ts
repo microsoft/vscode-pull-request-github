@@ -229,6 +229,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 		await vscode.commands.executeCommand('github:activePullRequest:welcome.focus');
 		showPRController.shouldShow = shouldShow;
 	});
+	const openDiff = vscode.workspace.getConfiguration('git').get('openDiffOnClick', true);
+	await vscode.commands.executeCommand('setContext', 'openDiffOnClick', openDiff);
 
 	// initialize resources
 	Resource.initialize(context);
