@@ -553,7 +553,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const upstreamAvailable = !this.repository.state.remotes.some(remote => remote.name === 'upstream');
 					const remoteName = upstreamAvailable ? 'upstream' : metadata.parent.owner?.login;
 					if (remoteName) {
-						await this.repository.addRemote(remoteName, metadata.parent.clone_url);
+						// check the remotes to see what protocol is being used
+						const isSSH = this.repository.state.remotes[0].pushUrl?.startsWith('git');
+						isSSH
+							&& await this.repository.addRemote(remoteName, metadata.parent.git_url)
+							|| await this.repository.addRemote(remoteName, metadata.parent.clone_url);
 						return true;
 					}
 				}
