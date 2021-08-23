@@ -12,8 +12,8 @@ export class GitHubManager {
 			return false;
 		}
 
-		// .wiki repos are not supported
-		if (host.path.endsWith('.wiki')) {
+		// .wiki/.git repos are not supported
+		if (host.path.endsWith('.wiki') || host.path.match(/gist[.]github[.]com/g)) {
 			return false;
 		}
 
