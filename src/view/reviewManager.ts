@@ -145,7 +145,7 @@ export class ReviewManager {
 					// For subsequent changes, we don't want to make visible updates.
 					// This occurs on branch changes.
 					// Note that the visible changes will occur when checking out a PR.
-					this.updateState(!!oldHead);
+					this.updateState(true);
 				}
 			}),
 		);
