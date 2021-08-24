@@ -163,7 +163,8 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
-			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+			// There's an issue with the GetChecks that can result in this error.
+			if ((query.query !== this.schema.GetChecks) && e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
 				await this._credentialStore.recreate();
 				rsp = await gql.query<T>(query);
 			} else {
