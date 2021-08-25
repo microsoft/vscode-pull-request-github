@@ -20,11 +20,8 @@ export class SessionState implements ISessionState {
 		return this._commentsExpandState;
 	}
 	set commentsExpandState(expand: boolean) {
-		const oldState = this._commentsExpandState;
 		this._commentsExpandState = expand;
-		if (oldState !== this._commentsExpandState) {
-			this._onDidChangeCommentsExpandState.fire(this._commentsExpandState);
-		}
+		this._onDidChangeCommentsExpandState.fire(this._commentsExpandState);
 	}
 
 	constructor(context: vscode.ExtensionContext) {
