@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
 import { Protocol } from '../common/protocol';
 import { Remote } from '../common/remote';
+import { ISessionState } from '../common/sessionState';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { compareIgnoreCase } from '../common/utils';
@@ -80,6 +81,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		private _folderManagers: FolderRepositoryManager[],
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry,
+		private readonly _sessionState: ISessionState
 	) {
 		this._subs = [];
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
@@ -191,12 +193,12 @@ export class RepositoriesManager implements vscode.Disposable {
 	}
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
-		return new GitHubRepository(remote, credentialStore, this._telemetry);
+		return new GitHubRepository(remote, credentialStore, this._telemetry, this._sessionState);
 	}
 
 	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
 		const uri = `https://github.com/${owner}/${name}`;
-		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry);
+		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry, this._sessionState);
 	}
 
 	dispose() {

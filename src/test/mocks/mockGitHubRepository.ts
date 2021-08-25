@@ -13,13 +13,14 @@ import {
 	ManagedPullRequest,
 } from '../builders/managedPullRequestBuilder';
 import { MockTelemetry } from './mockTelemetry';
+import { MockSessionState } from './mockSessionState';
 const queries = require('../../github/queries.gql');
 
 export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
 	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
-		super(remote, credentialStore, telemetry);
+		super(remote, credentialStore, telemetry, new MockSessionState());
 
 		this.queryProvider = new QueryProvider(sinon);
 

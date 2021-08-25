@@ -639,11 +639,6 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
-				"command": "pr.toggleCommentExpand",
-				"title": "Toggle Comment Expansion",
-				"category": "GitHub Pull Requests"
-			},
-			{
 				"command": "pr.expandAllComments",
 				"title": "Expand All Comments",
 				"category": "GitHub Pull Requests",
@@ -967,14 +962,6 @@
 				},
 				{
 					"command": "pr.openReview",
-					"when": "false"
-				},
-				{
-					"command": "pr.expandAllComments",
-					"when": "false"
-				},
-				{
-					"command": "pr.collapseAllComments",
 					"when": "false"
 				},
 				{
@@ -1367,14 +1354,8 @@
 			],
 			"comments/commentThread/title": [
 				{
-					"command": "pr.expandAllComments",
-					"group": "collapse@0",
-					"when": "config.githubPullRequests.commentExpandState == collapseAll"
-				},
-				{
 					"command": "pr.collapseAllComments",
-					"group": "collapse@0",
-					"when": "config.githubPullRequests.commentExpandState == expandUnresolved"
+					"group": "collapse@0"
 				}
 			],
 			"comments/comment/context": [

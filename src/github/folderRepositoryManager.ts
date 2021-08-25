@@ -11,6 +11,7 @@ import { GitHubManager } from '../authentication/githubServer';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { ISessionState } from '../common/sessionState';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri } from '../common/uri';
@@ -147,6 +148,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		public readonly telemetry: ITelemetry,
 		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
+		private readonly _sessionState: ISessionState
 	) {
 		this._subs = [];
 		this._githubRepositories = [];
@@ -1116,7 +1118,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!upstream) {
 				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
 				if (remote) {
-					return new GitHubRepository(remote, this._credentialStore, this.telemetry);
+					return new GitHubRepository(remote, this._credentialStore, this.telemetry, this._sessionState);
 				}
 
 				Logger.appendLine(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
@@ -1829,12 +1831,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
-		return new GitHubRepository(remote, credentialStore, this.telemetry);
+		return new GitHubRepository(remote, credentialStore, this.telemetry, this._sessionState);
 	}
 
 	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
 		const uri = `https://github.com/${owner}/${name}`;
-		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this.telemetry);
+		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this.telemetry, this._sessionState);
 	}
 
 	async findUpstreamForItem(item: {
