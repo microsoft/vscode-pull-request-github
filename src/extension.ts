@@ -13,6 +13,7 @@ import { registerCommands } from './commands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
+import { SessionState } from './common/sessionState';
 import { TemporaryState } from './common/temporaryState';
 import { handler as uriHandler } from './common/uri';
 import { onceEvent } from './common/utils';
@@ -116,12 +117,14 @@ async function init(
 			return indexA - indexB;
 		});
 	}
+
+	const sessionState = new SessionState(context);
 	const folderManagers = repositories.map(
-		repository => new FolderRepositoryManager(context, repository, telemetry, git, credentialStore),
+		repository => new FolderRepositoryManager(context, repository, telemetry, git, credentialStore, sessionState),
 	);
 	context.subscriptions.push(...folderManagers);
 
-	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
+	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry, sessionState);
 	context.subscriptions.push(reposManager);
 
 	liveshareApiPromise.then(api => {
@@ -135,7 +138,7 @@ async function init(
 	context.subscriptions.push(changesTree);
 
 	const reviewManagers = folderManagers.map(
-		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController),
+		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, sessionState),
 	);
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, git);
 	context.subscriptions.push(reviewsManager);
@@ -154,7 +157,7 @@ async function init(
 				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`);
 				return;
 			}
-			const newFolderManager = new FolderRepositoryManager(context, repo, telemetry, git, credentialStore);
+			const newFolderManager = new FolderRepositoryManager(context, repo, telemetry, git, credentialStore, sessionState);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
 				context,
@@ -162,7 +165,8 @@ async function init(
 				newFolderManager,
 				telemetry,
 				changesTree,
-				showPRController
+				showPRController,
+				sessionState
 			);
 			reviewManagers.push(newReviewManager);
 			tree.refresh();
@@ -188,7 +192,7 @@ async function init(
 	tree.initialize(reposManager);
 
 	setSyncedKeys(context);
-	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree);
+	registerCommands(context, sessionState, reposManager, reviewManagers, telemetry, credentialStore, tree);
 
 	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');

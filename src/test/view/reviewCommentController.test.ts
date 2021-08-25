@@ -29,6 +29,7 @@ import { DiffSide } from '../../common/comment';
 import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { MockSessionState } from '../mocks/mockSessionState';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -63,9 +64,9 @@ describe('ReviewCommentController', function () {
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		const context = new MockExtensionContext();
-		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
+		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
 		const tree = new PullRequestChangesTreeDataProvider(context);
-		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest());
+		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), new MockSessionState());
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return new MockGitHubRepository(r, cStore, telemetry, sinon);
 		});
@@ -144,7 +145,7 @@ describe('ReviewCommentController', function () {
 		const fileName = 'data/products.json';
 		const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 		const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
-		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, localFileChanges);
+		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, localFileChanges, new MockSessionState());
 
 		sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 		sinon.stub(activePullRequest, 'getReviewThreads').returns(
@@ -203,6 +204,7 @@ describe('ReviewCommentController', function () {
 				manager,
 				repository,
 				localFileChanges,
+				new MockSessionState()
 			);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 

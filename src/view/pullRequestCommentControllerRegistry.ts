@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { ISessionState } from '../common/sessionState';
 import { fromPRUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment } from '../github/prComment';
@@ -22,7 +23,7 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = { };
 	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider } = { };
 
-	constructor(public commentsController: vscode.CommentController) {
+	constructor(public commentsController: vscode.CommentController, private readonly _sessionState: ISessionState) {
 		this.commentsController.commentingRangeProvider = this;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
@@ -67,7 +68,7 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 			return this._prCommentHandlers[prNumber];
 		}
 
-		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController);
+		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController, this._sessionState);
 		this._prCommentHandlers[prNumber] = {
 			handler,
 			refCount: 1,

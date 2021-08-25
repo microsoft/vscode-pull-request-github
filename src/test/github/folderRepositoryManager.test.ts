@@ -14,6 +14,7 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { MockSessionState } from '../mocks/mockSessionState';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -28,7 +29,7 @@ describe('PullRequestManager', function () {
 		const repository = new MockRepository();
 		const credentialStore = new CredentialStore(telemetry);
 		const context = new MockExtensionContext();
-		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
+		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
 	});
 
 	afterEach(function () {
@@ -45,7 +46,7 @@ describe('PullRequestManager', function () {
 			const url = 'https://github.com/aaa/bbb.git';
 			const protocol = new Protocol(url);
 			const remote = new Remote('origin', url, protocol);
-			const repository = new GitHubRepository(remote, manager.credentialStore, telemetry);
+			const repository = new GitHubRepository(remote, manager.credentialStore, telemetry, new MockSessionState());
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(telemetry, repository, remote, prItem);
 

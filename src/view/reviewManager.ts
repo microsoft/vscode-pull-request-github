@@ -13,6 +13,7 @@ import { DiffChangeType, DiffHunk, parseDiff, parsePatch } from '../common/diffH
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { ISessionState } from '../common/sessionState';
 import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, toReviewUri } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
@@ -81,7 +82,8 @@ export class ReviewManager {
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,
-		private _showPullRequest: ShowPullRequest
+		private _showPullRequest: ShowPullRequest,
+		private readonly _sessionState: ISessionState
 	) {
 		this._switchingToReviewMode = false;
 		this._disposables = [];
@@ -578,6 +580,7 @@ export class ReviewManager {
 			this._folderRepoManager,
 			this._repository,
 			this._localFileChanges,
+			this._sessionState
 		);
 
 		await this._reviewCommentController.initialize();

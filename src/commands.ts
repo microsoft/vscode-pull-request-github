@@ -10,18 +10,19 @@ import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
 import Logger from './common/logger';
+import { SessionState } from './common/sessionState';
 import { ITelemetry } from './common/telemetry';
 import { asImageDataURI } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CredentialStore } from './github/credentials';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from './github/folderRepositoryManager';
+import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { PullRequest } from './github/interface';
 import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { COMMENT_EXPAND_STATE_COLLAPSE_VALUE, COMMENT_EXPAND_STATE_EXPAND_VALUE, COMMENT_EXPAND_STATE_SETTING, isInCodespaces } from './github/utils';
+import { isInCodespaces } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { CommitNode } from './view/treeNodes/commitNode';
@@ -104,6 +105,7 @@ export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | Pull
 
 export function registerCommands(
 	context: vscode.ExtensionContext,
+	sessionState: SessionState,
 	reposManager: RepositoriesManager,
 	reviewManagers: ReviewManager[],
 	telemetry: ITelemetry,
@@ -824,25 +826,12 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.toggleCommentExpand', () => {
-			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
-			const currentValue = settings.get(COMMENT_EXPAND_STATE_SETTING);
-			if (currentValue === COMMENT_EXPAND_STATE_EXPAND_VALUE) {
-				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_COLLAPSE_VALUE, vscode.ConfigurationTarget.Global);
-			} else if (currentValue === COMMENT_EXPAND_STATE_COLLAPSE_VALUE) {
-				settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_EXPAND_VALUE, vscode.ConfigurationTarget.Global);
-			}
-		}));
-
-	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.expandAllComments', () => {
-			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
-			settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_EXPAND_VALUE, vscode.ConfigurationTarget.Global);
+			sessionState.commentsExpandState = true;
 		}));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.collapseAllComments', () => {
-			const settings = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
-			settings.update(COMMENT_EXPAND_STATE_SETTING, COMMENT_EXPAND_STATE_COLLAPSE_VALUE, vscode.ConfigurationTarget.Global);
+			sessionState.commentsExpandState = false;
 		}));
 }

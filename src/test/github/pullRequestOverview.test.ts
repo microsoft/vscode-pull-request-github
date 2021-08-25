@@ -16,6 +16,7 @@ import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
+import { MockSessionState } from '../mocks/mockSessionState';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -35,7 +36,7 @@ describe('PullRequestOverview', function () {
 		const repository = new MockRepository();
 		telemetry = new MockTelemetry();
 		const credentialStore = new CredentialStore(telemetry);
-		pullRequestManager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
+		pullRequestManager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new Remote('origin', url, new Protocol(url));

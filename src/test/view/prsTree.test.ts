@@ -20,6 +20,7 @@ import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
+import { MockSessionState } from '../mocks/mockSessionState';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -94,11 +95,12 @@ describe('GitHub Pull Requests view', function () {
 	it('displays a message when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-
+		const mockSessionState = new MockSessionState();
 		const manager = new RepositoriesManager(
-			[new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore)],
+			[new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, mockSessionState)],
 			credentialStore,
 			telemetry,
+			mockSessionState
 		);
 		provider.initialize(manager);
 
@@ -115,11 +117,13 @@ describe('GitHub Pull Requests view', function () {
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
+		const mockSessionState = new MockSessionState();
 
 		const manager = new RepositoriesManager(
-			[new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore)],
+			[new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, mockSessionState)],
 			credentialStore,
 			telemetry,
+			mockSessionState
 		);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
 			return new MockGitHubRepository(remote, cStore, telemetry, sinon);
@@ -190,8 +194,8 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
-			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry);
+			const manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
+			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry, new MockSessionState());
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepStrictEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
