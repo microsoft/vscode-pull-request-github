@@ -8,6 +8,7 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IComment } from '../common/comment';
+import Logger from '../common/logger';
 import { ISessionState } from '../common/sessionState';
 import { fromPRUri } from '../common/uri';
 import { groupBy } from '../common/utils';
@@ -72,9 +73,14 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			this._sessionState.onDidChangeCommentsExpandState(expand => {
 				for (const reviewThread of this.pullRequestModel.reviewThreadsCache) {
 					const key = this.getCommentThreadCacheKey(reviewThread.path, reviewThread.diffSide === DiffSide.LEFT);
-					const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === reviewThread.id);
+					const cachedThread = this._commentThreadCache[key];
+					if (!cachedThread) {
+						Logger.appendLine(`PullRequestCommentController> Thread with ID ${key} is no longer in cache`);
+						continue;
+					}
+					const index = cachedThread.findIndex(t => t.gitHubThreadId === reviewThread.id);
 					if (index > -1) {
-						const matchingThread = this._commentThreadCache[key][index];
+						const matchingThread = cachedThread[index];
 						updateThread(matchingThread, reviewThread, expand);
 					}
 				}
