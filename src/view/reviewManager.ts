@@ -358,7 +358,7 @@ export class ReviewManager {
 			this._webviewViewProvider.updatePullRequest(pr);
 		}
 
-		this.statusBarItem.text = `$(git-branch) Pull Request #${this._prNumber}`;
+		this.statusBarItem.text = `$(git-pull-request) Pull Request #${this._prNumber}`;
 		this.statusBarItem.command = {
 			command: 'pr.openDescription',
 			title: 'View Pull Request Description',
