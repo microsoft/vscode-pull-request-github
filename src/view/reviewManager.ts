@@ -229,25 +229,25 @@ export class ReviewManager {
 		}
 	}
 
-	public async updateState(silent: boolean = false) {
+	public async updateState(silent: boolean = false, openDiff: boolean = true) {
 		if (this.switchingToReviewMode) {
 			return;
 		}
 		if (!this._validateStatusInProgress) {
 			Logger.appendLine('Review> Validate state in progress');
-			this._validateStatusInProgress = this.validateState(silent);
+			this._validateStatusInProgress = this.validateState(silent, openDiff);
 			return this._validateStatusInProgress;
 		} else {
 			Logger.appendLine('Review> Queuing additional validate state');
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
-				return await this.validateState(silent);
+				return await this.validateState(silent, openDiff);
 			});
 
 			return this._validateStatusInProgress;
 		}
 	}
 
-	private async validateState(silent: boolean) {
+	private async validateState(silent: boolean, openDiff: boolean) {
 		Logger.appendLine('Review> Validating state...');
 		await this._folderRepoManager.updateRepositories(silent);
 
@@ -372,12 +372,12 @@ export class ReviewManager {
 		Logger.appendLine(`Review> state validation silent = ${silent}.`);
 		Logger.appendLine(`Review> PR show should show = ${this._showPullRequest.shouldShow}.`);
 		if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
-			this._doFocusShow();
+			this._doFocusShow(openDiff);
 		} else if (!this._showPullRequest.shouldShow && isFocusMode) {
 			const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
 				Logger.appendLine(`Review> PR show value changed = ${shouldShow}.`);
 				if (shouldShow) {
-					this._doFocusShow();
+					this._doFocusShow(openDiff);
 				}
 				showPRChangedDisposable.dispose();
 			});
@@ -387,10 +387,10 @@ export class ReviewManager {
 		this._validateStatusInProgress = undefined;
 	}
 
-	private _doFocusShow() {
+	private _doFocusShow(openDiff: boolean) {
 		this._webviewViewProvider?.show();
 
-		if (this.localFileChanges.length > 0) {
+		if (openDiff && this.localFileChanges.length > 0) {
 			let fileChangeToShow: GitFileChangeNode | undefined;
 			for (const fileChange of this.localFileChanges) {
 				if (fileChange.status === GitChangeType.MODIFY) {
@@ -819,7 +819,7 @@ export class ReviewManager {
 		if (!this._createPullRequestHelper) {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
-				await this.updateState();
+				await this.updateState(false, false);
 				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
 				await openDescription(
 					this._context,
