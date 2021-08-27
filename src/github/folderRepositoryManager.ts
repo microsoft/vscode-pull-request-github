@@ -9,7 +9,7 @@ import type { Branch, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes, RefType } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
 import Logger from '../common/logger';
-import { Protocol } from '../common/protocol';
+import { Protocol, ProtocolType } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
@@ -554,7 +554,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const remoteName = upstreamAvailable ? 'upstream' : metadata.parent.owner?.login;
 					if (remoteName) {
 						// check the remotes to see what protocol is being used
-						const isSSH = this.repository.state.remotes[0].pushUrl?.startsWith('git');
+						const isSSH = this.gitHubRepositories[0].remote.gitProtocol.type === ProtocolType.SSH;
 						isSSH
 							&& await this.repository.addRemote(remoteName, metadata.parent.git_url)
 							|| await this.repository.addRemote(remoteName, metadata.parent.clone_url);
