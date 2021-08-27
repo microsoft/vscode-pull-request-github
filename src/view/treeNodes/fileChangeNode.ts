@@ -369,7 +369,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		// If the commit is the most recent/current commit, then we just use the current file for the right.
 		// This is so that comments display properly.
 		if (this.isCurrent) {
-			currentFilePath = vscode.Uri.file(path.posix.join(query.rootPath, query.path));
+			currentFilePath = this.pullRequestManager.repository.rootUri.with({ path: path.posix.join(query.rootPath, query.path) });
 		}
 
 		const options: vscode.TextDocumentShowOptions = {
