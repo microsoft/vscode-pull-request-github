@@ -215,11 +215,6 @@ export class CurrentIssue {
 		}
 		if (!this._branchName) {
 			if (createBranchConfig === 'on') {
-				const validateBranchName = this.validateBranchName(branchNameConfig);
-				if (validateBranchName) {
-					this.showBranchNameError(validateBranchName);
-					return false;
-				}
 				this._branchName = branchNameConfig;
 			} else {
 				this._branchName = await vscode.window.showInputBox({
@@ -230,6 +225,12 @@ export class CurrentIssue {
 		}
 		if (!this._branchName) {
 			// user has cancelled
+			return false;
+		}
+
+		const validateBranchName = this.validateBranchName(this._branchName);
+		if (validateBranchName) {
+			this.showBranchNameError(validateBranchName);
 			return false;
 		}
 
