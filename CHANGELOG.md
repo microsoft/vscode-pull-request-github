@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.29.2
+
+### Fixes
+
+- Fix **Copy Permalink** commands for github.dev. https://github.com/microsoft/vscode-pull-request-github/issues/2903
+
+## 0.29.1
+
+### Fixes
+
+- Do not preload mentionable users when a PR isn't checked out. https://github.com/microsoft/vscode-pull-request-github/issues/2892
+
 ## 0.29.0
 
 ### Changes
