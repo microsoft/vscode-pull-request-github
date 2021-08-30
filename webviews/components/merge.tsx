@@ -52,7 +52,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 				<div className="status-item">
 					<StateIcon state={status.state} />
 					<div>{getSummaryLabel(status.statuses)}</div>
-					<a aria-role="button" onClick={toggleDetails}>
+					<a href="javascript:void(0)" aria-role="button" onClick={toggleDetails}>
 						{showDetails ? 'Hide' : 'Show'}
 					</a>
 				</div>
