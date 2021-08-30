@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.30.0
+
+### Changes
+
+- All comments can be collapsed using the UI.
+
+![Collapse all comments UI button](documentation/changelog/0.30.0/comments-collapse-all.png)
+- All comments can be expanded and collapsed via the commands **GitHub Pull Requests: Expand All Comments** and **GitHub Pull Requests: Collapse All Comments**.
+- The expand/collapse state of pull request comments can be set with the setting `githubPullRequests.commentExpandState`.
+- Adopted the new multiling string support for settings.
+
+![Multiline setting](documentation/changelog/0.30.0/multiline-setting.png)
+- Improved the language on the sidebar view to better indicate that you can submit a review.
+
+### Fixes
+
+- Copy GitHub Permalink is missing line info. https://github.com/microsoft/vscode-pull-request-github/issues/2924
+- Old image version is not shown when viewing a checked-out pull request change for an image. https://github.com/microsoft/vscode-pull-request-github/issues/2914
+- Extension asks to create pull request when remote is not github. https://github.com/microsoft/vscode-pull-request-github/issues/2879
+- Edits to comments on PRs not being applied. https://github.com/microsoft/vscode-pull-request-github/issues/2869
+- Could not resolve conversation on old PR. https://github.com/microsoft/vscode-pull-request-github/issues/2857
+- Issue queries have the wrong owner. https://github.com/microsoft/vscode-pull-request-github/issues/2836
+- PR description should auto fill when the PR is a single commit. https://github.com/microsoft/vscode-pull-request-github/issues/2540
+
+**_Thank You_**
+
+- Always show action bar in PR overview header. [2849](https://github.com/microsoft/vscode-pull-request-github/pull/2849) by @joshuaobrien
+- When using a branch name as a PR title, ensure the first letter is capitalized. [2848](https://github.com/microsoft/vscode-pull-request-github/pull/2848) by @joshuaobrien
+- Include PR template in PR description if there is just one commit. [2846](https://github.com/microsoft/vscode-pull-request-github/pull/2846) by @joshuaobrien
+- Let the view know about the review status of the PR. [1833](https://github.com/microsoft/vscode-pull-request-github/pull/1833) by @RishabhKothaari
+
 ## 0.29.2
 
 ### Fixes
