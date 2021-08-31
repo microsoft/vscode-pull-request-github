@@ -70,6 +70,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	) {
 		super.resolveWebviewView(webviewView, _context, _token);
 		webviewView.webview.html = this._getHtmlForWebview();
+
+		this.updatePullRequest(this._item);
 	}
 
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
