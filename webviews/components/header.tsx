@@ -79,7 +79,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 		</form>
 	) : (
 		<h2>
-			{currentTitle} (<a href={url}>#{number}</a>)
+			{currentTitle} <a href={url}>#{number}</a>
 		</h2>
 	);
 
