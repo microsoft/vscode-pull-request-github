@@ -201,19 +201,20 @@ export class CurrentIssue {
 		}
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
+		const branchNameConfig = await variableSubstitution(
+			await this.ensureBranchTitleConfigMigrated(),
+			this.issue,
+			undefined,
+			await this.getUser(),
+		);
+		if (this._branchName !== branchNameConfig) {
+			const branchExists = await this.branchExists(this._branchName!);
+			if (!branchExists) {
+				this._branchName = branchNameConfig;
+			}
+		}
 		if (!this._branchName) {
-			const branchNameConfig = await variableSubstitution(
-				await this.ensureBranchTitleConfigMigrated(),
-				this.issue,
-				undefined,
-				await this.getUser(),
-			);
 			if (createBranchConfig === 'on') {
-				const validateBranchName = this.validateBranchName(branchNameConfig);
-				if (validateBranchName) {
-					this.showBranchNameError(validateBranchName);
-					return false;
-				}
 				this._branchName = branchNameConfig;
 			} else {
 				this._branchName = await vscode.window.showInputBox({
@@ -224,6 +225,12 @@ export class CurrentIssue {
 		}
 		if (!this._branchName) {
 			// user has cancelled
+			return false;
+		}
+
+		const validateBranchName = this.validateBranchName(this._branchName);
+		if (validateBranchName) {
+			this.showBranchNameError(validateBranchName);
 			return false;
 		}
 
