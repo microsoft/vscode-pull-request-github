@@ -555,9 +555,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					if (remoteName) {
 						// check the remotes to see what protocol is being used
 						const isSSH = this.gitHubRepositories[0].remote.gitProtocol.type === ProtocolType.SSH;
-						isSSH
-							&& await this.repository.addRemote(remoteName, metadata.parent.git_url)
-							|| await this.repository.addRemote(remoteName, metadata.parent.clone_url);
+						if (isSSH) {
+							await this.repository.addRemote(remoteName, metadata.parent.git_url);
+						} else {
+							await this.repository.addRemote(remoteName, metadata.parent.clone_url);
+						}
 						return true;
 					}
 				}
