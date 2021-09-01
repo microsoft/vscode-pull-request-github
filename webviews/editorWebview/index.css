@@ -968,13 +968,14 @@ code {
 	display: flex;
 	justify-content: space-between;
 	z-index: 100;
-	top: 9px;
+	top: 9px; 
 	right: 9px;
 }
 
 .flex-action-bar {
 	display: flex;
 	justify-content: space-between;
+	align-items: center;
 	z-index: 100;
 	margin-left: 9px;
 	min-width: 42px;
