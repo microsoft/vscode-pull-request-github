@@ -946,7 +946,6 @@ code {
 	}
 
 	.section-item.reviewer {
-		border: 1px solid var(--vscode-badge-background);
 		border-radius: 3px;
 		padding: 2px 6px;
 	}
