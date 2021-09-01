@@ -70,7 +70,7 @@ input[type='text']::placeholder {
 select {
 	display: block;
 	box-sizing: border-box;
-	padding: 4px 12px;
+	padding: 4px 8px;
 	border-radius: 0;
 	font-size: 13px;
 	border: 1px solid var(--vscode-dropdown-border);
