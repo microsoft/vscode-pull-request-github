@@ -530,6 +530,8 @@ export async function variableSubstitution(
 				return defaults ? defaults.owner : match;
 			case 'sanitizedIssueTitle':
 				return issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
+			case 'sanitizedLowercaseIssueTitle':
+				return issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
 			default:
 				return match;
 		}
