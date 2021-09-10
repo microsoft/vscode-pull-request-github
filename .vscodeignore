@@ -1,6 +1,8 @@
 .github
 .readme/**
 .vscode/**
+.vscode-test/**
+.vscode-test-web/**
 build/**
 out/**
 dist/test/**
