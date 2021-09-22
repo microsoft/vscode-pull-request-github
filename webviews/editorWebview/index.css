@@ -512,6 +512,7 @@ body .overview-title .button-group button {
 
 .commit .sha {
 	min-width: 50px;
+	font-family: var(--vscode-editor-font-family);
 }
 
 .merged .merged-message .message,
