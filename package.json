@@ -651,6 +651,12 @@
 				"icon": "$(collapse-all)"
 			},
 			{
+				"command": "pr.editQuery",
+				"title": "Edit Query",
+				"category": "GitHub Pull Requests",
+				"icon": "$(edit)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "Create Issue From Selection",
 				"category": "GitHub Issues"
@@ -965,6 +971,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.editQuery",
+					"when": "false"
+				},
+				{
 					"command": "issue.openIssue",
 					"when": "false"
 				},
@@ -1167,6 +1177,15 @@
 				{
 					"command": "pr.openModifiedFile",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/"
+				},
+				{
+					"command": "pr.editQuery",
+					"when": "view == pr:github && viewItem == query",
+					"group": "inline"
+				},
+				{
+					"command": "pr.editQuery",
+					"when": "view == pr:github && viewItem == query"
 				},
 				{
 					"command": "issue.openIssue",

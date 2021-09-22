@@ -25,6 +25,7 @@ import { RepositoriesManager } from './github/repositoriesManager';
 import { isInCodespaces } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
+import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import {
@@ -718,6 +719,16 @@ export function registerCommands(
 		*/
 			telemetry.sendTelemetryEvent('pr.editComment');
 			comment.startEdit();
+		}),
+	);
+
+	context.subscriptions.push(
+	vscode.commands.registerCommand('pr.editQuery', (query: CategoryTreeNode) => {
+			/* __GDPR__
+			"pr.editQuery" : {}
+		*/
+			telemetry.sendTelemetryEvent('pr.editQuery');
+			return query.editQuery();	
 		}),
 	);
 
