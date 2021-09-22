@@ -497,7 +497,7 @@ export async function createGithubPermalink(
 			return '';
 		}
 		let hash = `#L${range.start.line + 1}`;
-		if (range.start.line === range.end.line) {
+		if (range.start.line !== range.end.line) {
 			hash += `-L${range.end.line + 1}`;
 		}
 		return hash;
