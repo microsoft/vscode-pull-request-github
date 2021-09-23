@@ -492,10 +492,19 @@ export async function createGithubPermalink(
 		}
 	}
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
-	const rangeString = range ? `#L${range.start.line + 1}-L${range.end.line + 1}` : '';
+	const rangeString = () => {
+		if (!range) {
+			return '';
+		}
+		let hash = `#L${range.start.line + 1}`;
+		if (range.start.line !== range.end.line) {
+			hash += `-L${range.end.line + 1}`;
+		}
+		return hash;
+	};
 	return {
 		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
-			}${pathSegment}${rangeString}`,
+			}${pathSegment}${rangeString()}`,
 		error: undefined,
 		originalFile: uri
 	};
