@@ -12,7 +12,7 @@ export const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> })
 		{author.avatarUrl ? (
 			<img className="avatar" src={author.avatarUrl} alt="" />
 		) : (
-			<Icon className="avatar-icon" src={require('../../resources/icons/dark/github.svg')} />
+			<img className="avatar" src='../github.png' />
 		)}
 	</a>
 );

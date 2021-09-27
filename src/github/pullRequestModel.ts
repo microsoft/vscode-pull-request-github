@@ -982,9 +982,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					return {
 						id: context.id,
 						url: context.targetUrl,
-						avatar_url: context.avatarUrl,
+						avatar_url: context.checkSuite.app?.logoUrl,
 						state: context.state?.toLowerCase(),
-						description: context.description,
+						description: context.name,
 						context: context.context,
 						target_url: context.targetUrl,
 					};
