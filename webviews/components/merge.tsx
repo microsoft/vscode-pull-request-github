@@ -10,7 +10,7 @@ import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
 import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, deleteIcon, mergeIcon, pendingIcon } from './icon';
+import { alertIcon, checkIcon, deleteIcon, mergeIcon, pendingIcon, skipIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 
@@ -51,7 +51,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 			<div className="status-section">
 				<div className="status-item">
 					<StateIcon state={status.state} />
-					<div>{getSummaryLabel(status.statuses)}</div>
+					 <div>{getSummaryLabel(status.statuses)}</div>
 					<a href="javascript:void(0)" aria-role="button" onClick={toggleDetails}>
 						{showDetails ? 'Hide' : 'Show'}
 					</a>
@@ -375,13 +375,15 @@ function getSummaryLabel(statuses: any[]) {
 	for (const statusType of Object.keys(statusTypes)) {
 		const numOfType = statusTypes[statusType].length;
 		let statusAdjective = '';
-
 		switch (statusType) {
 			case 'success':
 				statusAdjective = 'successful';
 				break;
 			case 'failure':
 				statusAdjective = 'failed';
+				break;
+			case 'neutral':
+				statusAdjective = 'skipped';
 				break;
 			default:
 				statusAdjective = 'pending';
@@ -398,6 +400,8 @@ function getSummaryLabel(statuses: any[]) {
 
 function StateIcon({ state }: { state: string }) {
 	switch (state) {
+		case 'neutral':
+			return skipIcon;
 		case 'success':
 			return checkIcon;
 		case 'failure':

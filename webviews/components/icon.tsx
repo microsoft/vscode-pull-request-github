@@ -14,6 +14,7 @@ export default Icon;
 
 export const alertIcon = <Icon src={require('../../resources/icons/alert.svg')} />;
 export const checkIcon = <Icon src={require('../../resources/icons/check.svg')} />;
+export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} />;
 export const chevronIcon = <Icon src={require('../../resources/icons/chevron.svg')} />;
 export const commentIcon = <Icon src={require('../../resources/icons/comment.svg')} />;
 export const commitIcon = <Icon src={require('../../resources/icons/commit_icon.svg')} />;
