@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.31.0
+
+### Changes
+
+- Variable in settings for lowercase branch names when working on and issue
+```json
+{
+  "githubIssues.issueBranchTitle": "${sanitizedLowercaseIssueTitle}"
+}
+```
+
+### Fixes
+- issueBranchTitle not Working as Expected. https://github.com/microsoft/vscode-pull-request-github/issues/2259
+- Skipped status check is shown as pending. https://github.com/microsoft/vscode-pull-request-github/issues/2580
+
+**_Thank You_**
+- fix: make pending checks "show" button / link accessible. [2972](https://github.com/microsoft/vscode-pull-request-github/pull/2972) by @moshfeu
+- Fixes Tick SVG doesn't look right #2950. [2971](https://github.com/microsoft/vscode-pull-request-github/pull/2971) by @burkeholland
+- Create commit select horizontal padding is too high. [2970](https://github.com/microsoft/vscode-pull-request-github/pull/2970) by @burkeholland
+- Focus border is used on assignees when it's not focused. [2967](https://github.com/microsoft/vscode-pull-request-github/pull/2967) by @burkeholland
+- Button sizes don't look right when PR title is wrapped. [2966](https://github.com/microsoft/vscode-pull-request-github/pull/2966) by @burkeholland
+- Respect remote link type for upstream. [2929](https://github.com/microsoft/vscode-pull-request-github/pull/2929) by @burkeholland
+- Fixes #2259. [2909](https://github.com/microsoft/vscode-pull-request-github/pull/2909) by @burkeholland
+- Lowercase branch names. [2986](https://github.com/microsoft/vscode-pull-request-github/pull/2986) by @burkeholland
+- GitHub permalinks: Deduplicate the line number if the range is one line. [2980](https://github.com/microsoft/vscode-pull-request-github/pull/2980) by @lgarron
+- Skipped status check is shown as pending. [3005](https://github.com/microsoft/vscode-pull-request-github/pull/3005) by @burkeholland
+- PR created x minutes ago is cut off in small tabs. [2985](https://github.com/microsoft/vscode-pull-request-github/pull/2985) by @burkeholland
+
 ## 0.30.0
 
 ### Changes
