@@ -436,6 +436,7 @@ THE SOFTWARE.
 @octokit/core 3.3.1 - MIT
 https://github.com/octokit/core.js#readme
 
+Copyright (c) 2019 Octokit
 
 The MIT License
 
@@ -1157,10 +1158,9 @@ SOFTWARE.
 
 ---------------------------------------------------------
 
-axios 0.21.1 - MIT
-https://github.com/axios/axios
+axios 0.21.4 - MIT
+https://axios-http.com/
 
-Copyright (c) 2014-present Matt Zabriskie
 
 Copyright (c) 2014-present Matt Zabriskie
 
@@ -1399,7 +1399,7 @@ SOFTWARE.
 
 ---------------------------------------------------------
 
-follow-redirects 1.13.3 - MIT
+follow-redirects 1.14.4 - MIT
 https://github.com/follow-redirects/follow-redirects
 
 Copyright 2014-present Olivier Lalonde <olalonde@gmail.com> , James Talmage <james@talmage.io> , Ruben Verborgh
